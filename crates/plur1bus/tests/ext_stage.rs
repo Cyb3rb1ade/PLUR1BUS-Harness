@@ -1112,6 +1112,31 @@ fn one_line(stdout: &str) -> Value {
 }
 
 #[test]
+fn a_real_worker_refuses_an_inspection_hold_without_test_internals() {
+    let (_root, layout) = home();
+    let hold = tempfile::tempdir().unwrap();
+    let output = assert_cmd::Command::new(bin())
+        .args(["ext", "__worker", "inspect", "--id", &id(), "--path"])
+        .arg(layout.home.join("absent.p1x"))
+        .arg("--home")
+        .arg(&layout.home)
+        .env("PLUR1BUS_TEST_EXT_INSPECTION_HOLD", hold.path())
+        .env_remove("PLUR1BUS_ALLOW_TEST_INTERNALS")
+        .env_remove("PLUR1BUS_EXT_WORKER_GATE")
+        .timeout(Duration::from_secs(10))
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let value = one_line(std::str::from_utf8(&output.stdout).unwrap());
+    assert_eq!(value["ok"], false);
+    assert_eq!(value["error"]["reason"], "worker-failed");
+    assert!(value["error"]["message"]
+        .as_str()
+        .unwrap()
+        .contains("requires test internals"));
+}
+
+#[test]
 fn worker_prints_one_json_line_and_exits_nonzero_on_refusal() {
     let key = test_key("test");
     let _g = env_with(&key);

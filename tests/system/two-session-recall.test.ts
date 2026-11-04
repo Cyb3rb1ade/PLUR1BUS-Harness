@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { CI_RECALL_HARD_MS, REAL, RERANK_FAILURE, cli, home, killCore, reapHome, startCore, stopCore, waitEngineReady, waitJournalDrained, type RunningCore } from "./helpers.ts";
+import { modelCacheSnapshot } from "./model-cache-diagnostics.ts";
 
 /** Spec targets for a CLI recall: the soft budget on the engine's timed phases and the core's hard budget on wall time. */
 const SOFT_TARGET_MS = 400;
@@ -55,11 +56,13 @@ describe("M1 acceptance 1 — two-session recall through the CLI", () => {
         t.diagnostic(`CI recall budget: core.recall soft/hard ${CI_RECALL_HARD_MS} ms (targets reported, not asserted; H3-R26)`);
       }
 
+      if (REAL) t.diagnostic(`real-model cache before start: ${JSON.stringify(modelCacheSnapshot(h))}`);
       core = await startCore(h);
       t.diagnostic(`core ready (1st start) ${core.readyMs.toFixed(0)} ms${REAL ? " [real models]" : " [flat embedder]"}`);
       // Spec §6.3: the core is ready before its models are; the background warm-up loads them (B8 readyMs, warmMs).
       const warmMs = await waitEngineReady(h, 60_000);
       t.diagnostic(`models warm ${warmMs.toFixed(0)} ms after ready`);
+      if (REAL) t.diagnostic(`real-model cache after warm-up: ${JSON.stringify(modelCacheSnapshot(h))}`);
 
       const status = cli(h, ["dreams", "status"]);
       assert.equal(status.jobs.length, 19, JSON.stringify(status));

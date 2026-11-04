@@ -18,6 +18,31 @@ const jobBlocks = yaml => Object.fromEntries(yaml.slice(yaml.indexOf('\njobs:\n'
 // A job's block also carries the comment lines written above the next job; they are not steps.
 const stepsOf = block => block.slice(block.indexOf('\n    steps:\n')).replace(/(?:^  #.*\n)+$/m, '');
 
+test('every job running Core builds the native sandbox launcher before its assertions', () => {
+  const jobs = jobBlocks(workflow());
+  for (const name of ['unit', 'unit-os', 'core-unit-shard', 'core-unit-shard-windows']) {
+    const block = jobs[name];
+    const build = block.indexOf('cargo build --locked -p plur1bus --bin plur1bus-sandbox-limits');
+    const tests = block.indexOf(name.startsWith('core-unit') ? '      - name: measured Core shard' : '      - name: unit tests with file timings');
+    assert.ok(build >= 0 && build < tests, `${name}: native launcher must exist before Core starts`);
+    const toolchain = block.indexOf('uses: dtolnay/rust-toolchain@');
+    assert.ok(toolchain >= 0 && toolchain < build, name);
+    const step = block.slice(0, build).split(/(?=^      - )/m).at(-1);
+    assert.doesNotMatch(step, /outputs\.rust/, `${name}: a TS-only change still needs the launcher`);
+  }
+});
+
+test('release smoke prepares the verified real-model cache before the unchanged acceptance deadline', () => {
+  const yaml = readFileSync(new URL('../../.github/workflows/release-smoke.yml', import.meta.url), 'utf8');
+  const prepare = yaml.indexOf('node scripts/ci/prepare-real-models.mjs');
+  const acceptance = yaml.indexOf('tests/system/two-session-recall.test.ts');
+  assert(prepare > 0 && prepare < acceptance, 'real artifacts must be prepared before timed model startup');
+  assert.equal((yaml.match(/PLUR1BUS_MODELS_CACHE: \$\{\{ runner.temp \}\}\/release-real-models/g) ?? []).length, 3);
+  const source = readFileSync(new URL('../../tests/system/two-session-recall.test.ts', import.meta.url), 'utf8');
+  assert(source.includes('waitEngineReady(h, 60_000)'));
+  assert(yaml.includes('--test-timeout=300000 tests/system/two-session-recall.test.ts'));
+});
+
 test('every workflow job is either in the gate or deliberately ungated, and job conditions match the skip policy', () => {
   const jobs = jobBlocks(workflow());
   const gated = Object.keys(selections({})).sort();
@@ -74,8 +99,9 @@ test('unit-os preserves every unit step while Ubuntu and Windows run Core only i
   const matrix = block => /^        os: \[([^\]]+)\]/m.exec(block)[1].split(',').map(x => x.trim());
   assert.deepEqual(matrix(jobs.unit), ['ubuntu-24.04']);
   assert.deepEqual(matrix(jobs['unit-os']), ['macos-15', 'windows-2025']);
-  // The check names stay `unit (ubuntu-24.04)`, `unit (macos-15)`, `unit (windows-2025)`.
-  assert.match(jobs['unit-os'], /^    name: unit \(\$\{\{ matrix\.os \}\}\)$/m);
+  // Hosted check names stay stable; the separately tested trusted VM route declares its actual environment.
+  assert.doesNotMatch(jobs.unit, /^    name:/m, 'Linux keeps the default unit matrix check name');
+  assert.match(jobs['unit-os'], /^    name: unit \(\$\{\{ .* && 'macOS VM' \|\| matrix\.os \}\}\)$/m);
 });
 
 test('unit checks continue after earlier failures, stop on cancellation and time Rust build separately', () => {
@@ -109,6 +135,18 @@ test('unit checks continue after earlier failures, stop on cancellation and time
     for (const phase of [library, build, run]) {
       assert.doesNotMatch(phase, /--(?:exclude|skip|features|no-default-features|target-dir|release)\b/);
     }
+  }
+});
+
+test("Windows unit builds omit debug information without changing assertions or timeout budgets", () => {
+  const mode = "${{ matrix.os == 'windows-2025' && '0' || '2' }}";
+  for (const name of ["unit", "unit-os"]) {
+    const job = jobBlocks(workflow())[name];
+    for (const profile of ["DEV", "TEST"]) {
+      assert.ok(job.includes(`      CARGO_PROFILE_${profile}_DEBUG: ${mode}\n`));
+    }
+    assert.doesNotMatch(job, /CARGO_PROFILE_(?:DEV|TEST)_(?:DEBUG_ASSERTIONS|OVERFLOW_CHECKS):/);
+    assert.match(job, /timeout-minutes: \$\{\{ matrix\.os == 'windows-2025' && 90 \|\| 65 \}\}/);
   }
 });
 

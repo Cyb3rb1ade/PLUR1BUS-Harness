@@ -176,12 +176,19 @@ Platform-sensitive paths (the `SENSITIVE` list in the script; edit it there only
 
 ## Self-hosted macOS runner
 
-Since the owner decision of 2026-10-28 the deciding macOS jobs, `quality` (`release-quality.yml`) and the macOS leg of
-`dependency-licenses`, can run on a macOS VM on the owner's Mac instead of waiting in GitHub's macOS queue. Their
+The macOS jobs `quality` (`release-quality.yml`), the macOS leg of `dependency-licenses` and the console unit leg
+`unit (macOS VM)` (`ci.yml`'s `unit-os`) can run on the owner's macOS VM instead of waiting in GitHub's macOS queue.
+The unit jobs download SHA-256-pinned CMake 3.31.12 into their own temporary directory before Rust builds; they do
+not need an administrator or change the template. The TypeScript runner supports both JavaScript pnpm and the
+native `@pnpm/exe` installation used by the setup action.
+The quality and licence routes were introduced by the owner decision of 2026-10-28. Their
 `runs-on` picks the label `plur1bus-macos-vm` only while the repository variable `MACOS_SELF_HOSTED` is `true`, and only
 for code from this repository: a push, a manual or scheduled run, or a pull request whose head branch is in this
 repository. A fork's pull request and a merge group always run on `macos-15`. `scripts/ci/macos-vm-runner.test.mjs`
-checks that no other job uses the label and that every route to it admits only those events.
+checks this exact three-job allowlist, the unchanged hosted Windows unit route, and the trusted-event boundary.
+The native Desktop GUI, service and other macOS matrix jobs keep their GitHub-hosted runners. A VM unit result is
+CI evidence for that macOS guest; it does not replace reference-hardware or native Desktop acceptance. The VM leg
+uses its own displayed name and reports `sw_vers`, so a newer guest is never presented as a `macos-15` host.
 
 The pieces are in `scripts/ci/macos-vm-runner/`:
 
@@ -355,6 +362,13 @@ A dash means no completed measurement, not zero time or a pass.
 
 The new steps expose actual build/execution durations separately. Local Linux timings and simulations cannot establish
 macOS or Windows completion; two consecutive hosted passes remain the acceptance criterion.
+
+The Windows log from [cancelled main run 41375172423](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/41375172423)
+hit the 25-minute integration-build ceiling while still producing test executables with `debuginfo=2`. Compilation
+continued for another 3m58s in the execution step. The `unit`/`unit-os` jobs now set Cargo's dev/test debug-information
+level to zero on Windows only, avoiding MSVC PDB generation; other platforms retain level two. Assertions and overflow
+checks retain their defaults. The 25/30-minute step budgets and 90/65-minute job budgets are unchanged. The workflow
+contract tests pin these settings; the reduction in hosted build time still requires a completed Windows CI run.
 
 A TAP reporter preserves the root runner's nonzero-test guard while recording the sum of top-level test/suite durations per file. Nested child durations are not counted twice. The `test-timings-<os>` artifact contains per-process JSON and `top-20.txt`; the top 20 are also printed after failure. A forcibly killed process may have no completed report, so timings after timeout can be partial. These are test/suite execution times, not profiler CPU time or package-install time.
 

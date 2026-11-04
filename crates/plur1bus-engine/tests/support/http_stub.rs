@@ -19,6 +19,7 @@ pub struct Stub {
 enum Delay {
     Response,
     Body,
+    BodyUntilClose,
 }
 
 impl Stub {
@@ -38,6 +39,14 @@ impl Stub {
         handler: impl Fn(&str) -> (u16, String, String, Duration) + Send + 'static,
     ) -> Self {
         Self::start(handler, Delay::Body)
+    }
+
+    /// A nonzero duration bounds waiting for the peer to close after headers;
+    /// a zero duration sends the body immediately.
+    pub fn dynamic_body_until_close(
+        handler: impl Fn(&str) -> (u16, String, String, Duration) + Send + 'static,
+    ) -> Self {
+        Self::start(handler, Delay::BodyUntilClose)
     }
 
     fn start(
@@ -110,6 +119,17 @@ impl Stub {
                         let _ = stream.write_all(&response.as_bytes()[..end]);
                         thread::sleep(delay);
                         let _ = stream.write_all(&response.as_bytes()[end..]);
+                    }
+                    Delay::BodyUntilClose => {
+                        let end = response.find("\r\n\r\n").unwrap() + 4;
+                        let _ = stream.write_all(&response.as_bytes()[..end]);
+                        if delay.is_zero() {
+                            let _ = stream.write_all(&response.as_bytes()[end..]);
+                        } else {
+                            stream.set_read_timeout(Some(delay)).unwrap();
+                            let mut byte = [0];
+                            let _ = stream.read(&mut byte);
+                        }
                     }
                 }
             }
@@ -224,6 +244,10 @@ impl StalledPeer {
                 match stream.read(&mut buffer) {
                     Ok(0) => {
                         let _ = closed.send(Ok(()));
+                        // The owner releases the peer handle independently of observed EOF/reset.
+                        while !stopped.load(Ordering::Acquire) {
+                            thread::sleep(Duration::from_millis(1));
+                        }
                         return;
                     }
                     Ok(_) => {}
@@ -242,6 +266,10 @@ impl StalledPeer {
                             Err(kind)
                         };
                         let _ = closed.send(result);
+                        // The owner releases the peer handle independently of observed EOF/reset.
+                        while !stopped.load(Ordering::Acquire) {
+                            thread::sleep(Duration::from_millis(1));
+                        }
                         return;
                     }
                 }

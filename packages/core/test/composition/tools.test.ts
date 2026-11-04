@@ -469,3 +469,17 @@ describe("composition/tools composeTools: MCP servers", () => {
     assert.deepEqual(degraded, ["mcp.one"]);
   });
 });
+
+it("a provisioned coding turn denies sibling checkouts and other Harness state", async () => {
+  const home = tmp.make();
+  const tree = join(home, "state", "worktrees", "project", "root");
+  const sibling = join(home, "state", "worktrees", "project", "cards", "c-other");
+  for (const path of [tree, sibling]) mkdirSync(path, { recursive: true });
+  const reg = await composeTools(options({ home, roots: [] }), turn({ codingWorktree: tree }));
+  for (const path of [join(sibling, "secret"), join(home, "state", "sessions.sqlite")]) {
+    const classified = await get(reg, "file.write").classify!({ path, content: "x" });
+    assert.equal(classified.flags?.denyListHit, true);
+  }
+  const inside = await get(reg, "file.write").classify!({ path: join(tree, "code.ts"), content: "x" });
+  assert.equal(inside.flags?.denyListHit, false);
+});
