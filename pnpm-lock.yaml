@@ -217,6 +217,9 @@ importers:
 
   packages/web:
     dependencies:
+      '@plur1bus/config-schema':
+        specifier: workspace:*
+        version: link:../config-schema
       '@preact/signals':
         specifier: 2.11.3
         version: 2.11.3(preact@10.29.8)
