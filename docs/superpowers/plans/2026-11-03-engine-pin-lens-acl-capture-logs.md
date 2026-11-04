@@ -2,6 +2,8 @@
 
 Status: plan, 2026-11-03. Owner request: adopt the latest PLUR1BUS engine changes into the Harness and the Rust engine.
 
+Harness prerequisite update, 2026-11-04: #879 and #820 have actually merged into `main` in that order. The Harness still pins `9f34008c`; this documentation PR does not consume the upstream security fixes or complete P0/P1. The source inventory below is dated 2026-11-03 and must be refreshed before executing the pin move.
+
 ## 1. What changed upstream
 
 Repository `Cyb3rb1ade/openclaw-plur1bus-memory`. The Harness pins

@@ -2,6 +2,8 @@
 
 Status: plan, 2026-11-03. Owner request: analyse the changes since 7.18.24 and adopt them into the Harness and the Harness engine. Companion to [the engine pin plan](2026-11-03-engine-pin-lens-acl-capture-logs.md), whose P0 pin this plan extends.
 
+Harness prerequisite update, 2026-11-04: #879 and #820 have actually merged into `main`. This PR records the adoption plan; it changes no dependency, engine pin, model, golden or runtime behavior. The dated source inventory and the remaining owner decisions below must be checked before implementation; no task in this plan is marked complete by the documentation merge.
+
 ## 1. Source and the two engine lines
 
 Repository `Cyb3rb1ade/openclaw-plur1bus-memory` has two lines:
