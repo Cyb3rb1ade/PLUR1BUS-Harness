@@ -1,7 +1,8 @@
 import { createKeyringBackend } from "../../../src/secrets/keyring-backend.ts";
 import { serveIsolatedBackend } from "../../../src/secrets/isolated-server.ts";
 import { createFileBackend } from "../../../src/secrets/file-backend.ts";
-import { createSecurePath } from "@plur1bus/module-api";
+// Keep the real permission helper without loading unrelated protocol/schema exports during this cold fixture start.
+import { createSecurePath } from "../../../../module-api/src/secure-path.ts";
 
 const items = new Map<string, string>();
 let failIndex = false;

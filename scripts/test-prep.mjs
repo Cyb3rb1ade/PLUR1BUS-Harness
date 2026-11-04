@@ -2,14 +2,14 @@
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { isMainModule } from "./check-toolchain.mjs";
+import { pnpmCommand } from "./pnpm-command.mjs";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 function runCommand(kind, args, { cwd }) {
-  const cli = kind === "pnpm" && process.env.npm_execpath?.includes("pnpm") ? process.env.npm_execpath : null;
-  const command = kind === "node" || cli ? process.execPath : "pnpm";
+  const invocation = kind === "pnpm" ? pnpmCommand(args) : { command: process.execPath, args, shell: false };
   return new Promise((resolve) => {
-    const child = spawn(command, cli ? [cli, ...args] : args, {
-      cwd, stdio: "inherit", shell: command === "pnpm" && process.platform === "win32",
+    const child = spawn(invocation.command, invocation.args, {
+      cwd, stdio: "inherit", shell: invocation.shell,
     });
     child.on("error", error => resolve({ status: null, error }));
     child.on("close", status => resolve({ status }));
