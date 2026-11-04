@@ -1,7 +1,7 @@
 // Media search: pure rules shared by the setup step, the Memory settings, the agent override and the search view (no DOM).
 // Everything here follows the binding contract (media-search-contract.md): free provider choice, validation only for
 // capability, licence, privacy pin and availability, captioning preselected only when embedding is local, defaults as in
-// the contract. Changes are sent only where a value differs from the contract default, so an untouched form writes nothing.
+// the contract. Changes are sent where a value differs from the contract default; setup explicitly chooses manual backfill.
 import type { MediaIndexKind, MediaSearchHit, MediaSearchParams } from "../../../../rpc-schema/generated/types.ts";
 import { MEDIA_EMBEDDING_DEFAULTS, isMediaErrorCode, type CaptionSourceSetting, type MediaBackfillSetting, type MediaCapabilities, type MediaErrorCode, type MediaModality } from "./contract.ts";
 import { t, type Key } from "../../i18n.ts";
@@ -62,9 +62,12 @@ export type MediaSetup = {
   caption: CaptionChoice | null;
   captionSource: CaptionSourceSetting;
   backfill: MediaBackfillSetting;
+  /** True only after a person chooses backfill; false lets setup preserve an existing backend choice. */
+  backfillChosen?: boolean;
 };
 export const mediaSetupDefaults = (): MediaSetup => ({
-  enabled: true, provider: DEFAULT_EMBEDDING, modalities: [...ALL_MODALITIES], caption: null, captionSource: "prompt-then-user-then-auto", backfill: "auto",
+  enabled: true, provider: DEFAULT_EMBEDDING, modalities: [...ALL_MODALITIES],
+  caption: null, captionSource: "prompt-then-user-then-auto", backfill: "manual", backfillChosen: false,
 });
 
 /** The caption choice that applies: the user's answer, else the preselection for the text provider (null when cloud). */
@@ -107,7 +110,7 @@ export type Change = { key: string; value: unknown };
 const PREFIX = "memory.mediaEmbedding";
 const sameSet = (a: readonly string[], b: readonly string[]): boolean => a.length === b.length && a.every((x) => b.includes(x));
 
-/** Media config changes from the setup answers: only what differs from the contract default. Empty when untouched. */
+/** Changed setup fields plus the backfill proposal; the wizard preserves an existing backend backfill choice on save. */
 export function mediaSetupChanges(m: MediaSetup, textProvider: string): Change[] {
   const d = mediaSetupDefaults();
   const out: Change[] = [];
@@ -119,7 +122,8 @@ export function mediaSetupChanges(m: MediaSetup, textProvider: string): Change[]
   if (cap !== null && cap !== captionPreselection(textProvider)) out.push({ key: `${PREFIX}.caption.provider`, value: cap });
   if (cap === null) return out;
   if (m.captionSource !== d.captionSource) out.push({ key: `${PREFIX}.caption.source`, value: m.captionSource });
-  if (m.backfill !== d.backfill) out.push({ key: `${PREFIX}.backfill`, value: m.backfill });
+  // Setup writes its proposal explicitly; the page preserves an existing backend choice unless a person changes it.
+  out.push({ key: `${PREFIX}.backfill`, value: m.backfill });
   return out;
 }
 
@@ -265,7 +269,7 @@ export function draftOf(config: unknown): MediaDraft {
       maxChars: num(get(["caption", "maxChars"]), d.caption.maxChars),
       perSegment: bool(get(["caption", "perSegment"]), d.caption.perSegment),
     },
-    backfill: get(["backfill"]) === "manual" ? "manual" : "auto",
+    backfill: get(["backfill"]) === "auto" ? "auto" : d.backfill,
   };
 }
 

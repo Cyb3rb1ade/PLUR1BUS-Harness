@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { defaults } from "@plur1bus/config-schema";
 import { openTurnComposition, type CompositionDeps } from "../../src/composition/index.ts";
@@ -12,6 +13,10 @@ import { useTempDirs } from "./helpers.ts";
 import { createSecretStore } from "../../src/secrets/store.ts";
 import { createMemoryBackend } from "../../src/secrets/memory-backend.ts";
 import { createMemoryAuditSink } from "../../src/secrets/audit.ts";
+import { createHash } from "node:crypto";
+import { MEDIA_OUTPUT_RETENTION_MS } from "../../src/media-output-store.ts";
+import { createImportMaintenanceHold } from "../../src/import/maintenance-admission.ts";
+import { loadConfigDisclosurePolicy } from "../../src/config-disclosure.ts";
 
 const tmp = useTempDirs("p1b-open-comp-");
 const MEDIA_METHODS = ["chat.promote.links", "chat.promote.preview", "chat.promote.commit", "task.complete", "media.generate", "media.edit", "media.job.get", "media.job.list", "media.job.cancel", "media.output.get", "media.output.list", "media.output.delete", "media.adapters.list", "media.preferences.get", "media.preferences.set"];
@@ -51,6 +56,99 @@ async function open(over: Partial<CompositionDeps> = {}, prepare: (home: string)
 }
 
 describe("composition openTurnComposition", () => {
+  it("runs deferred retention before the actual import hold opens public admission", async () => {
+    const id = "22222222-2222-4222-8222-222222222222";
+    const runId = "33333333-3333-4333-8333-333333333333";
+    const hold = createImportMaintenanceHold(runId);
+    const { composition: c, home, identity } = await open({ maintenance: { held: () => hold.held, onRelease: fn => hold.onRelease(fn) } }, home => {
+      const data = Buffer.concat([Buffer.from("RIFF"), Buffer.from([36, 0, 0, 0]), Buffer.from("WAVE"), Buffer.alloc(32)]);
+      const directory = join(home, "media", "outputs", ".uploads", id);
+      mkdirSync(directory, { recursive: true, mode: 0o700 });
+      mkdirSync(join(home, "media", "owners"), { recursive: true, mode: 0o700 });
+      writeFileSync(join(directory, "0.wav"), data, { mode: 0o600 });
+      writeFileSync(join(directory, "manifest.json"), JSON.stringify({ schema: "media.upload/1", id,
+        createdAt: Date.now() - MEDIA_OUTPUT_RETENTION_MS - 1, kind: "audio", mimeType: "audio/wav",
+        file: { path: "0.wav", format: "wav", bytes: data.length, sha256: createHash("sha256").update(data).digest("hex") },
+      }), { mode: 0o600 });
+      writeFileSync(join(home, "media", "owners", `${id}.json`), JSON.stringify({ agentId: "bernd", userId: "private-person" }), { mode: 0o600 });
+    });
+    try {
+      const owner = join(home, "media", "owners", `${id}.json`);
+      assert.equal(existsSync(owner), true);
+      await hold.release(runId);
+      assert.equal(hold.held, false);
+      assert.equal(existsSync(join(home, "media", "outputs", ".uploads", id)), false);
+      assert.equal(existsSync(owner), false);
+    } finally { await c.close(); identity.close(); }
+  });
+  it("applies production retention at startup and removes expired upload owners", async () => {
+    const id = "11111111-1111-4111-8111-111111111111";
+    const { composition: c, home, identity } = await open({}, home => {
+      const data = Buffer.concat([Buffer.from("RIFF"), Buffer.from([36, 0, 0, 0]), Buffer.from("WAVE"), Buffer.alloc(32)]);
+      const directory = join(home, "media", "outputs", ".uploads", id);
+      mkdirSync(directory, { recursive: true, mode: 0o700 });
+      mkdirSync(join(home, "media", "owners"), { recursive: true, mode: 0o700 });
+      writeFileSync(join(directory, "0.wav"), data, { mode: 0o600 });
+      writeFileSync(join(directory, "manifest.json"), JSON.stringify({
+        schema: "media.upload/1", id, createdAt: Date.now() - MEDIA_OUTPUT_RETENTION_MS - 1,
+        kind: "audio", mimeType: "audio/wav", file: { path: "0.wav", format: "wav", bytes: data.length,
+          sha256: createHash("sha256").update(data).digest("hex") },
+      }), { mode: 0o600 });
+      writeFileSync(join(home, "media", "owners", `${id}.json`), JSON.stringify({ agentId: "bernd", userId: "private-person" }), { mode: 0o600 });
+    });
+    try {
+      assert.equal(existsSync(join(home, "media", "outputs", ".uploads", id)), false);
+      assert.equal(existsSync(join(home, "media", "owners", `${id}.json`)), false);
+    } finally { await c.close(); identity.close(); }
+  });
+  it("recovers unpublished upload state without a generation provider", async () => {
+    const stage = ".stage-11111111-1111-1111-1111-111111111111";
+    const { composition: c, home, identity } = await open({}, home => {
+      const outputs = join(home, "media", "outputs");
+      mkdirSync(join(outputs, ".lock"), { recursive: true });
+      mkdirSync(join(outputs, stage));
+      writeFileSync(join(outputs, stage, "partial"), "unpublished");
+    });
+    try {
+      assert.equal(existsSync(join(home, "media", "outputs", ".lock")), false);
+      assert.equal(existsSync(join(home, "media", "outputs", stage)), false);
+    } finally {
+      await c.close();
+      identity.close();
+    }
+  });
+  it("actual collaboration replay masks live Store and config-policy values while keeping declared public module controls", async () => {
+    const stored = randomUUID(), configured = randomUUID(), publicRegion = "public-eu-region", publicPath = "/public/report.txt";
+    const secrets = createSecretStore({ keyring: createMemoryBackend(), file: createMemoryBackend(), fileFallback: () => false, audit: createMemoryAuditSink() });
+    let config!: ReturnType<typeof defaults>;
+    const text = `${stored} ${configured} ${publicRegion} ${publicPath} 2026.11 user@example.com`;
+    const { composition: c, home, identity } = await open({ secrets, options: {
+      providers: { profiles: { default: [{ provider: "fixture", model: "gpt-4.1", adapter: { async *stream() {} } }] } },
+      createTurnProvider: () => ({ id: "fixture", telemetry: {} as never, async *stream() { yield { type: "delta", text }; } }) as never,
+    } }, home => {
+      mkdirSync(join(home, "modules/fixture"), { recursive: true });
+      writeFileSync(join(home, "modules/fixture/module.json"), JSON.stringify({ name: "fixture", version: "0.1.0", apiVersion: "1", entry: "index.js", scope: "installation", priority: 500,
+        configSchema: { type: "object", properties: { private: { type: "string", "x-sensitive": true }, region: { type: "string" }, path: { type: "string" }, version: { type: "string" } } } }));
+    }, cfg => {
+      config = cfg; cfg.agents.worker = {};
+      cfg.modules.fixture = { enabled: false, private: configured, region: publicRegion, path: publicPath, version: "2026.11" };
+    });
+    try {
+      await secrets.set({ kind: "owner", id: "fixture" }, "fixture.store", stored);
+      secrets.redaction.replaceGroup(Symbol("config-policy"), (await loadConfigDisclosurePolicy(home)).values(config));
+      const principal = { userId: "owner", kind: "person" as const, role: "owner" as const };
+      assert.ok(c.collab);
+      const project = c.collab.createProject(principal, { name: "fixture" });
+      for (const agent of ["bernd", "worker"]) c.collab.addAgent(principal, project.id, agent);
+      const result = await c.collab.consult({ principal, projectId: project.id, fromAgent: "bernd", toAgent: "worker", question: "Check public controls", context: "" });
+      const trace = c.collab.getTrace(principal, result.traceId), span = trace.spans[0]!;
+      const seen = JSON.stringify({ trace, replay: c.collab.replay(principal, result.traceId, span.spanId) });
+      for (const privateValue of [stored, configured, "user@example.com"]) assert.ok(!seen.includes(privateValue), "private collaboration data escaped the composed redaction source");
+      for (const publicValue of [publicRegion, publicPath, "2026.11"]) assert.ok(seen.includes(publicValue), publicValue);
+      assert.ok(seen.includes("[REDACTED:secret]") && seen.includes("[REDACTED:pii]"));
+    } finally { await c.close(); identity.close(); }
+  });
+
   it("D105: the bounded decision call is required only when modelRoles.decision is configured; without one the rule triage keeps the tool shortlist", async () => {
     for (const role of [undefined, "triage"]) {
       const seen: { requireTriage?: boolean; classifier: boolean }[] = [];
@@ -81,12 +179,14 @@ describe("composition openTurnComposition", () => {
   it("assembles sessions, collaboration, voice, openai and the media RPC surface", async () => {
     const { composition: c, identity } = await open();
     try {
-      assert.deepEqual(Object.keys(c).sort(), ["a2a", "budget", "cacheTelemetry", "capabilities", "chatModels", "close", "collab", "discoveryCredentials", "engineComplete", "importSsh", "mining", "openai", "refusedProviders", "sessions", "skillReview", "surfaceMethods", "voice"]);
+      assert.deepEqual(Object.keys(c).sort(), ["a2a", "budget", "cacheTelemetry", "capabilities", "chatModels", "close", "codeSessions", "collab", "discoveryCredentials", "engineComplete", "importSsh", "ingestChannelAttachments", "mining", "openai", "refusedProviders", "sessions", "skillReview", "surfaceMethods", "voice"]);
       assert.equal(c.skillReview.status().state, "engine-unavailable");
       assert.equal(c.mining.status().state, "engine-unavailable");
       assert.ok(c.collab, "collaboration needs the call budget, which opened");
       assert.equal(typeof c.sessions.close, "function");
-      assert.deepEqual(Object.keys(c.surfaceMethods).sort(), [...MEDIA_METHODS, ...SEARCH_METHODS, ...EXTENSION_METHODS, ...SSH_METHODS, ...EXTERNAL_TURN_METHODS, "a2a.peer.add", "a2a.peer.list", "a2a.peer.remove", "a2a.peer.trust", "decision.status", "decision.test", "models.test"].sort());
+      assert.ok(c.codeSessions, "coding session binding must be composed");
+      assert.equal(typeof c.codeSessions.connectionClosed, "function", "coding grants must follow connection lifetime");
+      assert.deepEqual(Object.keys(c.surfaceMethods).sort(), [...MEDIA_METHODS, ...SEARCH_METHODS, ...EXTENSION_METHODS, ...SSH_METHODS, ...EXTERNAL_TURN_METHODS, "a2a.peer.add", "a2a.peer.list", "a2a.peer.remove", "a2a.peer.trust", "code.session.open", "code.session.diff", "code.session.check", "code.session.mode", "decision.status", "decision.test", "models.test"].sort());
       for (const m of Object.values(c.surfaceMethods)) assert.equal(typeof m, "function");
     } finally { await c.close(); identity.close(); }
   });

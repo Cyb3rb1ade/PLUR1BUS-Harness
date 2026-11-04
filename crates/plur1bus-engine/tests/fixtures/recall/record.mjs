@@ -5,6 +5,7 @@
 //
 // Pass --principals to rewrite only golden/principals.json.
 // Pass --stages to record RE-04/T2 stage goldens (scenarios/ and golden/stages/).
+// Pass --namespaces <v7.18.31> for T4 routes at the pin and CP-5.2 merge ordering.
 // Pass --render to record the eleven RE-04/T5 context/booster goldens.
 // The engine checkout is the harness pin
 // 9f34008c143c5da87b2194b5a28442b407ff8ba7.
@@ -37,6 +38,17 @@ if (!engineRoot) {
 if (process.argv.includes("--stages")) {
   const { recordStages } = await import("./record-stages.mjs");
   await recordStages(engineRoot);
+  process.exit(0);
+}
+
+if (process.argv.includes("--namespaces")) {
+  const rootFlag = process.argv.indexOf("--namespaces");
+  const pluginRoot = process.argv[rootFlag + 1];
+  if (!pluginRoot || pluginRoot.startsWith("--")) {
+    throw new Error("record.mjs --namespaces <plugin-checkout> expects v7.18.31");
+  }
+  const { recordNamespaces } = await import("./record-namespaces.mjs");
+  await recordNamespaces(engineRoot, pluginRoot);
   process.exit(0);
 }
 

@@ -118,7 +118,7 @@ export async function runPortable({ operation, bin, home, file, password, dryRun
   try {
     if (operation === 'create') {
       const before = vaultOf(call);
-      const report = call(['backup', 'create', '--out', archive]);
+      const report = call(['backup', 'create', '--out', archive, '--include-api-accounts']);
       call(['backup', 'verify', archive]);
       if (JSON.stringify(before) !== JSON.stringify(vaultOf(call))) throw fail();
       const plan = { units: report.units, secrets: before.map(e => e.name) };
@@ -133,7 +133,7 @@ export async function runPortable({ operation, bin, home, file, password, dryRun
     // The target is an installed, running home. Persist an encrypted rollback
     // artifact before mutation; retain it until the owner explicitly removes it.
     const original = vaultOf(call), rollbackArchive = join(scratch, 'rollback.tar.gz');
-    call(['backup', 'create', '--out', rollbackArchive]);
+    call(['backup', 'create', '--out', rollbackArchive, '--include-api-accounts']);
     const rollback = `${file}.rollback-${randomBytes(8).toString('hex')}`;
     await encryptBackup(rollbackArchive, original, rollback, password);
     try {

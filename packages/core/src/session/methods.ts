@@ -3,6 +3,7 @@
 import type {
   CallerIdentity, SessionArchiveParams, SessionCancelParams, SessionCreateParams, SessionEvent, SessionEventsParams, SessionGetParams, SessionListParams, SessionMessage,
   SessionRecord as WireSession, SessionResumeParams, SessionSubmitParams,
+  SessionRewindParams,
 } from "@plur1bus/rpc-schema";
 import type { AgentRegistry } from "../agents.ts";
 import { requireAgent } from "../memory-ops.ts";
@@ -14,11 +15,15 @@ import type { SessionStore } from "./store.ts";
 import { NoProviderError, type TurnRunner } from "./turn-loop.ts";
 import { isReasoningChoice, type ReasoningChoice } from "./chat-models.ts";
 import { SessionError, type EventRecord, type MessageRecord, type SessionRecord } from "./types.ts";
+import type { RewindService } from "./rewind.ts";
+import { activePath } from "./rewind-path.ts";
+import { authenticatedPrincipal } from "../rbac/guard.ts";
+import { deriveUserPrincipal } from "../identity/principals.ts";
 
 /** The store, runner and compactor that serve one session: the durable ones, or the memory-only set of an incognito session. */
-export interface SessionRuntime { store: SessionStore; runner: TurnRunner; compactor?: import("./compaction.ts").Compactor }
+export interface SessionRuntime { store: SessionStore; runner: TurnRunner; compactor?: import("./compaction.ts").Compactor; rewind?: RewindService }
 export interface SessionMethodDeps { /** The runtime holding the given session (the in-memory incognito one for ephemeral sessions, the durable one otherwise). Falls back to `store`/`runner`/`storeFor`. */ runtimeFor?: (sessionId: string) => SessionRuntime; /** The memory-only runtime where an incognito session is created, so nothing of it reaches disk. Absent: everything is durable. */ ephemeral?: () => SessionRuntime; modelProfiles?: () => readonly string[]; defaultProfile?: (agentId: string) => string | undefined; /** Store that holds the given session: the in-memory incognito store for ephemeral sessions, the durable store otherwise. */ storeFor?: (sessionId: string) => SessionStore;  compactor?: import("./compaction.ts").Compactor; store: SessionStore; runner: TurnRunner; agents: AgentRegistry; isStopping: () => boolean; /** Resolves the submitting connection's approver; never refuses (a non-person is refused only when a tool needs approval). */
-  approver?: (ctx: CallContext, params: unknown) => Promise<import("./provider.ts").TurnApprover> }
+  approver?: (ctx: CallContext, params: unknown) => Promise<import("./provider.ts").TurnApprover>; rewind?: RewindService }
 
 /** The session owner: the engine's own user-principal hash of the caller. An identity that would not give the engine a
  *  proved user (G8) owns nothing: sessions are principal-scoped, so every session.* call fails closed. */
@@ -52,13 +57,33 @@ export const toWireSession = (s: SessionRecord): WireSession => ({
 export const toWireEvent = (e: EventRecord): SessionEvent => ({ sessionId: e.sessionId, seq: e.seq, turnId: e.turnId, type: e.type, data: e.data, at: e.at });
 export const toWireMessage = (m: MessageRecord): SessionMessage => ({ id: m.id, seq: m.seq, turnId: m.turnId, role: m.role, text: m.text, createdAt: m.createdAt });
 
+/** Retained transcript messages carry visibility metadata; no underlying message is rewritten or omitted here. */
+export function toWireMessages(store: SessionStore, sessionId: string, messages: MessageRecord[]): SessionMessage[] {
+  const visible = new Set(activePath(messages, store.rewinds(sessionId)).map(message => message.id));
+  const commands = store.harnessCommandTurns(sessionId);
+  return messages.map(message => ({ ...toWireMessage(message), ...(!visible.has(message.id) ? { rewound: true } : {}),
+    ...(message.turnId !== null && commands.has(message.turnId) ? { command: true } : {}) }));
+}
+
 const stopping = (): RpcError => new RpcError("E_CORE_UNAVAILABLE", "core is stopping", { reason: "core-stopping" });
 
 export function buildSessionMethods(d: SessionMethodDeps): Record<string, Handler> {
   const wrap = <P extends { caller: CallerIdentity }>(fn: (p: P, owner: string, signal: AbortSignal, ctx: CallContext) => Promise<unknown> | unknown): Handler =>
-    async (p: P, ctx) => { try { return await fn(p, ownerOf(p.caller), ctx.signal, ctx); } catch (e) { return mapSessionError(e); } };
+    async (p: P, ctx) => { try {
+      let owner = ownerOf(p.caller);
+      const sessionId = (p as { sessionId?: unknown }).sessionId;
+      if (typeof sessionId === "string") {
+        let who: import("../rbac/types.ts").Principal | undefined;
+        try { who = authenticatedPrincipal(ctx); } catch { /* isolated legacy method tests have no guard */ }
+        if (who?.kind === "person") {
+          const canonical = deriveUserPrincipal(who.userId);
+          if (rt(sessionId).store.getSession(sessionId)?.owner === canonical) owner = canonical;
+        }
+      }
+      return await fn(p, owner, ctx.signal, ctx);
+    } catch (e) { return mapSessionError(e); } };
 
-  const rt = (sessionId: string): SessionRuntime => d.runtimeFor?.(sessionId) ?? { store: d.storeFor?.(sessionId) ?? d.store, runner: d.runner, ...(d.compactor ? { compactor: d.compactor } : {}) };
+  const rt = (sessionId: string): SessionRuntime => d.runtimeFor?.(sessionId) ?? { store: d.storeFor?.(sessionId) ?? d.store, runner: d.runner, ...(d.compactor ? { compactor: d.compactor } : {}), ...(d.rewind ? { rewind: d.rewind } : {}) };
 
   return {
     "session.model.get": wrap(async (p: {caller: CallerIdentity; sessionId: string}, owner) => {
@@ -73,7 +98,7 @@ export function buildSessionMethods(d: SessionMethodDeps): Record<string, Handle
       const store = d.storeFor?.(p.sessionId) ?? d.store;
       const s = store.getOwned(p.sessionId, owner);
       requireAgent(d.agents, s.agentId);
-      if (s.kind !== "direct" || s.archivedAt !== null || store.runningTurn(s.id)) throw new SessionError("conflict", "model switch requires an idle direct session", "session-busy");
+      if ((s.kind !== "direct" && !(s.kind === "card" && store.worktree(s.id))) || s.archivedAt !== null || store.runningTurn(s.id)) throw new SessionError("conflict", "model switch requires an idle direct or bound coding-card session", "session-busy");
       const current = store.modelProfile(s.id);
       const profile = p.profile;
       if (!d.modelProfiles?.().includes(profile)) throw new RpcError("E_NOT_AVAILABLE", "model profile is not configured", { reason: "model-profile-unavailable" });
@@ -117,8 +142,10 @@ export function buildSessionMethods(d: SessionMethodDeps): Record<string, Handle
       const s = store.getOwned(p.sessionId, owner);
       return {
         session: toWireSession(s), runningTurnId: store.runningTurn(s.id)?.id ?? null,
+        rewinds: store.rewinds(s.id),
+        rewindProposal: store.rewindProposal(s.id),
         ...(compactor ? { compaction: { hidden: compactor.view(s.id).hidden, summaries: store.listSummaries(s.id, "applied").map(s => ({ id: s.id, fromSeq: s.fromSeq, toSeq: s.toSeq })) } } : {}),
-        ...(p.messages ? { messages: store.listMessages(s.id).slice(-p.messages).map(toWireMessage) } : {}),
+        ...(p.messages ? { messages: toWireMessages(store, s.id, store.listMessages(s.id).slice(-p.messages)) } : {}),
       };
     }),
 
@@ -129,7 +156,7 @@ export function buildSessionMethods(d: SessionMethodDeps): Record<string, Handle
       const limit = p.limit ?? 100;
       const all = store.listMessages(s.id);
       const lastEventSeq = lastSeq(store, s.id);
-      return { session: toWireSession(s), runningTurnId: store.runningTurn(s.id)?.id ?? null, messages: all.slice(-limit).map(toWireMessage), modelChanges: store.modelChanges(s.id).map(toWireEvent), lastEventSeq };
+      return { session: toWireSession(s), runningTurnId: store.runningTurn(s.id)?.id ?? null, messages: toWireMessages(store, s.id, all.slice(-limit)), rewinds: store.rewinds(s.id), rewindProposal: store.rewindProposal(s.id), modelChanges: store.modelChanges(s.id).map(toWireEvent), lastEventSeq };
     }),
 
     "session.archive": wrap(async (p: SessionArchiveParams, owner) => {
@@ -155,6 +182,24 @@ export function buildSessionMethods(d: SessionMethodDeps): Record<string, Handle
       const s = store.getOwned(p.sessionId, owner);
       const turnId = runner.cancel(s.id);
       return { sessionId: s.id, turnId, cancelled: turnId !== null };
+    }),
+
+    "session.rewind": wrap(async (p: SessionRewindParams, owner, _signal, ctx) => {
+      if (d.isStopping()) throw stopping();
+      const { store, rewind } = rt(p.sessionId);
+      const person = authenticatedPrincipal(ctx);
+      if (person.kind !== "person") throw new RpcError("E_DENIED", "rewind requires a person");
+      const session = store.getSession(p.sessionId);
+      if (!session || (session.owner !== owner && session.owner !== deriveUserPrincipal(person.userId))) {
+        throw new SessionError("not-found", "session not found", "session");
+      }
+      requireAgent(d.agents, session.agentId);
+      if (!rewind) throw new RpcError("E_NOT_AVAILABLE", "rewind service unavailable");
+      const record = "undo" in p ? rewind.undo(session.id, p.undo, person.userId)
+        : await rewind.rewind({ sessionId: session.id, toSeq: p.toSeq, actor: person.userId, caller: p.caller,
+          ...(p.lesson !== undefined ? { lesson: p.lesson } : {}), ...(p.files ? { files: true } : {}),
+          ...(d.approver ? { approver: await d.approver(ctx, p) } : {}) });
+      return { sessionId: session.id, rewind: record };
     }),
 
     "session.events": wrap(async (p: SessionEventsParams, owner) => {

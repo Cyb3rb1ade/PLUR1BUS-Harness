@@ -154,14 +154,14 @@ fn fail_message(e: &RpcError) -> String {
     }
 }
 
-/// The running configuration and its revision: the supervisor's when it answers, else config.json (created with
-/// the defaults when missing, as before).
+/// The private running snapshot and its revision: the supervisor's `config.watch` when it answers, else config.json
+/// (created with the defaults when missing). Never use a public masked view for write-back operations.
 pub(crate) fn running(out: &Out, layout: &Layout) -> (Value, String) {
     match route(layout) {
-        Ok(Route::Supervisor(mut c)) => match call(&mut c, "config.get", json!({})) {
+        Ok(Route::Supervisor(mut c)) => match call(&mut c, "config.watch", json!({})) {
             Ok(v) => {
                 return (
-                    v["value"].clone(),
+                    v["config"].clone(),
                     v["revision"].as_str().unwrap_or_default().to_string(),
                 )
             }
@@ -183,8 +183,8 @@ pub(crate) fn running(out: &Out, layout: &Layout) -> (Value, String) {
 /// configuration runs is `E_CONFIG_INVALID`; while the supervisor runs the last valid one, that one is used.
 pub(crate) fn running_read_only(out: &Out, layout: &Layout) -> Value {
     match route(layout) {
-        Ok(Route::Supervisor(mut c)) => match call(&mut c, "config.get", json!({})) {
-            Ok(v) => return v["value"].clone(),
+        Ok(Route::Supervisor(mut c)) => match call(&mut c, "config.watch", json!({})) {
+            Ok(v) => return v["config"].clone(),
             Err(e) if reason_of(&e) == Some("config-unavailable") => {}
             Err(e) => fail_rpc(out, &e),
         },
@@ -403,6 +403,29 @@ pub(crate) fn apply(
     }
 }
 
+// Guidance is read-only and advisory: failure to obtain a warning snapshot must not change a config command's result.
+fn emit_reference_warnings(layout: &Layout, changes: Option<&[(String, Value)]>) {
+    let snapshot = match route(layout) {
+        Ok(Route::Supervisor(mut client)) => call(&mut client, "config.watch", json!({}))
+            .ok()
+            .map(|value| value["config"].clone()),
+        Ok(Route::Direct) => cfg::read(&layout.config_path()).ok(),
+        Err(_) => None,
+    };
+    let Some(mut config) = snapshot else { return };
+    if let Some(changes) = changes {
+        let Ok(plan) = cfg::set_many(&config, changes) else {
+            return;
+        };
+        config = plan.after;
+    }
+    if let Ok(policy) = crate::config_redaction::ConfigDisclosurePolicy::load(layout, &config) {
+        for warning in policy.reference_warnings(&config) {
+            crate::output::say_err(&format!("plur1bus: {}: {}", warning.key, warning.message));
+        }
+    }
+}
+
 pub fn run(out: &Out, layout: &Layout, cmd: ConfigCmd) {
     match cmd {
         ConfigCmd::Schema { tier } => {
@@ -451,14 +474,23 @@ pub fn run(out: &Out, layout: &Layout, cmd: ConfigCmd) {
                 let loaded = cfg::load(&layout.config_path())
                     .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({})));
                 let revision = cfg::revision(&loaded.config);
-                get_result(&loaded.config, &revision, key.as_deref(), tier).unwrap_or_else(|| {
-                    out.fail(
-                        "E_INVALID_PARAMS",
-                        &format!("no such key: {}", key.clone().unwrap_or_default()),
-                        json!({}),
-                    )
-                })
+                get_result(layout, &loaded.config, &revision, key.as_deref(), tier)
+                    .unwrap_or_else(|error| {
+                        out.fail(
+                            "E_NOT_AVAILABLE",
+                            &error.to_string(),
+                            json!({"reason":"config-policy-unavailable"}),
+                        )
+                    })
+                    .unwrap_or_else(|| {
+                        out.fail(
+                            "E_INVALID_PARAMS",
+                            &format!("no such key: {}", key.clone().unwrap_or_default()),
+                            json!({}),
+                        )
+                    })
             });
+            emit_reference_warnings(layout, None);
             out.ok("config.get/1", &v, || match v["key"].as_str() {
                 Some(k) => format!(
                     "{k} = {}  [{}, {}]",
@@ -477,6 +509,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: ConfigCmd) {
             background,
         } => {
             let changes = vec![(key, parse_value(&value))];
+            emit_reference_warnings(layout, Some(&changes));
             // The memory engine's models are checked by the running core first; a change that moves a store with data
             // runs the re-embedding migration, whose switch writes the new embedding (config_embedding.rs).
             if config_embedding::touches_memory_models(&changes) {

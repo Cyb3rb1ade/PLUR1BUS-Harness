@@ -12,6 +12,7 @@ pub mod neo_files;
 mod neo_lock;
 pub mod paths;
 pub mod pool;
+pub mod routes;
 pub mod row;
 pub mod schema_version;
 pub mod sqlite;
@@ -24,6 +25,7 @@ pub use schema_version::StoreSchemaVersion;
 pub use row::{RowPatch, Scored};
 
 pub use pool::StorePool;
+pub use routes::{StoreIdentityResolver, StoreRoute, StoreRoutes};
 
 impl From<std::io::Error> for crate::contract::StoreError {
     fn from(error: std::io::Error) -> Self {

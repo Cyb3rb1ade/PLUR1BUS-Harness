@@ -3,6 +3,7 @@ mod backup;
 mod cli;
 mod coexistence;
 mod commands;
+mod config_redaction;
 mod container;
 #[path = "commands/container.rs"]
 mod container_commands;
@@ -17,6 +18,7 @@ mod paths;
 mod privacy;
 mod proc;
 mod repair;
+mod role;
 mod service;
 mod supervisor;
 mod update;
@@ -33,6 +35,9 @@ fn main() {
         Cmd::Core {
             sub: cli::CoreCmd::Run,
         } => commands::core::run(&out, &layout),
+        Cmd::Core {
+            sub: cli::CoreCmd::PipeServerPid,
+        } => commands::core::pipe_server_pid(),
         Cmd::Supervise { no_core } => {
             supervisor::run(&layout, supervisor::SuperviseOpts { no_core })
         }
@@ -107,6 +112,7 @@ fn main() {
         Cmd::Memory { sub } => commands::memory::run(&out, &layout, sub),
         Cmd::Session { sub } => commands::session::run(&out, &layout, sub),
         Cmd::Chat(args) => commands::session::chat(&out, &layout, args),
+        Cmd::Code(args) => commands::code::run(&out, &layout, args),
         Cmd::Acp { sub } => commands::acp::run(&out, &layout, sub),
         Cmd::Dreams { sub } => commands::dreams::run(&out, &layout, sub),
         Cmd::Ext {

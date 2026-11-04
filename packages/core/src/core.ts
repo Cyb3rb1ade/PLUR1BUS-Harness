@@ -1,3 +1,4 @@
+import { ToolsClient } from "./tools-service/client.ts";
 import { ChannelHandoff } from "./channel-handoff/service.ts";
 import { handoffMethods } from "./channel-handoff/rpc.ts";
 import { DeliveryTargets } from "./delivery/service.ts";
@@ -12,6 +13,7 @@ import { assertEmbeddingChangeAllowed, embeddingChange, memoryModelStatus, store
 import { creationDigest } from "./agents/saga.ts";
 import { LicenceLedger } from "./licences/ledger.ts";
 import { buildLicenceSurface, LICENCE_RULES } from "./rpc/licence-surface.ts";
+import { validateMediaChanges } from "./media-search/validate.ts";
 import { buildChatSurface } from "./rpc/chat-surface.ts";
 import { configuredDefaults } from './toolcall/host-eval-store.ts';
 import { apiAdmission } from "./rpc/api-admission.ts";
@@ -21,6 +23,7 @@ import { buildTelemetryMethods } from "./rpc/telemetry-surface.ts";
 import { buildVoiceSessionMethods } from "./rpc/voice-session-surface.ts";
 import { createAuthSecretStore } from "./auth/secret-store.ts";
 import { createWriter } from "./logs/writer.ts";
+import { withRedaction } from "./logs/with-redaction.ts";
 import { createD111Events } from "./discovery/events-logger.ts";
 import { createPinnedClient } from "./discovery/http.ts";
 import type { DiscoveryProviderDefinition } from "./discovery/real-adapters.ts";
@@ -28,7 +31,10 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { hostname, userInfo } from "node:os";
 import type { Engine, EngineStatus, HostServices, ModelsStatus } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
-import type { HarnessConfig } from "@plur1bus/config-schema";
+import { type HarnessConfig } from "@plur1bus/config-schema";
+import { createSecretRedaction } from "./secrets/redaction.ts";
+import { loadConfigDisclosurePolicy, watchConfigDisclosurePolicy } from "./config-disclosure.ts";
+import { logConfigWarnings } from "./config-warnings.ts";
 import { apiPrincipal, checkAdoptionNonce, createOrphanWatch, readRunToken, engineRunFiles, type OrphanWatch, type SecurePathOptions } from "@plur1bus/module-api";
 import { RPC_VERSION, SCHEMA, buildCapabilities, precompileMethods, type CoreStatusResult, type JobsStatus, type ProcessState } from "@plur1bus/rpc-schema";
 import { ActivityTracker } from "./activity.ts";
@@ -284,15 +290,15 @@ export function createCore(o: CoreOptions): Core {
   let storeSchema: { current: string | null; expected: string } | null = null;
   let orphans: OrphanWatch | null = null;
   let source: ConfigSource | null = null;
+  let coreSecretStore: ReturnType<typeof createCoreSecretStore> | null = null;
   let reembed: MigrationDriver | null = null;
   let warmup: Warmup | null = null;
   let scanScheduler: ScanScheduler | null = null;
   let discoveryWriter: ReturnType<typeof createWriter> | null = null;
-  let unsubscribeDiscoveryRedaction: (() => void) | null = null;
-  let unsubscribeCoreRedaction: (() => void) | null = null;
+  let unsubscribeConfigRedaction: (() => void) | null = null;
+  let stopConfigDisclosure: (() => void) | null = null;
   const closeLogRedaction = () => {
-    unsubscribeDiscoveryRedaction?.(); unsubscribeDiscoveryRedaction = null;
-    unsubscribeCoreRedaction?.(); unsubscribeCoreRedaction = null;
+    unsubscribeConfigRedaction?.(); unsubscribeConfigRedaction = null;
   };
   let coreWriter: Pick<ReturnType<typeof createWriter>, "updateLevels" | "currentLevels"> | null = null;
   let dreams: Dreams | null = null;
@@ -311,6 +317,7 @@ export function createCore(o: CoreOptions): Core {
   let delivery: DeliveryTargets | null = null;
   let handoff: ChannelHandoff | null = null;
   let userJobsTimer: ReturnType<typeof setInterval> | null = null;
+  let toolsService: ToolsClient | null = null;
   let sessions: SessionService | null = null;
   let turnComposition: TurnComposition | null = null;
   let extensionSpawnSecrets: Awaited<ReturnType<typeof startExtensionSpawnSecrets>> | null = null;
@@ -378,6 +385,7 @@ export function createCore(o: CoreOptions): Core {
         ...(sharedMemory ? { sharedMemory } : {}),
         ...(storeSchema ? { storeSchema } : {}),
       },
+      ...(toolsService ? { tools: toolsService.snapshot() } : {}),
       agents: (agents?.list() ?? []).map((agentId) => ({ agentId, activity: activity.get(agentId) })),
       // E4: the engine reads the journal through the host capability; the replay's count when it reports none.
       journalBacklog: es?.journal ? es.journal.entries : journalBacklog,
@@ -391,25 +399,105 @@ export function createCore(o: CoreOptions): Core {
 
   let hostClients: ReturnType<typeof hermesClientAuth> | null = null;
   async function start(): Promise<void> {
+    try { await startCore(); }
+    catch (error) {
+      // This also covers failures before the main composition try block, including run/ ACL refusal.
+      await step(logger, "Secret-Store close", async () => { await coreSecretStore?.close(); });
+      await step(logger, "config watch close", async () => { stopConfigDisclosure?.(); closeLogRedaction(); await source?.close(); });
+      if (!o.logger) await step(null, "startup logger close", () => logger?.close());
+      throw error;
+    }
+  }
+  async function startCore(): Promise<void> {
     let prepareImportBootstrap: ((signal: AbortSignal) => Promise<void>) | undefined;
     let importTargetPrepared = false;
     for (const d of [l.state, l.run, l.logs, l.agents, l.models, l.journal, l.catalog, l.systemJobs]) mkdirSync(d, { recursive: true, mode: 0o700 });
-    // B7: what the config source logs before the logger exists (it is built from the configuration) is kept and
-    // written once it does.
+    // B7: startup diagnostics stay queued until configuration and readable Store values can mask every sink.
     const early: [Level, string, Record<string, unknown> | undefined][] = [];
     const at = (lvl: Level) => (msg: string, fields?: Record<string, unknown>) => { if (logger) logger[lvl](msg, fields); else early.push([lvl, msg, fields]); };
-    const cs = await openConfigSource({ layout: l, supervised: o.supervisorConfig !== undefined, logger: { debug: at("debug"), info: at("info"), warn: at("warn"), error: at("error") }, ...o.supervisorConfig });
+    const startupLog = { debug: at("debug"), info: at("info"), warn: at("warn"), error: at("error") };
+    let prepareConfigChange: ((previous: HarnessConfig, next: HarnessConfig) => void | Promise<void>) | undefined;
+    const cs = await openConfigSource({ layout: l, supervised: o.supervisorConfig !== undefined, logger: startupLog, ...o.supervisorConfig,
+      prepareChange: (previous, next) => prepareConfigChange?.(previous, next) });
     activityCapacity = () => cs.current().activity?.maxEntries ?? 1000;
     source = cs;
     const config = cs.current(); // the configuration the engine is built from (core-class keys)
     const cfg = () => cs.current();
-    const createdLog = o.logger ? null : (await import("./logs/bootstrap.ts")).createCoreLog({ dir: l.logs, role: "core", source: { kind: "harness", id: "core", version: "0.1.0" }, levels: { defaultLevel: config.core.logLevel }, maxBytes: config.logs.maxBytes, keep: config.logs.keep, now: clock });
-    logger = o.logger ?? createdLog!;
+    const redaction = createSecretRedaction();
+    const configGroup = Symbol("configuration");
+    let configDisclosure = await loadConfigDisclosurePolicy(l.home);
+    // Composition retains its initial snapshot (including provider profiles) until Core exits.
+    // Module configuration belongs to supervised children and its declarations must remain refreshable.
+    redaction.replaceGroup(Symbol("core-build"), configDisclosure.values({ ...config, modules: {} }));
+    const registerDeclaredConfig = (next: HarnessConfig): void => {
+      redaction.replaceGroup(configGroup, configDisclosure.values(next));
+    };
+    registerDeclaredConfig(config);
+    registerDeclaredConfig(cs.current());
+    const warningLog = { warn: at("warn") };
+    logConfigWarnings(warningLog, configDisclosure.warnings(cs.current()));
+    // First listener, before downstream listeners can log an accepted new value.
+    unsubscribeConfigRedaction = cs.onChange((_previous, next) => {
+      registerDeclaredConfig(next);
+      logConfigWarnings(warningLog, configDisclosure.warnings(next));
+    });
+    let disclosureClosed = false;
+    let policyChanges = Promise.resolve();
+    const reloadDeclaredConfig = (next?: HarnessConfig): Promise<void> => {
+      // File events and configuration candidates share one queue, so an older manifest read cannot replace a newer policy.
+      const change = policyChanges.then(async () => {
+        const policy = await loadConfigDisclosurePolicy(l.home);
+        if (disclosureClosed) return;
+        const accepted = next ?? cs.current();
+        const values = policy.values(accepted);
+        configDisclosure = policy;
+        redaction.replaceGroup(configGroup, values);
+        if (!next) logConfigWarnings(warningLog, policy.warnings(accepted));
+      });
+      policyChanges = change.catch(() => { /* A rejected candidate is reported by its config-source preparation. */ });
+      return change;
+    };
+    prepareConfigChange = (_previous, next) => reloadDeclaredConfig(next);
+    let refreshRequested = false, refreshRunning = false;
+    const stopWatching = watchConfigDisclosurePolicy(l.home, () => {
+      refreshRequested = true;
+      if (refreshRunning || disclosureClosed) return;
+      refreshRunning = true;
+      void (async () => {
+        try {
+          while (refreshRequested && !disclosureClosed) { refreshRequested = false; await reloadDeclaredConfig(); }
+        } catch {
+          // The accepted snapshot and its pinned values remain protected when a candidate cannot be interpreted.
+          at("warn")("module sensitivity reload failed; values remain private; repair module manifests");
+        } finally { refreshRunning = false; }
+      })();
+    });
+    stopConfigDisclosure = () => { disclosureClosed = true; stopWatching(); };
+    shutdown.signal.throwIfAborted();
+    const platform = createPlatformCapabilities({ logger: startupLog, runDir: l.run, ...o.securePathOptions });
+    // The constructor's trusted engine seam is used by Core tests without mutating their process environment.
+    // Explicit environment-selected modes still pass the normal R5 ALLOW_TEST_INTERNALS gate unchanged.
+    const secretEnv = o.testInternals !== undefined && process.env.PLUR1BUS_SECRETS_KEYRING === undefined
+      ? { ...process.env, PLUR1BUS_ALLOW_TEST_INTERNALS: "1", PLUR1BUS_SECRETS_KEYRING: "memory" } : process.env;
+    const secretStore = createCoreSecretStore({ layout: l, securePath: platform.securePath,
+      fileFallback: () => cs.current().secrets.fileFallback.enabled, clock, logger: startupLog, redaction, env: secretEnv });
+    coreSecretStore = secretStore;
+    await secretStore.preloadRedaction();
+    shutdown.signal.throwIfAborted();
+    const startupSecrets = secretStore.startupStatus();
+    const createdLog = o.logger ? null : (await import("./logs/bootstrap.ts")).createCoreLog({
+      dir: l.logs, role: "core", source: { kind: "harness", id: "core", version: "0.1.0" },
+      levels: { defaultLevel: config.core.logLevel }, maxBytes: config.logs.maxBytes, keep: config.logs.keep,
+      now: clock, redactor: redaction.redactor(),
+    });
+    logger = o.logger ? withRedaction(o.logger, redaction.redactor()) : createdLog!;
     if (createdLog) coreWriter = createdLog;
     const log = logger;
+    // Logger import/construction can itself enqueue diagnostics. Discard at the release boundary, with no await after it.
+    if (!startupSecrets.safeToFlush) early.length = 0;
+    if (startupSecrets.state === "unavailable") log.warn("Secret-Store unavailable", { reason: startupSecrets.reason ?? "backend-unavailable" });
     for (const [lvl, msg, fields] of early.splice(0)) log[lvl](msg, fields);
     // S11: run/ holds the tokens; on Windows chmod is no permission, so the user-SID ACL goes on through icacls.
-    const platform = createPlatformCapabilities({ logger: log, runDir: l.run, ...o.securePathOptions });
     const runSecured = platform.securePath(l.run, { mode: 0o700 });
     // Audit M3: fail closed, supervised or not. run/ is where the token goes; when its ACL could not be set (icacls
     // blocked or failing on a home outside the user's private profile), the token would inherit whatever the parent
@@ -424,17 +512,11 @@ export function createCore(o: CoreOptions): Core {
       log.error(msg, { run: l.run, supervised });
       throw new Error(msg);
     }
+    toolsService = new ToolsClient({ home: l.home, supervised: o.lifeline !== undefined || o.supervisorConfig !== undefined, orphanGraceMs: config.supervisor.graceMs });
     platform.securePath(l.catalog, { mode: 0o700 });
     platform.securePath(l.systemJobs, { mode: 0o700 });
-    // M2: the secret store. Nothing is probed or opened here (the keychain is first touched by a `secret.*` call).
     const egress = createEgress({ config: () => cs.current().egress, now: clock, ...(o.discovery?.resolver ? { resolver: o.discovery.resolver } : {}) });
-    // A trusted constructor isolates only its own Store; explicit modes retain the normal R5 gate.
-    const secretEnv = o.testInternals !== undefined && process.env.PLUR1BUS_SECRETS_KEYRING === undefined
-      ? { ...process.env, PLUR1BUS_ALLOW_TEST_INTERNALS: "1", PLUR1BUS_SECRETS_KEYRING: "memory" } : process.env;
-    const secretStore = createCoreSecretStore({ layout: l, securePath: platform.securePath,
-      fileFallback: () => cs.current().secrets.fileFallback.enabled, clock, logger: log, env: secretEnv });
-    // Every secret value the store writes, rotates, reveals or leases is masked in the core log from that moment on.
-    if (createdLog) { unsubscribeCoreRedaction?.(); unsubscribeCoreRedaction = secretStore.redaction.subscribe((value, info) => createdLog.registerSecret(value, info)); }
+
     // web.search (D95): the SearXNG sidecar plus the keyed providers (Brave, Tavily, Exa), chosen per agent from `modules.web-search`.
     // The sidecar's destination is configuration (sidecars.searxng) or the address the container layer injected; the keyed
     // providers go through the egress policy and read their key from the secret store per call. The trace carries lengths,
@@ -557,9 +639,10 @@ export function createCore(o: CoreOptions): Core {
         definitions: () => o.composition?.definitions ?? Object.fromEntries(Object.entries(cfg().providers).filter(([, value]) => !!value && typeof value === "object" && "wireFormat" in value)) as Record<string, DiscoveryProviderDefinition>,
         store: createAuthSecretStore(secretStore), egress, now: clock, credentialProvider: definition => turnComposition?.discoveryCredentials(definition), openai: () => turnComposition?.openai.auth,
       } });
-      discoveryWriter = createWriter({ dir: l.logs, role: "core", source: { kind: "harness", id: "discovery", version: "0.1.0" }, levels: { defaultLevel: config.core.logLevel }, now: clock, maxBytes: config.logs.maxBytes, keep: config.logs.keep });
-      unsubscribeDiscoveryRedaction?.();
-      unsubscribeDiscoveryRedaction = secretStore.redaction.subscribe((value, info) => discoveryWriter?.registerSecret(value, info));
+      discoveryWriter = createWriter({ dir: l.logs, role: "core",
+        source: { kind: "harness", id: "discovery", version: "0.1.0" },
+        levels: { defaultLevel: config.core.logLevel }, now: clock, maxBytes: config.logs.maxBytes,
+        keep: config.logs.keep, redactor: redaction.redactor() });
       const discProfiles = o.discovery?.profiles ?? discDefaults.profiles;
       const discCredentials = o.discovery?.credentials ?? discDefaults.credentials;
       const discEvents = o.discovery?.events ?? createD111Events(discoveryWriter);
@@ -680,7 +763,7 @@ export function createCore(o: CoreOptions): Core {
         },
       });
 
-      // D109: who a connection is, where policy lines go, and the permission stores (opened on first use, so the keychain is not touched at start).
+      // D109: who a connection is, where policy lines go, and the permission stores (opened on first use).
       const people = new AdminStore({ path: path.join(l.state, "admin.sqlite"), ownerId: LOCAL_OWNER.userId }); adminPeople = people;
       inbox = openInbox({ stateDir: l.state, clock, retention: { maxAgeDays: o.inbox?.maxAgeDays ?? config.inbox.retention.days, maxEntries: o.inbox?.maxEntries ?? config.inbox.retention.maxEntries }, admins: () => people.users().filter(u => !u.disabled && (u.role === "owner" || u.role === "admin")).map(u => u.id), legacyNotices: () => people.allNotices(),
         onPublished: kind => metrics.inboxPublished(kind), log: (m, f) => log.warn(m, f),
@@ -749,7 +832,11 @@ export function createCore(o: CoreOptions): Core {
           try { await send({ chatId: msg.chatId, text }); } catch { log.warn("channel.handoff.send.failed", { channel: msg.channel }); } return true;
         },
         ...(o.channels ?? {}),
-        layout: l, config: cs, secrets: secretStore, identity: () => identity, personActive: id => !people.person(id)?.disabled, sessions: () => sessions, agents: registry, permissions: () => permissions,
+        ingestAttachments: input => turnComposition?.ingestChannelAttachments(input)
+          ?? Promise.reject(new RpcError("E_NOT_AVAILABLE", "channel upload storage is unavailable")),
+        layout: l, config: cs, secrets: secretStore, identity: () => identity, personActive: id => !people.person(id)?.disabled,
+        personRole: id => people.role(id, id === LOCAL_OWNER.userId ? "owner" : "member"),
+        sessions: () => sessions, agents: registry, permissions: () => permissions,
         clock, log: { info: (m, f) => log.info(m, f), warn: (m, f) => { channelToInbox(inboxPort, m, f); log.warn(m, f); }, error: (m, f) => log.error(m, f) },
       });
       permissions = createPermissionRuntime({
@@ -936,7 +1023,7 @@ export function createCore(o: CoreOptions): Core {
           principal.user = deriveUserPrincipal(who.userId);
           const memory = await eng.memory.list({ since: 0, limit: 100 }, principal, { origin: "user", background: false });
           if (memory.truncated) throw new RpcError("E_NOT_AVAILABLE", "engine memory listing is truncated", { reason: "memory-export-truncated" });
-          return exportAgent({ root, agentId: id, config: cfg().agents[id], memories: memory.items, rights: Object.fromEntries(people.rights(id).map(r => [r.userId, r.right])), requiredSecrets: agentRequiredSecrets(cfg(), cfg().agents[id]!), signer, secrets: await exportSecretCanaries(secretStore) });
+          return exportAgent({ root, agentId: id, config: cfg().agents[id], memories: memory.items, rights: Object.fromEntries(people.rights(id).map(r => [r.userId, r.right])), requiredSecrets: agentRequiredSecrets(cfg(), cfg().agents[id]!), signer, secrets: await exportSecretCanaries(secretStore), knownSecrets: () => secretStore.redaction.snapshot() });
         },
         // No `erase`: the pinned engine has no hard-erasure API. The handler records/refuses before any mutation.
       });
@@ -1063,16 +1150,23 @@ export function createCore(o: CoreOptions): Core {
         ...buildEngineTestSurface({ embedding: eng.embedding, config: () => engineConfig, diagnostics: engineTestDiagnostics }),
         // The API runs model.licence.check before every web config.set: another embedding identity is written only while the
         // store holds no table (a populated store moves with memory reembed).
-        ...buildLicenceSurface(licenceLedger, cfg, changes => assertEmbeddingChangeAllowed({ current: cfg(), changes, layout: l, active: engineConfig, holdsTables: () => storeHoldsTables(String(engineConfig.baseDbPath)) })),
+        ...buildLicenceSurface(licenceLedger, cfg, async changes => {
+          assertEmbeddingChangeAllowed({ current: cfg(), changes, layout: l, active: engineConfig, holdsTables: () => storeHoldsTables(String(engineConfig.baseDbPath)) });
+          await validateMediaChanges(cfg(), changes);
+        }),
         ...buildMemoryModelsSurface({
           status: () => memoryModelStatus(engineConfig, cfg(), storeHoldsTables(String(engineConfig.baseDbPath))),
-          check: changes => embeddingChange({ current: cfg(), changes, layout: l, active: engineConfig, holdsTables: () => storeHoldsTables(String(engineConfig.baseDbPath)), acceptances: licenceLedger.list() }),
+          check: async changes => {
+            await validateMediaChanges(cfg(), changes);
+            return embeddingChange({ current: cfg(), changes, layout: l, active: engineConfig, holdsTables: () => storeHoldsTables(String(engineConfig.baseDbPath)), acceptances: licenceLedger.list() });
+          },
           canSwitch: () => typeof reembedEnginePort.validate === "function",
         }),
         ...sessionTranscriptSurface({ sessions: () => sessions?.store ?? null, lookup: id => sessions?.forSession(id).store ?? null, breakglass, ownership, personOf }),
         ...buildAuthSurface(() => turnComposition?.openai.auth ?? null),
         ...buildAgentCreationSurface(creation),
-        ...buildChannelSurface({ config: cfg, source: cs, secrets: secretStore, identity: () => identity, registry: () => switchboard?.view ?? null, audit: rbacAudit, clock }),
+        ...buildChannelSurface({ config: cfg, source: cs, secrets: secretStore, identity: () => identity, registry: () => switchboard?.view ?? null, audit: rbacAudit, clock,
+          redactor: secretStore.redaction.redactor(), knownValueRedactor: secretStore.redaction.redactor({ secretsOnly: true }) }),
         // D4 / D111: logs.query / logs.tail / logs.levels over <home>/logs; RBAC-guarded below (RPC_RULES).
         ...createLogsMethods({
           dir: l.logs, signal: shutdown.signal, redactor: secretStore.redaction.redactor(),
@@ -1093,7 +1187,7 @@ export function createCore(o: CoreOptions): Core {
       // The other caller-taking memory ops (forget, correct, share, state, propose, proposals.*) act as the principal derived from `caller`: bind it to the authenticated person like memory.list/show and session.*.
       Object.assign(rawMethods, memoryCallerAccess({ methods: rawMethods, ownership, resolve: resolvePrincipal }));
       let initialDoctorCheck: (() => Promise<unknown>) | undefined;
-      Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock, sandboxRequired: () => cfg().tools.sandbox.required, sandboxMaxTasks: () => cfg().tools.sandbox.maxTasks, toolEvalDefaults: () => configuredDefaults(cfg()), redactor: secretStore.redaction.redactor({ pii: true }), capabilityStatus: () => turnComposition?.capabilities.status(), turnTelemetry: () => metrics.turnTelemetrySummary(), miningStatus: () => turnComposition?.mining.status(), compositionChecks: () => (turnComposition?.refusedProviders ?? []).map(r => ({ id: `providers.${r.provider.toLowerCase().replace(/[^a-z0-9._-]/g, "-").slice(0, 80)}`, status: "fail" as const, summary: `turn provider ${r.provider} refused (${r.code}): ${r.reason}` })), scheduleInitial: start => { initialDoctorCheck = start; }, coreChecks: () => [localOnlyCheck(cfg()), ...emailAuthChecks(cfg())] }));
+      Object.assign(rawMethods, buildDoctorMethods({ home: l.home, clock, sandboxRequired: () => cfg().tools.sandbox.required, sandboxMaxTasks: () => cfg().tools.sandbox.maxTasks, toolEvalDefaults: () => configuredDefaults(cfg()), redactor: secretStore.redaction.redactor({ pii: true }), capabilityStatus: () => turnComposition?.capabilities.status(), turnTelemetry: () => metrics.turnTelemetrySummary(), miningStatus: () => turnComposition?.mining.status(), compositionChecks: () => (turnComposition?.refusedProviders ?? []).map(r => ({ id: `providers.${r.provider.toLowerCase().replace(/[^a-z0-9._-]/g, "-").slice(0, 80)}`, status: "fail" as const, summary: `turn provider ${r.provider} refused (${r.code}): ${r.reason}` })), scheduleInitial: start => { initialDoctorCheck = start; }, coreChecks: () => [localOnlyCheck(cfg()), ...emailAuthChecks(cfg()), { id: "tools.service", status: toolsService?.snapshot().ready ? "ok" as const : "fail" as const, summary: toolsService?.snapshot().ready ? "Native tools service is ready." : "Native tools service is unavailable; Core turns continue." }] }));
       Object.assign(rawMethods, attachUserJobMethods({ ...rawMethods }, userJobs, resolvePrincipal));
       // events.subscribe is handled in the shared transport; this guard still supplies its admission/audit.
       rawMethods["events.subscribe"] = async () => ({});
@@ -1123,7 +1217,7 @@ export function createCore(o: CoreOptions): Core {
         engineToken: () => { try { return readRunToken(l.home, engineRunFiles(l.home).token); } catch { return undefined; } },
         canReadAgent: async (ctx, agentId) => authorize(await resolvePrincipal(ctx, "events.subscribe", { agentId }), "agent.read", { kind: "agent", agentId }, { now: clock() }).effect === "allow",
         address, token, apiToken, authorizeClient: hostClients.authorize, apiPrincipalOf: apiIdentity.forwarded, onApiAuthenticated: apiIdentity.authenticated, apiPersonOfConnection: async (connectionId, p) => { const who = apiIdentity.resolve({ requestId: "audience", connectionId, signal: shutdown.signal }); return who?.kind === "person" && who.userId === p.userId ? who.userId : null; }, personOfConnection: async connectionId => { const p = await resolvePrincipal({ requestId: "audience", connectionId, signal: shutdown.signal }, "events.subscribe", {}); return p?.kind === "person" ? p.userId : null; }, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
-        onConnectionClosed: (id) => { apiIdentity.closed(id); orphans?.connectionClosed(id); void turnComposition?.voice.v3.connectionClosed(id); },
+        onConnectionClosed: (id) => { turnComposition?.codeSessions?.connectionClosed(id); apiIdentity.closed(id); orphans?.connectionClosed(id); void turnComposition?.voice.v3.connectionClosed(id); },
         onCall: (method, result) => metrics.rpcCall(method, result),
       });
 
@@ -1142,6 +1236,7 @@ export function createCore(o: CoreOptions): Core {
       platform.securePath(engineModelsPath);
       writeFileSync(l.corePid, `${process.pid} ${instanceId}\n`, { mode: 0o600 }); // S6
       platform.securePath(l.coreToken); platform.securePath(l.corePid);
+      toolsService.start();
       extensionSpawnSecrets = await startExtensionSpawnSecrets({ home: l.home, token, store: secretStore,
         definition: name => installedExtensionSecretDefinition(l.home, name) });
       await importComposition?.listen(token);
@@ -1281,7 +1376,7 @@ export function createCore(o: CoreOptions): Core {
       await step(log, "import source secrets close", async () => { await importComposition?.close(); importComposition = null; });
       statusClosed = true; warmup?.abort(); if (warmingTimer) { clearTimeout(warmingTimer); warmingTimer = null; }
       orphans?.dispose();
-      await step(log, "config watch", async () => { await source?.close(); });
+      await step(log, "config watch", async () => { stopConfigDisclosure?.(); await source?.close(); });
       await step(log, "channels stop", async () => { await switchboard?.stop(); }); switchboard = null;
       if (userJobsTimer) { clearInterval(userJobsTimer); userJobsTimer = null; }
       await step(log, "sessions close", async () => { await turnComposition?.close(); turnComposition = null; }); sessions = null;
@@ -1291,6 +1386,7 @@ export function createCore(o: CoreOptions): Core {
       await userJobs?.drain(); userJobs?.close(); userJobs = null; delivery?.close(); delivery = null; handoff?.close(); handoff = null;
       await step(log, "permissions close", async () => { permissionNotifier?.close(); await permissions?.close(); }); permissions = null; permissionNotifier = null;
       await step(log, "budget close", () => { budget?.close(); budget = null; });
+      await step(log, "tools close", async () => { await toolsService?.close(); });
       await step(log, "engine close", async () => { await engine?.close({ budgetMs: 5_000 }); }); engine = null;
       await step(log, "metrics close", async () => { await metricsHttp?.close(); }); metricsHttp = null;
       await step(log, "admin stores close", () => { inbox?.close(); inbox = null; modelLicences?.close(); modelLicences = null; adminPeople?.close(); adminPeople = null; hostClients?.close(); hostClients = null; agentLifecycle?.close(); agentLifecycle = null; memorySensitivity?.close(); memorySensitivity = null; });
@@ -1358,7 +1454,7 @@ export function createCore(o: CoreOptions): Core {
       });
       orphans?.dispose(); // closing connections from here on is the stop itself, not a lost lifeline
       const errors: unknown[] = [];
-      await step(logger, "config watch", async () => { await source?.close(); }, errors);
+      await step(logger, "config watch", async () => { stopConfigDisclosure?.(); await source?.close(); }, errors);
       // H3B-R2: the abort acts between lines; the capture in flight gets a bounded wait before the engine closes. A
       // replay still running then leaves its `.replaying-<pid>` file for the next start, and logs nothing more.
       await step(logger, "journal replay", async () => {
@@ -1376,8 +1472,10 @@ export function createCore(o: CoreOptions): Core {
       await step(logger, "channels stop", async () => { await switchboard?.stop(); switchboard = null; }, errors); // adapters first: no inbound message may reach a closing session store
       if (userJobsTimer) { clearInterval(userJobsTimer); userJobsTimer = null; }
       await step(logger, "sessions close", async () => { await turnComposition?.close(); turnComposition = null; sessions = null; }, errors);
+      await step(logger, "Secret-Store close", async () => { await coreSecretStore?.close(); }, errors);
       // A re-embedding run in flight ends at its next batch boundary (aborted, resumable) before the engine closes under it.
       await step(logger, "re-embedding run", async () => { await reembed?.stop(Math.min(REPLAY_STOP_WAIT_MS, budgetMs / 2)); }, errors);
+      await step(logger, "tools close", async () => { await toolsService?.close(); }, errors);
       await step(logger, "engine close", async () => { await engine?.close({ budgetMs: remaining() }); }, errors);
       await step(logger, "admin stores close", () => { inbox?.close(); inbox = null; modelLicences?.close(); modelLicences = null; adminPeople?.close(); adminPeople = null; hostClients?.close(); hostClients = null; agentLifecycle?.close(); agentLifecycle = null; memorySensitivity?.close(); memorySensitivity = null; }, errors);
       await userJobs?.drain(); userJobs?.close(); userJobs = null; delivery?.close(); delivery = null; handoff?.close(); handoff = null;

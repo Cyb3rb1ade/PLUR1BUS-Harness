@@ -107,6 +107,13 @@
             "type": "object",
             "additionalProperties": false,
             "properties": {
+              "coding": {
+                "description": "Enable the static coding profile and pre-admit registered coding tools. Filesystem permissions and grants stay unchanged.",
+                "type": "boolean",
+                "default": false,
+                "x-restart": "live",
+                "x-tier": "advanced"
+              },
               "behaviour": {
                 "type": "object",
                 "x-restart": "live",
@@ -2632,7 +2639,8 @@
                             "description": "Exact configured endpoint, when the provider has one.",
                             "type": "string",
                             "format": "uri",
-                            "maxLength": 2048
+                            "maxLength": 2048,
+                            "x-url-credentials": true
                           }
                         }
                       },
@@ -2669,6 +2677,213 @@
                         "x-restart": "core",
                         "x-tier": "basic"
                       },
+                      "image": {
+                        "description": "Image preprocessing token budget (owner E3).",
+                        "type": "object",
+                        "additionalProperties": false,
+                        "x-restart": "core",
+                        "x-tier": "advanced",
+                        "properties": {
+                          "softTokens": {
+                            "x-sensitive": false,
+                            "description": "Soft token budget per photo; changing it changes the media vector space.",
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 280,
+                            "x-restart": "core",
+                            "x-tier": "advanced"
+                          }
+                        }
+                      },
+                      "dtypes": {
+                        "description": "Pinned encoder precision per platform (owner E2): q8 until a separate measured decision. Audio always uses q8.",
+                        "type": "object",
+                        "additionalProperties": false,
+                        "x-restart": "core",
+                        "x-tier": "advanced",
+                        "properties": {
+                          "linux-x64": {
+                            "description": "Encoder precision on linux-x64.",
+                            "type": "object",
+                            "additionalProperties": false,
+                            "x-restart": "core",
+                            "x-tier": "advanced",
+                            "properties": {
+                              "text": {
+                                "description": "Pinned text encoder precision.",
+                                "type": "string",
+                                "enum": [
+                                  "q8"
+                                ],
+                                "x-restart": "core",
+                                "x-tier": "advanced"
+                              },
+                              "vision": {
+                                "description": "Pinned vision encoder precision.",
+                                "type": "string",
+                                "enum": [
+                                  "q8"
+                                ],
+                                "x-restart": "core",
+                                "x-tier": "advanced"
+                              },
+                              "audio": {
+                                "description": "Pinned audio encoder precision.",
+                                "type": "string",
+                                "enum": [
+                                  "q8"
+                                ],
+                                "x-restart": "core",
+                                "x-tier": "advanced"
+                              }
+                            }
+                          },
+                          "linux-arm64": {
+                            "description": "Encoder precision on linux-arm64.",
+                            "type": "object",
+                            "additionalProperties": false,
+                            "x-restart": "core",
+                            "x-tier": "advanced",
+                            "properties": {
+                              "text": {
+                                "description": "Pinned text encoder precision.",
+                                "type": "string",
+                                "enum": [
+                                  "q8"
+                                ],
+                                "x-restart": "core",
+                                "x-tier": "advanced"
+                              },
+                              "vision": {
+                                "description": "Pinned vision encoder precision.",
+                                "type": "string",
+                                "enum": [
+                                  "q8"
+                                ],
+                                "x-restart": "core",
+                                "x-tier": "advanced"
+                              },
+                              "audio": {
+                                "description": "Pinned audio encoder precision.",
+                                "type": "string",
+                                "enum": [
+                                  "q8"
+                                ],
+                                "x-restart": "core",
+                                "x-tier": "advanced"
+                              }
+                            }
+                          },
+                          "darwin-arm64": {
+                            "description": "Encoder precision on darwin-arm64.",
+                            "type": "object",
+                            "additionalProperties": false,
+                            "x-restart": "core",
+                            "x-tier": "advanced",
+                            "properties": {
+                              "text": {
+                                "description": "Pinned text encoder precision.",
+                                "type": "string",
+                                "enum": [
+                                  "q8"
+                                ],
+                                "x-restart": "core",
+                                "x-tier": "advanced"
+                              },
+                              "vision": {
+                                "description": "Pinned vision encoder precision.",
+                                "type": "string",
+                                "enum": [
+                                  "q8"
+                                ],
+                                "x-restart": "core",
+                                "x-tier": "advanced"
+                              },
+                              "audio": {
+                                "description": "Pinned audio encoder precision.",
+                                "type": "string",
+                                "enum": [
+                                  "q8"
+                                ],
+                                "x-restart": "core",
+                                "x-tier": "advanced"
+                              }
+                            }
+                          },
+                          "win32-x64": {
+                            "description": "Encoder precision on win32-x64.",
+                            "type": "object",
+                            "additionalProperties": false,
+                            "x-restart": "core",
+                            "x-tier": "advanced",
+                            "properties": {
+                              "text": {
+                                "description": "Pinned text encoder precision.",
+                                "type": "string",
+                                "enum": [
+                                  "q8"
+                                ],
+                                "x-restart": "core",
+                                "x-tier": "advanced"
+                              },
+                              "vision": {
+                                "description": "Pinned vision encoder precision.",
+                                "type": "string",
+                                "enum": [
+                                  "q8"
+                                ],
+                                "x-restart": "core",
+                                "x-tier": "advanced"
+                              },
+                              "audio": {
+                                "description": "Pinned audio encoder precision.",
+                                "type": "string",
+                                "enum": [
+                                  "q8"
+                                ],
+                                "x-restart": "core",
+                                "x-tier": "advanced"
+                              }
+                            }
+                          },
+                          "win32-arm64": {
+                            "description": "Encoder precision on win32-arm64.",
+                            "type": "object",
+                            "additionalProperties": false,
+                            "x-restart": "core",
+                            "x-tier": "advanced",
+                            "properties": {
+                              "text": {
+                                "description": "Pinned text encoder precision.",
+                                "type": "string",
+                                "enum": [
+                                  "q8"
+                                ],
+                                "x-restart": "core",
+                                "x-tier": "advanced"
+                              },
+                              "vision": {
+                                "description": "Pinned vision encoder precision.",
+                                "type": "string",
+                                "enum": [
+                                  "q8"
+                                ],
+                                "x-restart": "core",
+                                "x-tier": "advanced"
+                              },
+                              "audio": {
+                                "description": "Pinned audio encoder precision.",
+                                "type": "string",
+                                "enum": [
+                                  "q8"
+                                ],
+                                "x-restart": "core",
+                                "x-tier": "advanced"
+                              }
+                            }
+                          }
+                        }
+                      },
                       "video": {
                         "description": "How video is cut into segments and frames before embedding.",
                         "type": "object",
@@ -2695,6 +2910,15 @@
                             "type": "boolean",
                             "x-restart": "core",
                             "x-tier": "advanced"
+                          },
+                          "softTokens": {
+                            "x-sensitive": false,
+                            "description": "Soft token budget per video frame (owner E3); changing it changes the media vector space.",
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 280,
+                            "x-restart": "core",
+                            "x-tier": "advanced"
                           }
                         }
                       },
@@ -2704,10 +2928,10 @@
                         "additionalProperties": false,
                         "properties": {
                           "segmentSec": {
-                            "description": "Length of one audio segment in seconds.",
+                            "description": "Length of one audio segment in seconds; the model silently truncates above 30 (owner E8).",
                             "type": "integer",
                             "minimum": 1,
-                            "maximum": 3600,
+                            "maximum": 30,
                             "x-restart": "core",
                             "x-tier": "advanced"
                           },
@@ -2783,7 +3007,8 @@
                                 "description": "Exact configured endpoint, when the provider has one.",
                                 "type": "string",
                                 "format": "uri",
-                                "maxLength": 2048
+                                "maxLength": 2048,
+                                "x-url-credentials": true
                               }
                             }
                           },
@@ -3008,7 +3233,8 @@
                       "description": "Exact configured endpoint, when the provider has one.",
                       "type": "string",
                       "format": "uri",
-                      "maxLength": 2048
+                      "maxLength": 2048,
+                      "x-url-credentials": true
                     }
                   }
                 },
@@ -3052,6 +3278,236 @@
                   "x-restart": "core",
                   "x-tier": "basic"
                 },
+                "image": {
+                  "description": "Image preprocessing token budget (owner E3).",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "x-restart": "core",
+                  "x-tier": "advanced",
+                  "properties": {
+                    "softTokens": {
+                      "x-sensitive": false,
+                      "description": "Soft token budget per photo; changing it changes the media vector space.",
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 280,
+                      "default": 140,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
+                    }
+                  }
+                },
+                "dtypes": {
+                  "description": "Pinned encoder precision per platform (owner E2): q8 until a separate measured decision. Audio always uses q8.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "default": {},
+                  "x-restart": "core",
+                  "x-tier": "advanced",
+                  "properties": {
+                    "linux-x64": {
+                      "description": "Encoder precision on linux-x64.",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "default": {},
+                      "x-restart": "core",
+                      "x-tier": "advanced",
+                      "properties": {
+                        "text": {
+                          "description": "Pinned text encoder precision.",
+                          "type": "string",
+                          "enum": [
+                            "q8"
+                          ],
+                          "default": "q8",
+                          "x-restart": "core",
+                          "x-tier": "advanced"
+                        },
+                        "vision": {
+                          "description": "Pinned vision encoder precision.",
+                          "type": "string",
+                          "enum": [
+                            "q8"
+                          ],
+                          "default": "q8",
+                          "x-restart": "core",
+                          "x-tier": "advanced"
+                        },
+                        "audio": {
+                          "description": "Pinned audio encoder precision.",
+                          "type": "string",
+                          "enum": [
+                            "q8"
+                          ],
+                          "default": "q8",
+                          "x-restart": "core",
+                          "x-tier": "advanced"
+                        }
+                      }
+                    },
+                    "linux-arm64": {
+                      "description": "Encoder precision on linux-arm64.",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "default": {},
+                      "x-restart": "core",
+                      "x-tier": "advanced",
+                      "properties": {
+                        "text": {
+                          "description": "Pinned text encoder precision.",
+                          "type": "string",
+                          "enum": [
+                            "q8"
+                          ],
+                          "default": "q8",
+                          "x-restart": "core",
+                          "x-tier": "advanced"
+                        },
+                        "vision": {
+                          "description": "Pinned vision encoder precision.",
+                          "type": "string",
+                          "enum": [
+                            "q8"
+                          ],
+                          "default": "q8",
+                          "x-restart": "core",
+                          "x-tier": "advanced"
+                        },
+                        "audio": {
+                          "description": "Pinned audio encoder precision.",
+                          "type": "string",
+                          "enum": [
+                            "q8"
+                          ],
+                          "default": "q8",
+                          "x-restart": "core",
+                          "x-tier": "advanced"
+                        }
+                      }
+                    },
+                    "darwin-arm64": {
+                      "description": "Encoder precision on darwin-arm64.",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "default": {},
+                      "x-restart": "core",
+                      "x-tier": "advanced",
+                      "properties": {
+                        "text": {
+                          "description": "Pinned text encoder precision.",
+                          "type": "string",
+                          "enum": [
+                            "q8"
+                          ],
+                          "default": "q8",
+                          "x-restart": "core",
+                          "x-tier": "advanced"
+                        },
+                        "vision": {
+                          "description": "Pinned vision encoder precision.",
+                          "type": "string",
+                          "enum": [
+                            "q8"
+                          ],
+                          "default": "q8",
+                          "x-restart": "core",
+                          "x-tier": "advanced"
+                        },
+                        "audio": {
+                          "description": "Pinned audio encoder precision.",
+                          "type": "string",
+                          "enum": [
+                            "q8"
+                          ],
+                          "default": "q8",
+                          "x-restart": "core",
+                          "x-tier": "advanced"
+                        }
+                      }
+                    },
+                    "win32-x64": {
+                      "description": "Encoder precision on win32-x64.",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "default": {},
+                      "x-restart": "core",
+                      "x-tier": "advanced",
+                      "properties": {
+                        "text": {
+                          "description": "Pinned text encoder precision.",
+                          "type": "string",
+                          "enum": [
+                            "q8"
+                          ],
+                          "default": "q8",
+                          "x-restart": "core",
+                          "x-tier": "advanced"
+                        },
+                        "vision": {
+                          "description": "Pinned vision encoder precision.",
+                          "type": "string",
+                          "enum": [
+                            "q8"
+                          ],
+                          "default": "q8",
+                          "x-restart": "core",
+                          "x-tier": "advanced"
+                        },
+                        "audio": {
+                          "description": "Pinned audio encoder precision.",
+                          "type": "string",
+                          "enum": [
+                            "q8"
+                          ],
+                          "default": "q8",
+                          "x-restart": "core",
+                          "x-tier": "advanced"
+                        }
+                      }
+                    },
+                    "win32-arm64": {
+                      "description": "Encoder precision on win32-arm64.",
+                      "type": "object",
+                      "additionalProperties": false,
+                      "default": {},
+                      "x-restart": "core",
+                      "x-tier": "advanced",
+                      "properties": {
+                        "text": {
+                          "description": "Pinned text encoder precision.",
+                          "type": "string",
+                          "enum": [
+                            "q8"
+                          ],
+                          "default": "q8",
+                          "x-restart": "core",
+                          "x-tier": "advanced"
+                        },
+                        "vision": {
+                          "description": "Pinned vision encoder precision.",
+                          "type": "string",
+                          "enum": [
+                            "q8"
+                          ],
+                          "default": "q8",
+                          "x-restart": "core",
+                          "x-tier": "advanced"
+                        },
+                        "audio": {
+                          "description": "Pinned audio encoder precision.",
+                          "type": "string",
+                          "enum": [
+                            "q8"
+                          ],
+                          "default": "q8",
+                          "x-restart": "core",
+                          "x-tier": "advanced"
+                        }
+                      }
+                    }
+                  }
+                },
                 "video": {
                   "description": "How video is cut into segments and frames before embedding.",
                   "type": "object",
@@ -3082,6 +3538,16 @@
                       "default": true,
                       "x-restart": "core",
                       "x-tier": "advanced"
+                    },
+                    "softTokens": {
+                      "x-sensitive": false,
+                      "description": "Soft token budget per video frame (owner E3); changing it changes the media vector space.",
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 280,
+                      "default": 70,
+                      "x-restart": "core",
+                      "x-tier": "advanced"
                     }
                   }
                 },
@@ -3092,10 +3558,10 @@
                   "default": {},
                   "properties": {
                     "segmentSec": {
-                      "description": "Length of one audio segment in seconds.",
+                      "description": "Length of one audio segment in seconds; the model silently truncates above 30 (owner E8).",
                       "type": "integer",
                       "minimum": 1,
-                      "maximum": 3600,
+                      "maximum": 30,
                       "default": 30,
                       "x-restart": "core",
                       "x-tier": "advanced"
@@ -3175,7 +3641,8 @@
                           "description": "Exact configured endpoint, when the provider has one.",
                           "type": "string",
                           "format": "uri",
-                          "maxLength": 2048
+                          "maxLength": 2048,
+                          "x-url-credentials": true
                         }
                       }
                     },
@@ -3204,7 +3671,7 @@
                     "auto",
                     "manual"
                   ],
-                  "default": "auto",
+                  "default": "manual",
                   "x-restart": "core",
                   "x-tier": "advanced"
                 }
@@ -3213,13 +3680,303 @@
           }
         },
         "providers": {
-          "description": "Reserved namespace for model-provider configuration.",
+          "description": "Open namespace for provider definitions. Non-validating privacy metadata follows the existing auth, MCP and media consumers.",
           "type": "object",
           "default": {},
           "x-restart": "live",
           "x-tier": "basic",
           "x-reserved": "M2 (D15)",
-          "additionalProperties": true
+          "additionalProperties": true,
+          "x-value-schema": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "apiKeyRef": {
+                  "description": "Legacy provider reference used by agent provisioning and secret_names; auth profiles use profile.secret_ref.",
+                  "type": "string",
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
+                },
+                "profile": {
+                  "type": "object",
+                  "properties": {
+                    "secret_ref": {
+                      "description": "Auth profile secret-store reference.",
+                      "type": "string",
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/backupSecretName"
+                      }
+                    },
+                    "extra_headers": {
+                      "description": "Configured request header values, irrespective of header names.",
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "x-sensitive": true
+                    },
+                    "base_url": {
+                      "description": "Provider base URL.",
+                      "type": "string",
+                      "x-url-credentials": true
+                    },
+                    "authorizeUrl": {
+                      "description": "Authorization endpoint URL.",
+                      "type": "string",
+                      "x-url-credentials": true
+                    },
+                    "tokenUrl": {
+                      "description": "Token endpoint URL.",
+                      "type": "string",
+                      "x-url-credentials": true
+                    },
+                    "deviceUrl": {
+                      "description": "Device authorization endpoint URL.",
+                      "type": "string",
+                      "x-url-credentials": true
+                    },
+                    "authorization_endpoint": {
+                      "description": "Authorization endpoint URL (legacy spelling).",
+                      "type": "string",
+                      "x-url-credentials": true
+                    },
+                    "token_endpoint": {
+                      "description": "Token endpoint URL (legacy spelling).",
+                      "type": "string",
+                      "x-url-credentials": true
+                    },
+                    "device_authorization_endpoint": {
+                      "description": "Device authorization endpoint URL (legacy spelling).",
+                      "type": "string",
+                      "x-url-credentials": true
+                    },
+                    "revocation_endpoint": {
+                      "description": "Credential revocation endpoint URL.",
+                      "type": "string",
+                      "x-url-credentials": true
+                    },
+                    "id": {
+                      "type": "string",
+                      "description": "Public provider profile identifier, capability or authentication policy metadata."
+                    },
+                    "display_name": {
+                      "type": "string",
+                      "description": "Public provider profile identifier, capability or authentication policy metadata."
+                    },
+                    "kind": {
+                      "type": "string",
+                      "description": "Public provider profile identifier, capability or authentication policy metadata."
+                    },
+                    "audience": {
+                      "type": "string",
+                      "description": "Public provider profile identifier, capability or authentication policy metadata."
+                    },
+                    "client_registration": {
+                      "type": "string",
+                      "description": "Public provider profile identifier, capability or authentication policy metadata."
+                    },
+                    "client_id": {
+                      "type": "string",
+                      "description": "Public provider profile identifier, capability or authentication policy metadata."
+                    },
+                    "pkce": {
+                      "type": "string",
+                      "description": "Public provider profile identifier, capability or authentication policy metadata."
+                    },
+                    "policy_status": {
+                      "type": "string",
+                      "description": "Public provider profile identifier, capability or authentication policy metadata."
+                    },
+                    "policy_source": {
+                      "type": "string",
+                      "description": "Public provider profile identifier, capability or authentication policy metadata."
+                    },
+                    "policy_checked": {
+                      "type": "string",
+                      "description": "Public provider profile identifier, capability or authentication policy metadata."
+                    },
+                    "auth_header_scheme": {
+                      "type": "string",
+                      "x-sensitive": false,
+                      "description": "Header template containing {token}; the supplied credential is stored separately."
+                    },
+                    "capabilities": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Public capability or requested scope names."
+                    },
+                    "scopes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Public capability or requested scope names."
+                    },
+                    "person_bound": {
+                      "type": "boolean"
+                    },
+                    "redirect": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "port": {
+                          "type": "integer"
+                        }
+                      }
+                    },
+                    "refresh": {
+                      "type": "object",
+                      "properties": {
+                        "mode": {
+                          "type": "string"
+                        },
+                        "refresh_skew_seconds": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                },
+                "entries": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "secretRef": {
+                        "description": "Credential pool secret-store reference.",
+                        "type": "string",
+                        "x-sensitive": true,
+                        "x-secret-reference": {
+                          "$ref": "#/$defs/backupSecretName"
+                        }
+                      },
+                      "id": {
+                        "type": "string",
+                        "description": "Public credential pool entry identity."
+                      }
+                    }
+                  }
+                },
+                "wireFormat": {
+                  "type": "string",
+                  "description": "Public provider protocol selector."
+                }
+              }
+            },
+            "properties": {
+              "media": {
+                "type": "object",
+                "properties": {
+                  "adapters": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "secretRef": {
+                          "description": "Media adapter secret-store reference.",
+                          "type": "string",
+                          "x-sensitive": true,
+                          "x-secret-reference": {
+                            "$ref": "#/$defs/backupSecretName"
+                          }
+                        },
+                        "baseUrl": {
+                          "description": "Media generation base URL.",
+                          "type": "string",
+                          "x-url-credentials": true
+                        },
+                        "model": {
+                          "type": "string",
+                          "description": "Public media model identifier."
+                        },
+                        "id": {
+                          "type": "string",
+                          "description": "Public media adapter identity."
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "mcp": {
+                "type": "object",
+                "properties": {
+                  "servers": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "authSecret": {
+                          "description": "MCP server secret-store reference.",
+                          "type": "string",
+                          "x-sensitive": true,
+                          "x-secret-reference": {
+                            "$ref": "#/$defs/backupSecretName"
+                          }
+                        },
+                        "transport": {
+                          "type": "object",
+                          "properties": {
+                            "url": {
+                              "description": "MCP HTTP endpoint URL.",
+                              "type": "string",
+                              "x-url-credentials": true
+                            },
+                            "headers": {
+                              "description": "Configured MCP request header values.",
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string"
+                              },
+                              "x-sensitive": true
+                            },
+                            "env": {
+                              "description": "Explicit child environment values may contain credentials.",
+                              "x-text-credentials": "parts",
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string"
+                              },
+                              "x-sensitive": true
+                            },
+                            "args": {
+                              "description": "Explicit child arguments may contain credentials.",
+                              "x-text-credentials": "parts",
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "x-sensitive": true
+                              }
+                            },
+                            "type": {
+                              "type": "string",
+                              "description": "Public MCP transport selector."
+                            },
+                            "command": {
+                              "type": "string",
+                              "description": "Executable path; credential arguments are separate."
+                            }
+                          }
+                        },
+                        "name": {
+                          "type": "string",
+                          "description": "Public MCP server name."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
         },
         "modelRoles": {
           "description": "Model identifiers assigned to the supported functional roles. The summarize role is the model that writes session compaction summaries (a profile name or provider/model); when it is unset, compaction falls back to its deterministic digest. The embedding and rerank roles are still accepted but select no model: the memory engine takes its models from engine.embedding and engine.reranker.",
@@ -3891,7 +4648,8 @@
                 "type": "string",
                 "maxLength": 2048,
                 "format": "uri",
-                "pattern": "^(https?|valkey|redis)://[^/@#]+(?:/[^#]*)?$"
+                "pattern": "^(https?|valkey|redis)://[^/@#]+(?:/[^#]*)?$",
+                "x-url-credentials": true
               },
               "caBundle": {
                 "description": "Optional PEM trust bundle for the remote HTTPS host.",
@@ -4018,7 +4776,8 @@
                 "owner",
                 "admin"
               ],
-              "x-audit": true
+              "x-audit": true,
+              "x-url-credentials": true
             },
             "bind": {
               "type": "object",
@@ -4375,7 +5134,8 @@
                 "admin"
               ],
               "x-audit": true,
-              "pattern": "^(?:$|https://[^/?#@]+(?:/[^?#]*)?|http://(?:127\\.0\\.0\\.1|\\[::1\\]|localhost)(?::[0-9]{1,5})?(?:/[^?#]*)?)$"
+              "pattern": "^(?:$|https://[^/?#@]+(?:/[^?#]*)?|http://(?:127\\.0\\.0\\.1|\\[::1\\]|localhost)(?::[0-9]{1,5})?(?:/[^?#]*)?)$",
+              "x-url-credentials": true
             },
             "logLevel": {
               "description": "Minimum severity written to the core log.",
@@ -4516,6 +5276,27 @@
           "type": "object",
           "additionalProperties": false,
           "default": {},
+          "x-value-schema": {
+            "description": "Diagnostic-only privacy metadata for retired OTLP settings; these keys remain invalid configuration.",
+            "properties": {
+              "otlp": {
+                "type": "object",
+                "properties": {
+                  "endpoint": {
+                    "type": "string",
+                    "x-url-credentials": true
+                  },
+                  "headers": {
+                    "type": "object",
+                    "x-sensitive": true,
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "properties": {
             "maxBytes": {
               "description": "Maximum size of each log file before rotation, in bytes.",
@@ -4660,7 +5441,8 @@
                       "description": "Exact configured endpoint, when the provider has one.",
                       "type": "string",
                       "format": "uri",
-                      "maxLength": 2048
+                      "maxLength": 2048,
+                      "x-url-credentials": true
                     }
                   }
                 }
@@ -4710,7 +5492,8 @@
                       "description": "Exact configured endpoint, when the provider has one.",
                       "type": "string",
                       "format": "uri",
-                      "maxLength": 2048
+                      "maxLength": 2048,
+                      "x-url-credentials": true
                     }
                   }
                 }
@@ -4724,6 +5507,597 @@
           "default": {},
           "x-restart": "core",
           "x-tier": "advanced",
+          "x-value-schema": {
+            "type": "object",
+            "properties": {
+              "embedding": {
+                "type": "object",
+                "properties": {
+                  "apiKey": {
+                    "type": [
+                      "string",
+                      "object"
+                    ],
+                    "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupEngineSecretReference"
+                    },
+                    "additionalProperties": false,
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "env",
+                          "store",
+                          "file",
+                          "exec"
+                        ]
+                      },
+                      "provider": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    },
+                    "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+                  },
+                  "fallback": {
+                    "type": "object",
+                    "properties": {
+                      "apiKey": {
+                        "type": [
+                          "string",
+                          "object"
+                        ],
+                        "x-sensitive": true,
+                        "x-secret-reference": {
+                          "$ref": "#/$defs/backupEngineSecretReference"
+                        },
+                        "additionalProperties": false,
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "env",
+                              "store",
+                              "file",
+                              "exec"
+                            ]
+                          },
+                          "provider": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          }
+                        },
+                        "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+                      },
+                      "baseUrl": {
+                        "type": "string",
+                        "x-url-credentials": true,
+                        "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+                      },
+                      "model": {
+                        "type": "string",
+                        "description": "Public Engine model, workspace or numeric control; not credential material."
+                      }
+                    }
+                  },
+                  "apiKeyRef": {
+                    "type": "string",
+                    "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupSecretName"
+                    },
+                    "description": "Secret-store reference for an Engine credential."
+                  },
+                  "apiKeyEnv": {
+                    "type": "string",
+                    "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/secretEnvironmentName"
+                    },
+                    "description": "Environment reference for an Engine credential."
+                  },
+                  "baseUrl": {
+                    "type": "string",
+                    "x-url-credentials": true,
+                    "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+                  },
+                  "routes": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "provider": {
+                          "type": "object",
+                          "properties": {
+                            "apiKey": {
+                              "type": [
+                                "string",
+                                "object"
+                              ],
+                              "x-sensitive": true,
+                              "x-secret-reference": {
+                                "$ref": "#/$defs/backupEngineSecretReference"
+                              },
+                              "additionalProperties": false,
+                              "properties": {
+                                "source": {
+                                  "type": "string",
+                                  "enum": [
+                                    "env",
+                                    "store",
+                                    "file",
+                                    "exec"
+                                  ]
+                                },
+                                "provider": {
+                                  "type": "string"
+                                },
+                                "id": {
+                                  "type": "string"
+                                }
+                              },
+                              "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+                            },
+                            "apiKeyRef": {
+                              "type": "string",
+                              "x-sensitive": true,
+                              "x-secret-reference": {
+                                "$ref": "#/$defs/backupSecretName"
+                              },
+                              "description": "Secret-store reference for an Engine credential."
+                            },
+                            "apiKeyEnv": {
+                              "type": "string",
+                              "x-sensitive": true,
+                              "x-secret-reference": {
+                                "$ref": "#/$defs/secretEnvironmentName"
+                              },
+                              "description": "Environment reference for an Engine credential."
+                            },
+                            "baseUrl": {
+                              "type": "string",
+                              "x-url-credentials": true,
+                              "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+                            },
+                            "fallback": {
+                              "type": "object",
+                              "properties": {
+                                "apiKey": {
+                                  "type": [
+                                    "string",
+                                    "object"
+                                  ],
+                                  "x-sensitive": true,
+                                  "x-secret-reference": {
+                                    "$ref": "#/$defs/backupEngineSecretReference"
+                                  },
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "source": {
+                                      "type": "string",
+                                      "enum": [
+                                        "env",
+                                        "store",
+                                        "file",
+                                        "exec"
+                                      ]
+                                    },
+                                    "provider": {
+                                      "type": "string"
+                                    },
+                                    "id": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+                                },
+                                "baseUrl": {
+                                  "type": "string",
+                                  "x-url-credentials": true,
+                                  "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "identity": {
+                          "type": "object",
+                          "properties": {
+                            "model": {
+                              "type": "string",
+                              "description": "Public Engine model, workspace or numeric control; not credential material."
+                            },
+                            "tokenCap": {
+                              "type": "integer",
+                              "description": "Public Engine model, workspace or numeric control; not credential material."
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "local": {
+                    "type": "object",
+                    "properties": {
+                      "maxTokens": {
+                        "type": "integer",
+                        "description": "Public Engine model, workspace or numeric control; not credential material."
+                      },
+                      "model": {
+                        "type": "string",
+                        "description": "Public local embedding model identifier."
+                      }
+                    }
+                  },
+                  "model": {
+                    "type": "string",
+                    "description": "Public Engine model, workspace or numeric control; not credential material."
+                  }
+                }
+              },
+              "reranker": {
+                "type": "object",
+                "properties": {
+                  "apiKey": {
+                    "type": [
+                      "string",
+                      "object"
+                    ],
+                    "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupEngineSecretReference"
+                    },
+                    "additionalProperties": false,
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "env",
+                          "store",
+                          "file",
+                          "exec"
+                        ]
+                      },
+                      "provider": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    },
+                    "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+                  },
+                  "apiKeyRef": {
+                    "type": "string",
+                    "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupSecretName"
+                    },
+                    "description": "Secret-store reference for an Engine credential."
+                  },
+                  "apiKeyEnv": {
+                    "type": "string",
+                    "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/secretEnvironmentName"
+                    },
+                    "description": "Environment reference for an Engine credential."
+                  },
+                  "baseUrl": {
+                    "type": "string",
+                    "x-url-credentials": true,
+                    "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+                  }
+                }
+              },
+              "merging": {
+                "type": "object",
+                "properties": {
+                  "apiKey": {
+                    "type": [
+                      "string",
+                      "object"
+                    ],
+                    "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupEngineSecretReference"
+                    },
+                    "additionalProperties": false,
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "env",
+                          "store",
+                          "file",
+                          "exec"
+                        ]
+                      },
+                      "provider": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    },
+                    "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+                  },
+                  "apiKeyRef": {
+                    "type": "string",
+                    "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupSecretName"
+                    },
+                    "description": "Secret-store reference for an Engine credential."
+                  },
+                  "headers": {
+                    "type": "object",
+                    "x-sensitive": true,
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "description": "Engine transport headers; string values are sensitive. This metadata does not restrict the existing pass-through values."
+                  },
+                  "baseUrl": {
+                    "type": "string",
+                    "x-url-credentials": true,
+                    "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+                  },
+                  "model": {
+                    "type": "string",
+                    "description": "Public Engine model, workspace or numeric control; not credential material."
+                  }
+                }
+              },
+              "skillMiner": {
+                "type": "object",
+                "properties": {
+                  "apiKey": {
+                    "type": [
+                      "string",
+                      "object"
+                    ],
+                    "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupEngineSecretReference"
+                    },
+                    "additionalProperties": false,
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "env",
+                          "store",
+                          "file",
+                          "exec"
+                        ]
+                      },
+                      "provider": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    },
+                    "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+                  },
+                  "apiKeyRef": {
+                    "type": "string",
+                    "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupSecretName"
+                    },
+                    "description": "Secret-store reference for an Engine credential."
+                  },
+                  "headers": {
+                    "type": "object",
+                    "x-sensitive": true,
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "description": "Engine transport headers; string values are sensitive. This metadata does not restrict the existing pass-through values."
+                  },
+                  "baseUrl": {
+                    "type": "string",
+                    "x-url-credentials": true,
+                    "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+                  }
+                }
+              },
+              "criticalPush": {
+                "type": "object",
+                "properties": {
+                  "apiKey": {
+                    "type": [
+                      "string",
+                      "object"
+                    ],
+                    "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupEngineSecretReference"
+                    },
+                    "additionalProperties": false,
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "env",
+                          "store",
+                          "file",
+                          "exec"
+                        ]
+                      },
+                      "provider": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    },
+                    "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+                  },
+                  "apiKeyRef": {
+                    "type": "string",
+                    "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupSecretName"
+                    },
+                    "description": "Secret-store reference for an Engine credential."
+                  },
+                  "headers": {
+                    "type": "object",
+                    "x-sensitive": true,
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "description": "Engine transport headers; string values are sensitive. This metadata does not restrict the existing pass-through values."
+                  },
+                  "baseUrl": {
+                    "type": "string",
+                    "x-url-credentials": true,
+                    "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+                  }
+                }
+              },
+              "emotion": {
+                "type": "object",
+                "properties": {
+                  "t3": {
+                    "type": "object",
+                    "properties": {
+                      "apiKey": {
+                        "type": [
+                          "string",
+                          "object"
+                        ],
+                        "x-sensitive": true,
+                        "x-secret-reference": {
+                          "$ref": "#/$defs/backupEngineSecretReference"
+                        },
+                        "additionalProperties": false,
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "env",
+                              "store",
+                              "file",
+                              "exec"
+                            ]
+                          },
+                          "provider": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          }
+                        },
+                        "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+                      },
+                      "apiKeyRef": {
+                        "type": "string",
+                        "x-sensitive": true,
+                        "x-secret-reference": {
+                          "$ref": "#/$defs/backupSecretName"
+                        },
+                        "description": "Secret-store reference for an Engine credential."
+                      },
+                      "baseUrl": {
+                        "type": "string",
+                        "x-url-credentials": true,
+                        "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+                      },
+                      "encodingMaxTokens": {
+                        "type": "integer",
+                        "description": "Public Engine model, workspace or numeric control; not credential material."
+                      }
+                    }
+                  }
+                }
+              },
+              "captureChunkingJev": {
+                "type": "object",
+                "properties": {
+                  "apiKeyEnv": {
+                    "type": "string",
+                    "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/secretEnvironmentName"
+                    },
+                    "description": "Environment reference for an Engine credential."
+                  }
+                }
+              },
+              "reminders": {
+                "type": "object",
+                "properties": {
+                  "webhookUrl": {
+                    "type": "string",
+                    "x-sensitive": true,
+                    "description": "Engine reminder webhook; the complete URL is sensitive because its path may carry the credential."
+                  }
+                }
+              },
+              "neo": {
+                "type": "object",
+                "properties": {
+                  "corpusDefaultWorkspaceKey": {
+                    "type": "string",
+                    "description": "Public Engine model, workspace or numeric control; not credential material.",
+                    "x-sensitive": false
+                  },
+                  "workspaces": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "workspaceKey": {
+                          "type": "string",
+                          "description": "Public Engine model, workspace or numeric control; not credential material.",
+                          "x-sensitive": false
+                        },
+                        "legacyKeys": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Public Engine model, workspace or numeric control; not credential material."
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "recall": {
+                "type": "object",
+                "properties": {
+                  "adaptiveBudget": {
+                    "type": "object",
+                    "properties": {
+                      "tokenBudgetPct": {
+                        "type": "number",
+                        "description": "Public Engine model, workspace or numeric control; not credential material."
+                      }
+                    }
+                  },
+                  "semanticCompression": {
+                    "type": "object",
+                    "properties": {
+                      "tokenBudget": {
+                        "type": "integer",
+                        "description": "Public Engine model, workspace or numeric control; not credential material."
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
           "properties": {
             "implementation": {
               "description": "Memory engine implementation. Rust is experimental and requires the separately running engine process; unavailable engines leave the Core running and recall reports engine-unavailable.",
@@ -4742,6 +6116,61 @@
               "additionalProperties": true,
               "x-restart": "core",
               "x-tier": "advanced",
+              "x-value-schema": {
+                "type": "object",
+                "properties": {
+                  "apiKey": {
+                    "type": [
+                      "string",
+                      "object"
+                    ],
+                    "x-sensitive": true,
+                    "additionalProperties": false,
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "env",
+                          "store",
+                          "file",
+                          "exec"
+                        ]
+                      },
+                      "provider": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    },
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupEngineSecretReference"
+                    },
+                    "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+                  },
+                  "apiKeyRef": {
+                    "type": "string",
+                    "x-sensitive": true,
+                    "x-secret-reference": {
+                      "$ref": "#/$defs/backupSecretName"
+                    },
+                    "description": "Secret-store reference for an Engine credential."
+                  },
+                  "headers": {
+                    "type": "object",
+                    "x-sensitive": true,
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "description": "Engine transport headers; string values are sensitive. This metadata does not restrict the existing pass-through values."
+                  },
+                  "baseUrl": {
+                    "type": "string",
+                    "x-url-credentials": true,
+                    "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+                  }
+                }
+              },
               "properties": {
                 "maxPromotionsPerRun": {
                   "description": "Maximum memories promoted by one knowledge-update run; 0 means unlimited.",
@@ -4898,6 +6327,7 @@
                     "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$"
                   },
                   "keySha256": {
+                    "x-sensitive": false,
                     "description": "SHA-256 hash of the peer's bearer token.",
                     "type": "string",
                     "maxLength": 64,
@@ -5138,7 +6568,11 @@
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 128,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
                 },
                 "kid": {
                   "description": "Key identifier for the signing key.",
@@ -5271,20 +6705,27 @@
                       "description": "File holding the federated token and its expiry, re-read on refresh. Mutually exclusive with command.",
                       "type": "string",
                       "minLength": 1,
-                      "maxLength": 4096
+                      "maxLength": 4096,
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/secretFileReference"
+                      }
                     },
                     "args": {
                       "description": "Arguments passed to command, one array element per argument (no shell interpolation).",
+                      "x-text-credentials": "parts",
                       "type": "array",
                       "maxItems": 128,
                       "items": {
                         "type": "string",
-                        "maxLength": 4096
+                        "maxLength": 4096,
+                        "x-sensitive": true
                       },
                       "default": []
                     },
                     "environment": {
                       "description": "Extra environment variables for command; only these and the built-in allowlist are passed.",
+                      "x-text-credentials": "parts",
                       "type": "object",
                       "propertyNames": {
                         "pattern": "^[A-Z_][A-Z0-9_]*$"
@@ -5294,7 +6735,8 @@
                         "type": "string",
                         "maxLength": 32767
                       },
-                      "default": {}
+                      "default": {},
+                      "x-sensitive": true
                     }
                   },
                   "not": {
@@ -5363,7 +6805,11 @@
                       "maxLength": 128,
                       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                       "x-restart": "live",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/backupSecretName"
+                      }
                     }
                   },
                   "x-restart": "live",
@@ -5397,7 +6843,8 @@
                       "maxLength": 256,
                       "pattern": "^https?://(?:127(?:\\.[0-9]{1,3}){3}|\\[::1\\])(?::[0-9]{1,5})?/v1/systemone$",
                       "x-restart": "live",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-url-credentials": true
                     }
                   },
                   "allOf": [
@@ -5984,7 +7431,8 @@
                 "owner",
                 "admin"
               ],
-              "x-audit": true
+              "x-audit": true,
+              "x-url-credentials": true
             }
           }
         },
@@ -5994,6 +7442,66 @@
           "default": {},
           "description": "Session context maintenance.",
           "properties": {
+            "rewind": {
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "description": "D120 reversible conversation paths. Automatic rewind and file checkpoints each require an explicit project opt-in.",
+              "properties": {
+                "autoProjects": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "uniqueItems": true,
+                  "maxItems": 128,
+                  "default": [],
+                  "description": "Projects that permit automatic rewind after three failed edit/test cycles on unattended D115 cards. Interactive sessions only propose; no file restore is automatic.",
+                  "x-restart": "live",
+                  "x-tier": "advanced",
+                  "x-write-roles": [
+                    "owner",
+                    "admin"
+                  ],
+                  "x-audit": true
+                },
+                "fileProjects": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "uniqueItems": true,
+                  "maxItems": 128,
+                  "default": [],
+                  "description": "Projects that permit tracked-file checkpoints and separately approved file rewind on D115 card sessions. Empty disables capture and file restore.",
+                  "x-restart": "live",
+                  "x-tier": "advanced",
+                  "x-write-roles": [
+                    "owner",
+                    "admin"
+                  ],
+                  "x-audit": true
+                },
+                "checkpointRetentionTurns": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 500,
+                  "default": 50,
+                  "description": "Keep private file-checkpoint refs only within this many recent session turns. Archived sessions and completed cards release their refs earlier.",
+                  "x-restart": "live",
+                  "x-tier": "advanced",
+                  "x-write-roles": [
+                    "owner",
+                    "admin"
+                  ],
+                  "x-audit": true
+                }
+              }
+            },
             "compaction": {
               "type": "object",
               "additionalProperties": false,
@@ -6130,7 +7638,11 @@
                   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                   "default": "channels.discord.token",
                   "x-restart": "module:discord",
-                  "x-tier": "advanced"
+                  "x-tier": "advanced",
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
                 },
                 "applicationId": {
                   "description": "Discord application id (needed to register slash commands). Taken from the gateway READY event when omitted.",
@@ -6256,7 +7768,11 @@
                   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                   "default": "channels.slack.bot-token",
                   "x-restart": "module:slack",
-                  "x-tier": "advanced"
+                  "x-tier": "advanced",
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
                 },
                 "appTokenSecret": {
                   "description": "Name of the secret holding the Slack app-level token (xapp-…) with the connections:write scope, used for Socket Mode.",
@@ -6264,7 +7780,11 @@
                   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                   "default": "channels.slack.app-token",
                   "x-restart": "module:slack",
-                  "x-tier": "advanced"
+                  "x-tier": "advanced",
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
                 },
                 "teamId": {
                   "description": "Slack workspace id; events from other workspaces are ignored when set.",
@@ -6375,6 +7895,7 @@
                   "type": "array",
                   "default": [],
                   "description": "Permitted wss relays; ws only for literal loopback.",
+                  "x-url-credentials": true,
                   "x-restart": "module:buzz",
                   "x-tier": "advanced",
                   "x-write-roles": [
@@ -6401,7 +7922,11 @@
                     "admin"
                   ],
                   "x-audit": true,
-                  "pattern": "^channels\\.buzz\\.[a-zA-Z0-9._-]+$"
+                  "pattern": "^channels\\.buzz\\.[a-zA-Z0-9._-]+$",
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
                 },
                 "senderAllowlist": {
                   "type": "array",
@@ -6505,7 +8030,8 @@
                   "pattern": "^(https://[^\\s/]+|http://(localhost|127\\.[0-9.]+|\\[::1\\])(:[0-9]+)?)(/[^\\s]*)?$",
                   "maxLength": 512,
                   "x-restart": "module:matrix",
-                  "x-tier": "advanced"
+                  "x-tier": "advanced",
+                  "x-url-credentials": true
                 },
                 "userId": {
                   "description": "Matrix id of the bot account, for example @bot:example.org.",
@@ -6521,7 +8047,11 @@
                   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                   "default": "channels.matrix.access-token",
                   "x-restart": "module:matrix",
-                  "x-tier": "advanced"
+                  "x-tier": "advanced",
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
                 },
                 "deviceId": {
                   "description": "Device id of the access token, when the homeserver requires it to be stated.",
@@ -6863,7 +8393,11 @@
                       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                       "default": "channels.email.imap-password",
                       "x-restart": "module:email",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/backupSecretName"
+                      }
                     },
                     "folder": {
                       "description": "IMAP folder to watch.",
@@ -6937,7 +8471,11 @@
                       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                       "default": "channels.email.smtp-password",
                       "x-restart": "module:email",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/backupSecretName"
+                      }
                     }
                   }
                 },
@@ -7036,7 +8574,11 @@
                   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                   "default": "channels.telegram.botToken",
                   "x-restart": "module:telegram",
-                  "x-tier": "advanced"
+                  "x-tier": "advanced",
+                  "x-sensitive": true,
+                  "x-secret-reference": {
+                    "$ref": "#/$defs/backupSecretName"
+                  }
                 },
                 "allowlist": {
                   "description": "Decimal chat IDs (users, groups, supergroups) that may talk to the bot. Empty allows nothing, inbound and outbound.",
@@ -7103,7 +8645,8 @@
                       "format": "uri",
                       "pattern": "^https://",
                       "x-restart": "module:telegram",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-url-credentials": true
                     },
                     "secret": {
                       "description": "Secret token sent in the X-Telegram-Bot-Api-Secret-Token header (1..256 alphanumeric/dash/underscore chars).",
@@ -7707,7 +9250,11 @@
                       "minLength": 1,
                       "maxLength": 200,
                       "x-restart": "live",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/backupSecretName"
+                      }
                     },
                     "region": {
                       "description": "Data-residency region: default (global), us, eu or in. Ignored when baseUrl is set.",
@@ -7726,7 +9273,8 @@
                       "type": "string",
                       "maxLength": 300,
                       "x-restart": "live",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-url-credentials": true
                     },
                     "defaultVoice": {
                       "description": "Voice id used when a request names none.",
@@ -7777,14 +9325,19 @@
                       "minLength": 1,
                       "maxLength": 200,
                       "x-restart": "live",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/backupSecretName"
+                      }
                     },
                     "baseUrl": {
                       "description": "Override of the API base URL (https only, or loopback for a local relay).",
                       "type": "string",
                       "maxLength": 300,
                       "x-restart": "live",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-url-credentials": true
                     },
                     "defaultVoice": {
                       "description": "Voice used when a session names none.",
@@ -7821,14 +9374,19 @@
                       "minLength": 1,
                       "maxLength": 200,
                       "x-restart": "live",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/backupSecretName"
+                      }
                     },
                     "baseUrl": {
                       "description": "Override of the API base URL (https only, or loopback for a local relay).",
                       "type": "string",
                       "maxLength": 300,
                       "x-restart": "live",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-url-credentials": true
                     },
                     "defaultVoice": {
                       "description": "Prebuilt voice name used when a session names none.",
@@ -8707,6 +10265,7 @@
                         },
                         "inputSchema": {
                           "description": "Published model input properties for fal; Replicate discovers them from the model/version.",
+                          "x-unknown-members": "public",
                           "type": "object",
                           "additionalProperties": true,
                           "x-tier": "advanced",
@@ -8807,6 +10366,7 @@
                         },
                         "inputSchema": {
                           "description": "Published model input properties for fal; Replicate discovers them from the model/version.",
+                          "x-unknown-members": "public",
                           "type": "object",
                           "additionalProperties": true,
                           "x-tier": "advanced",
@@ -8907,6 +10467,7 @@
                         },
                         "inputSchema": {
                           "description": "Published model input properties for fal; Replicate discovers them from the model/version.",
+                          "x-unknown-members": "public",
                           "type": "object",
                           "additionalProperties": true,
                           "x-tier": "advanced",
@@ -9007,6 +10568,7 @@
                         },
                         "inputSchema": {
                           "description": "Published model input properties for fal; Replicate discovers them from the model/version.",
+                          "x-unknown-members": "public",
                           "type": "object",
                           "additionalProperties": true,
                           "x-tier": "advanced",
@@ -9107,6 +10669,7 @@
                         },
                         "inputSchema": {
                           "description": "Published model input properties for fal; Replicate discovers them from the model/version.",
+                          "x-unknown-members": "public",
                           "type": "object",
                           "additionalProperties": true,
                           "x-tier": "advanced",
@@ -9207,6 +10770,7 @@
                         },
                         "inputSchema": {
                           "description": "Published model input properties for fal; Replicate discovers them from the model/version.",
+                          "x-unknown-members": "public",
                           "type": "object",
                           "additionalProperties": true,
                           "x-tier": "advanced",
@@ -9245,14 +10809,19 @@
                       "type": "string",
                       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                       "x-restart": "core",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/backupSecretName"
+                      }
                     },
                     "baseUrl": {
                       "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
                       "type": "string",
                       "maxLength": 2048,
                       "x-restart": "core",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-url-credentials": true
                     },
                     "model": {
                       "description": "Model identifier sent to the provider.",
@@ -9300,14 +10869,19 @@
                       "type": "string",
                       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                       "x-restart": "core",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/backupSecretName"
+                      }
                     },
                     "baseUrl": {
                       "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
                       "type": "string",
                       "maxLength": 2048,
                       "x-restart": "core",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-url-credentials": true
                     },
                     "model": {
                       "description": "Model identifier sent to the provider.",
@@ -9355,14 +10929,19 @@
                       "type": "string",
                       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                       "x-restart": "core",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/backupSecretName"
+                      }
                     },
                     "baseUrl": {
                       "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
                       "type": "string",
                       "maxLength": 2048,
                       "x-restart": "core",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-url-credentials": true
                     },
                     "model": {
                       "description": "Model identifier sent to the provider.",
@@ -9410,14 +10989,19 @@
                       "type": "string",
                       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                       "x-restart": "core",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/backupSecretName"
+                      }
                     },
                     "baseUrl": {
                       "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
                       "type": "string",
                       "maxLength": 2048,
                       "x-restart": "core",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-url-credentials": true
                     },
                     "model": {
                       "description": "Model identifier sent to the provider.",
@@ -9465,14 +11049,19 @@
                       "type": "string",
                       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                       "x-restart": "core",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/backupSecretName"
+                      }
                     },
                     "baseUrl": {
                       "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
                       "type": "string",
                       "maxLength": 2048,
                       "x-restart": "core",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-url-credentials": true
                     },
                     "model": {
                       "description": "Model identifier sent to the provider.",
@@ -9520,14 +11109,19 @@
                       "type": "string",
                       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                       "x-restart": "core",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/backupSecretName"
+                      }
                     },
                     "baseUrl": {
                       "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
                       "type": "string",
                       "maxLength": 2048,
                       "x-restart": "core",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-url-credentials": true
                     },
                     "model": {
                       "description": "Model identifier sent to the provider.",
@@ -9575,14 +11169,19 @@
                       "type": "string",
                       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                       "x-restart": "core",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-sensitive": true,
+                      "x-secret-reference": {
+                        "$ref": "#/$defs/backupSecretName"
+                      }
                     },
                     "baseUrl": {
                       "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
                       "type": "string",
                       "maxLength": 2048,
                       "x-restart": "core",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-url-credentials": true
                     },
                     "model": {
                       "description": "Model identifier sent to the provider.",

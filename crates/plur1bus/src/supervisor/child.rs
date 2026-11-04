@@ -30,7 +30,7 @@ use crate::paths::Layout;
 use plur1bus_rpc::{Client, ConnectOptions};
 use serde_json::{json, Value};
 use std::ffi::OsString;
-use std::io::{Read, Write};
+use std::io::{self, Read, Write};
 use std::path::PathBuf;
 use std::process::{Child, ChildStdin, Command, ExitStatus, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -79,7 +79,37 @@ pub fn core_spec(layout: &Layout, instance_id: &str) -> Result<ChildSpec, String
         env: crate::commands::core::attest_env()
             .into_iter()
             .chain(crate::commands::core::native_worker_env())
+            .chain([(
+                "PLUR1BUS_TOOLS_BIN".into(),
+                crate::commands::core::locate_tools_bin(layout).into_os_string(),
+            )])
             .collect(),
+        cwd: None,
+    })
+}
+
+/// D120 tools process, started after Core and independently monitored with the existing module lifecycle.
+pub fn tools_spec(layout: &Layout, instance_id: &str) -> Result<ChildSpec, String> {
+    let program = crate::commands::core::locate_tools_bin(layout);
+    if !program.is_file() {
+        return Err(
+            "plur1bus-tools is missing; install the native tools binary or set PLUR1BUS_TOOLS_BIN"
+                .into(),
+        );
+    }
+    Ok(ChildSpec {
+        role: "tools".into(),
+        program,
+        args: vec![
+            "serve".into(),
+            "--home".into(),
+            layout.home.clone().into(),
+            "--lifeline".into(),
+            "stdin".into(),
+            "--instance".into(),
+            instance_id.into(),
+        ],
+        env: Vec::new(),
         cwd: None,
     })
 }
@@ -217,6 +247,9 @@ pub fn spec_for(layout: &Layout, role: &Role, instance_id: &str) -> Result<Child
         RoleKind::Core => {
             core_spec(layout, instance_id).map_err(|e| (CrashReason::ConfigInvalid, e))
         }
+        RoleKind::Tools => {
+            tools_spec(layout, instance_id).map_err(|e| (CrashReason::ConfigInvalid, e))
+        }
         RoleKind::Api => api_spec(layout, instance_id).map_err(|e| (CrashReason::ConfigInvalid, e)),
         RoleKind::Module => module_plan(layout, role, instance_id).map(|p| p.spec),
     }
@@ -314,7 +347,7 @@ pub fn ready_timeout(kind: RoleKind, scale: f64, core_floor: bool) -> Duration {
     match kind {
         RoleKind::Core if core_floor => scaled.max(CORE_READY_FLOOR),
         RoleKind::Core => scaled,
-        RoleKind::Module | RoleKind::Api => scaled.max(MODULE_READY_FLOOR),
+        RoleKind::Tools | RoleKind::Module | RoleKind::Api => scaled.max(MODULE_READY_FLOOR),
     }
 }
 
@@ -580,7 +613,7 @@ impl Monitor {
         };
         // `logs/core.out.log`; a module's is `logs/module-<name>.out.log`, beside the `module-<name>.log` it writes.
         let out_path = match role.kind {
-            RoleKind::Core | RoleKind::Api => layout.out_log(&role.name),
+            RoleKind::Core | RoleKind::Api | RoleKind::Tools => layout.out_log(&role.name),
             RoleKind::Module => layout.out_log(&format!("module-{}", role.name)),
         };
         let out = match RotatingFile::open(&out_path, max_bytes, keep) {
@@ -626,6 +659,7 @@ impl Monitor {
         if self.is_running() {
             return;
         }
+        super::config::refresh_log_policy(&self.shared, &self.ctx.layout);
         let name = self.ctx.role.name.clone();
         if self.ctx.role.kind == RoleKind::Module {
             // Minor 3: every spawn runs the manifest as it is now; the slot's policy and apiVersion follow it.
@@ -721,11 +755,35 @@ impl Monitor {
             spec.program.clone()
         };
         let mut cmd = Command::new(&program);
+        cmd.args(&spec.args);
+        if self.ctx.role.kind == RoleKind::Tools {
+            // D120 §5: never inherit provider credentials, loader injection or extension leases.
+            cmd.arg("--grace-ms")
+                .arg(self.shared.lock().config.grace_ms.to_string());
+            cmd.env_clear();
+            for name in [
+                "PATH",
+                "HOME",
+                "USERPROFILE",
+                "SystemRoot",
+                "SYSTEMROOT",
+                "WINDIR",
+                "TEMP",
+                "TMP",
+                "TMPDIR",
+                "LANG",
+                "LC_ALL",
+                "CI",
+            ] {
+                if let Some(value) = std::env::var_os(name) {
+                    cmd.env(name, value);
+                }
+            }
+        }
         if let Some(dir) = &spec.cwd {
             cmd.current_dir(dir);
         }
-        cmd.args(&spec.args)
-            .envs(spec.env.iter().map(|(k, v)| (k, v)))
+        cmd.envs(spec.env.iter().map(|(k, v)| (k, v)))
             .env_remove(RUN_ACL_ENV)
             .envs(child_env(self.shared.lock().run_acl_inherited))
             .stdin(Stdio::piped())
@@ -759,6 +817,8 @@ impl Monitor {
             const CREATE_NO_WINDOW: u32 = 0x0800_0000;
             cmd.creation_flags(CREATE_NO_WINDOW);
         }
+        // Keep this generation's startup credentials until both streams reach EOF, including delayed shutdown output.
+        let output_snapshot = self.shared.log.redaction.pin();
         let mut child = match cmd.spawn() {
             Ok(c) => c,
             Err(e) => {
@@ -847,8 +907,12 @@ impl Monitor {
         ] {
             if let Some(stream) = stream {
                 let out = self.ctx.out.clone();
+                let redaction = self.shared.log.redaction.clone();
+                let snapshot = output_snapshot.clone();
                 self.start_thread(&format!("{name}-{stream_name}-{pid}"), move || {
-                    pump(stream, &out)
+                    // The registry holds weak pins, so the snapshot lives exactly as long as its output consumer.
+                    let _snapshot = snapshot;
+                    pump(stream, &out, &redaction)
                 });
             }
         }
@@ -1064,17 +1128,42 @@ fn fresh_child(role: &Role) -> ChildState {
     }
 }
 
-/// Copies one of the child's output streams into the out log until EOF.
-fn pump(mut stream: Box<dyn Read + Send>, out: &Mutex<Option<RotatingFile>>) {
+/// Copies one child's byte stream through the shared registry, retaining a bounded suffix across reads.
+fn pump(
+    mut stream: Box<dyn Read + Send>,
+    out: &Mutex<Option<RotatingFile>>,
+    redaction: &super::log_redaction::Registry,
+) {
     let mut buf = [0u8; 8192];
+    let mut pending = super::log_redaction::Stream::default();
+    let mut withheld = false;
     loop {
-        match stream.read(&mut buf) {
-            Ok(0) | Err(_) => return,
-            Ok(n) => {
+        let n = match stream.read(&mut buf) {
+            Ok(n) => n,
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+            Err(_) => 0,
+        };
+        let written = redaction.with_matcher(|matcher| {
+            let bytes = pending.redact(&buf[..n], n == 0, matcher);
+            if !bytes.is_empty() {
                 if let Some(f) = relock(out).as_mut() {
-                    let _ = f.write_all(&buf[..n]).and_then(|_| f.flush());
+                    let _ = f.write_all(&bytes).and_then(|_| f.flush());
                 }
             }
+            Ok(())
+        });
+        if let Err(reason) = written {
+            pending.discard();
+            if !withheld {
+                if let Some(file) = relock(out).as_mut() {
+                    let note = format!("[log redaction unavailable; payload withheld: {reason}]\n");
+                    let _ = file.write_all(note.as_bytes()).and_then(|_| file.flush());
+                }
+                withheld = true;
+            }
+        }
+        if n == 0 {
+            return;
         }
     }
 }
@@ -1268,7 +1357,7 @@ fn wait_ready(shared: &Shared, ctx: &Ctx, gen: &Gen) {
     };
     // B12: a module must say it is the module the manifest describes; one that does not is killed, and the exit is
     // fatal `manifest-invalid` (a retry would report the same identity).
-    if ctx.role.kind == RoleKind::Module {
+    if ctx.role.kind == RoleKind::Module || ctx.role.kind == RoleKind::Tools {
         let api = shared
             .lock()
             .slot(&ctx.role.name)
@@ -1744,6 +1833,50 @@ fn mark_exited(g: &Gen) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    struct ChunkedOutput {
+        bytes: std::io::Cursor<Vec<u8>>,
+        limit: usize,
+    }
+
+    impl Read for ChunkedOutput {
+        fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
+            let limit = bytes.len().min(self.limit);
+            self.bytes.read(&mut bytes[..limit])
+        }
+    }
+
+    #[test]
+    fn output_pump_masks_split_credentials_and_preserves_public_bytes_through_eof() {
+        let directory = tempfile::tempdir().unwrap();
+        let layout = Layout::new(directory.path().to_path_buf());
+        let secret = format!("pump-{}-é\"\n", std::process::id());
+        let config = json!({"channels":{"telegram":{"webhook":{"secret":secret}}}});
+        let registry = super::super::log_redaction::Registry::new();
+        registry.replace_config(&layout, &config);
+        let hex: String = secret
+            .as_bytes()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect();
+        let input = format!("before🦀{secret}after漢字 encoded={hex} https://api.openai.com/v1\n");
+        for size in [1, 2, 7, 8191, 8192] {
+            let path = layout.logs().join(format!("chunk-{size}.log"));
+            let file = Mutex::new(Some(RotatingFile::open(&path, 1024, 1).unwrap()));
+            pump(
+                Box::new(ChunkedOutput {
+                    bytes: std::io::Cursor::new(input.as_bytes().to_vec()),
+                    limit: size,
+                }),
+                &file,
+                &registry,
+            );
+            assert_eq!(
+                std::fs::read_to_string(path).unwrap(),
+                "before🦀[REDACTED:secret]after漢字 encoded=[REDACTED:secret] https://api.openai.com/v1\n"
+            );
+        }
+    }
 
     #[test]
     fn api_spec_is_a_loopback_child_with_stdin_lifeline_and_atomic_runtime_payload() {

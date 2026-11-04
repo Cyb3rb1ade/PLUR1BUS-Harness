@@ -8,7 +8,7 @@ import { ownerOf } from "../session/methods.ts";
 import { RpcError } from "./errors.ts";
 export function sessionWriteAccess(d: { methods: Record<string, Handler>; sessions: () => Pick<SessionStore, "getSession"> | null; /** Resolves the store holding a session (incognito sessions are memory-only); falls back to `sessions`. */ lookup?: (sessionId: string) => Pick<SessionStore, "getSession"> | null; ownership: (a: Principal, p: unknown) => string[]; validateCaller?: boolean }): Record<string, Handler> {
   const out: Record<string, Handler>={};
-  for (const method of ["session.model.set","session.create","session.submit","session.cancel","session.archive"]) {
+  for (const method of ["session.model.set","session.create","session.submit","session.cancel","session.archive","session.rewind"]) {
     const inner=d.methods[method];if(!inner)continue;
     out[method]=async(p,ctx)=>{
       const who=authenticatedPrincipal(ctx);

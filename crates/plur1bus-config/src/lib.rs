@@ -4,6 +4,21 @@
 use serde_json::{Map, Value};
 use std::{fs, io, path::Path};
 
+mod diagnostics;
+mod disclosure;
+mod references;
+mod resolution;
+mod sensitive;
+pub use diagnostics::validation_constraint;
+pub use disclosure::supports_config_disclosure_policy;
+pub use references::{looks_like_pasted_key, reference_safety, reference_schema};
+pub use sensitive::{
+    config_reference_warnings, config_text_secret_values, mask_url_credentials,
+    placeholder_with_schema, redact_config, redact_with_schema, reference_paths_with_schema,
+    reference_warnings_with_schema, secret_text_values_with_schema, ConfigReferenceWarning,
+    DisclosurePolicyError,
+};
+
 pub const SCHEMA_JSON: &str =
     include_str!("../../../packages/config-schema/schema/config.schema.json");
 pub type Config = Value;
@@ -212,7 +227,7 @@ pub fn validate(v: &Value) -> Result<(), Vec<String>> {
                 } else {
                     path
                 },
-                e
+                validation_constraint(&e)
             )
         })
         .collect();
@@ -931,6 +946,7 @@ pub fn set_many(config: &Config, changes: &[(String, Value)]) -> Result<Plan, Co
         put(&mut after, key, value.clone())?;
     }
     validate(&after).map_err(ConfigError::Invalid)?;
+    validate_media_mutation(&after, changes).map_err(ConfigError::Invalid)?;
     let plan = restart_plan(config, &after);
     Ok(Plan {
         before: config.clone(),
@@ -940,10 +956,113 @@ pub fn set_many(config: &Config, changes: &[(String, Value)]) -> Result<Plan, Co
     })
 }
 
+/// Validates the complete effective media candidate for a relevant config write, before planning or persistence.
+/// Legacy remote configuration remains readable and unrelated writes remain possible. MM-3a enables only the fixed
+/// local catalog; unknown/remote active selections are refused globally and after sparse agent inheritance. No I/O.
+pub fn validate_media_mutation(
+    config: &Config,
+    changes: &[(String, Value)],
+) -> Result<(), Vec<String>> {
+    if !changes.iter().any(|(key, _)| media_mutation_key(key)) {
+        return Ok(());
+    }
+    let mut candidate = config.clone();
+    fill_defaults(schema(), &mut candidate);
+    let base = &candidate["memory"]["mediaEmbedding"];
+    let mut errors = Vec::new();
+    check_media_catalog(base, "/memory/mediaEmbedding", &mut errors);
+    if let Some(agents) = candidate["agents"].as_object() {
+        for (id, agent) in agents {
+            let Some(over) = agent["memory"]["mediaEmbedding"].as_object() else {
+                continue;
+            };
+            let mut effective = base.clone();
+            if let Some(object) = effective.as_object_mut() {
+                object.extend(over.clone());
+            }
+            check_media_catalog(
+                &effective,
+                &format!("/agents/{id}/memory/mediaEmbedding"),
+                &mut errors,
+            );
+        }
+    }
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors)
+    }
+}
+
+fn media_mutation_key(key: &str) -> bool {
+    let within = |key: &str, root: &str| {
+        key == root
+            || key
+                .strip_prefix(root)
+                .is_some_and(|tail| tail.starts_with('.'))
+    };
+    if ["memory", "agents", "privacy"].contains(&key)
+        || within(key, "memory.mediaEmbedding")
+        || within(key, "privacy.localOnly")
+    {
+        return true;
+    }
+    let Some(agent) = key.strip_prefix("agents.") else {
+        return false;
+    };
+    let Some((_, field)) = agent.split_once('.') else {
+        return true;
+    };
+    ["memory", "privacy"].contains(&field)
+        || within(field, "memory.mediaEmbedding")
+        || within(field, "privacy.localOnly")
+}
+
+fn check_media_catalog(media: &Value, path: &str, errors: &mut Vec<String>) {
+    if media["enabled"].as_bool() != Some(true) || media["provider"] == "off" {
+        return;
+    }
+    let catalog = &schema()["x-media-models"];
+    let known_provider = catalog["providers"]
+        .as_array()
+        .is_some_and(|providers| providers.contains(&media["provider"]));
+    let info = media["model"]
+        .as_str()
+        .and_then(|model| catalog["models"].get(model));
+    let Some(info) = info.filter(|_| known_provider) else {
+        errors.push(format!(
+            "{path} E_MEDIA_UNAVAILABLE: choose a known local media provider and model"
+        ));
+        return;
+    };
+    if !info["dimensions"]
+        .as_array()
+        .is_some_and(|dims| dims.contains(&media["dimensions"]))
+    {
+        errors.push(format!(
+            "{path}/dimensions E_MEDIA_DIMENSION: unsupported media dimensions"
+        ));
+    }
+    let kinds = media["modalities"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str);
+    for kind in std::iter::once("text").chain(kinds) {
+        if info["capabilities"][kind].as_bool() != Some(true) {
+            errors.push(format!(
+                "{path}/modalities E_MEDIA_CAPABILITY: unsupported {kind}"
+            ));
+        }
+    }
+}
+
 fn check_media_privacy(media: &Value, path: &str, errs: &mut Vec<String>) {
     if media["enabled"].as_bool() == Some(false) {
         return;
     }
+    // A legacy schema-valid local model/dimension stays readable. The fixed catalog
+    // is enforced by validate_media_mutation on relevant writes, not while loading.
     for (choice, suffix, local) in [
         (
             media,
@@ -967,3 +1086,8 @@ fn check_media_privacy(media: &Value, path: &str, errs: &mut Vec<String>) {
         }
     }
 }
+
+#[cfg(test)]
+mod sensitive_tests;
+#[cfg(test)]
+pub(crate) use sensitive::{config_secret_values, secret_values_with_schema};

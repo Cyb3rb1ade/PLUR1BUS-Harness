@@ -151,6 +151,50 @@ export const MIGRATIONS: readonly string[] = [
    WHEN NEW.kind IS NOT OLD.kind OR NEW.agent_id IS NOT OLD.agent_id OR NEW.owner IS NOT OLD.owner
      OR NEW.scope IS NOT OLD.scope OR NEW.chat_key IS NOT OLD.chat_key OR NEW.origin IS NOT OLD.origin
    BEGIN SELECT RAISE(ABORT, 'I1: session kind, agent, owner, scope and origin are immutable'); END;`,
+  // v10: D120 CX1 (owner allocation 2026-11-01). Rewind is an overlay; transcript rows are never rewritten.
+  `CREATE TABLE path_rewinds (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    parent_seq INTEGER NOT NULL CHECK(parent_seq>=0),
+    hidden_from_seq INTEGER NOT NULL CHECK(hidden_from_seq>parent_seq),
+    hidden_to_seq INTEGER NOT NULL CHECK(hidden_to_seq>=hidden_from_seq),
+    lesson_message_id TEXT REFERENCES messages(id),
+    hidden_digest TEXT NOT NULL CHECK(length(hidden_digest)=64),
+    trigger TEXT NOT NULL CHECK(trigger IN ('user','agent')),
+    actor TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    undone_at INTEGER
+  );
+  CREATE INDEX idx_path_rewinds_session ON path_rewinds(session_id,created_at);
+  CREATE TABLE session_checkpoints (
+    session_id TEXT NOT NULL,
+    turn_id TEXT NOT NULL,
+    turn_seq INTEGER NOT NULL,
+    project_id TEXT NOT NULL,
+    card_id TEXT NOT NULL,
+    root TEXT NOT NULL,
+    common_git_dir TEXT NOT NULL,
+    ref TEXT NOT NULL,
+    tree TEXT NOT NULL,
+    commit_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY(session_id,turn_id)
+  );
+  CREATE TRIGGER session_checkpoints_immutable BEFORE UPDATE ON session_checkpoints
+    BEGIN SELECT RAISE(ABORT, 'turn checkpoint is immutable'); END;`,
+  // v11: coding worktree bindings, after the unchanged v10 rewind overlay.
+  // Additive metadata only: never rewrite messages or events, as with v3/v6.
+  `CREATE TABLE session_worktrees (
+     session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+     root TEXT NOT NULL,
+     project_id TEXT,
+     card_id TEXT,
+     created_by TEXT NOT NULL,
+     created_at INTEGER NOT NULL,
+     CHECK ((project_id IS NULL) = (card_id IS NULL))
+   );
+   CREATE TRIGGER session_worktrees_immutable BEFORE UPDATE ON session_worktrees
+   BEGIN SELECT RAISE(ABORT, 'coding worktree bindings are immutable'); END;`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

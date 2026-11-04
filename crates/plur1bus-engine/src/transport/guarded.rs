@@ -319,15 +319,22 @@ impl<'a> GuardedClient<'a> {
             } else {
                 req.max_response_bytes
             };
+            // ureq's LimitReader errors on the read after exactly `limit` bytes, including an EOF
+            // probe. Allow one internal sentinel byte and enforce our documented inclusive bound.
+            let read_limit = body_limit
+                .checked_add(1)
+                .ok_or(TransportError::ResponseTooLarge)?;
             let read = response
                 .body_mut()
                 .with_config()
-                .limit(body_limit as u64)
+                .limit(read_limit as u64)
                 .read_to_vec();
             // Keep error status independent of diagnostic body validity: a refused key
             // must rotate even when the body is truncated, too large or times out.
             let body = match read {
-                Ok(body) => body,
+                Ok(body) if body.len() <= body_limit => body,
+                Ok(_) if non_success => vec![],
+                Ok(_) => return Err(TransportError::ResponseTooLarge),
                 Err(ureq::Error::BodyExceedsLimit(_)) if non_success => vec![],
                 Err(error) => {
                     return Err(response_error(
@@ -480,6 +487,81 @@ mod tests {
     use super::*;
     use crate::contract::{AddressRules, Scheme};
     use std::sync::atomic::{AtomicUsize, Ordering};
+
+    #[test]
+    fn response_caps_accept_exact_bytes_and_refuse_one_extra_byte() {
+        use std::io::{Read, Write};
+        struct LocalGate;
+        impl EgressGate for LocalGate {
+            fn decide(&self, _: &Target) -> Decision {
+                Decision::Allow {
+                    address_rules: AddressRules {
+                        allow_loopback: true,
+                        ..AddressRules::default()
+                    },
+                }
+            }
+        }
+        let client =
+            GuardedClient::new_owned(Arc::new(LocalGate), Box::new(super::super::SystemResolver));
+        for (status, body, cap) in [
+            (200, "abc", 3),
+            (200, "abcd", 3),
+            (500, "abc", 3),
+            (500, "abcd", 3),
+            (200, "abc", usize::MAX),
+            (500, "abc", usize::MAX),
+        ] {
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            listener.set_nonblocking(true).unwrap();
+            let url = format!("http://{}/", listener.local_addr().unwrap());
+            let server = std::thread::spawn(move || {
+                let until = Instant::now() + Duration::from_secs(2);
+                while Instant::now() < until {
+                    match listener.accept() {
+                        Ok((mut socket, _)) => {
+                            socket.set_nonblocking(false).unwrap();
+                            socket
+                                .set_read_timeout(Some(Duration::from_secs(1)))
+                                .unwrap();
+                            let mut request = [0; 4096];
+                            let _ = socket.read(&mut request);
+                            let response=format!("HTTP/1.1 {status} Fixture\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len());
+                            let _ = socket.write_all(response.as_bytes());
+                            return;
+                        }
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                            std::thread::sleep(Duration::from_millis(2))
+                        }
+                        Err(_) => return,
+                    }
+                }
+            });
+            let mut request = HttpRequest::get(url);
+            request.max_response_bytes = cap;
+            request.max_error_response_bytes = cap;
+            let result = client.request_cancelled(
+                request,
+                Instant::now() + Duration::from_secs(2),
+                &Cancel::never(),
+            );
+            server.join().unwrap();
+            if (status == 200 && body.len() > cap) || cap == usize::MAX {
+                assert_eq!(result, Err(TransportError::ResponseTooLarge));
+            } else {
+                let response = result.unwrap();
+                assert_eq!(response.status, status);
+                assert_eq!(
+                    response.body,
+                    if body.len() > cap {
+                        vec![]
+                    } else {
+                        body.as_bytes().to_vec()
+                    }
+                );
+            }
+        }
+    }
 
     #[test]
     fn an_expired_sixty_second_decision_is_rechecked() {

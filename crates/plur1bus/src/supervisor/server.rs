@@ -37,18 +37,7 @@ const MAX_BUDGET_MS: i64 = 120_000;
 /// `config.set { changes }` bounds, as in the schema (typify does not check array lengths).
 const MAX_CHANGES: usize = 64;
 
-/// One accepted connection, split so the connection thread can read and write while a watchdog closes it.
-pub(crate) struct Accepted {
-    /// Kernel-authenticated peer process; never a request or handshake field.
-    pub peer_pid: Option<u32>,
-    pub reader: Box<dyn Read + Send>,
-    pub writer: Box<dyn Write + Send>,
-    /// Ends the connection from another thread; a blocked read (and write) then returns. Callable more than once:
-    /// the auth-idle watchdog and a dropped subscription both use it.
-    pub closer: Arc<dyn Fn() + Send + Sync>,
-    /// Makes sure everything written reaches the peer before the connection is dropped.
-    pub drain: Box<dyn FnMut() + Send>,
-}
+pub(crate) use plur1bus_rpc::server_transport::Accepted;
 
 pub struct SupervisorServer {
     listener: imp::Listener,
@@ -365,7 +354,7 @@ impl ConnCtx {
                 None,
             );
         }
-        for role in ["core", "api"] {
+        for role in ["core", "tools", "api"] {
             if let Some(slot) = st.slot_mut(role) {
                 slot.backoff.reset();
                 slot.start_requested = true;
@@ -386,6 +375,7 @@ impl ConnCtx {
             writer,
             closer,
             mut drain,
+            ..
         } = conn;
         let mut conn = Conn {
             peer_pid,
@@ -643,13 +633,21 @@ impl ConnCtx {
         let (Some(running), Some(revision)) = (st.running.as_ref(), st.revision.as_ref()) else {
             return config_unavailable(id);
         };
-        match config::get_result(running, revision, key, tier) {
-            Some(v) => result_reply(id, v),
-            None => error_reply(
+        match config::get_result(&self.layout, running, revision, key, tier) {
+            Ok(Some(v)) => result_reply(id, v),
+            Ok(None) => error_reply(
                 id,
                 "E_INVALID_PARAMS",
                 &format!("no such key: {}", key.unwrap_or_default()),
                 Some("unknown-key"),
+                None,
+                None,
+            ),
+            Err(error) => error_reply(
+                id,
+                "E_NOT_AVAILABLE",
+                &error.to_string(),
+                Some("config-policy-unavailable"),
                 None,
                 None,
             ),
@@ -1365,40 +1363,7 @@ impl ConnCtx {
 }
 
 #[cfg(unix)]
-mod imp {
-    use super::Accepted;
-    use std::io;
-    use std::net::Shutdown;
-    use std::os::unix::fs::PermissionsExt;
-    use std::os::unix::net::UnixListener;
-
-    pub struct Listener(UnixListener);
-
-    impl Listener {
-        pub fn bind(address: &str) -> io::Result<Self> {
-            let l = UnixListener::bind(address)?;
-            std::fs::set_permissions(address, std::fs::Permissions::from_mode(0o600))?;
-            Ok(Self(l))
-        }
-
-        pub fn accept(&self) -> io::Result<Accepted> {
-            let (s, _) = self.0.accept()?;
-            let peer_pid = plur1bus_rpc::transport::unix_peer_pid(&s);
-            let reader = s.try_clone()?;
-            let closer = s.try_clone()?;
-            Ok(Accepted {
-                peer_pid,
-                reader: Box::new(reader),
-                writer: Box::new(s),
-                closer: std::sync::Arc::new(move || {
-                    let _ = closer.shutdown(Shutdown::Both);
-                }),
-                // The kernel delivers what was written before the close.
-                drain: Box::new(|| {}),
-            })
-        }
-    }
-}
+use plur1bus_rpc::server_transport as imp;
 
 #[cfg(windows)]
 use super::pipe_windows as imp;

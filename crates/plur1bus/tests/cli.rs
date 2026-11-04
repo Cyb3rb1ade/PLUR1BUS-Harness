@@ -8,6 +8,89 @@ fn bin() -> Command {
 }
 
 #[test]
+fn offline_config_get_masks_literals_and_url_credentials_but_preserves_references_without_rewriting_the_file(
+) {
+    let dir = tempfile::tempdir().unwrap();
+    let secret = uuid::Uuid::new_v4().to_string();
+    let user = uuid::Uuid::new_v4().to_string();
+    let reference = format!(
+        "fixture.reference.{}",
+        &uuid::Uuid::new_v4().simple().to_string()[..8]
+    );
+    let mut config = plur1bus_config::defaults();
+    config["voice"]["providers"]["elevenlabs"]["apiKeyRef"] = serde_json::json!(reference);
+    config["engine"]["embedding"]["apiKey"] = serde_json::json!(secret);
+    config["voice"]["providers"]["elevenlabs"]["baseUrl"] = serde_json::json!(format!(
+        "https://{user}:{secret}@relay.example.test/service?ordinary={secret}"
+    ));
+    let path = dir.path().join("config.json");
+    let original = serde_json::to_vec_pretty(&config).unwrap();
+    std::fs::write(&path, &original).unwrap();
+    for (arguments, shows_reference, shows_url) in [
+        (vec!["--json", "config", "get"], true, true),
+        (vec!["config", "get"], true, true),
+        (
+            vec![
+                "--json",
+                "config",
+                "get",
+                "voice.providers.elevenlabs.baseUrl",
+            ],
+            false,
+            true,
+        ),
+        (
+            vec!["config", "get", "voice.providers.elevenlabs.baseUrl"],
+            false,
+            true,
+        ),
+        (
+            vec![
+                "--json",
+                "config",
+                "get",
+                "voice.providers.elevenlabs.apiKeyRef",
+            ],
+            true,
+            false,
+        ),
+        (
+            vec!["config", "get", "voice.providers.elevenlabs.apiKeyRef"],
+            true,
+            false,
+        ),
+    ] {
+        let result = bin()
+            .env_remove("PLUR1BUS_CONTAINER")
+            .arg("--home")
+            .arg(dir.path())
+            .args(arguments)
+            .assert()
+            .success()
+            .get_output()
+            .clone();
+        let output = String::from_utf8(result.stdout).unwrap();
+        assert!(
+            !output.contains(&secret),
+            "offline CLI printed a marked configuration value"
+        );
+        assert!(!output.contains(&user), "offline CLI printed URL userinfo");
+        if shows_reference {
+            assert!(
+                output.contains(&reference),
+                "offline CLI hid a safe reference name"
+            );
+        }
+        if shows_url {
+            assert!(output.contains("relay.example.test/service"));
+        }
+        let diagnostics = String::from_utf8(result.stderr).unwrap();
+        assert!(!diagnostics.contains(&secret) && !diagnostics.contains(&user));
+    }
+    assert_eq!(std::fs::read(path).unwrap(), original);
+}
+
+#[test]
 fn help_lists_the_2a_commands() {
     bin()
         .arg("--help")
@@ -1712,6 +1795,41 @@ fn config_set_without_a_supervisor_writes_the_file() {
         "--yes",
     ]);
     assert_eq!(v["applied"], true);
+}
+
+#[test]
+fn offline_media_provider_dry_run_and_write_fail_before_changing_config_bytes() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    let path = dir.path().join("config.json");
+    std::fs::write(
+        &path,
+        serde_json::to_vec(&plur1bus_config::defaults()).unwrap(),
+    )
+    .unwrap();
+    let before = std::fs::read(&path).unwrap();
+    let media = serde_json::json!({
+        "enabled":true,"provider":"unknown-remote","model":"unknown-model",
+        "privacyAck":{"provider":"unknown-remote","acknowledgedAt":"2026-11-01T00:00:00Z","by":"owner"}
+    }).to_string();
+    for mode in ["--dry-run", "--yes"] {
+        bin()
+            .args([
+                "--json",
+                "--home",
+                h,
+                "config",
+                "set",
+                "memory.mediaEmbedding",
+                &media,
+                mode,
+            ])
+            .assert()
+            .code(1)
+            .stdout(predicate::str::contains("E_CONFIG_INVALID"))
+            .stdout(predicate::str::contains("E_MEDIA_UNAVAILABLE"));
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+    }
 }
 
 #[cfg(unix)]

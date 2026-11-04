@@ -1,0 +1,1662 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "name": "open Harness namespaces",
+      "schema": "harness",
+      "value": {
+        "providers": {
+          "unlisted": {
+            "apiKey": "$CANARY"
+          }
+        },
+        "oauth": {
+          "opaque": {
+            "clientSecret": "$CANARY"
+          }
+        },
+        "engine": {
+          "someUnknownKey": "$CANARY",
+          "schicht15": {
+            "undeclared": "$CANARY"
+          }
+        },
+        "modules": {
+          "absent": {
+            "token": "$CANARY",
+            "nested": {
+              "password": "$CANARY"
+            }
+          }
+        },
+        "voice": {
+          "local": {
+            "catalogOverride": {
+              "entry": {
+                "opaque": "$CANARY"
+              }
+            }
+          }
+        },
+        "unknown": {
+          "password": "$CANARY",
+          "count": 7,
+          "enabled": true
+        }
+      },
+      "expectedDisplay": {
+        "providers": {
+          "unlisted": {
+            "apiKey": "••••"
+          }
+        },
+        "oauth": {
+          "opaque": {
+            "clientSecret": "••••"
+          }
+        },
+        "engine": {
+          "someUnknownKey": "••••",
+          "schicht15": {
+            "undeclared": "••••"
+          }
+        },
+        "modules": {
+          "absent": {
+            "token": "••••",
+            "nested": {
+              "password": "••••"
+            }
+          }
+        },
+        "voice": {
+          "local": {
+            "catalogOverride": {
+              "entry": {
+                "opaque": "••••"
+              }
+            }
+          }
+        },
+        "unknown": {
+          "password": "••••",
+          "count": 7,
+          "enabled": true
+        }
+      },
+      "expectedBackup": {
+        "providers": {
+          "unlisted": {
+            "apiKey": "$ARCHIVE_MASK"
+          }
+        },
+        "oauth": {
+          "opaque": {
+            "clientSecret": "$ARCHIVE_MASK"
+          }
+        },
+        "engine": {
+          "someUnknownKey": "$ARCHIVE_MASK",
+          "schicht15": {
+            "undeclared": "$ARCHIVE_MASK"
+          }
+        },
+        "modules": {
+          "absent": {
+            "token": "$ARCHIVE_MASK",
+            "nested": {
+              "password": "$ARCHIVE_MASK"
+            }
+          }
+        },
+        "voice": {
+          "local": {
+            "catalogOverride": {
+              "entry": {
+                "opaque": "$ARCHIVE_MASK"
+              }
+            }
+          }
+        },
+        "unknown": {
+          "password": "$ARCHIVE_MASK",
+          "count": 7,
+          "enabled": true
+        }
+      },
+      "registered": [
+        "$CANARY"
+      ],
+      "notRegistered": []
+    },
+    {
+      "name": "typed public maps and private unknown members",
+      "schema": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "labels": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "privateMap": {
+            "type": "object",
+            "additionalProperties": true,
+            "x-unknown-members": "sensitive"
+          }
+        }
+      },
+      "value": {
+        "labels": {
+          "vendor.with.dots": "public-model"
+        },
+        "limit": 42,
+        "privateMap": {
+          "opaque": "$CANARY"
+        },
+        "extra": "$CANARY"
+      },
+      "expectedDisplay": {
+        "labels": {
+          "vendor.with.dots": "public-model"
+        },
+        "limit": 42,
+        "privateMap": {
+          "opaque": "••••"
+        },
+        "extra": "••••"
+      },
+      "expectedBackup": {
+        "labels": {
+          "vendor.with.dots": "public-model"
+        },
+        "limit": 42,
+        "privateMap": {
+          "opaque": "$ARCHIVE_MASK"
+        },
+        "extra": "$ARCHIVE_MASK"
+      },
+      "registered": [
+        "$CANARY"
+      ],
+      "notRegistered": [
+        "public-model"
+      ]
+    },
+    {
+      "name": "explicit public schema metadata exception",
+      "schema": {
+        "type": "object",
+        "additionalProperties": true,
+        "x-unknown-members": "public"
+      },
+      "value": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "expectedDisplay": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "expectedBackup": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "registered": [],
+      "notRegistered": [
+        "object",
+        "string"
+      ]
+    },
+    {
+      "name": "unknown strings inside arrays",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "opaque": {
+            "type": "array",
+            "items": true
+          }
+        }
+      },
+      "value": {
+        "opaque": [
+          "$CANARY",
+          {
+            "nested": "$CANARY",
+            "count": 8
+          }
+        ]
+      },
+      "expectedDisplay": {
+        "opaque": [
+          "••••",
+          {
+            "nested": "••••",
+            "count": 8
+          }
+        ]
+      },
+      "expectedBackup": {
+        "opaque": [
+          "$ARCHIVE_MASK",
+          {
+            "nested": "$ARCHIVE_MASK",
+            "count": 8
+          }
+        ]
+      },
+      "registered": [
+        "$CANARY"
+      ],
+      "notRegistered": []
+    },
+    {
+      "name": "declared reference is public and literal is private",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "x-sensitive": true,
+            "x-secret-reference": true
+          },
+          "literal": {
+            "type": "string",
+            "x-sensitive": true
+          }
+        }
+      },
+      "value": {
+        "ref": "curated-key",
+        "literal": "$CANARY"
+      },
+      "expectedDisplay": {
+        "ref": "curated-key",
+        "literal": "••••"
+      },
+      "expectedBackup": {
+        "ref": "curated-key",
+        "literal": "$ARCHIVE_MASK"
+      },
+      "registered": [
+        "$CANARY"
+      ],
+      "notRegistered": [
+        "curated-key"
+      ]
+    },
+    {
+      "name": "URL components and selective text registration",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "x-url-credentials": true
+          }
+        }
+      },
+      "value": {
+        "endpoint": "https://public-user:$CANARY@host.example/public/path?token=$CANARY&region=us-east-1&api-version=2024-02-01#section=public-heading"
+      },
+      "expectedDisplay": {
+        "endpoint": "https://••••@host.example/public/path?token=••••&region=••••&api-version=••••#section=••••"
+      },
+      "expectedBackup": {
+        "endpoint": "https://REDACTED@host.example/public/path?token=REDACTED&region=REDACTED&api-version=REDACTED#section=REDACTED"
+      },
+      "registered": [
+        "$CANARY"
+      ],
+      "notRegistered": [
+        "public-user",
+        "host.example",
+        "/public/path",
+        "us-east-1",
+        "2024-02-01",
+        "public-heading"
+      ]
+    },
+    {
+      "name": "argument and environment credential parts",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "x-sensitive": true
+            },
+            "x-text-credentials": "parts"
+          },
+          "env": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "x-sensitive": true,
+            "x-text-credentials": "parts"
+          }
+        }
+      },
+      "value": {
+        "args": [
+          "-y",
+          "public-package",
+          "/home/example/project",
+          "--api-key",
+          "$CANARY"
+        ],
+        "env": {
+          "API_TOKEN": "$CANARY",
+          "REGION": "us-east-1"
+        }
+      },
+      "expectedDisplay": {
+        "args": [
+          "••••",
+          "••••",
+          "••••",
+          "••••",
+          "••••"
+        ],
+        "env": {
+          "API_TOKEN": "••••",
+          "REGION": "••••"
+        }
+      },
+      "expectedBackup": {
+        "args": [
+          "$ARCHIVE_MASK",
+          "$ARCHIVE_MASK",
+          "$ARCHIVE_MASK",
+          "$ARCHIVE_MASK",
+          "$ARCHIVE_MASK"
+        ],
+        "env": {
+          "API_TOKEN": "$ARCHIVE_MASK",
+          "REGION": "$ARCHIVE_MASK"
+        }
+      },
+      "registered": [
+        "$CANARY"
+      ],
+      "notRegistered": [
+        "public-package",
+        "/home/example/project",
+        "us-east-1",
+        "--api-key"
+      ]
+    },
+    {
+      "name": "literal dotted members retain structural provenance",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "public.with.dots": {
+            "type": "string"
+          },
+          "public": {
+            "type": "object",
+            "properties": {
+              "with": {
+                "type": "object",
+                "properties": {
+                  "dots": {
+                    "type": "string",
+                    "x-sensitive": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "value": {
+        "public.with.dots": "public-model",
+        "public": {
+          "with": {
+            "dots": "$CANARY"
+          }
+        }
+      },
+      "expectedDisplay": {
+        "public.with.dots": "public-model",
+        "public": {
+          "with": {
+            "dots": "••••"
+          }
+        }
+      },
+      "expectedBackup": {
+        "public.with.dots": "public-model",
+        "public": {
+          "with": {
+            "dots": "$ARCHIVE_MASK"
+          }
+        }
+      },
+      "registered": [
+        "$CANARY"
+      ],
+      "notRegistered": [
+        "public-model"
+      ]
+    },
+    {
+      "name": "malformed object shape cannot disclose a string",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "nested": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "value": {
+        "nested": "$CANARY"
+      },
+      "expectedDisplay": {
+        "nested": "••••"
+      },
+      "expectedBackup": {
+        "nested": "$ARCHIVE_MASK"
+      },
+      "registered": [
+        "$CANARY"
+      ],
+      "notRegistered": []
+    },
+    {
+      "name": "named URL arguments and credential-named source paths stay selective",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "x-sensitive": true
+            },
+            "x-text-credentials": "parts"
+          },
+          "env": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "x-sensitive": true,
+            "x-text-credentials": "parts"
+          }
+        }
+      },
+      "value": {
+        "args": [
+          "--endpoint=https://public-user:$CANARY@provider.example/public/path?token=$CANARY&region=us-east-1",
+          "--token-file",
+          "/home/example/public-project/public-project/public-project/public-project/public-project/public-project/public-project/public-project/public-project/public-project/public-project/public-project/config.json"
+        ],
+        "env": {
+          "TOKEN_URL": "https://public-user:$CANARY@provider.example/public/path?token=$CANARY&region=us-east-1",
+          "SECRET_PATH": "/home/example/public-project/public-project/public-project/public-project/public-project/public-project/public-project/public-project/public-project/public-project/public-project/public-project/config.json"
+        }
+      },
+      "expectedDisplay": {
+        "args": [
+          "••••",
+          "••••",
+          "••••"
+        ],
+        "env": {
+          "TOKEN_URL": "••••",
+          "SECRET_PATH": "••••"
+        }
+      },
+      "expectedBackup": {
+        "args": [
+          "$ARCHIVE_MASK",
+          "$ARCHIVE_MASK",
+          "$ARCHIVE_MASK"
+        ],
+        "env": {
+          "TOKEN_URL": "$ARCHIVE_MASK",
+          "SECRET_PATH": "$ARCHIVE_MASK"
+        }
+      },
+      "registered": [
+        "$CANARY"
+      ],
+      "notRegistered": [
+        "https://public-user:$CANARY@provider.example/public/path?token=$CANARY&region=us-east-1",
+        "--endpoint=https://public-user:$CANARY@provider.example/public/path?token=$CANARY&region=us-east-1",
+        "/home/example/public-project/public-project/public-project/public-project/public-project/public-project/public-project/public-project/public-project/public-project/public-project/public-project/config.json",
+        "us-east-1"
+      ]
+    },
+    {
+      "name": "private unknown views use selective text registration",
+      "schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "value": {
+        "region": "us-east-1",
+        "label": "public-model",
+        "path": "/home/user/project",
+        "opaque": "$CANARY",
+        "password": "ordinary-password"
+      },
+      "expectedDisplay": {
+        "region": "••••",
+        "label": "••••",
+        "path": "••••",
+        "opaque": "••••",
+        "password": "••••"
+      },
+      "expectedBackup": {
+        "region": "$ARCHIVE_MASK",
+        "label": "$ARCHIVE_MASK",
+        "path": "$ARCHIVE_MASK",
+        "opaque": "$ARCHIVE_MASK",
+        "password": "$ARCHIVE_MASK"
+      },
+      "registered": [
+        "$CANARY",
+        "ordinary-password"
+      ],
+      "notRegistered": [
+        "us-east-1",
+        "public-model",
+        "/home/user/project"
+      ]
+    },
+    {
+      "name": "URL classification cannot gain a reference exemption",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "x-url-credentials": true,
+            "x-secret-reference": true
+          }
+        }
+      },
+      "value": {
+        "endpoint": "https://user:shortpass@host.example/path"
+      },
+      "expectedDisplay": {
+        "endpoint": "https://••••@host.example/path"
+      },
+      "expectedBackup": {
+        "endpoint": "https://REDACTED@host.example/path"
+      },
+      "registered": [
+        "shortpass"
+      ],
+      "notRegistered": [
+        "user",
+        "https://user:shortpass@host.example/path"
+      ]
+    },
+    {
+      "name": "mixed opaque and query-style fragments remain private",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "mixed": {
+            "type": "string",
+            "x-url-credentials": true
+          },
+          "query": {
+            "type": "string",
+            "x-url-credentials": true
+          }
+        }
+      },
+      "value": {
+        "mixed": "https://host.example/path#$CANARY&section&token=shortpass",
+        "query": "https://host.example/path#?token=shortpass"
+      },
+      "expectedDisplay": {
+        "mixed": "https://host.example/path#••••&••••&token=••••",
+        "query": "https://host.example/path#?token=••••"
+      },
+      "expectedBackup": {
+        "mixed": "https://host.example/path#REDACTED&REDACTED&token=REDACTED",
+        "query": "https://host.example/path#?token=REDACTED"
+      },
+      "registered": [
+        "$CANARY",
+        "shortpass"
+      ],
+      "notRegistered": [
+        "host.example",
+        "section"
+      ]
+    },
+    {
+      "name": "public local references retain scalar and object declarations",
+      "schema": {
+        "type": "object",
+        "$defs": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "fast",
+              "quality"
+            ]
+          },
+          "controls": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "properties": {
+          "mode": {
+            "$ref": "#/$defs/mode"
+          },
+          "controls": {
+            "$ref": "#/$defs/controls"
+          }
+        }
+      },
+      "value": {
+        "mode": "fast",
+        "controls": {
+          "label": "public-model",
+          "opaque": "$CANARY"
+        }
+      },
+      "expectedDisplay": {
+        "mode": "fast",
+        "controls": {
+          "label": "public-model",
+          "opaque": "••••"
+        }
+      },
+      "expectedBackup": {
+        "mode": "fast",
+        "controls": {
+          "label": "public-model",
+          "opaque": "$ARCHIVE_MASK"
+        }
+      },
+      "registered": [
+        "$CANARY"
+      ],
+      "notRegistered": [
+        "fast",
+        "public-model"
+      ]
+    },
+    {
+      "name": "module metadata cannot weaken canonical reference safety",
+      "schema": {
+        "type": "object",
+        "x-secret-reference-policy": {
+          "storeNamePattern": ".*",
+          "envNamePattern": ".*",
+          "tokenPrefixPattern": "(?!)",
+          "maxNameLength": 100000,
+          "entropyMinLength": 100000,
+          "entropyMinBits": 100,
+          "hexMinLength": 100000,
+          "hexMinEntropyBits": 100
+        },
+        "properties": {
+          "ref": {
+            "type": "string",
+            "x-sensitive": true,
+            "x-secret-reference": true
+          }
+        }
+      },
+      "value": {
+        "ref": "$CANARY"
+      },
+      "expectedDisplay": {
+        "ref": "••••"
+      },
+      "expectedBackup": {
+        "ref": "$ARCHIVE_MASK"
+      },
+      "registered": [
+        "$CANARY"
+      ],
+      "notRegistered": []
+    },
+    {
+      "name": "malformed process containers and colon passwords use credential parts",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "x-sensitive": true
+            },
+            "x-text-credentials": "parts"
+          },
+          "env": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "x-sensitive": true,
+            "x-text-credentials": "parts"
+          }
+        }
+      },
+      "value": {
+        "args": [
+          {
+            "password": "nested-password"
+          },
+          "--password",
+          "ordinary:password",
+          "relative-project/directory/directory/directory/directory/directory/directory/directory/directory/directory/directory/directory/directory/directory/directory/directory/config.json"
+        ],
+        "env": {
+          "nested": {
+            "API_TOKEN": "nested-token"
+          },
+          "SECRET_PATH": "relative-project/directory/directory/directory/directory/directory/directory/directory/directory/directory/directory/directory/directory/directory/directory/directory/config.json"
+        }
+      },
+      "expectedDisplay": {
+        "args": [
+          {
+            "password": "••••"
+          },
+          "••••",
+          "••••",
+          "••••"
+        ],
+        "env": {
+          "nested": {
+            "API_TOKEN": "••••"
+          },
+          "SECRET_PATH": "••••"
+        }
+      },
+      "expectedBackup": {
+        "args": [
+          {
+            "password": "$ARCHIVE_MASK"
+          },
+          "$ARCHIVE_MASK",
+          "$ARCHIVE_MASK",
+          "$ARCHIVE_MASK"
+        ],
+        "env": {
+          "nested": {
+            "API_TOKEN": "$ARCHIVE_MASK"
+          },
+          "SECRET_PATH": "$ARCHIVE_MASK"
+        }
+      },
+      "registered": [
+        "nested-password",
+        "ordinary:password",
+        "nested-token"
+      ],
+      "notRegistered": [
+        "relative-project/directory/directory/directory/directory/directory/directory/directory/directory/directory/directory/directory/directory/directory/directory/directory/config.json"
+      ]
+    },
+    {
+      "name": "cyclic local declarations do not establish public values",
+      "schema": {
+        "type": "object",
+        "$defs": {
+          "loop": {
+            "$ref": "#/$defs/loop"
+          }
+        },
+        "properties": {
+          "opaque": {
+            "$ref": "#/$defs/loop"
+          }
+        }
+      },
+      "value": {
+        "opaque": "$CANARY"
+      },
+      "expectedDisplay": {
+        "opaque": "••••"
+      },
+      "expectedBackup": {
+        "opaque": "$ARCHIVE_MASK"
+      },
+      "registered": [
+        "$CANARY"
+      ],
+      "notRegistered": []
+    },
+    {
+      "name": "empty metadata wrappers do not establish public values",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "opaque": {
+            "x-value-schema": {}
+          }
+        }
+      },
+      "value": {
+        "opaque": "$CANARY"
+      },
+      "expectedDisplay": {
+        "opaque": "••••"
+      },
+      "expectedBackup": {
+        "opaque": "$ARCHIVE_MASK"
+      },
+      "registered": [
+        "$CANARY"
+      ],
+      "notRegistered": []
+    },
+    {
+      "name": "empty structural validation wrappers do not classify strings",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "all": {
+            "allOf": [
+              {}
+            ]
+          },
+          "members": {
+            "properties": {}
+          },
+          "items": {
+            "items": {}
+          }
+        }
+      },
+      "value": {
+        "all": "$CANARY",
+        "members": "$CANARY",
+        "items": "$CANARY"
+      },
+      "expectedDisplay": {
+        "all": "••••",
+        "members": "••••",
+        "items": "••••"
+      },
+      "expectedBackup": {
+        "all": "$ARCHIVE_MASK",
+        "members": "$ARCHIVE_MASK",
+        "items": "$ARCHIVE_MASK"
+      },
+      "registered": [
+        "$CANARY"
+      ],
+      "notRegistered": []
+    },
+    {
+      "name": "metadata false overlays cannot cancel a declared secret",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "literal": {
+            "type": "string",
+            "x-sensitive": true,
+            "x-value-schema": {
+              "x-sensitive": false
+            }
+          }
+        }
+      },
+      "value": {
+        "literal": "ordinary-password"
+      },
+      "expectedDisplay": {
+        "literal": "••••"
+      },
+      "expectedBackup": {
+        "literal": "$ARCHIVE_MASK"
+      },
+      "registered": [
+        "ordinary-password"
+      ],
+      "notRegistered": []
+    },
+    {
+      "name": "URL query assignment names remain component credentials in arguments",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "x-sensitive": true
+            },
+            "x-text-credentials": "parts"
+          }
+        }
+      },
+      "value": {
+        "args": [
+          "https://host.example/p?api_key=shortpass&region=us-east-1",
+          "--endpoint=https://host.example/p?access_token=shortpass&region=us-east-1"
+        ]
+      },
+      "expectedDisplay": {
+        "args": [
+          "••••",
+          "••••"
+        ]
+      },
+      "expectedBackup": {
+        "args": [
+          "$ARCHIVE_MASK",
+          "$ARCHIVE_MASK"
+        ]
+      },
+      "registered": [
+        "shortpass"
+      ],
+      "notRegistered": [
+        "shortpass&region=us-east-1",
+        "us-east-1"
+      ]
+    },
+    {
+      "name": "malformed credential arrays retain context and positional paths stay public in text",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "x-sensitive": true
+            },
+            "x-text-credentials": "parts"
+          },
+          "env": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "x-sensitive": true,
+            "x-text-credentials": "parts"
+          }
+        }
+      },
+      "value": {
+        "args": [
+          "projects/AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz/asset.json"
+        ],
+        "env": {
+          "PASSWORD": [
+            "first-password",
+            "second-password",
+            "--literal-password"
+          ]
+        }
+      },
+      "expectedDisplay": {
+        "args": [
+          "••••"
+        ],
+        "env": {
+          "PASSWORD": [
+            "••••",
+            "••••",
+            "••••"
+          ]
+        }
+      },
+      "expectedBackup": {
+        "args": [
+          "$ARCHIVE_MASK"
+        ],
+        "env": {
+          "PASSWORD": [
+            "$ARCHIVE_MASK",
+            "$ARCHIVE_MASK",
+            "$ARCHIVE_MASK"
+          ]
+        }
+      },
+      "registered": [
+        "first-password",
+        "second-password",
+        "--literal-password"
+      ],
+      "notRegistered": [
+        "projects/AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz/asset.json"
+      ]
+    },
+    {
+      "name": "sensitive URI literals retain whole protection and selected component safety",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "literal": {
+            "type": "string",
+            "x-sensitive": true
+          }
+        }
+      },
+      "value": {
+        "literal": "https://public-user:shortpass@host.example/public/path?token=access-value&region=us-east-1"
+      },
+      "expectedDisplay": {
+        "literal": "••••"
+      },
+      "expectedBackup": {
+        "literal": "$ARCHIVE_MASK"
+      },
+      "registered": [
+        "https://public-user:shortpass@host.example/public/path?token=access-value&region=us-east-1",
+        "shortpass",
+        "access-value"
+      ],
+      "notRegistered": [
+        "public-user",
+        "host.example",
+        "/public/path",
+        "us-east-1"
+      ]
+    },
+    {
+      "name": "unknown credential-named literals retain incidental equals signs",
+      "schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "value": {
+        "password": "my=complex=password",
+        "apiKey": "token=abc"
+      },
+      "expectedDisplay": {
+        "password": "••••",
+        "apiKey": "••••"
+      },
+      "expectedBackup": {
+        "password": "$ARCHIVE_MASK",
+        "apiKey": "$ARCHIVE_MASK"
+      },
+      "registered": [
+        "my=complex=password",
+        "token=abc"
+      ],
+      "notRegistered": []
+    },
+    {
+      "name": "process credential literals and URI assignments keep their original context",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "x-sensitive": true
+            },
+            "x-text-credentials": "parts"
+          },
+          "env": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "x-sensitive": true,
+            "x-text-credentials": "parts"
+          }
+        }
+      },
+      "value": {
+        "args": [
+          "--password=token=abc",
+          "BASE_URL=https://host.example/path?api_key=shortpass&region=us-east-1",
+          "--secret-file",
+          "sk-$CANARY"
+        ],
+        "env": {
+          "PASSWORD": [
+            "my=complex=password",
+            "token=abc"
+          ]
+        }
+      },
+      "expectedDisplay": {
+        "args": [
+          "••••",
+          "••••",
+          "••••",
+          "••••"
+        ],
+        "env": {
+          "PASSWORD": [
+            "••••",
+            "••••"
+          ]
+        }
+      },
+      "expectedBackup": {
+        "args": [
+          "$ARCHIVE_MASK",
+          "$ARCHIVE_MASK",
+          "$ARCHIVE_MASK",
+          "$ARCHIVE_MASK"
+        ],
+        "env": {
+          "PASSWORD": [
+            "$ARCHIVE_MASK",
+            "$ARCHIVE_MASK"
+          ]
+        }
+      },
+      "registered": [
+        "token=abc",
+        "my=complex=password",
+        "shortpass",
+        "sk-$CANARY"
+      ],
+      "notRegistered": [
+        "BASE_URL=https://host.example/path?api_key=shortpass&region=us-east-1",
+        "us-east-1"
+      ]
+    },
+    {
+      "name": "nested metadata overlays cannot cancel existing secret leaves",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "nested": {
+            "type": "object",
+            "properties": {
+              "ordinary": {
+                "type": "string",
+                "x-sensitive": true
+              }
+            }
+          },
+          "list": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "x-sensitive": true
+            }
+          },
+          "dictionary": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "x-sensitive": true
+            }
+          }
+        },
+        "x-value-schema": {
+          "properties": {
+            "nested": {
+              "properties": {
+                "ordinary": {
+                  "type": "string",
+                  "x-sensitive": false
+                }
+              }
+            },
+            "list": {
+              "items": {
+                "type": "string",
+                "x-sensitive": false
+              }
+            },
+            "dictionary": {
+              "additionalProperties": {
+                "type": "string",
+                "x-sensitive": false
+              }
+            }
+          }
+        }
+      },
+      "value": {
+        "nested": {
+          "ordinary": "nested-secret-value"
+        },
+        "list": [
+          "array-secret-value"
+        ],
+        "dictionary": {
+          "entry": "dictionary-secret-value"
+        }
+      },
+      "expectedDisplay": {
+        "nested": {
+          "ordinary": "••••"
+        },
+        "list": [
+          "••••"
+        ],
+        "dictionary": {
+          "entry": "••••"
+        }
+      },
+      "expectedBackup": {
+        "nested": {
+          "ordinary": "$ARCHIVE_MASK"
+        },
+        "list": [
+          "$ARCHIVE_MASK"
+        ],
+        "dictionary": {
+          "entry": "$ARCHIVE_MASK"
+        }
+      },
+      "registered": [
+        "nested-secret-value",
+        "array-secret-value",
+        "dictionary-secret-value"
+      ],
+      "notRegistered": []
+    },
+    {
+      "name": "token-shaped usernames are credentials while ordinary usernames stay public in text",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "bare": {
+            "type": "string",
+            "x-url-credentials": true
+          },
+          "empty": {
+            "type": "string",
+            "x-url-credentials": true
+          },
+          "escaped": {
+            "type": "string",
+            "x-url-credentials": true
+          },
+          "ordinary": {
+            "type": "string",
+            "x-url-credentials": true
+          }
+        }
+      },
+      "value": {
+        "bare": "https://ghp_$CANARY@host.example/org/repo.git",
+        "empty": "https://ghp_$CANARYempty:@host.example/path",
+        "escaped": "https://%67%68%70%5F$CANARYescaped@host.example/path",
+        "ordinary": "https://public-user@host.example/public/path?region=us-east-1"
+      },
+      "expectedDisplay": {
+        "bare": "https://••••@host.example/org/repo.git",
+        "empty": "https://••••@host.example/path",
+        "escaped": "https://••••@host.example/path",
+        "ordinary": "https://••••@host.example/public/path?region=••••"
+      },
+      "expectedBackup": {
+        "bare": "https://REDACTED@host.example/org/repo.git",
+        "empty": "https://REDACTED@host.example/path",
+        "escaped": "https://REDACTED@host.example/path",
+        "ordinary": "https://REDACTED@host.example/public/path?region=REDACTED"
+      },
+      "registered": [
+        "ghp_$CANARY",
+        "ghp_$CANARYempty",
+        "ghp_$CANARYescaped",
+        "%67%68%70%5F$CANARYescaped"
+      ],
+      "notRegistered": [
+        "public-user",
+        "host.example",
+        "/org/repo.git",
+        "/public/path",
+        "us-east-1"
+      ]
+    },
+    {
+      "name": "typed recursive public objects preserve finite values and protect unknown strings",
+      "schema": {
+        "type": "object",
+        "$defs": {
+          "tree": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "next": {
+                "$ref": "#/$defs/tree"
+              },
+              "children": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/tree"
+                }
+              },
+              "named": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/$defs/tree"
+                }
+              }
+            }
+          }
+        },
+        "properties": {
+          "tree": {
+            "$ref": "#/$defs/tree"
+          }
+        }
+      },
+      "value": {
+        "tree": {
+          "name": "public-root",
+          "next": {
+            "name": "public-leaf",
+            "next": {
+              "name": "public-tip",
+              "opaque": "$CANARY"
+            }
+          }
+        }
+      },
+      "expectedDisplay": {
+        "tree": {
+          "name": "public-root",
+          "next": {
+            "name": "public-leaf",
+            "next": {
+              "name": "public-tip",
+              "opaque": "••••"
+            }
+          }
+        }
+      },
+      "expectedBackup": {
+        "tree": {
+          "name": "public-root",
+          "next": {
+            "name": "public-leaf",
+            "next": {
+              "name": "public-tip",
+              "opaque": "$ARCHIVE_MASK"
+            }
+          }
+        }
+      },
+      "registered": [
+        "$CANARY"
+      ],
+      "notRegistered": [
+        "public-root",
+        "public-leaf",
+        "public-tip"
+      ]
+    },
+    {
+      "name": "typed recursive array and map items preserve heterogeneous finite branches",
+      "schema": {
+        "type": "object",
+        "$defs": {
+          "tree": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "next": {
+                "$ref": "#/$defs/tree"
+              },
+              "children": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/tree"
+                }
+              },
+              "named": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/$defs/tree"
+                }
+              }
+            }
+          }
+        },
+        "properties": {
+          "tree": {
+            "$ref": "#/$defs/tree"
+          }
+        }
+      },
+      "value": {
+        "tree": {
+          "name": "public-root",
+          "children": [
+            {
+              "name": "public-first",
+              "next": {
+                "name": "public-deep"
+              }
+            },
+            {
+              "name": "public-second",
+              "children": [
+                {
+                  "name": "public-last"
+                }
+              ]
+            }
+          ],
+          "named": {
+            "one": {
+              "name": "public-map",
+              "next": {
+                "name": "public-map-deep"
+              }
+            }
+          }
+        }
+      },
+      "expectedDisplay": {
+        "tree": {
+          "name": "public-root",
+          "children": [
+            {
+              "name": "public-first",
+              "next": {
+                "name": "public-deep"
+              }
+            },
+            {
+              "name": "public-second",
+              "children": [
+                {
+                  "name": "public-last"
+                }
+              ]
+            }
+          ],
+          "named": {
+            "one": {
+              "name": "public-map",
+              "next": {
+                "name": "public-map-deep"
+              }
+            }
+          }
+        }
+      },
+      "expectedBackup": {
+        "tree": {
+          "name": "public-root",
+          "children": [
+            {
+              "name": "public-first",
+              "next": {
+                "name": "public-deep"
+              }
+            },
+            {
+              "name": "public-second",
+              "children": [
+                {
+                  "name": "public-last"
+                }
+              ]
+            }
+          ],
+          "named": {
+            "one": {
+              "name": "public-map",
+              "next": {
+                "name": "public-map-deep"
+              }
+            }
+          }
+        }
+      },
+      "registered": [],
+      "notRegistered": [
+        "public-root",
+        "public-first",
+        "public-deep",
+        "public-second",
+        "public-last",
+        "public-map",
+        "public-map-deep"
+      ]
+    },
+    {
+      "name": "typed root recursion retains each finite object and array member",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "child": {
+            "$ref": "#"
+          },
+          "peers": {
+            "type": "array",
+            "items": {
+              "$ref": "#"
+            }
+          }
+        }
+      },
+      "value": {
+        "label": "public-root-ref",
+        "child": {
+          "label": "public-child-ref"
+        },
+        "peers": [
+          {
+            "label": "public-peer-ref",
+            "child": {
+              "label": "public-nested-ref"
+            }
+          }
+        ]
+      },
+      "expectedDisplay": {
+        "label": "public-root-ref",
+        "child": {
+          "label": "public-child-ref"
+        },
+        "peers": [
+          {
+            "label": "public-peer-ref",
+            "child": {
+              "label": "public-nested-ref"
+            }
+          }
+        ]
+      },
+      "expectedBackup": {
+        "label": "public-root-ref",
+        "child": {
+          "label": "public-child-ref"
+        },
+        "peers": [
+          {
+            "label": "public-peer-ref",
+            "child": {
+              "label": "public-nested-ref"
+            }
+          }
+        ]
+      },
+      "registered": [],
+      "notRegistered": [
+        "public-root-ref",
+        "public-child-ref",
+        "public-peer-ref",
+        "public-nested-ref"
+      ]
+    },
+    {
+      "name": "a cyclic declaration cannot be made public by a typed sibling",
+      "schema": {
+        "type": "object",
+        "$defs": {
+          "loop": {
+            "$ref": "#/$defs/loop"
+          }
+        },
+        "properties": {
+          "opaque": {
+            "$ref": "#/$defs/loop",
+            "type": "string"
+          }
+        }
+      },
+      "value": {
+        "opaque": "private-cycle-text"
+      },
+      "expectedDisplay": {
+        "opaque": "••••"
+      },
+      "expectedBackup": {
+        "opaque": "$ARCHIVE_MASK"
+      },
+      "registered": [
+        "private-cycle-text"
+      ],
+      "notRegistered": []
+    }
+  ]
+}

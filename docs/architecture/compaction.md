@@ -82,6 +82,158 @@ rendered character counts divided by four; it is not provider usage. Re-fetch
 rate counts explicit restores divided by all pruned overlay rows, including
 restored rows. Similar later tool calls are not classified as restores.
 
+## Rewind with a lesson (D120 CX1)
+
+RPC 1.18.0 adds human-only `session.rewind` and `chat.rewind`. Apply with
+`{ sessionId, toSeq, lesson? }` (`session.*` also carries the existing CLI caller),
+or undo with `{ sessionId, undo: rewindId }`. The session must be idle. Transcript
+commands use `/rewind [<seq> | last] [--lesson "..."]` and `/rewind --undo <id>`.
+They never reach recall, capture, the model or its cached prefix.
+
+Session schema v10, allocated by the owner on 2026-11-01, adds `path_rewinds` and
+checkpoint metadata. Original messages and events remain byte-identical. The
+overlay records the last kept sequence, inclusive hidden range, lesson message,
+actor, trigger and SHA-256 digest. The digest is over the UTF-8 JSON array of
+ordered `[id, text]` tuples. Audit actions are `session.rewind` and
+`session.rewind.undone`; no transcript text enters the audit. Undo lifts the hidden
+range and hides the obsolete lesson, without deleting either. Nested rewinds are
+independent overlays.
+
+Prompt readers, loaded-skill restoration and pruning use the active path. Tools
+from a partially discarded turn are excluded too. Applied and prepared summaries
+that touch a hidden range leave the view; new summaries never span that hole.
+A summary awaiting its model is discarded if the session revision changed.
+Undo exposes the original tool-visibility overlays and summaries again. FTS keeps
+all original text and marks hidden hits `rewound`; transcript APIs carry the same
+flag. `chat.export` separates `messages` from `discarded`.
+
+Context reads determine command turns once and filter messages in one pass; they do not
+perform a correlated event lookup for each message. Ordinary compaction reads start after
+the continuously summarized prefix. Gaps left by rewind remain visible, and explicitly
+restored tool references retain their original turn anchors even inside a summarized range.
+
+The stored harness note renders at conversation rank after the kept prefix. This
+keeps provider system blocks stable, including on providers that hoist system messages.
+Human corrective notes are limited to 1567 UTF-16 code units and preserved verbatim.
+Inline file context uses the remaining note budget and may be shortened or omitted;
+the original tool history retains the file references. Model-derived text is bounded
+without splitting a Unicode code point.
+Forks copy an active corrective note at conversation rank too; they do not inherit
+the source session's overlay identifiers. The owning M3 transcript reader applies
+the same rewind markers after its existing privacy and breakglass checks.
+
+An explicit lesson avoids a model call. Otherwise the existing `summarize` role
+and budget distill the selected active range, bounded tool envelopes and final failing
+check essence. A trusted system instruction requests a corrective lesson; supplied
+transcript text stays untrusted. Already discarded messages and tool metadata stay
+out of later lessons too. Artifact bodies, invalid artifact identifiers and full
+stdout/stderr are excluded. Missing role,
+unavailable model or budget refusal uses a deterministic changed-file/failure
+digest. The complete harness note is capped at 400 estimated tokens, using the
+existing four-character estimate. Rewind leaves previously captured memory alone;
+correct a remembered fact through the existing memory correction/forget surface.
+
+Q13 counts a successful `file.edit`/`file.write` followed by a failing `code.check`,
+test-running `exec.run`, or coding gate result. Three consecutive cycles produce
+an interactive proposal, confirmed by a human action or `/rewind`. A successful
+check resets the streak. `session.rewind.autoProjects` is an advanced, live,
+Owner/Admin-written list (default `[]`). Automatic application additionally needs
+a trusted unattended turn, kind `card`, a unique active D115 card link, the assigned
+agent and the shared worktree binding. The turn runner treats a trusted background
+origin on a T0 surface as unattended, including one-shot work; the responsible person's identity does not
+mean a person is present to approve. An agent message does not
+provide human approval; automatic rewind never restores files.
+
+Q14 leaves files unchanged by default. `session.rewind.fileProjects` is a live,
+audited Owner/Admin list, default `[]`. Only listed projects permit checkpoints
+and file restoration; otherwise `--files` refuses with `rewind-files-disabled`.
+For an opted-in D115 card, each model turn attempts a checkpoint at
+`refs/plur1bus/checkpoints/<session>/<turn>`. The D115 binding is resolved once
+for capture and reused during root validation. Git uses a
+private temporary index, preserving dirty working bytes, staging and HEAD;
+untracked files are excluded. Repository filters, hooks, pagers and signing
+programs are disabled during these harness-owned Git operations. Capture and
+restore use an owner-private temporary Git directory as well as a copied index.
+Its highest-precedence attributes disable filters, text/EOL normalization,
+encoding conversion and ident expansion, including drivers from included or
+worktree configuration. Capture re-reads tracked contents rather than reusing a
+cached normalized blob. Split-index dependencies are copied privately; the real
+index remains unchanged. Unstaged deletions are removed from the private index before
+renormalization, so they can be captured and recreated on every supported Git version.
+Git failures use the typed `rewind-checkpoint` storage reason without exposing stderr. An unavailable
+checkpoint is logged and `--files` refuses rather than substituting HEAD.
+Incognito sessions create no file checkpoints.
+
+File rewind selects the first ordinary discarded turn, skipping harness-command turns.
+An already hidden older attempt remains eligible: its checkpoint is the file state at
+the target. If that checkpoint is unavailable, restore refuses rather than selecting a
+later attempt's different file state.
+
+`session.rewind.checkpointRetentionTurns` is a live, audited Owner/Admin setting
+(default 50, range 1–500). Refs older than that many session turns are released.
+Archive cleanup is queued immediately; completed/archived cards are checked by
+an owned ten-second maintenance sweep while checkpoint records exist. Startup
+retries outstanding cleanup. Capture persists the canonical common Git directory,
+so an absent checkout or one that is no longer a repository reaches an audited
+terminal state (`root-missing` or `root-not-repository`). Cleanup releases the owned
+ref through that common directory and prunes stale linked-worktree registrations.
+If the common directory is also gone, its intent can be forgotten after the audit.
+Each removal still compares the saved ref and commit ID. Changed roots, directories
+or refs fail closed and retain their intent for retry, with at most one warning per
+intent. The timer stops after the last intent is removed.
+Cleanup never changes working files, staging, messages, events or conversation
+overlays. Releasing refs makes unreferenced objects eligible for ordinary Git
+garbage collection; the harness does not run object pruning or `git gc`.
+
+Immutable checkpoint intents include project/card/turn, common-directory and object identities.
+They are recorded before ref publication and outlive explicit transcript erasure
+until the native ref is released. This prevents interrupted publication or an
+immediate archive/delete from orphaning a ref. Core shutdown aborts and drains
+owned checkpoint jobs before closing the session database.
+
+Capture reads all tracked working bytes, so its cost grows with the tracked tree.
+The synthetic probe below ran on macOS arm64, Node 24.21.0 and Git 2.55.0, with
+100 tracked files / 1,740,800 bytes and 20 samples per mode (2026-11-02). It uses
+an in-memory session database and a constant binding resolver; production board
+lookup, persistent-database I/O, providers and B1 acceptance are outside this probe.
+
+| Checkpoints | p50 | p95 | Binding resolutions |
+| --- | ---: | ---: | ---: |
+| Disabled | 0.038 ms | 0.330 ms | 0 |
+| Enabled | 68.595 ms | 82.410 ms | 20 (one per turn) |
+
+The probe discards no warmups or outliers and uses nearest-rank percentiles.
+[Raw samples and measured hardware](../evidence/pr870-rereview-checkpoints-2026-11-02.json) are retained.
+
+Reproduce from the repository root with Node 24:
+
+```sh
+node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning packages/core/bench/rewind-checkpoints.ts
+```
+
+`/rewind ... --files` (or RPC `files: true`) requests a T2, single-use
+`local-destructive` approval through D109. An unattested local connection (T1)
+uses the existing `approval.decide` flow with `attest: true` and OS confirmation
+to lift that one decision to T2. Without the helper or confirmation it is refused;
+the scope remains `once`. The action binds the session, root,
+recorded checkpoint, current working tree and real-index digest. The session is
+reserved while approval is pending. Changed files, index, assignment, checkpoint
+or session revision invalidate the request before restoration. Only tracked
+working files present in the checkpoint are restored in overlay mode; newly
+tracked files, staging, HEAD and untracked files are preserved. The approval
+lists overwritten paths and newly tracked paths that will be kept, with counts.
+The Core computes the list from immutable Git trees; D109 redacts it before
+display. A preview exceeding 200 paths or 4096 characters is refused before
+asking for approval. A file/directory collision that would overwrite a preserved
+path is also refused.
+Checkpoint Git children have a 30-second deadline and a combined 32 MiB output
+limit. Cancellation and timeout send SIGTERM, then SIGKILL after one second if
+needed. Every result waits for `close` before the temporary index is removed.
+The file action is audited separately as `session.rewind.files`. Git restoration
+and the SQLite overlay are separate operations: a later storage failure does not
+roll back an already approved file restoration. Undo is conversation-only and
+does not undo a file restoration.
+
 ## Configuration and events
 
 `session.compaction` is advanced tier and restarts the Core. Defaults:

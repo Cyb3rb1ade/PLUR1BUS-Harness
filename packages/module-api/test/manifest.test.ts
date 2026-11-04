@@ -4,6 +4,12 @@ import { readFileSync } from "node:fs";
 import { MODULE_API_VERSION, apiVersionSupported, validateManifest } from "../src/manifest.ts";
 
 describe("module manifest", () => {
+  it("reserves fixed process roles against installable module collisions", () => {
+    for (const name of ["core", "supervisor", "api", "tools"]) {
+      assert.equal(validateManifest({ name, version: "0.1.0", apiVersion: "1", entry: "index.js", scope: "installation", priority: 500 }).ok, false, name);
+    }
+  });
+
   it("manifest cases match the shared fixture", () => {
     const cases = JSON.parse(readFileSync(new URL("../fixtures/manifest-cases.json", import.meta.url), "utf8")) as { name: string; manifest: unknown; valid: boolean }[];
     assert.ok(cases.length >= 9);
@@ -25,6 +31,26 @@ describe("module manifest", () => {
     const input = { name: "fixture", version: "0.1.0", apiVersion: "1", entry: "index.js", scope: "installation", priority: 500 };
     validateManifest(input);
     assert.equal("restart" in input, false);
+  });
+
+  it("refuses configuration schemas whose privacy declarations cannot be interpreted", () => {
+    const base = { name: "fixture", version: "0.1.0", apiVersion: "1", entry: "index.js",
+      scope: "installation", priority: 500 };
+    for (const configSchema of [
+      { allOf: [{ properties: { ordinary: { type: "string", "x-sensitive": true } } }] },
+      { properties: { ordinary: { $ref: "https://schema.example.test/private" } } },
+      { properties: { ordinary: { type: "string", "x-sensitive": "sometimes" } } },
+      { properties: { ordinary: { type: "string", "x-url-credentials": true, "x-sensitive": true } } },
+    ]) {
+      const result = validateManifest({ ...base, configSchema });
+      assert.equal(result.ok, false, JSON.stringify(configSchema));
+      if (!result.ok) assert.deepEqual(result.errors,
+        ["/configSchema contains unsupported configuration disclosure metadata"]);
+    }
+    assert.equal(validateManifest({ ...base, configSchema: { type: "object", properties: {
+      ordinary: { type: "string", "x-sensitive": true },
+      endpoint: { type: "string", "x-url-credentials": true },
+    } } }).ok, true);
   });
 
   it("kind accepts module and channel and refuses others", () => {

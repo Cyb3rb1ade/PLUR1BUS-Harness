@@ -57,6 +57,11 @@ export async function prepareBundle(options){
  const cliPath=join(resources,'cli',platform.cli);
  if(ciFixture){await mkdir(dirname(cliPath),{recursive:true});await writeFile(cliPath,platform.os==='windows'?'CI PLACEHOLDER - not a PE executable\n':'#!/bin/sh\nprintf "%s\\n" "CI PLACEHOLDER - no host CLI" >&2\nexit 2\n',{mode:0o755});}
  else await copy(options.cliPath,cliPath);
+ // D120: tools stays beside the host CLI; payload.json hashes it with every signed resource.
+ const toolsName=platform.os==='windows'?'plur1bus-tools.exe':'plur1bus-tools';
+ const toolsPath=join(resources,'cli',toolsName);
+ if(ciFixture)await writeFile(toolsPath,'CI PLACEHOLDER - no native tools service\n',{mode:0o755});
+ else await copy(options.toolsPath??join(dirname(options.cliPath),toolsName),toolsPath);
  manifest.cli={path:`cli/${platform.cli}`,sha256:await fileHash(cliPath)};
  manifest.snapshotRuntime=await stageSnapshotRuntime({target,resources,archive:options.snapshotNodeArchive,fixture:ciFixture});
  if(platform.os==='macos'){

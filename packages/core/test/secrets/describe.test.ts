@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import { createSecretStore } from '../../src/secrets/store.ts';
 import { createMemoryBackend } from '../../src/secrets/memory-backend.ts';
 import { createMemoryAuditSink } from '../../src/secrets/audit.ts';
@@ -62,6 +63,24 @@ test('grants read view contains config references, never invented effective gran
   who = { kind: 'agent', agentId: 'main' };
   for (const method of ['secret.describe', 'secret.grants.list'] as const) await assert.rejects(() => methods[method]({ name: 'billing', description: 'Changed' }, ctx), (e: unknown) => (e as { error?: string }).error === 'E_DENIED');
 });
+test('grants keep safe names readable but mask independently registered store values in reference metadata', async () => {
+  const { defaults } = await import('@plur1bus/config-schema');
+  const { buildSecretMethods } = await import('../../src/secrets/rpc.ts');
+  const { store } = rig();
+  const name = `fixture.reference.${randomUUID().slice(0, 8)}`;
+  const config = defaults();
+  config.agents.main = { channels: ['telegram'] };
+  config.channels.telegram.tokenSecret = name;
+  const methods = buildSecretMethods({ store, config: () => config, principalOf: () => owner });
+  const ctx = { signal: new AbortController().signal } as never;
+  const ordinary = await methods['secret.grants.list']({}, ctx);
+  assert.ok(JSON.stringify(ordinary).includes(name));
+  await store.set(owner, 'independent-store-value', name);
+  const protectedView = await methods['secret.grants.list']({}, ctx);
+  assert.ok(!JSON.stringify(protectedView).includes(name));
+  assert.deepEqual(Object.keys(protectedView as object), ['agentLeasesEnabled', 'grants', 'references']);
+});
+
 test('new secret RPCs reject every agent role and narrowed owner tokens at the guard', async () => {
   const { guardMethods, LOCAL_OWNER } = await import('../../src/rbac/guard.ts');
   const ctx = { signal: new AbortController().signal } as never;

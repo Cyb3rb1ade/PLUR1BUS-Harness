@@ -3,7 +3,7 @@ name = "plur1bus-engine"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "The PLUR1BUS memory engine in Rust (rust-engine plan §2): store, embeddings, recall, capture and jobs behind one supervised process. RE-00 skeleton: no engine behaviour yet."
+description = "The PLUR1BUS memory engine in Rust: authenticated process server, compatible stores and embedding providers."
 
 [lib]
 name = "plur1bus_engine"
@@ -18,6 +18,21 @@ name = "embedding_parity"
 path = "tests/embedding_parity.rs"
 required-features = ["real-models"]
 
+[[test]]
+name = "media_model_parity"
+path = "tests/media_model_parity.rs"
+required-features = ["real-models"]
+
+[[test]]
+name = "media_audio_reference"
+path = "tests/media_audio_reference.rs"
+required-features = ["real-models"]
+
+[[test]]
+name = "media_image_reference"
+path = "tests/media_image_reference.rs"
+required-features = ["real-models"]
+
 [lints]
 workspace = true
 
@@ -29,6 +44,8 @@ real-models = []
 serde.workspace = true
 serde_json.workspace = true
 clap.workspace = true
+# Reuse the supervisor's already-locked OS entropy source for per-start RPC tokens.
+getrandom = "=0.3.4"
 # Pinned to the version the Node engine's committed lockfile resolves for @lancedb/lancedb (RE-D3): the Node SDK is a
 # binding of this crate, so the same version reads and writes the same on-disk Lance format.
 lancedb = "=0.26.2"
@@ -58,6 +75,8 @@ sha2 = "0.10"
 ureq = { version = "3", default-features = false, features = ["rustls", "platform-verifier"] }
 # Reuse the locked socket API for cancellation of ureq connections; this adds no HTTP/TLS stack.
 socket2 = "=0.6.5"
+# MM-1/E13: bounded decode only; Pillow-compatible resize stays in-tree.
+image = { version = "=0.25.10", default-features = false, features = ["jpeg", "png", "webp"] }
 
 # Keep these direct dependencies on the exact lines already resolved by lancedb 0.26.2.
 arrow-array = "=57.3.1"
@@ -67,13 +86,15 @@ futures = "=0.3.34"
 chrono = "0.4"
 uuid = { version = "1", features = ["v4"] }
 plur1bus-rpc = { path = "../plur1bus-rpc" }
+plur1bus-config = { path = "../plur1bus-config" }
+plur1bus-log-schema = { path = "../plur1bus-log-schema" }
 tokio = { version = "=1.53.3", features = ["rt-multi-thread"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Storage_FileSystem"] }
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_Console"] }
 
 [dev-dependencies]
 tempfile.workspace = true

@@ -251,18 +251,21 @@ test("inbound attachments: accepted bytes arrive on onMessage with MIME, kind an
   try {
     await push(r, textEnvelope({ message: "pic", attachments: [{ id: "att1", contentType: "image/png", size: 8, filename: "my pic (1).png" }] }));
     assert.deepEqual(got, [{ kind: "photo", mimeType: "image/png", filename: "my_pic__1_.png", size: 8 }]);
-    assert.ok(r.logs.some((l) => l.event === "channel.signal.framework-rich-turn-gap"));
+    assert.equal(r.received.length, 1);
+    assert.deepEqual(Buffer.from(r.received[0]!.attachments![0]!.data), Buffer.from(PNG, "base64"));
   } finally {
     await r.close();
   }
 });
 
-test("inbound attachments: framework path logs the rich-turn gap for attachment turns", async () => {
+test("inbound attachments: attachment-only turns reach the framework", async () => {
   const r = await rig();
   r.daemon.attachments.set("att1", PNG);
   try {
-    await push(r, textEnvelope({ message: "pic", attachments: [{ id: "att1", contentType: "image/png", size: 8 }] }));
-    assert.ok(r.logs.some((l) => l.event === "channel.signal.framework-rich-turn-gap"));
+    await push(r, textEnvelope({ message: "", attachments: [{ id: "att1", contentType: "image/png", size: 8 }] }));
+    assert.equal(r.received.length, 1);
+    assert.equal(r.received[0]!.text, "");
+    assert.deepEqual(Buffer.from(r.received[0]!.attachments![0]!.data), Buffer.from(PNG, "base64"));
   } finally {
     await r.close();
   }

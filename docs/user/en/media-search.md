@@ -50,7 +50,7 @@ licence is confirmed, whether "Only local models" allows the provider, and wheth
 examples.
 
 **Only EmbeddingGemma 2 local for text and media.** This is the simplest setup. The same local model serves the text index
-and the media index, and it is loaded once. Everything, including captions, runs on your Mac.
+and the media index, using separate inference sessions. Everything, including captions, runs locally.
 
 **OpenAI for text, EmbeddingGemma 2 local for media.** OpenAI serves the text index, so your memory entries and captions
 are embedded by OpenAI. OpenAI cannot serve the media index, so media indexing is always done by a provider that supports
@@ -67,13 +67,29 @@ A new installation starts with these settings, all of which you can change in se
 
 - EmbeddingGemma 2 local for the text index and the media index.
 - All three modalities active: image, video and audio.
-- Backfill automatic. Backfill is the indexing of media that have not been indexed yet. It runs in the background, can be paused,
-  resumes after a restart, and honours your budget.
+- Backfill manual. Existing media are indexed only when you ask for it. Explicit saved backfill settings are kept.
+  Background indexing can be paused and resumed and honours your budget.
+
+The model capability display lists the modalities reported by the server. Model support does not mean the extra encoders
+are installed or the Rust media index is available yet. Photos can be decoded without ffmpeg. For audio and video,
+setup displays the command you can run yourself if ffmpeg is missing. Plur1bus never runs sudo or a package-manager
+installation and does not distribute ffmpeg. `plur1bus 1staid check` reports whether it is present.
+
+Uploads from private direct messages remain bound to the sending person; another person's rights on the same agent
+do not grant read access. Uploads and generated media share 1 GiB of storage and are automatically removed after
+30 days. Uploaded files currently have no individual delete command; the generated-media delete action applies only
+to generated outputs.
+
+Audio segments are at most 30 seconds (one hour maximum per audio input). Older configured segment lengths above 30
+are rejected with a configuration error. Image and video frame token budgets default to 140 and 70; all supported
+platforms currently use q8 encoders.
 
 ## Modalities and model variant
 
-Each modality (image, video, audio) can be switched off on its own. The model variant depends on the modalities you keep,
-so the model you download can change in size when you switch one on or off.
+Each modality (image, video, audio) can be switched off on its own. The verified local EmbeddingGemma 2 q8 encoder
+package totals 535,699,121 bytes (about 511 MiB), excluding the text
+model. Setup shows this extra download size separately from installation status. Time per photo on your device has not
+yet been measured; setup says so explicitly.
 
 ## Licences
 
@@ -89,7 +105,8 @@ configured while the switch is on, the affected indexing stops with an error (se
 
 ## Backfill and reindexing
 
-Backfill starts after you enable media search and after you change the media model. While it runs, you see the progress.
+With automatic backfill explicitly selected, it starts after you enable media search and after you change the media model.
+With the manual default, start it yourself when ready. While it runs, you see the progress.
 You can pause it and resume it. Until backfill has finished, not every medium is searchable yet.
 
 If your budget is used up, backfill pauses by itself and shows the reason "budget". It continues when the budget allows

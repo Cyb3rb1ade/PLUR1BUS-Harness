@@ -63,7 +63,9 @@ The bundle is `plur1bus.agent-export/1`, a UTF-8 JSON document:
   The persistent private signing identity is kept in the ADR-005 secret store and leased only for signing. It never enters a
   bundle. Verify against a public key already trusted for the installation; the bundled key alone is not proof of origin.
 
-A bundle has at most 256 files and 2 MiB of redacted file text. File opens reject links; config secret keys are omitted.
+A bundle has at most 256 files and 2 MiB of redacted file text. File opens reject links. Agent config values use the
+schema policy at `agents.<id>`, preserving public keys and JSON types while masking sensitive values and URL credentials
+([configuration disclosure](config-disclosure.md)). Required secret names remain manifest metadata for target provisioning.
 Recognizable credentials and exact secret-store values (including encoded forms recognized by the existing redactor) are
 redacted. Known secrets are held only while building the bundle; leases are revoked. Arbitrary sensitive prose that was never
 stored as a secret is not classified as a credential by this mechanism.

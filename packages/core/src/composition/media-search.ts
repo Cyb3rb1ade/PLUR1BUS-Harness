@@ -5,6 +5,7 @@ import { deferMaintenanceStart, type CompositionMaintenance } from './maintenanc
 import { safeId } from '../../../media/src/files.ts';
 import { guardedMediaIndex, type MediaEncodingBudget } from '../media-search/admission.ts';
 import { localMediaSelection } from '../media-search/engine-host.ts';
+import { mediaConfigForLoad, type MediaEmbeddingConfig } from '../media-search/validate.ts';
 import { mediaError } from '../media-search/errors.ts';
 import { localOnlyShared } from '../privacy/local-only.ts';
 import { readFile } from 'node:fs/promises';
@@ -73,14 +74,29 @@ const agentScope = (agents: MediaSearchDeps['agents'], agentId: string): Princip
 
 /** Never throws: any failure leaves media search disabled and the rest of the core running. */
 export async function composeMediaSearch(d: MediaSearchDeps): Promise<MediaSearchComposition> {
-  const cfg = () => d.config().memory.mediaEmbedding;
+  const warned = new WeakMap<HarnessConfig, Set<string>>();
+  const loaded = <T extends MediaEmbeddingConfig>(raw: T, entry: string): T => {
+    const config = mediaConfigForLoad(raw);
+    if (config !== raw) {
+      const snapshot = d.config(), entries = warned.get(snapshot) ?? new Set<string>();
+      if (!entries.has(entry)) {
+        d.logger.warn('legacy local media settings use defaults', {
+          reason: 'legacy-media-catalog',
+          fields: ['model', 'dimensions'].filter(key => config[key as keyof T] !== raw[key as keyof T]),
+        });
+        entries.add(entry); warned.set(snapshot, entries);
+      }
+    }
+    return config;
+  };
+  const cfg = () => loaded(d.config().memory.mediaEmbedding, 'global');
   const emit = d.emit ?? ((name, payload) => d.logger.info(name, payload));
   const counts: Record<string, number> = {};
   const counters = { indexFailed: (stage: string) => { counts[`index_failed_${stage}`] = (counts[`index_failed_${stage}`] ?? 0) + 1; }, snapshot: () => ({ ...counts }) };
   const snapshot = structuredClone(cfg());
   const effective = (agentId?: string) => {
     const own = agentId ? d.config().agents[agentId]?.memory?.mediaEmbedding : undefined;
-    return { ...cfg(), ...own, modalities: (own?.modalities ?? cfg().modalities).filter((m): m is MediaKind => m !== undefined), video: { ...cfg().video, ...own?.video }, audio: { ...cfg().audio, ...own?.audio }, caption: { ...cfg().caption, ...own?.caption } };
+    return loaded({ ...cfg(), ...own, modalities: (own?.modalities ?? cfg().modalities).filter((m): m is MediaKind => m !== undefined), video: { ...cfg().video, ...own?.video }, audio: { ...cfg().audio, ...own?.audio }, caption: { ...cfg().caption, ...own?.caption } }, agentId ?? 'global');
   };
   const ownerOf = async (mediaId: string): Promise<string> => {
     safeId(mediaId);
@@ -189,7 +205,10 @@ export async function composeMediaSearch(d: MediaSearchDeps): Promise<MediaSearc
 export function mediaSearchMethods(d: Pick<MediaSearchDeps, 'home' | 'config' | 'agents'>, m: MediaSearchComposition): Record<string, Handler> {
   return createMediaSearchSurface({
     index: () => (m.kind === 'disabled' ? null : m.port),
-    config: d.config,
+    config: () => {
+      const config = d.config(), mediaEmbedding = mediaConfigForLoad(config.memory.mediaEmbedding);
+      return mediaEmbedding === config.memory.mediaEmbedding ? config : { ...config, memory: { ...config.memory, mediaEmbedding } };
+    },
     backfill: { pause: async () => { await m.backfill.pause(); }, resume: async () => { await m.backfill.resume(); }, reindex: async () => { await m.backfill.reindex(); } },
     globalStatus: true,
     scopeOf: principal => {

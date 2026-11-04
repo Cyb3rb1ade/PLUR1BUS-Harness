@@ -1,4 +1,5 @@
 import type { BehaviourSet } from "./behaviour.ts";
+export { supportsConfigDisclosurePolicy } from "./disclosure-policy.ts";
 export type { BehaviourSet, BehaviourLayer } from "./behaviour.ts";
 import { privacyAcknowledgmentError, type PrivacyAcknowledgment } from "./privacy.ts";
 export { privacyAcknowledgmentError } from "./privacy.ts";
@@ -6,15 +7,28 @@ export type { PrivacyAcknowledgment, PrivacyChoice } from "./privacy.ts";
 import Ajv2020, { type ValidateFunction } from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import schemaJson from "../schema/config.schema.json" with { type: "json" };
+import { configurationWarnings, type ConfigWarning } from "./sensitive.ts";
+export { sensitiveOf, urlCredentialsOf, configurationWarnings, redactConfig } from "./sensitive.ts";
+export { configTextSecretEntries } from "./sensitive.ts";
+export { maskUrlCredentials } from "./url-credentials.ts";
+export { secretReferenceOf } from "./sensitive.ts";
+export { looksLikePastedKey } from "./secret-reference.ts";
+export type { ConfigSchemaNode, ConfigSecretEntry, ConfigWarning, ConfigRedactionOptions } from "./sensitive.ts";
 
 export const CONFIG_SCHEMA = schemaJson as Record<string, any>;
 export const SCHEMA_VERSION = 1 as const;
+/** Fixed MM-3a local support catalog, shared with Rust config ownership through the schema. */
+export const MEDIA_MODEL_CATALOG = schemaJson["x-media-models"];
 
 export interface MediaEmbeddingConfig {
   enabled: boolean; provider: string; privacyAck?: PrivacyAcknowledgment; model: string; dimensions: number;
   modalities: ("image" | "video" | "audio")[];
-  video: { segmentSec: number; maxFrames: number; sceneDetect: boolean };
+  image: { softTokens: number };
+  video: { segmentSec: number; maxFrames: number; sceneDetect: boolean; softTokens: number };
   audio: { segmentSec: number; maxSeconds: number };
+  dtypes: Record<"linux-x64" | "linux-arm64" | "darwin-arm64" | "win32-x64" | "win32-arm64", {
+    text: "q8"; vision: "q8"; audio: "q8";
+  }>;
   caption: { source: "prompt-then-user-then-auto" | "user-only" | "off"; provider?: string; privacyAck?: PrivacyAcknowledgment; maxChars: number; perSegment: boolean };
   backfill: "auto" | "manual";
 }
@@ -61,13 +75,13 @@ export interface HarnessConfig {
   sidecars?: Record<string, { mode: "bundled" | "remote" | "off"; url?: string; caBundle?: string; fingerprint?: string; timeoutMs: number }>;
   $schema?: string;
   schemaVersion: 1;
-  session: { compaction: { softRatio: number; hardRatio: number; summaryMaxTokens: number; maxMessageTokens: number; summarizer: "llm" | "digest"; prune: { enabled: boolean; keepLastTurns: number; decider: "laya" | "heuristic" | "off"; maxMs: number; batchSize: number } } };
+  session: { rewind: { autoProjects: string[]; fileProjects: string[]; checkpointRetentionTurns: number }; compaction: { softRatio: number; hardRatio: number; summaryMaxTokens: number; maxMessageTokens: number; summarizer: "llm" | "digest"; prune: { enabled: boolean; keepLastTurns: number; decider: "laya" | "heuristic" | "off"; maxMs: number; batchSize: number } } };
   tools: { sandbox: { required: boolean; maxTasks: number }; hostctl: { enabled: boolean; shell: { allowed: boolean; default: "bash" | "zsh" | "pwsh" }; exec: { timeoutMs: number }; output: { maxBytes: number }; env: { allow: string[] }; denyPatterns: string[]; search: { maxResults: number } } };
   core: { webHandoffBaseUrl: string; logLevel: "debug" | "info" | "warn" | "error"; recall: { softBudgetMs: number; hardBudgetMs: number; capChars: number }; capture: { waitMs: number }; shutdownBudgetMs: number };
   supervisor: { graceMs: number; healthIntervalMs: number; maxCores: number };
   logs: { maxBytes: number; keep: number };
   metrics: { enabled: boolean; port: number };
-  agents: Record<string, { skills?: { blocked?: string[]; pinned?: string[]; applyAt?: "next-turn" | "next-session" }; createdAt?: string; behaviour?: BehaviourSet; displayName?: string; persona?: string; model?: string; modelPolicy?: ModelRoutingPolicy; toolUse?: ToolUsePolicy; channels?: string[]; voice?: VoiceV3Override; memory?: { mediaEmbedding?: DeepPartial<MediaEmbeddingConfig> }; privacy?: { localOnly?: boolean }; engine?: { kind: "external"; connector: "claude-code" | "codex" | "goose" | "agy"; maxTurns?: number; timeoutMs?: number }; memoryExposure?: { collab?: { recall?: { workspace?: boolean; user?: boolean; agentPrivate?: boolean }; capture?: boolean }; mcp?: { recall?: { workspace?: boolean; user?: boolean; agentPrivate?: boolean }; capture?: boolean }; a2a?: { recall?: { workspace?: boolean; user?: boolean; agentPrivate?: boolean }; capture?: boolean } }; mcpServer?: { exposed?: boolean; allowedGroups?: readonly string[] } }>;
+  agents: Record<string, { coding?: boolean; skills?: { blocked?: string[]; pinned?: string[]; applyAt?: "next-turn" | "next-session" }; createdAt?: string; behaviour?: BehaviourSet; displayName?: string; persona?: string; model?: string; modelPolicy?: ModelRoutingPolicy; toolUse?: ToolUsePolicy; channels?: string[]; voice?: VoiceV3Override; memory?: { mediaEmbedding?: DeepPartial<MediaEmbeddingConfig> }; privacy?: { localOnly?: boolean }; engine?: { kind: "external"; connector: "claude-code" | "codex" | "goose" | "agy"; maxTurns?: number; timeoutMs?: number }; memoryExposure?: { collab?: { recall?: { workspace?: boolean; user?: boolean; agentPrivate?: boolean }; capture?: boolean }; mcp?: { recall?: { workspace?: boolean; user?: boolean; agentPrivate?: boolean }; capture?: boolean }; a2a?: { recall?: { workspace?: boolean; user?: boolean; agentPrivate?: boolean }; capture?: boolean } }; mcpServer?: { exposed?: boolean; allowedGroups?: readonly string[] } }>;
   memory: { embedding?: { privacyAck?: PrivacyAcknowledgment }; reranker?: { privacyAck?: PrivacyAcknowledgment }; mediaEmbedding: MediaEmbeddingConfig };
   /** Installation-wide privacy switches (privacy.localOnly: no model call leaves the machine). */
   privacy: { localOnly: boolean; localEndpoints: string[] };
@@ -202,6 +216,12 @@ export type RestartClass = "live" | "core" | `module:${string}`;
 const ajv = new ((Ajv2020 as any).default ?? Ajv2020)({ strict: true, allErrors: true, useDefaults: true, strictSchema: false });
 ((addFormats as any).default ?? addFormats)(ajv);
 ajv.addKeyword("x-restart"); ajv.addKeyword("x-reserved"); ajv.addKeyword("x-tier");
+ajv.addKeyword("x-media-models");
+ajv.addKeyword({ keyword: "x-sensitive", schemaType: "boolean" });
+ajv.addKeyword({ keyword: "x-url-credentials", schemaType: "boolean" });
+ajv.addKeyword({ keyword: "x-value-schema", schemaType: "object" });
+ajv.addKeyword({ keyword: "x-unknown-members", schemaType: "string", metaSchema: { enum: ["sensitive", "public"] } });
+ajv.addKeyword({ keyword: "x-text-credentials", schemaType: "string", metaSchema: { const: "parts" } });
 const validateFn: ValidateFunction = ajv.compile(CONFIG_SCHEMA);
 
 /** Defaults are produced by validating an empty object with useDefaults — one source of truth. */
@@ -212,7 +232,7 @@ export function defaults(): HarnessConfig {
   return r.config;
 }
 
-export function validate(value: unknown): { ok: true; config: HarnessConfig } | { ok: false; errors: string[] } {
+export function validate(value: unknown): { ok: true; config: HarnessConfig; warnings?: ConfigWarning[] } | { ok: false; errors: string[] } {
   const copy = structuredClone(value);
   if (validateFn(copy)) {
     const c = (copy as HarnessConfig).session.compaction;
@@ -227,6 +247,8 @@ export function validate(value: unknown): { ok: true; config: HarnessConfig } | 
     })] as [string, MediaEmbeddingConfig][];
     for (const [path, media] of mediaLayers) {
       if (!media.enabled) continue;
+      // Loading existing schema-valid media selections is tolerant. Catalog support is
+      // checked on relevant writes; the runtime uses documented local defaults for legacy entries.
       for (const [suffix, provider, ack, local] of [
         ["", media.provider, media.privacyAck, ["local", "local-transformers", "egemma2", "off"].includes(media.provider)],
         ["/caption", media.caption.provider, media.caption.privacyAck, !media.caption.provider || ["local", "off"].includes(media.caption.provider) || media.caption.source === "off"],
@@ -243,7 +265,8 @@ export function validate(value: unknown): { ok: true; config: HarnessConfig } | 
       if (failure) return { ok: false, errors: [`${path}/features/${failure.feature} exceeds voice.v3.budgetMs (${failure.totalMs} ms)`] };
       for (const name of VOICE_V3_FEATURES) if (name !== "toolSchemas" && features[name].mode === "reduced") return { ok: false, errors: [`${path}/features/${name} reduced is only supported for toolSchemas`] };
     }
-    return { ok: true, config: cfg };
+    const warnings = configurationWarnings(cfg);
+    return { ok: true, config: cfg, ...(warnings.length ? { warnings } : {}) };
   }
   // allErrors collects every violation: bound the list so a hostile or broken file cannot produce a megabyte message.
   const all = (validateFn.errors ?? []).map((e) => `${e.instancePath || "/"} ${e.message ?? ""}${e.params && "additionalProperty" in e.params ? ` (${(e.params as any).additionalProperty})` : ""}`.trim());

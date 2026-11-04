@@ -42,7 +42,9 @@ export function buildSecretMethods(d: SecretMethodDeps): Record<SecretMethod, Ha
       const present = new Set((await d.store.list(p)).map(s => s.name));
       const config = d.config?.();
       const references = config ? Object.entries(config.agents).flatMap(([agentId, agent]) => agentSecretRefs(config, agent).map(ref => ({ agentId, ...ref, present: present.has(ref.name), leaseAllowed: false as const }))) : [];
-      return { agentLeasesEnabled: false, grants: [], references };
+      // Public names stay readable unless the store independently holds their bytes as a known value.
+      return d.store.redaction.redactor({ secretsOnly: true })
+        .value({ agentLeasesEnabled: false, grants: [], references });
     }),
     "secret.status": wrap("secret.status", (p) => d.store.status(p)),
     "secret.list": wrap("secret.list", async (p) => ({ secrets: await d.store.list(p) })),

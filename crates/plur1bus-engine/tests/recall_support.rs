@@ -22,6 +22,12 @@ use plur1bus_engine::contract::{
 };
 use serde_json::{json, Value};
 
+/// Keep fixture roots canonical before production Store path validation (macOS /var alias).
+pub fn canonical_tempdir() -> tempfile::TempDir {
+    let parent = std::env::temp_dir().canonicalize().unwrap();
+    tempfile::tempdir_in(parent).unwrap()
+}
+
 pub struct TestHost {
     state_dir: PathBuf,
     config: EngineConfig,

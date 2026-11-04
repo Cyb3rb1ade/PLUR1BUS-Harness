@@ -1,5 +1,8 @@
 # plur1bus-engine
 
+The experimental process server and its current implementation limits are described in
+[Engine process](../../docs/engine-process.md) (RE-08 T2 / U1).
+
 The PLUR1BUS memory engine in Rust: the stores (LanceDB table `memories`, the SQLite caches, the working-memory files
 and the ledgers), the embedding and rerank providers, the recall and capture pipelines and the background jobs, run as
 one process under the harness supervisor (plan `docs/superpowers/plans/2026-10-23-rust-engine-rewrite.md` §2, briefs in
@@ -38,6 +41,21 @@ is unchanged; default/on/off Lens settings all retain the authorized base and om
 metadata through shared references. `tests/cache_profiles_parity.rs` checks the TypeScript-generated
 `packages/providers/fixtures/cache-profile-vectors.json`, including route overrides and URL routing. No engine
 runtime behavior consumes this module in Phase 1 (RE-R1).
+
+### Namespace recall (RE-04/T4)
+
+`recall::namespaces::NamespaceStores` builds ordered private routes over the existing RE-02 store pools.
+`NamespaceStores::open` expects the active embedding identity on every route, including read-only legacy routes.
+`open_with_identity_resolver` accepts a `StoreIdentityResolver` for explicit expectations per namespace and agent.
+A stored identity that differs from its expectation rejects the entire recall before child workers, providers or
+ledger delivery. Once leases succeed, `namespaces::recall` settles every started child, routes each declared space
+through its matching provider, merges/fuses, optionally reranks and applies the global tier budget before one
+retrieval line. Only a declared foreign identity without a provider reports `embedding-unavailable`; it never
+uses the active vector by dimension. Child failures are reported after all started workers have settled.
+`namespace_pipeline::Pipeline` composes the existing ACL-aware stages with scalar entry projection and stage-local
+observations. Prompt assembly, complete trace serialization and phase deadlines remain T5/T6; runtime wiring is RE-08.
+See [Engine stores](../../docs/engine-stores.md) and the
+[recording protocol](tests/fixtures/recall/README.md) for ownership, source pins and byte-parity checks.
 
 ### Token counting (RE-14/T2)
 

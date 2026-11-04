@@ -178,10 +178,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -192,7 +223,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -306,6 +337,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -773,10 +809,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -787,7 +854,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -901,6 +968,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -1368,10 +1440,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -1382,7 +1485,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -1496,6 +1599,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -1963,10 +2071,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -1977,7 +2116,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -2091,6 +2230,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -2558,10 +2702,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -2572,7 +2747,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -2686,6 +2861,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -3153,10 +3333,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -3167,7 +3378,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -3281,6 +3492,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -3748,10 +3964,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -3762,7 +4009,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -3876,6 +4123,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -4343,10 +4595,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -4357,7 +4640,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -4471,6 +4754,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -4938,10 +5226,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -4952,7 +5271,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -5066,6 +5385,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -5533,10 +5857,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -5547,7 +5902,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -5661,6 +6016,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -6128,10 +6488,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -6142,7 +6533,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -6256,6 +6647,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -6723,10 +7119,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -6737,7 +7164,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -6851,6 +7278,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -7318,10 +7750,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -7332,7 +7795,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -7446,6 +7909,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -7913,10 +8381,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -7927,7 +8426,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -8041,6 +8540,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -8508,10 +9012,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -8522,7 +9057,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -8636,6 +9171,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -9103,10 +9643,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -9117,7 +9688,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -9231,6 +9802,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -9698,10 +10274,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -9712,7 +10319,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -9826,6 +10433,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -10293,10 +10905,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -10307,7 +10950,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -10421,6 +11064,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -10888,10 +11536,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -10902,7 +11581,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -11016,6 +11695,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -11483,10 +12167,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -11497,7 +12212,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -11611,6 +12326,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -12078,10 +12798,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -12092,7 +12843,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -12206,6 +12957,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -12673,10 +13429,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -12687,7 +13474,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -12801,6 +13588,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -13268,10 +14060,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -13282,7 +14105,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -13396,6 +14219,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -13863,10 +14691,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -13877,7 +14736,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -13991,6 +14850,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -14458,10 +15322,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -14472,7 +15367,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -14586,6 +15481,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -15053,10 +15953,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -15067,7 +15998,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -15181,6 +16112,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -15648,10 +16584,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -15662,7 +16629,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -15776,6 +16743,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -16243,10 +17215,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -16257,7 +17260,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -16371,6 +17374,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -16838,10 +17846,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -16852,7 +17891,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -16966,6 +18005,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -17430,10 +18474,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -17444,7 +18519,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -17558,6 +18633,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,
@@ -18022,10 +19102,41 @@
             "video",
             "audio"
           ],
+          "image": {
+            "softTokens": 140
+          },
+          "dtypes": {
+            "linux-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "linux-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "darwin-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-x64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            },
+            "win32-arm64": {
+              "text": "q8",
+              "vision": "q8",
+              "audio": "q8"
+            }
+          },
           "video": {
             "segmentSec": 10,
             "maxFrames": 32,
-            "sceneDetect": true
+            "sceneDetect": true,
+            "softTokens": 70
           },
           "audio": {
             "segmentSec": 30,
@@ -18036,7 +19147,7 @@
             "maxChars": 280,
             "perSegment": false
           },
-          "backfill": "auto"
+          "backfill": "manual"
         }
       },
       "engine": {
@@ -18150,6 +19261,11 @@
         "localEndpoints": []
       },
       "session": {
+        "rewind": {
+          "autoProjects": [],
+          "fileProjects": [],
+          "checkpointRetentionTurns": 50
+        },
         "compaction": {
           "softRatio": 0.65,
           "hardRatio": 0.88,

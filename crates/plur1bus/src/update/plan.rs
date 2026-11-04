@@ -170,7 +170,7 @@ const EN: Words = Words {
     will_disable: "will be disabled for the new version",
     will_reenable: "will be re-enabled",
     required: "required",
-    rollback: "Rollback: a snapshot of the binary, config.json, the install manifest and the core is kept (`plur1bus update --rollback`); the memory store is never touched or restored.",
+    rollback: "Rollback: a snapshot of the CLI, native tools, config.json, the install manifest and the core is kept (`plur1bus update --rollback`); the memory store is never touched or restored.",
     daemon: "the daemon",
     supervisor: "the supervisor binary",
     core: "the core",
@@ -209,7 +209,7 @@ const DE: Words = Words {
     will_disable: "wird für die neue Version deaktiviert",
     will_reenable: "wird wieder aktiviert",
     required: "erforderlich",
-    rollback: "Rollback: Ein Snapshot von Binary, config.json, Installations-Manifest und Core bleibt erhalten (`plur1bus update --rollback`); der Memory-Speicher wird nie angefasst oder wiederhergestellt.",
+    rollback: "Rollback: Ein Snapshot von CLI, nativen Tools, config.json, Installations-Manifest und Core bleibt erhalten (`plur1bus update --rollback`); der Memory-Speicher wird nie angefasst oder wiederhergestellt.",
     daemon: "der Daemon",
     supervisor: "die Supervisor-Binary",
     core: "der Core",
@@ -344,7 +344,7 @@ pub fn build(i: &Inputs, lang: Lang) -> Value {
         "download": { "bytes": known, "known": known.is_some(), "files": files },
         "rollback": {
             "possible": true,
-            "restores": ["binary", "config", "install-manifest", "core"],
+            "restores": ["binary", "tools", "config", "install-manifest", "core"],
             "keeps": ["memory-store"],
         },
     })

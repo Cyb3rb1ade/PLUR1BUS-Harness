@@ -76,6 +76,7 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus session model set`↴](#plur1bus-session-model-set)
 * [`plur1bus session archive`↴](#plur1bus-session-archive)
 * [`plur1bus chat`↴](#plur1bus-chat)
+* [`plur1bus code`↴](#plur1bus-code)
 * [`plur1bus acp`↴](#plur1bus-acp)
 * [`plur1bus acp serve`↴](#plur1bus-acp-serve)
 * [`plur1bus jobs`↴](#plur1bus-jobs)
@@ -318,6 +319,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `memory` — Memory: add and recall through the core
 * `session` — Chat sessions: list, show, archive
 * `chat` — [experimental] Chat with an agent (one message, or a line-by-line conversation on stdin)
+* `code` — [experimental] Code in a bound Git worktree with streamed tools, diffs and inline approvals
 * `acp` — Agent Client Protocol (ACP): serve a harness agent to an editor over stdio
 * `jobs` — [experimental] User recurring tasks: list or create a scheduled turn
 * `dreams` — Dreaming: phase schedules, status, run, log
@@ -1376,6 +1378,36 @@ Chat sessions: list, show, archive
 
 
 
+## `plur1bus code`
+
+[experimental] Code in a bound Git worktree with streamed tools, diffs and inline approvals
+
+**Usage:** `plur1bus code [OPTIONS] [PATH] [MESSAGE]`
+
+###### **Arguments:**
+
+* `<PATH>` — Git worktree root (default: the current directory)
+
+  Default value: `.`
+* `<MESSAGE>` — One task; use `code . "task"` to keep the default working directory
+
+###### **Options:**
+
+* `--agent <AGENT>` — Registered agent (default: the only agent)
+* `--project <PROJECT>` — D115 project, together with --card
+* `--card <CARD>` — D115 coding card, together with --project
+* `--session <SESSION>` — Resume a bound coding session
+* `--model <MODEL>` — Configured model profile; the switch requires confirmation
+* `--reasoning <REASONING>` — Reasoning level (default leaves control to the provider)
+
+  Possible values: `default`, `off`, `minimal`, `low`, `medium`, `high`, `xhigh`
+
+* `--yes` — Confirm a model switch for scripts; never approves a folder or tool
+* `--no-memory` — Keep the session and its transcript only in memory
+* `--tui` — Use the fullscreen terminal UI (line mode for pipes and dumb terminals)
+
+
+
 ## `plur1bus acp`
 
 Agent Client Protocol (ACP): serve a harness agent to an editor over stdio
@@ -1399,6 +1431,12 @@ stdout carries only ACP JSON-RPC lines; diagnostics go to stderr and never conta
 ###### **Options:**
 
 * `--agent <AGENT>` — The agent the editor talks to (default: the only registered agent)
+* `--profile <PROFILE>` — Initial ACP session mode; coding binds the granted editor worktree
+
+  Default value: `chat`
+
+  Possible values: `chat`, `coding`
+
 
 
 
@@ -1944,7 +1982,7 @@ Serving lasts only as long as this core process: it ends when the core stops or 
 
 [experimental] Create a consistent, checksummed archive of this installation (needs a running core)
 
-The core stages the memory store through the engine's snapshot and every SQLite database through the SQLite backup API; config, agents, skills, modules, extensions, catalog, the capture journal and the system-job ledger are copied. The archive is private to the user. The secret store is never read: API keys stay in the OS keyring and `run/` (tokens) is never archived, and a webhook secret kept in `config.json` is replaced by a placeholder. The API account database (`state/api/accounts.db`) is archived with its password hashes and TOTP seeds. Checksums detect corruption; the archive is not signed or encrypted.
+The core stages the memory store through the engine's snapshot and every SQLite database through the SQLite backup API; config, agents, skills, modules, extensions, catalog, the capture journal and the system-job ledger are copied. The archive is private to the user. The secret store is never read: API keys stay in the OS keyring and `run/` (tokens) is never archived, and a webhook secret kept in `config.json` is replaced by a placeholder. The API account database (`state/api/accounts.db`) is excluded unless `--include-api-accounts` is supplied; including it archives password hashes, TOTP seeds and token hashes. Checksums detect corruption; the archive is not signed or encrypted.
 
 **Usage:** `plur1bus backup create [OPTIONS]`
 
@@ -1952,6 +1990,7 @@ The core stages the memory store through the engine's snapshot and every SQLite 
 
 * `--out <OUT>` — where to write the archive (default: `<home>/backups/plur1bus-backup-<UTC>.tar.gz`); an existing file is never overwritten
 * `--dry-run` — list what would be archived and where, without touching the core or writing anything
+* `--include-api-accounts` — include the API account database with password hashes, TOTP seeds and token hashes in the unencrypted archive
 
 
 

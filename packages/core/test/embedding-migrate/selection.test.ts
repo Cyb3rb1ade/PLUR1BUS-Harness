@@ -47,7 +47,15 @@ describe("memoryModelStatus", () => {
       embedding: { provider: "local-transformers", model: "intfloat/multilingual-e5-small", dimensions: 384, configured: false },
       reranker: { provider: "local-transformers", model: "woxpas-ai/bge-reranker-v2-m3-onnx" },
       embeddingSwitch: "allowed",
+      capabilities: { text: true, image: false, audio: false, video: false }, encoders: [],
     });
+  });
+  it("reports media support for the chosen EmbeddingGemma model without claiming installed encoders", () => {
+    const cfg = defaults() as any;
+    cfg.engine.embedding = { provider: "local-transformers", local: { model: "google/embeddinggemma-2" } };
+    const status = memoryModelStatus(buildEngineConfig(cfg, l), cfg, false) as unknown as Record<string, unknown>;
+    assert.deepEqual(status.capabilities, { text: true, image: true, audio: true, video: true });
+    assert.deepEqual(status.encoders, []);
   });
   it("a store with a table needs a migration for another embedding", () => {
     const cfg = defaults();

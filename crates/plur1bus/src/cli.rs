@@ -107,6 +107,8 @@ pub enum Cmd {
     },
     /// [experimental] Chat with an agent (one message, or a line-by-line conversation on stdin)
     Chat(ChatArgs),
+    /// [experimental] Code in a bound Git worktree with streamed tools, diffs and inline approvals
+    Code(crate::commands::code::CodeArgs),
     /// Agent Client Protocol (ACP): serve a harness agent to an editor over stdio
     Acp {
         #[command(subcommand)]
@@ -1109,8 +1111,9 @@ pub enum BackupCmd {
     /// backup API; config, agents, skills, modules, extensions, catalog, the capture journal and the system-job ledger are
     /// copied. The archive is private to the user. The secret store is never read: API keys stay in the OS keyring and
     /// `run/` (tokens) is never archived, and a webhook secret kept in `config.json` is replaced by a placeholder. The API
-    /// account database (`state/api/accounts.db`) is archived with its password hashes and TOTP seeds. Checksums detect
-    /// corruption; the archive is not signed or encrypted.
+    /// account database (`state/api/accounts.db`) is excluded unless `--include-api-accounts` is supplied; including it
+    /// archives password hashes, TOTP seeds and token hashes. Checksums detect corruption;
+    /// the archive is not signed or encrypted.
     Create {
         /// where to write the archive (default: `<home>/backups/plur1bus-backup-<UTC>.tar.gz`); an existing file is never overwritten
         #[arg(long)]
@@ -1118,6 +1121,10 @@ pub enum BackupCmd {
         /// list what would be archived and where, without touching the core or writing anything
         #[arg(long)]
         dry_run: bool,
+        /// include the API account database with password hashes, TOTP seeds and token hashes
+        /// in the unencrypted archive
+        #[arg(long)]
+        include_api_accounts: bool,
     },
     /// [experimental] Check an archive: manifest, every entry against its SHA-256, nothing extra, nothing missing
     ///
@@ -1184,6 +1191,9 @@ pub enum AcpCmd {
         /// The agent the editor talks to (default: the only registered agent)
         #[arg(long)]
         agent: Option<String>,
+        /// Initial ACP session mode; coding binds the granted editor worktree
+        #[arg(long, value_parser = ["chat", "coding"], default_value = "chat")]
+        profile: String,
     },
 }
 
@@ -2023,6 +2033,9 @@ pub enum ExtCmd {
 pub enum CoreCmd {
     /// [experimental] Run the core in the foreground (the supervisor's spawn target)
     Run,
+    /// Inspect the already-connected pipe inherited as stdin, before Node sends any credentials.
+    #[command(name = "__pipe-server-pid", hide = true)]
+    PipeServerPid,
 }
 
 #[cfg(test)]
@@ -2104,6 +2117,18 @@ mod tests {
     }
 
     #[test]
+    fn acp_accepts_chat_and_coding_profiles_and_refuses_unknown_values() {
+        for profile in ["chat", "coding"] {
+            assert!(
+                Cli::try_parse_from(["plur1bus", "acp", "serve", "--profile", profile]).is_ok()
+            );
+        }
+        assert!(
+            Cli::try_parse_from(["plur1bus", "acp", "serve", "--profile", "automatic"]).is_err()
+        );
+    }
+
+    #[test]
     fn session_and_chat_parse_their_flags() {
         match parse(&[
             "session",
@@ -2140,8 +2165,11 @@ mod tests {
         }
         match parse(&["acp", "serve", "--agent", "bernd"]).cmd {
             Cmd::Acp {
-                sub: AcpCmd::Serve { agent },
-            } => assert_eq!(agent.as_deref(), Some("bernd")),
+                sub: AcpCmd::Serve { agent, profile },
+            } => assert_eq!(
+                (agent.as_deref(), profile.as_str()),
+                (Some("bernd"), "chat")
+            ),
             other => panic!("{other:?}"),
         }
         match parse(&["mcp", "serve", "--agent", "bernd"]).cmd {

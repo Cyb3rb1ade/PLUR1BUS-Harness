@@ -1,0 +1,82 @@
+{
+  "schema": "plur1bus.team-task/1",
+  "id": "py-money-pipeline",
+  "title": "Sequential tax and currency formatting",
+  "kind": "coupled",
+  "tier": "team",
+  "language": "python",
+  "license": "MIT",
+  "seeds": [
+    17,
+    104729,
+    8675309
+  ],
+  "budgets": {
+    "tokens": 73728,
+    "maxRounds": 60,
+    "wallMs": 900000
+  },
+  "instruction": "prompt.md",
+  "start": "start",
+  "seedGenerator": "seed.mjs",
+  "packages": [
+    {
+      "id": "decode",
+      "entry": "src/pipeline.__SEED__.py",
+      "symbol": "decode__SEED__",
+      "owns": [
+        "src/pipeline.__SEED__.py"
+      ],
+      "dependsOn": [],
+      "reference": "reference/decode",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "decode"
+      }
+    },
+    {
+      "id": "tax",
+      "entry": "src/pipeline.__SEED__.py",
+      "symbol": "tax__SEED__",
+      "owns": [
+        "src/pipeline.__SEED__.py"
+      ],
+      "dependsOn": [
+        "decode"
+      ],
+      "reference": "reference/tax",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "tax"
+      }
+    },
+    {
+      "id": "format",
+      "entry": "src/pipeline.__SEED__.py",
+      "symbol": "format_money__SEED__",
+      "owns": [
+        "src/pipeline.__SEED__.py"
+      ],
+      "dependsOn": [
+        "decode",
+        "tax"
+      ],
+      "reference": "reference/format",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "format"
+      }
+    }
+  ],
+  "endToEnd": {
+    "checker": {
+      "path": "check.mjs",
+      "scope": "e2e"
+    },
+    "order": [
+      "decode",
+      "tax",
+      "format"
+    ]
+  }
+}

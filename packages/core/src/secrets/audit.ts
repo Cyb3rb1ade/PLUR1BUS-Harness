@@ -5,6 +5,7 @@ import type { SecurePath } from "@plur1bus/module-api";
 import { createAuditChain, teeAuditSinks, type ChainRecord } from "../audit/chain.ts";
 import { createSecretRedaction } from "./redaction.ts";
 import { SecretError, type SecretPrincipal } from "./types.ts";
+import type { Redactor } from "../logs/redact.ts";
 
 export type AuditAction =
   | "secret.describe" | "secret.set" | "secret.get" | "secret.reveal" | "secret.delete" | "secret.list"
@@ -37,9 +38,11 @@ const actorOf = (p: SecretPrincipal) => ({
 export interface FileAuditSink extends AuditSink { registerSecret(value: string): void }
 
 /** `logs/audit.log`: the same line shape as crates/plur1bus/src/audit.rs (`{ at, actor, action, target, detail }`), one
- *  `O_APPEND` write per line, fsynced, private to the user. `detail` goes through the D111 redactor once, before the
+ *  `O_APPEND` write per line, fsynced, private to the user. Live and manual registrations mask `detail` before the
  *  record reaches either file, so the chain and this legacy copy hold the same redacted line. */
-export function createFileAuditSink(o: { file: string; secure: SecurePath; clock?: () => number }): FileAuditSink {
+export function createFileAuditSink(o: {
+  file: string; secure: SecurePath; clock?: () => number; redactor?: Redactor;
+}): FileAuditSink {
   const clock = o.clock ?? Date.now;
   const redaction = createSecretRedaction();
   const redactor = redaction.redactor();
@@ -53,7 +56,9 @@ export function createFileAuditSink(o: { file: string; secure: SecurePath; clock
     registerSecret: value => redaction.register(value),
     record(e) {
       try {
-        sink.append({ at: clock(), actor: actorOf(e.principal), action: e.action, target: e.target, detail: redactor.value(sanitizeDetail(e.detail)) });
+        const detail = o.redactor ? o.redactor.value(sanitizeDetail(e.detail)) : sanitizeDetail(e.detail);
+        sink.append({ at: clock(), actor: actorOf(e.principal), action: e.action, target: e.target,
+          detail: redactor.value(detail) });
       } catch { throw new SecretError("audit-unavailable", "the audit log cannot be written; no secret was released or changed"); }
     },
   };

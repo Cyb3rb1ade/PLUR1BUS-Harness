@@ -35,6 +35,9 @@ impl Phase {
 #[serde(rename_all = "camelCase")]
 pub struct Target {
     pub binary_sha256: String,
+    /// Absent only for recovery of an update started before D120.
+    #[serde(default)]
+    pub tools_sha256: Option<String>,
     pub core: Option<CoreTarget>,
 }
 
@@ -162,6 +165,7 @@ mod tests {
             core_swapped: false,
             release: Target {
                 binary_sha256: "a".repeat(64),
+                tools_sha256: None,
                 core: None,
             },
             reason: None,

@@ -59,12 +59,12 @@ test("real supervisor: five config roles, annotation audit, writer identity and 
   assert.deepEqual(grantAudit.map(row => [row.detail.personId, row.detail.oldValue, row.detail.newValue]), [["local-owner", 90, 30], [adminId, 30, 31]]);
   assert.equal(JSON.parse(readFileSync(join(home, "config.json"), "utf8")).approvals.maxGrantDays, 31);
   const marker = randomBytes(24).toString("hex");
-  const ack = { provider: "off", acknowledgedAt: new Date().toISOString(), by: "browser-claim", endpoint: `https://caption.invalid/?api_key=${marker}` };
+  const ack = { provider: "off", acknowledgedAt: new Date().toISOString(), by: "browser-claim", endpoint: `https://caption.invalid/public/path?api_key=${marker}` };
   const ackAnswer = await write("admin", [{ key: "memory.mediaEmbedding.caption.provider", value: "off" }, { key: "memory.mediaEmbedding.caption.privacyAck", value: ack }]);
   assert.ok(ackAnswer.result, JSON.stringify(ackAnswer));
   const saved = JSON.parse(readFileSync(join(home, "config.json"), "utf8")); assert.equal(saved.memory.mediaEmbedding.caption.privacyAck.by, adminId);
   const ackAudit = rows().findLast(row => row.action === "audit.config.set" && row.target === "memory.mediaEmbedding.caption.privacyAck");
-  assert.equal(ackAudit.detail.newValue.endpoint, "[REDACTED]");
+  assert.equal(ackAudit.detail.newValue.endpoint, "https://caption.invalid/public/path?api_key=[REDACTED:url]");
   assert.ok((await write("owner", [{ key: "providers.transportTest", value: { endpoint: "https://new.invalid" } }])).result);
   assert.equal(JSON.parse(readFileSync(join(home, "config.json"), "utf8")).memory.mediaEmbedding.caption.privacyAck, undefined);
   assert.ok(rows().some(row => row.target === "memory.mediaEmbedding.caption.privacyAck" && row.detail.newValue === null));

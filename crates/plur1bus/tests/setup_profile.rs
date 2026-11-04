@@ -252,9 +252,11 @@ fn firstaid_check_passes_on_a_host_profile() {
     assert_eq!(v["check"]["fail"], 0, "{v:#}");
     // Every row that is not `ok` is one a full `--no-service` install shows as well: a module or skill row reporting
     // drift as a warning would not pass.
-    const EXPECTED: [(&str, &str); 7] = [
+    const EXPECTED: [(&str, &str); 8] = [
         ("service.registration", "warn"),
         ("models.cache", "warn"),
+        // FFmpeg is optional for a host profile; its absence leaves photos available.
+        ("media.ffmpeg", "warn"),
         ("memory.shared", "skip"),
         ("windows.pipe-acl", "skip"),
         ("models.roles", "skip"),

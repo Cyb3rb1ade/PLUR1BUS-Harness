@@ -3,6 +3,7 @@
 // the client negotiates none of them and still works. Never touches the network beyond the loopback listener.
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolRequestSchema, ListToolsRequestSchema, SetLevelRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { randomUUID } from "node:crypto";
 
 export interface FixtureState {
   /** Client capabilities as the server saw them in `initialize`. */
@@ -21,7 +22,7 @@ export const FIXTURE_TOOLS = [
   { name: "sleep", description: "Answers after n ms.", inputSchema: { type: "object", properties: { ms: { type: "number" } }, required: ["ms"] } },
   { name: "change_tools", description: "Sends tools/list_changed.", inputSchema: { type: "object", properties: {} } },
   { name: "crash", description: "Exits the process mid-call.", inputSchema: { type: "object", properties: {} } },
-  { name: "pid", description: "The server's process id.", inputSchema: { type: "object", properties: {} } },
+  { name: "pid", description: "The server's process id, optionally with its fixture incarnation.", inputSchema: { type: "object", properties: { includeInstance: { type: "boolean" } } } },
   { name: "ppid", description: "The process id of the server's parent (on Windows, the job launcher that started it).", inputSchema: { type: "object", properties: {} } },
   { name: "grow", description: "Returns n bytes of text.", inputSchema: { type: "object", properties: { n: { type: "number" } }, required: ["n"] } },
   { name: "leak_env", description: "Prints an environment variable to stderr and returns it.", inputSchema: { type: "object", properties: { name: { type: "string" } }, required: ["name"] } },
@@ -31,6 +32,7 @@ export const FIXTURE_TOOLS = [
 ];
 
 export function createFixtureServer(): { server: Server; state: FixtureState } {
+  const instanceId = randomUUID();
   const state: FixtureState = { clientCapabilities: undefined, clientVersion: undefined, setLevelCalls: 0, calls: [] };
   // The server *offers* logging (and a rude client could use it); sampling/roots are server-initiated requests below.
   const server = new Server({ name: "fixture", version: "1.0.0" }, { capabilities: { tools: { listChanged: true }, logging: {} } });
@@ -47,7 +49,7 @@ export function createFixtureServer(): { server: Server; state: FixtureState } {
       case "sleep": await new Promise((r) => setTimeout(r, Number(args.ms))); return text("slept");
       case "change_tools": await server.sendToolListChanged(); return text("changed");
       case "crash": process.exit(1); // eslint-disable-line no-unreachable
-      case "pid": return text(String(process.pid));
+      case "pid": return text(args.includeInstance === true ? JSON.stringify({ pid: process.pid, instanceId }) : String(process.pid));
       case "ppid": return text(String(process.ppid));
       case "grow": return text("x".repeat(Number(args.n)));
       case "leak_env": {
