@@ -5,6 +5,8 @@
 //! Scenarios: `running`, `needs-login`, `stopped` (a synthetic status document), `exit1` (stderr text, exit 1),
 //! `sleep10` (no output for 10 s), `huge` (9 MiB on stdout), `garbage` (not JSON) and `env` (the names of the
 //! environment variables and the argv it received, as JSON; names only, never values).
+#[path = "../architecture.rs"]
+mod architecture;
 use std::io::Write;
 use std::time::Duration;
 
@@ -58,7 +60,7 @@ fn main() {
             let exe = std::env::current_exe()
                 .ok()
                 .map(|p| p.to_string_lossy().into_owned());
-            let doc = serde_json::json!({ "env": names, "argv0": argv0, "exe": exe, "argv": argv, "architectureFingerprint": plur1bus_desktop_test_bins::architecture_fingerprint(), "architectureCanary": std::env::var("PROCESSOR_ARCHITECTURE").as_deref() == Ok("must-not-pass") });
+            let doc = serde_json::json!({ "env": names, "argv0": argv0, "exe": exe, "argv": argv, "architectureFingerprint": architecture::fingerprint(), "architectureCanary": std::env::var("PROCESSOR_ARCHITECTURE").as_deref() == Ok("must-not-pass") });
             let _ = out.write_all(doc.to_string().as_bytes());
         }
         _ => {
