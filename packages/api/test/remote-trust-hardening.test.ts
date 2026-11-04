@@ -138,6 +138,7 @@ test("v2 staged metadata and pending activation records reject malformed or inco
 });
 test("private trust directory rejects a symlink before changing its target permissions", { skip: process.platform === "win32" }, t => {
   const f = fixture(t), dir = dirname(f.options.trustFile), target = join(f.home, "target"); mkdirSync(target, { mode: 0o755 });
+  chmodSync(target, 0o755); // Establish the permissions under test independently of the runner's umask.
   rmSync(dir, { recursive: true, force: true }); symlinkSync(target, dir); assert.throws(() => new RemotePairingController(f.options), /untrusted-directory/);
   assert.equal(lstatSync(target).mode & 0o777, 0o755);
 });
