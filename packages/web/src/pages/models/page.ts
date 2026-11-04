@@ -119,7 +119,7 @@ function ProvidersCard({ data }: { data: ListData }): View | null {
     data.warnings.length > 0 ? h("div", {},
       h("h3", { class: "card-title" }, t("models.warnings")),
       h("ul", { class: "plain-list" }, data.warnings.map((w, i) => h("li", { key: i },
-        warnText(w.code, { role: w.role ?? "?", provider: w.provider ?? "?", id: w.id ?? "?" }))))) : null);
+        warnText(w.code, { role: w.role ?? "?", provider: w.provider ?? "?", id: w.id ?? "?", count: String(w.count ?? 0) }))))) : null);
 }
 
 function ScanResult({ totals }: { totals: ScanTotals }): View {

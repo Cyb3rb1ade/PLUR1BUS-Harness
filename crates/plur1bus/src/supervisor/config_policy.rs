@@ -10,70 +10,13 @@ pub fn schema() -> &'static Value {
         serde_json::from_str(plur1bus_config::SCHEMA_JSON).expect("embedded config schema")
     })
 }
-fn secret_key(key: &str) -> bool {
-    let key = key.to_ascii_lowercase();
-    [
-        "token",
-        "secret",
-        "password",
-        "credential",
-        "authorization",
-        "passphrase",
-        "api-key",
-        "apikey",
-        "api_key",
-    ]
-    .iter()
-    .any(|s| key.contains(s))
-}
-fn redacted(schema: &Value, value: &Value) -> Value {
-    if schema["x-sensitive"] == true {
-        return json!("[REDACTED]");
-    }
-    match value {
-        Value::Object(map) => Value::Object(
-            map.iter()
-                .map(|(key, value)| {
-                    let child = &schema["properties"][key];
-                    (
-                        key.clone(),
-                        if secret_key(key) {
-                            json!("[REDACTED]")
-                        } else {
-                            redacted(child, value)
-                        },
-                    )
-                })
-                .collect(),
-        ),
-        Value::Array(items) => Value::Array(
-            items
-                .iter()
-                .map(|v| redacted(&schema["items"], v))
-                .collect(),
-        ),
-        Value::String(text) => match reqwest::Url::parse(text) {
-            Ok(url)
-                if !url.username().is_empty()
-                    || url.password().is_some()
-                    || url.scheme() == "data"
-                    || url.query_pairs().any(|(key, _)| {
-                        secret_key(&key)
-                            || matches!(key.as_ref(), "key" | "auth" | "code" | "sig" | "signature")
-                    }) =>
-            {
-                json!("[REDACTED]")
-            }
-            _ => value.clone(),
-        },
-        _ => value.clone(),
-    }
-}
 #[derive(Debug, PartialEq)]
 pub struct AuditChange {
     pub key: String,
     pub old: Value,
     pub new: Value,
+    old_references: Vec<String>,
+    new_references: Vec<String>,
 }
 
 pub fn changes(
@@ -82,16 +25,40 @@ pub fn changes(
     after: &Value,
     role: &str,
 ) -> Result<Vec<AuditChange>, &'static str> {
+    #[derive(Clone, Copy)]
+    struct Snapshot<'a> {
+        raw: &'a Value,
+        public: &'a Value,
+        references: &'a [String],
+        pointer: &'a str,
+    }
+    impl Snapshot<'_> {
+        fn reference_paths(self) -> Vec<String> {
+            self.references
+                .iter()
+                .filter_map(|reference| {
+                    if reference == self.pointer
+                        || self.pointer.starts_with(&format!("{reference}/"))
+                    {
+                        Some(String::new())
+                    } else {
+                        reference
+                            .strip_prefix(&format!("{}/", self.pointer))
+                            .map(|path| format!("/{path}"))
+                    }
+                })
+                .collect()
+        }
+    }
     fn walk(
         s: &Value,
-        old: &Value,
-        new: &Value,
+        old: Snapshot<'_>,
+        new: Snapshot<'_>,
         path: &str,
         role: &str,
-        inherited_sensitive: bool,
         out: &mut Vec<AuditChange>,
     ) -> Result<(), &'static str> {
-        if old == new {
+        if old.raw == new.raw {
             return Ok(());
         }
         if let Some(roles) = s["x-write-roles"].as_array() {
@@ -99,20 +66,13 @@ pub fn changes(
                 return Err("config-write-role");
             }
         }
-        let sensitive = inherited_sensitive || s["x-sensitive"] == true;
         if s["x-audit"] == true {
             out.push(AuditChange {
                 key: path.to_string(),
-                old: if sensitive {
-                    json!("[REDACTED]")
-                } else {
-                    redacted(s, old)
-                },
-                new: if sensitive {
-                    json!("[REDACTED]")
-                } else {
-                    redacted(s, new)
-                },
+                old: old.public.clone(),
+                new: new.public.clone(),
+                old_references: old.reference_paths(),
+                new_references: new.reference_paths(),
             });
         }
         if let Some(props) = s["properties"].as_object() {
@@ -122,7 +82,29 @@ pub fn changes(
                 } else {
                     format!("{path}.{key}")
                 };
-                walk(child, &old[key], &new[key], &next, role, sensitive, out)?;
+                let pointer = format!(
+                    "{}/{}",
+                    old.pointer,
+                    key.replace('~', "~0").replace('/', "~1")
+                );
+                walk(
+                    child,
+                    Snapshot {
+                        raw: &old.raw[key],
+                        public: &old.public[key],
+                        references: old.references,
+                        pointer: &pointer,
+                    },
+                    Snapshot {
+                        raw: &new.raw[key],
+                        public: &new.public[key],
+                        references: new.references,
+                        pointer: &pointer,
+                    },
+                    &next,
+                    role,
+                    out,
+                )?;
             }
         }
         // Dynamic namespaces (provider/module names) inherit their parent restrictions and sensitivity.
@@ -136,10 +118,11 @@ pub fn changes(
             });
         if let Some(child) = dynamic {
             let keys: BTreeSet<_> = old
+                .raw
                 .as_object()
                 .into_iter()
                 .flat_map(|m| m.keys())
-                .chain(new.as_object().into_iter().flat_map(|m| m.keys()))
+                .chain(new.raw.as_object().into_iter().flat_map(|m| m.keys()))
                 .collect();
             for key in keys {
                 if s["properties"].get(key).is_some() {
@@ -150,13 +133,27 @@ pub fn changes(
                 } else {
                     format!("{path}.{key}")
                 };
+                let pointer = format!(
+                    "{}/{}",
+                    old.pointer,
+                    key.replace('~', "~0").replace('/', "~1")
+                );
                 walk(
                     child,
-                    &old[key],
-                    &new[key],
+                    Snapshot {
+                        raw: &old.raw[key],
+                        public: &old.public[key],
+                        references: old.references,
+                        pointer: &pointer,
+                    },
+                    Snapshot {
+                        raw: &new.raw[key],
+                        public: &new.public[key],
+                        references: new.references,
+                        pointer: &pointer,
+                    },
                     &next,
                     role,
-                    sensitive || secret_key(key),
                     out,
                 )?;
             }
@@ -164,7 +161,28 @@ pub fn changes(
         Ok(())
     }
     let mut out = Vec::new();
-    walk(schema, before, after, "", role, false, &mut out)?;
+    let public_before = plur1bus_config::redact_with_schema(before, schema);
+    let public_after = plur1bus_config::redact_with_schema(after, schema);
+    let references_before = plur1bus_config::reference_paths_with_schema(before, schema);
+    let references_after = plur1bus_config::reference_paths_with_schema(after, schema);
+    walk(
+        schema,
+        Snapshot {
+            raw: before,
+            public: &public_before,
+            references: &references_before,
+            pointer: "",
+        },
+        Snapshot {
+            raw: after,
+            public: &public_after,
+            references: &references_after,
+            pointer: "",
+        },
+        "",
+        role,
+        &mut out,
+    )?;
     Ok(out)
 }
 
@@ -265,12 +283,23 @@ pub fn audit(
     let mut refusal: Option<crate::audit::ChainRefusal> = None;
     for entry in entries {
         let detail = json!({ "personId": person, "oldValue": entry.old, "newValue": entry.new, "targetRevision": revision, "phase": "prepare" });
-        let row = crate::audit::append_as_degrading(
+        let references: Vec<String> = entry
+            .old_references
+            .iter()
+            .map(|path| format!("/oldValue{path}"))
+            .chain(
+                entry
+                    .new_references
+                    .iter()
+                    .map(|path| format!("/newValue{path}")),
+            )
+            .collect();
+        let row = crate::audit::append_config_as_degrading(
             layout,
             (person, "supervisor"),
-            "audit.config.set",
             &entry.key,
             detail,
+            &references,
         )?;
         if let Some(row) = row {
             refusal = Some(match refusal {
@@ -289,6 +318,68 @@ pub fn audit(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn audit_parent_preserves_safe_references_and_masks_literals_with_full_schema_context() {
+        let old_literal = uuid::Uuid::new_v4().to_string();
+        let new_literal = uuid::Uuid::new_v4().to_string();
+        let schema = json!({"$defs":{
+            "name":{"type":"string"},
+            "engine":{"type":"object","required":["source","provider","id"],"additionalProperties":false,
+                "x-secret-reference":true,"x-secret-reference-kind":"engine-input",
+                "properties":{"source":{"enum":["store","file"]},"provider":{"type":"string"},"id":{"type":"string"}}}
+        },"properties":{"security":{"x-audit":true,"x-write-roles":["owner"],"properties":{
+            "handle":{"type":"string","x-sensitive":true,"x-secret-reference":{"$ref":"#/$defs/name"}},
+            "tokenSecret":{"type":"string","x-sensitive":true,"x-secret-reference":{"$ref":"#/$defs/name"}},
+            "file":{"x-sensitive":true,"x-secret-reference":{"$ref":"#/$defs/engine"}},
+            "ordinary":{"type":"string","x-sensitive":true},
+            "structured":{"type":"object","x-sensitive":true,"x-secret-reference":{"$ref":"#/$defs/engine"},
+                "properties":{"id":{"type":"string","x-audit":true}}}
+        }}}});
+        let before = json!({"security":{"handle":"service.old","tokenSecret":"service.old","ordinary":old_literal,
+            "file":{"source":"file","provider":"fixture","id":"/home/fixture/.ssh/reference.old"},
+            "structured":{"source":"store","provider":"fixture","id":"service.old"}}});
+        let after = json!({"security":{"handle":"service.new","tokenSecret":"service.new","ordinary":new_literal,
+            "file":{"source":"file","provider":"fixture","id":"/home/fixture/.ssh/reference.new"},
+            "structured":{"source":"store","provider":"fixture","id":"service.new"}}});
+        assert_eq!(
+            changes(&schema, &before, &after, "admin"),
+            Err("config-write-role")
+        );
+        let rows = changes(&schema, &before, &after, "owner").unwrap();
+        let parent = rows.iter().find(|row| row.key == "security").unwrap();
+        assert_eq!(parent.old["handle"], "service.old");
+        assert_eq!(parent.new["handle"], "service.new");
+        assert_eq!(parent.old["ordinary"], "••••");
+        assert_eq!(parent.new["ordinary"], "••••");
+        let child = rows
+            .iter()
+            .find(|row| row.key == "security.structured.id")
+            .unwrap();
+        assert_eq!(child.old, "service.old");
+        assert_eq!(child.new, "service.new");
+        let text = format!("{rows:?}");
+        assert!(!text.contains(&old_literal) && !text.contains(&new_literal));
+        let directory = tempfile::tempdir().unwrap();
+        let layout = Layout::new(directory.path().to_path_buf());
+        audit(&layout, "trusted-person", &rows, "reference-revision").unwrap();
+        let chain = verified_chain(&layout);
+        let parent = row(&chain, "security");
+        assert_eq!(parent["detail"]["oldValue"]["tokenSecret"], "service.old");
+        assert_eq!(parent["detail"]["newValue"]["tokenSecret"], "service.new");
+        assert_eq!(
+            parent["detail"]["oldValue"]["file"]["id"],
+            "/home/fixture/.ssh/reference.old"
+        );
+        assert_eq!(
+            parent["detail"]["newValue"]["file"]["id"],
+            "/home/fixture/.ssh/reference.new"
+        );
+        for name in ["audit.log", "audit-chain.jsonl"] {
+            let contents = std::fs::read_to_string(layout.logs().join(name)).unwrap();
+            assert!(!contents.contains(&old_literal) && !contents.contains(&new_literal));
+        }
+    }
+
     #[test]
     fn ssh_setup_and_trust_are_owner_only_through_generic_config_changes() {
         let configured = json!({"import":{"ssh":{"connections":{"source":{
@@ -357,8 +448,8 @@ mod tests {
         for role in ["owner", "admin"] {
             let rows = changes(&schema, &old, &new, role).unwrap();
             assert_eq!(rows.len(), 2);
-            assert_eq!(rows[1].old, "[REDACTED]");
-            assert_eq!(rows[1].new, "[REDACTED]");
+            assert_eq!(rows[1].old, "••••");
+            assert_eq!(rows[1].new, "••••");
         }
     }
     #[test]
@@ -415,16 +506,40 @@ mod tests {
     }
     #[test]
     fn audit_redacts_embedded_url_credentials_and_sensitive_query_parameters() {
-        let schema = json!({"x-audit":true});
-        for endpoint in [
-            "https://account:password-marker@service.invalid/v1",
-            "https://service.invalid/v1?access_token=secret-marker",
-            "https://service.invalid/v1?%61pi_key=secret-marker",
+        let schema = json!({"x-audit":true,"properties":{"endpoint":{"x-url-credentials":true}}});
+        let secret = uuid::Uuid::new_v4().to_string();
+        for (endpoint, expected) in [
+            (
+                format!("https://{secret}:{secret}@service.invalid/v1"),
+                "https://••••@service.invalid/v1",
+            ),
+            (
+                format!("https://service.invalid/v1?access_token={secret}"),
+                "https://service.invalid/v1?access_token=••••",
+            ),
+            (
+                format!("https://service.invalid/v1?ordinary={secret}"),
+                "https://service.invalid/v1?ordinary=••••",
+            ),
         ] {
             let rows =
                 changes(&schema, &json!({"endpoint":endpoint}), &json!({}), "owner").unwrap();
-            assert_eq!(rows[0].old["endpoint"], "[REDACTED]");
+            assert_eq!(rows[0].old["endpoint"], expected);
         }
+    }
+    #[test]
+    fn audit_uses_declared_metadata_for_ordinary_names_and_keeps_public_controls() {
+        let secret = uuid::Uuid::new_v4().to_string();
+        let schema = json!({"x-audit":true,"properties":{
+            "opaque":{"x-value-schema":{"properties":{"ordinary":{"x-sensitive":true}}}},
+            "maxTokens":{"type":"integer"},"password":{"type":"string"}
+        }});
+        let old = json!({"opaque":{"ordinary":secret},"maxTokens":4096,"password":"public-label"});
+        let rows = changes(&schema, &old, &json!({}), "owner").unwrap();
+        assert_eq!(
+            rows[0].old,
+            json!({"opaque":{"ordinary":"••••"},"maxTokens":4096,"password":"public-label"})
+        );
     }
     #[test]
     fn audit_records_person_and_redacted_values_and_fails_closed_on_io() {
@@ -436,6 +551,8 @@ mod tests {
             key: "security.value".into(),
             old: json!("[REDACTED]"),
             new: json!("[REDACTED]"),
+            old_references: Vec::new(),
+            new_references: Vec::new(),
         }];
         audit(&layout, "trusted-person", &changes, "revision-after").unwrap();
         let line: Value =
@@ -493,7 +610,7 @@ mod tests {
                 "max":{"x-audit":true},
                 "secret":{"x-sensitive":true,"properties":{"value":{"x-audit":true}}}}},
             "endpoint":{"x-audit":true},
-            "login":{"x-audit":true}}});
+            "login":{"x-audit":true,"properties":{"api_key":{"x-sensitive":true}}}}});
         let before = json!({
             "security":{"max":90,"secret":{"value":"old-marker"}},
             "endpoint":"https://service.invalid/v1",
@@ -556,8 +673,8 @@ mod tests {
         }
         let chain = verified_chain(&layout);
         let secret = row(&chain, "security.secret.value");
-        assert_eq!(secret["detail"]["oldValue"], "[REDACTED]");
-        assert_eq!(secret["detail"]["newValue"], "[REDACTED]");
+        assert_eq!(secret["detail"]["oldValue"], "••••");
+        assert_eq!(secret["detail"]["newValue"], "••••");
         // A credential-named field: masked here by field name, and the central key rule may re-mask the mask with its own
         // tag (`[REDACTED:key]`), so only the marker's prefix is fixed.
         let login = row(&chain, "login");
@@ -568,7 +685,7 @@ mod tests {
     }
 
     #[test]
-    fn ordinary_config_values_are_kept_in_the_chain_and_the_audit_log() {
+    fn numeric_config_values_stay_public_while_unclassified_strings_are_private() {
         let dir = tempfile::tempdir().unwrap();
         let layout = Layout::new(dir.path().to_path_buf());
         audit(&layout, "trusted-person", &changed_config_rows(), "rev-1").unwrap();
@@ -577,11 +694,11 @@ mod tests {
         assert_eq!(max["detail"]["oldValue"], 90);
         assert_eq!(max["detail"]["newValue"], 5);
         let endpoint = row(&chain, "endpoint");
-        assert_eq!(endpoint["detail"]["oldValue"], "https://service.invalid/v1");
-        assert_eq!(endpoint["detail"]["newValue"], "https://service.invalid/v2");
+        assert_eq!(endpoint["detail"]["oldValue"], "••••");
+        assert_eq!(endpoint["detail"]["newValue"], "••••");
         let login = row(&chain, "login");
-        assert_eq!(login["detail"]["oldValue"]["user"], "alice");
-        assert_eq!(login["detail"]["newValue"]["user"], "bob");
+        assert_eq!(login["detail"]["oldValue"]["user"], "••••");
+        assert_eq!(login["detail"]["newValue"]["user"], "••••");
         let logged: Vec<Value> = log_lines(&layout)
             .iter()
             .map(|l| serde_json::from_str(l).unwrap())

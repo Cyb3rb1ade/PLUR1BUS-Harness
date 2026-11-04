@@ -21,9 +21,13 @@ export function createLlmSummarizer(provider: ChatProvider, context: Pick<ChatRe
       if (!result.trim()) throw Error('summary-model-unavailable');
       return fitTail(result, maxTokens);
     };
-    // Split oversized individual messages too; bound every staged model input, with a finite reducing merge.
     const chars = Math.max(4, inputMaxTokens * 4);
     const input = messages.map(m => `${m.role}#${m.seq}: ${m.text}`).join('\n');
+    // A managed short-context role sends the whole transcript once. Its fit refusal reaches the digest fallback.
+    // An empty live role table is unavailable; keeping it whole also covers enablement during this call.
+    const models = provider.roleModels?.("summarize");
+    if (models && (models.length === 0 || models.some(model => model.provider === "apple-fm"))) return invoke(input);
+    // Other providers retain bounded blocks and a finite reducing merge.
     let blocks = Array.from({ length: Math.max(1, Math.ceil(input.length / chars)) }, (_, i) => input.slice(i * chars, (i + 1) * chars));
     for (let tier = 0; tier < 8; tier++) {
       const summaries: string[] = [];

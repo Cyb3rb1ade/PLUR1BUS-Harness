@@ -15,6 +15,9 @@ const fmt = (n: number, digits = 0): string => n.toLocaleString(undefined, { max
 
 function optionLabel(o: ChatModelOption): string {
   if (o.disabledReason === "local-only") return t("chat.model.lockedLocalOnly", { name: o.displayName });
+  if (o.disabledReason === "context-too-small") return t("chat.model.lockedContext", {
+    name: o.displayName, window: fmt(o.contextWindow ?? 0), floor: fmt(16384),
+  });
   if (o.disabledReason === "unavailable") return t("chat.model.lockedUnavailable", { name: o.displayName });
   return o.local ? t("chat.model.local", { name: o.displayName }) : o.displayName;
 }

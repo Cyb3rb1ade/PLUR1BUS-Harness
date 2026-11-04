@@ -6,8 +6,6 @@ import {
   Role,
   SSE_HEADERS,
   TaskState,
-  formatSSEErrorEvent,
-  formatSSEEvent,
   type ListTasksRequest,
   type ListTasksResponse,
   type Message,
@@ -32,7 +30,7 @@ import {
   type TaskStore,
 } from "@a2a-js/sdk/server";
 import type { ServerResponse } from "node:http";
-import { once } from "node:events";
+import { ProtocolSseWriter } from "../protocol-routes.ts";
 import { A2A_DEFAULT_PAGE_SIZE, A2A_TASK_LIMITS, REPLY_TRUNCATED_MARKER } from "./types.ts";
 import { InMemoryTaskStore, SqliteTaskStore } from "./task-store.ts";
 import { createSecretRedaction, redactProtocolOutput } from "../../../core/src/secrets/redaction.ts";
@@ -485,54 +483,38 @@ export class A2aServerCore {
     callContext: ServerCallContext,
     useLegacy: boolean,
   ): Promise<void> {
-    let firstItem: IteratorResult<unknown, void>;
-    try {
-      firstItem = await stream.next();
-    } catch (err) {
-      const rpcErr = JsonRpcTransportHandler.mapToJSONRPCError(err);
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ jsonrpc: "2.0", id: rpcId, error: rpcErr }));
-      return;
-    }
-
-    const sseHeaders: Record<string, string> = { ...SSE_HEADERS };
-    if (callContext.activatedExtensions?.length) {
-      const extHeaderName = useLegacy ? LEGACY_HTTP_EXTENSION_HEADER : HTTP_EXTENSION_HEADER;
-      sseHeaders[extHeaderName] = Extensions.toServiceParameter(callContext.activatedExtensions);
-    }
-    res.writeHead(200, sseHeaders);
-
-    let closed = false;
-    const onClose = (): void => {
-      closed = true;
-      try { void stream.return?.(); } catch {}
-    };
-    res.on("close", onClose);
+    let sourceDone = false, returned = false;
+    const writer = new ProtocolSseWriter({ res, deferOpen: true, onClose() {
+      if (sourceDone || returned) return;
+      returned = true;
+      try { void Promise.resolve(stream.return()).catch(() => {}); } catch { /* disconnected producer */ }
+    } });
 
     try {
-      if (!firstItem.done && !closed && !res.destroyed) {
-        const ok = res.write(formatSSEEvent(firstItem.value));
-        if (!ok && !closed && !res.destroyed) {
-          await Promise.race([once(res, "drain"), once(res, "close")]);
-        }
+      let item = await writer.nextEvent(stream);
+      if (!item || writer.closed) return;
+      const sseHeaders: Record<string, string> = { ...SSE_HEADERS };
+      if (callContext.activatedExtensions?.length) {
+        const extHeaderName = useLegacy ? LEGACY_HTTP_EXTENSION_HEADER : HTTP_EXTENSION_HEADER;
+        sseHeaders[extHeaderName] = Extensions.toServiceParameter(callContext.activatedExtensions);
       }
-      for await (const item of stream) {
-        if (closed || res.destroyed || res.writableEnded) break;
-        const ok = res.write(formatSSEEvent(item));
-        if (!ok && !closed && !res.destroyed) {
-          await Promise.race([once(res, "drain"), once(res, "close")]);
-        }
+      res.writeHead(200, sseHeaders);
+      while (item && !item.done && !writer.closed) {
+        if (!await writer.writeEvent({ data: String(JSON.stringify(item.value)) })) break;
+        item = await writer.nextEvent(stream);
       }
+      sourceDone = item?.done === true;
     } catch (err) {
-      if (!closed && !res.destroyed) {
+      if (!writer.closed) {
         const rpcErr = JsonRpcTransportHandler.mapToJSONRPCError(err);
-        res.write(formatSSEErrorEvent({ jsonrpc: "2.0", id: rpcId, error: rpcErr }));
+        const packet = { jsonrpc: "2.0", id: rpcId, error: rpcErr };
+        if (!res.headersSent) {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(packet));
+        } else await writer.writeEvent({ event: "error", data: packet });
       }
     } finally {
-      res.removeListener("close", onClose);
-      if (!res.writableEnded && !res.destroyed) {
-        res.end();
-      }
+      writer.close();
     }
   }
 }

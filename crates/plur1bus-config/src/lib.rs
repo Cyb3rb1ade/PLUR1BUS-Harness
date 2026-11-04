@@ -1,8 +1,26 @@
 //! The config.json service: the same schema the TypeScript side uses (packages/config-schema), validated with the
 //! `jsonschema` crate. The supervisor owns config.json (2a-H3b, B3–B6) and serves `config.*` from this crate; the CLI
 //! calls it directly only when no supervisor runs.
+mod model_context;
+pub use model_context::assignment_errors as model_assignment_errors;
+
 use serde_json::{Map, Value};
 use std::{fs, io, path::Path};
+
+mod diagnostics;
+mod disclosure;
+mod references;
+mod resolution;
+mod sensitive;
+pub use diagnostics::validation_constraint;
+pub use disclosure::supports_config_disclosure_policy;
+pub use references::{looks_like_pasted_key, reference_safety, reference_schema};
+pub use sensitive::{
+    config_reference_warnings, config_text_secret_values, mask_url_credentials,
+    placeholder_with_schema, redact_config, redact_with_schema, reference_paths_with_schema,
+    reference_warnings_with_schema, secret_text_values_with_schema, ConfigReferenceWarning,
+    DisclosurePolicyError,
+};
 
 pub const SCHEMA_JSON: &str =
     include_str!("../../../packages/config-schema/schema/config.schema.json");
@@ -201,6 +219,10 @@ fn recall_budget_error(v: &Value) -> Option<String> {
 }
 
 pub fn validate(v: &Value) -> Result<(), Vec<String>> {
+    let policy = model_context::errors(v, None);
+    if !policy.is_empty() {
+        return Err(policy);
+    }
     let mut errs: Vec<String> = validator()
         .iter_errors(v)
         .map(|e| {
@@ -212,7 +234,7 @@ pub fn validate(v: &Value) -> Result<(), Vec<String>> {
                 } else {
                     path
                 },
-                e
+                validation_constraint(&e)
             )
         })
         .collect();
@@ -1071,3 +1093,8 @@ fn check_media_privacy(media: &Value, path: &str, errs: &mut Vec<String>) {
         }
     }
 }
+
+#[cfg(test)]
+mod sensitive_tests;
+#[cfg(test)]
+pub(crate) use sensitive::{config_secret_values, secret_values_with_schema};

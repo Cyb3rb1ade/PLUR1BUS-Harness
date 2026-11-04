@@ -5,6 +5,7 @@ import { cacheRouteFor, composeAuth, type ProviderDefinition } from "../../src/c
 import { ProviderError } from "../../../providers/src/index.ts";
 import { wireFixture, type Wire } from "../integration/wire-fixture.ts";
 import { fakeEgress, fakeSecretService, recordingLog } from "./helpers.ts";
+import { createAppleFmRuntime } from "../../src/composition/apple-fm.ts";
 
 type Def = ProviderDefinition;
 function definition(wire: Def["wireFormat"], over: { id?: string; secretRef?: string; model?: string; scheme?: string; billingPath?: string; kind?: string } = {}): Def {
@@ -20,6 +21,34 @@ const compose = (definitions: Record<string, Def>, extra: Partial<Parameters<typ
   composeAuth({ config: config(), definitions, secrets: fakeSecretService({ "fixture.key": "redact-probe-alpha" }).service, egress: fakeEgress().egress, ...extra });
 const userMessage = { model: "model-a", messages: [{ role: "user" as const, content: "hello" }] };
 async function drain(it: AsyncIterable<unknown>) { const out: unknown[] = []; for await (const e of it) out.push(e); return out; }
+
+it("managed profiles share one keyless adapter without making a small model the default chat candidate", () => {
+  const cfg = config(c => {
+    c.appleFm.enabled = true;
+    c.modelProfiles = {
+      decision: { candidates: [{ model: "apple-fm/system", weight: 1 }], strategy: "fallback", params: {}, cache: { hint: "auto" } },
+      short: { candidates: [{ model: "apple-fm/system", weight: 1 }], strategy: "fallback", params: {}, cache: { hint: "auto" } },
+    };
+  });
+  const appleFm = createAppleFmRuntime({
+    home: "/synthetic", config: () => cfg, platform: "darwin", slot: () => ({ state: "ready" }),
+  });
+  const result = compose({}, { config: cfg, appleFm });
+  try {
+    assert.equal(result.profiles.decision?.[0]?.adapter, appleFm.adapter);
+    assert.equal(result.profiles.short?.[0]?.adapter, appleFm.adapter);
+    assert.equal(result.profiles["apple-fm/system"]?.[0]?.adapter, appleFm.adapter);
+    assert.equal(result.resolved.defaultProfile, undefined);
+    assert.equal(result.billing["apple-fm"], "local");
+    cfg.appleFm.enabled = false;
+    assert.equal(result.profiles["apple-fm/system"]?.length, 0);
+    assert.equal(result.profiles.short?.length, 0);
+    cfg.appleFm.enabled = true;
+    assert.equal(result.profiles.short?.[0]?.adapter, appleFm.adapter);
+  } finally {
+    result.close();
+  }
+});
 
 describe("composition/auth composeAuth: what it derives from the definitions", () => {
   it("maps each wire format to its tool-call dialect family", () => {

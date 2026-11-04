@@ -8,13 +8,16 @@ import type { ScanOutput, Scanner } from "./index.ts";
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
-export const scanOpenAi: Scanner = async (_profile: ProfileInfo, client: PinnedClient): Promise<ScanOutput> => {
+export const scanOpenAi: Scanner = async (profile: ProfileInfo, client: PinnedClient): Promise<ScanOutput> => {
   const res = await client.get({ path: "/models" });
   if (!isObj(res) || !Array.isArray(res.data)) {
     throw new ScanError("failed:invalid", "bad_envelope");
   }
 
-  const rawEntries: RawEntry[] = res.data.map((item: unknown) => {
+  const apple = profile.id === "apple-fm" || profile.vendor === "apple";
+  const allowed = apple ? res.data.filter((item: unknown) => isObj(item) && item.id === "system") : res.data;
+  const filteredByPolicy = res.data.length - allowed.length;
+  const rawEntries: RawEntry[] = allowed.map((item: unknown) => {
     if (!isObj(item)) throw new ScanError("failed:invalid", "bad_envelope");
     const id = checkId(item.id);
     const created = present(item.created) ? checkPositiveInt(item.created) * 1000 : undefined;
@@ -49,6 +52,9 @@ export const scanOpenAi: Scanner = async (_profile: ProfileInfo, client: PinnedC
     };
   });
 
-  const { entries, duplicates } = finalizeEntries(rawEntries);
-  return { entries, duplicates, pages: client.pages };
+  const fixed = apple ? rawEntries.map(entry => ({ id: entry.id,
+    ...(entry.created !== undefined ? { created: entry.created } : {}), contextWindow: 4096,
+    capabilities: ["tools", "structured_output"] as Capability[] })) : rawEntries;
+  const { entries, duplicates } = finalizeEntries(fixed);
+  return { entries, duplicates, pages: client.pages, ...(filteredByPolicy ? { filteredByPolicy } : {}) };
 };

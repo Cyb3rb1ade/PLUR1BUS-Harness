@@ -889,7 +889,8 @@ mod test_prerequisites;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::process::{Command, Stdio};
+    use std::io::Read;
+    use std::process::{Child, Command, Stdio};
 
     #[test]
     fn shared_vectors_preserve_hashes_crlf_and_rotation_continuity() {
@@ -1086,7 +1087,12 @@ mod tests {
         if let Some(home) = std::env::var_os("PLUR1BUS_AUDIT_TEST_CHILD_HOME") {
             let layout = crate::paths::Layout::new(home.into());
             for i in 0..30 {
+                let mut advance = [0];
+                std::io::stdin().read_exact(&mut advance).unwrap();
+                assert_eq!(advance, [1]);
                 crate::audit::append(&layout, "rust.process", "fixture", json!({"i":i})).unwrap();
+                std::io::stdout().write_all(&[6]).unwrap();
+                std::io::stdout().flush().unwrap();
             }
             return;
         }
@@ -1095,12 +1101,25 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let logs = dir.path().join("logs");
         let node = std::env::var_os("PLUR1BUS_NODE").unwrap_or_else(|| "node".into());
-        let mut children = Vec::new();
+        // Join or reap every owned writer before the temporary chain can be removed, including on failure.
+        struct Writers(Vec<Child>);
+        impl Drop for Writers {
+            fn drop(&mut self) {
+                for child in &mut self.0 {
+                    if !matches!(child.try_wait(), Ok(Some(_))) {
+                        let _ = child.kill();
+                    }
+                    let _ = child.wait();
+                }
+            }
+        }
+        let mut children = Writers(Vec::new());
         for i in 0..3 {
-            children.push(Command::new(std::env::current_exe().unwrap())
+            children.0.push(Command::new(std::env::current_exe().unwrap())
                 .args(["--exact", "audit::chain::tests::mixed_typescript_and_rust_processes_share_one_intact_chain", "--nocapture"])
-                .env("PLUR1BUS_AUDIT_TEST_CHILD_HOME", dir.path()).stdout(Stdio::null()).spawn().unwrap());
-            children.push(
+                .env("PLUR1BUS_AUDIT_TEST_CHILD_HOME", dir.path())
+                .stdin(Stdio::piped()).stdout(Stdio::piped()).spawn().unwrap());
+            children.0.push(
                 Command::new(&node)
                     .current_dir(&root)
                     .args([
@@ -1112,12 +1131,31 @@ mod tests {
                     .arg(&logs)
                     .arg(format!("ts-{i}"))
                     .arg("30")
-                    .stdout(Stdio::null())
+                    .arg("--stepped")
+                    .stdin(Stdio::piped())
+                    .stdout(Stdio::piped())
                     .spawn()
                     .unwrap(),
             );
         }
-        for child in &mut children {
+        // All six real processes contend in each round, but none can reacquire the lock 30 times ahead of a peer.
+        // Preserve the production five-second lock deadline and all 180 independently appended records.
+        for _ in 0..30 {
+            for child in &mut children.0 {
+                child.stdin.as_mut().unwrap().write_all(&[1]).unwrap();
+            }
+            for child in &mut children.0 {
+                let mut ack = [0];
+                loop {
+                    child.stdout.as_mut().unwrap().read_exact(&mut ack).unwrap();
+                    if ack == [6] {
+                        break;
+                    }
+                    // The Rust libtest harness also prints its ordinary ASCII header on this pipe.
+                }
+            }
+        }
+        for child in &mut children.0 {
             assert!(child.wait().unwrap().success());
         }
         let verify = |dir: &Path| {

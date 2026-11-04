@@ -8,7 +8,7 @@ Lookup pages for the harness: error codes, environment variables, paths, config 
 - [config-keys.md](config-keys.md): every configuration key from the config schema, with type, default and restart class.
 - [events.md](events.md): log-schema catalogue events and typed events emitted by modules.
 - [rpc-index.md](rpc-index.md): compact index of RPC methods by family with their role; details are in [../rpc.md](../rpc.md).
-- [todo-inventory.md](todo-inventory.md): TODO, FIXME, XXX and HACK comments in the repo.
+- [todo-inventory.md](todo-inventory.md): open comment/test markers, enforced SH controls and remaining coverage boundaries.
 - [glossary.md](glossary.md): project terms with German equivalents and where they are defined.
 - [faq.md](faq.md): short answers on installation, backup, update, logs and troubleshooting, each linked to its source.
 - [user-docs-coverage.md](user-docs-coverage.md): which web routes and CLI commands have a page in `docs/user/{de,en}`, with counts and the open gaps.

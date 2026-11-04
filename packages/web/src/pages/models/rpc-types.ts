@@ -36,7 +36,7 @@ export type ModelScanResultCode = "ok" | "failed:auth" | "failed:network" | "fai
 export type ModelScanOutcomeCode = ModelScanResultCode | "already_running" | "disabled" | "no-scanner";
 
 export type ModelProviderState = { provider: string; lastScanAt?: string; lastResult?: ModelScanResultCode; nextScanAt?: string; consecutiveFailures?: number };
-export type ModelScanWarning = { code: "role_unavailable" | "shadowed_by_manual" | "empty_list"; role?: string; provider?: string; id?: string };
+export type ModelScanWarning = { code: "role_unavailable" | "shadowed_by_manual" | "empty_list" | "filtered_by_policy"; count?: number; role?: string; provider?: string; id?: string };
 
 export type ModelsListResult = { models: ModelEntry[]; providers: ModelProviderState[]; newCount: number; warnings: ModelScanWarning[] };
 

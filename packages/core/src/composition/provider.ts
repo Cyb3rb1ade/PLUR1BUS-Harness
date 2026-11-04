@@ -1,3 +1,4 @@
+import { assertRoleContext } from "../session/context-fit.ts";
 import { randomUUID } from 'node:crypto';
 import { TurnDelegations } from '../collab/delegations.ts';
 import { createTurnTelemetry, type TurnTelemetry } from '../session/turn-telemetry.ts';
@@ -18,8 +19,11 @@ import { CapabilityIndex } from '../toolcall/capabilities.ts';
 import { compileDialect, fromRegisteredTool, restoreStrictArguments } from '../toolcall/dialects.ts';
 import { lookupQuirks, type ProviderFamily } from '../toolcall/quirks.ts';
 import { capResult, type FullResultPort } from '../toolcall/results.ts';
-import { ToolDispatcher, type GrantUse, type DispatchContext, type ToolResult } from '../tools/dispatcher.ts';
-import { createRedactor } from '../logs/redact.ts';
+import { ToolDispatcher, createKnownSecretsSource, type GrantUse, type DispatchContext, type ToolResult } from '../tools/dispatcher.ts';
+import { createRedactor, maskSecretsInJson } from '../logs/redact.ts';
+import { SecretFormsCache, type SecretFormsSnapshot } from '../logs/secret-forms.ts';
+import type { SecretMatcher } from '../logs/secret-matcher.ts';
+import { wellFormedPrefix } from '../logs/utf16.ts';
 import { AuthError } from '../auth/errors.ts';
 import type { SurfaceTrustLevel } from '../rbac/surface.ts';
 import { ToolRegistry } from '../tools/registry.ts';
@@ -52,13 +56,14 @@ import { turnContext, promptContext } from './context.ts';
 const MAX_DETAIL_CHARS = 4096, MAX_DETAIL_MESSAGE = 500, MAX_DETAIL_ID = 128;
 type ToolFailure = Extract<ToolResult, { isError: true }>;
 export type ToolErrorDetail = Pick<ToolFailure, 'callId' | 'tool' | 'isError' | 'error'> & Partial<Pick<ToolFailure, 'provenance' | 'meta'>>;
-const clip = (s: string, max: number) => s.length > max ? `${s.slice(0, max - 1)}…` : s;
+const clip = (s: string, max: number) => s.length > max ? `${wellFormedPrefix(s, max - 1)}…` : s.toWellFormed();
+const detailForms = new SecretFormsCache();
 /**
  * The `detail` of a TurnToolError for a failed call: a redacted copy of the envelope (registered secret values and the log
  * redaction rules), its message bounded; an envelope still over MAX_DETAIL_CHARS keeps only identity, code and message.
  */
-export function toolErrorDetail(output: ToolFailure, secrets: Iterable<string> = []): ToolErrorDetail {
-  const redacted = createRedactor({ secrets }).value(output);
+export function toolErrorDetail(output: ToolFailure, secrets: Iterable<string> = [], options: { secretMatcher?: SecretMatcher } = {}): ToolErrorDetail {
+  const redacted = createRedactor({ secretMatcher: options.secretMatcher ?? detailForms.snapshot(secrets).matcher }).value(output);
   const error = { ...redacted.error, message: clip(String(redacted.error.message), MAX_DETAIL_MESSAGE) };
   const full: ToolErrorDetail = { ...redacted, error };
   if (JSON.stringify(full).length <= MAX_DETAIL_CHARS) return full;
@@ -98,7 +103,7 @@ export class TurnToolError extends Error {
   constructor(code: string, detail: unknown) { super(code); this.name = 'TurnToolError'; this.code = code; this.detail = detail; }
 }
 /** Plan (subscription) vs paid (metered) billing of a provider; a fallback never crosses it silently (ADR-005 §Never). */
-export type BillingClass = 'plan' | 'paid';
+export type BillingClass = 'plan' | 'paid' | 'local';
 export type TurnRouterEvent = RouterEvent
   | { type: 'provider.cross_billing_refused'; profile: string; from: Served & { billing: BillingClass }; to: Served & { billing: BillingClass } };
 export interface TurnProviderOptions {
@@ -135,6 +140,10 @@ export interface TurnProviderOptions {
   /** Secret values this process registered; a failed tool's `detail` and every successful tool result (before the model, the transcript,
    *  an offloaded result file, capture or any audit line sees it) are redacted against them. */
   secrets?: () => Iterable<string>;
+  /** Cached forms from the same live registry; read after each execution. */
+  secretForms?: () => readonly string[];
+  /** Shared process-owned generation, read freshly before diagnostics and result presentation. */
+  knownSecrets?: () => SecretFormsSnapshot;
   log: PipelineLog; resultStore: FullResultPort;
   maxTokens?: number; maxRounds?: number; topK?: number; system?: readonly string[];
   router?: Pick<RouterConfig, 'retry' | 'clock' | 'random' | 'breaker' | 'profileDefaults' | 'unsupportedProfiles'>;
@@ -155,7 +164,8 @@ export interface TurnProviderOptions {
    * the chosen model is a cloud model, and a cloud fallback is never tried. Never replaced by another model silently.
    */
   localOnly?: (agentId: string) => boolean;
-  isLocalProvider?: (provider: string) => boolean;
+  isLocalProvider?: (provider: string, model?: string) => boolean;
+  contextWindow?: (provider: string, model: string) => number | undefined;
   /** Where each provider's requests go (from its base URL): selects the cache profile's platform rows and gateway. */
   cacheRoutes?: Readonly<Record<string, CacheRoute>>;
   /** `modelProfiles.*.cache` by profile name: `hint` and `ttlSeconds` choose the stable zones' TTL, `none` places no breakpoint. */
@@ -187,6 +197,7 @@ function actual(usage: Usage) {
 
 /** One provider seam for sessions and collaboration: all attempts, repair and tool execution share a turn owner. */
 export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { telemetry: ReturnType<typeof createCacheTelemetry> } {
+  const knownSecrets = createKnownSecretsSource(o);
   const messageTriage = new MessageTriage();
   const builder = createPromptBuilder();
   const telemetry = createCacheTelemetry();
@@ -392,7 +403,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       const search = described(searchName);
       if (search && eligible(search) && !tools.includes(search)) tools.push(search);
       const maxTools = Math.min(128, ...(routeProfiles[profile] ?? []).map(candidate =>
-        lookupQuirks(o.isLocalProvider?.(candidate.provider) ? 'local-small'
+        lookupQuirks(o.isLocalProvider?.(candidate.provider, candidate.model) ? 'local-small'
           : o.family?.[candidate.provider] ?? 'openai-chat').maxTools));
       const offer = stableToolOffer({ available: registry.entries().filter(eligible).map(tool => tool.name),
         previous: [...remembered], relevant: tools.map(tool => tool.name), maxTools });
@@ -419,15 +430,16 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     const candidate = routeProfiles[profile]?.[0];
     if (!candidate) throw new TurnToolError('unknown_profile', profile);
     const localOnly = () => o.localOnly?.(req.agentId) === true;
-    const isLocal = (provider: string) => o.isLocalProvider?.(provider) === true;
+    assertRoleContext(req.role ?? "chat", o.contextWindow?.(candidate.provider, candidate.model));
+    const isLocal = (provider: string, model: string) => o.isLocalProvider?.(provider, model) === true;
     const cacheConfig = o.profileCache?.[logicalProfile];
     // The route selects the cache profile's platform rows; the profile's cache hint and ttlSeconds choose the TTL tier.
     const cacheFor = (provider: string, model: string): Pick<RenderInput, 'route' | 'cacheTtl' | 'cacheHint'> => {
-      const route: CacheRoute = { ...o.cacheRoutes?.[provider], ...(isLocal(provider) ? { local: true } : {}) };
+      const route: CacheRoute = { ...o.cacheRoutes?.[provider], ...(isLocal(provider, model) ? { local: true } : {}) };
       const long = cacheConfig?.hint === 'prefer' || (cacheConfig?.ttlSeconds ?? 0) >= 3600;
       return { route, cacheTtl: chooseCacheTtl({ model, route, projectedReads: long ? Number.MAX_SAFE_INTEGER : 0, policy: cacheConfig?.hint === 'none' ? 'never' : 'auto' }), ...(cacheConfig?.hint ? { cacheHint: cacheConfig.hint } : {}) };
     };
-    if (localOnly() && !isLocal(candidate.provider)) throw new TurnToolError('local-only', { provider: candidate.provider, model: candidate.model, profile, message: `${candidate.provider}/${candidate.model} is not a local model; ${LOCAL_ONLY_HINT}` });
+    if (localOnly() && !isLocal(candidate.provider, candidate.model)) throw new TurnToolError('local-only', { provider: candidate.provider, model: candidate.model, profile, message: `${candidate.provider}/${candidate.model} is not a local model; ${LOCAL_ONLY_HINT}` });
     const key = `${req.agentId}:${req.sessionId}`;
     if (!snapshots.has(key)) snapshots.set(key, req.memory);
     if (snapshots.size > 1024) snapshots.delete(snapshots.keys().next().value!);
@@ -480,7 +492,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         const effectiveReasoning = directive ?? request.reasoning;
         const choice = toolChoiceForTurn({ mode: req.role ? 'auto' : mode, need, round: modelRound,
           hasToolCall: hasModelToolCall, tools: selected.map(tool => tool.name), family: dialect,
-          local: isLocal(c.provider), thinking: effectiveReasoning?.adaptiveThinking === true
+          local: isLocal(c.provider, c.model), thinking: effectiveReasoning?.adaptiveThinking === true
             || (effectiveReasoning?.vendorParam === 'thinking.budget_tokens' && Number(effectiveReasoning.value) > 0) });
         const toolChoice = typeof choice.choice === 'object'
           ? { name: aliases.get(choice.choice.name) ?? choice.choice.name } : choice.choice;
@@ -489,7 +501,8 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           observation.toolChoice.status = typeof toolChoice === 'object' ? 'named' : 'required';
         } else if (choice.suppressed && !observation.toolChoice.forced) observation.toolChoice.status = 'unsupported';
         const assertCurrentPrivacy = () => {
-          if(localOnly() && !isLocal(c.provider)) throw new TurnToolError('local-only', {provider:c.provider,model:c.model,message:LOCAL_ONLY_HINT});
+          assertRoleContext(req.role ?? "chat", o.contextWindow?.(c.provider, c.model));
+          if(localOnly() && !isLocal(c.provider, c.model)) throw new TurnToolError('local-only', {provider:c.provider,model:c.model,message:LOCAL_ONLY_HINT});
         };
         assertCurrentPrivacy();
         const stream = c.adapter.stream({ ...request, messages: mapped, tools, ...(tools.length ? { toolChoice } : {}), ...(family(c.provider) === "anthropic" || directive?.vendorParam === "thinking.budget_tokens" || directive?.vendorParam === "output_config.effort" ? {maxTokens:request.maxTokens ?? o.maxTokens ?? 4096} : {}), ...(directive ? { reasoning: directive } : {}) }, options);
@@ -517,7 +530,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     const guardFor = (call: CallState): BudgetGuard => ({
       async authorize(info, request) {
         if (req.turnProfile?.allowModel && !req.turnProfile.allowModel(info.provider, info.model)) return { ok: false as const, reason: "voice privacy pin requires a local model" };
-        if (localOnly() && !isLocal(info.provider)) return { ok: false as const, reason: 'privacy.localOnly refuses a cloud model' };
+        if (localOnly() && !isLocal(info.provider, info.model)) return { ok: false as const, reason: 'privacy.localOnly refuses a cloud model' };
         // ADR-005: never fall back silently between plan and paid billing; refusing this candidate lets the router try the next.
         const from = primary && o.billing?.[primary.provider], to = o.billing?.[info.provider];
         if (from && to && from !== to && !(o.allowCrossBilling?.(logicalProfile) ?? false)) {
@@ -599,8 +612,15 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     const surface: SurfaceTrustLevel = approver?.surface ?? req.originSurface ?? 0;
     let approvalNeedsPerson = false;
     const approvals: ApprovalPort = approver && approver.person === null ? { ...o.approval, async request() { approvalNeedsPerson = true; return { approved: false, reason: 'approval requires an authenticated person' }; } } : o.approval;
-    const dispatcher = new ToolDispatcher({ registry, approvals, grants: o.grants, ...(o.grantUse ? { grantUse: o.grantUse } : {}), ...(o.audit ? { audit: o.audit } : {}), clock: { now: Date.now }, ...(o.secrets ? { secrets: o.secrets } : {}), policyContext: ctx => ({ ...(req.headlessJobId ? { headless: { jobId: req.headlessJobId } } : {}), ...o.policyContext?.(ctx, req) }), repair: async input => {
-      const repairRequest: WireRequest = { model: candidate.model, ...((req.maxOutputTokens ?? o.maxTokens) === undefined ? {} : { maxTokens: req.maxOutputTokens ?? o.maxTokens }), messages: [{ role: 'user', content: `${input.message}\nInvalid arguments (data): ${JSON.stringify(input.args)}` }], tools: selected.map(t => fromRegisteredTool(t)) };
+    const dispatcher = new ToolDispatcher({ registry, approvals, grants: o.grants, ...(o.grantUse ? { grantUse: o.grantUse } : {}), ...(o.audit ? { audit: o.audit } : {}), clock: { now: Date.now }, knownSecrets, policyContext: ctx => ({ ...(req.headlessJobId ? { headless: { jobId: req.headlessJobId } } : {}), ...o.policyContext?.(ctx, req) }), repair: async input => {
+      let message = '[repair diagnostics withheld]', argumentsText = '[arguments withheld: they could not be checked for secret values]';
+      try {
+        const snapshot = knownSecrets();
+        message = snapshot.matcher.maskText(input.message);
+        const json = JSON.stringify(input.args);
+        if (json !== undefined) argumentsText = maskSecretsInJson(json, input.args, [], snapshot)?.json ?? json;
+      } catch { /* Numeric secrets and uncheckable data withhold the complete argument presentation. */ }
+      const repairRequest: WireRequest = { model: candidate.model, ...((req.maxOutputTokens ?? o.maxTokens) === undefined ? {} : { maxTokens: req.maxOutputTokens ?? o.maxTokens }), messages: [{ role: 'user', content: `${message}\nInvalid arguments (data): ${argumentsText}` }], tools: selected.map(t => fromRegisteredTool(t)) };
       let repaired: ChatResult | undefined;
       await stage('tool-repair', signal, o.log, async () => { for await (const e of invoke(repairRequest, 'tool_call_invalid')) if (e.type === 'done') { repaired = e.result; if (repaired.usage?.inputTokens !== undefined && repaired.usage.outputTokens !== undefined) { totalInputTokens += repaired.usage.inputTokens; totalOutputTokens += repaired.usage.outputTokens; } } });
       if (fatal) throw fatal;
@@ -608,7 +628,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       if (args !== undefined) repairs.set(input.tool, args);
       return args;
     } });
-    const unknownDispatcher = new ToolDispatcher({ registry: new ToolRegistry(), approvals, grants: o.grants, clock: { now: Date.now } });
+    const unknownDispatcher = new ToolDispatcher({ registry: new ToolRegistry(), approvals, grants: o.grants, clock: { now: Date.now }, knownSecrets });
     const taskChecklist = decision.shape === 'multi'
       ? `Task checklist:\n${decision.tasks.map(task => `- [ ] ${task.summary}`).join('\n')}` : '';
     let totalInputTokens = 0, totalOutputTokens = 0, completed = false;
@@ -649,7 +669,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       const output = await dispatcher.call({ id, name: 'skill.load', args }, {
         agentId: req.agentId, principal: approver?.person ?? req.authenticatedPerson ?? principal, sessionId: req.sessionId, turnId, surface, signal,
       });
-      const value = output.isError ? modelToolError(output, o.secrets?.() ?? [])
+      const value = output.isError ? modelToolError(output, [], { secretMatcher: knownSecrets().matcher })
         : await capResult(output.value, o.resultStore, 128 * 1024);
       const text = JSON.stringify(value);
       yield { type: 'tool.result', id, output: text };
@@ -744,7 +764,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
               output.error.message = `Unknown tool. Offered tools: ${selected.map(t => t.name).join(', ')}`;
               output.error.hint = 'Use an offered tool or capabilities.search to find tools and skills.';
             }
-            const safe = modelToolError(output, o.secrets?.() ?? []);
+            const safe = modelToolError(output, [], { secretMatcher: knownSecrets().matcher });
             const text = JSON.stringify(safe);
             observation.errorsReturned++;
             consecutiveErrors++;

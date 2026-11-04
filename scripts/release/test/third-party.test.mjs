@@ -159,6 +159,58 @@ test("native generation still collects npm metadata and uses the current platfor
   });
 });
 
+test("source-null vendored dependencies preserve original MIT, Apache and Zlib notices while first-party paths stay excluded", () => {
+  fixture(({ directory, generate }) => {
+    const vendored = join(directory, "vendor/zune-jpeg");
+    const firstParty = join(directory, "crates/first-party");
+    const similarPrefix = join(directory, "vendor-copy/first-party");
+    for (const path of [vendored, firstParty, similarPrefix]) {
+      mkdirSync(path, { recursive: true });
+      writeFileSync(join(path, "Cargo.toml"), "[package]\n");
+    }
+    const originalNotices = {
+      "LICENSE-MIT": "Original upstream MIT licence and copyright\n",
+      "LICENSE-APACHE": "Original upstream Apache-2.0 licence and notices\n",
+      "LICENSE-ZLIB": "Original upstream Zlib licence and copyright\n",
+    };
+    for (const [name, text] of Object.entries(originalNotices)) writeFileSync(join(vendored, name), text);
+    writeFileSync(join(firstParty, "LICENSE"), "Excluded first-party licence\n");
+    writeFileSync(join(similarPrefix, "LICENSE"), "Excluded similarly prefixed directory\n");
+    const output = generate({ collect: () => ({ packages: [
+      { name: "zune-jpeg", version: "0.5.15", source: null,
+        license: "MIT OR Apache-2.0 OR Zlib", authors: ["Upstream author"], manifest_path: join(vendored, "Cargo.toml") },
+      ...[firstParty, similarPrefix].map((path) => ({ name: "first-party", version: "0.1.0", source: null,
+        license: "MIT", manifest_path: join(path, "Cargo.toml") })),
+    ] }) });
+    assert.ok(output["THIRD_PARTY.md"].includes("| cargo | zune-jpeg | 0.5.15 | MIT OR Apache-2.0 OR Zlib | Upstream author |"));
+    assert.doesNotMatch(output["THIRD_PARTY.md"], /first-party/);
+    assert.doesNotMatch(output["THIRD_PARTY-LICENSES.txt"], /Excluded/);
+    for (const [name, text] of Object.entries(originalNotices)) {
+      assert.ok(output["THIRD_PARTY-LICENSES.txt"].includes(`SHA256 ${sha(text)}\ncargo:zune-jpeg@0.5.15/${name}\n\n${text}`));
+    }
+    assert.match(output["THIRD_PARTY.md"], /installed on darwin-arm64/);
+    assert.ok(output["THIRD_PARTY-LICENSES.txt"].includes(shared));
+  });
+});
+
+test("source-null vendor paths cannot follow package or manifest symlinks outside vendor", () => {
+  fixture(({ directory, generate }) => {
+    const outside = join(directory, "outside");
+    mkdirSync(outside);
+    writeFileSync(join(outside, "Cargo.toml"), "[package]\n");
+    writeFileSync(join(outside, "LICENSE"), "Outside licence\n");
+    mkdirSync(join(directory, "vendor/manifest-link"), { recursive: true });
+    symlinkSync(outside, join(directory, "vendor/package-link"), "junction");
+    symlinkSync(join(outside, "Cargo.toml"), join(directory, "vendor/manifest-link/Cargo.toml"));
+    for (const name of ["package-link", "manifest-link"]) {
+      assert.throws(() => generate({ collect: () => ({ packages: [{
+        name: "escape", version: "1.0.0", source: null, license: "MIT",
+        manifest_path: join(directory, "vendor", name, "Cargo.toml"),
+      }] }) }), /outside.*vendor|vendor.*outside/i);
+    }
+  });
+});
+
 test("git-sourced Apache-2.0 crate with symlinked NOTICE and LICENSE within checkout root appears in notices", () => {
   fixture(({ directory, calls }) => {
     const gitRepoDir = join(directory, "git-repo");

@@ -1157,8 +1157,9 @@ pub enum BackupCmd {
     /// backup API; config, agents, skills, modules, extensions, catalog, the capture journal and the system-job ledger are
     /// copied. The archive is private to the user. The secret store is never read: API keys stay in the OS keyring and
     /// `run/` (tokens) is never archived, and a webhook secret kept in `config.json` is replaced by a placeholder. The API
-    /// account database (`state/api/accounts.db`) is archived with its password hashes and TOTP seeds. Checksums detect
-    /// corruption; the archive is not signed or encrypted.
+    /// account database (`state/api/accounts.db`) is excluded unless `--include-api-accounts` is supplied; including it
+    /// archives password hashes, TOTP seeds and token hashes. Checksums detect corruption;
+    /// the archive is not signed or encrypted.
     Create {
         /// where to write the archive (default: `<home>/backups/plur1bus-backup-<UTC>.tar.gz`); an existing file is never overwritten
         #[arg(long)]
@@ -1166,6 +1167,10 @@ pub enum BackupCmd {
         /// list what would be archived and where, without touching the core or writing anything
         #[arg(long)]
         dry_run: bool,
+        /// include the API account database with password hashes, TOTP seeds and token hashes
+        /// in the unencrypted archive
+        #[arg(long)]
+        include_api_accounts: bool,
     },
     /// [experimental] Check an archive: manifest, every entry against its SHA-256, nothing extra, nothing missing
     ///

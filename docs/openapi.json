@@ -9544,7 +9544,8 @@
                           "disabledReason": {
                             "enum": [
                               "local-only",
-                              "unavailable"
+                              "unavailable",
+                              "context-too-small"
                             ]
                           },
                           "reasoning": {
@@ -9631,6 +9632,11 @@
                                 }
                               }
                             }
+                          },
+                          "contextWindow": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "description": "Smallest known context window among the profile candidates."
                           }
                         }
                       }

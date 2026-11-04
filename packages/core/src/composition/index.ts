@@ -1,9 +1,11 @@
+import { createAppleFmRuntime, type AppleFmRuntime, type AppleFmOptions } from "./apple-fm.ts";
 import { pinnedGit } from "../external-agents/git.ts";
 import { gitText } from "../collab/verifier.ts";
 import { composeA2a } from "./a2a.ts";
 import { availableParallelism, freemem, totalmem } from 'node:os';
 import { isA2aTarget, targetRunner } from "../collab/target.ts";
 import { createTurnObserver } from './turn-observer.ts';
+import { SecretFormsCache, type SecretFormsSnapshot } from '../logs/secret-forms.ts';
 import { createMemoryTools } from '../tools/memory.ts';
 import { createWebFetch } from '../tools/web/fetch.ts';
 import { restoreSessionSkills } from './session-skills.ts';
@@ -98,6 +100,7 @@ import { rewindProjectContext } from '../session/rewind-project.ts';
 import { RewindCheckpoints } from '../session/rewind-checkpoints.ts';
 
 export interface CompositionOptions {
+  appleFm?: Pick<AppleFmOptions, "slot" | "platform">;
   /** Internal loopback-only System One test endpoint; never a configuration or RPC field. */
   decisionTestOrigin?: string;
   projectWorktrees?: import("../collab/coding-surface.ts").ProjectWorktreePort;
@@ -114,6 +117,7 @@ export interface CompositionOptions {
   tools?: Partial<Pick<ToolCompositionOptions, 'roots' | 'deny' | 'exec' | 'host' | 'extra' | 'mcp' | 'media' | 'documents'>>;
 }
 export interface CompositionDeps {
+  appleFm?: AppleFmRuntime;
   /** Background startup waits for the authenticated maintenance release. */
   maintenance?: CompositionMaintenance;
   mediaHostFetchReady?: boolean;
@@ -232,6 +236,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     };
     const unwatchCapabilities = deferMaintenanceStart(d.maintenance, startCapabilities);
     if (unwatchCapabilities) disposers.push(unwatchCapabilities); else startCapabilities();
+    const appleFm = d.appleFm ?? createAppleFmRuntime({ home: d.home, config: d.config, ...options.appleFm });
     const definitions = options.definitions ?? Object.fromEntries(Object.entries(cfg.providers).filter(([, value]) => !!value && typeof value === 'object' && 'wireFormat' in value)) as Record<string, ProviderDefinition>;
     const openai = createOpenAIRuntime(d); disposers.push(() => openai.close());
     let sessions: SessionService;
@@ -240,23 +245,32 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     // redaction registry holds, they are what a failed tool's TurnToolError.detail and each successful tool result are redacted
     // against before anyone stores or sends them.
     const registered = new Set<string>();
+    const composedForms = new SecretFormsCache();
+    const secretValues = (): Set<string> => new Set([...registered, ...(d.secrets.redaction?.values() ?? [])]);
+    const knownSecrets = (): SecretFormsSnapshot => {
+      const shared = d.secrets.redaction;
+      const base = new Set(shared?.values() ?? []);
+      if (shared && typeof shared.snapshot === 'function' && [...registered].every(value => base.has(value))) return shared.snapshot();
+      return composedForms.snapshot(secretValues());
+    };
+    const secretForms = (): readonly string[] => knownSecrets().forms;
     const registerSecret = (value: string) => { d.secrets.redaction?.register(value); registered.delete(value); registered.add(value); if (registered.size > 256) registered.delete(registered.values().next().value!); };
     disposers.push(() => registered.clear());
-    const auth = isolated('turn providers', () => composeAuth({ config: cfg, definitions, openai, secrets: d.secrets, egress: d.egress, registerSecret, log: record => d.logger.info('turn.stage', { ...record }), ...(options.fetch ? { fetch: options.fetch } : {}) }));
+    const auth = isolated('turn providers', () => composeAuth({ config: cfg, definitions, appleFm, openai, secrets: d.secrets, egress: d.egress, registerSecret, log: record => d.logger.info('turn.stage', { ...record }), ...(options.fetch ? { fetch: options.fetch } : {}) }));
     if (auth) disposers.push(() => auth.close());
     for (const r of auth?.refused ?? []) d.logger.error('turn provider refused', { code: r.code, provider: r.provider, reason: r.reason });
     const hostctl = createHostctlPool({ config: cfg.tools?.hostctl, audit: event => d.audit.append({ at: d.clock(), actor: { user: event.principal, host: 'local' }, action: event.operation, target: event.paths.join(';'), detail: { ...event } }) });
     disposers.push(() => hostctl.close());
     const audit = createPolicyAudit({ sink: d.audit, clock: { now: d.clock }, ...(d.secrets.redaction ? { redactor: d.secrets.redaction.redactor() } : {}) });
-    const execOutput = createWriter({ dir: join(d.home, 'logs'), role: 'core.out', source: { kind: 'harness', id: 'exec', version: '0.1.0' }, now: d.clock });
-    disposers.push(d.secrets.redaction?.subscribe((value, info) => execOutput.registerSecret(value, info)) ?? (() => {}), () => execOutput.close());
+    const execOutput = createWriter({ dir: join(d.home, 'logs'), role: 'core.out', source: { kind: 'harness', id: 'exec', version: '0.1.0' }, now: d.clock, ...(d.secrets.redaction ? { redactor: d.secrets.redaction.redactor() } : {}) });
+    disposers.push(() => execOutput.close());
     const a2a = budget ? isolated('A2A client', () => composeA2a(d, budget, registerSecret)) : null;
     if (a2a) disposers.push(() => a2a.close());
     const grants: GrantSource = { maxGrantDays: () => d.config().approvals?.maxGrantDays ?? 90, list: q => d.permissions.current()?.grants.list(q) ?? [], get: id => d.permissions.current()?.grants.get(id) };
     // MCP-stdio stderr is child output like exec's: the same envelope (process.output.line, untrusted, redacted, line-capped), attributed to the harness's MCP client.
     // Registered before the registry so shutdown (reverse order) stops the servers, and flushes their last lines, before this writer closes.
-    const mcpOutput = createWriter({ dir: join(d.home, 'logs'), role: 'core.out', source: { kind: 'harness', id: 'mcp', version: '0.1.0' }, now: d.clock });
-    disposers.push(d.secrets.redaction?.subscribe(value => mcpOutput.registerSecret(value)) ?? (() => {}), () => mcpOutput.close());
+    const mcpOutput = createWriter({ dir: join(d.home, 'logs'), role: 'core.out', source: { kind: 'harness', id: 'mcp', version: '0.1.0' }, now: d.clock, ...(d.secrets.redaction ? { redactor: d.secrets.redaction.redactor() } : {}) });
+    disposers.push(() => mcpOutput.close());
     const extensions = await composeExtensions({ home: d.home, config: d.config, secrets: d.secrets, egress: d.egress,
       logger: d.logger, output: mcpOutput, clock: d.clock, ...(d.supervised ? { supervised: true } : {}),
       ...(d.configChanges ? { configChanges: d.configChanges } : {}),
@@ -337,7 +351,8 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     // privacy.localOnly: a chat/role provider is local when its endpoint is loopback or listed in privacy.localEndpoints.
     // No base_url means the vendor's cloud default; a managed OpenAI login is always cloud. The in-process test provider
     // (`fixture`, only with PLUR1BUS_TEST_CHAT_PROVIDER) sends nothing anywhere.
-    const isLocalProvider = (id: string): boolean => {
+    const isLocalProvider = (id: string, model?: string): boolean => {
+      if (id === "apple-fm") return model === "system";
       if (id === 'fixture' && d.provider) return true;
       const def = definitions[id];
       if (!def || openai.handles(def)) return false;
@@ -375,7 +390,11 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       profiles: () => Object.fromEntries(Object.entries(profiles).map(([name, candidates]) => [name, candidates.map(c => ({ provider: c.provider, model: c.model }))])),
       defaultProfile: () => auth?.resolved.defaultProfile ?? (profiles.default ? 'default' : undefined),
       reasoning: reasoningFor, config: () => d.config(),
-      ...(d.chatModels?.catalog ? { catalog: d.chatModels.catalog } : {}), ...(d.chatModels?.endpoint ? { endpoint: d.chatModels.endpoint } : {}),
+      catalog: (provider, model) => provider === "apple-fm" && model === "system"
+        ? { displayName: "Apple Foundation Models — system", contextWindow: 4096,
+          status: appleFm.available() ? "available" : "unavailable" }
+        : d.chatModels?.catalog?.(provider, model),
+      endpoint: provider => provider === "apple-fm" ? "http://apple-fm.invalid/v1" : d.chatModels?.endpoint?.(provider),
     };
     const decisionOptions = { config: d.config, egress: d.egress, secrets: d.secrets, budget,
       ...(options.decisionTestOrigin ? { testOrigin: options.decisionTestOrigin } : {}) };
@@ -458,7 +477,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
         id: skill.id, source: skill.source, ...(skill.confidence === undefined ? {} : { confidence: skill.confidence }),
       })) });
       d.notify('session.event', { agentId: request.agentId, event: toWireEvent(event) }, { optIn: true });
-    }, requireTriage: !!cfg.modelRoles.decision, triageTimeoutMs: typeof cfg.decision.timeoutMs === 'number' ? cfg.decision.timeoutMs : 2000, profileForAgent: agent => d.config().agents[agent]?.model, capabilities, skillsForAgent: agent => d.config().agents[agent]?.skills ?? {}, profiles, reasoningFor, profile: auth?.resolved.defaultProfile ?? 'default', profileForClass: modelClass => loadClassProfiles(join(d.home, 'model-class-profiles.json'), (d.config().decision.classProfiles as Record<string, string> | undefined) ?? classProfiles)[modelClass as import('../triage/classes.ts').ModelClass], router: { profileDefaults: auth?.resolved.defaults ?? {}, unsupportedProfiles: auth?.resolved.unsupported ?? {}, ...options.providers?.router }, family: options.providers?.family ?? auth?.families ?? {}, billing: options.providers?.billing ?? auth?.billing ?? {}, cacheRoutes: auth?.cacheRoutes ?? {}, profileCache: Object.fromEntries(Object.entries(auth?.resolved.profiles ?? {}).map(([name, p]) => [name, p.cache])), allowCrossBilling: name => profilePolicy[name]?.allowCrossBilling === true, localOnly: agentId => localOnlyFor(d.config(), agentId), isLocalProvider, secrets: () => new Set([...registered, ...(d.secrets.redaction?.values() ?? [])]), onRouterEvent: routerEventSink(d), policyContext: (ctx, request) => {
+    }, requireTriage: !!cfg.modelRoles.decision, triageTimeoutMs: typeof cfg.decision.timeoutMs === 'number' ? cfg.decision.timeoutMs : 2000, profileForAgent: agent => d.config().agents[agent]?.model, capabilities, skillsForAgent: agent => d.config().agents[agent]?.skills ?? {}, profiles, reasoningFor, contextWindow: (provider, model) => chatModels.catalog?.(provider, model)?.contextWindow, profile: auth?.resolved.defaultProfile ?? 'default', profileForClass: modelClass => loadClassProfiles(join(d.home, 'model-class-profiles.json'), (d.config().decision.classProfiles as Record<string, string> | undefined) ?? classProfiles)[modelClass as import('../triage/classes.ts').ModelClass], router: { profileDefaults: auth?.resolved.defaults ?? {}, unsupportedProfiles: auth?.resolved.unsupported ?? {}, ...options.providers?.router }, family: options.providers?.family ?? auth?.families ?? {}, billing: options.providers?.billing ?? auth?.billing ?? {}, cacheRoutes: auth?.cacheRoutes ?? {}, profileCache: Object.fromEntries(Object.entries(auth?.resolved.profiles ?? {}).map(([name, p]) => [name, p.cache])), allowCrossBilling: name => profilePolicy[name]?.allowCrossBilling === true, localOnly: agentId => localOnlyFor(d.config(), agentId), isLocalProvider, secrets: secretValues, secretForms, knownSecrets, onRouterEvent: routerEventSink(d), policyContext: (ctx, request) => {
       const base = approvalPolicyContext(d.permissions, sessionId => sessions?.forSession(sessionId).store.getSession(sessionId)?.origin)(ctx, request);
       const taskId = request?.approver?.taskId;
       if (!taskId || !request || !codeSessions?.enabled(request)) return base;
@@ -492,7 +511,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     const delegationTargets = [...(options.delegationTargets ?? []), ...(a2a ? [a2a.client.target] : [])];
     collab = budget ? isolated('collaboration', () => createCollab({ home: d.home, provisionWorktrees: true, path: join(d.home, 'state', 'collab.sqlite'), clock: d.clock, limits: () => d.config().collaboration.limits,
       capacity: () => { const config = d.config(), cores = availableParallelism(); return { cores: config.supervisor.maxCores > 0 ? Math.min(cores, config.supervisor.maxCores) : cores, availableMemory: freemem(), totalMemory: totalmem(), settings: config.collaboration.teams.capacity }; },
-      sessions: () => sessions.store, redact: liveLogsRedactionPort(() => registered),
+      sessions: () => sessions.store, redact: liveLogsRedactionPort(secretValues, knownSecrets),
       runner: provider ? composedAgentRunner(provider, alsAgentScopePort(), d.home, delegationTargets, collabMemory({ memory, config: d.config, logger: d.logger }), options.projectWorktrees) : targetRunner([...delegationTargets, { kind: 'local', accepts: id => !delegationTargets.some(t => t.accepts(id)), async ack() { throw new Error('no-provider'); }, async run() { throw new Error('no-provider'); } }]),
       directory: { get: id => {
         const matches = options.delegationTargets?.filter(target => target.accepts(id)) ?? [];
