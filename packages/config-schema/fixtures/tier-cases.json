@@ -2685,6 +2685,7 @@
                         "x-tier": "advanced",
                         "properties": {
                           "softTokens": {
+                            "x-sensitive": false,
                             "description": "Soft token budget per photo; changing it changes the media vector space.",
                             "type": "integer",
                             "minimum": 1,
@@ -2911,6 +2912,7 @@
                             "x-tier": "advanced"
                           },
                           "softTokens": {
+                            "x-sensitive": false,
                             "description": "Soft token budget per video frame (owner E3); changing it changes the media vector space.",
                             "type": "integer",
                             "minimum": 1,
@@ -3285,6 +3287,7 @@
                   "x-tier": "advanced",
                   "properties": {
                     "softTokens": {
+                      "x-sensitive": false,
                       "description": "Soft token budget per photo; changing it changes the media vector space.",
                       "type": "integer",
                       "minimum": 1,
@@ -3537,6 +3540,7 @@
                       "x-tier": "advanced"
                     },
                     "softTokens": {
+                      "x-sensitive": false,
                       "description": "Soft token budget per video frame (owner E3); changing it changes the media vector space.",
                       "type": "integer",
                       "minimum": 1,

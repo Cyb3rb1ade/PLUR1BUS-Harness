@@ -2416,7 +2416,8 @@ export const CONFIG_POLICY_SCHEMA: ConfigSchemaNode = {
                     "type": "object",
                     "properties": {
                       "softTokens": {
-                        "type": "integer"
+                        "type": "integer",
+                        "x-sensitive": false
                       }
                     },
                     "additionalProperties": false
@@ -2560,7 +2561,8 @@ export const CONFIG_POLICY_SCHEMA: ConfigSchemaNode = {
                         "type": "boolean"
                       },
                       "softTokens": {
-                        "type": "integer"
+                        "type": "integer",
+                        "x-sensitive": false
                       }
                     },
                     "additionalProperties": false
@@ -2863,7 +2865,8 @@ export const CONFIG_POLICY_SCHEMA: ConfigSchemaNode = {
               "type": "object",
               "properties": {
                 "softTokens": {
-                  "type": "integer"
+                  "type": "integer",
+                  "x-sensitive": false
                 }
               },
               "additionalProperties": false
@@ -3007,7 +3010,8 @@ export const CONFIG_POLICY_SCHEMA: ConfigSchemaNode = {
                   "type": "boolean"
                 },
                 "softTokens": {
-                  "type": "integer"
+                  "type": "integer",
+                  "x-sensitive": false
                 }
               },
               "additionalProperties": false

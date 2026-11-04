@@ -26,6 +26,20 @@ test("every legacy secret-key candidate is sensitive or explicitly justified as 
   }
 });
 
+test("public media token-budget classifications remain integer counts in all scopes", () => {
+  const nodes = configNodes(CONFIG_SCHEMA);
+  for (const prefix of ["memory", "agents.*.memory"]) {
+    for (const kind of ["image", "video"]) {
+      const key = `${prefix}.mediaEmbedding.${kind}.softTokens`;
+      const field = nodes.find((entry) => entry.key === key);
+      assert.ok(field, key);
+      assert.equal(field.node.type, "integer", `${key}: public budget must not accept credential strings`);
+      assert.equal(field.node["x-sensitive"], false, `${key}: public numeric classification is explicit`);
+      assert.equal(field.sensitive, false, key);
+    }
+  }
+});
+
 function secretShape(node: SchemaNode): boolean {
   if (Array.isArray(node.type))
     return node.type.length > 0 && node.type.every((type: string) => secretShape({ ...node, type }));
