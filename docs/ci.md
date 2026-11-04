@@ -176,12 +176,16 @@ Platform-sensitive paths (the `SENSITIVE` list in the script; edit it there only
 
 ## Self-hosted macOS runner
 
-Since the owner decision of 2026-10-28 the deciding macOS jobs, `quality` (`release-quality.yml`) and the macOS leg of
-`dependency-licenses`, can run on a macOS VM on the owner's Mac instead of waiting in GitHub's macOS queue. Their
+The macOS jobs `quality` (`release-quality.yml`), the macOS leg of `dependency-licenses` and the console unit leg
+`unit (macOS VM)` (`ci.yml`'s `unit-os`) can run on the owner's macOS VM instead of waiting in GitHub's macOS queue.
+The quality and licence routes were introduced by the owner decision of 2026-10-28. Their
 `runs-on` picks the label `plur1bus-macos-vm` only while the repository variable `MACOS_SELF_HOSTED` is `true`, and only
 for code from this repository: a push, a manual or scheduled run, or a pull request whose head branch is in this
 repository. A fork's pull request and a merge group always run on `macos-15`. `scripts/ci/macos-vm-runner.test.mjs`
-checks that no other job uses the label and that every route to it admits only those events.
+checks this exact three-job allowlist, the unchanged hosted Windows unit route, and the trusted-event boundary.
+The native Desktop GUI, service and other macOS matrix jobs keep their GitHub-hosted runners. A VM unit result is
+CI evidence for that macOS guest; it does not replace reference-hardware or native Desktop acceptance. The VM leg
+uses its own displayed name and reports `sw_vers`, so a newer guest is never presented as a `macos-15` host.
 
 The pieces are in `scripts/ci/macos-vm-runner/`:
 
