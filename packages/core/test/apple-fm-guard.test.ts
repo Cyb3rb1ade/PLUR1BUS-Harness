@@ -1,5 +1,4 @@
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 /** AF2's actual filesystem guard: the adapter's private-directory trust port is fail-closed. */
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -102,7 +101,7 @@ test("Windows refusal happens without consulting the filesystem", () => {
 test("Apple socket Layout matches the shared Rust/TypeScript vectors", () => {
   const vectors = JSON.parse(readFileSync(new URL("../../../tests/fixtures/apple-fm-paths.json", import.meta.url), "utf8")) as { home: string; directory: string; socket: string }[];
   for (const vector of vectors) {
-    assert.equal(layout(vector.home).appleFmDir, resolve(vector.directory));
-    assert.equal(layout(vector.home).appleFmSocket, resolve(vector.socket));
+    assert.equal(layout(vector.home).appleFmDir, vector.directory);
+    assert.equal(layout(vector.home).appleFmSocket, vector.socket);
   }
 });

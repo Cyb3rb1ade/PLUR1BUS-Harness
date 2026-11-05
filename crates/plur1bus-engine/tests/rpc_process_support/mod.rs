@@ -264,7 +264,6 @@ impl EngineProcess {
         )
     }
 
-    #[cfg(unix)]
     pub fn stderr(&self) -> String {
         self.log("stderr")
     }
