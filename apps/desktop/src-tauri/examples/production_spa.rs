@@ -1181,7 +1181,7 @@ fn old_origin_probe_script() -> &'static str {
 }
 
 fn ticket_error_probe_script() -> &'static str {
-    "document.title='ERR:'+JSON.stringify({savedTheme:document.documentElement.dataset.theme,savedLocale:document.documentElement.lang,terminalError:location.pathname==='/__shell/ticket-error',fragmentGone:!location.hash,controls44:[...document.querySelectorAll('#copy,#retry')].every(e=>{const r=e.getBoundingClientRect();return r.width>=44&&r.height>=44}),honestError:document.getElementById('detail').textContent.length>20&&document.getElementById('safe').textContent.length>10});"
+    include_str!("production-spa/ticket-error-probe.js")
 }
 
 #[cfg(any(not(target_os = "linux"), test))]
