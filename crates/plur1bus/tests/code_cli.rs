@@ -108,13 +108,29 @@ impl Drop for CoreFixture {
 }
 fn workspace() -> (tempfile::TempDir, PathBuf, PathBuf) {
     let temp = tempfile::tempdir().expect("temp");
-    // Native paths avoid Windows 8.3 aliases and macOS /var → /private/var aliases in D109.
-    let home = temp.path().join("home");
-    let root = temp.path().join("repo");
+    let physical = std::fs::canonicalize(temp.path()).expect("physical fixture directory");
+    #[cfg(windows)]
+    let physical = {
+        // D109 accepts an ordinary drive path but refuses an explicit device namespace.
+        let spelling = physical.to_str().expect("Unicode fixture directory");
+        let drive_path = PathBuf::from(
+            spelling
+                .strip_prefix(r"\\?\")
+                .expect("canonical Windows path"),
+        );
+        assert!(
+            matches!(drive_path.components().next(), Some(std::path::Component::Prefix(p)) if matches!(p.kind(), std::path::Prefix::Disk(_)))
+        );
+        assert_eq!(
+            std::fs::canonicalize(&drive_path).expect("same fixture directory"),
+            physical
+        );
+        drive_path
+    };
+    let home = physical.join("home");
+    let root = physical.join("repo");
     std::fs::create_dir(&home).expect("home");
     std::fs::create_dir(&root).expect("root");
-    let root = std::fs::canonicalize(root).expect("native root");
-    let home = std::fs::canonicalize(home).expect("native home");
     assert!(std::process::Command::new("git")
         .args(["init", "-q"])
         .arg(&root)

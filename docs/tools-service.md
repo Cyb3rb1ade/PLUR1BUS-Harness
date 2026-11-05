@@ -24,6 +24,7 @@ The endpoint is `<home>/run/tools.sock`, or the harness's per-home `-tools` name
 are owner-private (0700 directories, 0600 files and sockets; owner-and-SYSTEM ACLs on Windows).
 `state/tools/instance.lock` prevents concurrent instances. The service secures only its own files and `state/tools/`;
 it checks Home and the shared `state/` without changing their permissions or ACLs. A symlinked Home is supported.
+The import worker leaves the live tools lock in place during fingerprinting, backup and rollback. Sibling files remain covered.
 An existing untrusted `run/` is refused rather than repaired. A live endpoint is never removed to force a bind.
 The supervisor and tools service use the shared `plur1bus-rpc::server_transport` implementation.
 The tools accept loop counts failures, backs off from 25 to 250 ms, and exits after sixteen consecutive
