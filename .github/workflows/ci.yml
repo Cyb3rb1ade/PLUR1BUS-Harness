@@ -997,6 +997,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: setup WSL (attempt 1 of 3)
         id: wsl_setup_1
+        # A hung setup must leave room for the existing retries and the actual WSL tests.
+        timeout-minutes: 4
         continue-on-error: true
         uses: Vampire/setup-wsl@4c48163d9f981914dd8caa0fc335fe19cca5bff4 # v7.2.0
         with:
@@ -1011,6 +1013,7 @@ jobs:
         run: Start-Sleep -Seconds 5
       - name: setup WSL (attempt 2 of 3)
         id: wsl_setup_2
+        timeout-minutes: 4
         if: steps.wsl_setup_1.outcome == 'failure'
         continue-on-error: true
         uses: Vampire/setup-wsl@4c48163d9f981914dd8caa0fc335fe19cca5bff4 # v7.2.0
@@ -1026,6 +1029,7 @@ jobs:
         run: Start-Sleep -Seconds 15
       - name: setup WSL (attempt 3 of 3)
         id: wsl_setup_3
+        timeout-minutes: 4
         if: steps.wsl_setup_2.outcome == 'failure'
         continue-on-error: true
         uses: Vampire/setup-wsl@4c48163d9f981914dd8caa0fc335fe19cca5bff4 # v7.2.0
