@@ -1,6 +1,7 @@
 /** A supervised importer must restore Engine writes, not only the legacy config/agent snapshot. */
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { useTempDirs } from "./helpers.ts";
@@ -50,6 +51,100 @@ describe("cold import maintenance snapshots", () => {
     const manifest = JSON.parse(readFileSync(join(home, "imports", RUN, "cold-snapshot", "manifest.json"), "utf8"));
     assert.equal(restoredConfig, manifest.config.sha256);
     assert.deepEqual(readFileSync(join(home, "imports", RUN, "cold-snapshot", "config.json")), config);
+  });
+
+  it("keeps the live tools lock through fingerprinting and restore while restoring sibling data", async () => {
+    const api = await factory();
+    const home = temp();
+    const roots = fixture(home);
+    const tools = join(home, "state", "tools");
+    mkdirSync(tools);
+    const lock = join(tools, "instance.lock");
+    const sibling = join(tools, "settings");
+    writeFileSync(lock, "first instance");
+    writeFileSync(sibling, "before");
+    const baseline = await api.fingerprintMutationRoots(roots);
+    const snapshot = await api.createColdSnapshot({ home, runId: RUN, roots, config });
+    assert.equal(existsSync(join(home, "imports", RUN, "cold-snapshot", "roots", "state", "tools", "instance.lock")), false);
+    writeFileSync(lock, "live instance");
+    assert.equal(await api.fingerprintMutationRoots(roots), baseline);
+    writeFileSync(sibling, "changed");
+    assert.notEqual(await api.fingerprintMutationRoots(roots), baseline);
+    await api.restoreColdSnapshot({ home, runId: RUN, roots, sha256: snapshot.sha256, restoreConfig: async () => {} });
+    assert.equal(readFileSync(lock, "utf8"), "live instance");
+    assert.equal(readFileSync(sibling, "utf8"), "before");
+  });
+
+  it("restores a pre-tools baseline without removing a later live lock or retaining imported siblings", async () => {
+    const api = await factory();
+    const home = temp();
+    const roots = fixture(home);
+    const fingerprint = await api.fingerprintMutationRoots(roots);
+    const snapshot = await api.createColdSnapshot({ home, runId: RUN, roots, config });
+    const tools = join(home, "state", "tools");
+    mkdirSync(tools);
+    writeFileSync(join(tools, "instance.lock"), "active");
+    assert.equal(await api.fingerprintMutationRoots(roots), fingerprint);
+    writeFileSync(join(tools, "imported"), "remove");
+    await api.restoreColdSnapshot({ home, runId: RUN, roots, sha256: snapshot.sha256, restoreConfig: async () => {} });
+    assert.equal(readFileSync(join(tools, "instance.lock"), "utf8"), "active");
+    assert.equal(existsSync(join(tools, "imported")), false);
+  });
+
+  it("refuses a file occupying the tools directory at snapshot time", async () => {
+    const api = await factory();
+    const home = temp();
+    const roots = fixture(home);
+    writeFileSync(join(home, "state", "tools"), "pre-existing file");
+    await assert.rejects(api.createColdSnapshot({ home, runId: RUN, roots, config }));
+    assert.equal(existsSync(join(home, "imports", RUN, "cold-snapshot")), false);
+    assert.equal(readFileSync(join(home, "state", "tools"), "utf8"), "pre-existing file");
+  });
+
+  it("distinguishes a differently spelled tools directory from an alias on the current volume", async () => {
+    const api = await factory();
+    const home = temp();
+    const roots = fixture(home);
+    const distinct = join(home, "state", "Tools");
+    mkdirSync(distinct);
+    writeFileSync(join(distinct, "settings"), "ordinary file");
+    const snapshot = api.createColdSnapshot({ home, runId: RUN, roots, config });
+    if (existsSync(join(home, "state", "tools"))) {
+      await assert.rejects(snapshot);
+    } else {
+      await snapshot;
+      assert.equal(readFileSync(join(home, "imports", RUN, "cold-snapshot", "roots", "state", "Tools", "settings"), "utf8"),
+        "ordinary file");
+    }
+  });
+
+  it("refuses an older authenticated manifest that would restore over a live lock before changing any data", async () => {
+    const api = await factory();
+    const home = temp();
+    const roots = fixture(home);
+    const tools = join(home, "state", "tools");
+    mkdirSync(tools);
+    const lock = join(tools, "instance.lock");
+    writeFileSync(lock, "old lock");
+    await api.createColdSnapshot({ home, runId: RUN, roots, config });
+    const base = join(home, "imports", RUN, "cold-snapshot");
+    const manifestPath = join(base, "manifest.json");
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    const hash = (bytes: string) => createHash("sha256").update(bytes).digest("hex");
+    mkdirSync(join(base, "roots", "state", "tools"));
+    writeFileSync(join(base, "roots", "state", "tools", "instance.lock"), "old lock");
+    manifest.roots[0].entries.push({ path: "tools", kind: "directory" },
+      { path: "tools/instance.lock", kind: "file", size: 8, sha256: hash("old lock") });
+    manifest.bytes += 8;
+    const legacy = JSON.stringify(manifest) + "\n";
+    writeFileSync(manifestPath, legacy);
+    writeFileSync(lock, "live lock");
+    const sibling = join(tools, "new-data");
+    writeFileSync(sibling, "current");
+    await assert.rejects(api.restoreColdSnapshot({ home, runId: RUN, roots, sha256: hash(legacy),
+      restoreConfig: async () => { assert.fail("legacy manifest must be refused before config restore"); } }));
+    assert.equal(readFileSync(lock, "utf8"), "live lock");
+    assert.equal(readFileSync(sibling, "utf8"), "current");
   });
 
   it("covers an explicit external store and restores absence for newly created mutation roots", async () => {

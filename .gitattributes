@@ -26,3 +26,6 @@ crates/plur1bus-engine/tests/fixtures/neo-v1/** -text
 
 # Seeded authored fixtures must materialize identical bytes on every host.
 tests/bench/coding/team/** text eol=lf
+
+# The reviewed terminal frames include one LF per rendered row.
+crates/plur1bus/tests/fixtures/code_tui/*.txt text eol=lf
