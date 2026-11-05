@@ -70,11 +70,17 @@ RUN --mount=type=secret,id=engine_token,required=false \
 
 # ---- 3. runtime ------------------------------------------------------------------------------------------------------
 FROM node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS runtime
+# useradd records this date inside /etc/shadow; exporter timestamp rewriting alone cannot normalize that content.
+# ARG is stage-scoped, so the Rust stage's declaration does not reach this RUN.
+ARG SOURCE_DATE_EPOCH=0
 # The image runs the core and nothing installs packages at run time: no npm, corepack or yarn.
 RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
       /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /opt/yarn-* /usr/local/bin/yarn /usr/local/bin/yarnpkg \
     && groupadd --system --gid 10001 plur1bus \
     && useradd --system --uid 10001 --gid 10001 --no-create-home --home-dir /var/lib/plur1bus --shell /usr/sbin/nologin plur1bus \
+    && expected_day=$((SOURCE_DATE_EPOCH / 86400)) \
+    && if [ "$expected_day" -eq 0 ]; then expected_day=; fi \
+    && test "$(getent shadow plur1bus | cut -d: -f3)" = "$expected_day" \
     && install -d -o 10001 -g 10001 -m 0700 /var/lib/plur1bus /var/lib/plur1bus/models
 COPY --from=rust-build /out/plur1bus /usr/local/bin/plur1bus
 COPY --from=node-build /out/core /opt/plur1bus/core
