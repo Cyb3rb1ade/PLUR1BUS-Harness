@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import { join, posix, relative, sep } from "node:path";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { defaults } from "@plur1bus/config-schema";
+import { RpcError } from "@plur1bus/module-api";
+import { ImportError } from "../../src/import/types.ts";
 import { validateResult } from "@plur1bus/rpc-schema";
 import { useTempDirs } from "./helpers.ts";
 import { createSourceRegistry } from "../../src/import/source-registry.ts";
@@ -253,6 +255,27 @@ describe("live Core import service", () => {
       const changed = await f.service.preflight({ planId: planned.planId, operation: "rollback" }, OWNER);
       assert.equal(changed.ok, false);
       assert.ok(changed.issues.some(issue => issue.reason === "target-changed"));
+    } finally { f.service.close(); }
+  });
+
+  it("returns a registered RPC error for native and importer-only plan failures", async () => {
+    const f = await fixture();
+    const { buildImportMethods } = await import("../../src/import/service.ts");
+    const ctx = { requestId: "r", connectionId: "c", signal: new AbortController().signal };
+    try {
+      for (const [cause, expectedCode, expectedReason] of [
+        [Object.assign(new Error(MARKER), { code: "EBUSY" }), "E_INTERNAL", "import-unavailable"],
+        [new ImportError("E_IMPORT_FAILED", "cold-snapshot-unavailable", MARKER), "E_INTERNAL", "cold-snapshot-unavailable"],
+        [new ImportError("E_CONFLICT", "source-changed", MARKER), "E_CONFLICT", "source-changed"],
+      ] as const) {
+        const methods = buildImportMethods({ ...f.service, plan: async () => { throw cause; } }, () => OWNER);
+        await assert.rejects(methods["admin.import.plan"]!({}, ctx), (error: unknown) => {
+          assert.ok(error instanceof RpcError);
+          assert.deepEqual(error.toJSON().data, { error: expectedCode, reason: expectedReason });
+          assert.ok(!JSON.stringify(error.toJSON()).includes(MARKER));
+          return true;
+        });
+      }
     } finally { f.service.close(); }
   });
 

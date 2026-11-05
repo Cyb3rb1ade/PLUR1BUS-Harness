@@ -267,24 +267,23 @@ fn a_live_engine_lock_is_not_stolen_after_the_nonce_hard_ceiling() {
     let _serial = process_test();
     let home = home();
     let mut first = EngineProcess::start(home.path(), Some(INSTANCE));
-    let mut locks: Vec<_> = fs::read_dir(home.path().join("run"))
-        .unwrap()
-        .map(|entry| entry.unwrap().path())
-        .filter(|path| {
-            path.extension()
-                .is_some_and(|extension| extension == "lock")
-        })
-        .map(|path| {
-            let bytes = fs::read(&path).unwrap();
-            (path, bytes)
-        })
-        .collect();
-    locks.sort_by(|(left, _), (right, _)| left.cmp(right));
-    assert!(
-        !locks.is_empty(),
-        "a live engine publishes its ownership lock"
-    );
-    for (path, _) in &locks {
+    let run = home.path().join("run");
+    let nonce = run.join("engine.lock");
+    let process_lock = run.join("engine.process.lock");
+    let nonce_bytes = fs::read(&nonce).unwrap();
+    let assert_process_lock_held = || {
+        let contender = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&process_lock)
+            .unwrap();
+        assert!(matches!(
+            contender.try_lock(),
+            Err(fs::TryLockError::WouldBlock)
+        ));
+    };
+    assert_process_lock_held();
+    for path in [&nonce, &process_lock] {
         // Age metadata beyond the nonce protocol's hard ceiling without waiting or changing ownership bytes.
         fs::OpenOptions::new()
             .write(true)
@@ -300,13 +299,12 @@ fn a_live_engine_lock_is_not_stolen_after_the_nonce_hard_ceiling() {
         "{}",
         second.diagnostics()
     );
-    for (path, bytes) in &locks {
-        assert!(
-            fs::read(path).is_ok_and(|after| &after == bytes),
-            "the second engine changed or removed the live owner's lock: {}",
-            path.display()
-        );
-    }
+    assert_process_lock_held();
+    assert_eq!(
+        fs::read(&nonce).unwrap(),
+        nonce_bytes,
+        "the live owner's nonce changed"
+    );
     let mut client = first.connect();
     assert_eq!(client.hello()["instanceId"], INSTANCE);
     assert_process_status(&client.call("engine.status", json!({})).unwrap());
