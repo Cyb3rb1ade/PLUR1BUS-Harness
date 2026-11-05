@@ -242,7 +242,14 @@ export async function openConfigSource(o: ConfigSourceOptions): Promise<ConfigSo
     set(changes) {
       if (!watch) return null;
       if (revision !== watch.revision) return Promise.reject({ error: "E_NOT_AVAILABLE", reason: "config-policy-unavailable" });
-      return watch.set(changes).then(() => undefined);
+      return watch.set(changes).then(async result => {
+        // The RPC reply can precede the corresponding push. Read an authoritative snapshot in that case.
+        if (!closed && watch && watch.revision !== result.revision) await rewatch(true);
+        await preparedChanges();
+        // A rejected or superseded disclosure policy cannot authorize a follow-up operation.
+        if (closed || !watch || watch.revision !== result.revision || revision !== result.revision)
+          throw { error: "E_NOT_AVAILABLE", reason: "config-policy-unavailable" };
+      });
     },
     async setDuringImport(run, changes) {
       if (closed || !watch?.setDuringImport) throw { error: "E_NOT_AVAILABLE", reason: "import-config-transport" };
