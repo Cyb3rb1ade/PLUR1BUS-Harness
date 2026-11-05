@@ -16,7 +16,7 @@ import { AccountStore } from "../../src/account-store.ts";
 import { systemClock } from "../../src/clock.ts";
 import { hashPassword } from "../../src/password.ts";
 import { TotpService, totpCodeAt } from "../../src/totp.ts";
-import { snapshot, diff } from "./import-maintenance-diagnostics.mjs";
+import { snapshot, diff, failureReports } from "./import-maintenance-diagnostics.mjs";
 
 const [home, sourceDir, mode = "complete"] = process.argv.slice(2);
 if (
@@ -486,9 +486,14 @@ try {
   mark("import-submitted");
   const finished = await waitForRun(cookie, otherCookie, otherCsrf, started.runId, mode === "abort",
     mode === "abort" ? { planId: plan.planId, preflightId: preflight.preflightId } : undefined);
+  const expectedState = mode === "abort" ? "aborted" : mode === "failure" ? "failed" : "completed";
+  if (finished.run?.state !== expectedState) {
+    process.stderr.write(JSON.stringify({ diagnostic: "native-import-report-counts",
+      reports: await failureReports(home, started.runId) }) + "\n");
+  }
   assert.equal(
     finished.run?.state,
-    mode === "abort" ? "aborted" : mode === "failure" ? "failed" : "completed",
+    expectedState,
     `native maintenance reaches its expected terminal state: ${JSON.stringify(finished.run)}`,
   );
   mark("maintenance-terminal");
