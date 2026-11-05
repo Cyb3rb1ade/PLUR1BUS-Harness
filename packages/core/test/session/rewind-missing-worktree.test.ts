@@ -40,6 +40,8 @@ for (const missing of ["directory", "git-metadata"] as const) {
     t.mock.timers.enable({ apis: ["setTimeout"] });
     const r = fixture();
     try {
+      const tracked = join(r.root, "tracked.txt");
+      const beforeCleanup = readFileSync(tracked);
       const session = r.store().createSession({ kind: "card", agentId: "a", owner: "owner" });
       const turn = r.store().beginTurn(session.id, "edit", 1);
       await r.checkpoints().capture({ sessionId: session.id, turnId: turn.turn.id, personId: "owner",
@@ -53,7 +55,7 @@ for (const missing of ["directory", "git-metadata"] as const) {
       assert.equal(r.git("for-each-ref", "--format=%(refname)", record.ref).trim(), "");
       assert.ok(!r.git("worktree", "list", "--porcelain").includes(r.root), "stale linked entry was pruned");
       if (missing === "git-metadata") {
-        assert.equal(readFileSync(join(r.root, "tracked.txt"), "utf8"), "original\n", "cleanup never removes checkout contents");
+        assert.deepEqual(readFileSync(tracked), beforeCleanup, "cleanup never removes checkout contents");
       }
       assert.ok(r.audit.events.some(event => event.action === "session.checkpoint.pruning"
         && event.detail.result === (missing === "directory" ? "root-missing" : "root-not-repository")));
