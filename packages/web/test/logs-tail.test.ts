@@ -48,7 +48,17 @@ describe("logs tail", opts, () => {
 
   test("new lines appear at the top while live", async () => {
     await withApp({}, async (app) => {
-      const m = await open(app);
+      const anchor = Promise.withResolvers<void>();
+      const m = installLogsMocks(app.server, { lines: makeLines(30), beforeAnchor: anchor.promise });
+      try {
+        await openRoute(app.page, "#/logs");
+        const starting = app.page.locator('.logs-tail-state[data-state="starting"]');
+        await starting.waitFor();
+        assert.equal(await starting.textContent(), "Connecting…");
+      } finally {
+        anchor.resolve();
+      }
+      await tailState(app.page).getByText("Live", { exact: true }).waitFor();
       m.push(makeRecord(31), makeRecord(32));
       await loaded(app.page, "32");
       await firstRowShows(app.page, "entry 00032");
