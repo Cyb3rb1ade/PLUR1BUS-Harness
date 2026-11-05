@@ -3,6 +3,12 @@
 // Native OS fixtures intentionally panic on a failed setup/cleanup so a test cannot pass vacuously.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
+#[allow(
+    dead_code,
+    reason = "This integration test uses only the shared engine process fixture."
+)]
+mod rpc_process_support;
+
 use plur1bus_engine::contract::{
     AddressRules, AgentId, Cancel, Decision, EgressGate, HostError, HostServices, LlmParams,
     LlmPort, Scheme, SecretPort, Target,
@@ -746,6 +752,7 @@ fn windows_public_identity_dacl_is_refused_before_connecting() {
 struct RealCore {
     child: std::process::Child,
     _logs: tempfile::TempDir,
+    engine: rpc_process_support::EngineProcess,
 }
 
 impl RealCore {
@@ -765,11 +772,8 @@ impl RealCore {
             serde_json::to_vec(&config).unwrap(),
         )
         .unwrap();
-        let run = home.join("run");
-        plur1bus_engine::store::paths::secure_dir(&run).unwrap();
-        let token = run.join("engine.token");
-        std::fs::write(&token, ENGINE_TOKEN).unwrap();
-        plur1bus_engine::store::paths::secure_file(&token).unwrap();
+        // Core authenticates the native pipe peer against the ready engine's published PID and token.
+        let engine = rpc_process_support::EngineProcess::start(home, None);
         let logs =
             tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
         let stdout = logs.path().join("stdout");
@@ -787,7 +791,11 @@ impl RealCore {
             .stderr(std::fs::File::create(&stderr).unwrap())
             .spawn()
             .expect("Node24 and built Core are required; run pnpm test:prep");
-        let mut core = Self { child, _logs: logs };
+        let mut core = Self {
+            child,
+            _logs: logs,
+            engine,
+        };
         let deadline = Instant::now() + Duration::from_secs(20);
         loop {
             let ready = std::fs::read_to_string(&stdout)
@@ -824,8 +832,8 @@ impl Drop for RealCore {
 #[test]
 fn genuine_core_accepts_engine_delegation_and_policy_subscription() {
     let home = tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
-    let _core = RealCore::start(home.path());
-    let host = host(home.path(), ENGINE_TOKEN);
+    let core = RealCore::start(home.path());
+    let host = host(home.path(), &core.engine.token());
     let expected = home.path().join("agents/alice/workspace");
     for _ in 0..3 {
         assert_eq!(
