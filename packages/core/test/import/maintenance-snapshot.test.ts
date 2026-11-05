@@ -52,6 +52,42 @@ describe("cold import maintenance snapshots", () => {
     assert.deepEqual(readFileSync(join(home, "imports", RUN, "cold-snapshot", "config.json")), config);
   });
 
+  it("keeps the live tools lock through fingerprinting and restore while restoring sibling data", async () => {
+    const api = await factory();
+    const home = temp();
+    const roots = fixture(home);
+    const tools = join(home, "state", "tools");
+    mkdirSync(tools);
+    const lock = join(tools, "instance.lock");
+    const sibling = join(tools, "settings");
+    writeFileSync(lock, "first instance");
+    writeFileSync(sibling, "before");
+    const baseline = await api.fingerprintMutationRoots(roots);
+    const snapshot = await api.createColdSnapshot({ home, runId: RUN, roots, config });
+    assert.equal(existsSync(join(home, "imports", RUN, "cold-snapshot", "roots", "state", "tools", "instance.lock")), false);
+    writeFileSync(lock, "live instance");
+    assert.equal(await api.fingerprintMutationRoots(roots), baseline);
+    writeFileSync(sibling, "changed");
+    assert.notEqual(await api.fingerprintMutationRoots(roots), baseline);
+    await api.restoreColdSnapshot({ home, runId: RUN, roots, sha256: snapshot.sha256, restoreConfig: async () => {} });
+    assert.equal(readFileSync(lock, "utf8"), "live instance");
+    assert.equal(readFileSync(sibling, "utf8"), "before");
+  });
+
+  it("restores a pre-tools baseline without removing a later live lock or retaining imported siblings", async () => {
+    const api = await factory();
+    const home = temp();
+    const roots = fixture(home);
+    const snapshot = await api.createColdSnapshot({ home, runId: RUN, roots, config });
+    const tools = join(home, "state", "tools");
+    mkdirSync(tools);
+    writeFileSync(join(tools, "instance.lock"), "active");
+    writeFileSync(join(tools, "imported"), "remove");
+    await api.restoreColdSnapshot({ home, runId: RUN, roots, sha256: snapshot.sha256, restoreConfig: async () => {} });
+    assert.equal(readFileSync(join(tools, "instance.lock"), "utf8"), "active");
+    assert.equal(existsSync(join(tools, "imported")), false);
+  });
+
   it("covers an explicit external store and restores absence for newly created mutation roots", async () => {
     const api = await factory();
     const home = temp();

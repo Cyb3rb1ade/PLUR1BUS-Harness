@@ -186,6 +186,19 @@ export async function readColdBytes(path: string, maximum: number): Promise<Buff
   }
 }
 
+/** The tools service keeps its lock while Core is stopped. Older authenticated root bindings predate this lock. */
+export function preservedPaths(root: MutationRoot): readonly string[] {
+  const declared = root.preserve ?? [];
+  return root.id === "state" && root.kind === "directory" ? [...declared, "tools/instance.lock"] : declared;
+}
+
+// A case-insensitive volume can bind the service to a pre-existing differently spelled name.
+function ambiguousToolsPath(root: MutationRoot, path: string): boolean {
+  if (root.id !== "state" || root.kind !== "directory" || process.platform === "linux") return false;
+  const lower = path.toLowerCase();
+  return (lower === "tools" || lower === "tools/instance.lock") && path !== lower;
+}
+
 export async function scanMutationRoot(root: MutationRoot, options: {
   signal?: AbortSignal | undefined;
   file?: ((full: string, relative: string) => Promise<{ sha256: string; size: number }>) | undefined;
@@ -200,9 +213,11 @@ export async function scanMutationRoot(root: MutationRoot, options: {
   }
   if (root.kind === "directory" ? !stat.isDirectory() : !stat.isFile()) throw coldUnavailable();
   const entries: ColdEntry[] = [];
-  const preserved = (path: string) => root.preserve?.some(keep => path === keep || path.startsWith(keep + "/"));
+  const keepPaths = preservedPaths(root);
+  const preserved = (path: string) => keepPaths.some(keep => path === keep || path.startsWith(keep + "/"));
   const walk = async (full: string, path: string, depth: number): Promise<void> => {
     options.signal?.throwIfAborted();
+    if (ambiguousToolsPath(root, path)) throw coldUnavailable();
     if (preserved(path)) return;
     if (depth > 64 || entries.length >= 100_000) throw coldUnavailable();
     const current = await lstat(full);
@@ -223,6 +238,7 @@ export async function scanMutationRoot(root: MutationRoot, options: {
 
 export function checkedEntry(entry: ColdEntry, root: MutationRoot): boolean {
   return (entry.path === "" && root.kind === "file" || relativePath(entry.path))
+    && !ambiguousToolsPath(root, entry.path)
     && (entry.kind === "directory" && entry.size === undefined && entry.sha256 === undefined
       || entry.kind === "file" && Number.isSafeInteger(entry.size) && entry.size! >= 0
         && typeof entry.sha256 === "string" && HASH.test(entry.sha256));
