@@ -1,7 +1,7 @@
 import { connect, type CoreClient } from "./client.ts";
 import { supervisorAddress, supervisorPidPath, supervisorTokenPath } from "./paths.ts";
 import { readRecordedPid, readRunToken } from "./trust.ts";
-import { validateParams, type AdminImportRuntimeConfigSetParams } from "@plur1bus/rpc-schema";
+import { validateParams, type AdminImportRuntimeConfigSetParams, type ConfigSetResult } from "@plur1bus/rpc-schema";
 
 /** Immutable native maintenance identity; no caller role, file path or credential is accepted. */
 export type ImportRunControl = Pick<AdminImportRuntimeConfigSetParams, "runId" | "planId" | "planSha256">;
@@ -24,7 +24,7 @@ export interface ConfigWatch {
   /** Called once when the subscription's connection ends (the supervisor died, dropped it, or close() was called). */
   onClose(fn: () => void): () => void;
   /** `config.set { changes }` on the same connection; resolves with its result. */
-  set(changes: { key: string; value: unknown }[]): Promise<unknown>;
+  set(changes: { key: string; value: unknown }[]): Promise<ConfigSetResult>;
   /** Current-Core-PID-only maintenance write on this connection; native validates the exact active run. Never falls back. */
   setDuringImport?(run: ImportRunControl, changes: readonly { key: string; value: unknown }[]): Promise<unknown>;
   close(): Promise<void>;
@@ -105,7 +105,7 @@ function subscription(client: CoreClient, first: WatchResult, buffered: ConfigCh
     get revision() { return revision; },
     onChange(fn) { listeners.add(fn); return () => { listeners.delete(fn); }; },
     onClose: (fn) => client.onClose(fn),
-    set: (changes) => client.call("config.set", { changes }),
+    set: (changes) => client.call<ConfigSetResult>("config.set", { changes }),
     setDuringImport: (run, changes) => {
       const params = { runId: run.runId, planId: run.planId, planSha256: run.planSha256, changes: [...changes] };
       if (!validateParams("admin.import.runtime.config.set", params).ok)
