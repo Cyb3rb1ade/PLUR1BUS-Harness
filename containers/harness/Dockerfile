@@ -79,11 +79,16 @@ RUN --mount=type=secret,id=engine_token,required=false \
 
 # ---- 3. runtime ------------------------------------------------------------------------------------------------------
 FROM node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS runtime
+# useradd must see the fixed epoch before recording its date inside /etc/shadow.
+ARG SOURCE_DATE_EPOCH
 # The image runs the core and nothing installs packages at run time: no npm, corepack or yarn.
 RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
       /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /opt/yarn-* /usr/local/bin/yarn /usr/local/bin/yarnpkg \
     && groupadd --system --gid 10001 plur1bus \
     && useradd --system --uid 10001 --gid 10001 --no-create-home --home-dir /state --shell /usr/sbin/nologin plur1bus \
+    && expected_day=$((SOURCE_DATE_EPOCH / 86400)) \
+    && if [ "$expected_day" -eq 0 ]; then expected_day=; fi \
+    && test "$(getent shadow plur1bus | cut -d: -f3)" = "$expected_day" \
     && install -d -o 10001 -g 10001 -m 0700 /state /state/models
 COPY --from=rust-build /out/plur1bus /usr/local/bin/plur1bus
 COPY --from=rust-build /out/plur1bus-tools /usr/local/bin/plur1bus-tools
@@ -106,7 +111,6 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
 STOPSIGNAL SIGTERM
 ARG VCS_REF
 ARG CREATED
-ARG SOURCE_DATE_EPOCH
 RUN node -e 'if (!/^[0-9a-f]{40}$/.test(process.argv[1]) || Date.parse(process.argv[2]) !== Number(process.argv[3])*1000 || Number(process.argv[3]) <= 0) process.exit(64)' "$VCS_REF" "$CREATED" "$SOURCE_DATE_EPOCH"
 LABEL org.opencontainers.image.revision="$VCS_REF" \
       org.opencontainers.image.created="$CREATED" \
