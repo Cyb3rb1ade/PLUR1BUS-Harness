@@ -12,6 +12,13 @@ import { createFileBackend } from "../../../src/secrets/file-backend.ts";
 import { layout } from "../../../src/paths.ts";
 import { secure } from "../helpers.ts";
 
+// The parent owns the watchdog so a synchronous block on this thread cannot stop its timer.
+async function watchStore<T>(phase: "preload" | "shutdown", operation: () => Promise<T>): Promise<T> {
+  process.send?.(phase);
+  try { return await operation(); }
+  finally { process.send?.("store-leave"); }
+}
+
 const mode = process.argv[2] ?? "default";
 const timedOut = ["default", "injected", "file-hang", "stop-starting"].includes(mode);
 const secret = randomUUID(), home = mkdtempSync(join(tmpdir(), "p1b-isolated-startup-"));
@@ -87,6 +94,8 @@ mock.module(new URL("../../../src/secrets/runtime.ts", import.meta.url).href, { 
         return child;
       },
     } } as Parameters<typeof runtime.createCoreSecretStore>[0]);
+    const preload = store.preloadRedaction.bind(store);
+    store.preloadRedaction = () => watchStore("preload", preload);
     return store;
   },
 } });
@@ -107,11 +116,12 @@ const core = createCore({ home, ...(mode === "production" ? {} : { testInternals
   ...(mode === "acl-refused" ? { securePathOptions: { platform: "win32" as const, execFile() { throw Error("ACL tool refused"); } } } : {}),
   ...(["production", "failed-composition"].includes(mode) ? { inspectHost() { throw Error("controlled composition refusal"); } } : {}),
 });
+const stop = () => watchStore("shutdown", () => core.stop({ budgetMs: 2000 }));
 try {
   if (mode === "stop-before-store") {
     const rejected = assert.rejects(core.start(), /core stopping/);
     await sourceReady;
-    await core.stop({ budgetMs: 2000 });
+    await stop();
     releaseSource();
     await rejected;
     assert.equal(children.length, 0, "an already stopped Core started a secret backend helper");
@@ -123,7 +133,7 @@ try {
   } else if (mode === "stop-starting") {
     const rejected = assert.rejects(core.start(), /core stopping/);
     await ioEntered;
-    await core.stop({ budgetMs: 2000 });
+    await stop();
     await rejected;
     for (const child of children) assert.notEqual(child.exitCode ?? child.signalCode, null, "stop during startup left a helper alive");
     process.stdout.write("startup-refusal-cleaned\n");
@@ -149,7 +159,7 @@ try {
       await assert.rejects(action(), error => (error as { code?: string }).code === "backend-unavailable");
     }
     assert.ok(["ready", "degraded"].includes(core.status().process.state));
-    await core.stop({ budgetMs: 2000 });
+    await stop();
     await provided?.close();
     const text = readdirSync(join(home, "logs")).filter(name => name.endsWith(".log"))
       .map(name => readFileSync(join(home, "logs", name), "utf8")).join("\n");
@@ -160,7 +170,7 @@ try {
     for (const child of children) assert.notEqual(child.exitCode ?? child.signalCode, null, "a blocked helper survived Core stop");
   }
 } finally {
-  await core.stop({ budgetMs: 2000 });
+  await stop();
   await provided?.close();
   for (const child of children) child.kill("SIGKILL");
   rmSync(home, { recursive: true, force: true });
