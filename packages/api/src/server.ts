@@ -700,8 +700,15 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
         : spec.id === "web.rpc"
           ? o.limits?.handlerTimeoutMs ?? 300_000
           : limits.handlerTimeoutMs;
+      const runAsRequest = <T>(operation: () => T) => perRequest.run(
+        resolved ? webPrincipal(resolved.rbac, resolved.principal.kind === "owner") : undefined,
+        operation,
+        session ? webConnection(session) : tokenInfo ? `token:${tokenInfo.id}` : undefined,
+        !o.remote && /^(127\.|::1$|::ffff:127\.)/.test(req.socket.remoteAddress ?? "") ? "loopback" : "remote",
+        onTurnStart,
+      );
       const out = await Promise.race([
-        Promise.resolve(perRequest.run(resolved ? webPrincipal(resolved.rbac, resolved.principal.kind === "owner") : undefined, () => handler({ ...handlerInputBase, principal: resolved?.principal, rbac: resolved?.rbac, presentedSessionId: spec.auth === "none" ? presented : undefined }), session ? webConnection(session) : tokenInfo ? `token:${tokenInfo.id}` : undefined, !o.remote && /^(127\.|::1$|::ffff:127\.)/.test(req.socket.remoteAddress ?? "") ? "loopback" : "remote", onTurnStart)),
+        Promise.resolve(runAsRequest(() => handler({ ...handlerInputBase, principal: resolved?.principal, rbac: resolved?.rbac, presentedSessionId: spec.auth === "none" ? presented : undefined }))),
         new Promise<import("./routes.ts").HandlerOutput>((resolveTimeout, rej) => {
           timer = setTimeout(() => {
             cancelTurnIfRunning();
@@ -726,10 +733,11 @@ export function createApiServer(o: ApiServerOptions): ApiServer {
       }
       if(out.chatStream) {
         status=200;
-        await streamChat({res,core:o.core,principal:webPrincipal(resolved!.rbac,resolved!.principal.kind==="owner"),...out.chatStream,headers:secHeaders,current:async()=>{
+        const stream = out.chatStream;
+        await runAsRequest(() => streamChat({res,core:perRequest.core,...stream,headers:secHeaders,current:async()=>{
           if(via==="token")return !!bearer && (await tokens.authenticate(bearer)).ok && !!await resolveSubject(resolved!.principal.kind,resolved!.principal.id);
           const fresh=await resolve(session!); return sessions.peek(sessionId)===session && fresh!==undefined && fresh.version===resolved!.version;
-        }});return;
+        }}));return;
       }
       status = out.status ?? spec.successStatus;
       if (out.streamed) return;
