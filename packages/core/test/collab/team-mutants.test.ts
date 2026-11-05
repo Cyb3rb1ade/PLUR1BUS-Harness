@@ -143,6 +143,7 @@ test("all twelve previously surviving review mutations are killed by the expande
       const file = join(candidate, item.entry.replaceAll("__SEED__", instance.tag));
       await writeFile(file, mutant.mutate(await readFile(file, "utf8")));
       const report = await verifyFixture(task, candidate, task.seeds[0]!, {
+        scope: mutant.scope,
         runtimes: { go: { env: { GOCACHE: join(directory, "cache") } } },
       });
       if (process.platform === "win32") {
