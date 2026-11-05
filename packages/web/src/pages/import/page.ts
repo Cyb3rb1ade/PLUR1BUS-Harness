@@ -105,14 +105,14 @@ export function ImportWizard(): View {
     );
   const tiles = h(
     "div",
-    { class: "import-source-tiles", role: "tablist", "aria-label": t("imports.source") },
+    { class: "tablist import-source-tiles", role: "tablist", "aria-label": t("imports.source") },
     h(
       "button",
       {
         type: "button",
         role: "tab",
         "aria-selected": wizardMode === "installation",
-        class: `import-source-tile ${wizardMode === "installation" ? "active" : ""}`,
+        class: `tab import-source-tile ${wizardMode === "installation" ? "active" : ""}`,
         onClick: () => setWizardMode("installation"),
       },
       t("imports.tileInstallation"),
@@ -123,7 +123,7 @@ export function ImportWizard(): View {
         type: "button",
         role: "tab",
         "aria-selected": wizardMode === "prompt",
-        class: `import-source-tile ${wizardMode === "prompt" ? "active" : ""}`,
+        class: `tab import-source-tile ${wizardMode === "prompt" ? "active" : ""}`,
         onClick: () => setWizardMode("prompt"),
       },
       t("imports.tilePrompt"),
