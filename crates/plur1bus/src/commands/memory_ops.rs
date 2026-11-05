@@ -610,10 +610,10 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
                 },
             );
         }
-        MemoryCmd::ExportText { agent, output, yes } => {
+        MemoryCmd::ExportText(crate::cli::MemoryExportTextArgs { agent, output, yes }) => {
             memory_text::export_text(out, layout, &config, agent.as_deref(), &output, yes);
         }
-        MemoryCmd::ImportText {
+        MemoryCmd::ImportText(crate::cli::MemoryImportTextArgs {
             file,
             agent,
             all_preferences_to_user,
@@ -621,7 +621,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: MemoryCmd) {
             yes,
             show_prompt,
             rollback,
-        } => memory_text::import_text(
+        }) => memory_text::import_text(
             out,
             layout,
             &config,
