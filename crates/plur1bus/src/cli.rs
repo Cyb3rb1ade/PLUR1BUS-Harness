@@ -413,7 +413,7 @@ pub struct ImportArgs {
     #[arg(long, value_name = "SHA256")]
     pub trust_host_key: Option<String>,
     /// Expiring probe identifier returned by --probe-host-key
-    #[arg(long, value_name = "TOKEN")]
+    #[arg(long, value_name = "TOKEN", allow_hyphen_values = true)]
     pub probe_id: Option<String>,
     /// Delete the configured --connection and invalidate its active source handles
     #[arg(long)]

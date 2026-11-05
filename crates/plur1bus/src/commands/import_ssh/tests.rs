@@ -212,6 +212,53 @@ fn resume_uses_the_sealed_original_plan_and_a_fresh_ticket_without_ssh_reads() {
 }
 
 #[test]
+fn host_trust_accepts_base64url_probe_ids_with_leading_hyphens() {
+    let fingerprint = format!("SHA256:{}", "A".repeat(43));
+    for prefix in ["-", "--"] {
+        let probe = format!("{prefix}{}", "A".repeat(43 - prefix.len()));
+        let args = cli(&[
+            "ssh",
+            "--connection",
+            "source",
+            "--trust-host-key",
+            &fingerprint,
+            "--probe-id",
+            &probe,
+        ]);
+        let mut port = Scripted {
+            replies: [("admin.import.ssh.hostKey.trust", serde_json::json!({}))].into(),
+            calls: vec![],
+        };
+        execute(&args, &mut port).unwrap();
+        assert_eq!(port.calls.len(), 1);
+        assert_eq!(port.calls[0].2["probeId"], probe);
+    }
+}
+
+#[test]
+fn an_option_consumed_as_a_probe_id_is_rejected_before_rpc() {
+    let fingerprint = format!("SHA256:{}", "A".repeat(43));
+    let args = cli(&[
+        "ssh",
+        "--connection",
+        "source",
+        "--trust-host-key",
+        &fingerprint,
+        "--probe-id",
+        "--remove-connection",
+    ]);
+    let mut port = Scripted {
+        replies: [].into(),
+        calls: vec![],
+    };
+    assert!(matches!(
+        execute(&args, &mut port),
+        Err(Failure::Invalid("ssh-probe-invalid"))
+    ));
+    assert!(port.calls.is_empty());
+}
+
+#[test]
 fn host_trust_passes_only_the_explicit_connection_probe_and_fingerprint() {
     use serde_json::json;
     let fingerprint = format!("SHA256:{}", "A".repeat(43));
