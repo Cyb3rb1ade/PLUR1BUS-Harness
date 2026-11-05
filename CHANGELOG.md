@@ -8,6 +8,21 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Added
 
+- **Outbound A2A peer client (RPC 1.12.0).** Owner-managed `a2a.peer.*` methods register, list, trust and remove remote
+  peers; `a2aClient.*` settings control the opt-in client. Explicitly trusted `a2a:<id>` targets support consultation and
+  delegation through the existing permission, egress and budget gates. Collaboration storage advances to schema v5;
+  no downgrade migration is provided. See `docs/handoff/2026-10-31-v1-a2a-peer-cli.md`.
+
+- **A store with data moves to another embedding model end to end (engine pin 9f34008c, contract 1.17.0).**
+  `@cyb3rb1ade/plur1bus-memory` is pinned to plugin PR #275, which exposes `admin.reembedding.validate`; `CORE_CONTRACT` is
+  1.17.0. `plur1bus memory reembed --run` and `plur1bus config set engine.embedding…` (foreground or `--background`) no longer
+  stop in `validating` with `engine-validate-unavailable`: the engine checks the copied generation and recalls one memory
+  from it with the target model, then the Harness switch writes the new embedding and the core restarts on the new
+  generation. Until the switch every recall is answered by the old generation; a failed validation stops with the engine's
+  reason and the old model stays active. `admin.embedding.check` answers `canSwitch: true`, so the CLI no longer warns
+  before the copy. An agent table without memories validates on the generation check alone. See
+  `docs/embedding-migration.md`.
+
 - **Schema-owned configuration outputs (SH2).** Public Supervisor/CLI reads, Web settings and palette values, config
   audit entries, diagnostics, support bundles and agent exports apply the schema's sensitivity and URL policies.
   Untouched replacement controls preserve the original values; URL views retain hosts and paths. Internal provisioning
@@ -25,20 +40,6 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
   opaque pass-through validation and the Engine contract. Complete browser policy metadata stays separate from editable
   settings; it creates no Engine controls or navigation targets. The palette respects both policy flags to protect
   secret values and endpoint credentials; the complete consumer migration follows in SH2.
-- **Outbound A2A peer client (RPC 1.12.0).** Owner-managed `a2a.peer.*` methods register, list, trust and remove remote
-  peers; `a2aClient.*` settings control the opt-in client. Explicitly trusted `a2a:<id>` targets support consultation and
-  delegation through the existing permission, egress and budget gates. Collaboration storage advances to schema v5;
-  no downgrade migration is provided. See `docs/handoff/2026-10-31-v1-a2a-peer-cli.md`.
-
-- **A store with data moves to another embedding model end to end (engine pin 9f34008c, contract 1.17.0).**
-  `@cyb3rb1ade/plur1bus-memory` is pinned to plugin PR #275, which exposes `admin.reembedding.validate`; `CORE_CONTRACT` is
-  1.17.0. `plur1bus memory reembed --run` and `plur1bus config set engine.embedding…` (foreground or `--background`) no longer
-  stop in `validating` with `engine-validate-unavailable`: the engine checks the copied generation and recalls one memory
-  from it with the target model, then the Harness switch writes the new embedding and the core restarts on the new
-  generation. Until the switch every recall is answered by the old generation; a failed validation stops with the engine's
-  reason and the old model stays active. `admin.embedding.check` answers `canSwitch: true`, so the CLI no longer warns
-  before the copy. An agent table without memories validates on the generation check alone. See
-  `docs/embedding-migration.md`.
 
 - **A description per secret (`secret.set`, `secret set --description`, Settings > Secrets).** An optional one-line note (at most
   200 characters, never the value) saying what a secret is for. `secret.list`, `secret.get` and `secret.status` return it, and
