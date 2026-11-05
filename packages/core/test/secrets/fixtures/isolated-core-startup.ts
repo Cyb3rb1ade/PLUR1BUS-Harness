@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import { fork, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mock } from "node:test";
@@ -13,15 +12,22 @@ import { layout } from "../../../src/paths.ts";
 import { secure } from "../helpers.ts";
 
 // The parent owns the watchdog so a synchronous block on this thread cannot stop its timer.
-async function watchStore<T>(phase: "preload" | "shutdown", operation: () => Promise<T>): Promise<T> {
-  process.send?.(phase);
+let sequence = 0;
+function enter(op: string) {
+  const id = ++sequence;
+  process.send!({ event: "enter", op, id });
+  return () => process.send!({ event: "leave", op, id });
+}
+async function watchStore<T>(op: string, operation: () => Promise<T>): Promise<T> {
+  const leave = enter(op);
   try { return await operation(); }
-  finally { process.send?.("store-leave"); }
+  finally { leave(); }
 }
 
-const mode = process.argv[2] ?? "default";
-const timedOut = ["default", "injected", "file-hang", "stop-starting"].includes(mode);
-const secret = randomUUID(), home = mkdtempSync(join(tmpdir(), "p1b-isolated-startup-"));
+process.send!({ event: "ready" });
+const [mode, home] = process.argv.slice(2);
+const timedOut = ["default", "injected", "file-hang", "stop-starting", "blocked-control"].includes(mode);
+const secret = randomUUID();
 let sourceEntered!: () => void, releaseSource!: () => void;
 const sourceReady = new Promise<void>(resolve => { sourceEntered = resolve; });
 const sourceGate = new Promise<void>(resolve => { releaseSource = resolve; });
@@ -73,27 +79,32 @@ mock.module(new URL("../../../src/secrets/runtime.ts", import.meta.url).href, { 
   createCoreSecretStore(options: Parameters<typeof runtime.createCoreSecretStore>[0]) {
     startupLogger = options.logger;
     const keepEnvironment = mode === "test-internals" || mode === "file-hang" || mode.startsWith("ungated-");
-    store = runtime.createCoreSecretStore({ ...options, ...(keepEnvironment ? {} : { env: {} }), isolation: {
-      budgetMs: timedOut ? 700 : 3000, retryAfterMs: 60_000,
-      spawn(description) {
-        assert.notEqual(mode, "test-internals", "the trusted Core test seam attempted persistent I/O");
-        if (description.kind === "keyring") nativeRequested = true;
-        const fixture = mode === "file-hang" ? "./isolated-file-hang.ts"
-          : timedOut ? "./isolated-keyring.ts" : "./isolated-memory-keyring.ts";
-        const child = fork(fileURLToPath(new URL(fixture, import.meta.url)), [], {
-          execArgv: ["--experimental-strip-types", "--conditions=source"], stdio: ["ignore", "ignore", "ignore", "ipc"], serialization: "advanced",
-        });
-        children.push(child);
-        child.on("message", message => {
-          if ((message as { entered?: boolean }).entered) {
-            process.stdout.write("synchronous-keyring-entered\n");
-            setTimeout(() => process.stdout.write("core-heartbeat\n"), 0);
-            entered();
-          }
-        });
-        return child;
-      },
-    } } as Parameters<typeof runtime.createCoreSecretStore>[0]);
+    const leave = enter("construct");
+    try {
+      store = runtime.createCoreSecretStore({ ...options, ...(keepEnvironment ? {} : { env: {} }), isolation: {
+        budgetMs: timedOut ? 700 : 3000, retryAfterMs: 60_000,
+        spawn(description) {
+          assert.notEqual(mode, "test-internals", "the trusted Core test seam attempted persistent I/O");
+          if (description.kind === "keyring") nativeRequested = true;
+          const fixture = mode === "file-hang" ? "./isolated-file-hang.ts"
+            : timedOut ? "./isolated-keyring.ts" : "./isolated-memory-keyring.ts";
+          const child = fork(fileURLToPath(new URL(fixture, import.meta.url)), [], {
+            execArgv: ["--experimental-strip-types", "--conditions=source"], stdio: ["ignore", "ignore", "ignore", "ipc"], serialization: "advanced",
+          });
+          children.push(child);
+          process.send!({ event: "helper", pid: child.pid });
+          child.on("message", message => {
+            if ((message as { entered?: boolean }).entered) {
+              process.stdout.write("synchronous-keyring-entered\n");
+              setTimeout(() => process.stdout.write("core-heartbeat\n"), 0);
+              entered();
+              if (mode === "blocked-control") Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0);
+            }
+          });
+          return child;
+        },
+      } } as Parameters<typeof runtime.createCoreSecretStore>[0]);
+    } finally { leave(); }
     const preload = store.preloadRedaction.bind(store);
     store.preloadRedaction = () => watchStore("preload", preload);
     return store;
@@ -120,7 +131,7 @@ const stop = () => watchStore("shutdown", () => core.stop({ budgetMs: 2000 }));
 try {
   if (mode === "stop-before-store") {
     const rejected = assert.rejects(core.start(), /core stopping/);
-    await sourceReady;
+    await watchStore("source-ready", () => sourceReady);
     await stop();
     releaseSource();
     await rejected;
@@ -132,7 +143,7 @@ try {
     process.stdout.write("startup-refusal-cleaned\n");
   } else if (mode === "stop-starting") {
     const rejected = assert.rejects(core.start(), /core stopping/);
-    await ioEntered;
+    await watchStore("io-entered", () => ioEntered);
     await stop();
     await rejected;
     for (const child of children) assert.notEqual(child.exitCode ?? child.signalCode, null, "stop during startup left a helper alive");
@@ -145,19 +156,19 @@ try {
     process.stdout.write("startup-refusal-cleaned\n");
   } else if (mode === "test-internals") {
     await core.start();
-    assert.equal((await store!.status({ kind: "core" })).backend, "keyring");
+    assert.equal((await watchStore("status", () => store!.status({ kind: "core" }))).backend, "keyring");
     assert.equal(children.length, 0);
     process.stdout.write("test-internals-memory\n");
   } else {
     await core.start();
-    const status = await store!.status({ kind: "core" });
+    const status = await watchStore("status", () => store!.status({ kind: "core" }));
     assert.equal(status.backend, "none");
     assert.equal(status.count, null);
     assert.equal(status.activeLeases, 0);
-    for (const action of [() => store!.reveal({ kind: "owner" }, "startup.only"),
-      () => store!.lease({ kind: "core" }, "startup.only", { purpose: "test", profileId: "test" })]) {
-      await assert.rejects(action(), error => (error as { code?: string }).code === "backend-unavailable");
-    }
+    const unavailable = (error: unknown) => (error as { code?: string }).code === "backend-unavailable";
+    await assert.rejects(watchStore("reveal", () => store!.reveal({ kind: "owner" }, "startup.only")), unavailable);
+    await assert.rejects(watchStore("lease", () => store!.lease({ kind: "core" }, "startup.only",
+      { purpose: "test", profileId: "test" })), unavailable);
     assert.ok(["ready", "degraded"].includes(core.status().process.state));
     await stop();
     await provided?.close();
@@ -173,5 +184,4 @@ try {
   await stop();
   await provided?.close();
   for (const child of children) child.kill("SIGKILL");
-  rmSync(home, { recursive: true, force: true });
 }
