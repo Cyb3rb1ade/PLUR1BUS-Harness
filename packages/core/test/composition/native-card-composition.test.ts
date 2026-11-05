@@ -138,7 +138,7 @@ test('held native file tools reject a different executing agent or principal', a
   } finally { b.close(); }
 });
 
-if (process.platform === 'darwin') test('native macOS refuses a new hardlink from read-only Git metadata into its writable card', async () => {
+if (process.platform === 'darwin' || process.platform === 'linux') test('the native sandbox refuses a new hardlink from read-only Git metadata into its writable card', async () => {
   const b = await composed();
   try {
     const config = join(b.store.liveWorktree(b.project.id, b.card.id)!.commonGitDir!, 'config');
@@ -150,13 +150,31 @@ if (process.platform === 'darwin') test('native macOS refuses a new hardlink fro
     await unlink(alias);
     const program = '/usr/bin/perl';
     const registry = await composeTools({ ...b.options, exec: { mode: 'allowlist', allowlist: [{ program }] } }, b.request);
-    const code = 'open(my $own, ">", $ARGV[0]) or die "positive:$!"; print $own "fixture"; close($own); if (!link($ARGV[1], $ARGV[2])) { print "LINK_DENIED"; exit 0; } open(my $out, ">>", $ARGV[2]) or die "alias:$!"; print $out "\\n# fixture-hardlink-write\\n"; close($out); print "LINK_WRITE_SUCCEEDED";';
+    const code = `
+      use Errno qw(EXDEV EROFS EPERM EACCES);
+      open(my $src, "<", $ARGV[1]) or die "metadata:$!";
+      close($src);
+      open(my $own, ">", $ARGV[0]) or die "positive:$!";
+      print $own "fixture";
+      close($own);
+      if (!link($ARGV[1], $ARGV[2])) {
+        my $errno = 0 + $!;
+        die "unexpected link errno $errno" unless grep { $_ == $errno } (EXDEV, EROFS, EPERM, EACCES);
+        print "LINK_DENIED";
+        exit 0;
+      }
+      open(my $out, ">>", $ARGV[2]) or die "alias:$!";
+      print $out "# fixture-hardlink-write";
+      close($out);
+      print "LINK_WRITE_SUCCEEDED";
+    `;
     const result = await b.dispatcher(registry).call({ id: 'hardlink', name: 'exec.run',
       args: { program, args: ['-e', code, own, config, alias], cwd: b.tree.path } }, b.context);
     assert.equal(result.isError, false, JSON.stringify(result));
     assert.equal(existsSync(own), true, 'positive native write must execute before the attempted link');
-    const value = result.value as ExecResult;
+    const value = result.value as ExecResult & { sandboxed: boolean };
     assert.equal(value.exitCode, 0, value.stderr);
+    assert.equal(value.sandboxed, true);
     assert.equal(value.stdout, 'LINK_DENIED');
     assert.equal(existsSync(alias), false);
     assert.equal(await readFile(config, 'utf8'), original);
