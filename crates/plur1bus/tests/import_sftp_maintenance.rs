@@ -22,7 +22,8 @@ fn run_source(selector: &str) {
     let _supervisor = common::start_with_core(
         &home,
         &directory.join("events.jsonl"),
-        "0.2",
+        // This SSH handshake runs against the real supervised Core.
+        "1",
         &[
             ("PLUR1BUS_CORE_JS", core.to_str().unwrap()),
             ("PLUR1BUS_TEST_INTERNALS", "flat-embedder"),
