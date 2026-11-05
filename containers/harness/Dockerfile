@@ -35,7 +35,7 @@ ARG DEBIAN_SNAPSHOT=20261001T000000Z
 # hadolint ignore=DL3008
 RUN sed -i "s|http://deb.debian.org/debian-security|http://snapshot.debian.org/archive/debian-security/${DEBIAN_SNAPSHOT}|; s|http://deb.debian.org/debian|http://snapshot.debian.org/archive/debian/${DEBIAN_SNAPSHOT}|" /etc/apt/sources.list.d/debian.sources \
     && apt-get -o Acquire::Check-Valid-Until=false update \
-    && apt-get install -y --no-install-recommends ca-certificates git \
+    && apt-get -o Acquire::Retries=3 install -y --no-install-recommends ca-certificates git \
     && rm -rf /var/lib/apt/lists/* /var/log/apt/* /var/log/dpkg.log \
     && npm install --global --no-fund --no-audit pnpm@10.28.0
 WORKDIR /src
