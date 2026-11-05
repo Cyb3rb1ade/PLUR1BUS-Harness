@@ -33,7 +33,7 @@ export type LogsMock = {
 
 const page = (records: LogRecord[], nextCursor: string | null): unknown => ({ records, nextCursor, corrupt: 0, scanned: { files: 1, bytes: 1024 }, truncated: false });
 
-export function installLogsMocks(server: MockHarnessServer, init: { lines?: LogRecord[]; tail?: boolean; query?: boolean } = {}): LogsMock {
+export function installLogsMocks(server: MockHarnessServer, init: { lines?: LogRecord[]; tail?: boolean; query?: boolean; beforeAnchor?: Promise<void> } = {}): LogsMock {
   const mock: LogsMock = {
     lines: init.lines ?? makeLines(30), audit: [],
     push(...recs) { mock.lines.push(...recs); for (const w of waiters.splice(0)) w(); },
@@ -66,7 +66,10 @@ export function installLogsMocks(server: MockHarnessServer, init: { lines?: LogR
     server.rpc.handle("logs.tail", async (params) => {
       const p = (params ?? {}) as Record<string, unknown>;
       const limit = typeof p.limit === "number" ? p.limit : 100;
-      if (typeof p.cursor !== "string") return page(mock.lines.filter((r) => match(r, p)).slice(-limit), `t${mock.lines.length}`);
+      if (typeof p.cursor !== "string") {
+        await init.beforeAnchor;
+        return page(mock.lines.filter((r) => match(r, p)).slice(-limit), `t${mock.lines.length}`);
+      }
       const from = Number(p.cursor.slice(1));
       if (mock.lines.length <= from) await new Promise<void>((resolve) => { const timer = setTimeout(resolve, 1500); waiters.push(() => { clearTimeout(timer); resolve(); }); });
       const chunk = mock.lines.slice(from, from + limit);
