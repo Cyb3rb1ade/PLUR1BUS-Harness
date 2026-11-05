@@ -68,9 +68,9 @@ const api = createApiServer({ home, core: link, ownerToken,
   resolveBootstrap: async () => (await link.serviceCall("admin.api.person.resolve", { userId: "local-owner" })).person });
 const { url } = await api.listen();
 let rpcId = 0;
-const request = (path, options = {}) => fetch(url + path, { ...options,
+const request = (path, options = {}, budgetMs = 5000) => fetch(url + path, { ...options,
   headers: { connection: "close", ...options.headers },
-  signal: AbortSignal.timeout(Math.max(1, Math.min(5000, deadline - Date.now()))) });
+  signal: AbortSignal.timeout(Math.max(1, Math.min(budgetMs, deadline - Date.now()))) });
 async function login() {
   const response = await request("/api/v1/session", { method: "POST", headers: { "content-type": "application/json" },
     body: JSON.stringify({ token: ownerToken }) });
@@ -84,8 +84,11 @@ async function reply(cookie, method, params = {}) {
   const csrf = await request("/api/v1/csrf", { headers: { cookie } });
   const token = await csrf.json();
   if (csrf.status !== 200) return { status: csrf.status, body: token };
+  // Planning and preflight fingerprint the entire 128 MiB fixture. Both share its original absolute deadline.
+  const budgetMs = method === "admin.import.plan" || method === "admin.import.preflight" ? deadline - Date.now() : 5000;
   const response = await request("/rpc", { method: "POST", headers: { cookie, "content-type": "application/json",
-    "x-csrf-token": token.token }, body: JSON.stringify({ jsonrpc: "2.0", id: ++rpcId, method, params }) });
+    "x-csrf-token": token.token }, body: JSON.stringify({ jsonrpc: "2.0", id: ++rpcId, method, params }) }, budgetMs)
+    .catch(cause => { throw new Error(`native recovery request failed at ${method}`, { cause }); });
   return { status: response.status, body: await response.json() };
 }
 async function rpc(cookie, method, params = {}) {
