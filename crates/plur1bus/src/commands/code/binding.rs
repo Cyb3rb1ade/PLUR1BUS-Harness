@@ -63,7 +63,15 @@ pub(super) fn open(
     } else {
         crate::commands::session::pick_agent(out, &config, args.agent.clone())
     };
-    let root = std::fs::canonicalize(&args.path)?;
+    // Core validates the caller's spelling before resolving the worktree. Canonicalizing here
+    // erases traversal and turns ordinary Windows drive paths into a device namespace.
+    use std::path::Component;
+    let root = match args.path.components().next() {
+        Some(Component::CurDir | Component::ParentDir | Component::Normal(_)) => {
+            std::env::current_dir()?.join(&args.path)
+        }
+        _ => args.path.clone(),
+    };
     let root = root
         .to_str()
         .ok_or_else(|| CodeError::new("E_INVALID_PARAMS", "worktree path must be valid Unicode"))?;

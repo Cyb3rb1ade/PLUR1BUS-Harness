@@ -555,3 +555,28 @@ mod tty {
         assert!(!root.join("must-not-run").exists());
     }
 }
+
+#[test]
+fn native_cli_preserves_parent_traversal_for_the_core_path_guard() {
+    let (_temp, home, root) = workspace();
+    let _core = CoreFixture::start(&home, &root, "tasks");
+    let output = Command::cargo_bin("plur1bus")
+        .expect("binary")
+        .arg("--home")
+        .arg(&home)
+        .args(["--json", "code"])
+        .arg(root.join("..").join("repo"))
+        .timeout(Duration::from_secs(45))
+        .output()
+        .expect("CLI");
+    let diagnostic = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(!output.status.success());
+    assert!(
+        diagnostic.contains("E_DENIED") && diagnostic.contains("dot-dot"),
+        "{diagnostic}"
+    );
+}
