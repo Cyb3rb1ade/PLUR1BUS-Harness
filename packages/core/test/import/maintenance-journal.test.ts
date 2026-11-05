@@ -46,19 +46,39 @@ describe("import maintenance journal", () => {
       const { openSync, closeSync } = require("node:fs");
       const { parentPort, workerData } = require("node:worker_threads");
       const fd = openSync(workerData, "r");
-      parentPort.once("message", () => setTimeout(() => closeSync(fd), 300));
+      parentPort.once("message", () => closeSync(fd));
       parentPort.postMessage("reading");
     `, { eval: true, execArgv: [], workerData: join(home, "imports", RUN, "maintenance.json") });
+    const exited = once(reader, "exit");
     try {
-      await once(reader, "message");
-      _testFsAtomicHooks.beforeRename = () => reader.postMessage("publishing");
+      await Promise.race([once(reader, "message"), exited.then(() => { throw new Error("reader exited before opening journal"); })]);
+      let attempts = 0;
+      _testFsAtomicHooks.beforeRename = () => {
+        // Release only after the writer has actually retried a blocked replacement.
+        if (++attempts === 2) reader.postMessage("release");
+      };
       journal.advance("snapshotting");
       assert.deepEqual(api.readMaintenanceJournal(home, RUN).history.map(entry => entry.phase),
         ["prepared", "snapshotting"]);
     } finally {
       _testFsAtomicHooks.beforeRename = undefined;
-      await reader.terminate();
+      reader.postMessage("release");
+      await exited;
     }
+  });
+
+  it("keeps the last durable checkpoint when replacement remains blocked", async () => {
+    const api = await factory(), home = temp(), journal = api.openMaintenanceJournal(home, RUN);
+    const before = journal.read();
+    const locked = Object.assign(new Error("fixture locked"), { code: "EBUSY" });
+    try {
+      _testFsAtomicHooks.beforeRename = () => { throw locked; };
+      assert.throws(() => journal.advance("snapshotting"), (error: unknown) => error === locked);
+    } finally {
+      _testFsAtomicHooks.beforeRename = undefined;
+    }
+    assert.deepEqual(journal.read(), before);
+    assert.deepEqual(api.readMaintenanceJournal(home, RUN), before);
   });
 
   it("records missing-only secret intent before creation and keeps attempt history after full restore", async () => {
