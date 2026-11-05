@@ -43,6 +43,25 @@ describe("proc.*", () => {
     assert.equal(kills.length, 0);
   });
 
+  it("signals and exit checks use the original process identity even with a live report redactor", async () => {
+    const { ctx, exec } = makeCtx("darwin");
+    const source = () => { throw new Error("process identity must not be treated as report text"); };
+    ctx.knownSecrets = source;
+    ctx.exec = { async run(req, signal, knownSecrets) {
+      if (req.program === "ps") assert.equal(knownSecrets, undefined);
+      return exec.run(req, signal);
+    } };
+    for (const [name, args, code] of [
+      ["proc.kill", { pid: 424 }, "permission_denied"],
+      ["proc.wait", { pid: 424, timeoutMs: 10 }, "timeout"],
+    ] as const) {
+      const result = await runHostTool(name, args, ctx);
+      assert.ok(result.isError);
+      assert.equal(result.error.code, code);
+    }
+    assert.equal(exec.calls.some(c => c.program === "kill"), false);
+  });
+
   it("kill of a foreign same-user process sends a fixed argv, never a shell string", async () => {
     const { ctx, exec } = makeCtx("darwin");
     const r = await runHostTool("proc.kill", { pid: 88, signal: "TERM" }, ctx);

@@ -69,6 +69,7 @@ export function createNodeHostContext(over: Partial<HostContext> = {}): HostCont
     timeoutMs: over.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     maxOutputBytes: over.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES,
     ...(over.signal ? { signal: over.signal } : {}),
+    ...(over.knownSecrets ? { knownSecrets: over.knownSecrets } : {}),
   };
 }
 
