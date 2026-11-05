@@ -3,6 +3,8 @@
 import { after, before, describe, it, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { constants as fsc } from "node:fs";
+import fsPromises from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
 import { chmod, link, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, sep } from "node:path";
@@ -227,8 +229,8 @@ describe("D109 paths: conformance (every OS)", T, () => {
     refused(await canon(join(root, "file.txt", "x")), "not-directory");
   });
   it("refuses a dangling link instead of treating it as a missing file", async () => {
-    await symlink(join(outside, "does-not-exist"), join(root, "dangling")).catch(() => {});
-    if (!(await stat(join(root, "dangling")).then(() => true, () => true))) return;
+    // Directory junctions exercise real dangling reparse points on Windows without symlink privileges.
+    await symlink(join(outside, "does-not-exist"), join(root, "dangling"), win ? "junction" : "dir");
     refused(await canon(join(root, "dangling"), { access: "write" }), "dangling-link");
   });
   it("refuses a root that is the filesystem root, and a root whose identity changed", async () => {
@@ -468,6 +470,39 @@ describe("D109 paths: review round 1 regressions", T, () => {
     const nested = allowed(await canon(join(root, "no", "such", "dir", "f"), { access: "write" }));
     const r3 = await openVerified(nested, fsc.O_WRONLY | fsc.O_CREAT);
     assert.ok("ok" in r3 && r3.ok === false, "a missing parent is not-found, not created");
+  });
+  it("only scans protected directory contents when the target has a hard link", async (t) => {
+    const reads = t.mock.method(fsPromises, "readdir");
+    syncBuiltinESMExports();
+    t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); });
+    const file = join(root, "single-link.txt");
+    await writeFile(file, "inside");
+    const options = { deny: [{ path: outside }] };
+    allowed(await canon(file, options));
+    assert.equal(reads.mock.callCount(), 0);
+    const alias = join(root, "protected-alias.txt");
+    await link(join(outside, "secret.txt"), alias);
+    refused(await canon(alias, options), "deny-listed");
+    assert.ok(reads.mock.calls.some(call => call.arguments[0] === outside));
+  });
+  it("refuses a read if a previously single-link file gains an alias in a protected directory before open", async (t) => {
+    const file = join(root, "new-alias.txt");
+    const alias = join(outside, "new-alias.txt");
+    await writeFile(file, "inside");
+    const checked = allowed(await canon(file, { deny: [{ path: outside }] }));
+    await link(file, alias);
+    t.after(() => rm(alias));
+    const result = await openVerified(checked, fsc.O_RDONLY);
+    if (!("ok" in result)) { await result.close(); assert.fail("opened despite a new alias"); }
+    assert.equal(result.reason, "hard-link");
+  });
+  it("refuses a hard-linked target when a protected directory cannot be inspected", async (t) => {
+    const alias = join(root, "unreadable-alias.txt");
+    await link(join(outside, "secret.txt"), alias);
+    t.mock.method(fsPromises, "readdir", () => { throw Object.assign(new Error("fixture"), { code: "EACCES" }); });
+    syncBuiltinESMExports();
+    t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); });
+    refused(await canon(alias, { deny: [{ path: outside }] }), "deny-listed");
   });
   it("a hard link inside the root to a deny-listed file is refused (file entry and directory entry)", async () => {
     const h = join(root, "hard-deny.txt");
