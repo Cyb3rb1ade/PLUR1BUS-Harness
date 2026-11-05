@@ -5,7 +5,7 @@ import { join, relative, sep } from "node:path";
 import { createSecurePath } from "@plur1bus/module-api";
 import { maintenanceRunDirectory } from "./maintenance-journal.ts";
 import {
-  checkedEntry, coldUnavailable, noLinkedSegments, normalizedRoots, preservedPaths, privateBytes, readColdBytes,
+  checkedEntry, checkToolsSpelling, coldUnavailable, noLinkedSegments, normalizedRoots, preservedPaths, privateBytes, readColdBytes,
   scanMutationRoot, streamRegular, syncDirectory, type ColdEntry, type ColdRoot, type MutationRoot,
 } from "./maintenance-files.ts";
 export { fingerprintMutationRoots } from "./target-fingerprint.ts";
@@ -86,6 +86,7 @@ async function loadManifest(base: string, runId: string, roots: readonly Mutatio
       if (!checkedEntry(entry, root) || seen.has(entry.path)
         || keepPaths.some(keep => entry.path === keep || entry.path.startsWith(keep + "/")
           || entry.kind === "file" && keep.startsWith(entry.path + "/"))) throw coldUnavailable();
+      await checkToolsSpelling(root, entry.path);
       seen.add(entry.path);
     }
     if (!root.existed && root.entries.length) throw coldUnavailable();
