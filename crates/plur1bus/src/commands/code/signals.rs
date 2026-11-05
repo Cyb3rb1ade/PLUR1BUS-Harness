@@ -44,7 +44,7 @@ impl Signals {
         let local = self.interrupt.swap(false, Ordering::AcqRel);
         #[cfg(windows)]
         {
-            return local || windows::INTERRUPT.swap(false, Ordering::AcqRel);
+            local || windows::INTERRUPT.swap(false, Ordering::AcqRel)
         }
         #[cfg(not(windows))]
         {
@@ -55,7 +55,7 @@ impl Signals {
         let local = self.terminate.load(Ordering::Acquire);
         #[cfg(windows)]
         {
-            return local || windows::TERMINATE.load(Ordering::Acquire);
+            local || windows::TERMINATE.load(Ordering::Acquire)
         }
         #[cfg(not(windows))]
         {

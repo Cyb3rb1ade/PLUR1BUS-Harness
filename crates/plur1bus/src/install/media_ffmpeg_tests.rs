@@ -1,6 +1,5 @@
 //! Filesystem-only discovery and manual guidance; no installer process may run.
 use super::*;
-use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 struct Directory(PathBuf);
@@ -78,6 +77,7 @@ fn discovery_rejects_a_non_executable_file() {
 #[test]
 fn discovery_respects_the_current_users_execute_permission() {
     use std::os::unix::fs::PermissionsExt;
+    use std::process::{Command, Stdio};
     let dir = Directory::new();
     let binary = dir.executable("ffmpeg", "#!/bin/sh\nexit 0\n");
     fs::set_permissions(&binary, fs::Permissions::from_mode(0o001)).unwrap();
