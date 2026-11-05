@@ -78,6 +78,9 @@ RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack 
       /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /opt/yarn-* /usr/local/bin/yarn /usr/local/bin/yarnpkg \
     && groupadd --system --gid 10001 plur1bus \
     && useradd --system --uid 10001 --gid 10001 --no-create-home --home-dir /var/lib/plur1bus --shell /usr/sbin/nologin plur1bus \
+    && expected_day=$((SOURCE_DATE_EPOCH / 86400)) \
+    && if [ "$expected_day" -eq 0 ]; then expected_day=; fi \
+    && test "$(getent shadow plur1bus | cut -d: -f3)" = "$expected_day" \
     && install -d -o 10001 -g 10001 -m 0700 /var/lib/plur1bus /var/lib/plur1bus/models
 COPY --from=rust-build /out/plur1bus /usr/local/bin/plur1bus
 COPY --from=node-build /out/core /opt/plur1bus/core
