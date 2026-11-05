@@ -185,13 +185,19 @@ fn the_cli_reaches_a_real_core_as_a_person_import_export_and_rollback() {
 
     // Use the authenticated shutdown path and verify the actual native peers of this test home.
     // The shared Supervisor guard also cleans up on panic.
-    let record = std::fs::read_to_string(home.join("run/core.pid")).unwrap();
-    let core_pid: u32 = record.split_whitespace().next().unwrap().parse().unwrap();
-    let mut peers = Vec::new();
-    common::wait_until("verified Core peer", common::WAIT, || {
-        peers = common::owned_children::peers(&home);
-        peers.iter().any(|(pid, _)| *pid == core_pid)
-    });
+    let status = supervisor.client.call("daemon.status", json!({})).unwrap();
+    let children = status["children"].as_array().unwrap();
+    assert!(children
+        .iter()
+        .any(|child| child["role"] == "core" && child["pid"].is_u64()));
+    let peers: Vec<_> = children
+        .iter()
+        .filter_map(|child| child["pid"].as_u64())
+        .map(|pid| {
+            let pid = u32::try_from(pid).unwrap();
+            (pid, plur1bus_rpc::process::incarnation_of(pid).unwrap())
+        })
+        .collect();
     supervisor
         .client
         .call("daemon.stop", json!({"budgetMs": 5000}))
