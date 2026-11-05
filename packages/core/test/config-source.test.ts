@@ -38,6 +38,47 @@ async function supervised(home: string, config: HarnessConfig, logger = capture(
 }
 
 describe("config source (B7)", () => {
+  it("makes an acknowledged SSH connection visible even when its watch notification is still in transit", async () => {
+    const initial = defaults();
+    const home = homeWith(initial);
+    const sup = await startFakeSupervisor({ home, config: initial as unknown as Record<string, unknown> });
+    cleanup.push(sup);
+    const preparing = Promise.withResolvers<void>(), release = Promise.withResolvers<void>();
+    const source = await openConfigSource({ layout: layout(home), supervised: true, attempts: 1,
+      prepareChange: (_previous, next) => {
+        if (next.import?.ssh?.connections?.fixture) { preparing.resolve(); return release.promise; }
+      } });
+    cleanup.push(source);
+    const connection = { host: "127.0.0.1", port: 22, user: "fixture", roots: ["/"], allowPrivate: true };
+    const connections = { fixture: connection };
+    const next = { ...initial, import: { ...initial.import, ssh: { ...initial.import?.ssh, connections } } };
+    const pending = source.set([{ key: "import.ssh.connections", value: connections }]);
+    assert.ok(pending);
+    const update = sup.push(next as unknown as Record<string, unknown>, {}, "deferred");
+    try {
+      assert.equal(await Promise.race([preparing.promise.then(() => "preparing"), pending.then(() => "acknowledged")]), "preparing");
+      assert.equal(source.current().import?.ssh?.connections?.fixture, undefined);
+    } finally { release.resolve(); }
+    await pending;
+    assert.deepEqual(source.current().import?.ssh?.connections?.fixture, connection);
+    assert.equal(source.revision(), update.revision);
+  });
+
+  it("refuses confirmed writes whose disclosure metadata Core could not prepare", async () => {
+    const initial = withLevel("info");
+    const home = homeWith(initial);
+    const sup = await startFakeSupervisor({ home, config: initial as unknown as Record<string, unknown> });
+    cleanup.push(sup);
+    const source = await openConfigSource({ layout: layout(home), supervised: true, attempts: 1,
+      prepareChange: async (_previous, next) => { if (next.core.logLevel === "warn") throw new Error("unavailable"); } });
+    cleanup.push(source);
+    const pending = source.set([{ key: "core.logLevel", value: "warn" }]);
+    assert.ok(pending);
+    sup.push(withLevel("warn") as unknown as Record<string, unknown>);
+    await assert.rejects(pending, { error: "E_NOT_AVAILABLE", reason: "config-policy-unavailable" });
+    assert.equal(source.current().core.logLevel, "info");
+  });
+
   it("maintenance model writes use only the run-bound private method and never ordinary config.set", async () => {
     const home = homeWith(defaults());
     const { source, sup } = await supervised(home, defaults());
