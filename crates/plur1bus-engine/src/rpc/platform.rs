@@ -347,10 +347,14 @@ mod tests {
         assert_eq!(identity, root.path().join("Case"));
         #[cfg(windows)]
         {
+            assert_eq!(identity.file_name().unwrap(), "case");
             assert_eq!(
-                identity.to_str().unwrap(),
-                root.path().join("Case").to_str().unwrap().to_lowercase()
+                fs::canonicalize(identity.parent().unwrap()).unwrap(),
+                root.path()
             );
+            let spelling = identity.to_str().unwrap();
+            assert_eq!(spelling, spelling.to_lowercase());
+            assert!(!spelling.starts_with(r"\\?\"));
             assert!(!capabilities()
                 .canonical_identity_path(root.path())
                 .to_string_lossy()
