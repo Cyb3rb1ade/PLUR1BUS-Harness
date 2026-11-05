@@ -37,6 +37,14 @@ function killTree(child: ChildProcess): void {
   try { child.kill("SIGKILL"); } catch { /* gone */ }
 }
 
+/** A broken registry must never expose its internal error or allow unprotected output. */
+export function hostOutputSecrets(source: NonNullable<HostContext["knownSecrets"]>): NonNullable<HostContext["knownSecrets"]> {
+  return () => {
+    try { return source(); }
+    catch { throw new HostFailure("permission_denied", "could not protect host command output"); }
+  };
+}
+
 export function createNodeExec(clock: HostClock): HostExec {
   return {
     async run(req, signal, knownSecrets): Promise<ExecResult> {
@@ -50,8 +58,9 @@ export function createNodeExec(clock: HostClock): HostExec {
       const timeoutMs = clamp(req.timeoutMs, DEFAULT_TIMEOUT_MS, HARD_MAX_TIMEOUT_MS);
       const maxBytes = clamp(req.maxOutputBytes, DEFAULT_MAX_OUTPUT_BYTES, HARD_MAX_OUTPUT_BYTES);
       const started = clock.now();
-      const out = new BoundedCapture(maxBytes, knownSecrets);
-      const err = new BoundedCapture(maxBytes, knownSecrets);
+      const source = knownSecrets && hostOutputSecrets(knownSecrets);
+      const out = new BoundedCapture(maxBytes, source);
+      const err = new BoundedCapture(maxBytes, source);
       return new Promise((resolve, reject) => {
         let timedOut = false;
         let aborted = false;
@@ -97,8 +106,13 @@ export function createNodeExec(clock: HostClock): HostExec {
                 durationMs: clock.now() - started,
               });
             } catch {
-              settled = true;
-              reject(new HostFailure("permission_denied", "could not protect host command output"));
+              if (aborted || timedOut) {
+                finish({ exitCode: code, signal: sig, stdout: "", stderr: "", truncated: true,
+                  timedOut, aborted, durationMs: clock.now() - started });
+              } else {
+                settled = true;
+                reject(new HostFailure("permission_denied", "could not protect host command output"));
+              }
             }
           };
           // "close" waits until every holder of the pipes let go. A descendant that inherited stdout and detached

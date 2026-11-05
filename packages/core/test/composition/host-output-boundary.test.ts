@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
+import { runChecked } from '../../src/host-tools/exec.ts';
 import { randomBytes } from 'node:crypto';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -56,13 +58,31 @@ test('host subprocess capture protects stdout and stderr at their own byte bound
   assert.ok([output.stdout, output.stderr].every(s => s === prefix + '[REDACTED:secret]'));
 });
 
-test('a failed final registry read rejects host output without exposing captured data', async () => {
+test('whole-output consumers reject redacted text that expands past their limit', async () => {
+  const secret = randomBytes(4).toString('hex');
   const redaction = createSecretRedaction();
-  let calls = 0;
-  const source = () => { if (++calls > 2) throw new Error('synthetic registry failure'); return redaction.snapshot(); };
+  redaction.register(secret);
+  const ctx = createNodeHostContext({ knownSecrets: () => redaction.snapshot() });
+  const req = { program: process.execPath, args: ['-e', 'process.stdout.write(process.argv[1])', secret], maxOutputBytes: 8 };
+  const result = await ctx.exec.run(req, undefined, ctx.knownSecrets);
+  assert.equal(result.stdout, '[REDACTE');
+  assert.equal(result.truncated, true);
+  await assert.rejects(runChecked(ctx, req, { code: 'not_found', message: 'fixture unavailable' }, { whole: true }), { code: 'too_large' });
+});
+
+test('registry failures before spawn and after capture give a fixed path-free error', async t => {
+  const home = await mkdtemp(join(tmpdir(), 'host-registry-'));
+  t.after(() => rm(home, { recursive: true, force: true }));
+  const marker = join(home, 'started');
+  const redaction = createSecretRedaction();
+  const req = { program: process.execPath, args: ['-e', 'require("node:fs").writeFileSync(process.argv[1], ""); process.stdout.write("fixture")', marker] };
+  const fail = () => { throw new Error('synthetic registry failure'); };
+  const expected = { code: 'permission_denied', message: 'could not protect host command output' };
   const { exec } = createNodeHostContext();
-  await assert.rejects(exec.run({ program: process.execPath, args: ['-e', 'process.stdout.write("synthetic")'] },
-    undefined, source), { code: 'permission_denied', message: 'could not protect host command output' });
+  await assert.rejects(exec.run(req, undefined, fail), expected);
+  assert.equal(existsSync(marker), false);
+  await assert.rejects(exec.run(req, undefined, () => existsSync(marker) ? fail() : redaction.snapshot()), expected);
+  assert.equal(existsSync(marker), true);
 });
 
 if (process.platform === 'darwin') test('the sandboxed host adapter masks both streams before its limit', async t => {

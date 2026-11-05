@@ -55,6 +55,12 @@ export async function sandboxSpawn(argv: readonly string[], policy: SandboxPolic
   if (options.signal?.aborted) onAbort();
   try {
     const exit = await child.wait();
-    return { exitCode: exit.code, signal: exit.signal, stdout: out.text(), stderr: err.text(), stdoutTruncated: out.truncated, stderrTruncated: err.truncated, timedOut, aborted, resources: resources(), sandbox };
+    const outcome = { exitCode: exit.code, signal: exit.signal, timedOut, aborted, resources: resources(), sandbox };
+    try {
+      return { ...outcome, stdout: out.text(), stderr: err.text(), stdoutTruncated: out.truncated, stderrTruncated: err.truncated };
+    } catch (error) {
+      if (!timedOut && !aborted) throw error;
+      return { ...outcome, stdout: '', stderr: '', stdoutTruncated: true, stderrTruncated: true };
+    }
   } finally { clearTimeout(timer); if (memoryTimer) clearInterval(memoryTimer); options.signal?.removeEventListener('abort', onAbort); await child.killTree(); }
 }

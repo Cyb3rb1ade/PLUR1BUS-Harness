@@ -8,7 +8,7 @@ import type { ProcessPort, SpawnSpec } from '../exec/types.ts';
 import { createNodeProcessPort } from '../exec/node-process.ts';
 import { buildEnv, DEFAULT_ENV_ALLOW } from '../exec/env.ts';
 import type { HostExec } from '../../host-tools/types.ts';
-import { createNodeExec } from '../../host-tools/exec.ts';
+import { createNodeExec, hostOutputSecrets } from '../../host-tools/exec.ts';
 import { systemClock } from '../../host-tools/context.ts';
 import { sandboxSpawn, SandboxFailure, DEFAULT_MAX_TASKS, type SandboxPolicy } from './index.ts';
 export interface SandboxOptions { required?: boolean; limitsHelper?: string; maxTasks?: number }
@@ -51,7 +51,7 @@ export function createSandboxHostExec(o: SandboxPortsOptions): HostExec {
     const cwd = req.cwd ?? o.roots[0]?.path;
     if (!cwd) throw new SandboxFailure('sandbox requires a workspace root');
     const p = sandboxPolicy(o, { program: req.program, args: req.args, cwd, env: req.env ?? { PATH: '/usr/bin:/bin' } });
-    const r = await sandboxSpawn([await executable(req.program), ...req.args], { ...p, limits: { ...p.limits, timeoutMs: req.timeoutMs ?? 30000, maxOutputBytes: req.maxOutputBytes ?? 65536 } }, { ...(signal ? { signal } : {}), ...(knownSecrets ? { knownSecrets } : {}) });
+    const r = await sandboxSpawn([await executable(req.program), ...req.args], { ...p, limits: { ...p.limits, timeoutMs: req.timeoutMs ?? 30000, maxOutputBytes: req.maxOutputBytes ?? 65536 } }, { ...(signal ? { signal } : {}), ...(knownSecrets ? { knownSecrets: hostOutputSecrets(knownSecrets) } : {}) });
     return { exitCode: r.exitCode, signal: r.signal, stdout: r.stdout, stderr: r.stderr, truncated: r.stdoutTruncated || r.stderrTruncated, timedOut: r.timedOut, aborted: r.aborted, durationMs: r.resources.durationMs };
   } };
 }

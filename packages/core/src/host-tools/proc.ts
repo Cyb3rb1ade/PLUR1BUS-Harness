@@ -92,7 +92,7 @@ function parseWmicProcess(text: string): Map<number, number> {
 }
 
 /** Keep PID, parent and owner fields intact when they decide whether a process may be signalled or has exited. */
-async function listRaw(ctx: HostContext, output: "report" | "process-identity" = "report"): Promise<ProcRow[]> {
+async function listRaw(ctx: HostContext, output: "report" | "process-identity"): Promise<ProcRow[]> {
   const maxOutputBytes = Math.max(ctx.maxOutputBytes, HARD_MAX_OUTPUT_BYTES);
   if (ctx.platform === "win32") {
     const tl = await runCaptured(ctx, { program: "tasklist", args: ["/FO", "CSV", "/V"], maxOutputBytes }, output);
@@ -168,7 +168,7 @@ function ancestors(pid: number, rows: ProcRow[]): Set<number> {
 }
 
 async function listPublic(ctx: HostContext): Promise<{ processes: Array<Omit<ProcRow, "ppid"> & { ppid?: number }> }> {
-  const rows = await listRaw(ctx);
+  const rows = await listRaw(ctx, "report");
   return {
     processes: rows.map((r) => {
       const x = redactRow(r, ctx);
@@ -196,7 +196,7 @@ export const procInfoTool: HostTool = {
   },
   async run(input, ctx) {
     const pid = requireInt(asObject(input).pid, "pid");
-    const rows = await listRaw(ctx);
+    const rows = await listRaw(ctx, "report");
     const row = rows.find((r) => r.pid === pid);
     if (!row) throw new HostFailure("not_found", `process ${pid} was not found`);
     return redactRow(row, ctx);
