@@ -1,7 +1,7 @@
 /** CX5: ACP mode belongs to one authenticated connection/session; it never creates filesystem authority. */
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
-import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -18,7 +18,7 @@ const caller = { channel: "cli", accountId: "host", userId: "owner" } as const;
 const connection = { connectionId: "editor", surface: 1 as const };
 
 function rig(t: TestContext) {
-  const directory = mkdtempSync(join(tmpdir(), "acp-code-mode-"));
+  const directory = realpathSync.native(mkdtempSync(join(tmpdir(), "acp-code-mode-")));
   const home = join(directory, "home");
   const root = join(directory, "repo");
   mkdirSync(home);
