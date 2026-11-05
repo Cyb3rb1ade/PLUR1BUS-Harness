@@ -1,4 +1,7 @@
 /** GUI maintenance must recover from durable metadata, without credential values or caller-chosen file paths. */
+import { once } from "node:events";
+import { Worker } from "node:worker_threads";
+import { _testFsAtomicHooks } from "../../src/import/fs-atomic.ts";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, lstatSync, mkdirSync, writeFileSync, symlinkSync } from "node:fs";
@@ -34,6 +37,48 @@ describe("import maintenance journal", () => {
       assert.equal(lstatSync(join(home, "imports", RUN)).mode & 0o777, 0o700);
       assert.equal(lstatSync(join(home, "imports", RUN, "maintenance.json")).mode & 0o777, 0o600);
     }
+  });
+
+  it("publishes the next checkpoint while a concurrent status reader finishes reading the old one", async () => {
+    const api = await factory();
+    const home = temp(), journal = api.openMaintenanceJournal(home, RUN);
+    const reader = new Worker(`
+      const { openSync, closeSync } = require("node:fs");
+      const { parentPort, workerData } = require("node:worker_threads");
+      const fd = openSync(workerData, "r");
+      parentPort.once("message", () => closeSync(fd));
+      parentPort.postMessage("reading");
+    `, { eval: true, execArgv: [], workerData: join(home, "imports", RUN, "maintenance.json") });
+    const exited = once(reader, "exit");
+    try {
+      await Promise.race([once(reader, "message"), exited.then(() => { throw new Error("reader exited before opening journal"); })]);
+      let attempts = 0;
+      _testFsAtomicHooks.beforeRename = () => {
+        // Release only after the writer has actually retried a blocked replacement.
+        if (++attempts === 2) reader.postMessage("release");
+      };
+      journal.advance("snapshotting");
+      assert.deepEqual(api.readMaintenanceJournal(home, RUN).history.map(entry => entry.phase),
+        ["prepared", "snapshotting"]);
+    } finally {
+      _testFsAtomicHooks.beforeRename = undefined;
+      reader.postMessage("release");
+      await exited;
+    }
+  });
+
+  it("keeps the last durable checkpoint when replacement remains blocked", async () => {
+    const api = await factory(), home = temp(), journal = api.openMaintenanceJournal(home, RUN);
+    const before = journal.read();
+    const locked = Object.assign(new Error("fixture locked"), { code: "EBUSY" });
+    try {
+      _testFsAtomicHooks.beforeRename = () => { throw locked; };
+      assert.throws(() => journal.advance("snapshotting"), (error: unknown) => error === locked);
+    } finally {
+      _testFsAtomicHooks.beforeRename = undefined;
+    }
+    assert.deepEqual(journal.read(), before);
+    assert.deepEqual(api.readMaintenanceJournal(home, RUN), before);
   });
 
   it("records missing-only secret intent before creation and keeps attempt history after full restore", async () => {
