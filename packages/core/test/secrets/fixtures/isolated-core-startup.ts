@@ -5,11 +5,6 @@ import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mock } from "node:test";
-import { defaults } from "@plur1bus/config-schema";
-import { flatTestInternals } from "../../helpers/flat-embedder.ts";
-import { createFileBackend } from "../../../src/secrets/file-backend.ts";
-import { layout } from "../../../src/paths.ts";
-import { secure } from "../helpers.ts";
 
 // The parent owns the watchdog so a synchronous block on this thread cannot stop its timer.
 let sequence = 0;
@@ -28,6 +23,11 @@ process.send!({ event: "ready" });
 // Imports and real Windows ACLs may be slow, but the Core thread must remain responsive.
 const pulse = setInterval(() => process.send!({ event: "pulse" }), 250);
 pulse.unref();
+const { defaults } = await import("@plur1bus/config-schema");
+const { flatTestInternals } = await import("../../helpers/flat-embedder.ts");
+const { createFileBackend } = await import("../../../src/secrets/file-backend.ts");
+const { layout } = await import("../../../src/paths.ts");
+const { secure } = await import("../helpers.ts");
 const [mode, home] = process.argv.slice(2);
 assert.ok(mode && home, "fixture requires mode and a parent-owned home");
 const timedOut = ["default", "injected", "file-hang", "stop-starting", "blocked-control"].includes(mode);

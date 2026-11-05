@@ -29,7 +29,8 @@ function storeBudget(expire: (op: string) => void, now = () => performance.now()
   function record(event: string | undefined, id: number | undefined, op: string | undefined) {
     assert.ok(typeof id === "number" && typeof op === "string" && op.length > 0);
     if (event === "enter") {
-      assert.equal(id, ++lastId, "out-of-order operation");
+      assert.equal(id, lastId + 1, "out-of-order operation");
+      lastId = id;
       if (!open.size) {
         since = now();
         timer = setTimeout(() => expire(active()), remaining);
@@ -69,6 +70,8 @@ test("the Store budget counts nested and disjoint calls and rejects unmatched me
   assert.deepEqual(expired, ["shutdown"]);
   assert.throws(() => budget.record("leave", 3, "wrong"), /unmatched leave/);
   assert.throws(() => budget.record("leave", 4, "shutdown"), /unmatched leave/);
+  assert.throws(() => budget.record("enter", 3, "duplicate"), /out-of-order operation/);
+  assert.throws(() => budget.record("enter", 5, "skipped"), /out-of-order operation/);
 });
 
 async function runFixture(mode: string, env: NodeJS.ProcessEnv, t: TestContext): Promise<string> {
@@ -92,13 +95,19 @@ async function runFixture(mode: string, env: NodeJS.ProcessEnv, t: TestContext):
     failure = error;
     if (!child.pid || child.exitCode !== null || child.signalCode !== null) return;
     const pid = child.pid;
-    termination = (async () => {
-      if (windows) await promisify(execFile)("taskkill.exe", ["/PID", String(pid), "/T", "/F"], { windowsHide: true });
-      else process.kill(-pid, "SIGKILL");
-    })().catch(cause => {
-      // Release our direct child even when the OS refuses tree cleanup. Report that refusal.
-      child.kill("SIGKILL");
-      cleanupError = new Error("could not terminate the fixture process tree", { cause });
+    const killOwnedTree = async () => {
+      if (child.exitCode !== null || child.signalCode !== null) return;
+      if (windows) {
+        const tool = join(process.env.SystemRoot!, "System32", "taskkill.exe");
+        await promisify(execFile)(tool, ["/PID", String(pid), "/T", "/F"], { windowsHide: true });
+      } else process.kill(-pid, "SIGKILL");
+    };
+    termination = killOwnedTree().catch(async first => {
+      try { await killOwnedTree(); }
+      catch (second) {
+        cleanupError = new AggregateError([first, second], "could not terminate the owned fixture tree");
+        child.kill("SIGKILL");
+      }
     });
   }
   const budget = storeBudget(op => fail(new Error("10 s watchdog expired during " + op)));
@@ -132,11 +141,14 @@ async function runFixture(mode: string, env: NodeJS.ProcessEnv, t: TestContext):
     // A signalled process can take a moment to disappear. Never signal a helper by a sampled PID.
     const deadline = performance.now() + 2000;
     while ([...helpers].some(alive) && performance.now() < deadline) await delay(25);
-    assert.ok(![...helpers].some(alive), "an isolated Store helper survived the fixture");
+    const survivors = [...helpers].filter(alive);
+    if (cleanupError || survivors.length) {
+      throw new AggregateError([failure, cleanupError].filter(Boolean),
+        "fixture termination failed; surviving helper PIDs: " + survivors.join(", "));
+    }
     if (mode === "blocked-control") {
       assert.ok(helpers.size > 0 && stdout.includes("synchronous-keyring-entered"), "control did not reach the blocking helper");
     }
-    if (cleanupError) throw new AggregateError([failure, cleanupError], "fixture termination failed");
     if (failure) throw failure;
     assert.equal(code, 0, stderr + stdout);
     assert.ok(ready);
@@ -159,7 +171,8 @@ async function runFixture(mode: string, env: NodeJS.ProcessEnv, t: TestContext):
 }
 
 test("the parent interrupts a blocked Core thread and reaps its helper", { timeout: 120_000 }, async t => {
-  const env = { ...process.env, PLUR1BUS_ALLOW_TEST_INTERNALS: "1" };
+  const env: NodeJS.ProcessEnv = { ...process.env, PLUR1BUS_ALLOW_TEST_INTERNALS: "1" };
+  delete env.PLUR1BUS_SECRETS_KEYRING;
   await assert.rejects(runFixture("blocked-control", env, t), /(?:10 s watchdog expired during |fixture stopped responding: )preloadRedaction/);
 });
 
