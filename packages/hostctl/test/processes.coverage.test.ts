@@ -1,3 +1,5 @@
+import { createSecretRedaction } from '../../core/src/secrets/redaction.ts';
+import { randomBytes } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpBase } from './helpers/tmp.ts';
@@ -84,6 +86,24 @@ describe('start, read and stdin', () => {
     await emitOn(h.children[0].stderr, 'err');
     const read = await h.run.run('read_output', { id }, ctxOf()) as any;
     expect(read.output).toBe('out err');
+  });
+
+  it('withholds the unfinished tail of an owned job until a split secret can be masked', async () => {
+    const secret = randomBytes(12).toString('hex');
+    const live = createSecretRedaction(); live.register(secret);
+    const ctx = ctxOf({ knownSecrets: () => live.snapshot() });
+    const h = harness();
+    const { id } = await h.run.run('start', { program: 'fixture', cwd: root }, ctx) as { id: string };
+    const prefix = 'p'.repeat(live.snapshot().matcher.maxSourceBytes + 8);
+    await emitOn(h.children[0].stdout, prefix + secret.slice(0, 10));
+    const pending = await h.run.run('read_output', { id }, ctx) as { output: string };
+    expect(pending.output.length).toBeGreaterThan(0);
+    expect(/^p+$/.test(pending.output)).toBe(true);
+    await emitOn(h.children[0].stderr, secret.slice(10));
+    h.children[0].emit('close', 0);
+    const done = await h.run.run('read_output', { id }, ctx) as { output: string };
+    expect(done.output === prefix + '[REDACTED:secret]').toBe(true);
+    await h.run.close();
   });
 
   it('caps retained output at output.maxBytes and marks it truncated', async () => {

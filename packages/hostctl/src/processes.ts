@@ -1,12 +1,14 @@
+import { BoundedCapture } from '../../core/src/tools/sandbox/capture.ts';
+import type { ToolRunContext } from '../../core/src/tools/registry.ts';
 import { spawn as nodeSpawn, type ChildProcess, type SpawnOptions } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { fail, integer, string } from './errors.ts';
 import { effectiveCommands, isShellProgram, removesRootBehind, shellCommands } from './command.ts';
 import type { HostctlConfig } from './config.ts';
-export interface RunContext { agentId: string; principal: string; sessionId?: string; signal: AbortSignal; surface?: 0 | 1 | 2 | 3 }
+export type RunContext = Pick<ToolRunContext, 'knownSecrets' | 'agentId' | 'principal' | 'sessionId' | 'signal'> & { surface?: 0 | 1 | 2 | 3 };
 export type Spawn = (program: string, args: string[], options: SpawnOptions) => ChildProcess;
 export interface ProcessOptions { spawn?: Spawn; killTree?: (child: ChildProcess) => Promise<void>; baseEnv?: NodeJS.ProcessEnv }
-interface Job { id: string; owner: string; session: string; child: ChildProcess; output: Buffer; truncated: boolean; timedOut: boolean; terminating: boolean; done: boolean; exitCode: number | null; timer: ReturnType<typeof setTimeout>; finished: Promise<void>; abort: () => void; signal: AbortSignal }
+interface Job { id: string; owner: string; session: string; child: ChildProcess; output: BoundedCapture; timedOut: boolean; terminating: boolean; done: boolean; exitCode: number | null; timer: ReturnType<typeof setTimeout>; finished: Promise<void>; abort: () => void; signal: AbortSignal }
 /** How long output still in flight is read after the leader exited. */
 const DRAIN_MS = 250;
 const owner = (c: RunContext) => JSON.stringify([c.agentId, c.principal, c.sessionId ?? '']);
@@ -20,7 +22,11 @@ export async function killTree(child: ChildProcess): Promise<void> {
 export function processes(config: HostctlConfig, canon: (p: string, access: 'read' | 'write') => Promise<{ canonical: string }>, o: ProcessOptions = {}) {
   const jobs = new Map<string, Job>(); const spawn = o.spawn ?? nodeSpawn; const stop = o.killTree ?? killTree;
   const get = (a: Record<string, unknown>, ctx: RunContext) => { const job = jobs.get(string(a, 'id')); if (!job || job.owner !== owner(ctx)) fail('DENIED', 'Use a process session ID started in this agent session.'); return job; };
-  const result = (j: Job) => ({ id: j.id, pid: j.child.pid, output: j.output.toString('utf8') + (j.truncated ? '\n[OUTPUT TRUNCATED]' : ''), truncated: j.truncated, timedOut: j.timedOut, running: !j.done, exitCode: j.exitCode });
+  const result = (j: Job) => {
+    const output = j.output.text(j.done);
+    const truncated = j.output.truncated;
+    return { id: j.id, pid: j.child.pid, output: output + (truncated ? '\n[OUTPUT TRUNCATED]' : ''), truncated, timedOut: j.timedOut, running: !j.done, exitCode: j.exitCode };
+  };
   const terminate = async (j: Job) => { if (!j.done && !j.terminating) { j.terminating = true; await stop(j.child); } };
   const start = async (a: Record<string, unknown>, ctx: RunContext, shell: boolean) => {
     if ([...jobs.values()].filter(j => !j.done).length >= 32) fail('TOO_LARGE', 'At most 32 processes may run per root pool.');
@@ -50,11 +56,13 @@ export function processes(config: HostctlConfig, canon: (p: string, access: 'rea
       env[key] = value;
     }
     const timeout = integer(a.timeoutMs, config.exec.timeoutMs, config.exec.timeoutMs); if (!timeout) fail('INVALID_ARGUMENT', 'timeoutMs must be positive.');
-    ctx.signal.throwIfAborted(); const child = spawn(program, args, { cwd, env, shell: false, detached: process.platform !== 'win32', windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+    ctx.signal.throwIfAborted();
+    const output = new BoundedCapture(config.output.maxBytes, ctx.knownSecrets);
+    const child = spawn(program, args, { cwd, env, shell: false, detached: process.platform !== 'win32', windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
     let finish!: () => void; const finished = new Promise<void>(resolve => { finish = resolve; });
-    const j: Job = { id: randomUUID(), owner: owner(ctx), session: ctx.sessionId, child, output: Buffer.alloc(0), truncated: false, timedOut: false, terminating: false, done: false, exitCode: null, timer: setTimeout(() => { j.timedOut = true; void terminate(j).catch(() => {}); }, timeout), finished, abort: () => { void terminate(j).catch(() => {}); }, signal: ctx.signal };
+    const j: Job = { id: randomUUID(), owner: owner(ctx), session: ctx.sessionId, child, output, timedOut: false, terminating: false, done: false, exitCode: null, timer: setTimeout(() => { j.timedOut = true; void terminate(j).catch(() => {}); }, timeout), finished, abort: () => { void terminate(j).catch(() => {}); }, signal: ctx.signal };
     jobs.set(j.id, j); j.timer.unref?.(); ctx.signal.addEventListener('abort', j.abort, { once: true });
-    const append = (data: Buffer | string) => { const bytes = Buffer.from(data); const room = config.output.maxBytes - j.output.length; if (bytes.length > room) j.truncated = true; if (room > 0) j.output = Buffer.concat([j.output, bytes.subarray(0, room)]); };
+    const append = (data: Buffer | string) => output.push(typeof data === 'string' ? Buffer.from(data) : data);
     child.stdout?.on('data', append); child.stderr?.on('data', append);
     let drain: ReturnType<typeof setTimeout> | undefined;
     const done = (code: number | null) => {
