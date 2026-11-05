@@ -60,6 +60,16 @@ describe("Dockerfile", () => {
     assert.match(dockerfile, /touch -m -d "@\$\{SOURCE_DATE_EPOCH\}" \/out\/plur1bus/);
   });
 
+  it("passes the source epoch to runtime account creation, independently of the Rust stage", () => {
+    const runtimeStart = lines.findIndex((line) => /^FROM\s.*\sAS runtime$/i.test(line));
+    assert.ok(runtimeStart >= 0, "runtime stage is missing");
+    const runtime = lines.slice(runtimeStart + 1);
+    const accountCreation = runtime.findIndex((line) => /^RUN\s/i.test(line) && /\buseradd\b/.test(line));
+    assert.ok(accountCreation >= 0, "runtime account creation is missing");
+    assert.ok(runtime.slice(0, accountCreation).some((line) => /^ARG SOURCE_DATE_EPOCH(?:=0)?$/.test(line)),
+      "runtime useradd must receive SOURCE_DATE_EPOCH; rewriting file timestamps does not normalize /etc/shadow contents");
+  });
+
   it("has a clean entrypoint", () => {
     const ep = lines.find((l) => /^ENTRYPOINT\s/i.test(l));
     assert.ok(ep);
