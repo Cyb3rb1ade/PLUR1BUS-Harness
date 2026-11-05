@@ -193,10 +193,7 @@ fn the_cli_reaches_a_real_core_as_a_person_import_export_and_rollback() {
     let peers: Vec<_> = children
         .iter()
         .filter_map(|child| child["pid"].as_u64())
-        .map(|pid| {
-            let pid = u32::try_from(pid).unwrap();
-            (pid, plur1bus_rpc::process::incarnation_of(pid).unwrap())
-        })
+        .map(|pid| u32::try_from(pid).unwrap())
         .collect();
     supervisor
         .client
@@ -206,9 +203,8 @@ fn the_cli_reaches_a_real_core_as_a_person_import_export_and_rollback() {
         supervisor.process.child.try_wait().unwrap().is_some()
     });
     common::wait_until("owned peers exited", Duration::from_secs(5), || {
-        peers.iter().all(|(pid, birth)| {
-            use plur1bus_rpc::process::{alive, incarnation_of, Liveness};
-            alive(*pid) == Liveness::Gone || incarnation_of(*pid).is_ok_and(|now| &now != birth)
-        })
+        peers
+            .iter()
+            .all(|&pid| plur1bus_rpc::process::alive(pid) == plur1bus_rpc::process::Liveness::Gone)
     });
 }
