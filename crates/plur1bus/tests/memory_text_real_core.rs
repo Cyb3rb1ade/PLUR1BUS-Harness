@@ -25,6 +25,26 @@ fn cli(home: &Path, args: &[&str]) -> (i32, Value, String) {
     )
 }
 
+struct TestSupervisor {
+    process: common::Supervisor,
+    client: plur1bus_rpc::Client,
+}
+
+impl Drop for TestSupervisor {
+    fn drop(&mut self) {
+        if matches!(self.process.child.try_wait(), Ok(None)) {
+            let _ = self.client.call("daemon.stop", json!({"budgetMs": 5000}));
+            let deadline = std::time::Instant::now() + Duration::from_secs(10);
+            while std::time::Instant::now() < deadline
+                && matches!(self.process.child.try_wait(), Ok(None))
+            {
+                std::thread::sleep(Duration::from_millis(20));
+            }
+        }
+        // The owned Supervisor handles any remaining process after this graceful stop attempt.
+    }
+}
+
 #[test]
 fn the_cli_reaches_a_real_core_as_a_person_import_export_and_rollback() {
     let dir = tempfile::tempdir().unwrap();
@@ -83,10 +103,12 @@ fn the_cli_reaches_a_real_core_as_a_person_import_export_and_rollback() {
             ("PLUR1BUS_TEST_INTERNALS", "flat-embedder"),
         ],
     );
-    let mut guard = supervisor;
-    let mut supervisor = common::client(&home);
+    let mut supervisor = TestSupervisor {
+        process: supervisor,
+        client: common::client(&home),
+    };
     common::wait_child(
-        &mut supervisor,
+        &mut supervisor.client,
         "real core ready",
         Duration::from_secs(60),
         |child| child["process"]["state"] == "ready",
@@ -163,11 +185,19 @@ fn the_cli_reaches_a_real_core_as_a_person_import_export_and_rollback() {
 
     // Use the authenticated shutdown path and verify the actual native peers of this test home.
     // The shared Supervisor guard also cleans up on panic.
-    let peers = common::owned_children::peers(&home);
-    assert!(!peers.is_empty(), "expected the running Core peer");
-    supervisor.call("daemon.stop", json!({})).unwrap();
+    let record = std::fs::read_to_string(home.join("run/core.pid")).unwrap();
+    let core_pid: u32 = record.split_whitespace().next().unwrap().parse().unwrap();
+    let mut peers = Vec::new();
+    common::wait_until("verified Core peer", common::WAIT, || {
+        peers = common::owned_children::peers(&home);
+        peers.iter().any(|(pid, _)| *pid == core_pid)
+    });
+    supervisor
+        .client
+        .call("daemon.stop", json!({"budgetMs": 5000}))
+        .unwrap();
     common::wait_until("supervisor exited", Duration::from_secs(15), || {
-        guard.child.try_wait().unwrap().is_some()
+        supervisor.process.child.try_wait().unwrap().is_some()
     });
     common::wait_until("owned peers exited", Duration::from_secs(5), || {
         peers.iter().all(|(pid, birth)| {
