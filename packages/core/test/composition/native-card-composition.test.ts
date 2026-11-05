@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { chmod, copyFile, link, readFile, stat, symlink, unlink } from 'node:fs/promises';
+import { chmod, copyFile, link, readFile, stat, symlink, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { composeTools } from '../../src/composition/tools.ts';
@@ -138,7 +138,7 @@ test('held native file tools reject a different executing agent or principal', a
   } finally { b.close(); }
 });
 
-if (process.platform === 'darwin' || process.platform === 'linux') test('the native sandbox refuses a new hardlink from read-only Git metadata into its writable card', async () => {
+if (process.platform === 'darwin' || process.platform === 'linux') test('the native sandbox refuses a new hardlink from read-only Git metadata into its writable card', async t => {
   const b = await composed();
   try {
     const config = join(b.store.liveWorktree(b.project.id, b.card.id)!.commonGitDir!, 'config');
@@ -150,7 +150,9 @@ if (process.platform === 'darwin' || process.platform === 'linux') test('the nat
     await unlink(alias);
     const program = '/usr/bin/perl';
     const registry = await composeTools({ ...b.options, exec: { mode: 'allowlist', allowlist: [{ program }] } }, b.request);
-    const code = `
+    // Perl -e opens /dev/null before executing user code. Its Linux device bind is read-only.
+    const script = join(b.tree.path, 'probe-hardlink.pl');
+    await writeFile(script, `
       use Errno qw(EXDEV EROFS EPERM EACCES);
       open(my $src, "<", $ARGV[1]) or die "metadata:$!";
       close($src);
@@ -160,22 +162,23 @@ if (process.platform === 'darwin' || process.platform === 'linux') test('the nat
       if (!link($ARGV[1], $ARGV[2])) {
         my $errno = 0 + $!;
         die "unexpected link errno $errno" unless grep { $_ == $errno } (EXDEV, EROFS, EPERM, EACCES);
-        print "LINK_DENIED";
+        print "LINK_DENIED:$errno";
         exit 0;
       }
       open(my $out, ">>", $ARGV[2]) or die "alias:$!";
       print $out "# fixture-hardlink-write";
       close($out);
       print "LINK_WRITE_SUCCEEDED";
-    `;
+    `, { flag: 'wx', mode: 0o600 });
     const result = await b.dispatcher(registry).call({ id: 'hardlink', name: 'exec.run',
-      args: { program, args: ['-e', code, own, config, alias], cwd: b.tree.path } }, b.context);
+      args: { program, args: [script, own, config, alias], cwd: b.tree.path } }, b.context);
     assert.equal(result.isError, false, JSON.stringify(result));
-    assert.equal(existsSync(own), true, 'positive native write must execute before the attempted link');
     const value = result.value as ExecResult & { sandboxed: boolean };
     assert.equal(value.exitCode, 0, value.stderr);
+    assert.equal(await readFile(own, 'utf8'), 'fixture', 'positive native write must execute before the attempted link');
     assert.equal(value.sandboxed, true);
-    assert.equal(value.stdout, 'LINK_DENIED');
+    assert.match(value.stdout, /^LINK_DENIED:\d+$/);
+    t.diagnostic(value.stdout);
     assert.equal(existsSync(alias), false);
     assert.equal(await readFile(config, 'utf8'), original);
   } finally { b.close(); }
