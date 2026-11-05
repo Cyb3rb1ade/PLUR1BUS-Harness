@@ -19,6 +19,58 @@ function alive(pid: number): boolean {
   catch (error) { if ((error as NodeJS.ErrnoException).code === "ESRCH") return false; throw error; }
 }
 
+// Charge the union of open calls once. A nested call must neither reset nor double-charge the clock.
+function storeBudget(expire: (op: string) => void, now = () => performance.now()) {
+  const open = new Map<number, string>();
+  const phases = new Set<string>();
+  let lastId = 0, remaining = watchdogMs, since = 0;
+  let timer: NodeJS.Timeout | undefined;
+  const active = () => [...open.values()].join(", ");
+  function record(event: string | undefined, id: number | undefined, op: string | undefined) {
+    assert.ok(typeof id === "number" && typeof op === "string" && op.length > 0);
+    if (event === "enter") {
+      assert.equal(id, ++lastId, "out-of-order operation");
+      if (!open.size) {
+        since = now();
+        timer = setTimeout(() => expire(active()), remaining);
+      }
+      open.set(id, op);
+      phases.add(op);
+    } else {
+      assert.equal(event, "leave");
+      assert.equal(open.get(id), op, "unmatched leave");
+      open.delete(id);
+      if (!open.size) {
+        clearTimeout(timer);
+        remaining -= now() - since;
+        if (remaining <= 0) expire(op);
+      }
+    }
+  }
+  return { record, active, phases, close: () => clearTimeout(timer) };
+}
+
+test("the Store budget counts nested and disjoint calls and rejects unmatched messages", t => {
+  t.mock.timers.enable({ apis: ["setTimeout", "Date"], now: 100 });
+  const expired: string[] = [];
+  const budget = storeBudget(op => expired.push(op), Date.now);
+  t.after(budget.close);
+  budget.record("enter", 1, "preload");
+  t.mock.timers.tick(3000);
+  budget.record("enter", 2, "status");
+  t.mock.timers.tick(2000);
+  budget.record("leave", 2, "status");
+  budget.record("leave", 1, "preload");
+  t.mock.timers.tick(20_000);
+  budget.record("enter", 3, "shutdown");
+  t.mock.timers.tick(4999);
+  assert.deepEqual(expired, []);
+  t.mock.timers.tick(1);
+  assert.deepEqual(expired, ["shutdown"]);
+  assert.throws(() => budget.record("leave", 3, "wrong"), /unmatched leave/);
+  assert.throws(() => budget.record("leave", 4, "shutdown"), /unmatched leave/);
+});
+
 async function runFixture(mode: string, env: NodeJS.ProcessEnv, t: TestContext): Promise<string> {
   const home = await mkdtemp(join(tmpdir(), "p1b-isolated-startup-"));
   t.after(() => rm(home, { recursive: true, force: true, maxRetries: 5 }));
@@ -31,10 +83,9 @@ async function runFixture(mode: string, env: NodeJS.ProcessEnv, t: TestContext):
   child.stdout!.setEncoding("utf8").on("data", (text: string) => { stdout += text; });
   child.stderr!.setEncoding("utf8").on("data", (text: string) => { stderr += text; });
   const helpers = new Set<number>();
-  const open = new Map<number, string>();
-  const phases = new Set<string>();
-  let ready = false, lastId = 0, remaining = watchdogMs, since = 0;
+  let ready = false;
   let failure: Error | undefined;
+  let cleanupError: Error | undefined;
   let termination: Promise<void> | undefined;
   function fail(error: Error) {
     if (failure) return;
@@ -47,12 +98,14 @@ async function runFixture(mode: string, env: NodeJS.ProcessEnv, t: TestContext):
     })().catch(cause => {
       // Release our direct child even when the OS refuses tree cleanup. Report that refusal.
       child.kill("SIGKILL");
-      failure = new Error("could not terminate the fixture process tree", { cause });
+      cleanupError = new Error("could not terminate the fixture process tree", { cause });
     });
   }
-  const expire = () => fail(new Error("10 s watchdog expired during " + [...open.values()].join(", ")));
+  const budget = storeBudget(op => fail(new Error("10 s watchdog expired during " + op)));
   const abort = () => fail(new Error("fixture aborted by test runner"));
-  let timer = setTimeout(expire, watchdogMs);
+  const heartbeat = setTimeout(() => fail(new Error("fixture stopped responding: " + budget.active())), watchdogMs);
+  // POSIX also keeps the original whole-fixture limit; every OS exercises the Store budget.
+  const totalTimer = windows ? undefined : setTimeout(() => fail(new Error("10 s watchdog expired during " + budget.active())), watchdogMs);
   t.signal.addEventListener("abort", abort, { once: true });
   child.on("message", (message: { event?: string; op?: string; id?: number; pid?: number }) => {
     if (failure) return;
@@ -61,33 +114,20 @@ async function runFixture(mode: string, env: NodeJS.ProcessEnv, t: TestContext):
       if (!ready) {
         assert.equal(event, "ready", "missing fixture handshake");
         ready = true;
-        if (windows) clearTimeout(timer);
+        heartbeat.refresh();
+      } else if (event === "pulse") {
+        heartbeat.refresh();
       } else if (event === "helper") {
         assert.ok(typeof pid === "number" && Number.isSafeInteger(pid) && pid > 0);
         helpers.add(pid);
-      } else {
-        assert.ok(typeof id === "number" && typeof op === "string" && op.length > 0);
-        if (event === "enter") {
-          assert.equal(id, ++lastId, "out-of-order operation");
-          if (windows && open.size === 0) { since = performance.now(); timer = setTimeout(expire, remaining); }
-          open.set(id, op);
-          phases.add(op);
-        } else {
-          assert.equal(event, "leave");
-          assert.equal(open.get(id), op, "unmatched leave");
-          open.delete(id);
-          if (windows && open.size === 0) {
-            clearTimeout(timer);
-            remaining -= performance.now() - since;
-            if (remaining <= 0) fail(new Error("10 s watchdog expired during " + op));
-          }
-        }
-      }
+      } else budget.record(event, id, op);
     } catch (error) { fail(error as Error); }
   });
   try {
     const [code] = await closed;
-    clearTimeout(timer);
+    budget.close();
+    clearTimeout(heartbeat);
+    clearTimeout(totalTimer);
     await termination;
     // A signalled process can take a moment to disappear. Never signal a helper by a sampled PID.
     const deadline = performance.now() + 2000;
@@ -96,30 +136,31 @@ async function runFixture(mode: string, env: NodeJS.ProcessEnv, t: TestContext):
     if (mode === "blocked-control") {
       assert.ok(helpers.size > 0 && stdout.includes("synchronous-keyring-entered"), "control did not reach the blocking helper");
     }
+    if (cleanupError) throw new AggregateError([failure, cleanupError], "fixture termination failed");
     if (failure) throw failure;
     assert.equal(code, 0, stderr + stdout);
     assert.ok(ready);
-    assert.equal(open.size, 0);
-    const expected = ["shutdown"];
-    if (mode === "stop-before-store") expected.push("source-ready");
-    else {
+    assert.equal(budget.active(), "");
+    const expected = ["seed", "shutdown"];
+    if (mode !== "stop-before-store") {
       expected.push("construct");
-      if (!mode.startsWith("ungated-")) expected.push("preload");
+      if (!mode.startsWith("ungated-")) expected.push("preloadRedaction");
     }
-    if (mode === "stop-starting") expected.push("io-entered");
     if (mode === "test-internals") expected.push("status");
     if (["default", "injected", "file-hang"].includes(mode)) expected.push("status", "reveal", "lease");
-    for (const op of expected) assert.ok(phases.has(op), "fixture missed " + op);
+    for (const op of expected) assert.ok(budget.phases.has(op), "fixture missed " + op);
     return stdout;
   } finally {
-    clearTimeout(timer);
+    budget.close();
+    clearTimeout(heartbeat);
+    clearTimeout(totalTimer);
     t.signal.removeEventListener("abort", abort);
   }
 }
 
 test("the parent interrupts a blocked Core thread and reaps its helper", { timeout: 120_000 }, async t => {
   const env = { ...process.env, PLUR1BUS_ALLOW_TEST_INTERNALS: "1" };
-  await assert.rejects(runFixture("blocked-control", env, t), /10 s watchdog expired during preload/);
+  await assert.rejects(runFixture("blocked-control", env, t), /(?:10 s watchdog expired during |fixture stopped responding: )preloadRedaction/);
 });
 
 for (const mode of ["default", "injected", "file-hang"]) test(`Core ${mode} startup survives synchronously blocked Store I/O and discards unsafe diagnostics`, { timeout: 120_000 }, async t => {

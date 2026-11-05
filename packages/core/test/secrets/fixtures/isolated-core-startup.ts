@@ -25,7 +25,11 @@ async function watchStore<T>(op: string, operation: () => Promise<T>): Promise<T
 }
 
 process.send!({ event: "ready" });
+// Imports and real Windows ACLs may be slow, but the Core thread must remain responsive.
+const pulse = setInterval(() => process.send!({ event: "pulse" }), 250);
+pulse.unref();
 const [mode, home] = process.argv.slice(2);
+assert.ok(mode && home, "fixture requires mode and a parent-owned home");
 const timedOut = ["default", "injected", "file-hang", "stop-starting", "blocked-control"].includes(mode);
 const secret = randomUUID();
 let sourceEntered!: () => void, releaseSource!: () => void;
@@ -39,7 +43,7 @@ config.engine = { neo: { enabled: false }, gc: { enabled: false }, dreaming: { e
   skillMiner: { enabled: false }, reranker: { enabled: false }, merging: { enabled: false },
   temporalContext: { enabled: false }, conversationReactivationRecall: { enabled: false }, obsidianBridge: { enabled: false } };
 writeFileSync(join(home, "config.json"), JSON.stringify(config));
-await createFileBackend({ dir: layout(home).secrets, secure }).put("startup.only", secret, new Date());
+await watchStore("seed", () => createFileBackend({ dir: layout(home).secrets, secure }).put("startup.only", secret, new Date()));
 const configSource = await import("../../../src/config-source.ts");
 mock.module(new URL("../../../src/config-source.ts", import.meta.url).href, { namedExports: {
   ...configSource,
@@ -105,8 +109,21 @@ mock.module(new URL("../../../src/secrets/runtime.ts", import.meta.url).href, { 
         },
       } } as Parameters<typeof runtime.createCoreSecretStore>[0]);
     } finally { leave(); }
-    const preload = store.preloadRedaction.bind(store);
-    store.preloadRedaction = () => watchStore("preload", preload);
+    store = new Proxy(store, {
+      get(target, name, receiver) {
+        const member: unknown = Reflect.get(target, name, receiver);
+        if (typeof member !== "function") return member;
+        return (...args: unknown[]) => {
+          const finish = enter(String(name));
+          try {
+            const result: unknown = Reflect.apply(member, target, args);
+            if (result instanceof Promise) return result.finally(finish);
+            finish();
+            return result;
+          } catch (error) { finish(); throw error; }
+        };
+      },
+    });
     return store;
   },
 } });
@@ -131,7 +148,7 @@ const stop = () => watchStore("shutdown", () => core.stop({ budgetMs: 2000 }));
 try {
   if (mode === "stop-before-store") {
     const rejected = assert.rejects(core.start(), /core stopping/);
-    await watchStore("source-ready", () => sourceReady);
+    await sourceReady;
     await stop();
     releaseSource();
     await rejected;
@@ -143,7 +160,7 @@ try {
     process.stdout.write("startup-refusal-cleaned\n");
   } else if (mode === "stop-starting") {
     const rejected = assert.rejects(core.start(), /core stopping/);
-    await watchStore("io-entered", () => ioEntered);
+    await ioEntered;
     await stop();
     await rejected;
     for (const child of children) assert.notEqual(child.exitCode ?? child.signalCode, null, "stop during startup left a helper alive");
@@ -156,22 +173,21 @@ try {
     process.stdout.write("startup-refusal-cleaned\n");
   } else if (mode === "test-internals") {
     await core.start();
-    assert.equal((await watchStore("status", () => store!.status({ kind: "core" }))).backend, "keyring");
+    assert.equal((await store!.status({ kind: "core" })).backend, "keyring");
     assert.equal(children.length, 0);
     process.stdout.write("test-internals-memory\n");
   } else {
     await core.start();
-    const status = await watchStore("status", () => store!.status({ kind: "core" }));
+    const status = await store!.status({ kind: "core" });
     assert.equal(status.backend, "none");
     assert.equal(status.count, null);
     assert.equal(status.activeLeases, 0);
     const unavailable = (error: unknown) => (error as { code?: string }).code === "backend-unavailable";
-    await assert.rejects(watchStore("reveal", () => store!.reveal({ kind: "owner" }, "startup.only")), unavailable);
-    await assert.rejects(watchStore("lease", () => store!.lease({ kind: "core" }, "startup.only",
-      { purpose: "test", profileId: "test" })), unavailable);
+    await assert.rejects(store!.reveal({ kind: "owner" }, "startup.only"), unavailable);
+    await assert.rejects(store!.lease({ kind: "core" }, "startup.only", { purpose: "test", profileId: "test" }), unavailable);
     assert.ok(["ready", "degraded"].includes(core.status().process.state));
     await stop();
-    await provided?.close();
+    if (provided) await watchStore("log-close", () => provided.close());
     const text = readdirSync(join(home, "logs")).filter(name => name.endsWith(".log"))
       .map(name => readFileSync(join(home, "logs", name), "utf8")).join("\n");
     assert.ok(text.includes("Secret-Store unavailable"));
@@ -182,6 +198,7 @@ try {
   }
 } finally {
   await stop();
-  await provided?.close();
+  if (provided) await watchStore("log-close", () => provided.close());
+  clearInterval(pulse);
   for (const child of children) child.kill("SIGKILL");
 }
