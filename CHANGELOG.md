@@ -8,6 +8,12 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Added
 
+- **Three bundled skills for planning and research.** `project-kickoff` starts a project or a larger work package with the
+  Disney strategy and backcasting: bound decisions first, a target with success signs, milestones including a verification
+  step, a first order card, risks and bundled owner decisions. `quick-research` answers a factual or current question
+  from a few primary sources with citations and a stated confidence. `deep-research` plans sub-questions, uses up to three
+  parallel readers, triangulates key claims, runs a verification pass and writes a cited report.
+
 - **Outbound A2A peer client (RPC 1.12.0).** Owner-managed `a2a.peer.*` methods register, list, trust and remove remote
   peers; `a2aClient.*` settings control the opt-in client. Explicitly trusted `a2a:<id>` targets support consultation and
   delegation through the existing permission, egress and budget gates. Collaboration storage advances to schema v5;
