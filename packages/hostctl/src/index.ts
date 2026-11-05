@@ -86,7 +86,7 @@ export function createHostctl(o: Options) {
       for (const key of description.required) if (a[key] === undefined) fail('INVALID_ARGUMENT', `${key} is required.`);
       for (const key of Object.keys(a)) if (!(key in description.properties)) fail('INVALID_ARGUMENT', `Unknown argument: ${key}.`);
       ctx.signal.throwIfAborted(); let value: unknown;
-      if (op.startsWith('fs.')) value = await fs.run(op.slice(3), a, ctx.signal);
+      if (op.startsWith('fs.')) value = await fs.run(op.slice(3), a, ctx.signal, ctx.knownSecrets);
       else if (op === 'proc.kill_foreign') { const pid = a.pid; if (typeof pid !== 'number' || !Number.isSafeInteger(pid) || pid < 2 || pid === process.pid || pid === process.ppid || pid === ownPgid()) fail('DENIED', 'Use a foreign PID greater than 1 that is not the harness, its supervisor or its process group.'); (o.killForeign ?? (pid => process.kill(pid, 'SIGTERM')))(pid); value = { signalled: true }; }
       else if (op.startsWith('proc.')) value = await proc.run(op.slice(5), a, ctx);
       else if (op === 'sys.info') {
@@ -102,7 +102,7 @@ export function createHostctl(o: Options) {
         await native.open(target, ctx.signal); value = { opened: true };
       } else {
         const tool = getHostTool(op); if (!tool) fail('UNAVAILABLE', 'Native operation unavailable.');
-        value = await tool.run(a, { ...(o.host ?? createNodeHostContext()), signal: ctx.signal, timeoutMs: config.exec.timeoutMs, maxOutputBytes: config.output.maxBytes });
+        value = await tool.run(a, { ...(o.host ?? createNodeHostContext()), ...(ctx.knownSecrets ? { knownSecrets: ctx.knownSecrets } : {}), signal: ctx.signal, timeoutMs: config.exec.timeoutMs, maxOutputBytes: config.output.maxBytes });
       }
       if (value && typeof value === 'object' && 'id' in value && typeof value.id === 'string' && /^[a-f0-9-]{36}$/.test(value.id)) processId = value.id;
       if (value && typeof value === 'object' && 'pid' in value && typeof value.pid === 'number') pid = value.pid;
