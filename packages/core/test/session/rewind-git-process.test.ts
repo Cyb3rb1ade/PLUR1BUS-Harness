@@ -1,6 +1,7 @@
 /** Checkpoint Git promises own the actual child until close, including cancellation and forced termination. */
 import assert from "node:assert/strict";
-import { constants, copyFileSync, linkSync, mkdirSync, mkdtempSync, readFileSync, rmSync, watch, writeFileSync } from "node:fs";
+import { constants, copyFileSync, linkSync, mkdirSync, mkdtempSync, readFileSync, watch, writeFileSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { test, type TestContext } from "node:test";
@@ -18,8 +19,8 @@ process.on('SIGTERM',()=>send('term'));
 send('ready');setInterval(()=>{},60000);
 `);
   const cancel = new AbortController();
-  let pid: number | undefined;
-  const watchers: ReturnType<typeof watch>[] = [];
+  let pending: Promise<string> | undefined;
+  const watchers: { handle: ReturnType<typeof watch>; closed: Promise<void> }[] = [];
   function marker(name: string) {
     return new Promise<number>((resolve, reject) => {
       const watcher = watch(root, (_event, filename) => {
@@ -27,30 +28,41 @@ send('ready');setInterval(()=>{},60000);
         try { const value = Number(readFileSync(join(root, name), "utf8")); watcher.close(); resolve(value); }
         catch (error) { reject(error); }
       });
-      watcher.on("error", reject); watchers.push(watcher);
+      watcher.on("error", reject);
+      watchers.push({ handle: watcher, closed: new Promise(resolve => watcher.once("close", resolve)) });
     });
   }
-  const ready = marker("ready"), terminated = marker("term");
   const options = { signal: cancel.signal, env: { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH ?? ""}`, CX_GIT_FIXTURE: root } };
-  t.after(() => {
+  function startSlowGit() {
+    const ready = marker("ready");
+    const terminated = process.platform === "win32" ? undefined : marker("term");
+    pending = checkpointGitProcess([script], options);
+    return { ready, terminated, pending };
+  }
+  t.after(async () => {
     cancel.abort();
-    if (pid !== undefined) { try { process.kill(pid, "SIGKILL"); } catch {} }
-    for (const watcher of watchers) watcher.close();
-    rmSync(root, { recursive: true, force: true });
+    if (pending) {
+      // The two slow-child tests use a mock clock. Release its kill grace even on assertion failure.
+      t.mock.timers.tick(1000);
+      await pending.catch(() => {});
+    }
+    for (const watcher of watchers) watcher.handle.close();
+    await Promise.all(watchers.map(watcher => watcher.closed));
+    await rm(root, { recursive: true, force: true, maxRetries: 3 });
   });
-  return { script, options, cancel, terminated, ready: async () => { pid = await ready; return pid; } };
+  return { script, options, cancel, startSlowGit };
 }
 
 test("aborted checkpoint Git waits for its real child to close before rejecting", { timeout: 10_000 }, async t => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const r = fixture(t);
   let settled = false;
-  const pending = checkpointGitProcess([r.script], r.options);
+  const { pending, ready, terminated } = r.startSlowGit();
   void pending.then(() => { settled = true; }, () => { settled = true; });
-  const pid = await r.ready();
+  const pid = await ready;
   r.cancel.abort();
   if (process.platform !== "win32") {
-    await r.terminated;
+    await terminated;
     assert.equal(settled, false, "SIGTERM acknowledgement is not process completion");
     t.mock.timers.tick(1_000);
   }
@@ -62,12 +74,12 @@ test("checkpoint Git timeout terminates and reaps a child that resists SIGTERM",
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const r = fixture(t);
   let settled = false;
-  const pending = checkpointGitProcess([r.script], r.options);
+  const { pending, ready, terminated } = r.startSlowGit();
   void pending.then(() => { settled = true; }, () => { settled = true; });
-  const pid = await r.ready();
+  const pid = await ready;
   t.mock.timers.tick(30_000);
   if (process.platform !== "win32") {
-    await r.terminated;
+    await terminated;
     assert.equal(settled, false);
     t.mock.timers.tick(1_000);
   }
