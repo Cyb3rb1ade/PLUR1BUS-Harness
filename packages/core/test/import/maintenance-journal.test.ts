@@ -1,4 +1,7 @@
 /** GUI maintenance must recover from durable metadata, without credential values or caller-chosen file paths. */
+import { once } from "node:events";
+import { Worker } from "node:worker_threads";
+import { _testFsAtomicHooks } from "../../src/import/fs-atomic.ts";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, lstatSync, mkdirSync, writeFileSync, symlinkSync } from "node:fs";
@@ -33,6 +36,28 @@ describe("import maintenance journal", () => {
     if (process.platform !== "win32") {
       assert.equal(lstatSync(join(home, "imports", RUN)).mode & 0o777, 0o700);
       assert.equal(lstatSync(join(home, "imports", RUN, "maintenance.json")).mode & 0o777, 0o600);
+    }
+  });
+
+  it("publishes the next checkpoint while a concurrent status reader finishes reading the old one", async () => {
+    const api = await factory();
+    const home = temp(), journal = api.openMaintenanceJournal(home, RUN);
+    const reader = new Worker(`
+      const { openSync, closeSync } = require("node:fs");
+      const { parentPort, workerData } = require("node:worker_threads");
+      const fd = openSync(workerData, "r");
+      parentPort.once("message", () => setTimeout(() => closeSync(fd), 300));
+      parentPort.postMessage("reading");
+    `, { eval: true, execArgv: [], workerData: join(home, "imports", RUN, "maintenance.json") });
+    try {
+      await once(reader, "message");
+      _testFsAtomicHooks.beforeRename = () => reader.postMessage("publishing");
+      journal.advance("snapshotting");
+      assert.deepEqual(api.readMaintenanceJournal(home, RUN).history.map(entry => entry.phase),
+        ["prepared", "snapshotting"]);
+    } finally {
+      _testFsAtomicHooks.beforeRename = undefined;
+      await reader.terminate();
     }
   });
 

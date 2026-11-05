@@ -4,6 +4,7 @@ import { isAbsolute, join } from "node:path";
 import { createSecurePath } from "@plur1bus/module-api";
 import { isSecretName } from "../secrets/types.ts";
 import { writeAtomicSync } from "./fs-atomic.ts";
+import { retrySync } from "./fs-retry.ts";
 import { readSourceTextSafe } from "./fs-safe.ts";
 import { ImportError } from "./types.ts";
 import type { MaintenanceCheckpoint, MaintenanceHistory, MaintenanceJournal, MaintenancePhase,
@@ -138,10 +139,13 @@ export function openMaintenanceJournal(home: string, runId: string, now: () => D
     const checked = validate(next, runId);
     const bytes = `${JSON.stringify(checked)}\n`;
     if (Buffer.byteLength(bytes) > MAX_JOURNAL_BYTES) fail("maintenance-journal-limit");
-    const info = lstatSync(file, { throwIfNoEntry: false });
-    if (!info?.isFile() || info.isSymbolicLink()) fail("maintenance-path-unsafe");
-    maintenanceRunDirectory(home, runId);
-    writeAtomicSync(file, bytes, 0o600);
+    // An open status reader can temporarily prevent replacing the journal on Windows.
+    retrySync(() => {
+      maintenanceRunDirectory(home, runId);
+      const info = lstatSync(file, { throwIfNoEntry: false });
+      if (!info?.isFile() || info.isSymbolicLink()) fail("maintenance-path-unsafe");
+      writeAtomicSync(file, bytes, 0o600);
+    });
     state = checked;
   }
   function nextHistory(phase: MaintenancePhase, reason?: MaintenanceReason, attempt = state.attempt) {
