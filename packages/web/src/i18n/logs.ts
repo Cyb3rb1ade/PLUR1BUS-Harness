@@ -67,6 +67,7 @@ export const en = {
   // log viewer: live tail
   "logs.tail.pause": "Pause live tail",
   "logs.tail.statusLabel": "Live tail",
+  "logs.tail.starting": "Connecting…",
   "logs.tail.live": "Live",
   "logs.tail.paused": "Paused",
   "logs.tail.retrying": "Reconnecting…",
@@ -160,6 +161,7 @@ export const de: Record<keyof typeof en, string> = {
   "logs.unavailable.title": "Protokolle sind nicht verfügbar",
   "logs.tail.pause": "Live-Verfolgung pausieren",
   "logs.tail.statusLabel": "Live-Verfolgung",
+  "logs.tail.starting": "Verbindung wird aufgebaut …",
   "logs.tail.live": "Live",
   "logs.tail.paused": "Pausiert",
   "logs.tail.retrying": "Verbindung wird erneuert …",
