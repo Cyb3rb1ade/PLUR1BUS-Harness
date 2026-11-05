@@ -4,6 +4,7 @@ import { isAbsolute, join } from "node:path";
 import { createSecurePath } from "@plur1bus/module-api";
 import { isSecretName } from "../secrets/types.ts";
 import { writeAtomicSync } from "./fs-atomic.ts";
+import { retrySync } from "./fs-retry.ts";
 import { readSourceTextSafe } from "./fs-safe.ts";
 import { ImportError } from "./types.ts";
 import type { MaintenanceCheckpoint, MaintenanceHistory, MaintenanceJournal, MaintenancePhase,
@@ -12,6 +13,7 @@ import type { MaintenanceCheckpoint, MaintenanceHistory, MaintenanceJournal, Mai
 const RUN = /^[A-Za-z0-9_-]{1,64}$(?![\s\S])/;
 const HASH = /^[a-f0-9]{64}$(?![\s\S])/;
 const MAX_JOURNAL_BYTES = 256 * 1024;
+const JOURNAL_REPLACE_RETRY_MS = 2_000;
 const MAX_HISTORY = 256;
 const MAX_SECRETS = 256;
 const PHASES: MaintenancePhase[] = ["prepared", "snapshotting", "snapshot-complete", "applying",
@@ -138,10 +140,14 @@ export function openMaintenanceJournal(home: string, runId: string, now: () => D
     const checked = validate(next, runId);
     const bytes = `${JSON.stringify(checked)}\n`;
     if (Buffer.byteLength(bytes) > MAX_JOURNAL_BYTES) fail("maintenance-journal-limit");
-    const info = lstatSync(file, { throwIfNoEntry: false });
-    if (!info?.isFile() || info.isSymbolicLink()) fail("maintenance-path-unsafe");
+    // An open status reader can temporarily prevent replacing the journal on Windows.
     maintenanceRunDirectory(home, runId);
-    writeAtomicSync(file, bytes, 0o600);
+    retrySync(() => {
+      maintenanceRunDirectory(home, runId, { create: false });
+      const info = lstatSync(file, { throwIfNoEntry: false });
+      if (!info?.isFile() || info.isSymbolicLink()) fail("maintenance-path-unsafe");
+      writeAtomicSync(file, bytes, 0o600);
+    }, { totalMs: JOURNAL_REPLACE_RETRY_MS });
     state = checked;
   }
   function nextHistory(phase: MaintenancePhase, reason?: MaintenanceReason, attempt = state.attempt) {

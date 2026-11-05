@@ -186,6 +186,25 @@ export async function readColdBytes(path: string, maximum: number): Promise<Buff
   }
 }
 
+/** The tools service keeps its lock while Core is stopped. Older authenticated root bindings predate this lock. */
+export function preservedPaths(root: MutationRoot): readonly string[] {
+  const declared = root.preserve ?? [];
+  return root.id === "state" && root.kind === "directory" ? [...declared, "tools/instance.lock"] : declared;
+}
+
+/** Reject another spelling of the reserved name only when this volume resolves it to the same entry. */
+export async function checkToolsSpelling(root: MutationRoot, path: string): Promise<void> {
+  if (root.id !== "state" || root.kind !== "directory") return;
+  const lower = path.toLowerCase();
+  if (path === lower || (lower !== "tools" && lower !== "tools/instance.lock")) return;
+  const info = async (relative: string) => lstat(join(root.path, relative), { bigint: true }).catch(error => {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw error;
+  });
+  const [actual, canonical] = await Promise.all([info(path), info(lower)]);
+  if (actual && canonical && actual.dev === canonical.dev && actual.ino === canonical.ino) throw coldUnavailable();
+}
+
 export async function scanMutationRoot(root: MutationRoot, options: {
   signal?: AbortSignal | undefined;
   file?: ((full: string, relative: string) => Promise<{ sha256: string; size: number }>) | undefined;
@@ -200,17 +219,23 @@ export async function scanMutationRoot(root: MutationRoot, options: {
   }
   if (root.kind === "directory" ? !stat.isDirectory() : !stat.isFile()) throw coldUnavailable();
   const entries: ColdEntry[] = [];
-  const preserved = (path: string) => root.preserve?.some(keep => path === keep || path.startsWith(keep + "/"));
+  const keepPaths = preservedPaths(root);
+  const preserved = (path: string) => keepPaths.some(keep => path === keep || path.startsWith(keep + "/"));
   const walk = async (full: string, path: string, depth: number): Promise<void> => {
     options.signal?.throwIfAborted();
     if (preserved(path)) return;
+    await checkToolsSpelling(root, path);
     if (depth > 64 || entries.length >= 100_000) throw coldUnavailable();
     const current = await lstat(full);
     if (current.isSymbolicLink()) throw coldUnavailable();
     if (current.isDirectory()) {
+      const prior = entries.length;
       if (path) entries.push({ path, kind: "directory" });
       for (const name of (await readdir(full)).sort()) await walk(join(full, name), path ? `${path}/${name}` : name, depth + 1);
+      // The service may create its directory between plan and apply. Only import-owned contents affect freshness.
+      if (root.id === "state" && path === "tools" && entries.length === prior + 1) entries.pop();
     } else if (current.isFile()) {
+      if (keepPaths.some(keep => keep.startsWith(path + "/"))) throw coldUnavailable();
       const digest = options.file ? await options.file(full, path) : await streamRegular(full, options);
       entries.push({ path, kind: "file", ...digest });
     } else {

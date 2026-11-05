@@ -5,7 +5,7 @@ import { join, relative, sep } from "node:path";
 import { createSecurePath } from "@plur1bus/module-api";
 import { maintenanceRunDirectory } from "./maintenance-journal.ts";
 import {
-  checkedEntry, coldUnavailable, noLinkedSegments, normalizedRoots, privateBytes, readColdBytes,
+  checkedEntry, checkToolsSpelling, coldUnavailable, noLinkedSegments, normalizedRoots, preservedPaths, privateBytes, readColdBytes,
   scanMutationRoot, streamRegular, syncDirectory, type ColdEntry, type ColdRoot, type MutationRoot,
 } from "./maintenance-files.ts";
 export { fingerprintMutationRoots } from "./target-fingerprint.ts";
@@ -80,10 +80,13 @@ async function loadManifest(base: string, runId: string, roots: readonly Mutatio
       || typeof root.existed !== "boolean" || !Array.isArray(root.entries) || root.entries.length > 100_000) {
       throw coldUnavailable();
     }
+    const keepPaths = preservedPaths(root);
     const seen = new Set<string>();
     for (const entry of root.entries) {
       if (!checkedEntry(entry, root) || seen.has(entry.path)
-        || root.preserve?.some(keep => entry.path === keep || entry.path.startsWith(keep + "/"))) throw coldUnavailable();
+        || keepPaths.some(keep => entry.path === keep || entry.path.startsWith(keep + "/")
+          || entry.kind === "file" && keep.startsWith(entry.path + "/"))) throw coldUnavailable();
+      await checkToolsSpelling(root, entry.path);
       seen.add(entry.path);
     }
     if (!root.existed && root.entries.length) throw coldUnavailable();
@@ -176,17 +179,18 @@ export async function createColdSnapshot(options: ColdSnapshotOptions) {
 }
 
 async function restoreRoot(base: string, before: ColdRoot, current: ColdRoot): Promise<void> {
+  const keepPaths = preservedPaths(before);
   const wanted = new Map(before.entries.map(entry => [entry.path, entry]));
   for (const entry of [...current.entries].sort((a, b) => b.path.length - a.path.length)) {
     const baseline = wanted.get(entry.path);
     if (baseline?.kind === entry.kind) continue;
-    if (before.preserve?.some(keep => keep.startsWith(entry.path + "/"))) continue;
+    if (keepPaths.some(keep => keep.startsWith(entry.path + "/"))) continue;
     const path = join(before.path, entry.path);
     if (entry.kind === "directory") await rmdir(path);
     else await rm(path, { force: true });
   }
   if (!before.existed) {
-    if (current.existed && !before.preserve?.length) {
+    if (current.existed && !keepPaths.length) {
       if (before.kind === "directory") await rmdir(before.path);
       else await rm(before.path, { force: true });
     }
