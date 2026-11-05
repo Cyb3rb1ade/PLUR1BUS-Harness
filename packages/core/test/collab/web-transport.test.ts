@@ -154,28 +154,6 @@ test('each M5 method traverses real HTTP /rpc and Core with session, role and pe
     if (method === 'project.card.comment.add') assert.equal(allowed.body.result.author.id, 'alice', 'real authenticated identity reaches Core');
     if (method === 'task.complete') assert.equal(allowed.body.result.verification.override, true);
   });
-  await t.test('explicit selected-message promotion crosses HTTP and leaves the private source identical', async () => {
-    const submitted = await h.post(h.alice, `/api/v1/chats/${h.sessionId}/messages`, { text: 'chosen-http-message', wait: true });
-    assert.equal(submitted.status, 200, JSON.stringify(submitted)); assert.equal(submitted.body.state, 'completed');
-    const before = await h.getChat(), chosen = before.messages.find((m: any) => m.role === 'user'); assert.ok(chosen);
-    const preview = await h.rpc(h.alice, 'chat.promote.preview', { sessionId: h.sessionId, target: { kind: 'project', projectId: h.project.id }, selection: { kind: 'selected', messageIds: [chosen.id] } });
-    assert.equal(preview.body.result?.content, 'user: chosen-http-message', JSON.stringify(preview));
-    assert.equal(h.collab.boardStore.cards(h.project.id, {}).cards.length, 1, 'preview has no public effect');
-    const committed = await h.rpc(h.alice, 'chat.promote.commit', { previewId: preview.body.result.previewId }); assert.ok(committed.body.result, JSON.stringify(committed));
-    const card = h.collab.boardStore.getCard(h.project.id, committed.body.result.cardId);
-    assert.equal(card.description, 'user: chosen-http-message'); assert.ok(!JSON.stringify(card).includes('private-title-http-marker'));
-    assert.deepEqual(await h.getChat(), before);
-    const links = await h.rpc(h.alice, 'chat.promote.links', { sessionId: h.sessionId }); assert.equal(links.body.result.links.length, 2);
-    const destinationOwner = { ...h.who, userId: 'local-owner' }, destination = h.collab.createProject(destinationOwner, { name: 'Revocable destination' });
-    h.collab.addMember(destinationOwner, destination.id, 'alice', 'member');
-    const revoked = await h.rpc(h.alice, 'chat.promote.preview', { sessionId: h.sessionId, target: { kind: 'project', projectId: destination.id } });
-    assert.ok(revoked.body.result, JSON.stringify(revoked));
-    h.collab.removeMember(destinationOwner, destination.id, 'alice');
-    const denied = await h.rpc(h.alice, 'chat.promote.commit', { previewId: revoked.body.result.previewId });
-    assert.ok(['E_DENIED', 'E_NOT_FOUND'].includes(denied.body.error?.data.error), JSON.stringify(denied));
-    assert.deepEqual(await h.getChat(), before); assert.equal(h.collab.boardStore.cards(h.project.id, {}).cards.length, 2);
-    assert.equal(h.collab.boardStore.cards(destination.id, {}).cards.length, 0);
-  });
   await t.test('request claims cannot replace authenticated person; unguarded/internal methods stay excluded', async () => {
     const spoof = await h.post(h.bob, '/rpc', { jsonrpc: '2.0', id: 500, method: 'chat.promote.preview', principal: { userId: 'alice', kind: 'person', role: 'owner' }, params: { ...h.params['chat.promote.preview'], principal: { userId: 'alice', role: 'owner' }, actAs: 'alice' } });
     assert.ok(['E_DENIED', 'E_NOT_FOUND'].includes(spoof.body.error?.data.error), JSON.stringify(spoof));
@@ -184,4 +162,32 @@ test('each M5 method traverses real HTTP /rpc and Core with session, role and pe
     }
     assert.ok(h.audit.events.some(e => e.action === 'rbac.denied' && e.actor.user === 'viewer'));
   });
+});
+
+test('explicit selected-message promotion crosses HTTP and leaves the private source identical', { timeout: 60000 }, async t => {
+  const h = await fixture(t);
+  // Establish the private link through the same HTTP route before adding the selected-message link.
+  const initial = await h.rpc(h.alice, 'chat.promote.commit', h.params['chat.promote.commit']!);
+  assert.equal(initial.status, 200);
+  assert.equal(initial.body.result.cardId, null);
+  const submitted = await h.post(h.alice, `/api/v1/chats/${h.sessionId}/messages`, { text: 'chosen-http-message', wait: true });
+  assert.equal(submitted.status, 200, JSON.stringify(submitted)); assert.equal(submitted.body.state, 'completed');
+  const before = await h.getChat(), chosen = before.messages.find((m: any) => m.role === 'user'); assert.ok(chosen);
+  const preview = await h.rpc(h.alice, 'chat.promote.preview', { sessionId: h.sessionId, target: { kind: 'project', projectId: h.project.id }, selection: { kind: 'selected', messageIds: [chosen.id] } });
+  assert.equal(preview.body.result?.content, 'user: chosen-http-message', JSON.stringify(preview));
+  assert.equal(h.collab.boardStore.cards(h.project.id, {}).cards.length, 1, 'preview has no public effect');
+  const committed = await h.rpc(h.alice, 'chat.promote.commit', { previewId: preview.body.result.previewId }); assert.ok(committed.body.result, JSON.stringify(committed));
+  const card = h.collab.boardStore.getCard(h.project.id, committed.body.result.cardId);
+  assert.equal(card.description, 'user: chosen-http-message'); assert.ok(!JSON.stringify(card).includes('private-title-http-marker'));
+  assert.deepEqual(await h.getChat(), before);
+  const links = await h.rpc(h.alice, 'chat.promote.links', { sessionId: h.sessionId }); assert.equal(links.body.result.links.length, 2);
+  const destinationOwner = { ...h.who, userId: 'local-owner' }, destination = h.collab.createProject(destinationOwner, { name: 'Revocable destination' });
+  h.collab.addMember(destinationOwner, destination.id, 'alice', 'member');
+  const revoked = await h.rpc(h.alice, 'chat.promote.preview', { sessionId: h.sessionId, target: { kind: 'project', projectId: destination.id } });
+  assert.ok(revoked.body.result, JSON.stringify(revoked));
+  h.collab.removeMember(destinationOwner, destination.id, 'alice');
+  const denied = await h.rpc(h.alice, 'chat.promote.commit', { previewId: revoked.body.result.previewId });
+  assert.ok(['E_DENIED', 'E_NOT_FOUND'].includes(denied.body.error?.data.error), JSON.stringify(denied));
+  assert.deepEqual(await h.getChat(), before); assert.equal(h.collab.boardStore.cards(h.project.id, {}).cards.length, 2);
+  assert.equal(h.collab.boardStore.cards(destination.id, {}).cards.length, 0);
 });
