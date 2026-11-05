@@ -61,7 +61,8 @@ function Viewer(): View {
   };
 
   // Status text for the polite live region (rate limited): tail state, and the paused counter.
-  const tailText = data.tail === "retrying" ? t("logs.tail.retrying")
+  const tailText = data.tail === "starting" ? t("logs.tail.starting")
+    : data.tail === "retrying" ? t("logs.tail.retrying")
     : data.tail === "unavailable" ? t("logs.tail.unavailable")
     : data.tail === "forbidden" ? t("logs.tail.forbidden")
     : data.tail === "off" ? t("logs.tail.off")
