@@ -70,6 +70,9 @@ RUN --mount=type=secret,id=engine_token,required=false \
 
 # ---- 3. runtime ------------------------------------------------------------------------------------------------------
 FROM node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS runtime
+# useradd records this date inside /etc/shadow; exporter timestamp rewriting alone cannot normalize that content.
+# ARG is stage-scoped, so the Rust stage's declaration does not reach this RUN.
+ARG SOURCE_DATE_EPOCH=0
 # The image runs the core and nothing installs packages at run time: no npm, corepack or yarn.
 RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
       /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /opt/yarn-* /usr/local/bin/yarn /usr/local/bin/yarnpkg \
