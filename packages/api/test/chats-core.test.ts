@@ -13,6 +13,7 @@ import { AdminStore } from "../../core/src/identity/admin-store.ts";
 import { memoryAuditSink } from "../src/rbac-bridge.ts";
 import { createApiServer } from "../src/server.ts";
 import { createCoreLink } from "../src/core-link.ts";
+import { connect } from "@plur1bus/module-api";
 import { MemoryUserDirectory } from "../src/memory-stores.ts";
 import { hashPassword } from "../src/password.ts";
 
@@ -23,7 +24,12 @@ async function setup(t: import("node:test").TestContext) {
   const people=new AdminStore({path:join(home,"state","admin.sqlite"),ownerId:"local-owner"});
   for(const [id,role] of [["alice","member"],["bob","member"],["viewer","viewer"],["ops","operator"],["admin","admin"]] as const){people.setRole(id,role,()=>{});people.setRight("bernd",id,"use");}people.close();
   const audit=memoryAuditSink();const core=createCore({home,testInternals:flatTestInternals(),chatProvider:new FakeChatProvider(),rbac:{audit},discovery:{scheduler:false},dreams:{scheduler:false}});await core.start();
-  const link=createCoreLink(home);const users=new MemoryUserDirectory();const password="fixture-pass-not-a-real-secret";
+  let refuseNewConnections = false;
+  const link = createCoreLink(home, { connect: async options => {
+    if (refuseNewConnections) throw new Error("no additional Core connection available");
+    return connect(options);
+  } });
+  const users=new MemoryUserDirectory();const password="fixture-pass-not-a-real-secret";
   for(const [id,role] of [["alice","member"],["bob","member"],["viewer","viewer"],["ops","operator"],["admin","admin"]] as const)users.add({id,username:id,role,agentRights:{bernd:"use"},passwordHash:await hashPassword(password)});
   const api=createApiServer({core:link,users,ownerToken:randomBytes(32).toString("hex"),audit});const {url}=await api.listen();
   t.after(async()=>{await api.close();await link.close();await core.stop({budgetMs:5000});rmSync(home,{recursive:true,force:true});});
@@ -32,7 +38,7 @@ async function setup(t: import("node:test").TestContext) {
     let csrf:string|undefined;if(method!=="GET"){const r=await fetch(url+"/api/v1/csrf",{headers:{cookie}});csrf=(await r.json() as {token:string}).token;}
     return fetch(url+path,{method,headers:{cookie,...(csrf?{"x-csrf-token":csrf}:{}),...(body?{"content-type":"application/json"}:{}),...extra},...(body?{body:JSON.stringify(body)}:{})});
   };
-  return {home,url,core,audit,users,api,login,call};
+  return {home,url,core,audit,users,api,login,call,setConnectionLimit: (limited: boolean) => { refuseNewConnections = limited; }};
 }
 test("real HTTP/core chat lifecycle, streaming, isolation, scopes and archive-first identity-bound delete",{timeout:30000},async t=>{
   const h=await setup(t),alice=await h.login("alice"),bob=await h.login("bob"),viewer=await h.login("viewer");
@@ -41,7 +47,10 @@ test("real HTTP/core chat lifecycle, streaming, isolation, scopes and archive-fi
   const bobList=await h.call(bob,"/api/v1/chats");assert.deepEqual((await bobList.json() as any).sessions,[]);
   const foreign=await h.call(alice,"/api/v1/chats","POST",{agentId:"anna"});assert.equal(foreign.status,403);await foreign.text();
   const denied=await h.call(viewer,"/api/v1/chats","POST",{agentId:"bernd"});assert.equal(denied.status,403);await denied.text();
+  // Alice's established connection must carry preflight, submit and every subsequent event read.
+  h.setConnectionLimit(true);
   const stream=await h.call(alice,`/api/v1/chats/${session.id}/messages`,"POST",{text:"hello from HTTP"},{accept:"text/event-stream"});assert.equal(stream.status,200,await stream.clone().text());const wire=await stream.text();assert.ok(wire.includes("turn.started")&&wire.includes("turn.completed"),wire);
+  h.setConnectionLimit(false);
   const sequences=[...wire.matchAll(/id: [^\n]+:(\d+)\n/g)].map(m=>Number(m[1]));assert.deepEqual(sequences,[...sequences].sort((a,b)=>a-b));
   const fork=await h.call(alice,`/api/v1/chats/${session.id}/fork`,"POST",{});assert.equal(fork.status,201,await fork.clone().text());const forkId=(await fork.json() as any).session.id;
   const forkGet=await h.call(alice,`/api/v1/chats/${forkId}`);assert.equal((await forkGet.json() as any).messages.length,2);
