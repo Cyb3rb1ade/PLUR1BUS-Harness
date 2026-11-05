@@ -269,10 +269,12 @@ function signalOwnedGroup(child, signal) {
     }
     return { signal, code: "sent" };
   } catch (error) {
-    if (error.code !== "ESRCH") {
-      throw error;
+    // A group can deny a signal while its last member exits. Only the subsequent
+    // visibility checks establish disappearance, including after a denied SIGKILL.
+    if (error.code === "ESRCH" || (process.platform !== "win32" && error.code === "EPERM")) {
+      return { signal, code: error.code };
     }
-    return { signal, code: "ESRCH" };
+    throw error;
   }
 }
 
