@@ -134,7 +134,8 @@ fn start(home: &Path, events: &Path) -> common::Supervisor {
     common::start_with_core(
         home,
         events,
-        "0.2",
+        // Recovery starts the real Core and must use its production readiness window.
+        "1",
         &[
             ("PLUR1BUS_CORE_JS", entry.to_str().unwrap()),
             ("PLUR1BUS_TEST_INTERNALS", "flat-embedder"),
