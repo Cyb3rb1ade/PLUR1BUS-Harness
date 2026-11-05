@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { spawnSync } from "node:child_process";
 
 const ROOT = resolve(import.meta.dirname, "..", "..", "..");
 const read = (p: string): string => readFileSync(resolve(ROOT, p), "utf8");
@@ -56,8 +57,40 @@ describe("Dockerfile", () => {
   });
 
   it("normalizes the Rust binary timestamp to SOURCE_DATE_EPOCH", () => {
-    assert.match(dockerfile, /ARG SOURCE_DATE_EPOCH=0/);
-    assert.match(dockerfile, /touch -m -d "@\$\{SOURCE_DATE_EPOCH\}" \/out\/plur1bus/);
+    const rustStart = lines.findIndex((line) => /^FROM\s.*\sAS rust-build$/i.test(line));
+    assert.ok(rustStart >= 0, "Rust stage is missing");
+    const rust = lines.slice(rustStart + 1, lines.findIndex((line, i) => i > rustStart && /^FROM\s/i.test(line))).join("\n");
+    assert.match(rust, /^ARG SOURCE_DATE_EPOCH=0$/m);
+    assert.match(rust, /touch -m -d "@\$\{SOURCE_DATE_EPOCH\}" \/out\/plur1bus/);
+  });
+
+  it("passes the source epoch to runtime account creation, independently of the Rust stage", () => {
+    for (const file of ["Dockerfile", "containers/harness/Dockerfile"]) {
+      const all = instructions(read(file));
+      const runtimeStart = all.findIndex((line) => /^FROM\s.*\sAS runtime$/i.test(line));
+      assert.ok(runtimeStart >= 0, `${file}: runtime stage is missing`);
+      const nextStage = all.findIndex((line, i) => i > runtimeStart && /^FROM\s/i.test(line));
+      const runtime = all.slice(runtimeStart + 1, nextStage < 0 ? undefined : nextStage);
+      const accountCreation = runtime.findIndex((line) => /^RUN\s/i.test(line) && /\buseradd\b/.test(line));
+      assert.ok(accountCreation >= 0, `${file}: runtime account creation is missing`);
+      assert.ok(runtime.slice(0, accountCreation).some((line) => /^ARG SOURCE_DATE_EPOCH(?:=0)?$/.test(line)),
+        `${file}: runtime useradd must receive SOURCE_DATE_EPOCH; rewriting file timestamps does not normalize /etc/shadow contents`);
+    }
+  });
+
+  it("rejects a wall-clock day in the built account, including builds with the default epoch", () => {
+    for (const file of ["Dockerfile", "containers/harness/Dockerfile"]) {
+      const creation = instructions(read(file)).find((line) => /^RUN\s/i.test(line) && /\buseradd\b/.test(line));
+      const check = creation?.match(/&& (expected_day=.*?)\s*&& install -d/)?.[1];
+      assert.ok(check, `${file}: built account date check is missing`);
+      for (const [epoch, day, status] of [[1728000000, "20000", 0], [1728000000, "20001", 1], [0, "", 0], [0, "20001", 1]] as const) {
+        // Only the assertion fragment runs; account creation is never executed on the test host.
+        const result = spawnSync("sh", ["-c", `getent() { printf 'plur1bus:!:%s::::::\\n' "$ACCOUNT_DAY"; }; ${check}`], {
+          encoding: "utf8", env: { ...process.env, SOURCE_DATE_EPOCH: String(epoch), ACCOUNT_DAY: day },
+        });
+        assert.equal(result.status, status, `${file}: epoch=${epoch} day=${day}; ${result.stderr}`);
+      }
+    }
   });
 
   it("has a clean entrypoint", () => {
