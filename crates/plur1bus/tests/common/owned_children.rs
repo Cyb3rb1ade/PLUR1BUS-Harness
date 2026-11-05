@@ -34,7 +34,7 @@ fn another_supervisor(home: &std::path::Path, ours: u32) -> bool {
     })
 }
 
-fn peers(home: &std::path::Path) -> Vec<(u32, plur1bus_rpc::process::Incarnation)> {
+pub fn peers(home: &std::path::Path) -> Vec<(u32, plur1bus_rpc::process::Incarnation)> {
     let mut peers = Vec::new();
     let Ok(entries) = std::fs::read_dir(home.join("run")) else {
         return peers;

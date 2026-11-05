@@ -25,105 +25,6 @@ fn cli(home: &Path, args: &[&str]) -> (i32, Value, String) {
     )
 }
 
-/// Ends the supervisor of a test home and everything it started, on success, failure and panic alike: SIGTERM first
-/// (the supervisor stops its core and api), then SIGKILL for whatever is left of the process tree.
-struct SupervisorGuard {
-    supervisor: Option<common::Supervisor>,
-}
-
-/// `(pid, ppid)` of every process.
-fn process_table() -> Vec<(i32, i32)> {
-    let out = Command::new("ps")
-        .args(["-axo", "pid=,ppid="])
-        .output()
-        .unwrap();
-    String::from_utf8_lossy(&out.stdout)
-        .lines()
-        .filter_map(|l| {
-            let mut it = l.split_whitespace();
-            Some((it.next()?.parse().ok()?, it.next()?.parse().ok()?))
-        })
-        .collect()
-}
-
-fn descendants(root: i32) -> Vec<i32> {
-    let table = process_table();
-    let mut found = vec![root];
-    let mut i = 0;
-    while i < found.len() {
-        let parent = found[i];
-        for (pid, ppid) in &table {
-            if *ppid == parent && !found.contains(pid) {
-                found.push(*pid);
-            }
-        }
-        i += 1;
-    }
-    found
-}
-
-fn alive(pid: i32) -> bool {
-    // SAFETY: signal 0 only probes.
-    unsafe { libc::kill(pid, 0) == 0 }
-}
-
-impl Drop for SupervisorGuard {
-    fn drop(&mut self) {
-        let Some(mut sup) = self.supervisor.take() else {
-            return;
-        };
-        let tree = descendants(sup.child.id() as i32);
-        // SAFETY: plain signals to our own child.
-        unsafe {
-            libc::kill(sup.child.id() as i32, libc::SIGCONT);
-            libc::kill(sup.child.id() as i32, libc::SIGTERM);
-        }
-        let deadline = std::time::Instant::now() + Duration::from_secs(15);
-        while std::time::Instant::now() < deadline && sup.child.try_wait().ok().flatten().is_none()
-        {
-            std::thread::sleep(Duration::from_millis(50));
-        }
-        let _ = sup.child.kill();
-        let _ = sup.child.wait();
-        for pid in tree.iter().filter(|p| **p != sup.child.id() as i32) {
-            if alive(*pid) {
-                // SAFETY: the pid was a descendant of our supervisor a moment ago.
-                unsafe { libc::kill(*pid, libc::SIGKILL) };
-            }
-        }
-        let leftover: Vec<i32> = tree
-            .iter()
-            .copied()
-            .filter(|p| alive(*p) && *p != sup.child.id() as i32)
-            .collect();
-        // A killed child can take a moment to be reaped by init.
-        let deadline = std::time::Instant::now() + Duration::from_secs(5);
-        let mut leftover = leftover;
-        while !leftover.is_empty() && std::time::Instant::now() < deadline {
-            std::thread::sleep(Duration::from_millis(50));
-            leftover.retain(|p| alive(*p));
-        }
-        if !std::thread::panicking() {
-            assert!(
-                leftover.is_empty(),
-                "processes of the test supervisor survived: {leftover:?}"
-            );
-        }
-    }
-}
-
-/// Whether a `supervise` process of this home is still running.
-fn supervisor_of_home_alive(home: &Path) -> bool {
-    let out = Command::new("ps")
-        .args(["-axo", "command="])
-        .output()
-        .unwrap();
-    let home = home.to_string_lossy();
-    String::from_utf8_lossy(&out.stdout)
-        .lines()
-        .any(|l| l.contains("supervise") && l.contains(home.as_ref()))
-}
-
 #[test]
 fn the_cli_reaches_a_real_core_as_a_person_import_export_and_rollback() {
     let dir = tempfile::tempdir().unwrap();
@@ -182,10 +83,7 @@ fn the_cli_reaches_a_real_core_as_a_person_import_export_and_rollback() {
             ("PLUR1BUS_TEST_INTERNALS", "flat-embedder"),
         ],
     );
-    let supervisor_pid = supervisor.child.id() as i32;
-    let guard = SupervisorGuard {
-        supervisor: Some(supervisor),
-    };
+    let mut guard = supervisor;
     let mut supervisor = common::client(&home);
     common::wait_child(
         &mut supervisor,
@@ -263,15 +161,18 @@ fn the_cli_reaches_a_real_core_as_a_person_import_export_and_rollback() {
 
     assert_eq!(rolled["unlinked"], 0, "{rolled}");
 
-    // The supervisor and everything it started are gone after the test, not left running for the next one.
-    drop(guard);
-    assert!(
-        !alive(supervisor_pid),
-        "the test supervisor (pid {supervisor_pid}) is still running"
-    );
-    assert!(
-        !supervisor_of_home_alive(&home),
-        "a supervisor of {} is still running",
-        home.display()
-    );
+    // Use the authenticated shutdown path and verify the actual native peers of this test home.
+    // The shared Supervisor guard also cleans up on panic.
+    let peers = common::owned_children::peers(&home);
+    assert!(!peers.is_empty(), "expected the running Core peer");
+    supervisor.call("daemon.stop", json!({})).unwrap();
+    common::wait_until("supervisor exited", Duration::from_secs(15), || {
+        guard.child.try_wait().unwrap().is_some()
+    });
+    common::wait_until("owned peers exited", Duration::from_secs(5), || {
+        peers.iter().all(|(pid, birth)| {
+            use plur1bus_rpc::process::{alive, incarnation_of, Liveness};
+            alive(*pid) == Liveness::Gone || incarnation_of(*pid).is_ok_and(|now| &now != birth)
+        })
+    });
 }
