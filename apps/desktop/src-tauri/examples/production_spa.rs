@@ -2204,7 +2204,15 @@ async fn finish(
     let negative = inputs.negative.clone();
     let secondary_observation = inputs.secondary_observation.clone();
     let observer_owners = browser_owners.clone();
-    let observer_url = format!("{}?wp05-old-check", proxy.origin().as_str());
+    let observer_url = url::Url::parse(&format!("{}?wp05-old-check", proxy.origin().as_str()))
+        .expect("retired proxy marker URL");
+    // Tauri looks up the WebView by label before delivering page loads. WebView2 can navigate during build.
+    #[cfg(windows)]
+    let initial_url = url::Url::parse("about:blank").unwrap();
+    #[cfg(not(windows))]
+    let initial_url = observer_url.clone();
+    let expected_load = observer_url.clone();
+    let expected_title = observer_url.clone();
     if teardown_deadline
         .saturating_duration_since(std::time::Instant::now())
         .is_zero()
@@ -2241,9 +2249,11 @@ async fn finish(
     #[cfg(windows)]
     let title_gone = observer_gone.clone();
     progress("retirement-observer-build-start");
-    let builder=WebviewWindowBuilder::new(app,"spa",WebviewUrl::External(observer_url.parse().unwrap())).incognito(true)
-        .on_page_load(|webview, payload| {
-            if payload.url().query() != Some("wp05-old-check") {
+    let builder=WebviewWindowBuilder::new(app,"spa",WebviewUrl::External(initial_url)).incognito(true)
+        .on_page_load(move |webview, payload| {
+            #[cfg(windows)]
+            if payload.url().as_str() == "about:blank" { return; }
+            if payload.url() != &expected_load {
                 progress("retirement-observer-unexpected-url");
                 return;
             }
@@ -2270,6 +2280,10 @@ async fn finish(
                 _ => {}
             }
             let Some(acl)=title.strip_prefix("ACL:").and_then(|v|serde_json::from_str::<Value>(v).ok())else{return};
+            if !window.url().is_ok_and(|url| url == expected_title) {
+                progress("retirement-observer-unexpected-url");
+                return;
+            }
             progress("retirement-observer-title-complete");
             if !claim_observer_completion(&finished) {
                 return;
@@ -2321,7 +2335,10 @@ async fn finish(
                         .as_ref()
                         .map(|lease| lease.path().to_path_buf());
                     let live = live_profile_audit(path, task_known.clone(), task_teardown_deadline).await;
-                    task_profile.lock().unwrap().profile_live_audit = live;
+                    let native_empty = observer.cookies().is_ok_and(|cookies| cookies.is_empty());
+                    let mut profile = task_profile.lock().unwrap();
+                    profile.native_cookie_store_empty &= native_empty;
+                    profile.profile_live_audit = live;
                 }
                 if pre_close_audit.audit_complete {
                     progress("audit-live-scan-complete");
@@ -2593,9 +2610,21 @@ async fn finish(
                             teardown_deadline,
                         )
                         .await;
-                    let mut state = profile_observation.lock().unwrap();
-                    state.profile_path_verified = matched;
-                    state.profile_acl_private = acl;
+                    {
+                        let mut state = profile_observation.lock().unwrap();
+                        state.profile_path_verified = matched;
+                        state.profile_acl_private = acl;
+                    }
+                    // Visit the old origin exactly once, on the registered window and verified private profile.
+                    if matched
+                        && acl
+                        && std::time::Instant::now() < teardown_deadline
+                        && observer.navigate(observer_url).is_ok()
+                    {
+                        progress("retirement-observer-navigation-requested");
+                    } else {
+                        progress("retirement-observer-navigation-failed");
+                    }
                 }
             }
             observer
