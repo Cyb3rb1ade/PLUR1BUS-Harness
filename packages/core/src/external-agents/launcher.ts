@@ -11,7 +11,7 @@ import { backendArgv, detectSandbox } from "../tools/sandbox/backends.ts";
 import { preparePolicy } from "../tools/sandbox/policy.ts";
 import type { AcpWorktreeMount } from "../tools/sandbox/acp-worktree.ts";
 import { matchDeny } from "../policy/paths.ts";
-import { DEFAULT_MAX_TASKS } from "../tools/sandbox/types.ts";
+import { DEFAULT_MAX_TASKS, DEFAULT_WORKTREE_PROCESS_MEMORY_BYTES } from "../tools/sandbox/types.ts";
 import { externalAgentRefusal, type ExternalAgentRefusal } from "./platform-policy.ts";
 
 export const DEFAULT_MAX_TURNS = 20;
@@ -103,10 +103,10 @@ export async function launchExternalAgent(o: LaunchOptions): Promise<LaunchHandl
     const p = await preparePolicy({
       home, userHome: homedir(), cwd: o.cwd, readRoots: [{ id: "cwd", path: o.worktree ?? o.cwd }],
       writeRoots: o.mount ? [{ id: "worktree", path: o.worktree ?? o.cwd }] : [],
-      ...(o.mount ? { acpWorktree: o.mount } : {}), acpScratch: scratch,
+      ...(o.mount ? { worktreeMount: o.mount } : {}), acpScratch: scratch,
       network: "none", envAllow: ["PATH", "HOME", "TMPDIR", "LANG"],
       limitsHelper: o.limitsHelper ?? join(home, "bin", "plur1bus-sandbox-limits"),
-      limits: { timeoutMs, cpuSeconds: 60, memoryBytes: o.memoryBytes ?? 8 * 1024 ** 3,
+      limits: { timeoutMs, cpuSeconds: 60, memoryBytes: o.memoryBytes ?? DEFAULT_WORKTREE_PROCESS_MEMORY_BYTES,
         maxOutputBytes: 1024 * 1024, maxTasks: o.maxTasks ?? DEFAULT_MAX_TASKS },
     });
     o.signal?.throwIfAborted();

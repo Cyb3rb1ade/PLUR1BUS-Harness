@@ -8,13 +8,16 @@ import type { ProcessPort, SpawnSpec } from '../exec/types.ts';
 import { createNodeProcessPort } from '../exec/node-process.ts';
 import { buildEnv, DEFAULT_ENV_ALLOW } from '../exec/env.ts';
 import type { HostExec } from '../../host-tools/types.ts';
-import { createNodeExec } from '../../host-tools/exec.ts';
+import { createNodeExec, hostOutputSecrets } from '../../host-tools/exec.ts';
 import { systemClock } from '../../host-tools/context.ts';
 import { sandboxSpawn, SandboxFailure, DEFAULT_MAX_TASKS, type SandboxPolicy } from './index.ts';
-export interface SandboxOptions { required?: boolean; limitsHelper?: string; maxTasks?: number }
+import { currentWorktreeBinding, type WorktreeMount } from './worktree-mount.ts';
+import { DEFAULT_WORKTREE_PROCESS_MEMORY_BYTES } from './types.ts';
+export interface SandboxOptions { required?: boolean; limitsHelper?: string; maxTasks?: number; worktreeMount?: WorktreeMount }
 export interface SandboxPortsOptions {
   home: string; roots: readonly PathRoot[]; deny: readonly DenyEntry[];
   sandbox?: SandboxOptions; audit: AuditSink; principal: string;
+  worktreeMount?: WorktreeMount;
 }
 async function executable(program: string): Promise<string> {
   // Resolve on trusted system PATH only, never the model-controlled cwd or requested PATH.
@@ -23,8 +26,8 @@ async function executable(program: string): Promise<string> {
   throw new SandboxFailure('program is unavailable on the sandbox system path');
 }
 /** Derive process limits from trusted per-turn options; zero explicitly disables only the task cap. */
-export function sandboxPolicy(o: SandboxPortsOptions, spec: SpawnSpec): SandboxPolicy {
-  return { home: o.home, userHome: homedir(), cwd: spec.cwd, readRoots: o.roots, writeRoots: o.roots, deny: o.deny, network: 'none', envAllow: DEFAULT_ENV_ALLOW, env: spec.env, limitsHelper: o.sandbox?.limitsHelper ?? join(o.home, 'bin', 'plur1bus-sandbox-limits'), limits: { timeoutMs: 300000, cpuSeconds: 30, memoryBytes: 512 * 1024 ** 2, maxOutputBytes: 1024 * 1024, maxTasks: o.sandbox?.maxTasks ?? DEFAULT_MAX_TASKS } };
+export function sandboxPolicy(o: SandboxPortsOptions, spec: SpawnSpec, worktreeMount?: WorktreeMount): SandboxPolicy {
+  return { ...(worktreeMount ? { worktreeMount } : {}), home: o.home, userHome: homedir(), cwd: spec.cwd, readRoots: o.roots, writeRoots: o.roots, deny: o.deny, network: 'none', envAllow: DEFAULT_ENV_ALLOW, env: spec.env, limitsHelper: o.sandbox?.limitsHelper ?? join(o.home, 'bin', 'plur1bus-sandbox-limits'), limits: { timeoutMs: 300000, cpuSeconds: 30, memoryBytes: worktreeMount && process.platform === 'linux' ? DEFAULT_WORKTREE_PROCESS_MEMORY_BYTES : 512 * 1024 ** 2, maxOutputBytes: 1024 * 1024, maxTasks: o.sandbox?.maxTasks ?? DEFAULT_MAX_TASKS } };
 }
 function bypass(o: SandboxPortsOptions): void {
   // A failed audit write throws before spawn. The bypass is trusted configuration, never a tool argument.
@@ -32,11 +35,16 @@ function bypass(o: SandboxPortsOptions): void {
 }
 export function createSandboxProcessPort(o: SandboxPortsOptions): ProcessPort {
   return { spawn(spec) {
+    if (o.worktreeMount && o.sandbox?.worktreeMount && o.worktreeMount !== o.sandbox.worktreeMount)
+      throw new SandboxFailure('conflicting native worktree grants');
+    const mount = o.worktreeMount ?? o.sandbox?.worktreeMount;
+    if (mount && (o.sandbox?.required === false || currentWorktreeBinding(mount).kind !== 'native'))
+      throw new SandboxFailure('native card mount requires the sandbox and a native grant');
     if (o.sandbox?.required === false) { bypass(o); return createNodeProcessPort().spawn(spec); }
     const ac = new AbortController();
     const stdout: ((c: Uint8Array) => void)[] = [], stderr: ((c: Uint8Array) => void)[] = [];
     const done = Promise.resolve().then(async () => {
-      const r = await sandboxSpawn([await executable(spec.program), ...spec.args], sandboxPolicy(o, spec), { signal: ac.signal,
+      const r = await sandboxSpawn([await executable(spec.program), ...spec.args], sandboxPolicy(o, spec, mount), { signal: ac.signal,
         onStdout: c => { for (const cb of stdout) cb(c); }, onStderr: c => { for (const cb of stderr) cb(c); } });
       return { code: r.exitCode, signal: r.signal };
     });
@@ -45,13 +53,13 @@ export function createSandboxProcessPort(o: SandboxPortsOptions): ProcessPort {
   } };
 }
 export function createSandboxHostExec(o: SandboxPortsOptions): HostExec {
-  return { async run(req, signal) {
-    if (o.sandbox?.required === false) { bypass(o); return createNodeExec(systemClock).run({ ...req, env: buildEnv({ allow: DEFAULT_ENV_ALLOW, base: req.env ?? process.env, windows: process.platform === 'win32' }) }, signal); }
+  return { async run(req, signal, knownSecrets) {
+    if (o.sandbox?.required === false) { bypass(o); return createNodeExec(systemClock).run({ ...req, env: buildEnv({ allow: DEFAULT_ENV_ALLOW, base: req.env ?? process.env, windows: process.platform === 'win32' }) }, signal, knownSecrets); }
     if (req.stdin !== undefined) throw new SandboxFailure('sandbox stdin adapter unavailable; no process launched');
     const cwd = req.cwd ?? o.roots[0]?.path;
     if (!cwd) throw new SandboxFailure('sandbox requires a workspace root');
     const p = sandboxPolicy(o, { program: req.program, args: req.args, cwd, env: req.env ?? { PATH: '/usr/bin:/bin' } });
-    const r = await sandboxSpawn([await executable(req.program), ...req.args], { ...p, limits: { ...p.limits, timeoutMs: req.timeoutMs ?? 30000, maxOutputBytes: req.maxOutputBytes ?? 65536 } }, { ...(signal ? { signal } : {}) });
+    const r = await sandboxSpawn([await executable(req.program), ...req.args], { ...p, limits: { ...p.limits, timeoutMs: req.timeoutMs ?? 30000, maxOutputBytes: req.maxOutputBytes ?? 65536 } }, { ...(signal ? { signal } : {}), ...(knownSecrets ? { knownSecrets: hostOutputSecrets(knownSecrets) } : {}) });
     return { exitCode: r.exitCode, signal: r.signal, stdout: r.stdout, stderr: r.stderr, truncated: r.stdoutTruncated || r.stderrTruncated, timedOut: r.timedOut, aborted: r.aborted, durationMs: r.resources.durationMs };
   } };
 }

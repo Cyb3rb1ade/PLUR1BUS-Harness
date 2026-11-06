@@ -30,7 +30,11 @@ export function wireExternalAgents(
   if (!options.projectWorktrees) {
     options.projectWorktrees = { root: (agentId, projectId, cardId) =>
       provisionedWorktreePort(collabStore(), id => d.agents.workspaceOf(id) ?? null)
-        .root(agentId, projectId, cardId) };
+        .root(agentId, projectId, cardId),
+      mount: (agentId, projectId, cardId, fromAgentId) =>
+        provisionedWorktreePort(collabStore(), id => d.agents.workspaceOf(id) ?? null, join(d.home, 'state'))
+          .mount!(agentId, projectId, cardId, fromAgentId),
+    };
   }
   if (!options.delegationTargets) {
     options.delegationTargets = [makeTarget({

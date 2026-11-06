@@ -1,3 +1,4 @@
+import { createSecretRedaction } from "../../src/secrets/redaction.ts";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { runHostTool } from "../../src/host-tools/index.ts";
@@ -42,6 +43,39 @@ describe("proc.*", () => {
     const kills = exec.calls.filter((c) => /kill|taskkill/i.test(c.program));
     assert.equal(kills.length, 0);
   });
+
+  for (const platform of ["darwin", "linux", "win32"] as const) {
+    it(`uses the report redactor only on visible process tables (${platform})`, async () => {
+      const { ctx, exec } = makeCtx(platform);
+      const registry = createSecretRedaction();
+      registry.register("42424242");
+      ctx.knownSecrets = () => registry.snapshot();
+      const reads: Array<{ program: string; protectedOutput: boolean }> = [];
+      ctx.exec = { async run(req, signal, knownSecrets) {
+        reads.push({ program: req.program, protectedOutput: knownSecrets === ctx.knownSecrets });
+        const result = await exec.run(req, signal);
+        result.stdout = result.stdout.replaceAll("424", "42424242");
+        if (knownSecrets) result.stdout = knownSecrets().matcher.maskText(result.stdout);
+        return result;
+      } };
+      const programs = platform === "win32" ? ["tasklist", "wmic"] : ["ps"];
+      const report = ok<{ processes: Array<{ pid: number }> }>(await runHostTool("proc.list", {}, ctx));
+      assert.ok(report.processes.some(row => row.pid === 400));
+      assert.ok(report.processes.every(row => row.pid !== 42424242));
+      assert.deepEqual(reads.splice(0), programs.map(program => ({ program, protectedOutput: true })));
+      for (const [name, args, code] of [
+        ["proc.kill", { pid: 42424242 }, "permission_denied"],
+        ["proc.wait", { pid: 42424242, timeoutMs: 10 }, "timeout"],
+      ] as const) {
+        const result = await runHostTool(name, args, ctx);
+        assert.ok(result.isError);
+        assert.equal(result.error.code, code);
+        const identityReads = reads.splice(0);
+        assert.deepEqual([...new Set(identityReads.map(read => read.program))], programs);
+        assert.ok(identityReads.every(read => !read.protectedOutput));
+      }
+    });
+  }
 
   it("kill of a foreign same-user process sends a fixed argv, never a shell string", async () => {
     const { ctx, exec } = makeCtx("darwin");
