@@ -44,7 +44,10 @@ describe("extension consent", { skip: browserSkip }, () => {
       assert.equal(await dialog.getByRole("checkbox").isChecked(), false);
       assert.equal(app.server.rpc.calls.filter(call => call.method === "ext.enable").length, 0);
       await dialog.getByRole("checkbox").check();
+      const enabled = app.page.waitForResponse(response =>
+        response.url().endsWith("/rpc") && response.status() === 200 && response.request().postDataJSON()?.method === "ext.enable");
       await dialog.getByRole("button", { name: "Enable now" }).click();
+      await enabled;
       await dialog.waitFor({ state: "hidden" });
       assert.equal(app.server.rpc.calls.filter(call => call.method === "ext.enable").length, 1);
       assert.equal((app.server.rpc.calls.find(call => call.method === "ext.enable")?.params as { expectedConsentSha256: string }).expectedConsentSha256, detail.consentSha256);

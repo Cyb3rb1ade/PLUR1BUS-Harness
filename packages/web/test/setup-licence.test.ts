@@ -86,7 +86,8 @@ describe("setup wizard: NC licence gate", opts, () => {
       assert.equal(await page.evaluate(() => document.activeElement?.id), "setup-embedding-jina-v5-nano", "focus returns to the radio");
       await next(page);
       await persona(page);
-      assert.deepEqual(changes(app).at(-1)!, [{ key: "embedding.useClass", value: "general" }, GEMMA_BLOCK]);
+      assert.deepEqual(changes(app).at(-1)!, [{ key: "embedding.useClass", value: "general" }, GEMMA_BLOCK,
+        { key: "memory.mediaEmbedding.backfill", value: "manual" }]);
     });
   });
 
@@ -102,7 +103,8 @@ describe("setup wizard: NC licence gate", opts, () => {
       await next(page);
       await persona(page);
       const last = changes(app).at(-1)!;
-      assert.deepEqual(last.map((c) => c.key), ["embedding.useClass", "embedding.acceptedNcLicence", "embedding.acceptedNcLicenceAt", "engine.embedding"]);
+      assert.deepEqual(last.map((c) => c.key), ["embedding.useClass", "embedding.acceptedNcLicence", "embedding.acceptedNcLicenceAt", "engine.embedding",
+        "memory.mediaEmbedding.backfill"]);
       assert.equal(last[0]?.value, "research"); assert.equal(last[1]?.value, true);
       assert.match(String(last[2]?.value), ISO);
       assert.deepEqual(last[3]?.value, { provider: "local-transformers", local: { model: "jinaai/jina-embeddings-v5-text-nano-retrieval", dimensions: 768 } });
@@ -118,7 +120,8 @@ describe("setup wizard: NC licence gate", opts, () => {
       await next(page);
       await persona(page);
       const last = changes(app).at(-1)!;
-      assert.deepEqual(last.map((c) => c.key), ["embedding.useClass", "embedding.acceptedNcLicence", "embedding.acceptedNcLicenceAt", "engine.embedding", "engine.reranker"]);
+      assert.deepEqual(last.map((c) => c.key), ["embedding.useClass", "embedding.acceptedNcLicence", "embedding.acceptedNcLicenceAt", "engine.embedding", "engine.reranker",
+        "memory.mediaEmbedding.backfill"]);
       assert.deepEqual(last[4], reranker("jinaai/jina-reranker-v2-base-multilingual"));
     });
   });
@@ -136,7 +139,7 @@ describe("setup wizard: NC licence gate", opts, () => {
       assert.match((await page.locator("#setup-embedding-jina-v5-nano-d").textContent()) ?? "", /Not available for commercial use/);
       await next(page);
       await persona(page);
-      assert.deepEqual(changes(app).at(-1)!.map((c) => c.key), ["embedding.useClass", "engine.embedding"]);
+      assert.deepEqual(changes(app).at(-1)!.map((c) => c.key), ["embedding.useClass", "engine.embedding", "memory.mediaEmbedding.backfill"]);
     });
   });
 
@@ -161,6 +164,7 @@ describe("setup wizard: NC licence gate", opts, () => {
       await persona(page);
       assert.deepEqual(changes(app).at(-1)!, [
         { key: "embedding.useClass", value: "general" }, { key: "embedding.acceptedNcLicence", value: false }, GEMMA_BLOCK,
+        { key: "memory.mediaEmbedding.backfill", value: "manual" },
       ]);
     });
   });
@@ -206,7 +210,7 @@ describe("setup wizard: what the memory engine runs", opts, () => {
       await persona(page);
       const last = changes(app).at(-1)!;
       assert.ok(!last.some((c) => c.key === "engine.embedding"), "the embedding model of a store with data is never written");
-      assert.deepEqual(last.at(-1), reranker("jinaai/jina-reranker-v2-base-multilingual"));
+      assert.deepEqual(last.find((c) => c.key === "engine.reranker"), reranker("jinaai/jina-reranker-v2-base-multilingual"));
     });
   });
 
@@ -269,7 +273,8 @@ describe("setup wizard: what the memory engine runs", opts, () => {
       assert.equal(await page.getByRole("radio", { name: /multilingual-e5-small/ }).isChecked(), true);
       await next(page);
       await persona(page);
-      assert.deepEqual(changes(app).at(-1)!, [{ key: "embedding.useClass", value: "general" }]);
+      assert.deepEqual(changes(app).at(-1)!, [{ key: "embedding.useClass", value: "general" },
+        { key: "memory.mediaEmbedding.backfill", value: "manual" }]);
     });
   });
 
@@ -293,7 +298,8 @@ describe("setup wizard: what the memory engine runs", opts, () => {
       assert.equal(await page.locator('input[name="setup-embedding"]').count(), 0);
       await next(page);
       await persona(page);
-      assert.deepEqual(changes(app).at(-1)!, [{ key: "embedding.useClass", value: "general" }]);
+      assert.deepEqual(changes(app).at(-1)!, [{ key: "embedding.useClass", value: "general" },
+        { key: "memory.mediaEmbedding.backfill", value: "manual" }]);
     });
   });
 });

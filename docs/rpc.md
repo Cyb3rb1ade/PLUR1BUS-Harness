@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.14.0)
+# RPC reference (rpc 1.22.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -12,7 +12,7 @@ capabilities is a convenience, while every handler enforces the principal at dis
 `engine.event` with its `x-engine-notification` schema; the deprecated Core emitter keeps its existing payload and opt-in rule.
 Design and rationale: `docs/adr/ADR-012-process-model-and-languages.md`.
 
-JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor, module (methods only), or engine (since 1.7.0). host.* is served by core and requires the engine principal at dispatch.
+JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor, module (methods only), or engine (since 1.7.0). host.* is served by core and requires the engine principal at dispatch. D120: tools methods are served by plur1bus-tools and require the Core principal.
 
 ## Local endpoint trust
 
@@ -192,14 +192,8 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `project.member.add`: experimental, since 1.5.0
 - `project.member.remove`: experimental, since 1.5.0
 - `project.member.role`: experimental, since 1.5.0
-- `a2a.peer.add`: experimental, since 1.12.0
-- `a2a.peer.list`: experimental, since 1.12.0
-- `a2a.peer.remove`: experimental, since 1.12.0
-- `a2a.peer.trust`: experimental, since 1.12.0
 - `project.agent.add`: experimental, since 1.5.0
 - `project.agent.remove`: experimental, since 1.5.0
-- `project.repo.bind`: experimental, since 1.14.0
-- `project.repo.unbind`: experimental, since 1.14.0
 - `task.complete`: experimental, since 1.5.0
 - `collab.session.replay`: experimental, since 1.5.0
 - `collab.trace.get`: experimental, since 1.5.0
@@ -382,6 +376,22 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `approval.cancel`: experimental, since 1.5.0
 - `approval.verify`: experimental, since 1.5.0
 - `approval.audit`: experimental, since 1.5.0
+- `code.session.open`: experimental, since 1.19.0
+- `code.session.diff`: experimental, since 1.19.0
+- `code.session.check`: experimental, since 1.19.0
+- `code.session.mode`: experimental, since 1.21.0
+- `chat.rewind`: experimental, since 1.18.0
+- `session.rewind`: experimental, since 1.18.0
+- `a2a.peer.add`: experimental, since 1.12.0
+- `a2a.peer.list`: experimental, since 1.12.0
+- `a2a.peer.remove`: experimental, since 1.12.0
+- `a2a.peer.trust`: experimental, since 1.12.0
+- `project.repo.bind`: experimental, since 1.14.0
+- `project.repo.unbind`: experimental, since 1.14.0
+- `memory.importText.preview`: experimental, since 1.22.0
+- `memory.importText.apply`: experimental, since 1.22.0
+- `memory.importText.rollback`: experimental, since 1.22.0
+- `memory.exportText`: experimental, since 1.22.0
 
 ### supervisor server
 
@@ -492,6 +502,12 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `engine.snapshot.verify`: experimental, since 1.7.0
 - `engine.tombstones.reapply`: experimental, since 1.7.0
 - `engine.agent.close`: experimental, since 1.7.0
+- `engine.adopt`: experimental, since 1.17.0
+
+### tools server
+
+- `tools.hello`: experimental, since 1.15.0
+- `tools.health`: experimental, since 1.15.0
 
 ## Methods
 
@@ -619,7 +635,7 @@ The status operation on the memory-engine RPC endpoint.
 
 ```json
 {
-  "$ref": "#/$defs/EngineContractEngineStatusData"
+  "$ref": "#/$defs/EngineProcessStatus"
 }
 ```
 
@@ -1026,7 +1042,8 @@ The embedding.embed operation on the memory-engine RPC endpoint.
       "type": "array",
       "items": {
         "type": "string"
-      }
+      },
+      "description": "At most 128 texts per request. Larger batches return E_INVALID_PARAMS with reason embedding-batch-too-large."
     },
     "kind": {
       "type": "string",
@@ -1083,7 +1100,8 @@ The embedding.rerank operation on the memory-engine RPC endpoint.
       "type": "array",
       "items": {
         "type": "string"
-      }
+      },
+      "description": "At most 128 documents per request. Larger batches return E_INVALID_PARAMS with reason embedding-batch-too-large."
     },
     "topN": {
       "type": "number"
@@ -6143,6 +6161,23 @@ Authenticated own direct-chat get. Identity is derived from the current principa
       "items": {
         "$ref": "#/$defs/SessionEvent"
       }
+    },
+    "rewinds": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RewindRecord"
+      },
+      "description": "Reversible path overlays, including undone overlays."
+    },
+    "discarded": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SessionMessage"
+      },
+      "description": "Retained discarded messages for export and transcript display."
+    },
+    "rewindProposal": {
+      "$ref": "#/$defs/RewindProposal"
     }
   }
 }
@@ -6683,6 +6718,20 @@ Authenticated own direct-chat export. Identity is derived from the current princ
       "items": {
         "$ref": "#/$defs/SessionMessage"
       }
+    },
+    "rewinds": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RewindRecord"
+      },
+      "description": "Reversible path overlays, including undone overlays."
+    },
+    "discarded": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SessionMessage"
+      },
+      "description": "Retained discarded messages for export and transcript display."
     }
   },
   "required": [
@@ -10577,189 +10626,6 @@ Authenticated project member.role using ADR-007 object rights.
 }
 ```
 
-### `a2a.peer.add`
-
-**Stability:** experimental · since 1.12.0
-
-**Served by:** core
-
-Register a pending Ed25519 peer pin. Owner person only; no network or automatic trust.
-
-**params**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "properties": {
-    "id": {
-      "$ref": "#/$defs/A2APeerId"
-    },
-    "cardUrl": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 2048
-    },
-    "kid": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 128
-    },
-    "publicKey": {
-      "$ref": "#/$defs/A2APublicKey"
-    },
-    "credentialSecret": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 128
-    }
-  },
-  "required": [
-    "id",
-    "cardUrl",
-    "kid",
-    "publicKey"
-  ]
-}
-```
-
-**result**
-
-```json
-{
-  "$ref": "#/$defs/A2APeer"
-}
-```
-
-### `a2a.peer.list`
-
-**Stability:** experimental · since 1.12.0
-
-**Served by:** core
-
-List outbound peer identities and trust states. Owner person only; no credentials or card text.
-
-**params**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "properties": {},
-  "required": []
-}
-```
-
-**result**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "properties": {
-    "peers": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/A2APeer"
-      },
-      "maxItems": 1024
-    }
-  },
-  "required": [
-    "peers"
-  ]
-}
-```
-
-### `a2a.peer.remove`
-
-**Stability:** experimental · since 1.12.0
-
-**Served by:** core
-
-Revoke and remove an outbound peer, aborting its in-flight requests. Owner person only.
-
-**params**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "properties": {
-    "id": {
-      "$ref": "#/$defs/A2APeerId"
-    }
-  },
-  "required": [
-    "id"
-  ]
-}
-```
-
-**result**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "properties": {
-    "id": {
-      "$ref": "#/$defs/A2APeerId"
-    },
-    "removed": {
-      "type": "boolean"
-    }
-  },
-  "required": [
-    "id",
-    "removed"
-  ]
-}
-```
-
-### `a2a.peer.trust`
-
-**Stability:** experimental · since 1.12.0
-
-**Served by:** core
-
-Explicitly approve the pending key fingerprint and revision after signature verification through the network.a2a policy gate. Owner person only.
-
-**params**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "properties": {
-    "id": {
-      "$ref": "#/$defs/A2APeerId"
-    },
-    "fingerprint": {
-      "$ref": "#/$defs/A2AFingerprint"
-    },
-    "revision": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 128
-    }
-  },
-  "required": [
-    "id",
-    "fingerprint",
-    "revision"
-  ]
-}
-```
-
-**result**
-
-```json
-{
-  "$ref": "#/$defs/A2APeer"
-}
-```
-
 ### `project.agent.add`
 
 **Stability:** experimental · since 1.5.0
@@ -10827,90 +10693,6 @@ Authenticated project agent.remove using ADR-007 object rights.
   "required": [
     "projectId",
     "agentId"
-  ]
-}
-```
-
-**result**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": true
-}
-```
-
-### `project.repo.bind`
-
-**Stability:** experimental · since 1.14.0
-
-**Served by:** core
-
-Bind a root project to a git repository. A person who is a project lead. Refuses bare repositories and paths under the harness home.
-
-**params**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "properties": {
-    "projectId": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 128
-    },
-    "repoPath": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 4096
-    },
-    "baseBranch": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 128
-    }
-  },
-  "required": [
-    "projectId",
-    "repoPath",
-    "baseBranch"
-  ]
-}
-```
-
-**result**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": true
-}
-```
-
-### `project.repo.unbind`
-
-**Stability:** experimental · since 1.14.0
-
-**Served by:** core
-
-Remove a root project's repository binding. A person who is a project lead.
-
-**params**
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "properties": {
-    "projectId": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 128
-    }
-  },
-  "required": [
-    "projectId"
   ]
 }
 ```
@@ -12940,6 +12722,20 @@ The embedding and reranker models the running memory engine was built with (engi
     "embeddingSwitch"
   ],
   "properties": {
+    "capabilities": {
+      "description": "Selected-model support, independent of installed encoders or ffmpeg.",
+      "x-since": "1.20.0",
+      "$ref": "#/$defs/MediaCapabilities"
+    },
+    "encoders": {
+      "description": "Verified encoder metadata only. An empty array reports no verified encoder installation; it does not imply the selected model lacks media support. No private paths.",
+      "x-since": "1.20.0",
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "$ref": "#/$defs/MediaEncoderStatus"
+      }
+    },
     "embedding": {
       "type": "object",
       "additionalProperties": false,
@@ -23457,7 +23253,8 @@ Opens a session for the caller (the owner is derived from the caller identity). 
     "kind": {
       "enum": [
         "direct",
-        "channel"
+        "channel",
+        "acp"
       ]
     },
     "title": {
@@ -23733,6 +23530,16 @@ One session of the caller's (archived ones included), with the id of its running
           }
         }
       }
+    },
+    "rewinds": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RewindRecord"
+      },
+      "description": "Reversible path overlays, including undone overlays."
+    },
+    "rewindProposal": {
+      "$ref": "#/$defs/RewindProposal"
     }
   }
 }
@@ -23810,6 +23617,16 @@ Get plus the transcript (the last `limit` messages, default 100) and the last ev
       "items": {
         "$ref": "#/$defs/SessionEvent"
       }
+    },
+    "rewinds": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RewindRecord"
+      },
+      "description": "Reversible path overlays, including undone overlays."
+    },
+    "rewindProposal": {
+      "$ref": "#/$defs/RewindProposal"
     }
   }
 }
@@ -24682,6 +24499,1406 @@ D109 §9.10: approval-related HMAC-chain entries of the calling person, newest f
     },
     "nextCursor": {
       "type": "string"
+    }
+  }
+}
+```
+
+### `code.session.open`
+
+**Stability:** experimental · since 1.19.0
+
+**Served by:** core
+
+Bind a human coding session to a canonical native Git worktree, optionally on a D115 card. Missing folder access is a Core-created D109 approval request for an interactive local CLI, decided with OS confirmation through approval.decide; session-only, no helper delegation. ACP and noninteractive callers refuse ungranted roots.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId",
+    "root"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "root": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "memoryMode": {
+      "$ref": "#/$defs/MemoryMode"
+    },
+    "interactive": {
+      "type": "boolean",
+      "description": "Local CLI presence. False means scripted input. A local T1 person may request a session-only folder grant, but approval.decide requires attest:true and OS T2 confirmation. ACP always refuses folder grants."
+    }
+  },
+  "dependentRequired": {
+    "projectId": [
+      "cardId"
+    ],
+    "cardId": [
+      "projectId"
+    ]
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "state",
+        "session",
+        "root",
+        "branch",
+        "profile"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "open"
+          ]
+        },
+        "session": {
+          "$ref": "#/$defs/SessionRecord"
+        },
+        "root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "branch": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 1024
+        },
+        "profile": {
+          "enum": [
+            "coding"
+          ]
+        },
+        "projectId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "cardId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "lastEventSeq": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Durable event cursor at open; replay repairs subscription races."
+        },
+        "runningTurnId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "state",
+        "session",
+        "root",
+        "grant"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "grant-required"
+          ]
+        },
+        "session": {
+          "$ref": "#/$defs/SessionRecord"
+        },
+        "root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "grant": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "recursive",
+            "capabilities",
+            "scope",
+            "approvalId"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "recursive": {
+              "const": true
+            },
+            "capabilities": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "fs.read",
+                  "fs.write"
+                ]
+              },
+              "minItems": 2,
+              "maxItems": 2,
+              "uniqueItems": true
+            },
+            "scope": {
+              "const": "session"
+            },
+            "approvalId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "description": "Core-created D109 request. Decide through approval.decide with scope session and attest true; never grant.create."
+            }
+          }
+        }
+      }
+    }
+  ]
+}
+```
+
+### `code.session.diff`
+
+**Stability:** experimental · since 1.19.0
+
+**Served by:** core
+
+Human-only paged worktree diff against HEAD, or the full inline patch of one session-scoped tool result. Uses hardened read-only Git; hooks, textconv and external diff never run. Output is redacted. Offloaded/legacy results without an inline patch explicitly report tool-diff-unavailable.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "sessionId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "callId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "offset": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65536
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "sessionId",
+    "source",
+    "diff",
+    "offset",
+    "nextOffset"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "source": {
+      "enum": [
+        "worktree",
+        "call"
+      ]
+    },
+    "diff": {
+      "type": "string"
+    },
+    "offset": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "nextOffset": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    }
+  }
+}
+```
+
+### `code.session.check`
+
+**Stability:** experimental · since 1.19.0
+
+**Served by:** core
+
+Human advisory /check command through the same D98 verifier plan and VerifierPort. Requires an idle bound coding session. Never moves a card, requires no independent review and creates no gate-reuse evidence; task.complete still runs the full D98 gate. A changed/uncommitted convention cannot opt into network. Closing the request connection cancels the verifier.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "sessionId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "kind": {
+      "enum": [
+        "format",
+        "lint",
+        "typecheck",
+        "test"
+      ]
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "sessionId",
+    "advisory",
+    "ok",
+    "checks"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "advisory": {
+      "const": true
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "reason": {
+      "type": "string",
+      "maxLength": 256
+    },
+    "checks": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "kind",
+          "ok",
+          "exitCode",
+          "output"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "format",
+              "lint",
+              "typecheck",
+              "test"
+            ]
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "exitCode": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "output": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### `code.session.mode`
+
+**Stability:** experimental · since 1.21.0
+
+**Served by:** core
+
+Select chat or coding for one authenticated human ACP connection and its bound session. Only future turns use the selected tool profile; running turns retain theirs. The transition is audited and never creates or widens a D109 grant. ACP refuses ungranted folders.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "sessionId",
+    "mode"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "mode": {
+      "enum": [
+        "chat",
+        "coding"
+      ]
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "mode",
+    "changed"
+  ],
+  "properties": {
+    "mode": {
+      "enum": [
+        "chat",
+        "coding"
+      ]
+    },
+    "changed": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+### `chat.rewind`
+
+**Stability:** experimental · since 1.18.0
+
+**Served by:** core
+
+D120 H4. Human-only, owned idle-session rewind or undo. Transcript messages/events remain append-only; hidden ranges and obsolete lessons never enter model context. files requests an approved D115 checkpoint restore; conversation-only by default.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "toSeq": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        {
+          "const": "last"
+        }
+      ]
+    },
+    "lesson": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1567
+    },
+    "files": {
+      "type": "boolean"
+    },
+    "undo": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    }
+  },
+  "required": [
+    "sessionId"
+  ],
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        },
+        "toSeq": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "const": "last"
+            }
+          ]
+        },
+        "lesson": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1567
+        },
+        "files": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "sessionId",
+        "toSeq"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        },
+        "undo": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        }
+      },
+      "required": [
+        "sessionId",
+        "undo"
+      ]
+    }
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "rewind"
+  ],
+  "properties": {
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "rewind": {
+      "$ref": "#/$defs/RewindRecord"
+    }
+  }
+}
+```
+
+### `session.rewind`
+
+**Stability:** experimental · since 1.18.0
+
+**Served by:** core
+
+D120 H4. Human-only, owned idle-session rewind or undo. Transcript messages/events remain append-only; hidden ranges and obsolete lessons never enter model context. files requests an approved D115 checkpoint restore; conversation-only by default.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "toSeq": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        {
+          "const": "last"
+        }
+      ]
+    },
+    "lesson": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1567
+    },
+    "files": {
+      "type": "boolean"
+    },
+    "undo": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    }
+  },
+  "required": [
+    "caller",
+    "sessionId"
+  ],
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "caller": {
+          "$ref": "#/$defs/CallerIdentity"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        },
+        "toSeq": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "const": "last"
+            }
+          ]
+        },
+        "lesson": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1567
+        },
+        "files": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "caller",
+        "sessionId",
+        "toSeq"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "caller": {
+          "$ref": "#/$defs/CallerIdentity"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/SessionId"
+        },
+        "undo": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        }
+      },
+      "required": [
+        "caller",
+        "sessionId",
+        "undo"
+      ]
+    }
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sessionId",
+    "rewind"
+  ],
+  "properties": {
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "rewind": {
+      "$ref": "#/$defs/RewindRecord"
+    }
+  }
+}
+```
+
+### `engine.adopt`
+
+**Stability:** experimental · since 1.17.0
+
+**Served by:** engine
+
+Called by a supervisor on a running engine to adopt it. nonce is the current content of run/supervisor.token; the connection it succeeds on becomes the engine's lifeline.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "nonce"
+  ],
+  "properties": {
+    "nonce": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status"
+  ],
+  "properties": {
+    "status": {
+      "$ref": "#/$defs/EngineProcessStatus"
+    }
+  }
+}
+```
+
+### `a2a.peer.add`
+
+**Stability:** experimental · since 1.12.0
+
+**Served by:** core
+
+Register a pending Ed25519 peer pin. Owner person only; no network or automatic trust.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/A2APeerId"
+    },
+    "cardUrl": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "kid": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "publicKey": {
+      "$ref": "#/$defs/A2APublicKey"
+    },
+    "credentialSecret": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "id",
+    "cardUrl",
+    "kid",
+    "publicKey"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/A2APeer"
+}
+```
+
+### `a2a.peer.list`
+
+**Stability:** experimental · since 1.12.0
+
+**Served by:** core
+
+List outbound peer identities and trust states. Owner person only; no credentials or card text.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {},
+  "required": []
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "peers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/A2APeer"
+      },
+      "maxItems": 1024
+    }
+  },
+  "required": [
+    "peers"
+  ]
+}
+```
+
+### `a2a.peer.remove`
+
+**Stability:** experimental · since 1.12.0
+
+**Served by:** core
+
+Revoke and remove an outbound peer, aborting its in-flight requests. Owner person only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/A2APeerId"
+    }
+  },
+  "required": [
+    "id"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/A2APeerId"
+    },
+    "removed": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "id",
+    "removed"
+  ]
+}
+```
+
+### `a2a.peer.trust`
+
+**Stability:** experimental · since 1.12.0
+
+**Served by:** core
+
+Explicitly approve the pending key fingerprint and revision after signature verification through the network.a2a policy gate. Owner person only.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/A2APeerId"
+    },
+    "fingerprint": {
+      "$ref": "#/$defs/A2AFingerprint"
+    },
+    "revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "id",
+    "fingerprint",
+    "revision"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/A2APeer"
+}
+```
+
+### `project.repo.bind`
+
+**Stability:** experimental · since 1.14.0
+
+**Served by:** core
+
+Bind a root project to a git repository. A person who is a project lead. Refuses bare repositories and paths under the harness home.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "repoPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "baseBranch": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "projectId",
+    "repoPath",
+    "baseBranch"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `project.repo.unbind`
+
+**Stability:** experimental · since 1.14.0
+
+**Served by:** core
+
+Remove a root project's repository binding. A person who is a project lead.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "projectId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true
+}
+```
+
+### `tools.hello`
+
+**Stability:** experimental · since 1.15.0
+
+**Served by:** tools
+
+First call on a Core tools connection. The dedicated credential and recorded Core PID/instance establish the principal; where available the kernel peer PID must match run/core.pid. The first hello installs a process-wide 32-byte hex HMAC ticketKey for that Core start (D120 §11.2); further connections must present the same key. A new Core identity replaces the key and closes old Core connections. Neither credential is returned or logged. Supervisor lifecycle uses a separate control token.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "token",
+    "ticketKey"
+  ],
+  "properties": {
+    "token": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "ticketKey": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "rpc",
+    "instanceId",
+    "pid",
+    "capabilities"
+  ],
+  "properties": {
+    "rpc": {
+      "type": "string"
+    },
+    "instanceId": {
+      "type": "string"
+    },
+    "pid": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "capabilities": {
+      "$ref": "#/$defs/Capabilities"
+    }
+  }
+}
+```
+
+### `tools.health`
+
+**Stability:** experimental · since 1.15.0
+
+**Served by:** tools
+
+Core-only tools readiness. A tools failure does not stop Core turns.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/ToolsHealth"
+}
+```
+
+### `memory.importText.preview`
+
+**Stability:** experimental · since 1.22.0
+
+**Served by:** core
+
+Parse and preview a memory export text from another AI assistant.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "text"
+  ],
+  "properties": {
+    "text": {
+      "type": "string",
+      "maxLength": 1000000
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "entries",
+    "recommendations",
+    "status",
+    "warnings"
+  ],
+  "properties": {
+    "prompt": {
+      "type": "string"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ParsedMemoryEntry"
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "complete",
+        "more",
+        "unrecognized"
+      ]
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "recommendations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MemoryEntryTarget"
+      }
+    }
+  }
+}
+```
+
+### `memory.importText.apply`
+
+**Stability:** experimental · since 1.22.0
+
+**Served by:** core
+
+Apply a parsed memory export with target assignments.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "entries",
+    "targets"
+  ],
+  "properties": {
+    "entries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ParsedMemoryEntry"
+      },
+      "maxItems": 5000
+    },
+    "targets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/MemoryEntryTarget"
+      },
+      "maxItems": 5000
+    },
+    "dryRun": {
+      "type": "boolean"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId",
+    "imported",
+    "linked",
+    "proposedRules",
+    "skipped",
+    "reportPath"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "pattern": "^prompt-[0-9]+-[0-9a-f]+$"
+    },
+    "imported": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "linked": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "proposedRules": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "skipped": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "reportPath": {
+      "type": "string"
+    }
+  }
+}
+```
+
+### `memory.importText.rollback`
+
+**Stability:** experimental · since 1.22.0
+
+**Served by:** core
+
+Roll back a prompt memory import run.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "pattern": "^prompt-[0-9]+-[0-9a-f]+$"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "rolledBack",
+    "failed",
+    "remaining",
+    "keptModified",
+    "unlinked",
+    "preservedUserScope",
+    "discardedProposals",
+    "unhandledProposals"
+  ],
+  "properties": {
+    "rolledBack": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "failed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "remaining": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "keptModified": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "unlinked": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "preservedUserScope": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "discardedProposals": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "unhandledProposals": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
+### `memory.exportText`
+
+**Stability:** experimental · since 1.22.0
+
+**Served by:** core
+
+Export stored memories formatted for portable text import.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "text",
+    "entryCount"
+  ],
+  "properties": {
+    "text": {
+      "type": "string"
+    },
+    "entryCount": {
+      "type": "integer",
+      "minimum": 0
     }
   }
 }
@@ -31672,141 +32889,6 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 }
 ```
 
-### `A2APeerId`
-
-```json
-{
-  "type": "string",
-  "pattern": "^[a-z][a-z0-9._-]{0,63}$",
-  "maxLength": 64
-}
-```
-
-### `A2AFingerprint`
-
-```json
-{
-  "type": "string",
-  "pattern": "^sha256:[A-Za-z0-9_-]{43}$",
-  "maxLength": 50
-}
-```
-
-### `A2APublicKey`
-
-```json
-{
-  "type": "object",
-  "additionalProperties": false,
-  "properties": {
-    "kty": {
-      "const": "OKP"
-    },
-    "crv": {
-      "const": "Ed25519"
-    },
-    "x": {
-      "type": "string",
-      "pattern": "^[A-Za-z0-9_-]{43}$",
-      "maxLength": 43
-    }
-  },
-  "required": [
-    "kty",
-    "crv",
-    "x"
-  ]
-}
-```
-
-### `DelegationTargetId`
-
-```json
-{
-  "description": "Local agent id or an explicitly pinned outbound A2A target. Foreign ids never open local agent stores.",
-  "type": "string",
-  "pattern": "^(?:[a-z0-9][a-z0-9_-]{0,63}|a2a:[a-z][a-z0-9._-]{0,63})$",
-  "maxLength": 68
-}
-```
-
-### `A2APeer`
-
-```json
-{
-  "type": "object",
-  "additionalProperties": true,
-  "properties": {
-    "id": {
-      "$ref": "#/$defs/A2APeerId"
-    },
-    "agentId": {
-      "$ref": "#/$defs/DelegationTargetId"
-    },
-    "cardUrl": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 2048
-    },
-    "kid": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 128
-    },
-    "fingerprint": {
-      "$ref": "#/$defs/A2AFingerprint"
-    },
-    "state": {
-      "enum": [
-        "pending",
-        "trusted"
-      ]
-    },
-    "revision": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 128
-    },
-    "targetKind": {
-      "const": "external"
-    },
-    "origin": {
-      "const": "a2a"
-    },
-    "authenticated": {
-      "type": "boolean"
-    },
-    "createdAt": {
-      "type": "integer",
-      "minimum": 0
-    },
-    "updatedAt": {
-      "type": "integer",
-      "minimum": 0
-    },
-    "endpoint": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 2048
-    }
-  },
-  "required": [
-    "id",
-    "agentId",
-    "cardUrl",
-    "kid",
-    "fingerprint",
-    "state",
-    "revision",
-    "targetKind",
-    "origin",
-    "authenticated",
-    "createdAt",
-    "updatedAt"
-  ]
-}
-```
-
 ### `AgentId`
 
 ```json
@@ -32659,6 +33741,76 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "type": "string"
       },
       "description": "Deprecated methods/notifications used at least once since start, as `method:<name>`/`notification:<name>`, sorted (ADR-016 §5, S13)."
+    },
+    "providers": {
+      "description": "Optional managed-provider transport counters; never paths, credentials or request content.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "apple-fm": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "transport"
+          ],
+          "properties": {
+            "transport": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "unix"
+              ],
+              "properties": {
+                "unix": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "ok",
+                    "refused"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "refused": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "platform",
+                        "socket-untrusted",
+                        "socket-path-too-long",
+                        "unavailable"
+                      ],
+                      "properties": {
+                        "platform": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "socket-untrusted": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "socket-path-too-long": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "unavailable": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "tools": {
+      "$ref": "#/$defs/ToolsServiceStatus"
     }
   }
 }
@@ -33085,9 +34237,10 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "enum": [
         "core",
         "module",
-        "api"
+        "api",
+        "tools"
       ],
-      "description": "Experimental (1.3.0). Whether the child is the core, HTTP API or a module; absent from supervisors before 1.3.0."
+      "description": "Experimental (1.3.0). Whether the child is Core, HTTP API, an installable module, or the native tools service (since 1.15.0 / D120 H1-1); absent from supervisors before 1.3.0."
     }
   }
 }
@@ -36487,7 +37640,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "disabledReason": {
       "enum": [
         "local-only",
-        "unavailable"
+        "unavailable",
+        "context-too-small"
       ]
     },
     "reasoning": {
@@ -36574,6 +37728,11 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
           }
         }
       }
+    },
+    "contextWindow": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Smallest known context window among the profile candidates."
     }
   }
 }
@@ -36729,6 +37888,14 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "createdAt": {
       "type": "integer"
+    },
+    "rewound": {
+      "type": "boolean",
+      "description": "Retained transcript message excluded from the active context by a rewind or an undone lesson."
+    },
+    "command": {
+      "type": "boolean",
+      "description": "Core-marked harness-command turn; retained for people but not an active rewind target."
     }
   }
 }
@@ -36749,7 +37916,10 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "decision.completed",
     "model.selected",
     "compaction.prune",
-    "skills.selected"
+    "skills.selected",
+    "session.rewind",
+    "session.rewind.undone",
+    "session.rewind.proposed"
   ]
 }
 ```
@@ -37675,7 +38845,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "enum": [
         "role_unavailable",
         "shadowed_by_manual",
-        "empty_list"
+        "empty_list",
+        "filtered_by_policy"
       ]
     },
     "role": {
@@ -37686,6 +38857,10 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     },
     "id": {
       "type": "string"
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 0
     }
   }
 }
@@ -38266,6 +39441,20 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "backfill"
   ],
   "properties": {
+    "capabilities": {
+      "description": "Selected-model support, independent of installed encoders or ffmpeg.",
+      "x-since": "1.20.0",
+      "$ref": "#/$defs/MediaCapabilities"
+    },
+    "encoders": {
+      "description": "Verified encoder metadata only. An empty array reports no verified encoder installation; it does not imply the selected model lacks media support. No private paths.",
+      "x-since": "1.20.0",
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "$ref": "#/$defs/MediaEncoderStatus"
+      }
+    },
     "enabled": {
       "type": "boolean"
     },
@@ -39205,6 +40394,665 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "null"
       ],
       "minimum": 0
+    }
+  }
+}
+```
+
+### `MediaCapabilities`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "text",
+    "image",
+    "audio",
+    "video"
+  ],
+  "properties": {
+    "text": {
+      "type": "boolean"
+    },
+    "image": {
+      "type": "boolean"
+    },
+    "audio": {
+      "type": "boolean"
+    },
+    "video": {
+      "type": "boolean"
+    }
+  },
+  "x-since": "1.20.0"
+}
+```
+
+### `MediaEncoderStatus`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "role",
+    "dtype",
+    "state"
+  ],
+  "properties": {
+    "role": {
+      "enum": [
+        "text",
+        "vision",
+        "audio"
+      ]
+    },
+    "dtype": {
+      "const": "q8"
+    },
+    "state": {
+      "enum": [
+        "unavailable",
+        "not-installed",
+        "ready"
+      ]
+    },
+    "downloadBytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    }
+  },
+  "x-since": "1.20.0"
+}
+```
+
+### `RewindRecord`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "sessionId",
+    "parentSeq",
+    "hiddenFromSeq",
+    "hiddenToSeq",
+    "lessonMessageId",
+    "hiddenDigest",
+    "trigger",
+    "actor",
+    "createdAt",
+    "undoneAt"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "sessionId": {
+      "$ref": "#/$defs/SessionId"
+    },
+    "parentSeq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "hiddenFromSeq": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "hiddenToSeq": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "lessonMessageId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "hiddenDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "trigger": {
+      "enum": [
+        "user",
+        "agent"
+      ]
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "createdAt": {
+      "type": "integer"
+    },
+    "undoneAt": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    }
+  }
+}
+```
+
+### `RewindProposal`
+
+```json
+{
+  "type": [
+    "object",
+    "null"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "parentSeq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "failedCycles": {
+      "type": "integer",
+      "minimum": 3
+    },
+    "lastCheckSeq": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "agentId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "parentSeq",
+    "failedCycles",
+    "lastCheckSeq",
+    "agentId"
+  ]
+}
+```
+
+### `EngineProcessStatus`
+
+```json
+{
+  "title": "EngineProcessStatus",
+  "type": "object",
+  "properties": {
+    "ready": {
+      "type": "boolean"
+    },
+    "degraded": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EngineContractDegradedData"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Process status reports composition-pending/recall while memory and journal composition is incomplete, and closed/engine after close. While open, embedding and reranker readiness can report model-failed or models-warming as described by EngineStatus; null means no degradation."
+    },
+    "agents": {
+      "type": "number"
+    },
+    "contract": {
+      "$ref": "#/$defs/EngineContractContractVersionData"
+    },
+    "storeSchema": {
+      "type": "object",
+      "properties": {
+        "current": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EngineContractSchemaVersionData"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expected": {
+          "$ref": "#/$defs/EngineContractSchemaVersionData"
+        }
+      },
+      "required": [
+        "current",
+        "expected"
+      ],
+      "additionalProperties": false
+    },
+    "jobs": {
+      "$ref": "#/$defs/EngineContractJobsHealthData",
+      "description": "1.8.0"
+    },
+    "models": {
+      "$ref": "#/$defs/EngineContractModelsStatusData",
+      "description": "1.8.0"
+    },
+    "journal": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EngineContractJournalBacklogData"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "1.8.0: null when the host reports none."
+    },
+    "sharedMemory": {
+      "$ref": "#/$defs/EngineContractSharedMemorySupportData",
+      "description": "1.8.0"
+    },
+    "rpc": {
+      "type": "string",
+      "x-since": "1.17.0"
+    },
+    "instanceId": {
+      "type": "string",
+      "x-since": "1.17.0"
+    },
+    "pid": {
+      "type": "integer",
+      "x-since": "1.17.0"
+    },
+    "process": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "orphanedSince"
+      ],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "ready",
+            "orphaned",
+            "stopping"
+          ],
+          "x-since": "1.17.0"
+        },
+        "orphanedSince": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "x-since": "1.17.0"
+        }
+      },
+      "x-since": "1.17.0"
+    },
+    "counters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requests",
+        "authFailures",
+        "activeConnections",
+        "capturesPending",
+        "capturesCompleted"
+      ],
+      "properties": {
+        "requests": {
+          "type": "integer",
+          "minimum": 0,
+          "x-since": "1.17.0"
+        },
+        "authFailures": {
+          "type": "integer",
+          "minimum": 0,
+          "x-since": "1.17.0"
+        },
+        "activeConnections": {
+          "type": "integer",
+          "minimum": 0,
+          "x-since": "1.17.0"
+        },
+        "capturesPending": {
+          "type": "integer",
+          "minimum": 0,
+          "x-since": "1.17.0"
+        },
+        "capturesCompleted": {
+          "type": "integer",
+          "minimum": 0,
+          "x-since": "1.17.0"
+        },
+        "acceptErrors": {
+          "type": "integer",
+          "minimum": 0,
+          "x-since": "1.17.0"
+        }
+      },
+      "x-since": "1.17.0"
+    },
+    "schedulerLagMs": {
+      "type": "number",
+      "minimum": 0,
+      "x-since": "1.17.0"
+    }
+  },
+  "required": [
+    "ready",
+    "degraded",
+    "agents",
+    "contract",
+    "storeSchema",
+    "jobs",
+    "models",
+    "journal",
+    "sharedMemory"
+  ],
+  "additionalProperties": false,
+  "description": "Engine status with optional process, lifeline and transport health metadata.",
+  "x-since": "1.17.0"
+}
+```
+
+### `A2APeerId`
+
+```json
+{
+  "type": "string",
+  "pattern": "^[a-z][a-z0-9._-]{0,63}$",
+  "maxLength": 64
+}
+```
+
+### `A2AFingerprint`
+
+```json
+{
+  "type": "string",
+  "pattern": "^sha256:[A-Za-z0-9_-]{43}$",
+  "maxLength": 50
+}
+```
+
+### `A2APublicKey`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "kty": {
+      "const": "OKP"
+    },
+    "crv": {
+      "const": "Ed25519"
+    },
+    "x": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{43}$",
+      "maxLength": 43
+    }
+  },
+  "required": [
+    "kty",
+    "crv",
+    "x"
+  ]
+}
+```
+
+### `DelegationTargetId`
+
+```json
+{
+  "description": "Local agent id or an explicitly pinned outbound A2A target. Foreign ids never open local agent stores.",
+  "type": "string",
+  "pattern": "^(?:[a-z0-9][a-z0-9_-]{0,63}|a2a:[a-z][a-z0-9._-]{0,63})$",
+  "maxLength": 68
+}
+```
+
+### `A2APeer`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/A2APeerId"
+    },
+    "agentId": {
+      "$ref": "#/$defs/DelegationTargetId"
+    },
+    "cardUrl": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "kid": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "fingerprint": {
+      "$ref": "#/$defs/A2AFingerprint"
+    },
+    "state": {
+      "enum": [
+        "pending",
+        "trusted"
+      ]
+    },
+    "revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "targetKind": {
+      "const": "external"
+    },
+    "origin": {
+      "const": "a2a"
+    },
+    "authenticated": {
+      "type": "boolean"
+    },
+    "createdAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "updatedAt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "endpoint": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    }
+  },
+  "required": [
+    "id",
+    "agentId",
+    "cardUrl",
+    "kid",
+    "fingerprint",
+    "state",
+    "revision",
+    "targetKind",
+    "origin",
+    "authenticated",
+    "createdAt",
+    "updatedAt"
+  ]
+}
+```
+
+### `ToolsHealth`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "process",
+    "rpc",
+    "instanceId",
+    "pid",
+    "uptimeMs"
+  ],
+  "properties": {
+    "process": {
+      "$ref": "#/$defs/ProcessState"
+    },
+    "rpc": {
+      "type": "string"
+    },
+    "instanceId": {
+      "type": "string"
+    },
+    "pid": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "uptimeMs": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}
+```
+
+### `ToolsServiceStatus`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "ready",
+    "pid",
+    "checkedAt"
+  ],
+  "properties": {
+    "ready": {
+      "type": "boolean"
+    },
+    "pid": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "checkedAt": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    }
+  }
+}
+```
+
+### `ParsedMemoryEntry`
+
+```json
+{
+  "description": "1.22.0: A parsed memory entry from a portable export.",
+  "x-stability": "experimental",
+  "x-since": "1.22.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "category",
+    "sourceType",
+    "text",
+    "warnings",
+    "idempotencyKey"
+  ],
+  "properties": {
+    "category": {
+      "type": "string",
+      "enum": [
+        "Instructions",
+        "Identity",
+        "Career",
+        "Projects",
+        "Preferences",
+        "Other"
+      ]
+    },
+    "sourceType": {
+      "type": "string",
+      "enum": [
+        "memory",
+        "chat",
+        "unknown"
+      ]
+    },
+    "recordedAt": {
+      "type": "string",
+      "maxLength": 50
+    },
+    "text": {
+      "type": "string",
+      "maxLength": 4000
+    },
+    "warnings": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "string",
+        "maxLength": 100
+      }
+    },
+    "idempotencyKey": {
+      "type": "string",
+      "maxLength": 64
+    }
+  }
+}
+```
+
+### `MemoryEntryTarget`
+
+```json
+{
+  "description": "1.22.0: Target scope assignment for a memory entry.",
+  "x-stability": "experimental",
+  "x-since": "1.22.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "target"
+  ],
+  "properties": {
+    "target": {
+      "type": "string",
+      "enum": [
+        "skip",
+        "user",
+        "agent",
+        "propose-rule"
+      ]
+    },
+    "agentIds": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "string",
+        "maxLength": 128
+      }
+    },
+    "reason": {
+      "type": "string",
+      "maxLength": 500
     }
   }
 }

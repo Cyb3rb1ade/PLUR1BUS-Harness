@@ -29,6 +29,10 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
   before the copy. An agent table without memories validates on the generation check alone. See
   `docs/embedding-migration.md`.
 
+- **API account archive opt-in (SH8).** Ordinary `backup create` excludes API password hashes, TOTP seeds and token
+  hashes unless `--include-api-accounts` is selected. Omitted account data stays untouched on restore. Portable
+  encrypted backups and their pre-restore rollback archives explicitly include accounts.
+
 - **Schema-owned configuration outputs (SH2).** Public Supervisor/CLI reads, Web settings and palette values, config
   audit entries, diagnostics, support bundles and agent exports apply the schema's sensitivity and URL policies.
   Untouched replacement controls preserve the original values; URL views retain hosts and paths. Internal provisioning
@@ -134,6 +138,14 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Changed
 
+- **Channel uploads have bounded, private storage.** Generated outputs and uploads share a 1 GiB quota and 30-day
+  retention. Private direct-message uploads require their owning person in addition to agent rights. Missing ffmpeg
+  produces a manual installation hint; the Harness never runs sudo or a package manager.
+
+- **Media search backfill defaults to manual.** New installations and existing configurations without an explicit
+  `memory.mediaEmbedding.backfill` value now use `manual`, rather than the previous `auto` default. With this default,
+  existing media are indexed only after an explicit start. Saved `auto` and `manual` choices are preserved.
+
 - **#156:** Reconciled milestone and repository status documentation with merged work.
 - **#170:** Added German and English user quickstart and operations handbooks.
 - **#186:** Unified provider errors, profile-driven routing and streaming contracts.
@@ -156,6 +168,27 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Fixed
 
+- Refresh the gap inventory against current source markers, distinguish prior fixes from SH closures, and record
+  remaining redaction, release-audit and remote-state coverage boundaries.
+
+- **Retired remote trust anchors (SH6).** Retain certificate and SPKI history in a strict private v2 file, clean rejected
+  staging material, and validate activation size/state before changing TLS. Normal restart and activation recovery
+  preserve history; device-side and lost-history limits remain documented.
+
+- **Release-audit exceptions (SH5).** Match advisory, crate and bounded stable-version range together; reject incomplete
+  approvals and unknown installed versions, preserving existing expiry dates.
+
+- **Collaboration replay regression (SH4).** Verify authorized W3C trace/span identity with deterministic replay cases;
+  secret content, PII and access checks remain protected.
+
+- **Secret redaction across encodings and output boundaries (SH3).** Cache compiled matchers with each secret-set
+  generation, cover overlapping and JSON-escaped forms, and mask before native exec, file-window, web-page and
+  diagnostic limits. Output framing carries partial matches across chunks and idle flushes without broken UTF-16.
+  Large escaped results have a deterministic regression budget, including 512 secrets and 170,000 short escaped tokens.
+- **Bounded Secret-Store startup (SH3).** Readable persisted values are protected before startup logs reach a sink.
+  Native backend work runs outside Core's event loop; an unavailable Store leaves Core responsive while secret use
+  fails closed. Startup snapshots remain protected until Core exits.
+
 - Outbound A2A approvals use their own wait limit instead of consuming the network timeout. Redirects retain one
   shared network allowance, and approved traffic obtains a fresh credential lease after the human decision.
 
@@ -173,8 +206,8 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
   `state/tool-results/` file and the capture. The dispatcher now masks the exact value and its base64, hex and URL-encoded
   forms with `[REDACTED:secret]`, once, as the result leaves it; a failed call is masked against the same registry, and a
   failure message is masked before it is cut to 500 characters (a value the cut split used to escape the later redaction).
-  "Registered" means read, written or leased in this core process (the secret store, provider and media credentials): after a
-  restart a stored secret that nothing has used yet is not masked. Values under 8 characters are still not masked (`secret.set`
+  "Registered" includes configured literals and readable Store values loaded at startup, plus values read, written or
+  leased later in this process (the secret store, provider and media credentials). Values under 8 UTF-16 units are still not masked (`secret.set`
   warns about them), and a stored low-entropy value of 8 or more characters (a short word, a path) masks every matching piece of
   text in a result too. A result that holds no registered value comes back exactly as the tool returned it; one over
   `maxResultBytes` is refused on its raw size before it is checked; a registered value that comes back as a JSON number cannot

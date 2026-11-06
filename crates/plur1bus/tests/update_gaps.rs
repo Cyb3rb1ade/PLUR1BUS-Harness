@@ -149,6 +149,7 @@ impl Release {
     fn manifest(&self, base: &str) -> Vec<u8> {
         let mut native = json!({
             "binary": { HOST: { "url": format!("{base}/plur1bus-new"), "sha256": sha(self.script.as_bytes()) } },
+            "tools": { HOST: { "url": format!("{base}/plur1bus-tools-new"), "sha256": sha(b"new tools companion") } },
             "core": { "version": "0.1.0", "contract": "1.9.0", "rpc": "1.3.0",
                       "payload": { HOST: { "url": "https://example.invalid/core.tar.gz", "sha256": "a".repeat(64) } } },
             "node": { "version": "24.21.0" },
@@ -181,6 +182,7 @@ impl Release {
         fs::create_dir_all(&d).unwrap();
         let bin = d.join("plur1bus-new");
         fs::write(&bin, &self.script).unwrap();
+        fs::write(d.join("plur1bus-tools-new"), b"new tools companion").unwrap();
         if let Some(c) = &self.core {
             fs::write(d.join("core.tar.gz"), c).unwrap();
         }
@@ -209,6 +211,10 @@ impl Release {
                 self.script.clone().into_bytes(),
             ),
         ];
+        files.push((
+            "artefacts/plur1bus-tools-new".into(),
+            b"new tools companion".to_vec(),
+        ));
         if let Some(c) = &self.core {
             files.push(("artefacts/core.tar.gz".to_string(), c.clone()));
         }

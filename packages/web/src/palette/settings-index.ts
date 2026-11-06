@@ -126,10 +126,34 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "memory.mediaEmbedding.model", type: "string", tier: "basic", help: "Model id used for the media index; the same model may serve text and media, the indexes stay separate." },
   { key: "memory.mediaEmbedding.dimensions", type: "integer", tier: "advanced", help: "Vector dimensions of the media index; must be supported by the model (EmbeddingGemma: 768, 512, 256 or 128)." },
   { key: "memory.mediaEmbedding.modalities", type: "array", tier: "basic", help: "Media kinds that are indexed." },
+  { key: "memory.mediaEmbedding.image", type: "object", tier: "advanced", help: "Image preprocessing token budget (owner E3)." },
+  { key: "memory.mediaEmbedding.image.softTokens", type: "integer", tier: "advanced", help: "Soft token budget per photo; changing it changes the media vector space." },
+  { key: "memory.mediaEmbedding.dtypes", type: "object", tier: "advanced", help: "Pinned encoder precision per platform (owner E2): q8 until a separate measured decision. Audio always uses q8." },
+  { key: "memory.mediaEmbedding.dtypes.linux-x64", type: "object", tier: "advanced", help: "Encoder precision on linux-x64." },
+  { key: "memory.mediaEmbedding.dtypes.linux-x64.text", type: "string", tier: "advanced", help: "Pinned text encoder precision." },
+  { key: "memory.mediaEmbedding.dtypes.linux-x64.vision", type: "string", tier: "advanced", help: "Pinned vision encoder precision." },
+  { key: "memory.mediaEmbedding.dtypes.linux-x64.audio", type: "string", tier: "advanced", help: "Pinned audio encoder precision." },
+  { key: "memory.mediaEmbedding.dtypes.linux-arm64", type: "object", tier: "advanced", help: "Encoder precision on linux-arm64." },
+  { key: "memory.mediaEmbedding.dtypes.linux-arm64.text", type: "string", tier: "advanced", help: "Pinned text encoder precision." },
+  { key: "memory.mediaEmbedding.dtypes.linux-arm64.vision", type: "string", tier: "advanced", help: "Pinned vision encoder precision." },
+  { key: "memory.mediaEmbedding.dtypes.linux-arm64.audio", type: "string", tier: "advanced", help: "Pinned audio encoder precision." },
+  { key: "memory.mediaEmbedding.dtypes.darwin-arm64", type: "object", tier: "advanced", help: "Encoder precision on darwin-arm64." },
+  { key: "memory.mediaEmbedding.dtypes.darwin-arm64.text", type: "string", tier: "advanced", help: "Pinned text encoder precision." },
+  { key: "memory.mediaEmbedding.dtypes.darwin-arm64.vision", type: "string", tier: "advanced", help: "Pinned vision encoder precision." },
+  { key: "memory.mediaEmbedding.dtypes.darwin-arm64.audio", type: "string", tier: "advanced", help: "Pinned audio encoder precision." },
+  { key: "memory.mediaEmbedding.dtypes.win32-x64", type: "object", tier: "advanced", help: "Encoder precision on win32-x64." },
+  { key: "memory.mediaEmbedding.dtypes.win32-x64.text", type: "string", tier: "advanced", help: "Pinned text encoder precision." },
+  { key: "memory.mediaEmbedding.dtypes.win32-x64.vision", type: "string", tier: "advanced", help: "Pinned vision encoder precision." },
+  { key: "memory.mediaEmbedding.dtypes.win32-x64.audio", type: "string", tier: "advanced", help: "Pinned audio encoder precision." },
+  { key: "memory.mediaEmbedding.dtypes.win32-arm64", type: "object", tier: "advanced", help: "Encoder precision on win32-arm64." },
+  { key: "memory.mediaEmbedding.dtypes.win32-arm64.text", type: "string", tier: "advanced", help: "Pinned text encoder precision." },
+  { key: "memory.mediaEmbedding.dtypes.win32-arm64.vision", type: "string", tier: "advanced", help: "Pinned vision encoder precision." },
+  { key: "memory.mediaEmbedding.dtypes.win32-arm64.audio", type: "string", tier: "advanced", help: "Pinned audio encoder precision." },
   { key: "memory.mediaEmbedding.video.segmentSec", type: "integer", tier: "advanced", help: "Length of one video segment in seconds." },
   { key: "memory.mediaEmbedding.video.maxFrames", type: "integer", tier: "advanced", help: "Maximum number of frames embedded per video; capped by the model limit." },
   { key: "memory.mediaEmbedding.video.sceneDetect", type: "boolean", tier: "advanced", help: "Whether frames are picked at scene changes instead of a fixed interval." },
-  { key: "memory.mediaEmbedding.audio.segmentSec", type: "integer", tier: "advanced", help: "Length of one audio segment in seconds." },
+  { key: "memory.mediaEmbedding.video.softTokens", type: "integer", tier: "advanced", help: "Soft token budget per video frame (owner E3); changing it changes the media vector space." },
+  { key: "memory.mediaEmbedding.audio.segmentSec", type: "integer", tier: "advanced", help: "Length of one audio segment in seconds; the model silently truncates above 30 (owner E8)." },
   { key: "memory.mediaEmbedding.audio.maxSeconds", type: "integer", tier: "advanced", help: "Maximum audio duration in seconds that is indexed; longer media is truncated." },
   { key: "memory.mediaEmbedding.caption.source", type: "string", tier: "advanced", help: "Caption order: generation prompt, then user caption or alt text, then automatic captioning; user-only skips automatic captions; off disables captions." },
   { key: "memory.mediaEmbedding.caption.provider", type: "string", tier: "advanced", help: "Caption provider id, or \"off\". Unset means local when the media embedding is local; with a cloud embedding setup asks." },
@@ -170,7 +194,7 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "a2aServer.signingKey", type: "object", tier: "advanced", help: "Private key for signing agent cards." },
   { key: "a2aServer.signingKey.privateKeySecret", type: "string", tier: "advanced", sensitive: true, help: "Name of the secret holding the agent card signing private key; never the key itself." },
   { key: "a2aServer.signingKey.kid", type: "string", tier: "advanced", help: "Key identifier for the signing key." },
-  { key: "providers", type: "object", tier: "basic", help: "Open namespace for provider definitions. Non-validating privacy metadata follows the existing auth, MCP and media consumers." },
+  { key: "providers", type: "object", tier: "basic", help: "Reserved namespace for model-provider configuration; apple-fm is synthesized and cannot be declared here (reserved-provider-id). Non-validating privacy metadata follows the existing auth, MCP and media consumers." },
   { key: "auth.requireSecondFactor", type: "string", tier: "advanced", help: "Require TOTP or WebAuthn for Owner and Admin on remote listeners by default; always or never are explicit overrides." },
   { key: "auth.openai.loopbackTimeoutMs", type: "integer", tier: "advanced", help: "Loopback login deadline." },
   { key: "auth.openai.httpTimeoutMs", type: "integer", tier: "advanced", help: "Bounded OpenAI HTTP deadline." },
@@ -232,6 +256,9 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "egress.allowLoopback", type: "boolean", tier: "advanced", help: "Allow http(s) to loopback hosts (localhost, 127.0.0.0/8, ::1) that are also listed in allowHosts. A public name that resolves to loopback stays refused." },
   { key: "privacy.localOnly", type: "boolean", tier: "basic", help: "Only local models: every model or inference endpoint must be loopback (localhost, 127.0.0.0/8, ::1) or listed in privacy.localEndpoints. A cloud provider is refused with E_DENIED reason local-only, never silently replaced by another model. Web tools (web.fetch, web.search) are not model calls and are not affected. An agent can override it with agents.<id>.privacy.localOnly." },
   { key: "privacy.localEndpoints", type: "array", tier: "advanced", urlCredentials: true, help: "Self-hosted model servers outside loopback that count as local for privacy.localOnly (for example your own Ollama or vLLM server in the home network), as exact origins scheme://host[:port]. LAN addresses are not local unless listed here." },
+  { key: "session.rewind.autoProjects", type: "array", tier: "advanced", help: "Projects that permit automatic rewind after three failed edit/test cycles on unattended D115 cards. Interactive sessions only propose; no file restore is automatic." },
+  { key: "session.rewind.fileProjects", type: "array", tier: "advanced", help: "Projects that permit tracked-file checkpoints and separately approved file rewind on D115 card sessions. Empty disables capture and file restore." },
+  { key: "session.rewind.checkpointRetentionTurns", type: "integer", tier: "advanced", help: "Keep private file-checkpoint refs only within this many recent session turns. Archived sessions and completed cards release their refs earlier." },
   { key: "session.compaction.softRatio", type: "number", tier: "advanced", help: "Prepare a summary above this fraction of the model context window." },
   { key: "session.compaction.hardRatio", type: "number", tier: "advanced", help: "Swap prepared summary above this fraction. Must exceed softRatio." },
   { key: "session.compaction.summaryMaxTokens", type: "integer", tier: "advanced", help: "Maximum summary tokens; also capped to 15 percent of the catalogue window." },
@@ -553,6 +580,8 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "media.adapters.coreml.computeUnits", type: "string", tier: "advanced", help: "Where inference runs. `auto` lets the helper choose from the model's attention variant (split-einsum: Neural Engine, original: GPU)." },
   { key: "media.adapters.coreml.scheduler", type: "string", tier: "advanced", help: "Diffusion scheduler name understood by the helper; unset uses the helper default." },
   { key: "media.adapters.coreml.timeoutMs", type: "integer", tier: "advanced", help: "Upper bound for one generation in milliseconds." },
+  { key: "appleFm", type: "object", tier: "advanced", help: "Use Apple's on-device model for small decisions and short summaries on supported Macs." },
+  { key: "appleFm.enabled", type: "boolean", tier: "advanced", help: "Enable Apple Foundation Models after Apple Intelligence is ready and the model licence has been accepted." },
 ];
 
 // Structural policy uses the shared schema format, retaining public members, unknown-member rules and reference definitions.
@@ -1221,6 +1250,9 @@ export const CONFIG_POLICY_SCHEMA: ConfigSchemaNode = {
       "additionalProperties": {
         "type": "object",
         "properties": {
+          "coding": {
+            "type": "boolean"
+          },
           "behaviour": {
             "type": "object",
             "properties": {
@@ -2382,6 +2414,142 @@ export const CONFIG_POLICY_SCHEMA: ConfigSchemaNode = {
                       ]
                     }
                   },
+                  "image": {
+                    "type": "object",
+                    "properties": {
+                      "softTokens": {
+                        "type": "integer",
+                        "x-sensitive": false
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "dtypes": {
+                    "type": "object",
+                    "properties": {
+                      "linux-x64": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string",
+                            "enum": [
+                              "q8"
+                            ]
+                          },
+                          "vision": {
+                            "type": "string",
+                            "enum": [
+                              "q8"
+                            ]
+                          },
+                          "audio": {
+                            "type": "string",
+                            "enum": [
+                              "q8"
+                            ]
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "linux-arm64": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string",
+                            "enum": [
+                              "q8"
+                            ]
+                          },
+                          "vision": {
+                            "type": "string",
+                            "enum": [
+                              "q8"
+                            ]
+                          },
+                          "audio": {
+                            "type": "string",
+                            "enum": [
+                              "q8"
+                            ]
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "darwin-arm64": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string",
+                            "enum": [
+                              "q8"
+                            ]
+                          },
+                          "vision": {
+                            "type": "string",
+                            "enum": [
+                              "q8"
+                            ]
+                          },
+                          "audio": {
+                            "type": "string",
+                            "enum": [
+                              "q8"
+                            ]
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "win32-x64": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string",
+                            "enum": [
+                              "q8"
+                            ]
+                          },
+                          "vision": {
+                            "type": "string",
+                            "enum": [
+                              "q8"
+                            ]
+                          },
+                          "audio": {
+                            "type": "string",
+                            "enum": [
+                              "q8"
+                            ]
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "win32-arm64": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string",
+                            "enum": [
+                              "q8"
+                            ]
+                          },
+                          "vision": {
+                            "type": "string",
+                            "enum": [
+                              "q8"
+                            ]
+                          },
+                          "audio": {
+                            "type": "string",
+                            "enum": [
+                              "q8"
+                            ]
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "additionalProperties": false
+                  },
                   "video": {
                     "type": "object",
                     "properties": {
@@ -2393,6 +2561,10 @@ export const CONFIG_POLICY_SCHEMA: ConfigSchemaNode = {
                       },
                       "sceneDetect": {
                         "type": "boolean"
+                      },
+                      "softTokens": {
+                        "type": "integer",
+                        "x-sensitive": false
                       }
                     },
                     "additionalProperties": false
@@ -2691,6 +2863,142 @@ export const CONFIG_POLICY_SCHEMA: ConfigSchemaNode = {
                 ]
               }
             },
+            "image": {
+              "type": "object",
+              "properties": {
+                "softTokens": {
+                  "type": "integer",
+                  "x-sensitive": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "dtypes": {
+              "type": "object",
+              "properties": {
+                "linux-x64": {
+                  "type": "object",
+                  "properties": {
+                    "text": {
+                      "type": "string",
+                      "enum": [
+                        "q8"
+                      ]
+                    },
+                    "vision": {
+                      "type": "string",
+                      "enum": [
+                        "q8"
+                      ]
+                    },
+                    "audio": {
+                      "type": "string",
+                      "enum": [
+                        "q8"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "linux-arm64": {
+                  "type": "object",
+                  "properties": {
+                    "text": {
+                      "type": "string",
+                      "enum": [
+                        "q8"
+                      ]
+                    },
+                    "vision": {
+                      "type": "string",
+                      "enum": [
+                        "q8"
+                      ]
+                    },
+                    "audio": {
+                      "type": "string",
+                      "enum": [
+                        "q8"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "darwin-arm64": {
+                  "type": "object",
+                  "properties": {
+                    "text": {
+                      "type": "string",
+                      "enum": [
+                        "q8"
+                      ]
+                    },
+                    "vision": {
+                      "type": "string",
+                      "enum": [
+                        "q8"
+                      ]
+                    },
+                    "audio": {
+                      "type": "string",
+                      "enum": [
+                        "q8"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "win32-x64": {
+                  "type": "object",
+                  "properties": {
+                    "text": {
+                      "type": "string",
+                      "enum": [
+                        "q8"
+                      ]
+                    },
+                    "vision": {
+                      "type": "string",
+                      "enum": [
+                        "q8"
+                      ]
+                    },
+                    "audio": {
+                      "type": "string",
+                      "enum": [
+                        "q8"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "win32-arm64": {
+                  "type": "object",
+                  "properties": {
+                    "text": {
+                      "type": "string",
+                      "enum": [
+                        "q8"
+                      ]
+                    },
+                    "vision": {
+                      "type": "string",
+                      "enum": [
+                        "q8"
+                      ]
+                    },
+                    "audio": {
+                      "type": "string",
+                      "enum": [
+                        "q8"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
             "video": {
               "type": "object",
               "properties": {
@@ -2702,6 +3010,10 @@ export const CONFIG_POLICY_SCHEMA: ConfigSchemaNode = {
                 },
                 "sceneDetect": {
                   "type": "boolean"
+                },
+                "softTokens": {
+                  "type": "integer",
+                  "x-sensitive": false
                 }
               },
               "additionalProperties": false
@@ -4246,6 +4558,31 @@ export const CONFIG_POLICY_SCHEMA: ConfigSchemaNode = {
     "session": {
       "type": "object",
       "properties": {
+        "rewind": {
+          "type": "object",
+          "properties": {
+            "autoProjects": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            },
+            "fileProjects": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            },
+            "checkpointRetentionTurns": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
+        },
         "compaction": {
           "type": "object",
           "properties": {
@@ -6387,6 +6724,15 @@ export const CONFIG_POLICY_SCHEMA: ConfigSchemaNode = {
             }
           },
           "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "appleFm": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false

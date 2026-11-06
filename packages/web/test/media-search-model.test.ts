@@ -9,7 +9,7 @@ import { overrideChanges, overrideOf } from "../src/pages/media-search/override.
 const local = (m: Partial<MediaSetup> = {}): MediaSetup => ({ ...mediaSetupDefaults(), ...m });
 
 describe("media search: contract defaults", () => {
-  test("the TS defaults are the contract's: EmbeddingGemma 2, 768, all modalities, auto backfill, segment and frame limits", () => {
+  test("the TS defaults are the contract's: EmbeddingGemma 2, 768, all modalities, manual backfill, segment and frame limits", () => {
     assert.equal(MEDIA_EMBEDDING_DEFAULTS.provider, "egemma2");
     assert.equal(MEDIA_EMBEDDING_DEFAULTS.model, "google/embeddinggemma-2");
     assert.equal(MEDIA_EMBEDDING_DEFAULTS.dimensions, 768);
@@ -21,7 +21,7 @@ describe("media search: contract defaults", () => {
     assert.equal(MEDIA_EMBEDDING_DEFAULTS.audio.maxSeconds, 3600);
     assert.equal(MEDIA_EMBEDDING_DEFAULTS.caption.maxChars, 280);
     assert.equal(MEDIA_EMBEDDING_DEFAULTS.caption.perSegment, false);
-    assert.equal(MEDIA_EMBEDDING_DEFAULTS.backfill, "auto");
+    assert.equal(MEDIA_EMBEDDING_DEFAULTS.backfill, "manual");
   });
 });
 
@@ -79,11 +79,11 @@ describe("media search: validation (E_MEDIA_* mirror)", () => {
 });
 
 describe("media search: config changes only where a value differs from the contract default", () => {
-  test("untouched defaults write nothing", () => {
-    assert.deepEqual(mediaSetupChanges(local(), "egemma2"), []);
+  test("untouched setup explicitly writes manual backfill", () => {
+    assert.deepEqual(mediaSetupChanges(local(), "egemma2"), [{ key: "memory.mediaEmbedding.backfill", value: "manual" }]);
   });
   test("modalities: only the changed set is written, in full", () => {
-    assert.deepEqual(mediaSetupChanges(local({ modalities: ["image", "audio"] }), "egemma2"), [{ key: "memory.mediaEmbedding.modalities", value: ["image", "audio"] }]);
+    assert.deepEqual(mediaSetupChanges(local({ modalities: ["image", "audio"] }), "egemma2"), [{ key: "memory.mediaEmbedding.modalities", value: ["image", "audio"] }, { key: "memory.mediaEmbedding.backfill", value: "manual" }]);
   });
   test("media off writes enabled=false and nothing else", () => {
     assert.deepEqual(mediaSetupChanges(local({ enabled: false }), "egemma2"), [{ key: "memory.mediaEmbedding.enabled", value: false }]);
@@ -96,8 +96,8 @@ describe("media search: config changes only where a value differs from the contr
       { key: "memory.mediaEmbedding.backfill", value: "manual" },
     ]);
   });
-  test("all modalities selected in another order is still the default (no write)", () => {
-    assert.deepEqual(mediaSetupChanges(local({ modalities: ["audio", "video", "image"] }), "egemma2"), []);
+  test("all modalities selected in another order writes only manual backfill", () => {
+    assert.deepEqual(mediaSetupChanges(local({ modalities: ["audio", "video", "image"] }), "egemma2"), [{ key: "memory.mediaEmbedding.backfill", value: "manual" }]);
     assert.deepEqual([...ALL_MODALITIES].sort(), ["audio", "image", "video"]);
   });
 });

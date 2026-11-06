@@ -1025,6 +1025,18 @@
       "expect": "ok"
     },
     {
+      "name": "example:engine.process.lifecycle",
+      "validator": "diagnostic",
+      "line": "{\"ts\":\"2026-11-01T12:00:00.000Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"engine\",\"version\":\"0.1.0\"},\"event\":\"engine.process.lifecycle\",\"msg\":\"engine process lifecycle changed\",\"attrs\":{\"state\":\"started\",\"reason\":\"ready\",\"pid\":4242}}",
+      "expect": "ok"
+    },
+    {
+      "name": "example:engine.process.error",
+      "validator": "diagnostic",
+      "line": "{\"ts\":\"2026-11-01T12:00:00.000Z\",\"level\":\"warn\",\"source\":{\"kind\":\"harness\",\"id\":\"engine\",\"version\":\"0.1.0\"},\"event\":\"engine.process.error\",\"msg\":\"engine local boundary failed\",\"attrs\":{\"stage\":\"accept\",\"error_kind\":\"resource-limit\",\"os_error\":24,\"pid\":4242}}",
+      "expect": "ok"
+    },
+    {
       "name": "watchdog:aggregate-rss-incomplete",
       "validator": "diagnostic",
       "line": "{\"ts\":\"2026-10-01T09:14:03.218Z\",\"level\":\"info\",\"source\":{\"kind\":\"harness\",\"id\":\"core\",\"version\":\"0.1.0\"},\"event\":\"sandbox.watchdog.failure\",\"msg\":\"sandbox.watchdog.failure\",\"attrs\":{\"process\":\"connector\",\"version\":1,\"cause\":\"aggregate-rss-incomplete\",\"operation\":\"task-info\",\"phase\":\"runtime\",\"sample\":2,\"elapsedMicros\":1234,\"pid\":321,\"returned\":0,\"expected\":96,\"errno\":3,\"probeReturned\":0,\"probeErrno\":0,\"ppid\":123,\"pgid\":123,\"status\":5,\"startSeconds\":1700000000,\"startMicros\":500,\"processRssBytes\":0,\"count\":2,\"rssBytes\":1048576}}",
@@ -15092,6 +15104,197 @@
           "cause"
         ]
       }
+    },
+    {
+      "event": "engine.process.lifecycle",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "info",
+      "levels": [
+        "info"
+      ],
+      "attrs": "engine_process_lifecycle",
+      "requiredAttrs": [
+        "state",
+        "reason",
+        "pid"
+      ],
+      "streamed": false,
+      "family": false,
+      "activity": false,
+      "stability": "experimental",
+      "attrsSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "repeat": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "dedup summary: all occurrences in the window, the first included (§2.9)"
+          },
+          "window_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "dedup or rate-limit window length"
+          },
+          "link_trace_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{32}$",
+            "description": "a foreign trace id that was not adopted (§2.8)"
+          },
+          "foreign_message": {
+            "type": "string",
+            "maxLength": 2048,
+            "description": "untrusted foreign error text, truncated and redacted by the writer"
+          },
+          "untrusted": {
+            "type": "boolean",
+            "description": "true on wrapped third-party output"
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "the value was cut to its limit"
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "original size in bytes when truncated"
+          },
+          "state": {
+            "enum": [
+              "started",
+              "orphaned",
+              "adopted",
+              "stopping",
+              "stopped"
+            ]
+          },
+          "reason": {
+            "enum": [
+              "ready",
+              "stdin-closed",
+              "connection-closed",
+              "adopted",
+              "shutdown",
+              "grace-expired",
+              "signal",
+              "transport-fatal",
+              "deadline",
+              "startup-failed",
+              "stamp-owner-live",
+              "stamp-age-rule",
+              "process-lock-held",
+              "endpoint-live"
+            ]
+          },
+          "pid": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "state",
+          "reason",
+          "pid"
+        ]
+      }
+    },
+    {
+      "event": "engine.process.error",
+      "kinds": [
+        "harness"
+      ],
+      "stream": "diagnostic",
+      "level": "warn",
+      "levels": [
+        "warn"
+      ],
+      "attrs": "engine_process_error",
+      "requiredAttrs": [
+        "stage",
+        "error_kind",
+        "pid"
+      ],
+      "streamed": false,
+      "family": false,
+      "activity": false,
+      "stability": "experimental",
+      "attrsSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "repeat": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "dedup summary: all occurrences in the window, the first included (§2.9)"
+          },
+          "window_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "dedup or rate-limit window length"
+          },
+          "link_trace_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{32}$",
+            "description": "a foreign trace id that was not adopted (§2.8)"
+          },
+          "foreign_message": {
+            "type": "string",
+            "maxLength": 2048,
+            "description": "untrusted foreign error text, truncated and redacted by the writer"
+          },
+          "untrusted": {
+            "type": "boolean",
+            "description": "true on wrapped third-party output"
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "the value was cut to its limit"
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "original size in bytes when truncated"
+          },
+          "stage": {
+            "enum": [
+              "startup",
+              "listen",
+              "accept",
+              "spawn",
+              "close",
+              "peer"
+            ]
+          },
+          "error_kind": {
+            "enum": [
+              "resource-limit",
+              "permission",
+              "invalid-input",
+              "connection-closed",
+              "timeout",
+              "interrupted",
+              "not-found",
+              "unsupported",
+              "other"
+            ]
+          },
+          "os_error": {
+            "type": "integer"
+          },
+          "pid": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "stage",
+          "error_kind",
+          "pid"
+        ]
+      }
     }
   ],
   "redaction": {
@@ -15119,11 +15322,16 @@
         "kind": "patterns",
         "patterns": [
           "bearer",
+          "authorization-folded",
+          "credential-assignment-double-quoted",
+          "credential-assignment-single-quoted",
+          "credential-assignment",
           "basic",
           "sk",
           "ek",
           "ghp",
           "github-token",
+          "telegram-bot",
           "github-pat",
           "slack",
           "aws-access-key",
@@ -15189,6 +15397,75 @@
     },
     {
       "rule": "pattern",
+      "pattern": "bearer",
+      "parts": [
+        "Bearer ",
+        "\"",
+        "FAKE first",
+        " second",
+        "\""
+      ],
+      "matches": [
+        "Bearer \"FAKE first second\""
+      ]
+    },
+    {
+      "rule": "pattern",
+      "pattern": "authorization-folded",
+      "parts": [
+        "Authorization: ",
+        "FAKE first",
+        "\r\n ",
+        "FAKE second",
+        "\r\n\t",
+        "FAKE third"
+      ],
+      "matches": [
+        "Authorization: FAKE first\r\n FAKE second\r\n\tFAKE third"
+      ]
+    },
+    {
+      "rule": "pattern",
+      "pattern": "credential-assignment",
+      "parts": [
+        "client_credential=",
+        "FAKE-value"
+      ],
+      "matches": [
+        "credential=",
+        "FAKE-value"
+      ]
+    },
+    {
+      "rule": "pattern",
+      "pattern": "credential-assignment-double-quoted",
+      "parts": [
+        "credential=",
+        "\"",
+        "FAKE first",
+        " second",
+        "\""
+      ],
+      "matches": [
+        "credential=\"FAKE first second\""
+      ]
+    },
+    {
+      "rule": "pattern",
+      "pattern": "credential-assignment-single-quoted",
+      "parts": [
+        "client_credential=",
+        "'",
+        "FAKE first",
+        " second",
+        "'"
+      ],
+      "matches": [
+        "credential='FAKE first second'"
+      ]
+    },
+    {
+      "rule": "pattern",
       "pattern": "sk",
       "parts": [
         "key=",
@@ -15246,6 +15523,19 @@
       ],
       "matches": [
         "ghs_DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD"
+      ]
+    },
+    {
+      "rule": "pattern",
+      "pattern": "telegram-bot",
+      "parts": [
+        "123456789:",
+        "FAKE_bot_value-",
+        "0123456789/+=."
+      ],
+      "matches": [
+        "123456789:",
+        "FAKE_bot_value-0123456789/+=."
       ]
     },
     {
@@ -15475,7 +15765,10 @@
       "session-key",
       "accessToken",
       "X-Auth-Token",
-      "private_key"
+      "private_key",
+      "access_key",
+      "access-key-id",
+      "accessKeyId"
     ],
     "keep": [
       "input_tokens",
@@ -15493,7 +15786,11 @@
       "passwords_checked",
       "model",
       "provider_request_id",
-      "retry_after_s"
+      "retry_after_s",
+      "access_count",
+      "credentials_count",
+      "credential",
+      "client_credential"
     ]
   },
   "redactionNonMatches": [
@@ -15516,6 +15813,11 @@
       "pattern": "basic",
       "text": "Basic info",
       "note": "prose"
+    },
+    {
+      "pattern": "telegram-bot",
+      "text": "123456789:short",
+      "note": "a short value is not a bot credential"
     },
     {
       "pattern": "github-token",

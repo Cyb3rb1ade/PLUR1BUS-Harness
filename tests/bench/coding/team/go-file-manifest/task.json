@@ -1,0 +1,77 @@
+{
+  "schema": "plur1bus.team-task/1",
+  "id": "go-file-manifest",
+  "title": "Portable file manifest",
+  "kind": "decomposable",
+  "tier": "team",
+  "language": "go",
+  "license": "MIT",
+  "seeds": [
+    17,
+    104729,
+    8675309
+  ],
+  "budgets": {
+    "tokens": 45056,
+    "maxRounds": 42,
+    "wallMs": 630000
+  },
+  "instruction": "prompt.md",
+  "start": "start",
+  "seedGenerator": "seed.mjs",
+  "packages": [
+    {
+      "id": "paths",
+      "entry": "src/paths__SEED__/solution__SEED__.go",
+      "symbol": "Solve__SEED__",
+      "owns": [
+        "src/paths__SEED__/solution__SEED__.go"
+      ],
+      "dependsOn": [],
+      "reference": "reference/paths",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "paths"
+      }
+    },
+    {
+      "id": "deduplicate",
+      "entry": "src/deduplicate__SEED__/solution__SEED__.go",
+      "symbol": "Solve__SEED__",
+      "owns": [
+        "src/deduplicate__SEED__/solution__SEED__.go"
+      ],
+      "dependsOn": [],
+      "reference": "reference/deduplicate",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "deduplicate"
+      }
+    },
+    {
+      "id": "summary",
+      "entry": "src/summary__SEED__/solution__SEED__.go",
+      "symbol": "Solve__SEED__",
+      "owns": [
+        "src/summary__SEED__/solution__SEED__.go"
+      ],
+      "dependsOn": [],
+      "reference": "reference/summary",
+      "checker": {
+        "path": "check.mjs",
+        "scope": "summary"
+      }
+    }
+  ],
+  "endToEnd": {
+    "checker": {
+      "path": "check.mjs",
+      "scope": "e2e"
+    },
+    "order": [
+      "paths",
+      "deduplicate",
+      "summary"
+    ]
+  }
+}

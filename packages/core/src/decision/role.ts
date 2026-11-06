@@ -23,10 +23,15 @@ export function createRoleBackend(create: typeof createTurnProvider, options: Tu
     return candidates.length ? { role, name, candidates } : undefined;
   };
   return {
-    local() { const resolved = resolve(); return resolved ? options.isLocalProvider?.(resolved.candidates[0]!.provider) === true : undefined; },
+    local() { const resolved = resolve(); return resolved ? options.isLocalProvider?.(resolved.candidates[0]!.provider, resolved.candidates[0]!.model) === true : undefined; },
     async run(request: DecisionRequest, signal: AbortSignal) {
       const resolved = resolve(); if (!resolved) throw new DecisionBackendError('unavailable');
       const { role, name, candidates } = resolved;
+      const small = candidates.some(candidate => {
+        const window = options.contextWindow?.(candidate.provider, candidate.model);
+        return window !== undefined && window <= 4096;
+      });
+      const maximum = small ? 512 : 4096;
       const key = JSON.stringify([role, request.primitive]); let provider = providers.get(key);
       if (!provider) {
         const { classifyMessage: _classify, capabilities: _caps, skillsForAgent: _skills, ...routerOptions } = options;
@@ -39,7 +44,7 @@ export function createRoleBackend(create: typeof createTurnProvider, options: Tu
           } } })) }, profile: name, profileForAgent: () => undefined, profileForClass: () => name,
           requireTriage: false, localOnly: agent => active.getStore()?.context.forceLocal === true || options.localOnly?.(agent) === true,
           registry: new ToolRegistry(), toolsForTurn: async () => new ToolRegistry(), snapshot: (_req, memory) => memory,
-          maxTokens: 4096, maxRounds: 1, system,
+          maxTokens: maximum, maxRounds: 1, system,
         });
         providers.set(key, provider); if (providers.size > 32) providers.delete(providers.keys().next().value!);
       }
@@ -52,7 +57,7 @@ export function createRoleBackend(create: typeof createTurnProvider, options: Tu
       let output = '';
       try {
         for await (const chunk of provider.stream({ ...chat, sessionId: context.sessionId ?? `decision-${request.requestId}`, agentId: context.agentId, ...(principal ? { principal } : {}),
-          ...(context.turnId ? { turnId: context.turnId } : {}), role: 'decision', signal, maxOutputTokens: 4096,
+          ...(context.turnId ? { turnId: context.turnId } : {}), role: 'decision', signal, maxOutputTokens: maximum,
           summaries: [], memory: '', peerResults: [], tools: [], messages: [{ role: 'user', text: JSON.stringify(payload) }],
         })) {
           if (chunk.type === 'tool.call' || chunk.type === 'tool.result') throw new DecisionBackendError('invalid');

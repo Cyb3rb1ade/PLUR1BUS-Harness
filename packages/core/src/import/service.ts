@@ -2,7 +2,7 @@ import { previewImport, type ImportPreview } from "./preview.ts";
 /** Live Core source capabilities, immutable planning, preflight tickets and the independent skills path. */
 import { createHash, randomUUID } from "node:crypto";
 import { apiPrincipal, apiTransport, isClientContext } from "@plur1bus/module-api";
-import { validateParams, type AdminImportDetectParams, type AdminImportPlanParams, type AdminImportPlanResult,
+import { ERROR_CODES, validateParams, type AdminImportDetectParams, type AdminImportPlanParams, type AdminImportPlanResult,
   type AdminImportPreflightParams, type AdminImportPreflightResult, type AdminImportSkillsParams,
   type AdminImportSkillsResult, type ImportConflict, type ImportSource } from "@plur1bus/rpc-schema";
 import { authorize } from "../rbac/authorize.ts";
@@ -372,7 +372,9 @@ export function buildImportMethods(service: ImportService, resolve: PrincipalRes
         service.recordAudit(principal, method, code === "E_DENIED" ? "denied" : "failed", input, reason);
         if (error instanceof RpcError) throw error;
         const safe = error instanceof ImportError;
-        throw new RpcError(safe ? error.code : "E_IMPORT_FAILED", "Import operation is unavailable", {
+        // Importer exit codes such as E_IMPORT_FAILED are not registered JSON-RPC codes.
+        const rpcCode = safe && ERROR_CODES.includes(error.code) ? error.code : "E_INTERNAL";
+        throw new RpcError(rpcCode, "Import operation is unavailable", {
           reason: safe && /^[a-z0-9-]{1,64}$/.test(error.reason) ? error.reason : "import-unavailable",
         });
       }

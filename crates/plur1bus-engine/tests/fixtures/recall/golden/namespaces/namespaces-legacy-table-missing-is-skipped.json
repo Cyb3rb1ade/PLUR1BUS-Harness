@@ -1,0 +1,139 @@
+{
+  "recordedFrom": {
+    "engine": "node",
+    "runtimeCommit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "mergeCommit": "6419a60e79975d0b5244798c1fdbbd7997a712ce",
+    "mergeTag": "v7.18.31",
+    "node": "v24.21.0",
+    "unicode": "17.0",
+    "icu": "78.3",
+    "runtimeSourceSha256": "637899ffb1d94bfff7a23ab306f2ade4c025dce16d2690f7bb74d6955acb9a71",
+    "ledgerSourceSha256": "95c310c6446a168a48333a40d3ad6fcbdd6ce9a54b769a1f1eda04bc3d8495d5",
+    "mergeSourceSha256": "32b1374f39e708888c1a46ffcd403eb27ae396e2ae4b620971a63adfc8226b4e",
+    "sources": {
+      "runtime": {
+        "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+        "sha256": {
+          "engine/recall/namespace-recall.js": "637899ffb1d94bfff7a23ab306f2ade4c025dce16d2690f7bb74d6955acb9a71",
+          "lib/recall-pipeline.js": "ade8fb665973fb71fedf076a0d4394da4f12f4e73ea5d76bd146f80e01360b6f",
+          "lib/recall-budget.js": "13eee28bde5a5bfc57740d8a79621c93597d31dac087f063a1c59c55d3170112",
+          "lib/memory-dynamics.js": "95c310c6446a168a48333a40d3ad6fcbdd6ce9a54b769a1f1eda04bc3d8495d5",
+          "lib/namespace-config.js": "cccf6f246d7aec2433c1830aea68bfab2ca00b9697ce04dc9a34778a2774f1b0",
+          "lib/multi-namespace-pool.js": "29002723ee3f84b783941bf775cf9e3b53d708e9ea922f1e5c98586dae24b0aa",
+          "engine/store/agent-db-pool.js": "703afed77c742baf1a50d1606c7a80ae45e436b244f893112e0b60656e906898",
+          "engine/store/memory-db.js": "bc2df1ec45fd71669c8c32209fea537b821415bd298efcf232432c0d78ecd1c5",
+          "lib/recall-decision-trace.js": "cee6208fa0a91654adae11ccd17c3b44e86c84fdf9b30c1addfa1d299c96711d",
+          "lib/providers/embedding-identity.js": "82a08f98867c94480d4c5094e881483b0685189f6be51b601002dbbb98265702",
+          "lib/memory-graph.js": "6e801999c3873fb210f9602c4c67d80d5d87e643f775064d415428fc7d797bac",
+          "engine/recall/assemble-prompt-context.js": "f2e1e0d671bdd28a4b66c8d57625984494f841aea74b33202dc0efc00aa09896",
+          "engine/create-engine.js": "616601790f1859fee2a61494bfd2ed8cd82874bdc759c37b8e5295c183028ed6"
+        }
+      },
+      "plugin": {
+        "commit": "6419a60e79975d0b5244798c1fdbbd7997a712ce",
+        "sha256": {
+          "index.js": "eb49314c61f7d8c31402de7fcf59cbcc7fb95b1648a52691a98d7ddd6eeeadeb",
+          "lib/recall-pipeline.js": "32b1374f39e708888c1a46ffcd403eb27ae396e2ae4b620971a63adfc8226b4e",
+          "lib/recall-budget.js": "520edcf00f91ef8e5a195e3753ab7e68448d5c13835885cb52f5d1ed7d69ca7b",
+          "lib/recall-decision-trace.js": "cee6208fa0a91654adae11ccd17c3b44e86c84fdf9b30c1addfa1d299c96711d"
+        }
+      }
+    }
+  },
+  "runtime": {
+    "config": {
+      "activeWriteNamespace": "active",
+      "activeRecallNamespaces": [
+        "active"
+      ],
+      "legacyReadOnlyNamespaces": [
+        "legacy"
+      ],
+      "crossNamespaceRecall": true
+    },
+    "agentId": "namespace-fixture",
+    "query": "Synthetic namespace fixture",
+    "now": 1798761600000,
+    "rows": [
+      {
+        "namespace": "active",
+        "row": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "text": "Active synthetic fixture",
+          "summary": "Active synthetic fixture",
+          "agentId": "namespace-fixture",
+          "storedBy": "namespace-fixture",
+          "scope": "agent-private",
+          "category": "fact",
+          "status": "active",
+          "epistemicStatus": "untrusted",
+          "memoryStrength": 1,
+          "createdAt": 1798761600000,
+          "expiresAt": 0
+        }
+      }
+    ],
+    "missingLegacyCreated": false,
+    "result": {
+      "threw": false,
+      "queryVector": [
+        1,
+        0
+      ],
+      "canonical": [],
+      "memories": [
+        {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "text": "Active synthetic fixture",
+          "score": 0.85,
+          "rerankScore": null,
+          "namespace": "active",
+          "source": "vector"
+        }
+      ],
+      "trace": {
+        "candidates": [
+          {
+            "id": "11111111-1111-4111-8111-111111111111",
+            "namespace": "active"
+          }
+        ],
+        "decisions": [
+          {
+            "memoryId": "11111111-1111-4111-8111-111111111111",
+            "action": "inclusion",
+            "stage": "score-recompute",
+            "reason": "re-scored",
+            "namespace": "active"
+          }
+        ],
+        "guards": [
+          {
+            "reason": "strength/epistemic re-scoring applied",
+            "name": "score-recompute",
+            "passed": true,
+            "namespace": "active"
+          }
+        ],
+        "storeDecisions": []
+      }
+    },
+    "ledger": [
+      {
+        "id": "__UUID__",
+        "agentId": "namespace-fixture",
+        "workspaceKey": null,
+        "queryHash": "37c9223d1838ff7455d3a17387184d96b831dfe69c324a82633b0a692394c103",
+        "resultsCount": 1,
+        "selectedIds": [
+          "11111111-1111-4111-8111-111111111111"
+        ],
+        "timestamp": 1798761600000
+      }
+    ],
+    "ledgerLines": [
+      "{\"id\":\"__UUID__\",\"agentId\":\"namespace-fixture\",\"workspaceKey\":null,\"queryHash\":\"37c9223d1838ff7455d3a17387184d96b831dfe69c324a82633b0a692394c103\",\"resultsCount\":1,\"selectedIds\":[\"11111111-1111-4111-8111-111111111111\"],\"timestamp\":1798761600000}\n"
+    ],
+    "completed": []
+  }
+}

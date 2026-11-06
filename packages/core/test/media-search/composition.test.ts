@@ -8,6 +8,29 @@ import { defaults } from "@plur1bus/config-schema";
 import { FakePort, silentLogger } from "./fakes.ts";
 
 describe("composeMediaSearch", () => {
+  it("warns without private config contents and uses local defaults for legacy global and agent entries", async () => {
+    const home = mkdtempSync(join(tmpdir(), "media-legacy-")), ws = join(home, "ws");
+    mkdirSync(ws);
+    mkdirSync(join(home, "media", "owners"), { recursive: true });
+    writeFileSync(join(home, "media", "owners", "legacy.json"), JSON.stringify({ agentId: "alice", userId: "u" }));
+    const config = defaults(), warnings: unknown[] = [];
+    config.memory.mediaEmbedding.model = "legacy-private-global-name";
+    config.memory.mediaEmbedding.dimensions = 129;
+    config.agents.alice = { memory: { mediaEmbedding: { model: "legacy-private-agent-name", dimensions: 257 } } };
+    const before = structuredClone(config);
+    const port = new FakePort();
+    const composition = await composeMediaSearch({ home, config: () => config, engine: {},
+      agents: { workspaceOf: () => ws }, logger: { ...silentLogger, debug() {}, warn: (...args: unknown[]) => warnings.push(args) } as any,
+      store: null, budget: null, testPort: port });
+    composition.hook.onUploaded({ mediaId: "legacy", agentId: "alice", kind: "image", mime: "image/png", source: { bytes: new Uint8Array([1]) }, userCaption: "owned synthetic caption" });
+    await composition.hook.idle();
+    assert.equal(port.indexed.length, 1, "legacy entries use supported defaults rather than bricking media admission");
+    assert.equal(warnings.length, 2, "one warning per affected global/agent entry");
+    assert.ok(warnings.every(w => JSON.stringify(w).includes("legacy-media-catalog")));
+    assert.ok(warnings.every(w => !JSON.stringify(w).includes("legacy-private")), "warnings do not log model values");
+    assert.deepEqual(config, before);
+    await composition.close();
+  });
   it("store put/delete drive the hook; prompt becomes the caption", async () => {
     const home = mkdtempSync(join(tmpdir(), "media-comp-"));
     const ws = join(home, "ws"); mkdirSync(ws);
@@ -75,7 +98,7 @@ describe('Engine 1.19 production media path',()=>{
   listener.onDelete('photo');await c.hook.idle();assert.deepEqual(removed,[indexed[0].mediaId]);
   c.hook.onUploaded({mediaId:'forged',agentId:'bob',kind:'image',mime:'image/png',source:{bytes:new Uint8Array([1])},userCaption:'private'});
   await c.hook.idle();assert.equal(indexed.length,1);
-  cfg.agents.alice.memory={mediaEmbedding:{model:'unavailable'}};
+  cfg.agents.alice.memory={mediaEmbedding:{dimensions:512}};
   listener.onPut({id:'other',prompt:'private',files:[{path:'0.png',format:'png'}]});await c.hook.idle();assert.equal(indexed.length,1);
   cfg.memory.mediaEmbedding.provider='cloud';pinned=true;
   await assert.rejects(c.port.search({text:'private',scope:{agentId:'alice',workspace:ws} as any,limit:1}),(e:any)=>e.error==='E_MEDIA_PRIVACY');

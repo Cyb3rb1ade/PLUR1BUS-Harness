@@ -278,16 +278,18 @@ jobs:
           if [ "$ZIG" = true ]; then
             user_base="$(python3 -m site --user-base)"
             export PATH="$user_base/bin:$PATH"
-            cargo zigbuild --locked --release -p plur1bus --target "$TRIPLE.2.28"
+            cargo zigbuild --locked --release -p plur1bus -p plur1bus-tools --target "$TRIPLE.2.28"
           else
-            cargo build --locked --release -p plur1bus --target "$TRIPLE"
+            cargo build --locked --release -p plur1bus -p plur1bus-tools --target "$TRIPLE"
           fi
           ext=""
           case "$TARGET" in win-*) ext=".exe" ;; esac
           mkdir -p out
           cp "target/$TRIPLE/release/plur1bus$ext" "out/plur1bus-$TARGET$ext"
+          cp "target/$TRIPLE/release/plur1bus-tools$ext" "out/plur1bus-tools-$TARGET$ext"
           # Each target builds on its own architecture, so the binary runs here.
           "out/plur1bus-$TARGET$ext" --version
+          "out/plur1bus-tools-$TARGET$ext" --version
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: binary-${{ matrix.target }}
@@ -340,9 +342,11 @@ jobs:
           IDENTITY: ${{ vars.MACOS_SIGNING_IDENTITY }}
         run: |
           [ -n "$IDENTITY" ] || { echo "::error::variable MACOS_SIGNING_IDENTITY is not set in the macos-signing environment"; exit 1; }
-          codesign --force --options runtime --timestamp --keychain "$KEYCHAIN" --sign "$IDENTITY" out/plur1bus-darwin-arm64
-          codesign --verify --strict --verbose=2 out/plur1bus-darwin-arm64
-          codesign --display --verbose=2 out/plur1bus-darwin-arm64
+          for binary in out/plur1bus-darwin-arm64 out/plur1bus-tools-darwin-arm64; do
+            codesign --force --options runtime --timestamp --keychain "$KEYCHAIN" --sign "$IDENTITY" "$binary"
+            codesign --verify --strict --verbose=2 "$binary"
+            codesign --display --verbose=2 "$binary"
+          done
       - name: notarise
         shell: bash
         env:
@@ -356,10 +360,13 @@ jobs:
           umask 077
           key="$RUNNER_TEMP/AuthKey.p8"
           printf '%s' "$APPLE_API_KEY_P8" | base64 --decode > "$key"
-          ditto -c -k --keepParent out/plur1bus-darwin-arm64 "$RUNNER_TEMP/plur1bus.zip"
+          mkdir -p "$RUNNER_TEMP/notarise-pair"
+          cp out/plur1bus-darwin-arm64 out/plur1bus-tools-darwin-arm64 "$RUNNER_TEMP/notarise-pair/"
+          ditto -c -k "$RUNNER_TEMP/notarise-pair" "$RUNNER_TEMP/plur1bus.zip"
           xcrun notarytool submit "$RUNNER_TEMP/plur1bus.zip" --key "$key" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER" --wait --timeout 45m
           rm -f "$key" "$RUNNER_TEMP/plur1bus.zip"
           out/plur1bus-darwin-arm64 --version
+          out/plur1bus-tools-darwin-arm64 --version
       - name: remove the keychain and key files
         if: always()
         shell: bash
@@ -369,7 +376,9 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: signed-darwin-arm64
-          path: out/plur1bus-darwin-arm64
+          path: |
+            out/plur1bus-darwin-arm64
+            out/plur1bus-tools-darwin-arm64
           if-no-files-found: error
           retention-days: 3
 

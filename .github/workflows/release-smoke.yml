@@ -48,7 +48,7 @@ jobs:
           pnpm install --frozen-lockfile
       - run: pnpm gen
       - run: pnpm build
-      - run: cargo build --release -p plur1bus
+      - run: cargo build --release -p plur1bus -p plur1bus-tools
       - name: fresh-home functional smoke with installed runtime
         shell: bash
         run: |

@@ -3,6 +3,35 @@
 Owner decisions, 17/18 October 2026: values stay masked in logs; agents may discover permitted secret names and their
 purpose, never values; each secret can carry a description. This phase builds on #574's description metadata.
 
+## Startup redaction
+
+Core reads indexed keyring values and, when file fallback is enabled and usable, encrypted-file values before
+startup logs reach a sink. Persistent backend operations run through private child IPC, so synchronous native calls
+and file permission checks cannot block the Core event loop. Production startup may contact the OS keyring and can
+trigger its platform authorization prompt in that child. One three-second deadline covers helper import, probe,
+listing and all reads. Disabled file fallback stays unopened.
+
+Both readable copies of a name are registered without syncing, rotating or deleting either copy. Initial values stay
+masked until Core exits, including values subsequently rotated or deleted. Later reads, writes and leases register
+values normally. The eight UTF-16-unit masking minimum is unchanged. Preload returns no credential or lease and
+records no credential-access audit event; metadata-only operations remain metadata only.
+
+A successful empty Store starts normally. If no enabled backend is usable, or the bounded attempt times out, secret
+status and use remain unavailable through the existing errors while Core stays responsive. A usable fallback remains
+available; individual list/read failures warn and retain the other readable values. A timeout discards unsafe queued
+startup messages when the logger releases its queue. Diagnostics contain only fixed backend/phase identifiers and
+counts, never values or platform exception text. Stale helper completions cannot publish metadata, values or leases. After a 30-second
+cooldown, the next access attempts a fresh bounded preload and registers its snapshot before availability returns.
+Recovery values join the lifetime redaction pins. Stop, failed composition and ACL refusal close helpers; disconnect
+and kill are immediate, with at most 250 ms of exit waiting.
+
+Core-start tests must avoid the personal keychain. A trusted constructor `testInternals` uses a local memory Store
+when no explicit keyring mode is supplied. Explicit `PLUR1BUS_SECRETS_KEYRING=off|memory` still requires
+`PLUR1BUS_ALLOW_TEST_INTERNALS=1`; an ungated explicit mode remains an error. Production-isolation tests use trusted
+child fixtures rather than the real OS service. The opt-in live nightly sets and restores both flags around its Core
+lifetime while retaining the real provider path. Focused coverage includes `secrets/preload`, `secrets/isolated-backend`,
+`secrets/config-registration`, `logs/startup-redaction` and the Core lifecycle tests.
+
 ## Edit a description without rotating
 
 Only an authenticated owner may call `secret.describe`. The RPC takes `{ name, description }` and returns metadata only;
@@ -23,6 +52,10 @@ Descriptions are trimmed, one line, at most 200 Unicode code points. A complete 
 any contiguous fragment of eight or more code points is also forbidden. Set/rotation checks both the new value and the
 old one, including a retained description. The backend rechecks inside its serialized update so that a concurrent rotation
 cannot be reverted by a description edit. Values read internally for validation are registered with the existing redactor.
+
+Description checks apply to plain values and their plain contiguous fragments. The shared RPC/log redactor
+recognizes additional encoded spellings; its coverage does not establish encoded-value rejection in description
+metadata. That broader metadata review remains a [documented follow-up](reference/todo-inventory.md).
 
 ## Owner read view of agent access
 

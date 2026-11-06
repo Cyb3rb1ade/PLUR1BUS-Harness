@@ -72,7 +72,8 @@ describe("setup wizard: flow", opts, () => {
       assert.equal(c.length, 2);
       const persona = calls(app,"agent.create")[0]!.params as {name:string;displayName:string;idempotencyKey:string};
       assert.equal(persona.name,"main");assert.equal(persona.displayName,"Hal");assert.match(persona.idempotencyKey,/^setup-main-[0-9]+$/);
-      assert.deepEqual(c[0], [{ key: "embedding.useClass", value: "general" }, GEMMA_BLOCK]);
+      assert.deepEqual(c[0], [{ key: "embedding.useClass", value: "general" }, GEMMA_BLOCK,
+        { key: "memory.mediaEmbedding.backfill", value: "manual" }]);
       assert.deepEqual(c[1], [{ key: "modelRoles.chat", value: "anthropic/claude-x" }]);
       assert.deepEqual(calls(app, "admin.backup.snapshot").map((x) => x.params), [{ label: "setup" }]);
 

@@ -20,7 +20,7 @@ const methods = (SCHEMA as any).$defs.methods as Record<string, MethodDef>;
 const coreMethods = Object.keys(methods).filter((n) => methods[n]!["x-server"] === "core").sort();
 const engineMethods = Object.keys(methods).filter((n) => methods[n]!["x-server"] === "engine").sort();
 const hostMethods = coreMethods.filter((n) => n.startsWith("host."));
-const SERVERS = ["core", "supervisor", "module", "engine"] as const;
+const SERVERS = ["core", "supervisor", "module", "engine", "tools"] as const;
 const rbacDoc = readFileSync(new URL("../../../docs/rbac.md", import.meta.url), "utf8");
 const DOC_ROLES = ["owner", "admin", "operator", "member", "viewer"];
 
@@ -92,6 +92,10 @@ describe("matrix: inputs", () => {
     for (const m of Object.keys(methods)) assert.ok((SERVERS as readonly string[]).includes(methods[m]!["x-server"]), m);
     assert.ok(engineMethods.length > 0, "engine server methods are part of the matrix");
     for (const m of engineMethods) assert.ok(m.startsWith("engine."), `${m}: engine server namespace`);
+    for (const m of Object.keys(methods).filter(m => methods[m]!["x-server"] === "tools")) {
+      assert.ok(m.startsWith("tools."), `${m}: tools server namespace`);
+      assert.ok(isForbiddenMethod(m), `${m}: Core-only native method`);
+    }
   });
   it("docs/rbac.md names the five roles", () => {
     for (const r of DOC_ROLES) assert.match(rbacDoc, new RegExp(`\\b${r}\\b`, "i"), r);

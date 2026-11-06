@@ -1,3 +1,4 @@
+import type { AppleFmRuntime } from "./apple-fm.ts";
 import type { OpenAIRuntime } from '../openai-auth/runtime.ts';
 import type { OpenAIProviderBinding } from '../openai-auth/provider.ts';
 import { createChatCompletionsAdapter, createAnthropicAdapter, createResponsesAdapter, createGeminiAdapter, ProviderError, resolveModelProfiles, cacheRouteForUrl, ANTHROPIC_DEFAULT_BASE_URL, RESPONSES_DEFAULT_BASE_URL, GEMINI_DEFAULT_BASE_URL, type CacheRoute, type ProviderRegistry, type StreamingAdapter, type ProfileTable } from '../../../providers/src/index.ts';
@@ -65,8 +66,12 @@ function withoutRefused(profiles: HarnessConfig['modelProfiles'], refused: Reado
   }
   return out;
 }
-export function composeAuth(o: { config: HarnessConfig; definitions: Readonly<Record<string, ProviderDefinition>>; secrets: SecretStore; egress: Egress; log?: PipelineLog; fetch?: typeof fetch; openai?: OpenAIRuntime; registerSecret?: (value: string) => void }) {
-  const { billing, refused } = classifyProviders(o.definitions);
+export function composeAuth(o: { appleFm?: AppleFmRuntime; config: HarnessConfig; definitions: Readonly<Record<string, ProviderDefinition>>; secrets: SecretStore; egress: Egress; log?: PipelineLog; fetch?: typeof fetch; openai?: OpenAIRuntime; registerSecret?: (value: string) => void }) {
+  const ordinary = Object.fromEntries(Object.entries(o.definitions).filter(([id]) => id !== "apple-fm"));
+  const { billing, refused } = classifyProviders(ordinary);
+  if (Object.hasOwn(o.definitions, "apple-fm")) {
+    refused.push({ provider: "apple-fm", code: "E_CONFIG_INVALID", reason: "reserved-provider-id" });
+  }
   const refusedIds = new Set(refused.map(r => r.provider));
   const definitions = Object.fromEntries(Object.entries(o.definitions).filter(([id]) => !refusedIds.has(id)));
   // The leased value is registered for redaction (TurnToolError.detail): the whole header value and the bare credential.
@@ -109,6 +114,24 @@ export function composeAuth(o: { config: HarnessConfig; definitions: Readonly<Re
     } };
     registry.set(id, { adapter: wrapper, ...(def.defaultModel ? { defaultModel: def.defaultModel } : {}), ...(def.models ? { models: def.models } : {}) });
   }
+  if (o.appleFm) {
+    registry.set("apple-fm", { adapter: o.appleFm.adapter, models: ["system"] });
+    families["apple-fm"] = "openai-chat";
+    billing["apple-fm"] = "local";
+  }
   const resolved = resolveModelProfiles(withoutRefused(o.config.modelProfiles, refusedIds), registry);
+  if (o.appleFm) {
+    const runtime = o.appleFm;
+    for (const [name, candidates] of Object.entries(resolved.table)) {
+      if (!candidates.some(candidate => candidate.provider === "apple-fm")) continue;
+      Object.defineProperty(resolved.table, name, { enumerable: true, configurable: true,
+        get: () => candidates.filter(candidate => candidate.provider !== "apple-fm" || runtime.present()),
+      });
+    }
+    const candidate = { provider: "apple-fm", model: "system", adapter: runtime.adapter };
+    Object.defineProperty(resolved.table, "apple-fm/system", {
+      enumerable: true, get: () => runtime.present() ? [candidate] : [],
+    });
+  }
   return { credentialsForDiscovery, profiles: resolved.table as ProfileTable, families, billing, refused, resolved, cacheRoutes, close: () => credentials.close() };
 }

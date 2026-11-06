@@ -8,6 +8,7 @@ use std::fs;
 #[derive(Default)]
 struct Fake {
     calls: RefCell<Vec<String>>,
+    started_tools: RefCell<Vec<Vec<u8>>>,
     running: bool,
     gate_err: Option<String>,
     start_err_once: RefCell<Option<String>>,
@@ -34,6 +35,9 @@ impl Host for Fake {
         Ok(self.running)
     }
     fn start(&self, _: &Layout, bin: &Path) -> Result<(), String> {
+        self.started_tools
+            .borrow_mut()
+            .push(fs::read(tools_binary(bin)).unwrap_or_default());
         self.calls.borrow_mut().push(format!(
             "start:{}",
             fs::read_to_string(bin).unwrap_or_default()
@@ -105,9 +109,11 @@ fn env() -> Env {
     fs::write(layout.config_path(), "{\"engine\":{}}").unwrap();
     let bin = d.path().join("plur1bus");
     fs::write(&bin, "old-binary").unwrap();
+    fs::write(tools_binary(&bin), "old-tools").unwrap();
     let h = "a".repeat(64);
     let m = InstallManifest {
         schema_version: 1,
+        tools: None,
         installed_at: 1,
         updated_at: 1,
         channel: "stable".into(),
@@ -136,6 +142,8 @@ fn env() -> Env {
     manifest::write(&layout, &m).unwrap();
     let new_bin = d.path().join("new-binary");
     fs::write(&new_bin, "new-binary").unwrap();
+    let new_tools = d.path().join("new-tools");
+    fs::write(&new_tools, "new-tools").unwrap();
     let plan = Plan {
         from: "0.1.0".into(),
         to: "0.2.0".into(),
@@ -143,6 +151,11 @@ fn env() -> Env {
         binary: Asset {
             url: new_bin.to_string_lossy().into(),
             sha256: sha(&new_bin),
+            size: None,
+        },
+        tools: Asset {
+            url: new_tools.to_string_lossy().into(),
+            sha256: sha(&new_tools),
             size: None,
         },
         core: None,
@@ -184,11 +197,12 @@ fn with_core(e: &mut Env) {
     ));
 }
 
-fn originals(e: &Env) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
+fn originals(e: &Env) -> (Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>) {
     (
         fs::read(&e.bin).unwrap(),
         fs::read(e.layout.config_path()).unwrap(),
         fs::read(e.layout.install_manifest()).unwrap(),
+        fs::read(tools_binary(&e.bin)).unwrap(),
     )
 }
 
@@ -203,6 +217,8 @@ fn the_happy_path_swaps_gates_and_commits_the_manifest() {
     let st = apply(&e.layout, &host, &e.plan, &e.bin).unwrap();
     assert_eq!(st.phase, Phase::Committed);
     assert_eq!(fs::read(&e.bin).unwrap(), b"new-binary");
+    assert_eq!(fs::read(tools_binary(&e.bin)).unwrap(), b"new-tools");
+    assert_eq!(*host.started_tools.borrow(), [b"new-tools".to_vec()]);
     assert_eq!(
         fs::read(e.layout.runtime().join("core/core.js")).unwrap(),
         b"new core"
@@ -213,6 +229,10 @@ fn the_happy_path_swaps_gates_and_commits_the_manifest() {
         ("0.2.0", "0.2.0")
     );
     assert_eq!(m.binary.sha256.as_deref(), Some(sha(&e.bin).as_str()));
+    assert_eq!(
+        m.tools.unwrap().sha256.as_deref(),
+        Some(sha(&tools_binary(&e.bin)).as_str())
+    );
     // stop, then start of the NEW binary, then the gate
     assert_eq!(*host.calls.borrow(), ["stop", "start:new-binary", "gate"]);
     // the snapshot is kept for --rollback, the staging area is gone
@@ -239,6 +259,10 @@ fn a_failed_health_gate_rolls_back_byte_identically_and_restarts_the_old_version
     let st = apply(&e.layout, &host, &e.plan, &e.bin).unwrap();
     assert_eq!(st.phase, Phase::RolledBack);
     assert_eq!(st.reason.as_deref(), Some("health-gate-failed"));
+    assert_eq!(
+        *host.started_tools.borrow(),
+        [b"new-tools".to_vec(), b"old-tools".to_vec()]
+    );
     assert!(st.message.unwrap().contains("1staid check failed"));
     assert_eq!(originals(&e), before);
     assert_eq!(
@@ -667,4 +691,74 @@ fn the_update_lock_is_exclusive_and_goes_away_with_its_holder() {
     assert_eq!(lock(&e.layout).unwrap_err(), LockError::Busy);
     drop(held);
     assert!(lock(&e.layout).is_ok(), "released with the file handle");
+}
+
+#[test]
+fn a_tampered_tools_download_is_refused_before_stopping_or_changing_either_binary() {
+    let mut e = env();
+    e.plan.tools.sha256 = "0".repeat(64);
+    let before = originals(&e);
+    let host = Fake::default();
+    assert_eq!(
+        apply(&e.layout, &host, &e.plan, &e.bin).unwrap_err().reason,
+        "digest-mismatch"
+    );
+    assert_eq!(originals(&e), before);
+    assert!(host.calls.borrow().is_empty());
+}
+
+#[test]
+fn recovery_after_only_the_cli_swap_restores_the_release_pair_before_start() {
+    let e = env();
+    let before = originals(&e);
+    let mut st = fresh_state(&e.plan, &e.bin, "update");
+    st.owner = 4_000_000_000;
+    st.was_running = true;
+    download(&e.layout, &e.plan).unwrap();
+    snapshot::create(&e.layout, &e.bin).unwrap();
+    st.phase = Phase::Swapping;
+    state::save(&e.layout, &mut st).unwrap();
+    snapshot::put_file(&state::staging_dir(&e.layout).join("plur1bus"), &e.bin).unwrap();
+    let host = Fake::default();
+    assert_eq!(
+        recover(&e.layout, &host).unwrap().unwrap().phase,
+        Phase::RolledBack
+    );
+    assert_eq!(originals(&e), before);
+    assert_eq!(*host.started_tools.borrow(), [b"old-tools".to_vec()]);
+}
+
+#[test]
+fn rollback_to_a_pre_tools_install_removes_the_new_companion() {
+    let e = env();
+    fs::remove_file(tools_binary(&e.bin)).unwrap();
+    let host = Fake::default();
+    assert_eq!(
+        apply(&e.layout, &host, &e.plan, &e.bin).unwrap().phase,
+        Phase::Committed
+    );
+    assert!(tools_binary(&e.bin).exists());
+    assert_eq!(
+        rollback_manual(&e.layout, &host).unwrap().phase,
+        Phase::RolledBack
+    );
+    assert!(!tools_binary(&e.bin).exists());
+}
+
+#[test]
+fn a_tampered_tools_snapshot_refuses_rollback_before_replacing_either_installed_binary() {
+    let e = env();
+    let host = Fake::default();
+    apply(&e.layout, &host, &e.plan, &e.bin).unwrap();
+    let after = originals(&e);
+    fs::write(
+        state::snapshot_dir(&e.layout).join("plur1bus-tools"),
+        "tampered",
+    )
+    .unwrap();
+    assert_eq!(
+        rollback_manual(&e.layout, &host).unwrap_err().reason,
+        "snapshot-invalid"
+    );
+    assert_eq!(originals(&e), after);
 }

@@ -4,6 +4,12 @@ import { readFileSync } from "node:fs";
 import { MODULE_API_VERSION, apiVersionSupported, validateManifest } from "../src/manifest.ts";
 
 describe("module manifest", () => {
+  it("reserves fixed process roles against installable module collisions", () => {
+    for (const name of ["core", "supervisor", "api", "tools"]) {
+      assert.equal(validateManifest({ name, version: "0.1.0", apiVersion: "1", entry: "index.js", scope: "installation", priority: 500 }).ok, false, name);
+    }
+  });
+
   it("manifest cases match the shared fixture", () => {
     const cases = JSON.parse(readFileSync(new URL("../fixtures/manifest-cases.json", import.meta.url), "utf8")) as { name: string; manifest: unknown; valid: boolean }[];
     assert.ok(cases.length >= 9);

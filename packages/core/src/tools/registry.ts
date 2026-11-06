@@ -2,6 +2,7 @@
 // registry never executes anything (that is `dispatcher.ts`, behind the policy gate).
 import { CAPABILITIES, RISKS, effectRank, isEffect, riskRank, type CallFlags, type Effect, type Risk } from "../policy/index.ts";
 import { isReservedToolName } from "./reserved-names.ts";
+import type { SecretFormsSnapshot } from "../logs/secret-forms.ts";
 
 /** Hard caps no tool may exceed, whatever it declares. */
 export const HARD_MAX_TIMEOUT_MS = 300_000;
@@ -29,6 +30,8 @@ export interface ToolRunContext {
     recurring?: import("./approval.ts").ApprovalAsk["recurring"] };
   /** Classification used to gate this call; tools re-check live args against it before spawn (D109 follow-up). */
   classified?: ToolClassification;
+  /** Live process-owned secret generation. Supplied by the dispatcher, never by tool arguments. */
+  knownSecrets?: () => SecretFormsSnapshot;
 }
 
 /**

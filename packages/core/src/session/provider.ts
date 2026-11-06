@@ -11,7 +11,11 @@ export type ChatChunk =
   | { type: "telemetry"; telemetry: import("./turn-telemetry.ts").TurnTelemetry }
   | { type: "usage"; inputTokens: number; outputTokens: number; model?: string; measurements?: UsageMeasurement[] };
 
-export interface TurnApprover { person: string | null; surface: 0 | 1 | 2 | 3 }
+export interface TurnApprover { person: string | null; surface: 0 | 1 | 2 | 3;
+  /** CX5 profile captured from this connection at turn admission; never an RPC/message field. */
+  codingMode?: "chat" | "coding";
+  /** Trusted native coding-task scope; never accepted from a message or RPC params. */
+  taskId?: string }
 
 export interface RecurringOrigin { jobId: string; jobName: string; runAs: string; trigger: "recurring" }
 

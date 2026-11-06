@@ -1,7 +1,8 @@
 // Binds the switchboard host to the core's own services. `core.ts` calls this once; everything here is a thin adapter from a core
 // service to the host's port, so the host itself stays testable without a core.
 import { join } from "node:path";
-import { OutputStore } from "../../../media/src/index.ts";
+import type { OutputStore } from "../../../media/src/index.ts";
+import { createMediaOutputStore } from "../media-output-store.ts";
 import type { AgentRegistry } from "../agents.ts";
 import type { PermissionRuntime } from "../approvals/runtime.ts";
 import type { IdentityService } from "../identity/service.ts";
@@ -11,10 +12,12 @@ import type { SecretStore } from "../secrets/store.ts";
 import type { SessionService } from "../session/service.ts";
 import { DEFAULT_BINDINGS } from "./bindings.ts";
 import { systemClock, type Clock } from "./clock.ts";
-import { createSwitchboard, type ChannelBinding, type ConfigPort, type SecretsPort, type Switchboard } from "./switchboard.ts";
+import { createSwitchboard, type ChannelBinding, type ConfigPort, type SecretsPort, type Switchboard, type SwitchboardOptions } from "./switchboard.ts";
 import type { ChannelLogger } from "./types.ts";
 
 export interface CoreHostDeps {
+  /** Trusted upload service shared with media composition; authorizes the selected session agent before storage. */
+  ingestAttachments?: import("./switchboard.ts").SwitchboardOptions["ingestAttachments"];
   command?: import("./router.ts").RouterDeps["command"];
   observed?: import("./router.ts").RouterDeps["observed"];
   layout: Layout;
@@ -23,6 +26,7 @@ export interface CoreHostDeps {
   identity: () => IdentityService | null;
   /** False for a disabled person (the admin store is the authority); see `SwitchboardOptions.personActive`. */
   personActive?: (humanId: string) => boolean;
+  personRole?: SwitchboardOptions["personRole"];
   sessions: () => SessionService | null;
   agents: AgentRegistry;
   permissions: () => PermissionRuntime | null;
@@ -62,17 +66,19 @@ export function openChannelSwitchboard(d: CoreHostDeps): Switchboard {
   let outputs: OutputStore | null = null;
   return createSwitchboard({
     config: d.config,
+    ...(d.ingestAttachments ? { ingestAttachments: d.ingestAttachments } : {}),
     ...(d.observed ? { observed: d.observed } : {}),
     ...(d.command ? { command: d.command } : {}),
     secrets: channelSecrets(d.secrets),
     identity: d.identity,
     ...(d.personActive ? { personActive: d.personActive } : {}),
+    ...(d.personRole ? { personRole: d.personRole } : {}),
     turns: () => {
       const s = d.sessions();
       return s ? { store: s.store, runner: s.runner, agentId: () => channelAgentId(d.agents) } : null;
     },
     approvals: () => d.permissions()?.current()?.service ?? null,
-    outputs: { store: () => (outputs ??= new OutputStore(join(d.layout.home, "media", "outputs"))) },
+    outputs: { store: () => (outputs ??= createMediaOutputStore(d.layout.home, d.log)) },
     clock,
     log: d.log,
     bindings: d.bindings ?? DEFAULT_BINDINGS,

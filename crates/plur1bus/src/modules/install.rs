@@ -1,6 +1,6 @@
 //! `module install` and `module uninstall` (B14), shared by the supervisor (`module.install`, `module.uninstall`) and
 //! the offline CLI. An install is refused before anything is copied when the source is not a directory, holds a
-//! symlink anywhere (the source itself included), names a reserved module (`core`, `supervisor`), has an `entry` that
+//! symlink anywhere (the source itself included), names a reserved process role, has an `entry` that
 //! would leave the directory, or has an invalid manifest (or no entry file). Otherwise the tree is copied into
 //! `modules/<name>.tmp-<pid>` (which [`super::scan`] skips) and renamed to `modules/<name>`, so a reader never sees a
 //! half-copied module. [`stage`] and [`commit`] are the two halves, so the supervisor can stop a running module in
@@ -24,7 +24,7 @@ pub enum InstallError {
     SpecialFile(PathBuf),
     /// `entry` is absolute or climbs out of the module directory.
     EntryOutside,
-    /// The manifest names a reserved module (`core`, `supervisor`).
+    /// The manifest names a reserved process role.
     Reserved,
     /// `run/module-<name>.sock` under this home would not fit a Unix socket address (`sun_path`: 104 bytes on macOS,
     /// 108 on Linux, the terminating NUL included): the module would install and then never listen (final review M7).

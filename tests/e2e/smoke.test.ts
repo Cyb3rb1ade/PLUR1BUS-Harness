@@ -5,7 +5,7 @@
 import { describe, it, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, rmSync } from "node:fs";
-import { join, parse, resolve } from "node:path";
+import { dirname, join, parse, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
 import { BIN, REAL, RERANK_FAILURE, waitEngineReady, waitFor, cli, daemonStatus, home, linkModelCache, reapHome, startDaemon, stopDaemon } from "../system/helpers.ts";
@@ -91,8 +91,10 @@ describe("E3 — CLI → daemon → core smoke", () => {
     mkdirSync(user);
     const installedBinary = join(installation, process.platform === "win32" ? "plur1bus.exe" : "plur1bus");
     cpSync(BIN, installedBinary);
+    const toolsName = `plur1bus-tools${process.platform === "win32" ? ".exe" : ""}`;
+    cpSync(join(dirname(BIN), toolsName), join(installation, toolsName));
     const installedEnv: NodeJS.ProcessEnv = { ...process.env, ...FAKE, ...(REAL ? {} : { PLUR1BUS_TEST_INTERNALS: "flat-embedder" }), PLUR1BUS_SERVICE_FAKE: service, PLUR1BUS_UPDATE_TARGET_BIN: installedBinary, HOME: user, USERPROFILE: user, LOCALAPPDATA: join(user, "AppData", "Local"), XDG_CONFIG_HOME: join(user, ".config") };
-    for (const key of ["PLUR1BUS_NODE", "PLUR1BUS_CORE_JS", "PLUR1BUS_NODE_MIRROR", "PLUR1BUS_CONTAINER", "PLUR1BUS_HOME"]) delete installedEnv[key];
+    for (const key of ["PLUR1BUS_NODE", "PLUR1BUS_CORE_JS", "PLUR1BUS_NODE_MIRROR", "PLUR1BUS_CONTAINER", "PLUR1BUS_HOME", "PLUR1BUS_TOOLS_BIN"]) delete installedEnv[key];
     if (REAL) delete installedEnv.PLUR1BUS_TEST_INTERNALS;
     if (process.env.PLUR1BUS_SMOKE_NODE_MIRROR) installedEnv.PLUR1BUS_NODE_MIRROR = process.env.PLUR1BUS_SMOKE_NODE_MIRROR;
     try {
@@ -135,6 +137,10 @@ describe("E3 — CLI → daemon → core smoke", () => {
       assert.equal(status.children[0].role, "core");
       assert.equal(status.children[0].process.state, "ready", JSON.stringify(status.children[0]));
       assert.equal(typeof status.children[0].pid, "number");
+      const tools = status.children.filter((child: any) => child.kind === "tools");
+      assert.equal(tools.length, 1);
+      assert.equal(tools[0].process.state, "ready", JSON.stringify(tools[0]));
+      assert.equal(typeof tools[0].pid, "number");
 
       t.diagnostic(`models warm ${Math.round(await waitEngineReady(h1, REAL ? 60_000 : 30_000))} ms after daemon start`);
 

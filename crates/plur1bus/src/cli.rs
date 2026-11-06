@@ -107,6 +107,8 @@ pub enum Cmd {
     },
     /// [experimental] Chat with an agent (one message, or a line-by-line conversation on stdin)
     Chat(ChatArgs),
+    /// [experimental] Code in a bound Git worktree with streamed tools, diffs and inline approvals
+    Code(crate::commands::code::CodeArgs),
     /// Agent Client Protocol (ACP): serve a harness agent to an editor over stdio
     Acp {
         #[command(subcommand)]
@@ -777,8 +779,62 @@ pub enum MemoryCmd {
         #[arg(long)]
         agent: Option<String>,
     },
+    /// [experimental] Import memories from any chat assistant export by prompt
+    ImportText(MemoryImportTextArgs),
+    /// [experimental] Export memories formatted for portable text import
+    ExportText(MemoryExportTextArgs),
     /// [experimental] Re-embed the store into a new embedding model: plan, run, status, abort (M2)
     Reembed(ReembedArgs),
+}
+
+// Separate argument builders keep the unoptimized command-tree construction
+// within the Windows main-thread stack budget as the memory CLI grows.
+#[derive(Args, Debug)]
+pub struct MemoryImportTextArgs {
+    /// path to text file or '-' for stdin (at most 512 KiB); stdin needs --yes or --dry-run
+    #[arg(long, default_value = "-")]
+    pub file: String,
+    /// agent that receives project memories and stores user-scope ones (default: the core's first agent)
+    #[arg(long)]
+    pub agent: Option<String>,
+    /// store preference memories at user scope (default: skipped; the core refuses it for a non-person caller)
+    #[arg(long)]
+    pub all_preferences_to_user: bool,
+    /// preview only without applying changes
+    #[arg(long, conflicts_with = "yes")]
+    pub dry_run: bool,
+    /// apply or roll back without asking (required without a terminal, with --json and for stdin input)
+    #[arg(long)]
+    pub yes: bool,
+    /// print the export prompt text for the other assistant and exit
+    #[arg(
+        long,
+        conflicts_with_all = [
+            "file", "agent", "all_preferences_to_user", "dry_run", "yes", "rollback"
+        ]
+    )]
+    pub show_prompt: bool,
+    /// roll back a previous prompt import run (needs --yes or a terminal confirmation)
+    #[arg(
+        long,
+        conflicts_with_all = [
+            "file", "agent", "all_preferences_to_user", "dry_run", "show_prompt"
+        ]
+    )]
+    pub rollback: Option<String>,
+}
+
+#[derive(Args, Debug)]
+pub struct MemoryExportTextArgs {
+    /// include agent-private memories of this agent
+    #[arg(long)]
+    pub agent: Option<String>,
+    /// output path or '-' for stdout (default: '-'); a file is written atomically with mode 0600
+    #[arg(long, default_value = "-")]
+    pub output: String,
+    /// overwrite an existing --output file without asking (required without a terminal)
+    #[arg(long)]
+    pub yes: bool,
 }
 
 /// `memory reembed`: exactly one of `--plan`, `--run`, `--status`, `--abort`. The migration covers the whole installation
@@ -1109,8 +1165,9 @@ pub enum BackupCmd {
     /// backup API; config, agents, skills, modules, extensions, catalog, the capture journal and the system-job ledger are
     /// copied. The archive is private to the user. The secret store is never read: API keys stay in the OS keyring and
     /// `run/` (tokens) is never archived, and a webhook secret kept in `config.json` is replaced by a placeholder. The API
-    /// account database (`state/api/accounts.db`) is archived with its password hashes and TOTP seeds. Checksums detect
-    /// corruption; the archive is not signed or encrypted.
+    /// account database (`state/api/accounts.db`) is excluded unless `--include-api-accounts` is supplied; including it
+    /// archives password hashes, TOTP seeds and token hashes. Checksums detect corruption;
+    /// the archive is not signed or encrypted.
     Create {
         /// where to write the archive (default: `<home>/backups/plur1bus-backup-<UTC>.tar.gz`); an existing file is never overwritten
         #[arg(long)]
@@ -1118,6 +1175,10 @@ pub enum BackupCmd {
         /// list what would be archived and where, without touching the core or writing anything
         #[arg(long)]
         dry_run: bool,
+        /// include the API account database with password hashes, TOTP seeds and token hashes
+        /// in the unencrypted archive
+        #[arg(long)]
+        include_api_accounts: bool,
     },
     /// [experimental] Check an archive: manifest, every entry against its SHA-256, nothing extra, nothing missing
     ///
@@ -1184,6 +1245,9 @@ pub enum AcpCmd {
         /// The agent the editor talks to (default: the only registered agent)
         #[arg(long)]
         agent: Option<String>,
+        /// Initial ACP session mode; coding binds the granted editor worktree
+        #[arg(long, value_parser = ["chat", "coding"], default_value = "chat")]
+        profile: String,
     },
 }
 
@@ -2023,6 +2087,9 @@ pub enum ExtCmd {
 pub enum CoreCmd {
     /// [experimental] Run the core in the foreground (the supervisor's spawn target)
     Run,
+    /// Inspect the already-connected pipe inherited as stdin, before Node sends any credentials.
+    #[command(name = "__pipe-server-pid", hide = true)]
+    PipeServerPid,
 }
 
 #[cfg(test)]
@@ -2104,6 +2171,18 @@ mod tests {
     }
 
     #[test]
+    fn acp_accepts_chat_and_coding_profiles_and_refuses_unknown_values() {
+        for profile in ["chat", "coding"] {
+            assert!(
+                Cli::try_parse_from(["plur1bus", "acp", "serve", "--profile", profile]).is_ok()
+            );
+        }
+        assert!(
+            Cli::try_parse_from(["plur1bus", "acp", "serve", "--profile", "automatic"]).is_err()
+        );
+    }
+
+    #[test]
     fn session_and_chat_parse_their_flags() {
         match parse(&[
             "session",
@@ -2140,8 +2219,11 @@ mod tests {
         }
         match parse(&["acp", "serve", "--agent", "bernd"]).cmd {
             Cmd::Acp {
-                sub: AcpCmd::Serve { agent },
-            } => assert_eq!(agent.as_deref(), Some("bernd")),
+                sub: AcpCmd::Serve { agent, profile },
+            } => assert_eq!(
+                (agent.as_deref(), profile.as_str()),
+                (Some("bernd"), "chat")
+            ),
             other => panic!("{other:?}"),
         }
         match parse(&["mcp", "serve", "--agent", "bernd"]).cmd {

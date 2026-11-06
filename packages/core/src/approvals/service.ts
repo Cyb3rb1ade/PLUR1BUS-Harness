@@ -25,6 +25,7 @@ import { canonicalJson, type DispatchContext } from "../tools/dispatcher.ts";
 import { transaction } from "./db.ts";
 import { ApprovalChainError, type VerifyResult } from "./chain.ts";
 import type { ApprovalBinding, ApprovalDenial, ApprovalRecord, ApprovalStatus, ApprovalStore } from "./store.ts";
+import { codeRootAsk, type CodeRootRequest } from "./code-root.ts";
 
 /** §5: a foreground turn waits this long before the task parks. */
 export const DEFAULT_FOREGROUND_WAIT_MS = 10 * 60_000;
@@ -115,6 +116,8 @@ export interface ApprovalServiceOptions {
 
 export interface ApprovalService extends ApprovalPort {
   request(ask: ApprovalAsk): Promise<ApprovalAnswer>;
+  /** Core-only Q25 origin: one OS-confirmed session grant for the canonical worktree; never a tool override. */
+  requestCodeRoot(input: CodeRootRequest): ApprovalView;
   begin(answer: ApprovalAnswer, ask: ApprovalAsk): boolean;
   /** For a surface that holds the nonce (a channel relay): the decision of a person. */
   decide(input: ServiceDecideInput): ServiceDecideResult;
@@ -133,6 +136,8 @@ export interface ApprovalService extends ApprovalPort {
 
 /** What the harness computed about a request; chained with it so a decision after a restart can be checked without memory. */
 interface RequestDetail {
+  /** Signed provenance, set through the service-owned WeakMap, never ApprovalAsk.args or a tool name. */
+  origin?: "code-session-root";
   tool: string; effect: string; risk: string; reversible: boolean; flags: Record<string, boolean>;
   requiredSurface: SurfaceTrust; originSurface: SurfaceTrust; grantOptions: readonly GrantOption[]; tainted: boolean; taintSuspended: boolean;
   agentId: string; callId: string; targets: string[]; targetsMasked: boolean; targetsTotal: number; access?: "read" | "write";
@@ -164,6 +169,8 @@ function parentOf(p: string): string | undefined {
 
 export function createApprovalService(o: ApprovalServiceOptions): ApprovalService {
   const { db, approvals: store, grants } = o.stores;
+  const codeRootRequests = new WeakMap<ApprovalAsk, (id: string) => void>();
+  const codeRootSessions = new Map<string, () => boolean>();
   const clock = o.clock;
   const timers = o.timers ?? realTimers;
   const foregroundMs = o.foregroundWaitMs ?? DEFAULT_FOREGROUND_WAIT_MS;
@@ -227,6 +234,7 @@ export function createApprovalService(o: ApprovalServiceOptions): ApprovalServic
     const publicTrust = peerTrustDisplay(ask, o.secrets ?? []);
     return {
       tool: ask.tool, effect: req.effect, risk: req.risk, reversible: req.reversible, flags,
+      ...(codeRootRequests.has(ask) ? { origin: "code-session-root" as const } : {}),
       requiredSurface: req.requiredSurface, originSurface: req.originSurface, grantOptions: req.grantOptions.map((g) => ({ scope: g.scope, requiredSurface: g.requiredSurface })),
       tainted: req.tainted, taintSuspended: req.taintSuspended, agentId: ask.agentId, callId: ask.callId,
       targets: masked, targetsMasked: masked.some((t, i) => t !== shown[i]) || all.length > shown.length, targetsTotal: all.length,
@@ -266,6 +274,7 @@ export function createApprovalService(o: ApprovalServiceOptions): ApprovalServic
         rec("approval.requested", auditFieldsOf(ask, {
           requestId: r.id, targets: detail.targets, flags: detail.flags, expiresAt: r.expiresAt, argsBytes: detail.argsBytes, payloadHash: detail.payloadHash, payloadBytes: detail.argsBytes,
           ...(ask.taskId === undefined ? { taskId: bound.taskId } : {}),
+          ...(codeRootRequests.has(ask) ? { reason: "code-session-root" } : {}),
         }));
         return r;
       });
@@ -274,6 +283,7 @@ export function createApprovalService(o: ApprovalServiceOptions): ApprovalServic
       return { approved: false, reason: e instanceof ApprovalChainError ? "the approval store failed its integrity check: nothing was approved" : "the approval service is unavailable: nothing was approved" };
     }
     const id = made.id;
+    codeRootRequests.get(ask)?.(id);
 
     return await new Promise<ApprovalAnswer>((resolve) => {
       let done = false;
@@ -299,6 +309,23 @@ export function createApprovalService(o: ApprovalServiceOptions): ApprovalServic
     });
   }
 
+  function requestCodeRoot(input: CodeRootRequest): ApprovalView {
+    const ask = codeRootAsk(input, root => grants.reachesSystemTree(root, true));
+    let id: string | undefined;
+    codeRootRequests.set(ask, created => {
+      id = created;
+      codeRootSessions.set(created, input.sessionActive);
+    });
+    // request stores and announces synchronously before its first await; its normal waiter owns abort/TTL/cleanup.
+    void request(ask).catch(() => { /* no execution is waiting on this permission-only request */ });
+    codeRootRequests.delete(ask);
+    const view = id ? safeView(id) : undefined;
+    if (!view || view.status !== "pending") {
+      throw new GrantError("invalid-grant", "code folder request could not be recorded");
+    }
+    return view;
+  }
+
   function safeView(id: string): ApprovalView | undefined {
     try { const r = store.get(id); return r ? viewOf(r) : undefined; } catch { return undefined; }
   }
@@ -320,6 +347,7 @@ export function createApprovalService(o: ApprovalServiceOptions): ApprovalServic
         return c;
       });
       expiry.get(id)?.(); expiry.delete(id);
+      codeRootSessions.delete(id);
       const view = safeView(id);
       if (r.ok && view) emit<Extract<ApprovalEvent, { name: "approval.resolved" }>>("approval.resolved", { approval: view, outcome: "cancelled" });
     } catch (e) { integrityFailure(e); }
@@ -332,6 +360,7 @@ export function createApprovalService(o: ApprovalServiceOptions): ApprovalServic
     if (!r) return;
     if (r.status === "pending" && clock.now() < r.expiresAt) { expiry.set(id, timers.set(() => onExpiry(id), r!.expiresAt - clock.now())); return; }
     if (r.status !== "expired") return;
+    codeRootSessions.delete(id);
     waiters.get(id)?.finish({ approved: false, reason: "the approval request expired; nothing is ever approved automatically", requestId: id });
     recSoft("approval.expired", { requestId: id, person: r.bound.principal, capability: r.capability, actionHash: r.bound.actionHash });
     emit<Extract<ApprovalEvent, { name: "approval.resolved" }>>("approval.resolved", { approval: viewOf(r), outcome: "expired" });
@@ -348,6 +377,20 @@ export function createApprovalService(o: ApprovalServiceOptions): ApprovalServic
       ...(input.acknowledgedUnsandboxed === true ? { acknowledgedUnsandboxed: true } : {}),
       ...(input.attestedVia !== undefined ? { attestedVia: input.attestedVia } : {}),
     };
+    if (d.origin === "code-session-root") {
+      if (
+        scope !== "session" || input.delegable === true || d.targetsMasked || d.targets.length !== 1 ||
+        d.access !== "write" || grants.reachesSystemTree(d.targets[0]!, true)
+      ) {
+        throw new GrantError("invalid-grant", "code folder grants are exact, non-delegable and session-only");
+      }
+      return (["fs.write", "fs.read"] as const).map(capability => grants.create({
+        ...base, capability, scope: "session", effect: capability === "fs.write" ? "local-write" : "read", delegable: false,
+        match: {
+          kind: "path", path: d.targets[0]!, access: capability === "fs.write" ? "write" : "read", recursive: true,
+        },
+      }).id);
+    }
     if (scope === "once") {
       try {
         return [grants.create({ ...base, scope: "once", match: { kind: "action" }, actionHash: b.actionHash }).id];
@@ -381,9 +424,18 @@ export function createApprovalService(o: ApprovalServiceOptions): ApprovalServic
     const scope: GrantScope = input.scope ?? "once";
     const d = r.detail as Partial<RequestDetail> | undefined;
     if (input.decision === "approve") {
+      if (d?.origin === "code-session-root") {
+        if (scope !== "session" || input.delegable === true) return refuse("scope-unavailable");
+        try {
+          if (!codeRootSessions.get(r.id)?.()) return refuse("approval-mismatch");
+        } catch {
+          return refuse("approval-mismatch");
+        }
+      }
       const def = CAPABILITIES.get(r.capability);
       if (!(GRANT_SCOPES as readonly string[]).includes(scope)) return refuse("scope-unavailable");
       if (!def || !d || typeof d.risk !== "string" || d.flags === undefined) return refuse("surface-untrusted"); // fail closed: no detail, no approval
+      if (!Array.isArray(d.grantOptions) || !d.grantOptions.some(option => option.scope === scope)) return refuse("scope-unavailable");
       if (input.surface !== 1 && input.surface !== 2 && input.surface !== 3) return refuse("surface-untrusted");
       if (scopeRank(scope) > scopeRank(maxScopeFor(def, d.flags as never))) return refuse("scope-unavailable");
       if (!surfaceMayDecide({ capability: r.capability, risk: d.risk as never, flags: d.flags as never }, input.surface, scope)) return refuse("surface-untrusted");
@@ -414,6 +466,7 @@ export function createApprovalService(o: ApprovalServiceOptions): ApprovalServic
     if (!out.res.ok) return refuse(out.res.reason);
 
     expiry.get(input.requestId)?.(); expiry.delete(input.requestId);
+    codeRootSessions.delete(input.requestId);
     const approved = out.res.status === "approved";
     waiters.get(input.requestId)?.finish(approved
       ? { approved: true, requestId: input.requestId, scope, grantIds: out.grantIds }
@@ -482,6 +535,7 @@ export function createApprovalService(o: ApprovalServiceOptions): ApprovalServic
     });
     if (!res.ok) return res;
     expiry.get(input.requestId)?.(); expiry.delete(input.requestId);
+    codeRootSessions.delete(input.requestId);
     waiters.get(input.requestId)?.finish({ approved: false, reason: "cancelled", requestId: input.requestId });
     const view = safeView(input.requestId);
     if (view) emit<Extract<ApprovalEvent, { name: "approval.resolved" }>>("approval.resolved", { approval: view, outcome: "cancelled" });
@@ -539,13 +593,15 @@ export function createApprovalService(o: ApprovalServiceOptions): ApprovalServic
   }
 
   function dispose(): void {
+    for (const id of codeRootSessions.keys()) closeAborted(id);
+    codeRootSessions.clear();
     for (const [id, w] of [...waiters]) w.finish({ approved: false, reason: "the approval service is shutting down", requestId: id });
     for (const cancelTimer of expiry.values()) cancelTimer();
     expiry.clear();
   }
 
   return {
-    request, begin,
+    request, requestCodeRoot, begin,
     // A relayed decision (a channel holding the nonce) can never carry an attestation: that field is dropped here.
     decide: ({ attestedVia: _dropped, ...input }) => decideCore(input),
     decideForSession(input) {

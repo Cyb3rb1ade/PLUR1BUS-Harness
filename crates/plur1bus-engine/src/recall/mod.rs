@@ -2,8 +2,8 @@
 //!
 //! T1 wires request ACL. T2 runs stages through graph hydration. T3 adds the
 //! post-hydration budget, optional prefilter, rerank, dedupe and final ACL.
-//! T5 renders six blocks and additive boosters; T4 namespaces and T6 orchestration
-//! are independent work packages.
+//! T4 adds namespace routes, per-table composition and global merge.
+//! T5 renders six blocks and additive boosters; T6 orchestration remains separate.
 
 /// Row visibility and denial reporting for recall.
 pub mod acl;
@@ -25,6 +25,26 @@ pub mod hash_embed;
 pub mod knowledge;
 /// Live-row and valid-time checks.
 pub mod lifecycle;
+/// Global namespace dedupe, caps and rerank-preserving order.
+pub mod merge;
+/// The post-merge tier budget used before retrieval-ledger persistence.
+pub mod namespace_budget;
+/// Vector-free metadata projection at the per-table recall boundary.
+pub mod namespace_entry;
+mod namespace_fanout;
+/// Query routing and rank fusion across independent embedding identities.
+pub mod namespace_identity;
+mod namespace_observation;
+/// Existing stages composed for a physical namespace table.
+pub mod namespace_pipeline;
+/// Request-local coalescing of the original namespace query embedding.
+pub mod namespace_query;
+mod namespace_rerank;
+mod namespace_routes;
+/// Bounded child trace replay into a master trace.
+pub mod namespace_trace;
+/// Configured physical routes, settle-all fan-out and the global retrieval ledger.
+pub mod namespaces;
 /// Distance and epistemic score terms.
 pub mod score;
 /// Stages 1–7.

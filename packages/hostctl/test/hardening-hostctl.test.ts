@@ -7,7 +7,8 @@
 // native argv contracts (processes.coverage, atomic.coverage, files.coverage, hostctl.test, native*.test).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { spawn, spawnSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createSecretRedaction } from '../../core/src/secrets/redaction.ts';
+import { createHash, randomBytes } from 'node:crypto';
 import { chmod, mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, symlink, truncate, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -45,6 +46,34 @@ async function until(check: () => boolean | Promise<boolean>, ms = 5000): Promis
 
 // ---- processes: real children -----------------------------------------------------------------------------------------
 
+describe('registered secrets at hostctl presentation boundaries', () => {
+  const field = () => randomBytes(48).toString('hex');
+  it('masks a secret crossing a child output cap on exec, read_output and list', async () => {
+    const secret = field(), prefix = 'p'.repeat(40);
+    const redaction = createSecretRedaction(); redaction.register(secret);
+    const session = { ...ctx, knownSecrets: () => redaction.snapshot() };
+    const h = make({ config: { output: { maxBytes: 64 } } });
+    const done = await call(h, 'proc.exec', { ...node('process.stdout.write(process.argv[1])', [prefix + secret]), cwd: root }, session);
+    expect(done.ok).toBe(true);
+    const expected = prefix + '[REDACTED:secret]\n[OUTPUT TRUNCATED]';
+    const read = await call(h, 'proc.read_output', { id: done.value.id }, session);
+    const list = await call(h, 'proc.list', {}, session);
+    expect([done.value, read.value, list.value.processes[0]].every(record => record.output === expected)).toBe(true);
+  });
+  it('masks file ranges and leaves original file bytes intact when editing', async () => {
+    const secret = field();
+    const redaction = createSecretRedaction(); redaction.register(secret);
+    const session = { ...ctx, knownSecrets: () => redaction.snapshot() };
+    const h = make();
+    await writeFile(join(root, 'fixture'), secret);
+    const result = await call(h, 'fs.read', { path: 'fixture', offset: 7, length: 9 }, session);
+    expect(result.ok).toBe(true);
+    expect(result.value.content === '[REDACTED:secret]').toBe(true);
+    expect((await call(h, 'fs.append', { path: 'fixture', content: '!' }, session)).ok).toBe(true);
+    expect(await readFile(join(root, 'fixture'), 'utf8') === secret + '!').toBe(true);
+  });
+});
+
 describe('arguments are never interpreted by a shell', () => {
   it('shell metacharacters, command substitutions and "; rm -rf" reach the program as literal argv, and nothing they spell is executed', async () => {
     const h = make({ config: { exec: { timeoutMs: 20000 } } }); const evil = ['; rm -rf', '$(touch pwned-1)', '`touch pwned-2`', '&& touch pwned-3', '| touch pwned-4', '> pwned-5', 'a\ntouch pwned-6', '*', '~', '$HOME', '${IFS}x', "'; touch pwned-7; '", '"; touch pwned-8; "', '--', '-e', 'é€😀', ''];
@@ -65,10 +94,15 @@ describe('arguments are never interpreted by a shell', () => {
 describe('time, output and environment of real children', () => {
   it('a process that outlives its time limit is a TIMEOUT, is gone afterwards, and does not hold the call for its own lifetime', async () => {
     const h = make({ config: { exec: { timeoutMs: 400 } } }); const t0 = Date.now();
-    const r = await call(h, 'proc.exec', { ...node('console.log(process.pid); setInterval(() => {}, 1000)'), cwd: root });
+    const r = await call(h, 'proc.exec', { ...node('setInterval(() => {}, 1000)'), cwd: root });
     expect(r.ok).toBe(false); expect(r.error!.code).toBe('TIMEOUT'); expect(Date.now() - t0).toBeLessThan(8000);
     const list = await call(h, 'proc.list'); const job = list.value.processes[0]; expect(job.timedOut).toBe(true); expect(job.running).toBe(false);
-    const pid = Number(job.output.split('\n')[0]); expect(Number.isInteger(pid)).toBe(true); expect(await until(() => !alive(pid), 5000)).toBe(true);
+    // A timed-out child can be killed before it writes anything. Its PID comes from the spawn record.
+    expect(job.output).toBe('');
+    const pid = job.pid;
+    expect(Number.isInteger(pid)).toBe(true);
+    expect(pid).toBeGreaterThan(0);
+    expect(await until(() => !alive(pid), 5000)).toBe(true);
     const shorter = await call(h, 'proc.exec', { ...node('setInterval(() => {}, 1000)'), cwd: root, timeoutMs: 100 }); expect(shorter.error!.code).toBe('TIMEOUT');
     for (const bad of [0, -1, 1.5, 300001, 'x', NaN, Infinity, null]) expect((await call(h, 'proc.exec', { ...node('1'), cwd: root, timeoutMs: bad as never })).error!.code, String(bad)).toBe('INVALID_ARGUMENT');
   }, 30_000);

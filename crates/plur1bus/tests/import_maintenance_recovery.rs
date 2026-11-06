@@ -153,6 +153,28 @@ fn ready(home: &Path) {
     );
 }
 
+fn ready_tools_pid(home: &Path) -> u64 {
+    let mut client = common::client(home);
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        let status = client.call("daemon.status", json!({})).unwrap();
+        let tools = status["children"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|child| child["role"] == "tools")
+            .unwrap();
+        if tools["process"]["state"] == "ready" {
+            return tools["pid"].as_u64().unwrap();
+        }
+        assert!(
+            Instant::now() < deadline,
+            "tools must remain ready across import maintenance: {tools}"
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    }
+}
+
 #[cfg(unix)]
 fn worker(supervisor: u32) -> Option<u32> {
     let output = Command::new("ps")
@@ -220,6 +242,7 @@ fn aborted_native_import_resumes_the_same_plan_only_after_a_fresh_preflight_and_
     prepare(&home);
     let _supervisor = start(&home, &root.join("events.jsonl"));
     ready(&home);
+    let tools_pid = ready_tools_pid(&home);
     let fixture = HttpFixture::start(&home, &root.join("source"), "resume", root.join("http.log"));
     fixture.finish(&[
         "aborted",
@@ -229,6 +252,11 @@ fn aborted_native_import_resumes_the_same_plan_only_after_a_fresh_preflight_and_
         "attemptTwo",
         "importedDisabledSkill",
     ]);
+    assert_eq!(
+        ready_tools_pid(&home),
+        tools_pid,
+        "imports do not stop or replace the independent tools service"
+    );
     common::client(&home)
         .call("daemon.stop", json!({"budgetMs":5000}))
         .unwrap();

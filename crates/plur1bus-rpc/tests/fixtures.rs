@@ -1,5 +1,6 @@
 //! Every fixture in packages/rpc-schema/fixtures must deserialize into the generated Rust types
 //! and serialize back to the same JSON. This is the Rust half of spec criterion 7.
+
 use plur1bus_rpc::types::{self, ErrorCode};
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
@@ -40,6 +41,8 @@ fn pair<P: DeserializeOwned + Serialize, R: DeserializeOwned + Serialize>(name: 
 fn method_fixture(name: &str, f: &Value) {
     use types::*;
     match name {
+        "tools.hello" => pair::<ToolsHelloParams, ToolsHelloResult>(name, f),
+        "tools.health" => pair::<ToolsHealthParams, ToolsHealthResult>(name, f),
         "a2a.peer.add" => pair::<A2aPeerAddParams, A2aPeerAddResult>(name, f),
         "a2a.peer.list" => pair::<A2aPeerListParams, A2aPeerListResult>(name, f),
         "a2a.peer.remove" => pair::<A2aPeerRemoveParams, A2aPeerRemoveResult>(name, f),
@@ -295,6 +298,7 @@ fn method_fixture(name: &str, f: &Value) {
         "engine.recall" => pair::<EngineRecallParams, EngineRecallResult>(name, f),
         "engine.shutdown" => pair::<EngineShutdownParams, EngineShutdownResult>(name, f),
         "engine.status" => pair::<EngineStatusParams, EngineStatusResult>(name, f),
+        "engine.adopt" => pair::<EngineAdoptParams, EngineAdoptResult>(name, f),
         "engine.open" => pair::<EngineOpenParams, EngineOpenResult>(name, f),
         "engine.auth" => pair::<EngineAuthParams, EngineAuthResult>(name, f),
         "model.memory.status" => pair::<ModelMemoryStatusParams, ModelMemoryStatusResult>(name, f),
@@ -317,6 +321,7 @@ fn method_fixture(name: &str, f: &Value) {
         }
         "chat.archive" => pair::<ChatArchiveParams, ChatArchiveResult>(name, f),
         "chat.cancel" => pair::<ChatCancelParams, ChatCancelResult>(name, f),
+        "chat.rewind" => pair::<ChatRewindParams, ChatRewindResult>(name, f),
         "chat.create" => pair::<ChatCreateParams, ChatCreateResult>(name, f),
         "chat.delete" => pair::<ChatDeleteParams, ChatDeleteResult>(name, f),
         "chat.events" => pair::<ChatEventsParams, ChatEventsResult>(name, f),
@@ -557,6 +562,16 @@ fn method_fixture(name: &str, f: &Value) {
         "memory.proposals.reject" => {
             pair::<MemoryProposalsRejectParams, MemoryProposalsRejectResult>(name, f)
         }
+        "memory.importText.preview" => {
+            pair::<MemoryImportTextPreviewParams, MemoryImportTextPreviewResult>(name, f)
+        }
+        "memory.importText.apply" => {
+            pair::<MemoryImportTextApplyParams, MemoryImportTextApplyResult>(name, f)
+        }
+        "memory.importText.rollback" => {
+            pair::<MemoryImportTextRollbackParams, MemoryImportTextRollbackResult>(name, f)
+        }
+        "memory.exportText" => pair::<MemoryExportTextParams, MemoryExportTextResult>(name, f),
         "external.turn.cancel" => {
             pair::<ExternalTurnCancelParams, ExternalTurnCancelResult>(name, f)
         }
@@ -648,9 +663,14 @@ fn method_fixture(name: &str, f: &Value) {
         "session.archive" => pair::<SessionArchiveParams, SessionArchiveResult>(name, f),
         "session.submit" => pair::<SessionSubmitParams, SessionSubmitResult>(name, f),
         "session.events" => pair::<SessionEventsParams, SessionEventsResult>(name, f),
+        "code.session.open" => pair::<CodeSessionOpenParams, CodeSessionOpenResult>(name, f),
+        "code.session.mode" => pair::<CodeSessionModeParams, CodeSessionModeResult>(name, f),
+        "code.session.diff" => pair::<CodeSessionDiffParams, CodeSessionDiffResult>(name, f),
+        "code.session.check" => pair::<CodeSessionCheckParams, CodeSessionCheckResult>(name, f),
         "session.model.get" => pair::<SessionModelGetParams, SessionModelGetResult>(name, f),
         "session.model.set" => pair::<SessionModelSetParams, SessionModelSetResult>(name, f),
         "session.cancel" => pair::<SessionCancelParams, SessionCancelResult>(name, f),
+        "session.rewind" => pair::<SessionRewindParams, SessionRewindResult>(name, f),
         "identity.list" => pair::<IdentityListParams, IdentityListResult>(name, f),
         "identity.human.create" => {
             pair::<IdentityHumanCreateParams, IdentityHumanCreateResult>(name, f)
@@ -1015,11 +1035,46 @@ fn rpc_version_const_matches_the_schema() {
         plur1bus_rpc::RPC_VERSION,
         schema["x-rpc-version"].as_str().unwrap()
     );
-    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.14.0");
+    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.22.0");
     assert!(schema["$id"]
         .as_str()
         .unwrap()
         .contains(&format!("/{}/", plur1bus_rpc::RPC_VERSION)));
+}
+
+#[test]
+fn media_status_results_preserve_empty_encoders_and_accept_older_missing_fields() {
+    for method in ["model.memory.status", "media.index.status"] {
+        let fixture: Value = serde_json::from_str(
+            &fs::read_to_string(fixtures().join(format!("methods/{method}.json"))).unwrap(),
+        )
+        .unwrap();
+        let mut result = fixture["result"].clone();
+        let object = result.as_object_mut().unwrap();
+        object.remove("capabilities");
+        object.remove("encoders");
+        match method {
+            "model.memory.status" => round_trip::<types::ModelMemoryStatusResult>(&result, method),
+            "media.index.status" => round_trip::<types::MediaIndexStatusResult>(&result, method),
+            _ => unreachable!(),
+        }
+        result["encoders"] = serde_json::json!([]);
+        match method {
+            "model.memory.status" => round_trip::<types::ModelMemoryStatusResult>(&result, method),
+            "media.index.status" => round_trip::<types::MediaIndexStatusResult>(&result, method),
+            _ => unreachable!(),
+        }
+        result["encoders"] = Value::Null;
+        match method {
+            "model.memory.status" => {
+                assert!(serde_json::from_value::<types::ModelMemoryStatusResult>(result).is_err())
+            }
+            "media.index.status" => {
+                assert!(serde_json::from_value::<types::MediaIndexStatusResult>(result).is_err())
+            }
+            _ => unreachable!(),
+        }
+    }
 }
 
 #[test]

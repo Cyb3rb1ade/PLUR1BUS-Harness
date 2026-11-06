@@ -34,11 +34,11 @@ export function engineRpcSurface() {
   const definitions = {},
     methods = {},
     notifications = {};
-  const add = (name, properties, required, result, description) => {
+  const add = (name, properties, required, result, description, since = "1.7.0") => {
     methods[name] = {
       "x-server": name.startsWith("host.") ? "core" : "engine",
       "x-stability": "experimental",
-      "x-since": "1.7.0",
+      "x-since": since,
       ...(name.startsWith("host.") ? { "x-feature": "engine" } : {}),
       description:
         description ??
@@ -80,7 +80,15 @@ export function engineRpcSurface() {
   );
   add("engine.open", { agentId: ref("AgentId") }, ["agentId"], ref("AgentStore"));
   add("engine.agent.close", { agentId: ref("AgentId") }, ["agentId"], object());
-  add("engine.status", {}, [], ref("EngineStatus"));
+  add("engine.status", {}, [], { $ref: "#/$defs/EngineProcessStatus" });
+  add(
+    "engine.adopt",
+    { nonce: { type: "string", minLength: 64, maxLength: 64 } },
+    ["nonce"],
+    object({ status: { $ref: "#/$defs/EngineProcessStatus" } }, ["status"]),
+    "Called by a supervisor on a running engine to adopt it. nonce is the current content of run/supervisor.token; the connection it succeeds on becomes the engine's lifeline.",
+    "1.17.0",
+  );
   add("engine.shutdown", { budgetMs: { type: "number", minimum: 0 } }, [], object());
   add("engine.recall", { query: ref("RecallQuery"), options: ref("RecallOptions") }, ["query"], ref("RecallResult"));
   add("engine.capture", { turn: ref("TurnRecord"), options: ref("CaptureOptions") }, ["turn"], ref("CaptureHandle"));
@@ -116,6 +124,10 @@ export function engineRpcSurface() {
     old.params.required = old.params.required.filter((n) => n !== "o").concat(opts.required ?? []);
     Object.assign(old.params.properties, opts.properties);
   }
+  methods["engine.embedding.embed"].params.properties.texts.description =
+    "At most 128 texts per request. Larger batches return E_INVALID_PARAMS with reason embedding-batch-too-large.";
+  methods["engine.embedding.rerank"].params.properties.docs.description =
+    "At most 128 documents per request. Larger batches return E_INVALID_PARAMS with reason embedding-batch-too-large.";
   const probe = methods["engine.embedding.probe"];
   probe.params = object(probe.params.properties.opts.properties);
   add(
@@ -282,7 +294,7 @@ export function engineRpcSurface() {
     Object.entries(engineEvent).filter(([key]) => !key.startsWith("x-")),
   );
   // Only data transitively referenced by wire operations is imported, with a prefix to avoid public Core type collisions.
-  const pending = [methods, notifications, engineEvent];
+  const pending = [ref("EngineStatus"), methods, notifications, engineEvent];
   const scan = (value) => {
     if (Array.isArray(value)) return value.forEach(scan);
     if (!value || typeof value !== "object") return;
@@ -297,6 +309,45 @@ export function engineRpcSurface() {
     Object.values(value).forEach(scan);
   };
   pending.forEach(scan);
+  // The process endpoint extends the frozen RE-01 status only on the wire. Keep every
+  // contract field and its requiredness unchanged so older engine status results remain valid.
+  const processStatus = structuredClone(definitions[dataName("EngineStatus")]);
+  processStatus.title = "EngineProcessStatus";
+  processStatus.description = "Engine status with optional process, lifeline and transport health metadata.";
+  processStatus["x-since"] = "1.17.0";
+  processStatus.properties.degraded.description =
+    "Process status reports composition-pending/recall while memory and journal composition is incomplete, and closed/engine after close. While open, embedding and reranker readiness can report model-failed or models-warming as described by EngineStatus; null means no degradation.";
+  const addedProperty = (schema) => ({ ...schema, "x-since": "1.17.0" });
+  const counter = addedProperty({ type: "integer", minimum: 0 });
+  Object.assign(processStatus.properties, {
+    rpc: addedProperty(string),
+    instanceId: addedProperty(string),
+    pid: addedProperty({ type: "integer" }),
+    process: addedProperty(
+      object(
+        {
+          state: addedProperty({ type: "string", enum: ["ready", "orphaned", "stopping"] }),
+          orphanedSince: addedProperty({ type: ["number", "null"] }),
+        },
+        ["state", "orphanedSince"],
+      ),
+    ),
+    counters: addedProperty(
+      object(
+        {
+          requests: counter,
+          authFailures: counter,
+          activeConnections: counter,
+          capturesPending: counter,
+          capturesCompleted: counter,
+          acceptErrors: counter,
+        },
+        ["requests", "authFailures", "activeConnections", "capturesPending", "capturesCompleted"],
+      ),
+    ),
+    schedulerLagMs: addedProperty({ type: "number", minimum: 0 }),
+  });
+  definitions.EngineProcessStatus = processStatus;
   return { definitions, methods, notifications, engineEvent };
 }
 
@@ -361,7 +412,7 @@ export function syncEngineSchema(schemaPath, writeFile) {
     "core, supervisor, module (methods only), or engine (since 1.7.0). host.* is served by core and requires the engine principal at dispatch.",
   );
   if (schema["x-rpc-version"] === "1.6.0") text = text.replace('"x-rpc-version": "1.6.0"', '"x-rpc-version": "1.7.0"');
-  if (!["1.6.0", "1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0", "1.12.0", "1.13.0", "1.14.0"].includes(schema["x-rpc-version"]))
+  if (!["1.6.0", "1.7.0", "1.8.0", "1.9.0", "1.10.0", "1.11.0", "1.12.0", "1.13.0", "1.14.0", "1.15.0", "1.16.0", "1.17.0", "1.18.0", "1.19.0", "1.20.0", "1.21.0", "1.22.0"].includes(schema["x-rpc-version"]))
     throw new Error("RE-08: RPC version changed; agree the next minor before generating engine methods");
   for (const [name, value] of Object.entries(surface.definitions)) text = setMember(text, "$defs", name, value);
   const delegation = object(

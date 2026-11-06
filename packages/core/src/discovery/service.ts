@@ -54,7 +54,7 @@ export interface DiscoveryServiceDeps {
    * privacy.localOnly: true when a model of this provider may not be used now. Its models stay listed as locked, and its
    * catalog is never scanned (no request, no credential lookup): a scan would send the API key to a cloud host.
    */
-  modelLocked?: (provider: string, profile: ProfileInfo | undefined) => boolean;
+  modelLocked?: (provider: string, profile: ProfileInfo | undefined, model?: string) => boolean;
 }
 
 export interface ScanRequest {
@@ -210,6 +210,7 @@ export function createDiscoveryService(deps: DiscoveryServiceDeps): DiscoverySer
     const runId = r.runId ?? deps.runId?.() ?? randomUUID();
     const traceId = deps.traceId?.() ?? randomUUID();
     inFlight.set(provider, { runId });
+    let policyWarnings: ScanWarning[] = [];
 
     try {
       const nowMs = deps.clock.now();
@@ -240,13 +241,15 @@ export function createDiscoveryService(deps: DiscoveryServiceDeps): DiscoverySer
       }
 
       const client = (deps.makeClient ?? createPinnedClient)({
-        baseUrl: profile.baseUrl,
+        baseUrl: profile.baseUrl, providerId: profile.id,
         lease,
         userAgent: deps.userAgent ?? "plur1bus/0.1.0",
         ...(r.signal !== undefined ? { signal: r.signal } : {}),
       });
 
       const output = await scanner(profile, client);
+      policyWarnings = output.filteredByPolicy
+        ? [{ code: "filtered_by_policy", provider, count: output.filteredByPolicy }] : [];
 
       if (output.entries.length === 0) {
         throw new ScanError("failed:empty" as unknown as ScanError["result"], "empty_list");
@@ -363,7 +366,7 @@ export function createDiscoveryService(deps: DiscoveryServiceDeps): DiscoverySer
         unavailable: rec.unavailable,
         unchanged: rec.unchanged,
         duplicates: output.duplicates,
-        warnings: rec.warnings,
+        warnings: [...rec.warnings, ...policyWarnings],
         nextScanAt: nextScanAtIso,
       };
     } catch (err: unknown) {
@@ -516,7 +519,7 @@ export function createDiscoveryService(deps: DiscoveryServiceDeps): DiscoverySer
         unavailable: [],
         unchanged: 0,
         duplicates: 0,
-        warnings: [],
+        warnings: policyWarnings,
         nextScanAt: nextScanAtIso,
         error: scanErrorInfo,
       };
@@ -574,16 +577,16 @@ export function createDiscoveryService(deps: DiscoveryServiceDeps): DiscoverySer
     }
 
     const profiles = deps.modelLocked ? deps.profiles.list() : [];
-    const cleanModels: ModelEntry[] = models.map((m) => {
+    const cleanModels: ModelEntry[] = models.filter(model => model.provider !== "apple-fm" || model.id === "system").map((m) => {
       const { api: _api, ...rest } = m;
       void _api;
-      const locked = deps.modelLocked?.(m.provider, profiles.find((p) => p.id === m.provider)) === true;
+      const locked = deps.modelLocked?.(m.provider, profiles.find((p) => p.id === m.provider), m.id) === true;
       return { ...rest, new: m.status === "available" && m.source !== "manual" && (cat.acknowledgedAt === undefined || m.firstSeen > cat.acknowledgedAt), ...(locked ? { locked: "local-only" as const } : {}) };
     });
 
     const newCount = cat.models.filter(
       (m) =>
-        m.status === "available" &&
+        (m.provider !== "apple-fm" || m.id === "system") && m.status === "available" &&
         m.source !== "manual" &&
         (cat.acknowledgedAt === undefined || m.firstSeen > cat.acknowledgedAt),
     ).length;
@@ -604,6 +607,10 @@ export function createDiscoveryService(deps: DiscoveryServiceDeps): DiscoverySer
   }
 
   async function setOverride(p: SetOverride): Promise<ModelEntry> {
+    if (p.provider === "apple-fm" && (p.id !== "system" || p.create ||
+      (p.set?.contextWindow !== undefined && p.set.contextWindow !== 4096))) {
+      throw new CatalogError("invalid", "contextWindow");
+    }
     const nowIso = new Date(deps.clock.now()).toISOString();
     const profile = deps.profiles.list().find((x) => x.id === p.provider);
     return await deps.store.mutate((c) => {

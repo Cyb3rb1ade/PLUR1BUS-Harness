@@ -9,6 +9,7 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use uuid::Uuid;
 
 fn cli(home: &Path) -> Command {
     let mut c = Command::cargo_bin("plur1bus").unwrap();
@@ -90,6 +91,60 @@ fn build(path: &Path, f: &Fixture) {
             .map(|(p, b)| (format!("data/{p}"), b.clone())),
     );
     write_tar(path, &entries);
+}
+
+fn account_state(home: &Path) -> BTreeMap<String, Vec<u8>> {
+    let mut files = BTreeMap::new();
+    for name in [
+        "accounts.db",
+        "accounts.db-wal",
+        "accounts.db-shm",
+        "accounts.db-journal",
+        "unrelated-api-state.json",
+    ] {
+        let relative = format!("state/api/{name}");
+        let path = home.join(&relative);
+        let bytes = format!("{name}:{}", Uuid::new_v4()).into_bytes();
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, &bytes).unwrap();
+        files.insert(relative, bytes);
+    }
+    files
+}
+
+fn assert_account_state(home: &Path, expected: &BTreeMap<String, Vec<u8>>) {
+    for (relative, bytes) in expected {
+        assert_eq!(fs::read(home.join(relative)).unwrap(), *bytes, "{relative}");
+    }
+}
+
+fn assert_no_account_values(output: &std::process::Output, accounts: &BTreeMap<String, Vec<u8>>) {
+    let text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    for bytes in accounts.values() {
+        assert!(
+            !text.contains(std::str::from_utf8(bytes).unwrap()),
+            "account bytes were disclosed"
+        );
+    }
+}
+
+/// Old archives have no inclusion-policy field; the account unit itself selects restoration.
+fn add_account_unit(f: &mut Fixture, bytes: &[u8]) -> usize {
+    let path = "sqlite/api/accounts.db";
+    f.files.push((path.into(), bytes.to_vec()));
+    f.manifest["files"].as_array_mut().unwrap().push(json!({
+        "path": path, "bytes": bytes.len(), "sha256": sha(bytes),
+    }));
+    let units = f.manifest["units"].as_array_mut().unwrap();
+    units.push(json!({ "archive": path, "target": "state/api/accounts.db", "kind": "file" }));
+    units
+        .iter()
+        .position(|unit| unit["target"] == "state/api/accounts.db")
+        .unwrap()
 }
 
 const TOMBSTONE_LINE: &str =
@@ -387,6 +442,127 @@ fn a_dry_run_reports_the_plan_and_changes_nothing() {
     assert_eq!(actions[0], ("state/lancedb".into(), "replace".into()));
     assert_eq!(v["removed"], json!(["state/memory/run-state.json"]));
     assert_eq!(tree(&home), before);
+}
+
+#[test]
+fn an_archive_omitting_accounts_leaves_the_database_sidecars_and_api_sibling_untouched() {
+    let (_d, home, archive) = setup();
+    old_home(&home);
+    let accounts = account_state(&home);
+    build(&archive, &fixture());
+    let before = tree(&home);
+    let dry = cli(&home)
+        .args(["backup", "restore", "--dry-run"])
+        .arg(&archive)
+        .assert()
+        .success()
+        .get_output()
+        .clone();
+    let plan = doc(&dry);
+    assert!(plan["units"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|unit| !unit["target"].as_str().unwrap().starts_with("state/api/")));
+    assert!(plan["removed"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|target| !target.as_str().unwrap().starts_with("state/api/")));
+    assert_eq!(tree(&home), before, "dry-run must change no byte");
+    let applied = cli(&home)
+        .args(["backup", "restore", "--yes"])
+        .arg(&archive)
+        .assert()
+        .success()
+        .get_output()
+        .clone();
+    assert_account_state(&home, &accounts);
+    let pre = PathBuf::from(doc(&applied)["preRestore"].as_str().unwrap());
+    assert!(
+        !pre.join("state/api").exists(),
+        "omitted accounts are not displaced"
+    );
+}
+
+#[test]
+fn an_account_unit_in_an_existing_archive_restores_without_a_new_restore_option() {
+    let (_d, home, archive) = setup();
+    old_home(&home);
+    let old = account_state(&home);
+    let incoming = Uuid::new_v4().to_string().into_bytes();
+    let mut f = fixture();
+    add_account_unit(&mut f, &incoming);
+    build(&archive, &f);
+    cli(&home)
+        .args(["backup", "verify"])
+        .arg(&archive)
+        .assert()
+        .success();
+    let output = cli(&home)
+        .args(["backup", "restore", "--yes"])
+        .arg(&archive)
+        .assert()
+        .success()
+        .get_output()
+        .clone();
+    assert_eq!(
+        fs::read(home.join("state/api/accounts.db")).unwrap(),
+        incoming
+    );
+    let pre = PathBuf::from(doc(&output)["preRestore"].as_str().unwrap());
+    for (relative, bytes) in old {
+        if relative.ends_with("unrelated-api-state.json") {
+            assert_eq!(fs::read(home.join(&relative)).unwrap(), bytes);
+            assert!(!pre.join(relative).exists());
+        } else {
+            assert_eq!(fs::read(pre.join(&relative)).unwrap(), bytes, "{relative}");
+            if relative != "state/api/accounts.db" {
+                assert!(
+                    !home.join(relative).exists(),
+                    "old sidecars cannot accompany a new DB"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn failed_account_unit_placement_restores_old_database_sidecars_and_api_sibling() {
+    for phase in ["swap", "swap-after"] {
+        let (_d, home, archive) = setup();
+        old_home(&home);
+        let old = account_state(&home);
+        let mut f = fixture();
+        let account_index = add_account_unit(&mut f, Uuid::new_v4().as_bytes());
+        build(&archive, &f);
+        let before = tree(&home);
+        let at = format!("{phase}:{account_index}");
+        let output = cli(&home)
+            .env("PLUR1BUS_TEST_BACKUP_FAIL_AT", &at)
+            .args(["backup", "restore", "--yes"])
+            .arg(&archive)
+            .assert()
+            .failure()
+            .code(1)
+            .get_output()
+            .clone();
+        assert_eq!(doc(&output)["reason"], "restore-failed", "{at}");
+        assert_account_state(&home, &old);
+        let after = tree(&home);
+        let without_backups = after
+            .iter()
+            .filter(|(path, _)| !path.starts_with("backups"))
+            .map(|(path, bytes)| (path.clone(), bytes.clone()))
+            .collect::<BTreeMap<_, _>>();
+        assert_eq!(
+            without_backups, before,
+            "{at}: rollback must restore every old byte"
+        );
+        assert!(!after
+            .keys()
+            .any(|path| path.contains(".restore-") || path.contains("pre-restore")));
+    }
 }
 
 #[test]
@@ -712,6 +888,148 @@ fn create_without_a_core_fails_closed_and_dry_run_writes_nothing() {
         .iter()
         .any(|p| p == "config.json"));
     assert_eq!(tree(&home), before, "no backups/ directory, no archive");
+}
+
+#[test]
+fn api_account_inclusion_is_only_a_backup_create_option() {
+    let (_d, home, archive) = setup();
+    let create_help = cli(&home)
+        .args(["backup", "create", "--help"])
+        .assert()
+        .success()
+        .get_output()
+        .clone();
+    let help = String::from_utf8(create_help.stdout)
+        .unwrap()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert!(help.contains("--include-api-accounts"));
+    assert!(help.contains("password hashes"));
+    let before = tree(&home);
+    for command in ["verify", "restore"] {
+        let help = cli(&home)
+            .args(["backup", command, "--help"])
+            .assert()
+            .success()
+            .get_output()
+            .clone();
+        assert!(!String::from_utf8(help.stdout)
+            .unwrap()
+            .contains("--include-api-accounts"));
+        cli(&home)
+            .args(["backup", command, "--include-api-accounts"])
+            .arg(&archive)
+            .assert()
+            .failure()
+            .code(2);
+    }
+    let uninstall = cli(&home)
+        .args(["uninstall", "--help"])
+        .assert()
+        .success()
+        .get_output()
+        .clone();
+    assert!(!String::from_utf8(uninstall.stdout)
+        .unwrap()
+        .contains("--include-api-accounts"));
+    cli(&home)
+        .args(["uninstall", "--include-api-accounts"])
+        .assert()
+        .failure()
+        .code(2);
+    assert_eq!(tree(&home), before);
+}
+
+#[test]
+fn account_policy_is_disclosed_in_existing_dry_run_fields_without_core_or_writes() {
+    let (_d, home, archive) = setup();
+    old_home(&home);
+    let accounts = account_state(&home);
+    let before = tree(&home);
+    let mut notes = Vec::new();
+    for include in [false, true] {
+        let mut command = cli(&home);
+        command
+            .args(["backup", "create", "--dry-run", "--out"])
+            .arg(&archive);
+        if include {
+            command.arg("--include-api-accounts");
+        }
+        let output = command.assert().success().get_output().clone();
+        let value = doc(&output);
+        let mut keys = value
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect::<Vec<_>>();
+        keys.sort_unstable();
+        assert_eq!(
+            keys,
+            ["dryRun", "path", "plain", "schema", "secrets", "staged"]
+        );
+        assert_eq!(value["schema"], "backup.create/1");
+        assert_eq!(value["dryRun"], true);
+        assert_eq!(value["secrets"]["included"], false);
+        let mut secret_keys = value["secrets"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect::<Vec<_>>();
+        secret_keys.sort_unstable();
+        assert_eq!(secret_keys, ["included", "note"]);
+        let note = value["secrets"]["note"].as_str().unwrap();
+        assert!(
+            !note.contains("plur1bus.backup.config-redactions/"),
+            "dry-run has collected no config-redaction snapshot metadata"
+        );
+        assert!(note.contains("state/api/accounts.db"));
+        assert!(note.contains("password hashes") && note.contains("TOTP seeds"));
+        assert!(note.contains("token hashes") && note.contains("neither signed nor encrypted"));
+        if include {
+            assert!(
+                note.contains("explicitly included"),
+                "the selected inclusion must be disclosed"
+            );
+        } else {
+            assert!(
+                note.contains("excluded by default"),
+                "default exclusion must be disclosed"
+            );
+        }
+        notes.push(note.to_owned());
+        assert_no_account_values(&output, &accounts);
+        let mut human = Command::cargo_bin("plur1bus").unwrap();
+        human
+            .arg("--home")
+            .arg(&home)
+            .args(["backup", "create", "--dry-run", "--out"])
+            .arg(&archive)
+            .timeout(std::time::Duration::from_secs(60));
+        if include {
+            human.arg("--include-api-accounts");
+        }
+        let human_output = human.assert().success().get_output().clone();
+        assert!(String::from_utf8_lossy(&human_output.stdout).contains(note));
+        assert!(
+            !String::from_utf8_lossy(&human_output.stdout)
+                .contains("plur1bus.backup.config-redactions/"),
+            "human dry-run must not invent config-redaction snapshot metadata"
+        );
+        assert_no_account_values(&human_output, &accounts);
+        assert_eq!(
+            tree(&home),
+            before,
+            "dry-run must not make a snapshot or archive"
+        );
+        assert!(!archive.exists());
+    }
+    assert_ne!(
+        notes[0], notes[1],
+        "the selected account policy must change the note"
+    );
 }
 
 #[test]

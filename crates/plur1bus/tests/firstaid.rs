@@ -297,6 +297,72 @@ fn check_with_nothing_running_is_read_only_and_exits_0() {
     assert_eq!(checks["core.state"]["status"], "warn", "{v}");
 }
 
+#[cfg(unix)]
+#[test]
+fn ffmpeg_check_probes_files_without_executing_ffmpeg_or_the_package_manager() {
+    use std::os::unix::fs::PermissionsExt;
+    let h = Home::new();
+    let binaries = tempfile::tempdir().unwrap();
+    let marker = binaries.path().join("executed");
+    for name in ["ffmpeg", "fake-package-manager"] {
+        let path = binaries.path().join(name);
+        fs::write(&path, format!("#!/bin/sh\n: > '{}'\n", marker.display())).unwrap();
+        fs::set_permissions(path, fs::Permissions::from_mode(0o700)).unwrap();
+    }
+    let before = snapshot(&h.home);
+    let mut command = check_cmd(&h);
+    command
+        .env("PATH", binaries.path())
+        .env("PLUR1BUS_ALLOW_TEST_INTERNALS", "1")
+        .env("PLUR1BUS_TEST_FFMPEG_MANAGER", "apt")
+        .env(
+            "PLUR1BUS_TEST_FFMPEG_PACKAGE_MANAGER",
+            binaries.path().join("fake-package-manager"),
+        );
+    let output = command.output().unwrap();
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    let document = json_stdout(&output);
+    assert_eq!(document["schema"], "1staid.check/1");
+    assert_eq!(checks_by_id(&document)["media.ffmpeg"]["status"], "ok");
+    assert!(
+        !marker.exists(),
+        "read-only checks must never execute the detected binaries"
+    );
+    assert_eq!(snapshot(&h.home), before);
+    fs::remove_file(binaries.path().join("ffmpeg")).unwrap();
+    let output = command.output().unwrap();
+    let check = checks_by_id(&json_stdout(&output))["media.ffmpeg"].clone();
+    assert_eq!(check["status"], "warn");
+    assert!(check["hint"]
+        .as_str()
+        .unwrap()
+        .contains("sudo apt install ffmpeg"));
+    assert!(!marker.exists());
+}
+
+#[test]
+fn unavailable_upload_health_is_read_only_and_contains_no_identity_or_content() {
+    let h = Home::new();
+    let root = h.home.join("media/outputs/.upload-index");
+    fs::create_dir_all(&root).unwrap();
+    fs::write(
+        root.join("PRIVATE-UPLOAD-ID.json"),
+        r#"{"schema":"media.upload-index/1","createdAt":123,"bytes":456,"unavailable":true}"#,
+    )
+    .unwrap();
+    let before = snapshot(&h.home);
+    let output = check_cmd(&h).output().unwrap();
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    let check = checks_by_id(&json_stdout(&output))["media.uploads"].clone();
+    assert_eq!(check["status"], "warn");
+    assert!(check["summary"]
+        .as_str()
+        .unwrap()
+        .starts_with("1 upload(s)"));
+    assert!(!check.to_string().contains("PRIVATE"));
+    assert_eq!(snapshot(&h.home), before);
+}
+
 /// The document shape (S12): `schema`, `ok`, `checks[]` each with a known `id`/`status`, in the brief's table order.
 #[test]
 fn check_json_validates_the_document_shape() {
@@ -338,6 +404,9 @@ fn check_json_validates_the_document_shape() {
         "models.decision",
         "privacy.local-only",
         "api.supervised",
+        "tools.service",
+        "media.ffmpeg",
+        "media.uploads",
     ];
     let ids: Vec<String> = v["checks"]
         .as_array()
@@ -370,7 +439,7 @@ fn check_json_lists_the_installer_ids_after_the_first_seventeen() {
         .iter()
         .map(|c| c["id"].as_str().unwrap().to_string())
         .collect();
-    assert_eq!(ids.len(), 30, "{v}");
+    assert_eq!(ids.len(), 33, "{v}");
     assert_eq!(
         &ids[17..20],
         &["runtime.node", "runtime.core", "models.cache"],
@@ -406,6 +475,7 @@ fn stale_run_files_are_a_warning() {
     std::fs::set_permissions(&run, std::fs::Permissions::from_mode(0o700)).unwrap();
     common::dead_socket(&run.join("supervisor.sock"));
     common::dead_socket(&run.join("core.sock"));
+    common::dead_socket(&run.join("tools.sock"));
     // Pids that cannot exist (above every pid_max), so the check sees them as dead.
     std::fs::write(
         run.join("supervisor.pid"),
@@ -417,6 +487,7 @@ fn stale_run_files_are_a_warning() {
         "2147483001 00000000-0000-4000-8000-000000000001\n",
     )
     .unwrap();
+    std::fs::write(run.join("tools.pid"), "2147483002 unused-instance\n").unwrap();
     for token in ["supervisor.token", "core.token"] {
         std::fs::write(run.join(token), "a".repeat(64)).unwrap();
         std::fs::set_permissions(run.join(token), std::fs::Permissions::from_mode(0o600)).unwrap();
@@ -433,7 +504,14 @@ fn stale_run_files_are_a_warning() {
         .iter()
         .map(|f| f.as_str().unwrap().to_string())
         .collect();
-    for f in ["supervisor.sock", "supervisor.pid", "core.sock", "core.pid"] {
+    for f in [
+        "supervisor.sock",
+        "supervisor.pid",
+        "core.sock",
+        "core.pid",
+        "tools.pid",
+        "tools.sock",
+    ] {
         assert!(files.contains(&f.to_string()), "{f} missing from {files:?}");
     }
     assert_eq!(checks["supervisor.state"]["status"], "warn", "{v}");
@@ -777,6 +855,9 @@ fn deprecations_list_engine_event_with_used_flag() {
     };
     sub.call("events.subscribe", json!({ "names": ["engine.event"] }))
         .unwrap();
+    wait_until("native tools health", REAL_CORE_START, || {
+        sub.call("core.status", json!({})).unwrap()["tools"]["ready"] == true
+    });
 
     let out = check_cmd(&h).output().unwrap();
     assert_eq!(out.status.code(), Some(0), "{out:?}");
@@ -940,7 +1021,7 @@ fn check_ids_are_append_only_and_end_with_the_three_extension_rows() {
         .iter()
         .map(|c| c["id"].as_str().unwrap().to_string())
         .collect();
-    assert_eq!(ids.len(), 30, "{v}");
+    assert_eq!(ids.len(), 33, "{v}");
     assert_eq!(
         &ids[17..20],
         &["runtime.node", "runtime.core", "models.cache"]
@@ -953,6 +1034,9 @@ fn check_ids_are_append_only_and_end_with_the_three_extension_rows() {
     assert_eq!(&ids[27], "models.decision", "{v}");
     assert_eq!(&ids[28], "privacy.local-only", "{v}");
     assert_eq!(&ids[29], "api.supervised", "{v}");
+    assert_eq!(&ids[30], "tools.service", "{v}");
+    assert_eq!(&ids[31], "media.ffmpeg", "{v}");
+    assert_eq!(&ids[32], "media.uploads", "{v}");
 }
 
 #[test]

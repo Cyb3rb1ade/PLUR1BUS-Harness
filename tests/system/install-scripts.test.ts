@@ -8,7 +8,7 @@ import { createHash } from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const TARGETS = ["linux-x64", "linux-arm64", "darwin-arm64", "win-x64", "win-arm64"];
@@ -36,29 +36,34 @@ function fakeWindowsBinary(dir: string): Buffer {
   return fakeExe;
 }
 
-type Fixture = { root: string; home: string; feed: string; binary: Buffer };
+type Fixture = { root: string; home: string; feed: string; binary: Buffer; tools: Buffer };
 
 /** A temp root with `home/` and `release/` (the fake binaries and `stable.json`). `recorded` replaces the sha256 the
  *  feed records for every binary; `compact` writes the feed on one line with `sha256` before `url` and escaped
  *  slashes, as a JSON serializer may. The core payload entries carry different hashes, so reading the wrong map
  *  fails the checksum. */
-function fixture(opts: { recorded?: string; compact?: boolean } = {}): Fixture {
+function fixture(opts: { recorded?: string; compact?: boolean; toolsHash?: string; toolsMissing?: boolean } = {}): Fixture {
   const root = mkdtempSync(join(tmpdir(), "p1b-inst-"));
   const home = join(root, "home");
   const rel = join(root, "release");
   mkdirSync(home);
   mkdirSync(rel);
   const binary = WIN ? fakeWindowsBinary(root) : Buffer.from(FAKE_SH);
+  const tools = Buffer.from("native tools companion; must never run as setup");
   const asset = (name: string, digest: string) => {
     const url = pathToFileURL(join(rel, name)).href;
     return opts.compact ? { sha256: digest, url: url.replace(/\//g, "\\/") } : { url, sha256: digest };
   };
   const binaryMap: Record<string, unknown> = {};
+  const toolsMap: Record<string, unknown> = {};
   const payloadMap: Record<string, unknown> = {};
   for (const t of TARGETS) {
     const name = `plur1bus-${t}${t.startsWith("win-") ? ".exe" : ""}`;
     writeFileSync(join(rel, name), binary);
     binaryMap[t] = asset(name, opts.recorded ?? sha(binary));
+    const toolsName = `plur1bus-tools-${t}${t.startsWith("win-") ? ".exe" : ""}`;
+    writeFileSync(join(rel, toolsName), tools);
+    if (!opts.toolsMissing) toolsMap[t] = asset(toolsName, opts.toolsHash ?? sha(tools));
     payloadMap[t] = asset(`core-0.2.0-${t}.tar.gz`, sha(`payload ${t}`));
   }
   const doc = {
@@ -70,6 +75,7 @@ function fixture(opts: { recorded?: string; compact?: boolean } = {}): Fixture {
     minFromVersion: "0.1.0",
     native: {
       binary: binaryMap,
+      tools: toolsMap,
       core: { version: "0.2.0", contract: "1.9.0", rpc: "1.3.0", payload: payloadMap },
       node: { version: "24.21.0" },
       modules: [],
@@ -79,7 +85,7 @@ function fixture(opts: { recorded?: string; compact?: boolean } = {}): Fixture {
   let text = opts.compact ? JSON.stringify(doc) : JSON.stringify(doc, null, 2);
   if (opts.compact) text = text.replace(/\\\\\//g, "\\/"); // keep the single JSON escape `\/` in URLs
   writeFileSync(join(rel, "stable.json"), text);
-  return { root, home, feed: pathToFileURL(join(rel, "{channel}.json")).href.replace(/%7B/g, "{").replace(/%7D/g, "}"), binary };
+  return { root, home, feed: pathToFileURL(join(rel, "{channel}.json")).href.replace(/%7B/g, "{").replace(/%7D/g, "}"), binary, tools };
 }
 
 /** The installed binary's path in a temp home. */
@@ -104,7 +110,7 @@ const ARCH_SHIM = [
 
 /** Runs the platform's installer against the fixture. `extraPath` goes first on PATH (shims). `hostArch` (Windows
  *  only) runs install.ps1 as if PROCESSOR_ARCHITECTURE were that value (see ARCH_SHIM). */
-function run(shell: string, f: Fixture, args: string[], env: NodeJS.ProcessEnv = {}, extraPath?: string, hostArch?: string) {
+function run(shell: string, f: Fixture, args: string[], env: NodeJS.ProcessEnv = {}, extraPath?: string, hostArch?: string, psWrapper?: string) {
   const base: NodeJS.ProcessEnv = { ...process.env, PLUR1BUS_INSTALL_FEED: f.feed, PLUR1BUS_CHANNEL: "stable" };
   if (WIN) {
     // Only LOCALAPPDATA moves into the temp home; PowerShell itself also writes caches below it
@@ -122,6 +128,7 @@ function run(shell: string, f: Fixture, args: string[], env: NodeJS.ProcessEnv =
       writeFileSync(file, ARCH_SHIM);
       fileArgs = [hostArch, INSTALL_PS1, ...args];
     }
+    if (psWrapper !== undefined) { file = psWrapper; fileArgs = [INSTALL_PS1, ...args]; }
     const r = spawnSync(shell, ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", file, ...fileArgs], { encoding: "utf8", env: { ...base, ...env }, timeout: 60_000 });
     return { status: r.status, stdout: r.stdout, stderr: r.stderr };
   }
@@ -167,9 +174,12 @@ describe(`one-line installer (${NAME}, ${shell})`, () => {
       const lines = r.stdout.trim().split(/\r?\n/);
       assert.deepEqual(lines, ["fake-plur1bus", "[setup]", ...FLAGS.map((a) => `[${a}]`)], "setup runs with the flags, word boundaries kept");
       const bin = installed(f);
+      const companion = bin.replace(/plur1bus(\.exe)?$/, "plur1bus-tools$1");
       assert.deepEqual(readFileSync(bin), f.binary);
+      assert.deepEqual(readFileSync(companion), f.tools);
       if (!WIN) assert.equal(statSync(bin).mode & 0o777, 0o755);
-      assert.deepEqual(ours(f), [bin], "only the binary is left behind");
+      if (!WIN) assert.equal(statSync(companion).mode & 0o777, 0o755);
+      assert.deepEqual(ours(f).sort(), [bin, companion].sort(), "only the verified release pair is left behind");
     } finally {
       rmSync(f.root, { recursive: true, force: true });
     }
@@ -222,4 +232,95 @@ describe(`one-line installer (${NAME}, ${shell})`, () => {
       rmSync(f.root, { recursive: true, force: true });
     }
   });
+
+  for (const [label, options] of [["missing companion", { toolsMissing: true }], ["bad companion hash", { toolsHash: sha("wrong companion") }]] as const) {
+    it(`${NAME} refuses ${label} before replacing either installed binary or running setup`, () => {
+      const f = fixture(options);
+      try {
+        const bin = installed(f);
+        const companion = bin.replace(/plur1bus(\.exe)?$/, "plur1bus-tools$1");
+        mkdirSync(join(bin, ".."), { recursive: true });
+        writeFileSync(bin, "previous CLI");
+        writeFileSync(companion, "previous tools");
+        const r = run(shell, f, FLAGS);
+        assert.equal(r.status, 1, `${r.stdout}\n${r.stderr}`);
+        assert.doesNotMatch(r.stdout, /fake-plur1bus/);
+        assert.equal(readFileSync(bin, "utf8"), "previous CLI");
+        assert.equal(readFileSync(companion, "utf8"), "previous tools");
+        assert.deepEqual(ours(f).sort(), [bin, companion].sort());
+      } finally { rmSync(f.root, { recursive: true, force: true }); }
+    });
+  }
+
+  for (const { existing, blockRestore } of [
+    { existing: false, blockRestore: false }, { existing: true, blockRestore: false },
+    ...(WIN ? [{ existing: true, blockRestore: true }] : []),
+  ]) {
+    it(`${NAME} ${blockRestore ? "reports a locked restore and still cleans staging" : `rolls back the first placement when the second rename fails (${existing ? "existing pair" : "fresh installation"})`}`, () => {
+      const f = fixture();
+      const bin = installed(f);
+      const companion = bin.replace(/plur1bus(\.exe)?$/, "plur1bus-tools$1");
+      const moves = join(f.root, "moves.log");
+      try {
+        if (existing) {
+          mkdirSync(dirname(bin), { recursive: true });
+          writeFileSync(bin, "previous CLI", { mode: 0o755 });
+          writeFileSync(companion, "previous tools", { mode: 0o755 });
+        }
+        let result;
+        if (WIN) {
+          const quote = (s: string) => `'${s.replace(/'/g, "''")}'`;
+          const wrapper = join(f.root, "swap-failure.ps1");
+          writeFileSync(wrapper, [
+            "$ErrorActionPreference = 'Stop'",
+            `$moveLog = ${quote(moves)}`,
+            `$failCliRename = $${existing ? "false" : "true"}`,
+            `$lockPlacedTools = $${blockRestore ? "true" : "false"}`,
+            "$global:installerSwapLock = $null",
+            "function Move-Item {",
+            "  [CmdletBinding()] param([string]$LiteralPath, [string]$Destination, [switch]$Force)",
+            "  $leaf = [IO.Path]::GetFileName($Destination)",
+            "  [IO.File]::AppendAllText($moveLog, $leaf + [Environment]::NewLine)",
+            "  if ($failCliRename -and $leaf -eq 'plur1bus.exe') { throw [IO.IOException]::new('injected second rename failure') }",
+            "  Microsoft.PowerShell.Management\\Move-Item @PSBoundParameters",
+            "  if ($lockPlacedTools -and $leaf -eq 'plur1bus-tools.exe') { $global:installerSwapLock = [IO.File]::Open($Destination, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read) }",
+            "}",
+            `$held = ${existing ? `[IO.File]::Open(${quote(bin)}, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)` : "$null"}`,
+            "$installer = $args[0]",
+            "$rest = @($args | Select-Object -Skip 1)",
+            "try { & $installer @rest; $result = $LASTEXITCODE } finally { if ($held) { $held.Dispose() }; if ($global:installerSwapLock) { $global:installerSwapLock.Dispose() } }",
+            "exit $result",
+          ].join("\r\n"));
+          result = run(shell, f, FLAGS, {}, undefined, undefined, wrapper);
+        } else {
+          const shim = join(f.root, "shim");
+          mkdirSync(shim);
+          // Only the staged CLI placement fails; rollback moves use the .old source and delegate normally.
+          writeFileSync(join(shim, "mv"), [
+            "#!/bin/sh",
+            'for source in "$@"; do case "$source" in */.plur1bus-install.tmp-*/plur1bus-tools) printf "plur1bus-tools\\n" >> "$PLUR1BUS_TEST_MOVE_LOG" ;; */.plur1bus-install.tmp-*/plur1bus) printf "plur1bus\\n" >> "$PLUR1BUS_TEST_MOVE_LOG"; exit 1 ;; esac; done',
+            'exec /bin/mv "$@"',
+            "",
+          ].join("\n"));
+          chmodSync(join(shim, "mv"), 0o755);
+          result = run(shell, f, FLAGS, { PLUR1BUS_TEST_MOVE_LOG: moves, PLUR1BUS_ALLOW_TEST_INTERNALS: "1" }, shim);
+        }
+        assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
+        assert.doesNotMatch(result.stdout, /fake-plur1bus/, "setup must not start after a partial placement");
+        assert.deepEqual(readFileSync(moves, "utf8").trim().split(/\r?\n/), WIN ? ["plur1bus-tools.exe", "plur1bus.exe"] : ["plur1bus-tools", "plur1bus"],
+          "the tools placement must succeed before the injected CLI rename failure");
+        if (existing) {
+          assert.equal(readFileSync(bin, "utf8"), "previous CLI");
+          if (blockRestore) {
+            assert.deepEqual(readFileSync(companion), f.tools, "a locked destination cannot be falsely reported as restored");
+            assert.match(result.stderr, /could not install plur1bus\.exe/);
+            assert.match(result.stderr, /rollback failed for plur1bus-tools\.exe/);
+          } else { assert.equal(readFileSync(companion, "utf8"), "previous tools"); }
+          assert.deepEqual(ours(f).sort(), [bin, companion].sort());
+        } else { assert.deepEqual(ours(f), []); }
+        const leftovers = existsSync(dirname(bin)) ? readdirSync(dirname(bin)).filter(name => name.startsWith(".plur1bus-install.tmp-")) : [];
+        assert.deepEqual(leftovers, [], "rollback must remove staging even when the destination is locked");
+      } finally { rmSync(f.root, { recursive: true, force: true }); }
+    });
+  }
 });

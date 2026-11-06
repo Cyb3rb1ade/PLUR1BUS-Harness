@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
-import { MemoryOffsetStore, TelegramChannel, type InboundMessage } from "../../src/index.ts";
-import type { ChannelHost } from "../../../core/src/channels/types.ts";
+import { MemoryOffsetStore, TelegramChannel } from "../../src/index.ts";
+import type { ChannelHost, InboundMessage as FrameworkInbound } from "../../../core/src/channels/types.ts";
 import { FakeTelegram, FAKE_TELEGRAM_TOKEN, textUpdate } from "./fake-telegram.ts";
 
 export const CHAT_ID = 42;
@@ -19,7 +19,7 @@ export interface ContractHarness {
   readonly host: ChannelHost;
   readonly fake: FakeTelegram;
   /** What the channel handed to host.receive, in order. */
-  readonly received: InboundMessage[];
+  readonly received: FrameworkInbound[];
   /** What the channel reported through host.fail. */
   readonly failures: unknown[];
   /** Every line the channel wrote to its constructor logger (all levels). */
@@ -48,7 +48,7 @@ export async function makeContractHarness(): Promise<ContractHarness> {
   await fake.listen();
   const manifest = JSON.parse(readFileSync(new URL("../../channel.json", import.meta.url), "utf8")) as unknown;
 
-  const received: InboundMessage[] = [];
+  const received: FrameworkInbound[] = [];
   const failures: unknown[] = [];
   const logs: LogLine[] = [];
   const hostLogs: LogLine[] = [];

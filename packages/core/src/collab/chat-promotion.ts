@@ -32,9 +32,10 @@ export class ChatPromotion {
     if (session.kind !== 'direct') throw new RpcError('E_NOT_FOUND', 'direct chat not found');
     const { tokenScopes: _scopes, ...role } = person;
     if (authorize(role, 'agent.use', { kind: 'agent', agentId: session.agentId }).effect !== 'allow') throw new RpcError('E_DENIED', 'agent right required');
-    const raw = runtime.store.listMessages(sessionId, { limit: 10001 });
+    const raw = runtime.store.contextMessages(sessionId).slice(-10001);
     const messages = raw.filter(m => m.role !== 'system');
-    const sourceHash = createHash('sha256').update(JSON.stringify([session.id, session.owner, session.agentId, messages])).digest('hex');
+    const sourceHash = createHash('sha256').update(JSON.stringify([session.id, session.owner, session.agentId, messages,
+      runtime.store.rewinds(sessionId)])).digest('hex');
     return { session, messages, sourceHash, tooMany: raw.length > 10000 };
   }
   #target(person: Principal, target: PromotionTarget): void {

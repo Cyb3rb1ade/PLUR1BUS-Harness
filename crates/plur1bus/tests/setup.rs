@@ -20,6 +20,50 @@ use std::time::Duration;
 
 #[cfg(unix)]
 #[test]
+fn setup_without_a_terminal_never_installs_ffmpeg_and_keeps_the_setup_document() {
+    use std::os::unix::fs::PermissionsExt;
+    for extra in [vec![], vec!["--non-interactive"]] {
+        let e = Env::new();
+        let binaries = e.root.join("package-bin");
+        std::fs::create_dir(&binaries).unwrap();
+        let marker = e.root.join("package-manager-called");
+        let manager = binaries.join("fake-package-manager");
+        std::fs::write(&manager, format!("#!/bin/sh\n: > '{}'\n", marker.display())).unwrap();
+        std::fs::set_permissions(&manager, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let core = payload();
+        let mut args = vec![
+            "--json",
+            "setup",
+            "--no-service",
+            "--core-from",
+            core.to_str().unwrap(),
+        ];
+        args.extend(extra);
+        let output = e
+            .cmd(&args)
+            .env("PATH", &binaries)
+            .env("PLUR1BUS_TEST_FFMPEG_MANAGER", "apt")
+            .env("PLUR1BUS_TEST_FFMPEG_PACKAGE_MANAGER", &manager)
+            .output()
+            .unwrap();
+        let document: Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_success(output.status.code().unwrap_or(-1), &document);
+        assert_eq!(document["schema"], "setup/1");
+        assert_eq!(ids(&document), STEP_IDS);
+        let ffmpeg = &step(&document, "config")["detail"]["ffmpeg"];
+        assert_eq!(ffmpeg["available"], false);
+        assert_eq!(ffmpeg["state"], "non-interactive");
+        assert_eq!(
+            ffmpeg["manualCommands"],
+            serde_json::json!(["sudo apt install ffmpeg"])
+        );
+        assert!(!marker.exists());
+        assert!(String::from_utf8_lossy(&output.stderr).contains("Photos continue to work"));
+    }
+}
+
+#[cfg(unix)]
+#[test]
 fn setup_non_interactive_installs_everything_but_the_service() {
     let e = Env::new();
     let (code, v) = e.setup(&["--non-interactive", "--no-service"]);
@@ -45,6 +89,8 @@ fn setup_non_interactive_installs_everything_but_the_service() {
     assert_eq!(m["target"], target_id());
     assert_eq!(m["channel"], "stable");
     assert_eq!(m["node"]["version"], NODE_VERSION);
+    assert_eq!(m["tools"]["version"], env!("CARGO_PKG_VERSION"));
+    assert_eq!(m["tools"]["sha256"].as_str().unwrap().len(), 64);
     assert_eq!(m["node"]["archiveSha256"], e.node_sha);
     assert_eq!(
         PathBuf::from(m["node"]["path"].as_str().unwrap()),
@@ -87,6 +133,27 @@ fn setup_non_interactive_installs_everything_but_the_service() {
         "{:?}",
         stray_temps(&e.home)
     );
+}
+
+#[test]
+fn setup_waits_for_core_to_authenticate_the_native_tools_service() {
+    let e = Env::new();
+    let core = payload();
+    let out = e
+        .cmd(&[
+            "--json",
+            "setup",
+            "--profile",
+            "host",
+            "--non-interactive",
+            "--no-service",
+            "--core-from",
+            core.to_str().unwrap(),
+        ])
+        .env("FAKE_CORE_MODE", "pending-tools-probe")
+        .output()
+        .unwrap();
+    assert_success(out.status.code().unwrap_or(-1), &doc(&out));
 }
 
 /// One installer at a time: an `update` (or another `setup`) holding the update lock keeps `setup` out of the home
@@ -557,4 +624,24 @@ fn interactive_defaults_and_noninteractive_install_the_same_payload() {
         doc
     };
     assert_eq!(manifest(&interactive), manifest(&unattended));
+}
+
+#[test]
+fn setup_refuses_an_incomplete_native_installation_before_starting_core() {
+    let e = Env::new();
+    let mut command = e.cmd(&["--json"]);
+    command.env("PLUR1BUS_TOOLS_BIN", e.root.join("missing-tools"));
+    let output = command
+        .args(["setup", "--non-interactive", "--no-service", "--core-from"])
+        .arg(payload())
+        .output()
+        .unwrap();
+    let doc: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert!(!output.status.success(), "{doc}");
+    assert_eq!(
+        step(&doc, "runtime.core")["reason"],
+        "tools-missing",
+        "{doc}"
+    );
+    assert_eq!(step(&doc, "start")["reason"], "after-failure", "{doc}");
 }

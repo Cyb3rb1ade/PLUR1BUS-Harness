@@ -205,6 +205,8 @@ emitters land in later parts of D111; the names are already reserved.
 | `model.scan.completed` | provider | debug | model_discovery | `provider`, `result`, `duration_ms`, `counts` |  | Model discovery event (D112 Task 12). |
 | `sandbox.watchdog.failure` | harness | info | sandbox_watchdog_failure | `process`, `version`, `cause`, `operation`, `phase`, `sample`, `elapsedMicros`, `pid`, `returned`, `expected`, `errno`, `probeReturned`, `probeErrno`, `ppid`, `pgid`, `status`, `startSeconds`, `startMicros`, `processRssBytes`, `count`, `rssBytes` | experimental | Retained native-watchdog diagnostic: the supervised ACP connector exited125 with a validated native sampling cause. Production macOS ACP cannot reach this event while macos-acceptance-pending applies (D123 SB-1/SB-3); pure consumer tests and native acceptance work retain the format. Detail comes from the target-closed helper fd, never child stderr; transport results and enforcement decisions are unchanged. Example values illustrate the format and are not a diagnosis of a native failure. |
 | `external.agent.refused` | harness | info | external_agent_refused | `process`, `reason`, `cause` | experimental | External ACP launch refused pending macOS acceptance (D123 SB-1/SB-3). Ordinary sandboxed tools retain their independent policy. |
+| `engine.process.lifecycle` | harness | info | engine_process_lifecycle | `state`, `reason`, `pid` | experimental | RE-08 T2 process diagnostics with fixed categories only. |
+| `engine.process.error` | harness | warn | engine_process_error | `stage`, `error_kind`, `pid` | experimental | RE-08 T2 process diagnostics with fixed categories only. |
 
 ### Audit stream
 
@@ -1105,6 +1107,27 @@ Fixed ACP platform acceptance refusal before process creation. No paths, error t
 | `reason` | `"sandbox-unavailable"` |  |
 | `cause` | `"macos-acceptance-pending"` |  |
 
+#### `engine_process_lifecycle`
+
+Content-free engine process transitions; never memory, method parameters or paths.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `state` | `started` \| `orphaned` \| `adopted` \| `stopping` \| `stopped` |  |
+| `reason` | `ready` \| `stdin-closed` \| `connection-closed` \| `adopted` \| `shutdown` \| `grace-expired` \| `signal` \| `transport-fatal` \| `deadline` \| `startup-failed` \| `stamp-owner-live` \| `stamp-age-rule` \| `process-lock-held` \| `endpoint-live` |  |
+| `pid` | `integer` |  |
+
+#### `engine_process_error`
+
+Local engine error classes and errno only; no foreign error bodies.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `stage` | `startup` \| `listen` \| `accept` \| `spawn` \| `close` \| `peer` |  |
+| `error_kind` | `resource-limit` \| `permission` \| `invalid-input` \| `connection-closed` \| `timeout` \| `interrupted` \| `not-found` \| `unsupported` \| `other` |  |
+| `os_error` | `integer` |  |
+| `pid` | `integer` |  |
+
 ## Redaction data
 
 The writer applies these rules in order (`secret`, `key`, `pattern`, `url`, `path`, `pii`) to `msg`, `attrs`, `err`, wrapped text and audit detail; a match is
@@ -1113,15 +1136,20 @@ replaced by `[REDACTED:{rule}]`. Patterns use the subset common to ECMAScript an
 - **`secret`** (registry, §4 rule 1): Exact secret-store values and leases the process holds (ADR-005), plus their base64, base64url, hex and URL-encoded forms (base64 and base64url with and without padding, hex in lower and upper case); the registry is in memory only. The minimum length is checked on the registered value, before the forms are derived.
   - minimum length 8, encodings: raw, base64, base64url, hex, url
 - **`key`** (key-name, §4 rule 2): A JSON key, key=value pair or header whose name matches has its value replaced. A name matches when one of its delimited segments is a listed word, or (camelCase names) when it contains the word as a capitalised part. Plural token counts (input_tokens, outputTokens, max_tokens) are not credentials and do not match; `token` alone, access_token, accessToken and id_token_hint do.
-  - names (flags `i`): `(?:^|[^a-z0-9])(?:authorization|proxy-authorization|cookie|set-cookie|token|secret|password|passwd|api[_-]?key|client[_-]?secret|refresh|code_verifier|ticket|csrf|id_token_hint|private[_-]?key|session[_-]?key)(?:[^a-z0-9]|$)`
-  - camelCase names (case-sensitive): `[a-z](?:Token|Secret|Password|Passwd|ApiKey|Cookie|Authorization|Ticket|Csrf|PrivateKey|SessionKey|Refresh|ClientSecret)(?:[A-Z]|$)`
+  - names (flags `i`): `(?:^|[^a-z0-9])(?:authorization|proxy-authorization|cookie|set-cookie|token|secret|password|passwd|api[_-]?key|access[_-]?key(?:[_-]?id)?|client[_-]?secret|refresh|code_verifier|ticket|csrf|id_token_hint|private[_-]?key|session[_-]?key)(?:[^a-z0-9]|$)`
+  - camelCase names (case-sensitive): `[a-z](?:Token|Secret|Password|Passwd|ApiKey|AccessKey(?:Id)?|Cookie|Authorization|Ticket|Csrf|PrivateKey|SessionKey|Refresh|ClientSecret)(?:[A-Z]|$)`
 - **`pattern`** (patterns, §4 rule 3): Credential shapes redacted wherever they occur.
-  - `bearer`: `Bearer\s+\S+` (flags `i`) — Bearer token
+  - `bearer`: `Bearer\s+(?:"[^"\r\n]*"|'[^'\r\n]*'|\S+)` (flags `i`) — Bearer token, including complete single- or double-quoted values containing spaces
+  - `authorization-folded`: `(Authorization["']?[ \t]*[:=][ \t]*)([^\r\n]*(?:\r?\n[ \t]+[^\r\n]*)+)` (flags `i`), left boundary, replaces group 2 — Authorization value with one or more folded continuation lines; the header name and the existing key-rule classification stay
+  - `credential-assignment-double-quoted`: `(credential["']?\s*[:=]\s*")((?:[^"\\\r\n]|\\[^\r\n])*)"` (flags `i`), left boundary, replaces group 2 — Double-quoted credential text assignments, including escaped quotes; quotes and the name stay.
+  - `credential-assignment-single-quoted`: `(credential["']?\s*[:=]\s*')((?:[^'\\\r\n]|\\[^\r\n])*)'` (flags `i`), left boundary, replaces group 2 — Single-quoted credential text assignments, including escaped quotes; quotes and the name stay.
+  - `credential-assignment`: `(credential["']?\s*[:=]\s*)([^\s,;"']+)` (flags `i`), left boundary, replaces group 2 — Bare credential text assignments. Structured credential fields keep registered-secret classification instead of becoming a generic secret key.
   - `basic`: `Basic\s+[A-Za-z0-9+/]{8,}={0,2}` — Basic credentials (case-sensitive and at least 8 characters, so prose such as "Basic info" survives)
-  - `sk`: `sk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}`, left boundary — sk-…, sk-ant-…, sk-proj-… API keys
+  - `sk`: `sk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}`, left boundary — sk-…, sk-ant-…, sk-proj-… API keys. RE-08 retains this catalogue's 20-character, case-sensitive classification; the pinned Node helper's broader 8-character classifier is intentionally not copied.
   - `ek`: `ek_[A-Za-z0-9_-]{16,}`, left boundary — ek_… values (D110)
-  - `ghp`: `ghp_[A-Za-z0-9]{36,}`, left boundary — GitHub personal access token
-  - `github-token`: `gh[ousr]_[A-Za-z0-9]{36,}`, left boundary — GitHub OAuth (gho_), app (ghs_, ghu_) and refresh (ghr_) tokens
+  - `ghp`: `ghp_[A-Za-z0-9]{36,}`, left boundary — GitHub personal access token. RE-08 retains the catalogue's 36-character threshold rather than the pinned Node helper's 20-character classifier.
+  - `github-token`: `gh[ousr]_[A-Za-z0-9]{36,}`, left boundary — GitHub OAuth (gho_), app (ghs_, ghu_) and refresh (ghr_) tokens. RE-08 retains the catalogue's 36-character threshold rather than the pinned Node helper's 20-character classifier.
+  - `telegram-bot`: `[0-9]{6,12}:[A-Za-z0-9_+=./-]{20,}`, left boundary — Bare Telegram bot credential: a 6–12 digit bot id and at least 20 credential characters, even outside a URL
   - `github-pat`: `github_pat_[A-Za-z0-9_]{22,}`, left boundary — GitHub fine-grained token
   - `slack`: `xox[abpr]-[A-Za-z0-9-]{10,}`, left boundary — Slack token
   - `aws-access-key`: `AKIA[0-9A-Z]{16}`, left boundary — AWS access key id

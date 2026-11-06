@@ -215,6 +215,10 @@ function coreStatus() {
   return {
     process: { state: reportedState(), since: started }, contract: "1.10.0", rpc: "1.5.0", instanceId, pid: process.pid,
     uptimeMs: Date.now() - started, engine: engineStatus(), agents: [],
+    // Healthy metadata stand-in; real tools health and crash isolation are covered by tools-service integration.
+    tools: kind === "pending-tools-probe" && statusCalls <= 6
+      ? { ready: false, pid: null, checkedAt: null }
+      : { ready: true, pid: process.pid, checkedAt: Date.now() },
     ...(process.env.FAKE_CORE_JOBS ? { jobs: JSON.parse(process.env.FAKE_CORE_JOBS) } : {}),
     ...(restartPending === null ? {} : { config: { revision: null, source: "file", restartPending } }),
   };

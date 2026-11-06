@@ -94,6 +94,8 @@ Any change of what a client pins — a new self-signed certificate, `self-signed
 - `switchTrust` makes the next current and returns exactly the devices that never confirmed: only those pair again.
 - **Device side** (`receiveAnnouncement`, `evaluateConnection`, `promote`): a next pin is accepted only from an authenticated request on a connection the *current* trust verified; both fingerprints are accepted during the transition; the next is promoted when the harness serves it; a device that missed the change gets `certificate-changed`. A CA anchor compares the chain's root, so a renewed leaf from the same CA needs nothing. A stolen device token pushes trust to nobody.
 - `serializeTrust` / `parseTrust` persist the harness state with strict validation.
+- The harness retains departed certificate fingerprints across rotations. Server-side key history, persistence,
+  recovery and its limits are described in [Security](#security).
 
 ## Allow-list, notice and 1staid
 
@@ -212,11 +214,49 @@ PRNG whose seed is in every failure message. A test marked `KNOWN GAP` is a `tod
 | Codes | 8 characters from 32, exactly 40 bits; an even spread; `node:crypto` only, no `Math.random`. A code that is not a string (number, `null`, object) or longer than 64 characters is `invalid`, never a thrown error. The hour is exact on the injected clock. |
 | Rate limiting | The sliding-window limiter forgets keys once per window and holds at most 100 000. |
 | Devices | `connect` with a missing or wrongly typed challenge, signature or `close` is `denied` and spends no challenge. |
-| Certificates | A certificate whose validity dates cannot be read counts as expired (`daysLeft` -1) and a company-CA upload with such a date is refused, so `remote.cert-expiring` can no longer be silent. DER lengths must be minimal. A company-CA upload has at most 10 certificates, with type-checked fields. |
+| Certificates | A certificate whose validity dates cannot be read counts as expired (`daysLeft` -1) and a company-CA upload with such a date is refused, so `remote.cert-expiring` can no longer be silent. DER lengths must be minimal. A company-CA upload has at most 10 certificates, with type-checked fields. Unknown critical extensions in the leaf certificate are refused at import before storing the key. |
 | Pinning | A connection reported as `authorized` is trusted as the pinned CA only when node's chain ends in that CA. |
 | Trust rollover | Acknowledgements are read with `Object.hasOwn` (a device called `constructor` is not acknowledged); times must be non-negative whole milliseconds. |
 | Exposure | Zone ids need 1-64 printable characters; only `0.0.0.0` is unspecified (`0.0.0.1` is refused as public); configuration deeper than 32 levels is a finding; the security notice's `by` is at most 128 characters without control characters; an unreadable `certNotAfter` raises `remote.tls-not-ready`. |
 | Secrets | A whole pairing (code, offer, link, proof, refusals, pair, replay, connect, rename, revoke) is searched for the code, the key derived from it, the offer signing key and the device's private key over every return value, error, audit event, the code store snapshot and the device file. The code appears only in the answers that issue it. |
+
+## Security
+
+The API keeps rollover history in the private `state/remote/trust.json`, separate from device connection pins and
+public announcements. It checks the directory's type and owner before enforcing private permissions (0700 on Unix),
+then reads and writes through the existing private-file checks and atomic replacement.
+
+- **Retired certificates and keys stay retired.** Recorded DER fingerprints cannot be staged under either anchor
+  role. The server also records SPKI pins, so issuing another certificate for a departed key does not reactivate it.
+  Renewal of a currently active key is allowed; its old certificate stays retired, and its SPKI becomes retired when
+  the server leaves that key. Announcements, pairing offers and responses retain their existing fields.
+- **Private v2 is explicit.** New writes use version 2 with valid, explicit retirement and key-history lists. Missing
+  or malformed v2 history is refused. Legacy v1 without a retirement list reads as empty and writes v2 on its next
+  write. A legacy retired DER hash cannot reveal its SPKI: unresolved history is retained and blocks new staging
+  and activation, while reads and cancellation remain available. Recover a verified complete private state when
+  available; there is no automatic reconstruction of an unknown retired key from its fingerprint.
+- **Rejected staging is recoverable.** Newly rejected candidate material is removed. Cancellation also clears orphaned
+  material when no change is staged, preserving trust history and a switched summary. A duplicate stage does not
+  replace an already durable candidate. If announcing that durable candidate fails, it remains staged for cancellation
+  or later activation; manual deletion is not needed for the retired-candidate rejection case.
+- **Activation is checked first.** The transition and both serialized states are validated before TLS activation,
+  including the reader's 256 KiB limit measured in UTF-8 bytes with the final newline. History is not pruned to fit.
+  Normal restart and activation-intent recovery preserve the same history, devices and recorded transition time.
+  Each departing anchor is audited once per intent as an activation attempt. Audit and trust files are separate stores,
+  so this is not an atomic record that TLS activation completed.
+
+These guarantees require the current, intact private history. Deleting the file, restoring a snapshot without history,
+starting from `initTrust`, or reverting to an older state cannot reconstruct earlier withdrawals. Older releases may
+refuse a v2 file or fail to retain newer history; software downgrade and same-user state replacement are outside this
+guarantee. The audit trail supplies evidence, not automatic rollback detection. Keep the current state when retaining
+retirement knowledge matters.
+
+The device-side policy still has no durable retired-anchor history. A trusted authenticated announcement can therefore
+reintroduce an old device pin even though this server refuses it from intact server history. The explicit device-history
+TODO in `hardening-certs.test.ts` tracks that remaining condition; the `initTrust` characterization records lost history.
+
+Coverage: `packages/api/test/remote-pairing.test.ts`, `packages/api/test/remote-trust-hardening.test.ts`, and
+`packages/remote-access/test/{hardening-certs,trust-rollover}.test.ts`.
 
 ### Known gaps
 
@@ -228,10 +268,8 @@ PRNG whose seed is in every failure message. A test marked `KNOWN GAP` is a `tod
 - **Revocation across processes is not locked**: instances re-read the file before writing (a revocation always wins), but
   there is no lock file, so two *processes* writing in the same instant could still lose an update; the core keeps one
   owner per file.
-- **A retired trust anchor can be staged again** (`hardening-certs.test.ts`): after A to B, A can be staged as `next`; there is no list of
-  retired anchors.
-- **An unknown critical extension is imported** (`hardening-certs.test.ts`): RFC 5280 clients must refuse such a certificate, so the
-  import succeeds and the connection fails later.
+- **Unknown critical intermediate extensions** still need complete chain constraint validation. Unknown critical
+  extensions in the leaf are refused before storing its key (`hardening-certs.test.ts`).
 
 Observations: `DeviceStore.challenge()` is unauthenticated and 1024 open challenges (30 s each) lock every handshake for 30 s, so the
 transport must rate-limit it; `buildPairingOffer` accepts a signing key of any length, even empty; the per-code proof limit (60 per hour)

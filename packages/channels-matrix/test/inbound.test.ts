@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import { ALICE, BOT, CAROL, DM, FakeMatrix, OTHER, ROOM, textMessage } from "./helpers/fake-matrix.ts";
 import { Rig, newFake } from "./helpers/rig.ts";
+import type { InboundMessage } from "../../core/src/channels/types.ts";
 import type { MatrixConfig } from "../src/index.ts";
 import type { MatrixChannelOptions } from "../src/index.ts";
 
@@ -303,8 +304,11 @@ test("/link in a group is neither answered nor forwarded", async () => {
 
 const PNG = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
 
-test("inbound image: bytes, MIME and filename reach onMessage; the framework path logs the rich-turn gap", async () => {
+test("inbound image: bytes, MIME and filename reach onMessage and the framework", async () => {
   const rig = await setup({}, (f) => f.media.set("abc1", { data: PNG, mime: "image/png" }));
+  const received: InboundMessage[] = [];
+  const receive = rig.host.receive;
+  rig.host.receive = async (m) => { received.push(m as InboundMessage); await receive(m); };
   await rig.fake.deliver(ROOM, [
     rig.fake.message(ROOM, CAROL, { msgtype: "m.image", body: "cat.png", info: { mimetype: "image/png", size: PNG.length }, url: "mxc://hs.test/abc1", ...mention }),
   ]);
@@ -313,8 +317,9 @@ test("inbound image: bytes, MIME and filename reach onMessage; the framework pat
   assert.deepEqual(Buffer.from(m.attachments![0]!.data), PNG);
   assert.equal(m.attachments![0]!.mimeType, "image/png");
   assert.equal(m.attachments![0]!.filename, "cat.png");
-  assert.equal(rig.received.length, 0);
-  assert.ok(rig.logs.some((l) => l.includes("framework-rich-turn-gap")));
+  assert.equal(rig.received.length, 1);
+  assert.deepEqual(received[0]!.attachments, m.attachments);
+  assert.equal(received[0]!.accountId, BOT);
 });
 
 test("media download falls back to the v3 endpoint when the server lacks authenticated media", async () => {

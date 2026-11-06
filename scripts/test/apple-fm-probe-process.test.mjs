@@ -80,6 +80,43 @@ test("a transient EPERM during group disappearance is retried and never counted 
   assert.equal(owned.cleanup.group.code, "ESRCH");
 });
 
+test("a refused signal after child exit still requires independent group disappearance", POSIX, async t => {
+  const kill = process.kill.bind(process);
+  let owned;
+  await lib.withOwnedProcess(process.execPath, ["-e", ""], { env: {} }, async handle => {
+    owned = handle;
+    await handle.closed;
+    t.mock.method(process, "kill", (pid, signal) => {
+      if (pid === -handle.child.pid && signal === "SIGTERM") {
+        throw Object.assign(new Error("signal refused during exit"), { code: "EPERM" });
+      }
+      return kill(pid, signal);
+    });
+  });
+  assert.deepEqual(owned.cleanup.signals, [{ signal: "SIGTERM", code: "EPERM" }]);
+  assert.equal(owned.cleanup.directChildReaped, true);
+  assert.equal(owned.cleanup.group.code, "ESRCH");
+  assert.ok(owned.cleanup.pids.every(item => item.code === "ESRCH"));
+});
+
+test("persistent group inaccessibility fails even after the direct child exits", POSIX, async t => {
+  const kill = process.kill.bind(process);
+  let owned;
+  await assert.rejects(lib.withOwnedProcess(process.execPath, ["-e", ""],
+    { env: {}, graceMs: 0, cleanupTimeoutMs: 20 }, async handle => {
+      owned = handle;
+      await handle.closed;
+      t.mock.method(process, "kill", (pid, signal) => {
+        if (pid === -handle.child.pid) throw Object.assign(new Error("group inaccessible"), { code: "EPERM" });
+        return kill(pid, signal);
+      });
+    }), /cleanup did not reach ESRCH/);
+  assert.equal(owned.cleanup.group.code, "EPERM");
+  assert.deepEqual(owned.cleanup.signals, [
+    { signal: "SIGTERM", code: "EPERM" }, { signal: "SIGKILL", code: "EPERM" },
+  ]);
+});
+
 test("withFmServer enforces socket argv, the reduced environment and the TCP inspection boundary", POSIX, async () => {
   await withFake("stay", async ({ directory, program, socket }) => {
     const receipt = {};

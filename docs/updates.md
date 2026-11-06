@@ -1,6 +1,6 @@
 # Updating the harness
 
-`plur1bus update` replaces the binary (and the core payload when the release changes it) with a signed release: it
+`plur1bus update` replaces the CLI and native tools binaries (and the core payload when the release changes it) with a signed release: it
 verifies, stops the daemon, snapshots, swaps, starts, gates on `--version`, a ready core and `plur1bus 1staid check`,
 and restores the snapshot on any failure after the first write. A killed update is settled by the next `update` or
 `daemon start`. `update --rollback` goes back to the snapshot of the last update; `update status` says where the last
@@ -25,6 +25,19 @@ clean up) from the first step to the last. A second `update` or `update --rollba
 `update-in-progress`; a second `setup` fails its `state-root` step; a `daemon start` leaves an interrupted update to the
 run that holds the lock. The container updater has its own `container.lock`.
 
+## First release with native tools: upgrading an older CLI
+
+CLIs released before `native.tools` was added reject the first feed containing it with `release-malformed`,
+including `update --check`. Their closed release schema does not recognise this field, so they cannot reach that
+release through `plur1bus update`. Install that release once with the current one-line installer instead
+([manual release checklist](manual-release.md#5-smoke-test-on-each-os-a-fresh-user-account-or-vm)), or use its archive
+containing both `plur1bus` and `plur1bus-tools` and rerun `setup`.
+
+Stop the existing daemon with `plur1bus daemon stop` before replacing the binaries, especially on Windows where
+running images are locked. Reuse the same home and any existing setup options, including `--home` when the home was
+selected explicitly. This reinstalls the runtime; existing configuration, memory and other user data remain in that
+home. Once the CLI understands `native.tools`, subsequent releases use the normal signed update/rollback path.
+
 ## The plan
 
 `update --plan` (and every normal `update`, before it asks) prints, from the signed release manifest:
@@ -36,7 +49,7 @@ run that holds the lock. The container updater has its own `container.lock`.
   listed under attention);
 - every installed add-on with its verdict, and which would be disabled or re-enabled;
 - the download size (the sum of the assets that say `size`, else "not stated"; for a bundle the file sizes), and what a
-  rollback restores (binary, `config.json`, install manifest, core) and what it never touches (the memory store).
+  rollback restores (CLI, native tools, `config.json`, install manifest, core) and what it never touches (the memory store).
 
 `--json` prints the same as `update.plan/1`; an applied update (`update.apply/1`) carries it as `plan`.
 
@@ -54,9 +67,14 @@ from the manifest are shown in that language, else English, else the first one t
 "migrations": [ { "id": "store-v3", "description": L, "reversible": true } ],
 "native": {
   "binary": { "linux-x64": { "url": "…", "sha256": "…", "size": 12345678 } },
+  "tools": { "linux-x64": { "url": "…", "sha256": "…", "size": 2345678 } },
   "provides": { "moduleApi": ["1", "2"], "rpc": "1.5.0" }
 }
 ```
+
+`native.tools` must name a companion for the current target before an update can apply. Both binaries are
+verified before stopping the daemon, replaced in one recoverable transaction, and restored together after a failed gate
+or an interrupted swap. Older feeds remain readable by `--check`; a missing companion is never downgraded to a warning.
 
 `size` is enforced when present: the download may not exceed it and must equal it. `native.provides` is what the
 release offers add-ons (below).
