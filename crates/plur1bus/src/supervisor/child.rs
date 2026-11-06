@@ -5,7 +5,7 @@
 //!
 //! Per spawn (a "generation") the supervisor holds the only write end of the child's stdin (its lifeline, S4) and
 //! runs three kinds of std threads (S14): the output pumps (stdout and stderr into `logs/<role>.out.log`), a health
-//! loop (readiness through the `core.auth` handshake, then `core.status` every `supervisor.healthIntervalMs`), and a
+//! loop (`core.auth`, startup-cadence `core.status` while starting, then `supervisor.healthIntervalMs`), and a
 //! waiter that reaps the process and is the only place that decides to kill it (ready timeout, hang). An exit goes
 //! through [`classify_exit_for`] and [`Backoff`](super::state::Backoff); a scheduled restart is left in
 //! the slot's `restart_at` for the main thread's scheduler, which calls [`Monitor::spawn`]. Every duration below
@@ -1162,7 +1162,8 @@ fn sleep_while_alive(gen: &Gen, d: Duration) -> bool {
     }
 }
 
-/// Readiness (connect + `core.auth` every 100 ms), then `core.status` every health interval. It only observes:
+/// Readiness (connect + `core.auth` every 100 ms), then status at startup cadence while starting, else the health interval.
+/// It only observes:
 /// the waiter enforces the ready timeout and the hang threshold.
 fn health_loop(shared: &Shared, ctx: &Ctx, gen: &Gen) {
     if ctx.role.kind == RoleKind::Api {
@@ -1362,12 +1363,31 @@ fn verify_run_files(shared: &Shared, layout: &Layout, role: &Role) {
     }
 }
 
-/// `core.status` every health interval, on the control connection (an adopted core's lifeline while it works).
+/// Poll a spawned child's `starting` replies at startup cadence, then use its health interval.
+/// An adopted core keeps its regular health cadence and its control connection as a lifeline.
 fn poll_loop(shared: &Shared, ctx: &Ctx, gen: &Gen) {
     let mut failures: u32 = 0;
+    let mut next_probe = None;
+    if gen.peer.is_none() {
+        let starting = shared
+            .lock()
+            .slot(&gen.role)
+            .and_then(|slot| slot.child.as_ref())
+            .is_some_and(|child| child.pid == Some(gen.pid) && child.health == Health::Starting);
+        if starting {
+            next_probe = Some(ctx.timing.ready_poll);
+        }
+        let mut control = relock(&gen.control);
+        if control.as_ref().is_some_and(Client::is_poisoned) {
+            // The first status lost its reply. Reconnect at startup cadence before normal health polling.
+            *control = None;
+            next_probe = Some(ctx.timing.ready_poll);
+        }
+    }
     loop {
         let t = ctx.timing.current(shared);
-        if !sleep_while_alive(gen, t.health_interval) || gen.requested.load(Ordering::SeqCst) {
+        let interval = next_probe.take().unwrap_or(t.health_interval);
+        if !sleep_while_alive(gen, interval) || gen.requested.load(Ordering::SeqCst) {
             break;
         }
         let result = {
@@ -1406,6 +1426,9 @@ fn poll_loop(shared: &Shared, ctx: &Ctx, gen: &Gen) {
                 *relock(&gen.last_ok) = Instant::now();
                 record_detail(shared, ctx, gen, &status);
                 if let Some(h) = health_from(&status["process"]) {
+                    if gen.peer.is_none() && h == Health::Starting {
+                        next_probe = Some(ctx.timing.ready_poll);
+                    }
                     set_health(shared, gen, h, false);
                 }
                 check_restart_pending(shared, ctx, gen, &status);

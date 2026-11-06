@@ -73,5 +73,6 @@ The current core exposes authenticated Unix RPC; adding an HTTP listener is outs
 
 Release integration uses the workflow's `container-release-fragment`: the release
 producer must incorporate its digest/store-schema offer before signing the channel feed.
-GHCR stays private before release; visibility is changed by the release operator.
+Use the version-tag workflow’s fragment for a release. The main workflow’s fragment refers
+to the private staging package.
 No CI, merge, image publication or public release result is claimed here.
