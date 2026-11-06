@@ -1610,7 +1610,17 @@ fn step_start(out: &Out, layout: &Layout, ctx: &mut Ctx) -> Result<StepResult, S
     let state = crate::commands::daemon::core_child(&status)
         .map(|c| c["process"]["state"].clone())
         .unwrap_or(Value::Null);
-    if let (Some(core), Some(s)) = (ctx.core.as_mut(), core_status(layout)) {
+    // Core starts without waiting for its authenticated tools probe. Read its first completed
+    // result before running setup's checks, within the startup deadline already shared with the API.
+    let mut details = core_status(layout);
+    while details.as_ref().is_some_and(|s| {
+        s["tools"]["ready"] == false && s["tools"].get("checkedAt") == Some(&Value::Null)
+    }) && Instant::now() < deadline
+    {
+        std::thread::sleep(Duration::from_millis(100));
+        details = core_status(layout);
+    }
+    if let (Some(core), Some(s)) = (ctx.core.as_mut(), details) {
         if let Some(c) = s["contract"].as_str() {
             core.contract = c.to_string();
         }
