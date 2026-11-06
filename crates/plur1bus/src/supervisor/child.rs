@@ -5,7 +5,7 @@
 //!
 //! Per spawn (a "generation") the supervisor holds the only write end of the child's stdin (its lifeline, S4) and
 //! runs three kinds of std threads (S14): the output pumps (stdout and stderr into `logs/<role>.out.log`), a health
-//! loop (readiness through the `core.auth` handshake, then `core.status` every `supervisor.healthIntervalMs`), and a
+//! loop (`core.auth`, startup-cadence `core.status` while starting, then `supervisor.healthIntervalMs`), and a
 //! waiter that reaps the process and is the only place that decides to kill it (ready timeout, hang). An exit goes
 //! through [`classify_exit_for`] and [`Backoff`](super::state::Backoff); a scheduled restart is left in
 //! the slot's `restart_at` for the main thread's scheduler, which calls [`Monitor::spawn`]. Every duration below
@@ -1194,7 +1194,8 @@ fn sleep_while_alive(gen: &Gen, d: Duration) -> bool {
     }
 }
 
-/// Readiness (connect + `core.auth` every 100 ms), then `core.status` every health interval. It only observes:
+/// Readiness (connect + `core.auth` every 100 ms), then status at startup cadence while starting, else the health interval.
+/// It only observes:
 /// the waiter enforces the ready timeout and the hang threshold.
 fn health_loop(shared: &Shared, ctx: &Ctx, gen: &Gen) {
     if ctx.role.kind == RoleKind::Api {
