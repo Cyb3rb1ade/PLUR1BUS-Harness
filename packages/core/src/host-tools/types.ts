@@ -1,3 +1,4 @@
+import type { SecretFormsSnapshot } from "../logs/secret-forms.ts";
 import type { Risk } from "../policy/capabilities.ts";
 
 export type HostPlatform = "darwin" | "win32" | "linux";
@@ -24,7 +25,7 @@ export interface ExecResult {
 }
 
 export interface HostExec {
-  run(req: ExecRequest, signal?: AbortSignal): Promise<ExecResult>;
+  run(req: ExecRequest, signal?: AbortSignal, knownSecrets?: () => SecretFormsSnapshot): Promise<ExecResult>;
 }
 
 export interface HostFs {
@@ -78,6 +79,7 @@ export interface HostContext {
   user: string;
   timeoutMs: number;
   maxOutputBytes: number;
+  knownSecrets?: () => SecretFormsSnapshot;
   signal?: AbortSignal;
 }
 

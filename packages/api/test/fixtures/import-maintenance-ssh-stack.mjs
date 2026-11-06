@@ -1,5 +1,6 @@
 /** Actual HTTP Owner setup -> real SSH/SFTP discovery/seal -> native maintenance -> restarted Core and real recall. */
 import assert from "node:assert/strict";
+import { assertCoreRestarted } from "./core-restart.ts";
 import { spawn } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { access, lstat, readFile, readdir } from "node:fs/promises";
@@ -267,7 +268,7 @@ try {
   );
   assert.equal(offlineStatus, true, "fresh HTTP status succeeds while the Core credential file is absent");
   const after = await rpc(cookie, "core.status");
-  assert.ok(Number.isInteger(before.pid) && Number.isInteger(after.pid) && before.pid !== after.pid);
+  assertCoreRestarted(before, after);
   const shown = await rpc(cookie, "ext.show", { name: selected.skill });
   assert.equal(shown.item.enabled, false);
   assert.equal(await exists(join(home, "skills", unselected.skill)), false);

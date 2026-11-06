@@ -91,10 +91,11 @@ function parseWmicProcess(text: string): Map<number, number> {
   return map;
 }
 
-async function listRaw(ctx: HostContext): Promise<ProcRow[]> {
+/** Keep PID, parent and owner fields intact when they decide whether a process may be signalled or has exited. */
+async function listRaw(ctx: HostContext, output: "report" | "process-identity"): Promise<ProcRow[]> {
   const maxOutputBytes = Math.max(ctx.maxOutputBytes, HARD_MAX_OUTPUT_BYTES);
   if (ctx.platform === "win32") {
-    const tl = await runCaptured(ctx, { program: "tasklist", args: ["/FO", "CSV", "/V"], maxOutputBytes });
+    const tl = await runCaptured(ctx, { program: "tasklist", args: ["/FO", "CSV", "/V"], maxOutputBytes }, output);
     if (tl.truncated) throw new HostFailure("too_large", "the process table exceeded the size limit");
     const rows = parseTasklist(tl.stdout);
     try {
@@ -102,7 +103,7 @@ async function listRaw(ctx: HostContext): Promise<ProcRow[]> {
         program: "wmic",
         args: ["process", "get", "Name,ParentProcessId,ProcessId", "/FORMAT:csv"],
         maxOutputBytes,
-      });
+      }, output);
       const pp = parseWmicProcess(w.stdout);
       for (const r of rows) {
         const p = pp.get(r.pid);
@@ -115,7 +116,7 @@ async function listRaw(ctx: HostContext): Promise<ProcRow[]> {
     program: "ps",
     args: ["-axo", "pid=,ppid=,user=,pcpu=,pmem=,command="],
     maxOutputBytes,
-  });
+  }, output);
   if (ps.truncated) throw new HostFailure("too_large", "the process table exceeded the size limit");
   if (ps.exitCode !== 0 && parsePs(ps.stdout).length === 0) {
     throw new HostFailure("not_found", "process list is not available");
@@ -167,7 +168,7 @@ function ancestors(pid: number, rows: ProcRow[]): Set<number> {
 }
 
 async function listPublic(ctx: HostContext): Promise<{ processes: Array<Omit<ProcRow, "ppid"> & { ppid?: number }> }> {
-  const rows = await listRaw(ctx);
+  const rows = await listRaw(ctx, "report");
   return {
     processes: rows.map((r) => {
       const x = redactRow(r, ctx);
@@ -195,7 +196,7 @@ export const procInfoTool: HostTool = {
   },
   async run(input, ctx) {
     const pid = requireInt(asObject(input).pid, "pid");
-    const rows = await listRaw(ctx);
+    const rows = await listRaw(ctx, "report");
     const row = rows.find((r) => r.pid === pid);
     if (!row) throw new HostFailure("not_found", `process ${pid} was not found`);
     return redactRow(row, ctx);
@@ -227,7 +228,7 @@ export const procKillTool: HostTool = {
     const pid = requireInt(o.pid, "pid");
     const sig = parseSignal(o.signal);
     if (pid === 1) throw new HostFailure("permission_denied", "pid 1 cannot be signalled");
-    const rows = await listRaw(ctx);
+    const rows = await listRaw(ctx, "process-identity");
     if (pid === ctx.pid || descendants(ctx.pid, rows).has(pid) || ancestors(ctx.pid, rows).has(pid)) {
       throw new HostFailure("permission_denied", "the harness process tree cannot be signalled");
     }
@@ -266,7 +267,7 @@ export const procWaitTool: HostTool = {
     const interval = Math.min(50, timeoutMs);
     while (ctx.clock.now() <= deadline) {
       if (ctx.signal?.aborted) throw new HostFailure("aborted", "the call was aborted");
-      const rows = await listRaw(ctx);
+      const rows = await listRaw(ctx, "process-identity");
       if (!rows.some((r) => r.pid === pid)) return { pid, exited: true };
       const left = deadline - ctx.clock.now();
       if (left <= 0) break;

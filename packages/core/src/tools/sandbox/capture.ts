@@ -34,13 +34,16 @@ export class BoundedCapture {
     this.#chunks.push(Uint8Array.from(take)); this.#bytes += take.length;
   }
   get retainedBytes(): number { return this.#chunks.reduce((n, c) => n + c.buffer.byteLength, 0); }
-  text(): string {
+  text(complete = true): string {
     const snapshot = this.#knownSecrets?.();
     if (this.#discarded && snapshot && this.#limit + Math.max(0, snapshot.matcher.maxSourceBytes - 1) + 3 > this.#retention) {
       return utf8Prefix("[output withheld: secret context changed]", this.#limit);
     }
     const source = Buffer.concat(this.#chunks);
-    const end = Math.min(this.#limit, source.length);
+    // Live readers may arrive between two writes that together form a secret. Only expose the
+    // prefix for which all potential matching bytes have already arrived.
+    const pending = !complete && snapshot?.matcher.maxSourceBytes ? snapshot.matcher.maxSourceBytes - 1 + 3 : 0;
+    const end = Math.min(this.#limit, Math.max(0, source.length - pending));
     // Process text uses UTF-8 replacement decoding. Match that complete spelling before a source-byte cut can hide it.
     const prefix = source.subarray(0, end).toString("utf8");
     const decoded = snapshot ? snapshot.matcher.maskTextWindow(source.toString("utf8"), 0, prefix.length) : prefix;

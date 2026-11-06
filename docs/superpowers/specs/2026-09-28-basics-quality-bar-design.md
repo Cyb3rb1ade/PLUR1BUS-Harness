@@ -357,7 +357,7 @@ OpenAI, Google, xAI, DeepSeek and OpenRouter families are mapped the same way in
 
 **Escalation and learning.** A task that fails its verification (tests, D98; visual review, D100; `doneWhen`, D104) or where the agent reports low confidence is retried **one class up**, once, and the trace says so. The nightly pass compares recommended class with outcome (success, escalations, the person's corrections) and calibrates per agent — under-provisioning (a task that needed an escalation) weighs more than over-provisioning.
 
-**Cost of the call.** Triage replaces the separate D103 category call — one call, not three — within the same 200 ms p95 local budget; it is skipped for a `followup` detected by a cheap heuristic (short reply inside an open task) and runs on Jev with an API key, else Kev or Laya.
+**Cost of the call.** Triage replaces the separate D103 category call — one call, not three — within the same 200 ms p95 local budget; it is skipped for a `followup` detected by a cheap heuristic (short reply inside an open task) and runs on Jev with an API key, else Kev or Laya. **Amended by D125 (owner, 2026-11-06):** triage runs on the `decision` role (own provider or local model) with rule triage as fallback; Jev triages only after the explicit opt-in `decision.triage: jev`, with a bounded view of the current and previous user message ([plan](../plans/2026-11-06-d125-jev-triage-opt-in.md)).
 
 **Gates.** On the triage eval set (German and English, mixed single/multi messages): task segmentation F1 ≥ 0.9; under-provisioning (class later escalated) ≤ 5 %; over-provisioning reported. Every routing decision (shape, class distribution, chosen model, reason) is in the turn event.
 
