@@ -11,16 +11,26 @@ case "$GITHUB_REF" in
   *) exit 1 ;;
 esac
 image="ghcr.io/cyb3rb1ade/$package"
+endpoint="/users/Cyb3rb1ade/packages/container/$package"
+if [[ "$GITHUB_REF" == refs/heads/main ]]; then
+  endpoint="/user/packages/container/$package"
+fi
 
 package_visibility() {
   local response rc=0 protocol code rest
-  response=$(gh api --include "/users/Cyb3rb1ade/packages/container/$package") || rc=$?
+  response=$(gh api --include "$endpoint") || rc=$?
   read -r protocol code rest <<< "$response"
   [[ "$protocol" == HTTP/* ]] || return 1
   if [[ "$code" == 404 && "$rc" != 0 ]]; then
     printf 'missing\n'
   elif [[ "$code" == 200 && "$rc" == 0 ]]; then
-    printf '%s\n' "$response" | sed '1,/^\r\{0,1\}$/d' | jq -er '.visibility | select(. == "private" or . == "public")'
+    local body
+    body=$(printf '%s\n' "$response" | sed '1,/^\r\{0,1\}$/d')
+    if [[ "$GITHUB_REF" == refs/heads/main ]]; then
+      printf '%s\n' "$body" | jq -e --arg package "$package" \
+        '.name == $package and .owner.login == "Cyb3rb1ade"' >/dev/null || return 1
+    fi
+    printf '%s\n' "$body" | jq -er '.visibility | select(. == "private" or . == "public")'
   else
     return 1
   fi

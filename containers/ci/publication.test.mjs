@@ -21,7 +21,9 @@ state=$(head -n1 "$TMPCASE/responses")
 sed '1d' "$TMPCASE/responses" > "$TMPCASE/rest"
 mv "$TMPCASE/rest" "$TMPCASE/responses"
 case "$state" in
-private|public|internal) printf 'HTTP/2.0 200 OK\\r\\ncontent-type: application/json\\r\\n\\r\\n{"visibility":"%s"}' "$state";;
+private|public|internal) printf 'HTTP/2.0 200 OK\\r\\ncontent-type: application/json\\r\\n\\r\\n{"visibility":"%s","name":"plur1bus-harness-distribution-staging","owner":{"login":"Cyb3rb1ade"}}' "$state";;
+wrong-owner) printf 'HTTP/2.0 200 OK\\n\\n{"visibility":"private","name":"plur1bus-harness-distribution-staging","owner":{"login":"someone-else"}}';;
+wrong-package) printf 'HTTP/2.0 200 OK\\n\\n{"visibility":"private","name":"another","owner":{"login":"Cyb3rb1ade"}}';;
 broken) printf 'HTTP/2.0 200 OK\\n\\nnull';;
 *) printf 'HTTP/2.0 %s Error\\n\\n{}' "$state"; exit 1;;
 esac
@@ -43,21 +45,24 @@ test("main prepares only the staging image, with a scratch bootstrap and a secon
   assert.match(r.docker, /--tag ghcr\.io\/cyb3rb1ade\/plur1bus-harness-distribution-staging:bootstrap -\nFROM scratch\nLABEL /);
   assert.doesNotMatch(r.docker, /COPY|ADD|--secret|--build-context/);
   assert.equal(r.queries.trim().split("\n").length, 3);
-  for (const query of r.queries.trim().split("\n")) assert.ok(query.endsWith("/plur1bus-harness-distribution-staging"));
+  for (const query of r.queries.trim().split("\n")) assert.ok(query.endsWith("/user/packages/container/plur1bus-harness-distribution-staging"));
 });
 test("main requires positive private evidence before every payload push", t => {
-  for (const state of ["404", "public", "internal", "403", "500", "broken"]) {
+  for (const state of ["404", "public", "internal", "403", "500", "broken", "wrong-owner", "wrong-package"]) {
     const r = run(t, "refs/heads/main", [state]);
     assert.notEqual(r.status, 0);
     assert.equal(r.docker, "");
   }
   assert.equal(run(t, "refs/heads/main", ["private"]).image, staging);
-  for (const state of ["public", "403", "500", "broken"]) {
+  for (const state of ["public", "403", "500", "broken", "wrong-owner", "wrong-package"]) {
     const r = run(t, "refs/heads/main", [state], "prepare");
     assert.notEqual(r.status, 0);
     assert.equal(r.docker, "");
   }
   assert.notEqual(run(t, "refs/heads/main", ["404", "public"], "prepare").status, 0);
+  const invisible = run(t, "refs/heads/main", Array(6).fill("404"), "prepare");
+  assert.notEqual(invisible.status, 0);
+  assert.equal(invisible.queries.trim().split("\n").length, 6);
 });
 test("version tags retain their release destination and never bootstrap it", t => {
   for (const state of ["private", "public", "404"]) {
