@@ -64,8 +64,10 @@ export interface SingleCodingOptions {
   binding?: CodingTurnBinding;
 }
 
-function taskKey(options: SingleCodingOptions, request: ChatRequest): string {
-  return options.binding ? `${options.binding.projectId}/${options.binding.cardId}` : request.turnId!;
+function taskScope(options: SingleCodingOptions, request: ChatRequest): { taskId: string; projectId?: string } {
+  const binding = options.binding;
+  if (!binding) return { taskId: request.turnId! };
+  return { projectId: binding.projectId, taskId: `${binding.projectId}/${binding.cardId}` };
 }
 
 async function taskGrants(
@@ -89,10 +91,9 @@ async function taskGrants(
         scope: "task",
         match: { kind: "path", path: input.root, access: "write", recursive: true },
         expiresAt: Date.now() + input.budgets.wallMs,
-        taskId: taskKey(options, request),
+        ...taskScope(options, request),
         sessionId: request.sessionId,
         surface: 3,
-        ...(options.binding ? { projectId: options.binding.projectId } : {}),
       });
     return stores;
   } catch (error) {
@@ -258,7 +259,7 @@ async function runSingle(options: SingleCodingOptions, input: CodingSubjectInput
       },
       grants,
       grantUse: permissions.grants,
-      policyContext: () => ({ taskId: taskKey(options, request) }),
+      policyContext: () => taskScope(options, request),
       log() {},
       secrets: options.secrets,
       resultStore: {
