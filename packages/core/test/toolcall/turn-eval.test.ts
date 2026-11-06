@@ -6,6 +6,12 @@ import { TURN_EVAL_SCENARIOS } from "../fixtures/turn-eval/scenarios.ts";
 import { TURN_EVAL_POLICY_SCENARIOS } from "../fixtures/turn-eval/policy-scenarios.ts";
 
 describe("turn eval over createTurnProvider", () => {
+  it("the required web search names a concrete research topic in both languages", () => {
+    for (const scenario of TURN_EVAL_SCENARIOS.filter(item => item.id.startsWith("web-needed-"))) {
+      assert.deepEqual(scenario.turns[0]?.requiredTools, ["web.search"]);
+      assert.match(scenario.turns[0]!.input, /Node\.js/u);
+    }
+  });
   it("the discovery gold asks for the page fetch that it scores", () => {
     for (const scenario of TURN_EVAL_SCENARIOS.filter(item => item.tags.includes("discovery"))) {
       assert.deepEqual(scenario.turns[0]?.requiredTools, ["web.fetch"]);

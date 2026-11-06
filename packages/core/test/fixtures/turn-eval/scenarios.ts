@@ -30,7 +30,9 @@ export const TURN_EVAL_SCENARIOS: TurnEvalScenario[] = (["en", "de"] as const).f
     },
     {
       id: `web-needed-${language}`, language, tags: ["tool-needed", "current"], turns: [{
-        input: research, rounds: [{ calls: [call("web.search")] }, END],
+        input: de ? "Suche heute aktuelle Webquellen zur neuesten Node.js-Version."
+          : "Search current web sources today about the latest Node.js release.",
+        rounds: [{ calls: [call("web.search")] }, END],
         requiredTools: ["web.search"], choice: "required",
       }],
     },

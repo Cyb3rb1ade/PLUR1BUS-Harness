@@ -1,8 +1,9 @@
 /** B1 owner-run orchestration: actual approved providers, native foundation preflight and private task/verifier trees. */
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { constants } from "node:fs";
-import { chmod, copyFile, mkdir, writeFile } from "node:fs/promises";
+import { chmod, copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { createSecurePath } from "@plur1bus/module-api";
 import { sandboxVerifier } from "../collab/verifier.ts";
 import { ToolsClient } from "../tools-service/client.ts";
 import { detectSandbox } from "../tools/sandbox/backends.ts";
@@ -162,6 +163,32 @@ async function assertCodingTurn(
   }
 }
 
+/** The coordinator owns a fresh native home and records its real process identity before the authenticated handshake. */
+export async function openCodingNativeFoundation(home: string, binary: string) {
+  const nativeHome = await mkdtemp(join(home, "native-"));
+  const native = new ToolsClient({ home: nativeHome, supervised: false, binary });
+  const close = async () => {
+    try { await native.close(); }
+    finally { await rm(nativeHome, { recursive: true, force: true }); }
+  };
+  try {
+    await mkdir(join(nativeHome, "state"), { mode: 0o700 });
+    const run = join(nativeHome, "run");
+    await mkdir(run, { mode: 0o700 });
+    const secure = createSecurePath({ env: {}, runDir: run });
+    if (!secure(run, { mode: 0o700 }).applied) throw new Error("coding native run directory unavailable");
+    const identity = join(run, "core.pid");
+    await writeFile(identity, `${process.pid} ${randomUUID()}\n`, { mode: 0o600, flag: "wx" });
+    if (!secure(identity, { mode: 0o600 }).applied) throw new Error("coding native identity unavailable");
+    const health = await native.health();
+    if (health.process.state !== "ready") throw new Error("coding native foundation unavailable");
+    return { health, close };
+  } catch (error) {
+    await close();
+    throw error;
+  }
+}
+
 /** Execute the full matrix only on supported isolation. A failed preflight never falls back to fixture evidence. */
 export async function runCodingLive(root: string, options: CodingLiveOptions): Promise<CodingLiveReport> {
   if (process.platform !== "linux" || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u.test(options.revision)) {
@@ -193,7 +220,7 @@ export async function runCodingLive(root: string, options: CodingLiveOptions): P
   const verifier = sandboxVerifier(90_000, { limitsHelper: options.limitsHelper, maxTasks: () => DEFAULT_MAX_TASKS });
   options.onPhase?.("runtimes");
   const runtimes = await resolveCodingRuntimes(true, options.signal, phase => options.onPhase?.(`runtimes-${phase}`));
-  const native = new ToolsClient({ home: join(home, "native"), supervised: false, binary: options.toolsBinary });
+  let native: Awaited<ReturnType<typeof openCodingNativeFoundation>> | undefined;
   let providers: TurnEvalProviders | undefined;
   try {
     options.onPhase?.("native-preflight");
@@ -215,8 +242,8 @@ export async function runCodingLive(root: string, options: CodingLiveOptions): P
       await probeWorkspace.close();
     }
     options.onPhase?.("native-foundation");
-    const health = await native.health();
-    if (health.process.state !== "ready") throw new Error("coding native foundation unavailable");
+    native = await openCodingNativeFoundation(home, options.toolsBinary);
+    const { health } = native;
     options.onPhase?.("providers");
     const secrets = await codingSecretValues(home, models);
     providers = composeTurnEvalProviders(models, { secrets: openTurnEvalSecrets(home) });
@@ -316,8 +343,10 @@ export async function runCodingLive(root: string, options: CodingLiveOptions): P
       comparison: null,
     });
   } finally {
-    providers?.close();
-    await native.close();
-    await runtimes.close();
+    try { providers?.close(); }
+    finally {
+      try { await native?.close(); }
+      finally { await runtimes.close(); }
+    }
   }
 }

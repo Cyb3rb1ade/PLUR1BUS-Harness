@@ -33,6 +33,16 @@ The implemented path passes 20/20 scenarios, executes 20/20 required tools and l
 exercise forbidden calls and verify zero executed effects; their evidence is not
 retroactively attributed to the original baseline.
 
+### November 6 input corrections
+
+The current corpus clarifies two bilingual task pairs. `web-needed` now names
+Node.js releases as its research topic. `discovery` explicitly asks to fetch
+`https://example.com/report`, matching its existing `web.fetch` gold requirement.
+That pair measures fetch selection and does not establish capability discovery
+coverage. Required tools, denominators and live gate thresholds are unchanged.
+These inputs form a new evaluation revision. Results must be recorded separately
+from earlier runs and must not be attributed to the historical baseline above.
+
 ## Real-model nightly
 
 The separate `turn-eval-live` job in `nightly.yml` runs when repository variable
