@@ -22,7 +22,7 @@ fn run_source(selector: &str) {
     let _supervisor = common::start_with_core(
         &home,
         &directory.join("events.jsonl"),
-        // This fixture boots the production Core, as in the local-source maintenance test.
+        // This SSH handshake runs against the real supervised Core.
         "1",
         &[
             ("PLUR1BUS_CORE_JS", core.to_str().unwrap()),

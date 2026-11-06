@@ -139,7 +139,10 @@ fn dedupe_text(row: &RecallCandidate) -> String {
     }
 }
 
-fn has_disjoint_validity_windows(left: &RecallCandidate, right: &RecallCandidate) -> bool {
+pub(crate) fn has_disjoint_validity_windows(
+    left: &RecallCandidate,
+    right: &RecallCandidate,
+) -> bool {
     let left_from = known_bound(left.valid_from);
     let left_until = known_bound(left.valid_until);
     let right_from = known_bound(right.valid_from);
