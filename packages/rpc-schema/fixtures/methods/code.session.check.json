@@ -1,0 +1,24 @@
+{
+  "params": {
+    "caller": {
+      "channel": "cli",
+      "accountId": "macbooker",
+      "userId": "cyberblade"
+    },
+    "sessionId": "ses_1",
+    "kind": "test"
+  },
+  "result": {
+    "sessionId": "ses_1",
+    "advisory": true,
+    "ok": true,
+    "checks": [
+      {
+        "kind": "test",
+        "ok": true,
+        "exitCode": 0,
+        "output": "passed\n"
+      }
+    ]
+  }
+}

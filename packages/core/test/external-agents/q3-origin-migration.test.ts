@@ -6,7 +6,7 @@ import { MIGRATIONS, migrate } from "../../src/session/migrations.ts";
 import { SessionStore } from "../../src/session/store.ts";
 import { tempDir } from "../helpers/temp-dir.ts";
 
-test("a seeded v8 session upgrades through v9 origins to v10 with immutable internal and protocol origins", () => {
+test("a seeded v8 session upgrades through v9 origins to the current schema with immutable internal and protocol origins", () => {
   const path = join(tempDir("q3-origin-v8-"), "sessions.sqlite");
   const old = new DatabaseSync(path);
   migrate(old, MIGRATIONS.slice(0, 8));
@@ -20,7 +20,7 @@ test("a seeded v8 session upgrades through v9 origins to v10 with immutable inte
   sessions.close();
   const db = new DatabaseSync(path);
   try {
-    assert.equal(db.prepare("PRAGMA user_version").get()!.user_version, 10);
+    assert.equal(db.prepare("PRAGMA user_version").get()!.user_version, MIGRATIONS.length);
     assert.equal(db.prepare("SELECT origin FROM sessions WHERE id='ses_v8'").get()!.origin, null);
     assert.throws(() => db.prepare("UPDATE sessions SET origin='acp-agent' WHERE id='ses_v8'").run(), /immutable/);
     for (const row of created) {

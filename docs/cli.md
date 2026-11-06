@@ -76,6 +76,7 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus session model set`↴](#plur1bus-session-model-set)
 * [`plur1bus session archive`↴](#plur1bus-session-archive)
 * [`plur1bus chat`↴](#plur1bus-chat)
+* [`plur1bus code`↴](#plur1bus-code)
 * [`plur1bus acp`↴](#plur1bus-acp)
 * [`plur1bus acp serve`↴](#plur1bus-acp-serve)
 * [`plur1bus jobs`↴](#plur1bus-jobs)
@@ -318,6 +319,7 @@ PLUR1BUS harness — self-hosted multi-agent memory harness
 * `memory` — Memory: add and recall through the core
 * `session` — Chat sessions: list, show, archive
 * `chat` — [experimental] Chat with an agent (one message, or a line-by-line conversation on stdin)
+* `code` — [experimental] Code in a bound Git worktree with streamed tools, diffs and inline approvals
 * `acp` — Agent Client Protocol (ACP): serve a harness agent to an editor over stdio
 * `jobs` — [experimental] User recurring tasks: list or create a scheduled turn
 * `dreams` — Dreaming: phase schedules, status, run, log
@@ -1373,6 +1375,35 @@ Chat sessions: list, show, archive
 * `--agent <AGENT>` — The agent to talk to (default: the only registered agent)
 * `--session <SESSION>` — Continue this session instead of starting a new one
 * `--no-memory` — Start the chat incognito: nothing of it is remembered
+
+
+
+## `plur1bus code`
+
+[experimental] Code in a bound Git worktree with streamed tools, diffs and inline approvals
+
+**Usage:** `plur1bus code [OPTIONS] [PATH] [MESSAGE]`
+
+###### **Arguments:**
+
+* `<PATH>` — Git worktree root (default: the current directory)
+
+  Default value: `.`
+* `<MESSAGE>` — One task; use `code . "task"` to keep the default working directory
+
+###### **Options:**
+
+* `--agent <AGENT>` — Registered agent (default: the only agent)
+* `--project <PROJECT>` — D115 project, together with --card
+* `--card <CARD>` — D115 coding card, together with --project
+* `--session <SESSION>` — Resume a bound coding session
+* `--model <MODEL>` — Configured model profile; the switch requires confirmation
+* `--reasoning <REASONING>` — Reasoning level (default leaves control to the provider)
+
+  Possible values: `default`, `off`, `minimal`, `low`, `medium`, `high`, `xhigh`
+
+* `--yes` — Confirm a model switch for scripts; never approves a folder or tool
+* `--no-memory` — Keep the session and its transcript only in memory
 
 
 

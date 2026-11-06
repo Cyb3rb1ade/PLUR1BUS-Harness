@@ -5,7 +5,7 @@ use crate::types::{
 };
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Value};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex, MutexGuard, TryLockError};
@@ -64,15 +64,24 @@ impl Default for ConnectOptions {
     }
 }
 
+// Keep optional streaming state off the legacy client's stack footprint; its frames and byte budget share a lifetime.
+struct NotificationBuffer {
+    frames: VecDeque<Vec<u8>>,
+    bytes: usize,
+}
+
 /// Blocking, strictly request→response: one stream behind a BufReader is enough because the CLI never has two calls in flight.
 /// Writes go through `reader.get_mut()`, the one real stream.
 ///
-/// **Poisoning:** after a read timeout, an I/O error, an over-long line or the core closing the connection, the stream may be
+/// **Poisoning:** after a blocking call's read timeout, an I/O error, an over-long line or the core closing the connection, the stream may be
 /// positioned mid-line (or hold a late answer to the abandoned call). The client then marks itself poisoned and every later
 /// [`Client::call`] returns `RpcError::Unavailable { reason: "poisoned" }` without touching the stream; reconnect to continue.
 /// A `Call` error, a `Protocol` error on a complete line, or a skipped notification leave the client usable.
 pub struct Client {
     reader: BufReader<Box<dyn Stream>>,
+    line_buffer: Vec<u8>,
+    notifications: Option<Box<NotificationBuffer>>,
+    pending_call: Option<(u64, String)>,
     next_id: u64,
     hello: Value,
     endpoint: Endpoint,
@@ -82,6 +91,8 @@ pub struct Client {
 
 /// Maximum bytes in one NDJSON line, newline not counted (same cap as packages/module-api/src/framing.ts).
 pub const MAX_LINE: usize = 4 * 1024 * 1024;
+const MAX_NOTIFICATION_BYTES: usize = 2 * MAX_LINE;
+const MAX_NOTIFICATIONS: usize = 256;
 
 impl Client {
     /// Connects with token auth; engine connections also identify as `harness-core`.
@@ -127,6 +138,9 @@ impl Client {
         let start = Instant::now();
         let mut client = Client {
             reader: BufReader::new(stream),
+            line_buffer: Vec::new(),
+            notifications: None,
+            pending_call: None,
             next_id: 1,
             hello: Value::Null,
             endpoint: opts.endpoint,
@@ -208,23 +222,121 @@ impl Client {
         self.poisoned
     }
 
+    /// Retain notifications, including ones preceding a subscription reply. The default client keeps skipping them.
+    /// A backlog over 256 frames or 8 MiB fails the connection; callers can replay durable events after reconnecting.
+    pub fn enable_notifications(&mut self) {
+        self.notifications.get_or_insert_with(|| {
+            Box::new(NotificationBuffer {
+                frames: VecDeque::new(),
+                bytes: 0,
+            })
+        });
+    }
+
+    /// Drain an already buffered notification without reading. This also works while a polled call is in flight.
+    pub fn take_notification(&mut self) -> Result<Option<Value>, RpcError> {
+        if self.poisoned {
+            return Err(RpcError::Unavailable {
+                reason: "poisoned".into(),
+                detail: "reconnect the event connection".into(),
+            });
+        }
+        let queue = self
+            .notifications
+            .as_mut()
+            .ok_or_else(|| RpcError::Protocol("enable notifications before reading them".into()))?;
+        if let Some(bytes) = queue.frames.pop_front() {
+            queue.bytes -= bytes.len();
+            return notification(&bytes).map(Some);
+        }
+        Ok(None)
+    }
+
+    /// Read the event connection without sending a request. `None` is an idle read deadline, including a partial frame.
+    /// Partial bytes stay buffered; EOF and over-long frames poison the connection just as they do for calls.
+    pub fn next_notification(&mut self) -> Result<Option<Value>, RpcError> {
+        if self.pending_call.is_some() {
+            return Err(RpcError::Protocol(
+                "poll the pending call and drain buffered notifications".into(),
+            ));
+        }
+        if let Some(value) = self.take_notification()? {
+            return Ok(Some(value));
+        }
+        let start = Instant::now();
+        loop {
+            match self.read_line(start) {
+                Ok(Line::Data(bytes)) if bytes.is_empty() => continue,
+                Ok(Line::Data(bytes)) => return notification(&bytes).map(Some),
+                Ok(Line::TooLong) => {
+                    self.poisoned = true;
+                    return Err(RpcError::Protocol("line too long".into()));
+                }
+                Ok(Line::Closed) => {
+                    self.poisoned = true;
+                    return Err(RpcError::Unavailable {
+                        reason: "closed".into(),
+                        detail: "event connection closed".into(),
+                    });
+                }
+                Err(RpcError::Unavailable { reason, .. }) if reason == "call-timeout" => {
+                    return Ok(None)
+                }
+                Err(error) => {
+                    self.poisoned |= poisons(&error);
+                    return Err(error);
+                }
+            }
+        }
+    }
+
+    fn queue_notification(&mut self, bytes: Vec<u8>) -> Result<(), RpcError> {
+        let Some(queue) = self.notifications.as_mut() else {
+            return Ok(());
+        };
+        notification(&bytes)?;
+        if queue.frames.len() >= MAX_NOTIFICATIONS
+            || queue.bytes + bytes.len() > MAX_NOTIFICATION_BYTES
+        {
+            self.poisoned = true; // The outstanding response remains unread; never reuse that stream position.
+            return Err(RpcError::Protocol(
+                "notification backlog exceeded; reconnect and replay".into(),
+            ));
+        }
+        queue.bytes += bytes.len();
+        queue.frames.push_back(bytes);
+        Ok(())
+    }
+
     pub fn call(&mut self, method: &str, params: Value) -> Result<Value, RpcError> {
+        let start = Instant::now();
+        self.start_call(method, params)?;
+        match self.poll_call_at(start)? {
+            Some(value) => Ok(value),
+            None => {
+                self.poisoned = true; // A blocking call abandons its pending reply at the first idle deadline.
+                self.pending_call = None;
+                Err(RpcError::Unavailable {
+                    reason: "call-timeout".into(),
+                    detail: format!("{method} timed out"),
+                })
+            }
+        }
+    }
+
+    /// Start exactly one request. `poll_call` can then yield at read deadlines so input and events remain responsive.
+    pub fn start_call(&mut self, method: &str, params: Value) -> Result<(), RpcError> {
         if self.poisoned {
             return Err(RpcError::Unavailable {
                 reason: "poisoned".into(),
                 detail: "an earlier call left the connection mid-line; reconnect".into(),
             });
         }
-        let result = self.call_inner(method, params);
-        if let Err(e) = &result {
-            if poisons(e) {
-                self.poisoned = true;
-            }
+        if self.pending_call.is_some() {
+            return Err(RpcError::Protocol(
+                "a call is already in flight on this connection".into(),
+            ));
         }
-        result
-    }
-
-    fn call_inner(&mut self, method: &str, params: Value) -> Result<Value, RpcError> {
         let start = Instant::now();
         let id = self.next_id;
         self.next_id += 1;
@@ -233,7 +345,7 @@ impl Client {
             "{}\n",
             json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params })
         );
-        {
+        let written: Result<(), RpcError> = (|| {
             let w = self.reader.get_mut();
             let mut bytes = line.as_bytes();
             while !bytes.is_empty() {
@@ -255,9 +367,56 @@ impl Client {
             }
             call_remaining(start, self.call_timeout)?;
             w.flush()?;
+            Ok(())
+        })();
+        if let Err(error) = written {
+            self.poisoned = true;
+            return Err(error);
         }
+        self.pending_call = Some((id, method.into()));
+        Ok(())
+    }
+
+    /// `None` preserves the pending request and partial frame at an idle deadline; terminal results end the request.
+    pub fn poll_call(&mut self) -> Result<Option<Value>, RpcError> {
+        self.poll_call_at(Instant::now())
+    }
+
+    fn poll_call_at(&mut self, start: Instant) -> Result<Option<Value>, RpcError> {
+        if self.poisoned {
+            return Err(RpcError::Unavailable {
+                reason: "poisoned".into(),
+                detail: "reconnect the call connection".into(),
+            });
+        }
+        let (id, method) = self
+            .pending_call
+            .clone()
+            .ok_or_else(|| RpcError::Protocol("no call is in flight".into()))?;
+        let result = self.poll_response(id, &method, start);
+        if !matches!(&result, Ok(None)) {
+            self.pending_call = None;
+        }
+        if let Err(error) = &result {
+            self.poisoned |= poisons(error);
+        }
+        result
+    }
+
+    fn poll_response(
+        &mut self,
+        id: u64,
+        method: &str,
+        start: Instant,
+    ) -> Result<Option<Value>, RpcError> {
         loop {
-            let buf = match self.read_line(start)? {
+            let line = match self.read_line(start) {
+                Err(RpcError::Unavailable { reason, .. }) if reason == "call-timeout" => {
+                    return Ok(None)
+                }
+                result => result?,
+            };
+            let buf = match line {
                 Line::Closed => {
                     return Err(RpcError::Unavailable {
                         reason: "closed".into(),
@@ -270,40 +429,46 @@ impl Client {
                 }
                 Line::Data(b) => b,
             };
-            if buf.is_empty() {
-                continue; // blank line, as framing.ts skips it
+            if let Some(value) = self.response_line(buf, id, method)? {
+                return Ok(Some(value));
             }
-            let msg: Value =
-                serde_json::from_slice(&buf).map_err(|e| RpcError::Protocol(e.to_string()))?;
-            // A notification (no id): the H1 CLI does not subscribe, so skip it.
-            let Some(msg_id) = msg.get("id") else {
-                continue;
-            };
-            // `id: null` is the core's answer to a request it could not parse or that was too long — with one call in
-            // flight that request is ours, so surface its error.
-            if *msg_id != json!(id) && !msg_id.is_null() {
-                continue;
-            }
-            if let Some(err) = msg.get("error") {
-                return Err(call_error(err));
-            }
-            if msg_id.is_null() {
-                return Err(RpcError::Protocol(
-                    "response with id null and no error".into(),
-                ));
-            }
-            return match msg.get("result") {
-                Some(r) => Ok(r.clone()),
-                None => Err(RpcError::Protocol(format!(
-                    "{method}: response has neither result nor error"
-                ))),
-            };
         }
+    }
+
+    fn response_line(
+        &mut self,
+        buf: Vec<u8>,
+        id: u64,
+        method: &str,
+    ) -> Result<Option<Value>, RpcError> {
+        if buf.is_empty() {
+            return Ok(None);
+        }
+        let msg: Value =
+            serde_json::from_slice(&buf).map_err(|error| RpcError::Protocol(error.to_string()))?;
+        let Some(msg_id) = msg.get("id") else {
+            self.queue_notification(buf)?;
+            return Ok(None);
+        };
+        // id:null belongs to the single outstanding call (parse/length errors from the server).
+        if *msg_id != json!(id) && !msg_id.is_null() {
+            return Ok(None);
+        }
+        if let Some(error) = msg.get("error") {
+            return Err(call_error(error));
+        }
+        if msg_id.is_null() {
+            return Err(RpcError::Protocol(
+                "response with id null and no error".into(),
+            ));
+        }
+        msg.get("result").cloned().map(Some).ok_or_else(|| {
+            RpcError::Protocol(format!("{method}: response has neither result nor error"))
+        })
     }
 
     /// Reads one line with at most `MAX_LINE + 1` bytes buffered, so an endless line cannot exhaust memory.
     fn read_line(&mut self, start: Instant) -> Result<Line, RpcError> {
-        let mut buf = Vec::new();
         loop {
             let remaining = call_remaining(start, self.call_timeout)?;
             self.reader.get_ref().set_read_timeout(Some(remaining))?;
@@ -313,20 +478,21 @@ impl Client {
                 Err(error) => return Err(error.into()),
             };
             if available.is_empty() {
-                return Ok(Line::Closed); // Includes EOF in the middle of a frame.
+                return Ok(Line::Closed);
             }
-            let limit = available.len().min(MAX_LINE + 1 - buf.len());
+            let limit = available.len().min(MAX_LINE + 1 - self.line_buffer.len());
             let length = available[..limit]
                 .iter()
                 .position(|byte| *byte == b'\n')
                 .map_or(limit, |index| index + 1);
-            buf.extend_from_slice(&available[..length]);
+            self.line_buffer.extend_from_slice(&available[..length]);
             self.reader.consume(length);
-            if buf.last() == Some(&b'\n') {
+            if self.line_buffer.last() == Some(&b'\n') {
+                let mut buf = std::mem::take(&mut self.line_buffer);
                 buf.pop();
                 return Ok(Line::Data(buf));
             }
-            if buf.len() > MAX_LINE {
+            if self.line_buffer.len() > MAX_LINE {
                 return Ok(Line::TooLong);
             }
         }
@@ -343,6 +509,17 @@ impl Client {
         )?;
         serde_json::from_value(v).map_err(|e| RpcError::Protocol(format!("{method} result: {e}")))
     }
+}
+
+fn notification(bytes: &[u8]) -> Result<Value, RpcError> {
+    let value: Value =
+        serde_json::from_slice(bytes).map_err(|error| RpcError::Protocol(error.to_string()))?;
+    if value.get("id").is_some() || value["jsonrpc"] != "2.0" || !value["method"].is_string() {
+        return Err(RpcError::Protocol(
+            "expected a JSON-RPC notification".into(),
+        ));
+    }
+    Ok(value)
 }
 
 /// Events from a persistent authenticated connection.

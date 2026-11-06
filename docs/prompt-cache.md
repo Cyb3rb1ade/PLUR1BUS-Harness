@@ -126,9 +126,17 @@ for at most 1024 sessions, least recently recorded first out; an evicted session
 again. Invalid usage throws before any counter or state changes.
 
 `sessionModels(agentId, sessionId)` returns the per-model summaries of one harness session. The core method
-`telemetry.cache.summary` (RPC 1.10.0) serves these together with the hit ratio per provider, agent and
+`telemetry.cache.summary` (RPC 1.19.0) serves these together with the hit ratio per provider, agent and
 model from the budget ledger over a 24h or 7d window. The ledger cannot mark estimated settlements; they
 count as `uncachedCalls`, and `hitRatioCaching` is the ratio over calls that reported cache activity.
+
+## Coding profile
+
+Sessions opened by `plur1bus code`, D115 project-card sessions and agents with `agents.<id>.coding` select the coding
+profile. A constant operating section joins zone 2. Roots, branches and session IDs stay out of that section; persona,
+SOUL and the frozen snapshot follow the existing rules. Registered coding tools are pre-admitted and remain frozen for
+the turn. Normal and background-role clients retain their original profile. Cache summaries merge both foreground
+profiles with token-weighted hit ratios and retain their per-model observations.
 
 ## Verification and follow-ups
 

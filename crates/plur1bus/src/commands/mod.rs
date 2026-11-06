@@ -7,6 +7,7 @@ pub mod audit;
 pub mod backup;
 pub mod budget;
 pub mod channel;
+pub mod code;
 pub mod completions;
 pub mod config;
 pub mod config_embedding;

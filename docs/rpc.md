@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.18.0)
+# RPC reference (rpc 1.19.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -376,6 +376,9 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `approval.cancel`: experimental, since 1.5.0
 - `approval.verify`: experimental, since 1.5.0
 - `approval.audit`: experimental, since 1.5.0
+- `code.session.open`: experimental, since 1.19.0
+- `code.session.diff`: experimental, since 1.19.0
+- `code.session.check`: experimental, since 1.19.0
 - `chat.rewind`: experimental, since 1.18.0
 - `session.rewind`: experimental, since 1.18.0
 - `a2a.peer.add`: experimental, since 1.12.0
@@ -24476,6 +24479,405 @@ D109 §9.10: approval-related HMAC-chain entries of the calling person, newest f
     },
     "nextCursor": {
       "type": "string"
+    }
+  }
+}
+```
+
+### `code.session.open`
+
+**Stability:** experimental · since 1.19.0
+
+**Served by:** core
+
+Bind a human coding session to a canonical native Git worktree, optionally on a D115 card. Missing folder access is a Core-created D109 approval request for an interactive local CLI, decided with OS confirmation through approval.decide; session-only, no helper delegation. ACP and noninteractive callers refuse ungranted roots.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "agentId",
+    "root"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "root": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "memoryMode": {
+      "$ref": "#/$defs/MemoryMode"
+    },
+    "interactive": {
+      "type": "boolean",
+      "description": "Local CLI presence. False means scripted input; only an authenticated local T3 connection may offer a folder grant."
+    }
+  },
+  "dependentRequired": {
+    "projectId": [
+      "cardId"
+    ],
+    "cardId": [
+      "projectId"
+    ]
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "state",
+        "session",
+        "root",
+        "branch",
+        "profile"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "open"
+          ]
+        },
+        "session": {
+          "$ref": "#/$defs/SessionRecord"
+        },
+        "root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "branch": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 1024
+        },
+        "profile": {
+          "enum": [
+            "coding"
+          ]
+        },
+        "projectId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "cardId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "lastEventSeq": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Durable event cursor at open; replay repairs subscription races."
+        },
+        "runningTurnId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "state",
+        "session",
+        "root",
+        "grant"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "grant-required"
+          ]
+        },
+        "session": {
+          "$ref": "#/$defs/SessionRecord"
+        },
+        "root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "grant": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "recursive",
+            "capabilities",
+            "scope",
+            "approvalId"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "recursive": {
+              "const": true
+            },
+            "capabilities": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "fs.read",
+                  "fs.write"
+                ]
+              },
+              "minItems": 2,
+              "maxItems": 2,
+              "uniqueItems": true
+            },
+            "scope": {
+              "const": "session"
+            },
+            "approvalId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "description": "Core-created D109 request. Decide through approval.decide with scope session and attest true; never grant.create."
+            }
+          }
+        }
+      }
+    }
+  ]
+}
+```
+
+### `code.session.diff`
+
+**Stability:** experimental · since 1.19.0
+
+**Served by:** core
+
+Human-only paged worktree diff against HEAD, or the full inline patch of one session-scoped tool result. Uses hardened read-only Git; hooks, textconv and external diff never run. Output is redacted. Offloaded/legacy results without an inline patch explicitly report tool-diff-unavailable.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "sessionId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "callId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "offset": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65536
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "sessionId",
+    "source",
+    "diff",
+    "offset",
+    "nextOffset"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "source": {
+      "enum": [
+        "worktree",
+        "call"
+      ]
+    },
+    "diff": {
+      "type": "string"
+    },
+    "offset": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "nextOffset": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    }
+  }
+}
+```
+
+### `code.session.check`
+
+**Stability:** experimental · since 1.19.0
+
+**Served by:** core
+
+Human advisory /check command through the same D98 verifier plan and VerifierPort. Requires an idle bound coding session. Never moves a card, requires no independent review and creates no gate-reuse evidence; task.complete still runs the full D98 gate. A changed/uncommitted convention cannot opt into network. Closing the request connection cancels the verifier.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caller",
+    "sessionId"
+  ],
+  "properties": {
+    "caller": {
+      "$ref": "#/$defs/CallerIdentity"
+    },
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "kind": {
+      "enum": [
+        "format",
+        "lint",
+        "typecheck",
+        "test"
+      ]
+    }
+  }
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "sessionId",
+    "advisory",
+    "ok",
+    "checks"
+  ],
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "advisory": {
+      "const": true
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "reason": {
+      "type": "string",
+      "maxLength": 256
+    },
+    "checks": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "kind",
+          "ok",
+          "exitCode",
+          "output"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "format",
+              "lint",
+              "typecheck",
+              "test"
+            ]
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "exitCode": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "output": {
+            "type": "string"
+          }
+        }
+      }
     }
   }
 }

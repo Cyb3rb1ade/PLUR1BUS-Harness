@@ -205,7 +205,7 @@ describe("D120 stored rewind", () => {
       try {
         assert.equal(persisted.prepare("SELECT text FROM messages WHERE id='msg_v9'").get()!.text, oldText);
         assert.equal(persisted.prepare("SELECT data FROM events WHERE session_id='ses_v9'").get()!.data, oldEvent);
-        assert.equal(persisted.prepare("PRAGMA user_version").get()!.user_version, 10);
+        assert.equal(persisted.prepare("PRAGMA user_version").get()!.user_version, MIGRATIONS.length);
       } finally { persisted.close(); }
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });

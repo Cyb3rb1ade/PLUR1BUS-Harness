@@ -182,6 +182,19 @@ export const MIGRATIONS: readonly string[] = [
   );
   CREATE TRIGGER session_checkpoints_immutable BEFORE UPDATE ON session_checkpoints
     BEGIN SELECT RAISE(ABORT, 'turn checkpoint is immutable'); END;`,
+  // v11: coding worktree bindings, after the unchanged v10 rewind overlay.
+  // Additive metadata only: never rewrite messages or events, as with v3/v6.
+  `CREATE TABLE session_worktrees (
+     session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+     root TEXT NOT NULL,
+     project_id TEXT,
+     card_id TEXT,
+     created_by TEXT NOT NULL,
+     created_at INTEGER NOT NULL,
+     CHECK ((project_id IS NULL) = (card_id IS NULL))
+   );
+   CREATE TRIGGER session_worktrees_immutable BEFORE UPDATE ON session_worktrees
+   BEGIN SELECT RAISE(ABORT, 'coding worktree bindings are immutable'); END;`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

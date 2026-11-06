@@ -107,6 +107,13 @@
             "type": "object",
             "additionalProperties": false,
             "properties": {
+              "coding": {
+                "description": "Enable the static coding profile and pre-admit registered coding tools. Filesystem permissions and grants stay unchanged.",
+                "type": "boolean",
+                "default": false,
+                "x-restart": "live",
+                "x-tier": "advanced"
+              },
               "behaviour": {
                 "type": "object",
                 "x-restart": "live",

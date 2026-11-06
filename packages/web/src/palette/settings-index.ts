@@ -1224,6 +1224,9 @@ export const CONFIG_POLICY_SCHEMA: ConfigSchemaNode = {
       "additionalProperties": {
         "type": "object",
         "properties": {
+          "coding": {
+            "type": "boolean"
+          },
           "behaviour": {
             "type": "object",
             "properties": {

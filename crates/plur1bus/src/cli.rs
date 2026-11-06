@@ -107,6 +107,8 @@ pub enum Cmd {
     },
     /// [experimental] Chat with an agent (one message, or a line-by-line conversation on stdin)
     Chat(ChatArgs),
+    /// [experimental] Code in a bound Git worktree with streamed tools, diffs and inline approvals
+    Code(crate::commands::code::CodeArgs),
     /// Agent Client Protocol (ACP): serve a harness agent to an editor over stdio
     Acp {
         #[command(subcommand)]

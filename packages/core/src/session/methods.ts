@@ -69,7 +69,19 @@ const stopping = (): RpcError => new RpcError("E_CORE_UNAVAILABLE", "core is sto
 
 export function buildSessionMethods(d: SessionMethodDeps): Record<string, Handler> {
   const wrap = <P extends { caller: CallerIdentity }>(fn: (p: P, owner: string, signal: AbortSignal, ctx: CallContext) => Promise<unknown> | unknown): Handler =>
-    async (p: P, ctx) => { try { return await fn(p, ownerOf(p.caller), ctx.signal, ctx); } catch (e) { return mapSessionError(e); } };
+    async (p: P, ctx) => { try {
+      let owner = ownerOf(p.caller);
+      const sessionId = (p as { sessionId?: unknown }).sessionId;
+      if (typeof sessionId === "string") {
+        let who: import("../rbac/types.ts").Principal | undefined;
+        try { who = authenticatedPrincipal(ctx); } catch { /* isolated legacy method tests have no guard */ }
+        if (who?.kind === "person") {
+          const canonical = deriveUserPrincipal(who.userId);
+          if (rt(sessionId).store.getSession(sessionId)?.owner === canonical) owner = canonical;
+        }
+      }
+      return await fn(p, owner, ctx.signal, ctx);
+    } catch (e) { return mapSessionError(e); } };
 
   const rt = (sessionId: string): SessionRuntime => d.runtimeFor?.(sessionId) ?? { store: d.storeFor?.(sessionId) ?? d.store, runner: d.runner, ...(d.compactor ? { compactor: d.compactor } : {}), ...(d.rewind ? { rewind: d.rewind } : {}) };
 
@@ -86,7 +98,7 @@ export function buildSessionMethods(d: SessionMethodDeps): Record<string, Handle
       const store = d.storeFor?.(p.sessionId) ?? d.store;
       const s = store.getOwned(p.sessionId, owner);
       requireAgent(d.agents, s.agentId);
-      if (s.kind !== "direct" || s.archivedAt !== null || store.runningTurn(s.id)) throw new SessionError("conflict", "model switch requires an idle direct session", "session-busy");
+      if ((s.kind !== "direct" && !(s.kind === "card" && store.worktree(s.id))) || s.archivedAt !== null || store.runningTurn(s.id)) throw new SessionError("conflict", "model switch requires an idle direct or bound coding-card session", "session-busy");
       const current = store.modelProfile(s.id);
       const profile = p.profile;
       if (!d.modelProfiles?.().includes(profile)) throw new RpcError("E_NOT_AVAILABLE", "model profile is not configured", { reason: "model-profile-unavailable" });

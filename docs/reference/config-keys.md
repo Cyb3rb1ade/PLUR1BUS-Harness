@@ -154,6 +154,7 @@ TypeScript validation returns optional, value-free `warnings` for endpoint useri
 | `logs.otlp.headers.*` | string |  |  | advanced | true | false |  |  |
 | `agents` | object | `{}` | live | basic | false | false |  | Per-agent settings keyed by a lowercase agent identifier. |
 | `agents.*` | object |  | live | basic | false | false |  | Settings for one agent. |
+| `agents.*.coding` | boolean | `false` | live | advanced | false | false |  | Enable the static coding profile and pre-admit registered coding tools. Filesystem permissions and grants stay unchanged. |
 | `agents.*.behaviour` | object |  | live | advanced | false | false |  | ADR-003 four-level restrictive behaviour: default, direct/group, channel kind, bot connection. No per-chat layer. |
 | `agents.*.behaviour.default` | object |  | live | advanced | false | false |  | Agent-wide restrictions inherited by every channel. |
 | `agents.*.behaviour.default.reply` | object |  | live | advanced | false | false |  | Controls when the agent may reply. |

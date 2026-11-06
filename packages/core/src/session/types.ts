@@ -7,6 +7,16 @@ export const SESSION_ORIGINS = ["mcp", "a2a", "acp-agent"] as const;
 export type SessionOrigin = (typeof SESSION_ORIGINS)[number];
 
 export type MemoryMode = "remember" | "incognito";
+
+/** CLI-1 metadata only. Every access still checks the live root/grant and, for cards, D115 assignment. */
+export interface WorktreeBinding {
+  sessionId: string;
+  root: string;
+  projectId: string | null;
+  cardId: string | null;
+  createdBy: string;
+  createdAt: number;
+}
 export type TurnState = "running" | "completed" | "failed";
 export type MessageRole = "system" | "user" | "assistant" | "tool";
 
