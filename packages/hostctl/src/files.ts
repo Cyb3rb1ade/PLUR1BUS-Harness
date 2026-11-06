@@ -1,3 +1,4 @@
+import type { RunContext } from './processes.ts';
 import { atomicWrite } from './atomic.ts';
 import { matchMany } from './search.ts';
 import { constants } from 'node:fs';
@@ -71,10 +72,10 @@ export function files(roots: readonly PathRoot[], extraDeny: readonly DenyEntry[
     for await (const entry of listing.entries) entries.push(entry);
     return { entries, truncated: listing.state.truncated };
   };
-  return { canon, async run(op: string, a: Record<string, unknown>, signal: AbortSignal): Promise<unknown> {
+  return { canon, async run(op: string, a: Record<string, unknown>, signal: AbortSignal, knownSecrets?: RunContext['knownSecrets']): Promise<unknown> {
     signal.throwIfAborted(); const input = string(a, 'path') === '.' ? cwd! : string(a, 'path'); await canon(input, /^(read|list|search|stat)$/.test(op) ? 'read' : 'write');
     switch (op) {
-      case 'read': return fs.read({ path: input, encoding: 'utf8', offset: integer(a.offset, 0, Number.MAX_SAFE_INTEGER), ...(a.length !== undefined ? { length: integer(a.length, 0, config.output.maxBytes) } : {}) }, { signal });
+      case 'read': return fs.read({ path: input, encoding: 'utf8', offset: integer(a.offset, 0, Number.MAX_SAFE_INTEGER), ...(a.length !== undefined ? { length: integer(a.length, 0, config.output.maxBytes) } : {}) }, { signal, knownSecrets });
       case 'stat': return fs.stat({ path: input }, { signal });
       case 'write': return atomicWrite(input, Buffer.from(string(a, 'content')), true, canon, signal, config.output.maxBytes, afterStage);
       case 'append': case 'edit': {
@@ -106,7 +107,7 @@ export function files(roots: readonly PathRoot[], extraDeny: readonly DenyEntry[
           if (a.mode !== 'content') { if (item.path.includes(query)) take(item.path); }
           else if (item.type === 'file') {
             let text: string;
-            try { text = (await fs.read({ path: path.join(input, item.path), encoding: 'utf8' }, { signal })).content; } catch { continue; }
+            try { text = (await fs.read({ path: path.join(input, item.path), encoding: 'utf8' }, { signal, knownSecrets })).content; } catch { continue; }
             batch.push({ path: item.path, text }); batchBytes += text.length;
             if (batch.length >= SEARCH_BATCH_FILES || batchBytes >= SEARCH_BATCH_CHARS) await flush();
           }

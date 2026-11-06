@@ -1,28 +1,10 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { HostFailure } from "./errors.ts";
+import { BoundedCapture } from "../tools/sandbox/capture.ts";
 import {
   DEFAULT_MAX_OUTPUT_BYTES, DEFAULT_TIMEOUT_MS, HARD_MAX_OUTPUT_BYTES, HARD_MAX_TIMEOUT_MS,
-  type ExecRequest, type ExecResult, type HostClock, type HostExec,
+  type ExecRequest, type ExecResult, type HostClock, type HostContext, type HostExec,
 } from "./types.ts";
-
-class Capture {
-  private readonly chunks: Uint8Array[] = [];
-  private size = 0;
-  truncated = false;
-  private readonly limit: number;
-  constructor(limit: number) {
-    this.limit = limit;
-  }
-  push(c: Uint8Array): void {
-    const room = this.limit - this.size;
-    if (room <= 0) { if (c.length > 0) this.truncated = true; return; }
-    const take = c.length > room ? c.subarray(0, room) : c;
-    if (take.length < c.length) this.truncated = true;
-    this.chunks.push(take);
-    this.size += take.length;
-  }
-  text(): string { return Buffer.concat(this.chunks).toString("utf8"); }
-}
 
 /** Spawn errors carry the program path and OS detail; callers only get a classified, path-free failure. */
 function spawnFailure(e: unknown): HostFailure {
@@ -55,9 +37,17 @@ function killTree(child: ChildProcess): void {
   try { child.kill("SIGKILL"); } catch { /* gone */ }
 }
 
+/** A broken registry must never expose its internal error or allow unprotected output. */
+export function hostOutputSecrets(source: NonNullable<HostContext["knownSecrets"]>): NonNullable<HostContext["knownSecrets"]> {
+  return () => {
+    try { return source(); }
+    catch { throw new HostFailure("permission_denied", "could not protect host command output"); }
+  };
+}
+
 export function createNodeExec(clock: HostClock): HostExec {
   return {
-    run(req: ExecRequest, signal?: AbortSignal): Promise<ExecResult> {
+    async run(req, signal, knownSecrets): Promise<ExecResult> {
       if (typeof req.program !== "string" || req.program.length === 0 || req.program.includes("\0")) {
         return Promise.reject(new HostFailure("invalid_input", "program must be a non-empty string"));
       }
@@ -68,8 +58,9 @@ export function createNodeExec(clock: HostClock): HostExec {
       const timeoutMs = clamp(req.timeoutMs, DEFAULT_TIMEOUT_MS, HARD_MAX_TIMEOUT_MS);
       const maxBytes = clamp(req.maxOutputBytes, DEFAULT_MAX_OUTPUT_BYTES, HARD_MAX_OUTPUT_BYTES);
       const started = clock.now();
-      const out = new Capture(maxBytes);
-      const err = new Capture(maxBytes);
+      const source = knownSecrets && hostOutputSecrets(knownSecrets);
+      const out = new BoundedCapture(maxBytes, source);
+      const err = new BoundedCapture(maxBytes, source);
       return new Promise((resolve, reject) => {
         let timedOut = false;
         let aborted = false;
@@ -107,11 +98,22 @@ export function createNodeExec(clock: HostClock): HostExec {
             clock.clearTimeout(timer);
             if (drain) clearTimeout(drain);
             signal?.removeEventListener("abort", onAbort);
-            finish({
-              exitCode: code, signal: sig, stdout: out.text(), stderr: err.text(),
-              truncated: out.truncated || err.truncated, timedOut, aborted,
-              durationMs: clock.now() - started,
-            });
+            if (settled) return;
+            try {
+              finish({
+                exitCode: code, signal: sig, stdout: out.text(), stderr: err.text(),
+                truncated: out.truncated || err.truncated, timedOut, aborted,
+                durationMs: clock.now() - started,
+              });
+            } catch {
+              if (aborted || timedOut) {
+                finish({ exitCode: code, signal: sig, stdout: "", stderr: "", truncated: true,
+                  timedOut, aborted, durationMs: clock.now() - started });
+              } else {
+                settled = true;
+                reject(new HostFailure("permission_denied", "could not protect host command output"));
+              }
+            }
           };
           // "close" waits until every holder of the pipes let go. A descendant that inherited stdout and detached
           // would keep the call open for ever, so once the leader is gone only a short drain is waited for.
@@ -132,14 +134,14 @@ export function createNodeExec(clock: HostClock): HostExec {
   };
 }
 
-export async function runCaptured(ctx: { exec: HostExec; clock: HostClock; timeoutMs: number; maxOutputBytes: number; signal?: AbortSignal }, req: ExecRequest): Promise<ExecResult> {
+export async function runCaptured(ctx: Pick<HostContext, "exec" | "clock" | "timeoutMs" | "maxOutputBytes" | "knownSecrets" | "signal">, req: ExecRequest, output: "report" | "process-identity" = "report"): Promise<ExecResult> {
   const signal = ctx.signal;
   if (signal?.aborted) throw new HostFailure("aborted", "the call was aborted");
   const r = await ctx.exec.run({
     ...req,
     timeoutMs: req.timeoutMs ?? ctx.timeoutMs,
     maxOutputBytes: req.maxOutputBytes ?? ctx.maxOutputBytes,
-  }, signal);
+  }, signal, output === "report" ? ctx.knownSecrets : undefined);
   if (r.aborted) throw new HostFailure("aborted", "the call was aborted");
   if (r.timedOut) throw new HostFailure("timeout", "the command timed out");
   return r;

@@ -41,8 +41,28 @@ test("each read is bounded, a UTF-8 record can span ticks, and oversized input d
   reader.scan(); assert.equal(rows.length, 0, "one tick must not consume the >1MiB record");
   reader.scan(); assert.deepEqual(rows, [{ text }]);
   renameSync(file, `${file}.large-old`);
-  writeFileSync(file, "x".repeat(9 * 1024 * 1024 + 1) + "\n" + '{"at":3}\n');
-  for (let i = 0; i < 11; i++) reader.scan();
+  writeFileSync(file, "x".repeat(25 * 1024 * 1024 + 1) + "\n" + '{"at":3}\n');
+  for (let i = 0; i < 27; i++) reader.scan();
   assert.equal(oversized, 1);
   assert.deepEqual(rows.at(-1), { at: 3 });
+});
+
+test("the 8 MiB row limit also applies when the closing quote and newline arrive in the last chunk", () => {
+  const file = join(tempDir("audit-notice-line-limit-"), "audit.log");
+  const limit = 8 * 1024 * 1024;
+  // Each raw JSON string has two quotes. Keep the exact-boundary row and reject the one byte larger.
+  const atLimit = "a".repeat(limit - 2);
+  writeFileSync(file, JSON.stringify(atLimit) + "\n" + JSON.stringify(atLimit + "b") + '\n{"at":4}\n');
+  const sizes: number[] = [];
+  const rows: unknown[] = [];
+  let oversized = 0;
+  const reader = createAuditNoticeLogReader({
+    file,
+    consume(row) { if (typeof row === "string") sizes.push(row.length); else rows.push(row); },
+    onOversize() { oversized++; },
+  });
+  for (let i = 0; i < 18; i++) reader.scan();
+  assert.deepEqual(sizes, [atLimit.length]);
+  assert.equal(oversized, 1);
+  assert.deepEqual(rows, [{ at: 4 }]);
 });

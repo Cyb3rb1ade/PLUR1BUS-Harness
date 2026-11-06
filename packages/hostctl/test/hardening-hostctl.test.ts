@@ -7,7 +7,8 @@
 // native argv contracts (processes.coverage, atomic.coverage, files.coverage, hostctl.test, native*.test).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { spawn, spawnSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createSecretRedaction } from '../../core/src/secrets/redaction.ts';
+import { createHash, randomBytes } from 'node:crypto';
 import { chmod, mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, symlink, truncate, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -44,6 +45,34 @@ const alive = (pid: number) => { try { process.kill(pid, 0); return true; } catc
 async function until(check: () => boolean | Promise<boolean>, ms = 5000): Promise<boolean> { const end = Date.now() + ms; while (Date.now() < end) { if (await check()) return true; await sleep(25); } return false; }
 
 // ---- processes: real children -----------------------------------------------------------------------------------------
+
+describe('registered secrets at hostctl presentation boundaries', () => {
+  const field = () => randomBytes(48).toString('hex');
+  it('masks a secret crossing a child output cap on exec, read_output and list', async () => {
+    const secret = field(), prefix = 'p'.repeat(40);
+    const redaction = createSecretRedaction(); redaction.register(secret);
+    const session = { ...ctx, knownSecrets: () => redaction.snapshot() };
+    const h = make({ config: { output: { maxBytes: 64 } } });
+    const done = await call(h, 'proc.exec', { ...node('process.stdout.write(process.argv[1])', [prefix + secret]), cwd: root }, session);
+    expect(done.ok).toBe(true);
+    const expected = prefix + '[REDACTED:secret]\n[OUTPUT TRUNCATED]';
+    const read = await call(h, 'proc.read_output', { id: done.value.id }, session);
+    const list = await call(h, 'proc.list', {}, session);
+    expect([done.value, read.value, list.value.processes[0]].every(record => record.output === expected)).toBe(true);
+  });
+  it('masks file ranges and leaves original file bytes intact when editing', async () => {
+    const secret = field();
+    const redaction = createSecretRedaction(); redaction.register(secret);
+    const session = { ...ctx, knownSecrets: () => redaction.snapshot() };
+    const h = make();
+    await writeFile(join(root, 'fixture'), secret);
+    const result = await call(h, 'fs.read', { path: 'fixture', offset: 7, length: 9 }, session);
+    expect(result.ok).toBe(true);
+    expect(result.value.content === '[REDACTED:secret]').toBe(true);
+    expect((await call(h, 'fs.append', { path: 'fixture', content: '!' }, session)).ok).toBe(true);
+    expect(await readFile(join(root, 'fixture'), 'utf8') === secret + '!').toBe(true);
+  });
+});
 
 describe('arguments are never interpreted by a shell', () => {
   it('shell metacharacters, command substitutions and "; rm -rf" reach the program as literal argv, and nothing they spell is executed', async () => {

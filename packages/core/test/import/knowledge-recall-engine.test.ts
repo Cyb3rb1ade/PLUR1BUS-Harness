@@ -23,6 +23,8 @@ test("imported memory/KNOWLEDGE.md is returned by actual Engine recall without c
   const { report } = await planAndMigrateAgent({ agentId: "bernd", workspace: source, workspaceSource: "fixture", agentDir: null, foundIn: [] }, source, l, new Set(), true);
   assert.ok(report.files.some(file => file.targetFile === "memory/KNOWLEDGE.md" && file.action === "created"));
   const cfg = defaults(); cfg.agents.bernd = {};
+  // The installed Engine reads its soft cutoff at startup, before the import recall RPC.
+  cfg.core.recall = { ...cfg.core.recall, softBudgetMs: 15_000, hardBudgetMs: 20_000, capChars: 12_000 };
   cfg.engine = {
     neo: { enabled: false }, gc: { enabled: false }, obsidianBridge: { enabled: false },
     merging: { enabled: false }, dreaming: { enabled: false }, skillMiner: { enabled: false },
@@ -34,12 +36,12 @@ test("imported memory/KNOWLEDGE.md is returned by actual Engine recall without c
   await core.start();
   const client = await connect({ address: core.address, token: core.token });
   try {
-    const recalled = await client.call<{ degraded: unknown; blocks: { text: string }[] }>("memory.recall", {
+    const recalled = await client.call<{ degraded: unknown; blocks: { text: string }[]; timing: { phases: { softBudgetMs: number } } }>("memory.recall", {
       caller, agentId: "bernd", query: "Atlas deployment policy security review Tuesday",
-      budget: { softMs: 15_000, hardMs: 20_000, capChars: 12_000 },
     });
     assert.equal(recalled.degraded, null);
-    assert.ok(recalled.blocks.some(block => block.text.includes(importedFact)), JSON.stringify(recalled));
+    assert.equal(recalled.timing.phases.softBudgetMs, cfg.core.recall.softBudgetMs);
+    assert.ok(recalled.blocks.some(block => block.text.includes(importedFact)), "recall must return the imported fact");
   } finally {
     await client.close();
     await core.stop({ budgetMs: 5000 });

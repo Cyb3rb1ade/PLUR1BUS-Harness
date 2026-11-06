@@ -6,6 +6,7 @@ import { isSecretishName } from '../exec/env.ts';
 import { backendArgv, detectSandbox } from './backends.ts';
 import { preparePolicy } from './policy.ts';
 import { SandboxFailure, type SandboxPolicy, type SandboxResult } from './types.ts';
+import { currentWorktreeBinding, selectedWorktreeMount } from './worktree-mount.ts';
 export { detectSandbox, seatbeltProfile } from './backends.ts';
 export { preparePolicy } from './policy.ts';
 export * from './types.ts';
@@ -16,10 +17,10 @@ export async function sandboxSpawn(argv: readonly string[], policy: SandboxPolic
     const unavailable = await detectSandbox(policy.limitsHelper);
     throw new SandboxFailure(unavailable.reason);
   }
-  const p = await preparePolicy(policy);
+  const p = await preparePolicy(policy, options);
   const detection = await detectSandbox(p.limitsHelper);
   if (!detection.available) throw new SandboxFailure(detection.reason);
-  const command = await backendArgv(p, detection, argv);
+  const command = await backendArgv(p, detection, argv, options);
   const env: Record<string, string> = {};
   const allowed = new Set(p.envAllow);
   for (const [name, value] of Object.entries(p.env ?? {})) {
@@ -35,6 +36,8 @@ export async function sandboxSpawn(argv: readonly string[], policy: SandboxPolic
     maxTasks: detection.tasks.mechanism === 'namespace-limit' && p.limits.maxTasks > 0 ? p.limits.maxTasks : null, measured: false as const });
   const sandbox = { ...detection, network: p.network === 'egress' ? 'none' as const : p.network, warnings: p.network === 'egress' ? ['Egress proxy enforcement unavailable; network forced to none.'] : [] };
   if (options.signal?.aborted) return { exitCode: null, signal: null, stdout: '', stderr: '', stdoutTruncated: false, stderrTruncated: false, timedOut, aborted: true, resources: resources(), sandbox };
+  const grant = selectedWorktreeMount(p);
+  if (grant) currentWorktreeBinding(grant);
   const child = createNodeProcessPort().spawn({ program: p.limitsHelper, args: [String(p.limits.cpuSeconds), String(p.limits.memoryBytes), ...command], cwd: p.cwd, env });
   // The exec adapter must see raw source bytes before this sandbox result's separate output cap.
   child.onStdout(c => { options.onStdout?.(c); out.push(c); }); child.onStderr(c => { options.onStderr?.(c); err.push(c); });
@@ -55,6 +58,12 @@ export async function sandboxSpawn(argv: readonly string[], policy: SandboxPolic
   if (options.signal?.aborted) onAbort();
   try {
     const exit = await child.wait();
-    return { exitCode: exit.code, signal: exit.signal, stdout: out.text(), stderr: err.text(), stdoutTruncated: out.truncated, stderrTruncated: err.truncated, timedOut, aborted, resources: resources(), sandbox };
+    const outcome = { exitCode: exit.code, signal: exit.signal, timedOut, aborted, resources: resources(), sandbox };
+    try {
+      return { ...outcome, stdout: out.text(), stderr: err.text(), stdoutTruncated: out.truncated, stderrTruncated: err.truncated };
+    } catch (error) {
+      if (!timedOut && !aborted) throw error;
+      return { ...outcome, stdout: '', stderr: '', stdoutTruncated: true, stderrTruncated: true };
+    }
   } finally { clearTimeout(timer); if (memoryTimer) clearInterval(memoryTimer); options.signal?.removeEventListener('abort', onAbort); await child.killTree(); }
 }
