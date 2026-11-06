@@ -1397,9 +1397,19 @@ fn verify_run_files(shared: &Shared, layout: &Layout, role: &Role) {
 /// `core.status` every health interval, on the control connection (an adopted core's lifeline while it works).
 fn poll_loop(shared: &Shared, ctx: &Ctx, gen: &Gen) {
     let mut failures: u32 = 0;
+    let mut first_probe = None;
+    if gen.peer.is_none() {
+        let mut control = relock(&gen.control);
+        if control.as_ref().is_some_and(Client::is_poisoned) {
+            // The first status lost its reply. Reconnect at startup cadence before normal health polling.
+            *control = None;
+            first_probe = Some(ctx.timing.ready_poll);
+        }
+    }
     loop {
         let t = ctx.timing.current(shared);
-        if !sleep_while_alive(gen, t.health_interval) || gen.requested.load(Ordering::SeqCst) {
+        let interval = first_probe.take().unwrap_or(t.health_interval);
+        if !sleep_while_alive(gen, interval) || gen.requested.load(Ordering::SeqCst) {
             break;
         }
         let result = {
