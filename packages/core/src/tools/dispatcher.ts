@@ -469,7 +469,13 @@ export class ToolDispatcher {
       const cancel = timers.set(() => { finish({ kind: "timeout" }); ac.abort(new Error("timeout")); }, tool.limits.timeoutMs);
       ctx.signal.addEventListener("abort", onAbort, { once: true });
       Promise.resolve().then(() => {
-        const runContext: ToolRunContext = { signal: ac.signal, onResultSettled, knownSecrets: this.#knownSecrets, agentId: ctx.agentId, principal: ctx.principal, surface: ctx.surface, execution: { turnId: ctx.turnId || ctx.sessionId || "", ...(ctx.taskId ? { taskId: ctx.taskId } : {}), ...(ctx.recurring ? { recurring: ctx.recurring } : {}), policy }, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), ...(classified ? { classified } : {}) };
+        const runContext: ToolRunContext = {
+          signal: ac.signal, onResultSettled, knownSecrets: this.#knownSecrets,
+          agentId: ctx.agentId, principal: ctx.principal, surface: ctx.surface,
+          execution: { turnId: ctx.turnId || ctx.sessionId || "", ...(ctx.taskId ? { taskId: ctx.taskId } : {}),
+            ...(ctx.recurring ? { recurring: ctx.recurring } : {}), policy },
+          ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), ...(classified ? { classified } : {}),
+        };
         tool.beforeExecute?.(runContext);
         return tool.execute(args, runContext);
       })
