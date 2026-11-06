@@ -8,18 +8,20 @@ import { search } from "../src/palette/match.ts";
 import { SETTINGS, type SettingSpec } from "../src/palette/settings-index.ts";
 
 const schema = JSON.parse(readFileSync(new URL("../../config-schema/schema/config.schema.json", import.meta.url), "utf8")) as { properties: Record<string, SchemaNode> };
-type SchemaNode = { type?: string; enum?: unknown[]; description?: string; properties?: Record<string, SchemaNode>; "x-tier"?: "basic" | "advanced" };
+type SchemaNode = { type?: string | string[]; enum?: unknown[]; description?: string; properties?: Record<string, SchemaNode>; items?: SchemaNode; "x-tier"?: "basic" | "advanced"; "x-sensitive"?: boolean; "x-url-credentials"?: boolean; "x-value-schema"?: SchemaNode };
 
 /** The rule documented in settings-index.ts, applied to the real schema. */
 function fromSchema(): SettingSpec[] {
   const rows: SettingSpec[] = [];
-  const walk = (props: Record<string, SchemaNode>, prefix: string, inherited: string | undefined): void => {
+  const walk = (props: Record<string, SchemaNode>, prefix: string, inherited: string | undefined, parentSensitive = false, parentUrlCredentials = false): void => {
     for (const [k, v] of Object.entries(props)) {
       const key = prefix ? `${prefix}.${k}` : k;
       if (key === "$schema" || key === "schemaVersion") continue;
       const help = v.description ?? inherited;
-      if (!v.properties || v["x-tier"]) rows.push({ key, type: v.type ?? (v.enum ? "enum" : ""), tier: v["x-tier"] ?? "advanced", ...(help ? { help } : {}) });
-      if (v.properties) walk(v.properties, key, help);
+      const sensitive = parentSensitive || v["x-sensitive"] === true || v.items?.["x-sensitive"] === true;
+      const urlCredentials = parentUrlCredentials || v["x-url-credentials"] === true || v.items?.["x-url-credentials"] === true;
+      if (!v.properties || v["x-tier"]) rows.push({ key, type: Array.isArray(v.type) ? v.type.join("|") : (v.type ?? (v.enum ? "enum" : "")), tier: v["x-tier"] ?? "advanced", ...(sensitive ? { sensitive: true } : {}), ...(urlCredentials ? { urlCredentials: true } : {}), ...(help ? { help } : {}) });
+      if (v.properties) walk(v.properties, key, help, sensitive, urlCredentials);
     }
   };
   walk(schema.properties, "", undefined);
@@ -27,7 +29,7 @@ function fromSchema(): SettingSpec[] {
 }
 
 describe("settings catalogue", () => {
-  test("is exactly the settings of config.schema.json (key, type, tier, help): no invented settings, no drift", () => {
+  test("is exactly the settings of config.schema.json including sensitivity: no invented settings, no drift", () => {
     assert.deepEqual([...SETTINGS], fromSchema());
   });
 });

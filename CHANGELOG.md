@@ -29,6 +29,15 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
   before the copy. An agent table without memories validates on the generation check alone. See
   `docs/embedding-migration.md`.
 
+- **Schema-owned configuration sensitivity (SH1).** Secret strings and references carry boolean `x-sensitive` metadata;
+  endpoint URLs use `x-url-credentials` for userinfo and query values. Coverage checks enforce explicit classifications
+  and public exceptions. Shared helpers extract only credential-bearing URL parts, and TypeScript validation reports
+  value-free userinfo warnings without rejecting or rewriting existing URLs. The complete key reference is generated
+  with both annotations. Supported Engine credentials, headers and URLs have nonvalidating metadata that preserves
+  opaque pass-through validation and the Engine contract. Complete browser policy metadata stays separate from editable
+  settings; it creates no Engine controls or navigation targets. The palette respects both policy flags to protect
+  secret values and endpoint credentials; the complete consumer migration follows in SH2.
+
 - **A description per secret (`secret.set`, `secret set --description`, Settings > Secrets).** An optional one-line note (at most
   200 characters, never the value) saying what a secret is for. `secret.list`, `secret.get` and `secret.status` return it, and
   the agent's `secret_names` tool lists it next to a stored secret. A replacement without one keeps the stored text, an empty one

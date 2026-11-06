@@ -2632,7 +2632,8 @@
                             "description": "Exact configured endpoint, when the provider has one.",
                             "type": "string",
                             "format": "uri",
-                            "maxLength": 2048
+                            "maxLength": 2048,
+                            "x-url-credentials": true
                           }
                         }
                       },
@@ -2783,7 +2784,8 @@
                                 "description": "Exact configured endpoint, when the provider has one.",
                                 "type": "string",
                                 "format": "uri",
-                                "maxLength": 2048
+                                "maxLength": 2048,
+                                "x-url-credentials": true
                               }
                             }
                           },
@@ -3008,7 +3010,8 @@
                       "description": "Exact configured endpoint, when the provider has one.",
                       "type": "string",
                       "format": "uri",
-                      "maxLength": 2048
+                      "maxLength": 2048,
+                      "x-url-credentials": true
                     }
                   }
                 },
@@ -3175,7 +3178,8 @@
                           "description": "Exact configured endpoint, when the provider has one.",
                           "type": "string",
                           "format": "uri",
-                          "maxLength": 2048
+                          "maxLength": 2048,
+                          "x-url-credentials": true
                         }
                       }
                     },
@@ -3891,7 +3895,8 @@
                 "type": "string",
                 "maxLength": 2048,
                 "format": "uri",
-                "pattern": "^(https?|valkey|redis)://[^/@#]+(?:/[^#]*)?$"
+                "pattern": "^(https?|valkey|redis)://[^/@#]+(?:/[^#]*)?$",
+                "x-url-credentials": true
               },
               "caBundle": {
                 "description": "Optional PEM trust bundle for the remote HTTPS host.",
@@ -4018,7 +4023,8 @@
                 "owner",
                 "admin"
               ],
-              "x-audit": true
+              "x-audit": true,
+              "x-url-credentials": true
             },
             "bind": {
               "type": "object",
@@ -4375,7 +4381,8 @@
                 "admin"
               ],
               "x-audit": true,
-              "pattern": "^(?:$|https://[^/?#@]+(?:/[^?#]*)?|http://(?:127\\.0\\.0\\.1|\\[::1\\]|localhost)(?::[0-9]{1,5})?(?:/[^?#]*)?)$"
+              "pattern": "^(?:$|https://[^/?#@]+(?:/[^?#]*)?|http://(?:127\\.0\\.0\\.1|\\[::1\\]|localhost)(?::[0-9]{1,5})?(?:/[^?#]*)?)$",
+              "x-url-credentials": true
             },
             "logLevel": {
               "description": "Minimum severity written to the core log.",
@@ -4660,7 +4667,8 @@
                       "description": "Exact configured endpoint, when the provider has one.",
                       "type": "string",
                       "format": "uri",
-                      "maxLength": 2048
+                      "maxLength": 2048,
+                      "x-url-credentials": true
                     }
                   }
                 }
@@ -4710,7 +4718,8 @@
                       "description": "Exact configured endpoint, when the provider has one.",
                       "type": "string",
                       "format": "uri",
-                      "maxLength": 2048
+                      "maxLength": 2048,
+                      "x-url-credentials": true
                     }
                   }
                 }
@@ -4724,6 +4733,442 @@
           "default": {},
           "x-restart": "core",
           "x-tier": "advanced",
+          "x-value-schema": {
+            "type": "object",
+            "properties": {
+              "embedding": {
+                "type": "object",
+                "properties": {
+                  "apiKey": {
+                    "type": [
+                      "string",
+                      "object"
+                    ],
+                    "x-sensitive": true,
+                    "additionalProperties": false,
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "env",
+                          "store",
+                          "file",
+                          "exec"
+                        ]
+                      },
+                      "provider": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    },
+                    "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+                  },
+                  "fallback": {
+                    "type": "object",
+                    "properties": {
+                      "apiKey": {
+                        "type": [
+                          "string",
+                          "object"
+                        ],
+                        "x-sensitive": true,
+                        "additionalProperties": false,
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "env",
+                              "store",
+                              "file",
+                              "exec"
+                            ]
+                          },
+                          "provider": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          }
+                        },
+                        "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+                      },
+                      "baseUrl": {
+                        "type": "string",
+                        "x-url-credentials": true,
+                        "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+                      }
+                    }
+                  },
+                  "apiKeyRef": {
+                    "type": "string",
+                    "x-sensitive": true,
+                    "description": "Secret-store reference for an Engine credential."
+                  },
+                  "apiKeyEnv": {
+                    "type": "string",
+                    "x-sensitive": true,
+                    "description": "Environment reference for an Engine credential."
+                  },
+                  "baseUrl": {
+                    "type": "string",
+                    "x-url-credentials": true,
+                    "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+                  },
+                  "routes": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "provider": {
+                          "type": "object",
+                          "properties": {
+                            "apiKey": {
+                              "type": [
+                                "string",
+                                "object"
+                              ],
+                              "x-sensitive": true,
+                              "additionalProperties": false,
+                              "properties": {
+                                "source": {
+                                  "type": "string",
+                                  "enum": [
+                                    "env",
+                                    "store",
+                                    "file",
+                                    "exec"
+                                  ]
+                                },
+                                "provider": {
+                                  "type": "string"
+                                },
+                                "id": {
+                                  "type": "string"
+                                }
+                              },
+                              "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+                            },
+                            "apiKeyRef": {
+                              "type": "string",
+                              "x-sensitive": true,
+                              "description": "Secret-store reference for an Engine credential."
+                            },
+                            "apiKeyEnv": {
+                              "type": "string",
+                              "x-sensitive": true,
+                              "description": "Environment reference for an Engine credential."
+                            },
+                            "baseUrl": {
+                              "type": "string",
+                              "x-url-credentials": true,
+                              "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+                            },
+                            "fallback": {
+                              "type": "object",
+                              "properties": {
+                                "apiKey": {
+                                  "type": [
+                                    "string",
+                                    "object"
+                                  ],
+                                  "x-sensitive": true,
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "source": {
+                                      "type": "string",
+                                      "enum": [
+                                        "env",
+                                        "store",
+                                        "file",
+                                        "exec"
+                                      ]
+                                    },
+                                    "provider": {
+                                      "type": "string"
+                                    },
+                                    "id": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+                                },
+                                "baseUrl": {
+                                  "type": "string",
+                                  "x-url-credentials": true,
+                                  "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "reranker": {
+                "type": "object",
+                "properties": {
+                  "apiKey": {
+                    "type": [
+                      "string",
+                      "object"
+                    ],
+                    "x-sensitive": true,
+                    "additionalProperties": false,
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "env",
+                          "store",
+                          "file",
+                          "exec"
+                        ]
+                      },
+                      "provider": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    },
+                    "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+                  },
+                  "apiKeyRef": {
+                    "type": "string",
+                    "x-sensitive": true,
+                    "description": "Secret-store reference for an Engine credential."
+                  },
+                  "apiKeyEnv": {
+                    "type": "string",
+                    "x-sensitive": true,
+                    "description": "Environment reference for an Engine credential."
+                  },
+                  "baseUrl": {
+                    "type": "string",
+                    "x-url-credentials": true,
+                    "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+                  }
+                }
+              },
+              "merging": {
+                "type": "object",
+                "properties": {
+                  "apiKey": {
+                    "type": [
+                      "string",
+                      "object"
+                    ],
+                    "x-sensitive": true,
+                    "additionalProperties": false,
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "env",
+                          "store",
+                          "file",
+                          "exec"
+                        ]
+                      },
+                      "provider": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    },
+                    "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+                  },
+                  "apiKeyRef": {
+                    "type": "string",
+                    "x-sensitive": true,
+                    "description": "Secret-store reference for an Engine credential."
+                  },
+                  "headers": {
+                    "type": "object",
+                    "x-sensitive": true,
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "description": "Engine transport headers; string values are sensitive. This metadata does not restrict the existing pass-through values."
+                  },
+                  "baseUrl": {
+                    "type": "string",
+                    "x-url-credentials": true,
+                    "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+                  }
+                }
+              },
+              "skillMiner": {
+                "type": "object",
+                "properties": {
+                  "apiKey": {
+                    "type": [
+                      "string",
+                      "object"
+                    ],
+                    "x-sensitive": true,
+                    "additionalProperties": false,
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "env",
+                          "store",
+                          "file",
+                          "exec"
+                        ]
+                      },
+                      "provider": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    },
+                    "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+                  },
+                  "apiKeyRef": {
+                    "type": "string",
+                    "x-sensitive": true,
+                    "description": "Secret-store reference for an Engine credential."
+                  },
+                  "headers": {
+                    "type": "object",
+                    "x-sensitive": true,
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "description": "Engine transport headers; string values are sensitive. This metadata does not restrict the existing pass-through values."
+                  },
+                  "baseUrl": {
+                    "type": "string",
+                    "x-url-credentials": true,
+                    "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+                  }
+                }
+              },
+              "criticalPush": {
+                "type": "object",
+                "properties": {
+                  "apiKey": {
+                    "type": [
+                      "string",
+                      "object"
+                    ],
+                    "x-sensitive": true,
+                    "additionalProperties": false,
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "env",
+                          "store",
+                          "file",
+                          "exec"
+                        ]
+                      },
+                      "provider": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    },
+                    "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+                  },
+                  "apiKeyRef": {
+                    "type": "string",
+                    "x-sensitive": true,
+                    "description": "Secret-store reference for an Engine credential."
+                  },
+                  "headers": {
+                    "type": "object",
+                    "x-sensitive": true,
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "description": "Engine transport headers; string values are sensitive. This metadata does not restrict the existing pass-through values."
+                  },
+                  "baseUrl": {
+                    "type": "string",
+                    "x-url-credentials": true,
+                    "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+                  }
+                }
+              },
+              "emotion": {
+                "type": "object",
+                "properties": {
+                  "t3": {
+                    "type": "object",
+                    "properties": {
+                      "apiKey": {
+                        "type": [
+                          "string",
+                          "object"
+                        ],
+                        "x-sensitive": true,
+                        "additionalProperties": false,
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "env",
+                              "store",
+                              "file",
+                              "exec"
+                            ]
+                          },
+                          "provider": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          }
+                        },
+                        "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+                      },
+                      "apiKeyRef": {
+                        "type": "string",
+                        "x-sensitive": true,
+                        "description": "Secret-store reference for an Engine credential."
+                      },
+                      "baseUrl": {
+                        "type": "string",
+                        "x-url-credentials": true,
+                        "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+                      }
+                    }
+                  }
+                }
+              },
+              "captureChunkingJev": {
+                "type": "object",
+                "properties": {
+                  "apiKeyEnv": {
+                    "type": "string",
+                    "x-sensitive": true,
+                    "description": "Environment reference for an Engine credential."
+                  }
+                }
+              },
+              "reminders": {
+                "type": "object",
+                "properties": {
+                  "webhookUrl": {
+                    "type": "string",
+                    "x-sensitive": true,
+                    "description": "Engine reminder webhook; the complete URL is sensitive because its path may carry the credential."
+                  }
+                }
+              }
+            }
+          },
           "properties": {
             "implementation": {
               "description": "Memory engine implementation. Rust is experimental and requires the separately running engine process; unavailable engines leave the Core running and recall reports engine-unavailable.",
@@ -4742,6 +5187,55 @@
               "additionalProperties": true,
               "x-restart": "core",
               "x-tier": "advanced",
+              "x-value-schema": {
+                "type": "object",
+                "properties": {
+                  "apiKey": {
+                    "type": [
+                      "string",
+                      "object"
+                    ],
+                    "x-sensitive": true,
+                    "additionalProperties": false,
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "env",
+                          "store",
+                          "file",
+                          "exec"
+                        ]
+                      },
+                      "provider": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    },
+                    "description": "Engine secret input: credential string or secret reference; metadata only, validated by the Engine."
+                  },
+                  "apiKeyRef": {
+                    "type": "string",
+                    "x-sensitive": true,
+                    "description": "Secret-store reference for an Engine credential."
+                  },
+                  "headers": {
+                    "type": "object",
+                    "x-sensitive": true,
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "description": "Engine transport headers; string values are sensitive. This metadata does not restrict the existing pass-through values."
+                  },
+                  "baseUrl": {
+                    "type": "string",
+                    "x-url-credentials": true,
+                    "description": "Engine endpoint URL; retain the host and path, mask userinfo and all query values."
+                  }
+                }
+              },
               "properties": {
                 "maxPromotionsPerRun": {
                   "description": "Maximum memories promoted by one knowledge-update run; 0 means unlimited.",
@@ -5138,7 +5632,8 @@
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 128,
-                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
+                  "x-sensitive": true
                 },
                 "kid": {
                   "description": "Key identifier for the signing key.",
@@ -5271,7 +5766,8 @@
                       "description": "File holding the federated token and its expiry, re-read on refresh. Mutually exclusive with command.",
                       "type": "string",
                       "minLength": 1,
-                      "maxLength": 4096
+                      "maxLength": 4096,
+                      "x-sensitive": true
                     },
                     "args": {
                       "description": "Arguments passed to command, one array element per argument (no shell interpolation).",
@@ -5279,7 +5775,8 @@
                       "maxItems": 128,
                       "items": {
                         "type": "string",
-                        "maxLength": 4096
+                        "maxLength": 4096,
+                        "x-sensitive": true
                       },
                       "default": []
                     },
@@ -5294,7 +5791,8 @@
                         "type": "string",
                         "maxLength": 32767
                       },
-                      "default": {}
+                      "default": {},
+                      "x-sensitive": true
                     }
                   },
                   "not": {
@@ -5363,7 +5861,8 @@
                       "maxLength": 128,
                       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                       "x-restart": "live",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-sensitive": true
                     }
                   },
                   "x-restart": "live",
@@ -5397,7 +5896,8 @@
                       "maxLength": 256,
                       "pattern": "^https?://(?:127(?:\\.[0-9]{1,3}){3}|\\[::1\\])(?::[0-9]{1,5})?/v1/systemone$",
                       "x-restart": "live",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-url-credentials": true
                     }
                   },
                   "allOf": [
@@ -5984,7 +6484,8 @@
                 "owner",
                 "admin"
               ],
-              "x-audit": true
+              "x-audit": true,
+              "x-url-credentials": true
             }
           }
         },
@@ -6130,7 +6631,8 @@
                   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                   "default": "channels.discord.token",
                   "x-restart": "module:discord",
-                  "x-tier": "advanced"
+                  "x-tier": "advanced",
+                  "x-sensitive": true
                 },
                 "applicationId": {
                   "description": "Discord application id (needed to register slash commands). Taken from the gateway READY event when omitted.",
@@ -6256,7 +6758,8 @@
                   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                   "default": "channels.slack.bot-token",
                   "x-restart": "module:slack",
-                  "x-tier": "advanced"
+                  "x-tier": "advanced",
+                  "x-sensitive": true
                 },
                 "appTokenSecret": {
                   "description": "Name of the secret holding the Slack app-level token (xapp-…) with the connections:write scope, used for Socket Mode.",
@@ -6264,7 +6767,8 @@
                   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                   "default": "channels.slack.app-token",
                   "x-restart": "module:slack",
-                  "x-tier": "advanced"
+                  "x-tier": "advanced",
+                  "x-sensitive": true
                 },
                 "teamId": {
                   "description": "Slack workspace id; events from other workspaces are ignored when set.",
@@ -6375,6 +6879,7 @@
                   "type": "array",
                   "default": [],
                   "description": "Permitted wss relays; ws only for literal loopback.",
+                  "x-url-credentials": true,
                   "x-restart": "module:buzz",
                   "x-tier": "advanced",
                   "x-write-roles": [
@@ -6401,7 +6906,8 @@
                     "admin"
                   ],
                   "x-audit": true,
-                  "pattern": "^channels\\.buzz\\.[a-zA-Z0-9._-]+$"
+                  "pattern": "^channels\\.buzz\\.[a-zA-Z0-9._-]+$",
+                  "x-sensitive": true
                 },
                 "senderAllowlist": {
                   "type": "array",
@@ -6505,7 +7011,8 @@
                   "pattern": "^(https://[^\\s/]+|http://(localhost|127\\.[0-9.]+|\\[::1\\])(:[0-9]+)?)(/[^\\s]*)?$",
                   "maxLength": 512,
                   "x-restart": "module:matrix",
-                  "x-tier": "advanced"
+                  "x-tier": "advanced",
+                  "x-url-credentials": true
                 },
                 "userId": {
                   "description": "Matrix id of the bot account, for example @bot:example.org.",
@@ -6521,7 +7028,8 @@
                   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                   "default": "channels.matrix.access-token",
                   "x-restart": "module:matrix",
-                  "x-tier": "advanced"
+                  "x-tier": "advanced",
+                  "x-sensitive": true
                 },
                 "deviceId": {
                   "description": "Device id of the access token, when the homeserver requires it to be stated.",
@@ -6863,7 +7371,8 @@
                       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                       "default": "channels.email.imap-password",
                       "x-restart": "module:email",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-sensitive": true
                     },
                     "folder": {
                       "description": "IMAP folder to watch.",
@@ -6937,7 +7446,8 @@
                       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                       "default": "channels.email.smtp-password",
                       "x-restart": "module:email",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-sensitive": true
                     }
                   }
                 },
@@ -7036,7 +7546,8 @@
                   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                   "default": "channels.telegram.botToken",
                   "x-restart": "module:telegram",
-                  "x-tier": "advanced"
+                  "x-tier": "advanced",
+                  "x-sensitive": true
                 },
                 "allowlist": {
                   "description": "Decimal chat IDs (users, groups, supergroups) that may talk to the bot. Empty allows nothing, inbound and outbound.",
@@ -7103,7 +7614,8 @@
                       "format": "uri",
                       "pattern": "^https://",
                       "x-restart": "module:telegram",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-url-credentials": true
                     },
                     "secret": {
                       "description": "Secret token sent in the X-Telegram-Bot-Api-Secret-Token header (1..256 alphanumeric/dash/underscore chars).",
@@ -7707,7 +8219,8 @@
                       "minLength": 1,
                       "maxLength": 200,
                       "x-restart": "live",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-sensitive": true
                     },
                     "region": {
                       "description": "Data-residency region: default (global), us, eu or in. Ignored when baseUrl is set.",
@@ -7726,7 +8239,8 @@
                       "type": "string",
                       "maxLength": 300,
                       "x-restart": "live",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-url-credentials": true
                     },
                     "defaultVoice": {
                       "description": "Voice id used when a request names none.",
@@ -7777,14 +8291,16 @@
                       "minLength": 1,
                       "maxLength": 200,
                       "x-restart": "live",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-sensitive": true
                     },
                     "baseUrl": {
                       "description": "Override of the API base URL (https only, or loopback for a local relay).",
                       "type": "string",
                       "maxLength": 300,
                       "x-restart": "live",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-url-credentials": true
                     },
                     "defaultVoice": {
                       "description": "Voice used when a session names none.",
@@ -7821,14 +8337,16 @@
                       "minLength": 1,
                       "maxLength": 200,
                       "x-restart": "live",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-sensitive": true
                     },
                     "baseUrl": {
                       "description": "Override of the API base URL (https only, or loopback for a local relay).",
                       "type": "string",
                       "maxLength": 300,
                       "x-restart": "live",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-url-credentials": true
                     },
                     "defaultVoice": {
                       "description": "Prebuilt voice name used when a session names none.",
@@ -9245,14 +9763,16 @@
                       "type": "string",
                       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                       "x-restart": "core",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-sensitive": true
                     },
                     "baseUrl": {
                       "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
                       "type": "string",
                       "maxLength": 2048,
                       "x-restart": "core",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-url-credentials": true
                     },
                     "model": {
                       "description": "Model identifier sent to the provider.",
@@ -9300,14 +9820,16 @@
                       "type": "string",
                       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                       "x-restart": "core",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-sensitive": true
                     },
                     "baseUrl": {
                       "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
                       "type": "string",
                       "maxLength": 2048,
                       "x-restart": "core",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-url-credentials": true
                     },
                     "model": {
                       "description": "Model identifier sent to the provider.",
@@ -9355,14 +9877,16 @@
                       "type": "string",
                       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                       "x-restart": "core",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-sensitive": true
                     },
                     "baseUrl": {
                       "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
                       "type": "string",
                       "maxLength": 2048,
                       "x-restart": "core",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-url-credentials": true
                     },
                     "model": {
                       "description": "Model identifier sent to the provider.",
@@ -9410,14 +9934,16 @@
                       "type": "string",
                       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                       "x-restart": "core",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-sensitive": true
                     },
                     "baseUrl": {
                       "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
                       "type": "string",
                       "maxLength": 2048,
                       "x-restart": "core",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-url-credentials": true
                     },
                     "model": {
                       "description": "Model identifier sent to the provider.",
@@ -9465,14 +9991,16 @@
                       "type": "string",
                       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                       "x-restart": "core",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-sensitive": true
                     },
                     "baseUrl": {
                       "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
                       "type": "string",
                       "maxLength": 2048,
                       "x-restart": "core",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-url-credentials": true
                     },
                     "model": {
                       "description": "Model identifier sent to the provider.",
@@ -9520,14 +10048,16 @@
                       "type": "string",
                       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                       "x-restart": "core",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-sensitive": true
                     },
                     "baseUrl": {
                       "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
                       "type": "string",
                       "maxLength": 2048,
                       "x-restart": "core",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-url-credentials": true
                     },
                     "model": {
                       "description": "Model identifier sent to the provider.",
@@ -9575,14 +10105,16 @@
                       "type": "string",
                       "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$",
                       "x-restart": "core",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-sensitive": true
                     },
                     "baseUrl": {
                       "description": "Override the provider endpoint (an absolute http(s) URL, checked when the adapter is built). https only; plain http is accepted for loopback test servers.",
                       "type": "string",
                       "maxLength": 2048,
                       "x-restart": "core",
-                      "x-tier": "advanced"
+                      "x-tier": "advanced",
+                      "x-url-credentials": true
                     },
                     "model": {
                       "description": "Model identifier sent to the provider.",
