@@ -541,6 +541,11 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 fixture,
                 &root_schema,
             ),
+            "engine.adopt" => check_pair::<types::EngineAdoptParams, types::EngineAdoptResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
             "engine.open" => check_pair::<types::EngineOpenParams, types::EngineOpenResult>(
                 name,
                 fixture,

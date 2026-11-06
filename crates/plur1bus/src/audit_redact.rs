@@ -715,6 +715,90 @@ mod tests {
     }
 
     #[test]
+    fn shared_redaction_removes_entire_quoted_free_bearer_values() {
+        for input in [
+            "sent Bearer \"first-fragment last-fragment\" to host",
+            "sent bearer 'first-fragment last-fragment' to host",
+        ] {
+            let out = redact_text(input).unwrap();
+            assert_eq!(out, "sent [REDACTED:pattern] to host", "{input}");
+            assert_eq!(redact_text(&out).unwrap(), out);
+        }
+    }
+
+    #[test]
+    fn shared_redaction_removes_folded_authorization_continuations() {
+        for header in ["Authorization", "Proxy-Authorization"] {
+            let input = format!(
+                "{header}: Bearer first-fragment\r\n\tcontinued-fragment more-fragment\r\nX-Request-Id: public-fixture"
+            );
+            let out = redact_text(&input).unwrap();
+            for secret in ["first-fragment", "continued-fragment", "more-fragment"] {
+                assert!(!out.contains(secret), "{secret} survived in {out:?}");
+            }
+            assert!(out.ends_with("\r\nX-Request-Id: public-fixture"), "{out:?}");
+            assert_eq!(redact_text(&out).unwrap(), out);
+        }
+    }
+
+    #[test]
+    fn shared_redaction_removes_access_key_and_credential_assignments() {
+        let cases = [
+            (
+                "access_key=fixture-access-value",
+                "access_key=[REDACTED:key]",
+            ),
+            (
+                "access-key-id=fixture-access-id",
+                "access-key-id=[REDACTED:key]",
+            ),
+            (
+                "credential=fixture-credential-value",
+                "credential=[REDACTED:key]",
+            ),
+        ];
+        let actual: Vec<_> = cases
+            .iter()
+            .map(|(input, _)| redact_text(input).unwrap())
+            .collect();
+        let expected: Vec<_> = cases.iter().map(|(_, want)| *want).collect();
+        assert_eq!(actual, expected);
+        for out in actual {
+            assert_eq!(redact_text(&out).unwrap(), out);
+        }
+    }
+
+    #[test]
+    fn shared_redaction_removes_bare_telegram_bot_credentials() {
+        for token in [
+            ["123456", ":", "ABCDEFGHIJKLMNOPQRST"].concat(),
+            ["123456789012", ":", "ABCDEFGHIJKLMNOPQRST_uv-"].concat(),
+        ] {
+            let input = format!("sent {token} to host");
+            let out = redact_text(&input).unwrap();
+            assert_eq!(out, "sent [REDACTED:pattern] to host", "{input}");
+            assert_eq!(redact_text(&out).unwrap(), out);
+        }
+    }
+
+    #[test]
+    fn shared_redaction_keeps_deliberate_vendor_token_length_thresholds() {
+        for token in [
+            format!("{}{}", "gho_", "Z".repeat(30)),
+            format!("{}{}", "gho_", "Z".repeat(35)),
+            format!("{}{}", "sk-", "z".repeat(19)),
+        ] {
+            assert_eq!(redact_text(&token).unwrap(), token);
+        }
+        for token in [
+            format!("{}{}", "gho_", "Z".repeat(36)),
+            format!("{}{}", "sk-", "z".repeat(20)),
+        ] {
+            assert_eq!(redact_text(&token).unwrap(), "[REDACTED:pattern]");
+        }
+    }
+
+    #[test]
     fn values_follow_the_key_rule_and_keep_what_is_not_secret() {
         let got = redact_detail(&json!({
             "a": { "token": "x", "n": 1, "list": ["Bearer abc.def", "ok"] },

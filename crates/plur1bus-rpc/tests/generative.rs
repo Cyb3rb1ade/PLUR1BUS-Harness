@@ -2036,6 +2036,8 @@ table! {
     Result "engine.shutdown" EngineShutdownResult,
     Params "engine.status" EngineStatusParams,
     Result "engine.status" EngineStatusResult,
+    Params "engine.adopt" EngineAdoptParams,
+    Result "engine.adopt" EngineAdoptResult,
     Params "engine.open" EngineOpenParams,
     Result "engine.open" EngineOpenResult,
     Params "engine.auth" EngineAuthParams,

@@ -18,8 +18,8 @@
       "section": "§4 rule 2",
       "description": "A JSON key, key=value pair or header whose name matches has its value replaced. A name matches when one of its delimited segments is a listed word, or (camelCase names) when it contains the word as a capitalised part. Plural token counts (input_tokens, outputTokens, max_tokens) are not credentials and do not match; `token` alone, access_token, accessToken and id_token_hint do.",
       "flags": "i",
-      "pattern": "(?:^|[^a-z0-9])(?:authorization|proxy-authorization|cookie|set-cookie|token|secret|password|passwd|api[_-]?key|client[_-]?secret|refresh|code_verifier|ticket|csrf|id_token_hint|private[_-]?key|session[_-]?key)(?:[^a-z0-9]|$)",
-      "camelPattern": "[a-z](?:Token|Secret|Password|Passwd|ApiKey|Cookie|Authorization|Ticket|Csrf|PrivateKey|SessionKey|Refresh|ClientSecret)(?:[A-Z]|$)"
+      "pattern": "(?:^|[^a-z0-9])(?:authorization|proxy-authorization|cookie|set-cookie|token|secret|password|passwd|api[_-]?key|access[_-]?key(?:[_-]?id)?|client[_-]?secret|refresh|code_verifier|ticket|csrf|id_token_hint|private[_-]?key|session[_-]?key)(?:[^a-z0-9]|$)",
+      "camelPattern": "[a-z](?:Token|Secret|Password|Passwd|ApiKey|AccessKey(?:Id)?|Cookie|Authorization|Ticket|Csrf|PrivateKey|SessionKey|Refresh|ClientSecret)(?:[A-Z]|$)"
     },
     {
       "id": "pattern",
@@ -27,12 +27,17 @@
       "section": "§4 rule 3",
       "description": "Credential shapes redacted wherever they occur.",
       "patterns": [
-        { "id": "bearer", "pattern": "Bearer\\s+\\S+", "flags": "i", "description": "Bearer token" },
+        { "id": "bearer", "pattern": "Bearer\\s+(?:\"[^\"\\r\\n]*\"|'[^'\\r\\n]*'|\\S+)", "flags": "i", "description": "Bearer token, including complete single- or double-quoted values containing spaces" },
+        { "id": "authorization-folded", "pattern": "(Authorization[\"']?[ \\t]*[:=][ \\t]*)([^\\r\\n]*(?:\\r?\\n[ \\t]+[^\\r\\n]*)+)", "flags": "i", "leftBoundary": true, "valueGroup": 2, "replacement": "[REDACTED:key]", "description": "Authorization value with one or more folded continuation lines; the header name and the existing key-rule classification stay" },
+        { "id": "credential-assignment-double-quoted", "pattern": "(credential[\"']?\\s*[:=]\\s*\")((?:[^\"\\\\\\r\\n]|\\\\[^\\r\\n])*)\"", "flags": "i", "leftBoundary": true, "valueGroup": 2, "replacement": "[REDACTED:key]", "description": "Double-quoted credential text assignments, including escaped quotes; quotes and the name stay." },
+        { "id": "credential-assignment-single-quoted", "pattern": "(credential[\"']?\\s*[:=]\\s*')((?:[^'\\\\\\r\\n]|\\\\[^\\r\\n])*)'", "flags": "i", "leftBoundary": true, "valueGroup": 2, "replacement": "[REDACTED:key]", "description": "Single-quoted credential text assignments, including escaped quotes; quotes and the name stay." },
+        { "id": "credential-assignment", "pattern": "(credential[\"']?\\s*[:=]\\s*)([^\\s,;\"']+)", "flags": "i", "leftBoundary": true, "valueGroup": 2, "replacement": "[REDACTED:key]", "description": "Bare credential text assignments. Structured credential fields keep registered-secret classification instead of becoming a generic secret key." },
         { "id": "basic", "pattern": "Basic\\s+[A-Za-z0-9+/]{8,}={0,2}", "description": "Basic credentials (case-sensitive and at least 8 characters, so prose such as \"Basic info\" survives)" },
-        { "id": "sk", "pattern": "sk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}", "leftBoundary": true, "description": "sk-…, sk-ant-…, sk-proj-… API keys" },
+        { "id": "sk", "pattern": "sk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}", "leftBoundary": true, "description": "sk-…, sk-ant-…, sk-proj-… API keys. RE-08 retains this catalogue's 20-character, case-sensitive classification; the pinned Node helper's broader 8-character classifier is intentionally not copied." },
         { "id": "ek", "pattern": "ek_[A-Za-z0-9_-]{16,}", "leftBoundary": true, "description": "ek_… values (D110)" },
-        { "id": "ghp", "pattern": "ghp_[A-Za-z0-9]{36,}", "leftBoundary": true, "description": "GitHub personal access token" },
-        { "id": "github-token", "pattern": "gh[ousr]_[A-Za-z0-9]{36,}", "leftBoundary": true, "description": "GitHub OAuth (gho_), app (ghs_, ghu_) and refresh (ghr_) tokens" },
+        { "id": "ghp", "pattern": "ghp_[A-Za-z0-9]{36,}", "leftBoundary": true, "description": "GitHub personal access token. RE-08 retains the catalogue's 36-character threshold rather than the pinned Node helper's 20-character classifier." },
+        { "id": "github-token", "pattern": "gh[ousr]_[A-Za-z0-9]{36,}", "leftBoundary": true, "description": "GitHub OAuth (gho_), app (ghs_, ghu_) and refresh (ghr_) tokens. RE-08 retains the catalogue's 36-character threshold rather than the pinned Node helper's 20-character classifier." },
+        { "id": "telegram-bot", "pattern": "[0-9]{6,12}:[A-Za-z0-9_+=./-]{20,}", "leftBoundary": true, "description": "Bare Telegram bot credential: a 6–12 digit bot id and at least 20 credential characters, even outside a URL" },
         { "id": "github-pat", "pattern": "github_pat_[A-Za-z0-9_]{22,}", "leftBoundary": true, "description": "GitHub fine-grained token" },
         { "id": "slack", "pattern": "xox[abpr]-[A-Za-z0-9-]{10,}", "leftBoundary": true, "description": "Slack token" },
         { "id": "aws-access-key", "pattern": "AKIA[0-9A-Z]{16}", "leftBoundary": true, "description": "AWS access key id" },

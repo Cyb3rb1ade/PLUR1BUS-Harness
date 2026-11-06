@@ -298,6 +298,7 @@ fn method_fixture(name: &str, f: &Value) {
         "engine.recall" => pair::<EngineRecallParams, EngineRecallResult>(name, f),
         "engine.shutdown" => pair::<EngineShutdownParams, EngineShutdownResult>(name, f),
         "engine.status" => pair::<EngineStatusParams, EngineStatusResult>(name, f),
+        "engine.adopt" => pair::<EngineAdoptParams, EngineAdoptResult>(name, f),
         "engine.open" => pair::<EngineOpenParams, EngineOpenResult>(name, f),
         "engine.auth" => pair::<EngineAuthParams, EngineAuthResult>(name, f),
         "model.memory.status" => pair::<ModelMemoryStatusParams, ModelMemoryStatusResult>(name, f),
@@ -1018,7 +1019,7 @@ fn rpc_version_const_matches_the_schema() {
         plur1bus_rpc::RPC_VERSION,
         schema["x-rpc-version"].as_str().unwrap()
     );
-    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.15.0");
+    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.17.0");
     assert!(schema["$id"]
         .as_str()
         .unwrap()
