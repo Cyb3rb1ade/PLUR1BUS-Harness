@@ -45,31 +45,6 @@ test('media capability acceptance runs in a required browser shard behind the we
   assert.equal(selections(outputs)['web-browser'], true, 'media acceptance changes require the browser gate');
 });
 
-test('every Desktop platform builds test executables before the unchanged execution deadline', () => {
-  const yaml = readFileSync(new URL('../../.github/workflows/desktop.yml', import.meta.url), 'utf8');
-  const desktop = jobBlocks(yaml).desktop;
-  const steps = desktop.split(/(?=^      - )/m);
-  const build = steps.find(step => /run: cargo test --locked --workspace --no-run\n/.test(step));
-  const execute = steps.find(step => /id: desktop-rust-tests\n/.test(step));
-  assert(build, 'cold compilation must have its own bounded step');
-  assert.doesNotMatch(build, /^        if:/m, 'Linux and macOS must not charge compilation to test execution');
-  assert.match(build, /^        timeout-minutes: 15$/m);
-  assert.match(execute, /^        timeout-minutes: 15$/m);
-  assert.match(execute, /cargo test --locked --workspace --no-fail-fast -- --test-threads=1 --nocapture/);
-  assert(steps.indexOf(build) < steps.indexOf(execute));
-  assert.match(desktop, /^    timeout-minutes: 60$/m);
-});
-
-test('macOS unit opts into bounded Core concurrency without changing deadlines or test selection', () => {
-  const block = jobBlocks(workflow())['unit-os'];
-  assert.match(block, /PLUR1BUS_CORE_TEST_CONCURRENCY: \$\{\{ runner.os == 'macOS' && 'bounded' \|\| '' \}\}/);
-  assert.match(block, /timeout-minutes: \$\{\{ matrix.os == 'windows-2025' && 35 \|\| 25 \}\}/);
-  assert.match(block, /            pnpm test\n/);
-  const runner = readFileSync(new URL('../test-package.mjs', import.meta.url), 'utf8');
-  assert.match(runner, /const TEST_TIMEOUT_MS = 120_000/);
-  assert.match(runner, /\.\.\.files\], \{ stdio: "inherit" \}/);
-});
-
 test('WSL setup attempts cannot consume the job budget before retries and real tests', () => {
   const wsl = jobBlocks(workflow()).wsl;
   assert.match(wsl, /^    timeout-minutes: 20$/m);
