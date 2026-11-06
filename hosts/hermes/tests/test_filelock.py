@@ -11,6 +11,47 @@ from unittest import mock
 from plur1bus import _filelock as lock_mod
 
 
+class JournalLockDeadlineTest(unittest.TestCase):
+    def test_a_lock_released_after_the_last_wait_is_not_acquired(self) -> None:
+        with tempfile.TemporaryDirectory() as root:
+            lock = lock_mod.FileLock(os.path.join(root, ".lock"))
+            now = 0.0
+
+            def sleep(delay: float) -> None:
+                nonlocal now
+                now += delay
+
+            with mock.patch.object(lock_mod.time, "monotonic", side_effect=lambda: now), \
+                 mock.patch.object(lock_mod.time, "sleep", side_effect=sleep), \
+                 mock.patch.object(lock_mod, "_try_lock", side_effect=[False, True]) as attempt, \
+                 mock.patch.object(lock_mod, "_unlock"):
+                with self.assertRaises(lock_mod.LockTimeout), lock.hold(0.001):
+                    self.fail("entered the journal after its lock budget expired")
+                attempt.assert_called_once()
+                self.assertAlmostEqual(now, 0.001)
+
+    def test_setup_that_spends_the_budget_leaves_no_os_lock_attempt(self) -> None:
+        with tempfile.TemporaryDirectory() as root:
+            lock = lock_mod.FileLock(os.path.join(root, ".lock"))
+            with mock.patch.object(lock_mod.time, "monotonic", side_effect=[0.0, 0.002]), \
+                 mock.patch.object(lock_mod, "_try_lock") as attempt:
+                with self.assertRaises(lock_mod.LockTimeout), lock.hold(0.001):
+                    self.fail("entered the journal after setup consumed the deadline")
+                attempt.assert_not_called()
+
+    def test_zero_budget_still_tries_once_without_sleeping(self) -> None:
+        with tempfile.TemporaryDirectory() as root:
+            lock = lock_mod.FileLock(os.path.join(root, ".lock"))
+            with mock.patch.object(lock_mod.time, "sleep") as sleep:
+                with lock.hold(0):
+                    pass
+                with mock.patch.object(lock_mod, "_try_lock", return_value=False) as attempt:
+                    with self.assertRaises(lock_mod.LockTimeout), lock.hold(0):
+                        self.fail("entered a busy journal")
+                    attempt.assert_called_once()
+                sleep.assert_not_called()
+
+
 class WindowsSharingTest(unittest.TestCase):
     def setUp(self) -> None:
         self.root = tempfile.mkdtemp(prefix="p1h-lock-")

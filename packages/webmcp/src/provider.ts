@@ -54,6 +54,7 @@ const FORBIDDEN_EXACT = new Set([
   "chat.rewind", "session.rewind",
   "a2a.peer.add", "a2a.peer.list", "a2a.peer.remove", "a2a.peer.trust",
   "memory.curation.list", "memory.curation.resolve",
+  "memory.importText.preview", "memory.importText.apply", "memory.importText.rollback", "memory.exportText",
   "session.model.get", "session.model.set", "chat.model.set", "task.complete",
   "jobs.create", "jobs.update", "jobs.delete", "doctor.report", "telemetry.cache.summary", "agent.activity.list",
   "core.auth", "core.shutdown", "core.adopt", "memory.checkpoint", "agent.open", "agent.close",

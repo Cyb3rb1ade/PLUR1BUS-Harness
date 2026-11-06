@@ -1,0 +1,15 @@
+{
+  "params": {
+    "runId": "prompt-1790000000000-abcd1234"
+  },
+  "result": {
+    "rolledBack": 1,
+    "failed": 0,
+    "remaining": 0,
+    "keptModified": 0,
+    "unlinked": 0,
+    "preservedUserScope": 0,
+    "discardedProposals": 1,
+    "unhandledProposals": 0
+  }
+}

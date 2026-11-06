@@ -1002,6 +1002,76 @@ memories deterministically and performs no LLM completion or new semantic summar
 a second knowledge writer or bypassing the D109 tool dispatcher with an agent tool.
 
 
+## 14. Prompt import from other assistants
+
+### 14.1 Format and export prompt
+
+Many conversational chat assistants (ChatGPT, Claude, Gemini, Grok, Copilot, Le Chat) store user memory without providing a standardized database export. PLUR1BUS provides a canonical export prompt in `packages/core/src/import/prompt/export-prompt.md`.
+
+The export format is defined as:
+
+```markdown
+PLUR1BUS-MEMORY-EXPORT v1
+## Instructions
+[YYYY-MM-DD] [memory] - Rule or instruction.
+## Identity
+[YYYY-MM-DD] [memory] - Personal facts.
+## Career
+[YYYY-MM-DD] [chat] - Roles and skills.
+## Projects
+[YYYY-MM-DD] [memory] - Meaningful project details.
+## Preferences
+[YYYY-MM-DD] [memory] - Broad preferences.
+## Other
+[unknown] [memory] - Uncategorized stored memory.
+STATUS: COMPLETE
+```
+
+### 14.2 Parser rules
+
+`parseMemoryExport` in `packages/core/src/import/prompt/parse.ts` implements a tolerant, linear parser:
+* Accepts `PLUR1BUS-MEMORY-EXPORT v1` header or plain outputs (e.g. Claude's native export prompt).
+* Strips code fences and leading numbering/bullets.
+* Matches English and German category headers (e.g. `Anweisungen`, `Identität`, `Beruf`, `Vorlieben`, `Projekte`).
+* Parses dates (`YYYY-MM-DD`, `YYYY-MM`, `YYYY`, `[unknown]`).
+* Tolerates continuation lines indented by spaces or tabs.
+* Runs secret redaction on every entry using `createRedactor()`. If credentials or keys are detected, the text is redacted with canonical markers (e.g. `[REDACTED:pattern]`, `[REDACTED:key]`) and flagged with `secret-redacted`.
+* Enforces boundaries: max 512 KiB total input (truncates safely with warning) and max 4,000 characters per entry.
+
+### 14.3 Target scopes and recommendations
+
+* **Instructions and directive heuristics**: Untrusted imported text can contain prompt injection attacks styled as instructions or behavioural rules. Entries categorized as Instructions are never imported directly and are safely skipped. Directive patterns matching assistant instruction heuristics default to skip in recommendations, but can be curated by the operator.
+* **User scope (`scope: user`)**: Requires an authenticated person with `trust: "proved"`. The CLI is opt-in: only `Preferences`, only with `--all-preferences-to-user` (§14.6).
+* **Agent-private scope (`scope: agent-private`)**: Stores cards for specific chosen agents. A warning is surfaced for Identity and Career entries because an agent uses agent-private memories across all its conversations.
+* **Target scopes in v1**: Supported targets are user (`scope: user`), agent (`scope: agent-private`), and `skip`. Workspace target is omitted in v1 as workspaces are bound 1:1 to agents in PLUR1BUS Core without independent workspace entities.
+
+### 14.4 Execution, duplicate linking, and rollback
+
+* **Execution (`executePromptImport`)**: Batches cards into groups of at most 500. Source reference format is `prompt-import;run=<runId>;category=<category>`. Every card is assigned a strictly increasing timestamp and undated cards are marked with `dateUnknown=1`. Server-side idempotency keys computed from `(scope, owner, category, text)` prevent duplicate cards upon re-import.
+* **Duplicate linking**: Existing items matching server idempotency keys are linked using `memory.link` rather than re-inserted.
+* **Audit trail**: Stores a run-scoped `report.json` and `ledger.jsonl` under `<home>/imports/<runId>/`.
+* **Rollback (`rollbackPromptImport`)**: Calls `memory.unimport` with `importRunId`, rolling back inserted cards and links. Unmodified cards are removed, while cards modified after import are preserved. Rollback requires run containment, validates the `^prompt-` run ID format, ensures `source === "prompt"`, requires caller identity matching `importedBy` or owner rights (where the owner override unimports only agent-scoped cards and links, in key chunks of at most 500 per engine call, and preserves other users' user-scope cards, counted separately as `preservedUserScope`, never in `keptModified`; lifted links are counted in `unlinked`, so a rollback that only unlinks is not reported as "0 cards removed"; a ledger line without a scope counts as user scope, a report without `importedBy` counts as foreign, and a missing or unreadable ledger refuses the override with `E_STORAGE` and changes nothing). The run becomes `rolled-back`, or `partial` if unimport reports `failed`/`remaining` or an owner override left user-scope cards in place; a `partial` run can be rolled back again, by the importer for the rest. Old runs created before the ledger carried `details.scope` are handled fail-safe (as user scope) but are a follow-up for a data migration.
+
+### 14.5 Text export in identical format
+
+`memory.exportText` generates a portable text block adhering to the exact same format (`PLUR1BUS-MEMORY-EXPORT v1`):
+* Exports the calling person's user-scope cards. The engine keeps a user-scope card in the table of the agent it was written through, so the export reads that scope where it can be: the first agent, the requested agent and the agents of the person's **own** prompt-import runs (from the run reports). Identical text found through several agents is exported once. An agent that cannot be read (its listing cannot be paged, for example more than 100 cards with one timestamp or more than 10,000 cards, or it has no workspace directory) does not fail the export: the rest is exported in full and the last line becomes `STATUS: PARTIAL (not read: <agent>: <reason>)` (re-importing it counts as a partial export). `STATUS: COMPLETE` only means that everything requested was read. Cause and follow-up: the engine pages `memory.list` by timestamp only; an id cursor as second key is RE-07 T1.
+* Optionally includes the agent-private cards of the requested agent (needs `agent.read`).
+* Import: a `user` target is written through its `agentIds` (default: the first agent); the web wizard and the CLI (`--agent`) send the chosen agent.
+* Never includes deleted, forgotten, or pending proposal cards.
+* Redacts secrets prior to emitting text.
+* Output is idempotent: importing a PLUR1BUS export back into PLUR1BUS produces zero new cards (all match as duplicates).
+
+### 14.6 CLI: `memory import-text` and `memory export-text`
+
+* `plur1bus memory import-text --show-prompt` prints the export prompt (with `--json`: one `memory.importText.prompt/1` document). It combines with no other flag.
+* `plur1bus memory import-text [--file <path>|-] [--agent <id>] [--all-preferences-to-user] [--dry-run|--yes]` calls `memory.importText.preview`, takes the core's `recommendations` as the targets and applies them with `memory.importText.apply`. `--agent` only steers which agent receives `Projects` memories; there is no workspace target in v1 (workspaces belong 1:1 to agents), so Projects go to an agent or are skipped. User scope is opt-in: `Preferences` with `--all-preferences-to-user`, never `Identity` or `Career`. Instructions are skipped by the core.
+* Applying asks on a terminal (without `--json`); otherwise it fails with `E_INVALID_PARAMS` "re-run with --yes". A declined question is `E_CANCELLED` (exit 2). Input from stdin (`--file -`) is consumed, so it needs `--yes` or `--dry-run`. Input is capped at 512 KiB; the error does not echo it. `--dry-run` excerpts are cut by character and stripped of control and bidi characters. On a timeout of apply or rollback the CLI points to `<home>/imports/prompt-*/report.json`, where the run is recorded.
+* A suspicion of an instruction (`suspected-instruction`) stays skipped in the CLI; it can only be overridden in the web wizard. `--agent` also names the agent through which `Preferences` are stored at user scope.
+* **Deliberate difference from the web UI (owner decision for v1):** the web wizard lets a signed-in person send Identity, Career and Preferences to user scope per entry after review. The CLI applies without a per-entry review, so it is stricter: user scope only for `Preferences` and only with `--all-preferences-to-user`; Identity and Career are never imported at user scope from the CLI, and a server `skip` (including `suspected-instruction`) is final. The dry-run list shows the reason of every skip.
+* `--rollback <runId>` calls `memory.importText.rollback` and is confirmed the same way. The result line shows `removed`, `links lifted`, `remaining`, `failed` and `kept (modified since import)`, plus a separate line for `preservedUserScope` (user-scope cards of another person that an owner's rollback of a foreign run left in place; exit stays 0); with `remaining` or `failed` above zero the command exits 1 (the run stays retryable: run it again). Apply and rollback use a 600 s call timeout; after a timeout the core may still have finished. An owner's rollback that keeps another person's cards ends with exit 0 and leaves the run `partial` on purpose (nothing failed; the importer can finish it). `--dry-run --json` prints `memory.importText.plan/1` (`status`, `warnings`, `entries`, `targets`). With a partial export (`STATUS: MORE`) the question and the result say so. `tests/memory_text_real_core.rs` runs preview, apply, export and rollback against the real core. `--dry-run` conflicts with `--yes`, and `--show-prompt`/`--rollback` conflict with the import flags (clap usage error, exit 2).
+* `plur1bus memory export-text [--agent <id>] [--output <path>|-] [--yes]` writes to stdout or, for a file, atomically through a private temporary file in the same directory (mode 0600). Publication preserves a destination created during export unless overwriting was explicitly authorized with `--yes` or a terminal confirmation; authorized replacement uses rename. Without overwrite authorization, filesystems without hard-link support fail safely. Symbolic links, directories and other non-regular files (FIFOs, devices) are refused at the initial destination check; on a file system without hard links the error says to use `--yes`. With `--json` and `--output <file>` stdout carries only `{output, entryCount}` (schema `memory.exportText/1`), never the memory text; with `--json` to stdout the raw RPC result is printed. Exported text printed to a terminal has control characters (escape sequences, C1, bidi controls) replaced by U+FFFD; redirected output is byte-exact.
+
 ## SSH setup source references
 
 [1] OpenSSH's [`sshd(8)` authorized-key options](https://github.com/openssh/openssh-portable/blob/master/sshd.8)

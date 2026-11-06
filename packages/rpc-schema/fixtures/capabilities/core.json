@@ -1215,6 +1215,22 @@
     "project.repo.unbind": {
       "stability": "experimental",
       "since": "1.14.0"
+    },
+    "memory.importText.preview": {
+      "stability": "experimental",
+      "since": "1.22.0"
+    },
+    "memory.importText.apply": {
+      "stability": "experimental",
+      "since": "1.22.0"
+    },
+    "memory.importText.rollback": {
+      "stability": "experimental",
+      "since": "1.22.0"
+    },
+    "memory.exportText": {
+      "stability": "experimental",
+      "since": "1.22.0"
     }
   },
   "notifications": {

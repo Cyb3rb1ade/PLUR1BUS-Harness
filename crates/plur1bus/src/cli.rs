@@ -779,8 +779,62 @@ pub enum MemoryCmd {
         #[arg(long)]
         agent: Option<String>,
     },
+    /// [experimental] Import memories from any chat assistant export by prompt
+    ImportText(MemoryImportTextArgs),
+    /// [experimental] Export memories formatted for portable text import
+    ExportText(MemoryExportTextArgs),
     /// [experimental] Re-embed the store into a new embedding model: plan, run, status, abort (M2)
     Reembed(ReembedArgs),
+}
+
+// Separate argument builders keep the unoptimized command-tree construction
+// within the Windows main-thread stack budget as the memory CLI grows.
+#[derive(Args, Debug)]
+pub struct MemoryImportTextArgs {
+    /// path to text file or '-' for stdin (at most 512 KiB); stdin needs --yes or --dry-run
+    #[arg(long, default_value = "-")]
+    pub file: String,
+    /// agent that receives project memories and stores user-scope ones (default: the core's first agent)
+    #[arg(long)]
+    pub agent: Option<String>,
+    /// store preference memories at user scope (default: skipped; the core refuses it for a non-person caller)
+    #[arg(long)]
+    pub all_preferences_to_user: bool,
+    /// preview only without applying changes
+    #[arg(long, conflicts_with = "yes")]
+    pub dry_run: bool,
+    /// apply or roll back without asking (required without a terminal, with --json and for stdin input)
+    #[arg(long)]
+    pub yes: bool,
+    /// print the export prompt text for the other assistant and exit
+    #[arg(
+        long,
+        conflicts_with_all = [
+            "file", "agent", "all_preferences_to_user", "dry_run", "yes", "rollback"
+        ]
+    )]
+    pub show_prompt: bool,
+    /// roll back a previous prompt import run (needs --yes or a terminal confirmation)
+    #[arg(
+        long,
+        conflicts_with_all = [
+            "file", "agent", "all_preferences_to_user", "dry_run", "show_prompt"
+        ]
+    )]
+    pub rollback: Option<String>,
+}
+
+#[derive(Args, Debug)]
+pub struct MemoryExportTextArgs {
+    /// include agent-private memories of this agent
+    #[arg(long)]
+    pub agent: Option<String>,
+    /// output path or '-' for stdout (default: '-'); a file is written atomically with mode 0600
+    #[arg(long, default_value = "-")]
+    pub output: String,
+    /// overwrite an existing --output file without asking (required without a terminal)
+    #[arg(long)]
+    pub yes: bool,
 }
 
 /// `memory reembed`: exactly one of `--plan`, `--run`, `--status`, `--abort`. The migration covers the whole installation
