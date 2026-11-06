@@ -749,6 +749,25 @@ fn a_hung_core_is_terminated_after_the_hang_threshold() {
 }
 
 #[test]
+fn an_authenticated_starting_core_keeps_the_startup_poll_cadence() {
+    let h = Home::new();
+    h.write_config(json!({ "schemaVersion": 1, "supervisor": { "healthIntervalMs": 60_000 } }));
+    let _s = start(&h, "starting-on-signal", "1.0");
+    let mut c = client(&h.home);
+    // Observe repeated successful starting replies before allowing this same process to become ready.
+    wait_until("three starting status replies", WAIT, || {
+        h.named_events("starting-status").len() >= 3
+    });
+    assert_eq!(state(&core_child(&mut c)), "starting");
+    std::fs::write(h.home.join("state/fake-core-ready"), "").unwrap();
+    let child = wait_child(&mut c, "ready after startup was released", WAIT, |c| {
+        state(c) == "ready"
+    });
+    assert_eq!(child["restarts"], 0);
+    assert_eq!(h.named_events("started").len(), 1);
+}
+
+#[test]
 fn a_late_initial_status_reconnects_while_the_core_is_starting() {
     let h = Home::new();
     h.write_config(json!({ "schemaVersion": 1, "supervisor": { "healthIntervalMs": 60_000 } }));

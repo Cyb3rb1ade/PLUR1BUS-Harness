@@ -4,6 +4,7 @@
 // 3), writes run/core.token and run/core.pid and then listens on the same address like the real core, and answers
 // core.auth, core.status, core.shutdown and core.adopt. FAKE_CORE_MODE picks its behaviour:
 //   ok                    serve until core.shutdown or lifeline loss
+//   starting-on-signal    answer status as starting until <home>/state/fake-core-ready exists
 //   crash-after:<ms>      serve, then exit 1 <ms> after it reports ready (on Windows: once run/ is secured)
 //   exit:<code>           exit with <code> at once, before the lock
 //   listen-on-signal      hold the lock and write the run files, but listen only once <home>/state/fake-core-listen
@@ -179,6 +180,7 @@ function secureRunFiles() {
 }
 /** The state core.status reports: `starting` while the run files are being secured. */
 function reportedState() {
+  if (kind === "starting-on-signal" && !existsSync(path.join(home, "state", "fake-core-ready"))) return "starting";
   return state === "ready" && !secured ? "starting" : state;
 }
 let lifeline = null; // "stdin" or the adopting socket
@@ -278,6 +280,7 @@ const server = net.createServer((sock) => {
     }
     if (method === "core.status") {
       statusCalls += 1;
+      if (kind === "starting-on-signal" && reportedState() === "starting") event("starting-status");
       const reply = () => send({ id, result: coreStatus() });
       if (kind === "slow-status" && statusCalls === Number(a)) setTimeout(reply, Number(b));
       else reply();
