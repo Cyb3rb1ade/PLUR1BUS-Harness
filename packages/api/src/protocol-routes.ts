@@ -53,6 +53,8 @@ export interface ProtocolSseWriterOptions {
   readonly headers?: Record<string, string> | undefined;
   readonly heartbeatMs?: number | undefined;
   readonly onClose?: (() => void) | undefined;
+  /** Observe disconnect immediately, but wait for the first write before opening SSE/heartbeats. */
+  readonly deferOpen?: boolean | undefined;
 }
 
 export interface ProtocolSseEvent {
@@ -69,25 +71,21 @@ export class ProtocolSseWriter {
   readonly #res: ServerResponse;
   readonly #abort = new AbortController();
   readonly #onClose: (() => void) | undefined;
+  readonly #opts: ProtocolSseWriterOptions;
+  readonly #detachSocket: () => void;
   #heartbeat: NodeJS.Timeout | undefined;
   #closed = false;
+  #opened = false;
+  #pendingWrites = 0;
 
   constructor(opts: ProtocolSseWriterOptions) {
     this.#res = opts.res;
     this.#onClose = opts.onClose;
-    if (!this.#res.headersSent) {
-      this.#res.writeHead(200, {
-        ...(opts.headers ?? {}),
-        "Content-Type": "text/event-stream; charset=utf-8",
-        "Cache-Control": "no-store",
-        Connection: "keep-alive",
-        "X-Accel-Buffering": "no",
-      });
-      this.#res.flushHeaders?.();
-    }
+    this.#opts = opts;
     const handleClose = (): void => {
       if (this.#closed) return;
       this.#closed = true;
+      this.#detachSocket();
       if (this.#heartbeat) {
         clearInterval(this.#heartbeat);
         this.#heartbeat = undefined;
@@ -97,12 +95,29 @@ export class ProtocolSseWriter {
     };
     this.#res.once("close", handleClose);
     this.#res.once("error", handleClose);
-    this.#res.socket?.once("close", handleClose);
+    const socket = this.#res.socket;
+    this.#detachSocket = () => { socket?.off("close", handleClose); };
+    socket?.once("close", handleClose);
+    if (!opts.deferOpen) this.#open();
+  }
 
-    const intervalMs = opts.heartbeatMs ?? DEFAULT_PROTOCOL_HEARTBEAT_MS;
+  #open(): void {
+    if (this.#opened || this.closed) return;
+    this.#opened = true;
+    if (!this.#res.headersSent) {
+      this.#res.writeHead(200, {
+        ...(this.#opts.headers ?? {}),
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-store",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      });
+      this.#res.flushHeaders?.();
+    }
+    const intervalMs = this.#opts.heartbeatMs ?? DEFAULT_PROTOCOL_HEARTBEAT_MS;
     if (intervalMs > 0) {
       this.#heartbeat = setInterval(() => {
-        void this.writeComment("heartbeat");
+        if (this.#pendingWrites === 0) void this.writeComment("heartbeat");
       }, intervalMs);
       this.#heartbeat.unref?.();
     }
@@ -114,6 +129,25 @@ export class ProtocolSseWriter {
 
   get signal(): AbortSignal {
     return this.#abort.signal;
+  }
+
+  /** Stop waiting for a producer on disconnect, while still observing its eventual rejection. */
+  nextEvent<T, R>(source: AsyncIterator<T, R>): Promise<IteratorResult<T, R> | undefined> {
+    if (this.closed) return Promise.resolve(undefined);
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const cleanup = (): void => this.signal.removeEventListener("abort", onAbort);
+      const finish = (item: IteratorResult<T, R> | undefined): void => {
+        if (settled) return;
+        settled = true; cleanup(); resolve(item);
+      };
+      const onAbort = (): void => finish(undefined);
+      this.signal.addEventListener("abort", onAbort, { once: true });
+      Promise.resolve().then(() => this.closed ? undefined : source.next()).then(finish, error => {
+        if (settled) return;
+        settled = true; cleanup(); reject(error);
+      });
+    });
   }
 
   async writeComment(comment: string): Promise<boolean> {
@@ -136,6 +170,7 @@ export class ProtocolSseWriter {
 
   async #writeRaw(frame: string): Promise<boolean> {
     if (this.closed) return false;
+    this.#open();
     let ok: boolean;
     try {
       ok = this.#res.write(frame);
@@ -154,6 +189,7 @@ export class ProtocolSseWriter {
         resolve(false);
       };
       const cleanup = (): void => {
+        this.#pendingWrites--;
         this.#res.off("drain", onDrain);
         this.#abort.signal.removeEventListener("abort", onAbort);
       };
@@ -161,6 +197,7 @@ export class ProtocolSseWriter {
         resolve(false);
         return;
       }
+      this.#pendingWrites++;
       this.#res.once("drain", onDrain);
       this.#abort.signal.addEventListener("abort", onAbort, { once: true });
     });
@@ -169,6 +206,7 @@ export class ProtocolSseWriter {
   close(): void {
     if (!this.#closed) {
       this.#closed = true;
+      this.#detachSocket();
       if (this.#heartbeat) {
         clearInterval(this.#heartbeat);
         this.#heartbeat = undefined;
