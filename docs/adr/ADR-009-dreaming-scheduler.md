@@ -4,6 +4,8 @@
 
 **Amended 2026-10-19 (owner):** no money dimension in the harness — the `dream_run` cost column stays empty for good; dream cost is measured and limited in tokens and session counts only.
 
+**Amended 2026-11-06/07 (owner, D126):** a harness-owned dream job `learn` analyses session transcripts including tool calls. By default it runs per agent over that agent's own sessions into its own memory; per project in addition, and installation-wide over tool-error metadata only. Its transcript selection mirrors the target store's rights. Findings are applied by risk tier using an evidence score, never the model's self-reported confidence: tier A applies low-risk changes to the agent's own memory automatically and revertibly; tier B applies project and shared changes after a 48-hour objection window; tier C stays manual. Untrusted text is never sole evidence. Automatic tiers start only after a shadow phase with measured precision, and a revert-rate breaker switches them back. The job has its own breaker and idempotency key, counts tokens only, and never routes transcript content to Jev. Dream writes record `update_source: "dream:<phase>:<runId>"`. See the [D126 plan](../superpowers/plans/2026-11-06-d126-memory-versions-preconditions-learning-pass.md).
+
 ## Context
 
 ### The owner's experience
