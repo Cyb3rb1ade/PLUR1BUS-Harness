@@ -69,7 +69,7 @@ export interface HarnessConfig {
   sidecars?: Record<string, { mode: "bundled" | "remote" | "off"; url?: string; caBundle?: string; fingerprint?: string; timeoutMs: number }>;
   $schema?: string;
   schemaVersion: 1;
-  session: { compaction: { softRatio: number; hardRatio: number; summaryMaxTokens: number; maxMessageTokens: number; summarizer: "llm" | "digest"; prune: { enabled: boolean; keepLastTurns: number; decider: "laya" | "heuristic" | "off"; maxMs: number; batchSize: number } } };
+  session: { rewind: { autoProjects: string[]; fileProjects: string[]; checkpointRetentionTurns: number }; compaction: { softRatio: number; hardRatio: number; summaryMaxTokens: number; maxMessageTokens: number; summarizer: "llm" | "digest"; prune: { enabled: boolean; keepLastTurns: number; decider: "laya" | "heuristic" | "off"; maxMs: number; batchSize: number } } };
   tools: { sandbox: { required: boolean; maxTasks: number }; hostctl: { enabled: boolean; shell: { allowed: boolean; default: "bash" | "zsh" | "pwsh" }; exec: { timeoutMs: number }; output: { maxBytes: number }; env: { allow: string[] }; denyPatterns: string[]; search: { maxResults: number } } };
   core: { webHandoffBaseUrl: string; logLevel: "debug" | "info" | "warn" | "error"; recall: { softBudgetMs: number; hardBudgetMs: number; capChars: number }; capture: { waitMs: number }; shutdownBudgetMs: number };
   supervisor: { graceMs: number; healthIntervalMs: number; maxCores: number };

@@ -16,6 +16,7 @@ import { createTurnTelemetry, type TurnTelemetry } from "./turn-telemetry.ts";
 import type { DispatchContext, ToolDispatcher } from "../tools/dispatcher.ts";
 import type { SessionStore } from "./store.ts";
 import { SessionError, type EventRecord, type SessionRecord } from "./types.ts";
+import { parseRewindCommand, type RewindService, type RewindFilesPort } from "./rewind.ts";
 
 export interface TurnLoopLogger { info(msg: string, f?: Record<string, unknown>): void; warn(msg: string, f?: Record<string, unknown>): void }
 
@@ -23,6 +24,8 @@ export interface TurnRunnerDeps {
   catalog?: ReadCatalog;
   workspace?: (agentId: string) => string;
   store: SessionStore; compactor: Compactor; memory: TurnMemory;
+  rewind?: RewindService;
+  checkpoints?: RewindFilesPort;
   /** null: no provider is configured (`submit` then fails with `no-provider` before anything is written). */
   provider: () => ChatProvider | null;
   /** Every persisted event, as it is persisted, with its session (the core relays it as `session.event`). */
@@ -58,10 +61,15 @@ export class TurnRunner {
   /** The caller has authorised `session` (owner check) already. */
   submit(a: { session: SessionRecord; caller: CallerIdentity; text: string; authenticatedPerson?: string; approver?: TurnApprover; turnProfile?: TurnProfile; recurring?: import("./provider.ts").RecurringOrigin }): TurnHandle {
     const provider = this.#d.provider();
-    const localCommand = a.text.trim() === '/compact --explain' || /^\/compact --restore event:\d+$/.test(a.text.trim());
+    const rewind = parseRewindCommand(a.text);
+    if (rewind && !(a.approver?.person ?? a.authenticatedPerson)) {
+      throw new SessionError("immutable", "rewind requires a person", "rewind-person-required");
+    }
+    if (rewind && !this.#d.rewind) throw new SessionError("conflict", "rewind service unavailable", "rewind-unavailable");
+    const localCommand = rewind !== null || a.text.trim() === '/compact --explain' || /^\/compact --restore event:\d+$/.test(a.text.trim());
     if (!provider && !localCommand) throw new NoProviderError();
     if (a.text.length === 0) throw new SessionError("invalid", "message text is empty", "text-empty");
-    const { turn, message, event } = this.#d.store.beginTurn(a.session.id, a.text, estimateTokens(a.text));
+    const { turn, message, event } = this.#d.store.beginTurn(a.session.id, a.text, estimateTokens(a.text), { harnessCommand: localCommand });
     this.#emit(event, a.session);
     const cancel = new AbortController();
     this.#cancels.set(turn.id, cancel);
@@ -123,9 +131,19 @@ export class TurnRunner {
       // D33 transcript commands share the admitted session, event stream and cancellation switch.
       // They never enter recall/capture, the model, or the cached prefix.
       const command=text.trim(), restore=/^\/compact --restore (event:\d+)$/.exec(command);
-      if(command==='/compact --explain'||restore){
+      const rewind = parseRewindCommand(text);
+      if(command==='/compact --explain'||restore||rewind){
         signal.throwIfAborted();
-        const reply=restore ? JSON.stringify({ref:restore[1],restored:compactor.restoreToolRef(session.id,restore[1]!)}) : JSON.stringify(compactor.explain(session.id));
+        let reply: string;
+        if (rewind) {
+          const actor = approver?.person ?? authenticatedPerson;
+          if (!actor || !this.#d.rewind) throw new SessionError("immutable", "rewind requires a person", "rewind-person-required");
+          const result = "undo" in rewind ? this.#d.rewind.undo(session.id, rewind.undo, actor, turnId)
+            : await this.#d.rewind.rewind({ ...rewind, sessionId: session.id, actor, caller, commandTurnId: turnId,
+              signal, ...(approver ? { approver } : {}) });
+          reply = JSON.stringify({ sessionId: session.id, rewind: result });
+        } else reply=restore ? JSON.stringify({ref:restore[1],restored:compactor.restoreToolRef(session.id,restore[1]!)}) : JSON.stringify(compactor.explain(session.id));
+        signal.throwIfAborted();
         this.#event(turnId,'delta',{index:0,text:reply},session);
         telemetry.endReason = "command";
         const done=store.completeTurn(turnId,{text:reply,tokens:estimateTokens(reply),data:{provider:'harness-command',telemetry}});
@@ -134,6 +152,14 @@ export class TurnRunner {
         this.#emit(done.event,session);return {state:'completed',assistantMessageId:done.message.id,reply};
       }
       if(!provider)throw new NoProviderError();
+      try {
+        await this.#d.checkpoints?.capture?.({ sessionId: session.id, turnId,
+          personId: approver?.person ?? authenticatedPerson ?? recurring?.runAs ?? "", signal });
+      } catch (err) {
+        signal.throwIfAborted();
+        // Checkpoints are optional; an unavailable one refuses --files later, never substitutes HEAD for dirty bytes.
+        this.#d.logger?.warn("D115 turn checkpoint unavailable", { sessionId: session.id, turnId, err });
+      }
       // 1. recall: exactly one call. A recall that fails or degrades never fails the turn.
       let recalled: { text: string; degraded: unknown } = { text: "", degraded: null };
       try { const recall = (signal: AbortSignal) => stage("recall", signal, trace, () => memory.recall({ agentId: session.agentId, caller, query: text, signal, ...((authenticatedPerson ?? recurring?.runAs) ? { authenticatedPerson: authenticatedPerson ?? recurring!.runAs } : {}), ...(turnProfile ? { turnProfile } : {}) }));
@@ -231,6 +257,12 @@ export class TurnRunner {
       this.#observeTelemetry(telemetry, session, turnId);
       this.#emit(done.event, session);
       await this.#after(session, caller, turnId, text, reply, incognito, turnProfile, recurring, authenticatedPerson);
+      // Q13: a background run's responsible person is an identity, not a live approver. Its trusted T0 origin is unattended.
+      try {
+        await this.#d.rewind?.afterTurn({ sessionId: session.id,
+          personId: approver?.person ?? authenticatedPerson ?? recurring?.runAs ?? "",
+          unattended: session.kind === "card" && (approver?.surface ?? 0) === 0 });
+      } catch (err) { this.#d.logger?.warn("turn-boundary rewind unavailable", { sessionId: session.id, err }); }
       return { state: "completed", assistantMessageId: done.message.id, reply };
     } catch (e) {
       const error = cancelled.aborted ? "cancelled" : signal.aborted ? "aborted" : e && typeof e === 'object' && 'code' in e && typeof e.code === 'string' ? e.code : e && typeof e === 'object' && 'kind' in e && typeof e.kind === 'string' ? e.kind : e instanceof Error ? e.message : String(e);

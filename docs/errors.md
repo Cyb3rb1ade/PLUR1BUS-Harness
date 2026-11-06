@@ -64,6 +64,28 @@ the core sent. The last two are raised by the CLI itself.
 | `E_IMPORT_FAILED` | 1 | `plur1bus import` could not run or finish the importer (`reason`: `importer-missing`, `node-unavailable`, `importer-crashed`). The importer's own errors keep the exit code it reports. |
 | `E_CANCELLED` | 2 | The user declined a confirmation prompt (`config apply`, `module`, `secret remove`, `memory forget`, `media reindex`, `ext`, `update apply`: `reason=declined`); nothing was changed. `plur1bus login` ended with Ctrl-C reports it with exit 130 (see above). |
 
+## Rewind reasons (D120 CX1, RPC 1.18.0)
+
+No new error code is introduced. Human-only `chat.rewind`/`session.rewind` and
+the `/rewind` transcript command use these reasons:
+
+| Reason | Code | Recovery |
+| --- | --- | --- |
+| `turn-running` | `E_CONFLICT` | Wait for the active turn to finish. |
+| `rewind-in-progress` | `E_CONFLICT` | Finish or cancel the pending file approval. |
+| `rewind-target`, `rewind-empty`, `rewind-command`, `rewind-lesson` | `E_INVALID_PARAMS` | Choose a kept message on the current active path, or correct the command/note. |
+| `rewind-stale`, `rewind-project-changed`, `rewind-files-changed` | `E_CONFLICT` | Inspect the current session, card binding and files, then request a new rewind. |
+| `rewind-checkpoint-unavailable`, `rewind-checkpoint` | `E_CONFLICT` | Use conversation-only rewind, or a D115 card with a recorded per-turn checkpoint. |
+| `rewind-files-disabled` | `E_CONFLICT` | Use conversation-only rewind, or ask an Owner/Admin to opt the project into `session.rewind.fileProjects`. |
+| `rewind-files-preview-limit` | `E_CONFLICT` | The complete restore preview exceeds its cap; inspect the files and use conversation-only rewind. |
+| `rewind-person-required`, `rewind-files-not-approved` | `E_DENIED` | A person must request rewind; file restoration needs the exact single-use native approval. |
+| `rewind-not-allowed` | `E_DENIED` | In a non-direct channel, only the session owner or a current Owner/Admin may rewind or undo. The channel explains this refusal in its configured de/en locale (English by default), without naming the owner or exposing internal error text. |
+| `audit-unavailable` | `E_STORAGE` | Restore the audit writer before retrying. |
+
+Undo lifts a conversation overlay and never restores files or corrects captured
+memory. An approved file restoration is separately audited; if the later overlay
+write fails, inspect the worktree before retrying.
+
 ## Sign-in reasons (`plur1bus login`)
 
 `plur1bus login` adds no error code; it reports the closed codes above with a `reason` (see [openai-auth.md](openai-auth.md#cli-and-rpc-login) for the full table). A script should branch on these:

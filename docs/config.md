@@ -105,6 +105,9 @@ value-free warning. Invalid reference syntax also warns, including short values.
 | `egress.modelDownloads` | object | `{}` | live | Named exception for credential-free GET/HEAD model artifact downloads. Ordinary provider/web traffic stays under allowHosts. Remove a host or disable to block subsequent downloads; DNS pinning and private-address refusal always apply. |
 | `egress.allowLoopback` | boolean | `false` | live | Allow http(s) to loopback hosts (localhost, 127.0.0.0/8, ::1) that are also listed in allowHosts. A public name that resolves to loopback stays refused. |
 | `privacy.localEndpoints` | array | `[]` | live | Self-hosted model servers outside loopback that count as local for privacy.localOnly (for example your own Ollama or vLLM server in the home network), as exact origins scheme://host[:port]. LAN addresses are not local unless listed here. |
+| `session.rewind.autoProjects` | array | `[]` | live | Projects that permit automatic rewind after three failed edit/test cycles on unattended D115 cards. Interactive sessions only propose; no file restore is automatic. |
+| `session.rewind.fileProjects` | array | `[]` | live | Projects that permit tracked-file checkpoints and separately approved file rewind on D115 card sessions. Empty disables capture and file restore. |
+| `session.rewind.checkpointRetentionTurns` | integer | `50` | live | Keep private file-checkpoint refs only within this many recent session turns. Archived sessions and completed cards release their refs earlier. |
 | `session.compaction.softRatio` | number | `0.65` | core | Prepare a summary above this fraction of the model context window. |
 | `session.compaction.hardRatio` | number | `0.88` | core | Swap prepared summary above this fraction. Must exceed softRatio. |
 | `session.compaction.summaryMaxTokens` | integer | `1228` | core | Maximum summary tokens; also capped to 15 percent of the catalogue window. |

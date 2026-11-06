@@ -321,6 +321,7 @@ fn method_fixture(name: &str, f: &Value) {
         }
         "chat.archive" => pair::<ChatArchiveParams, ChatArchiveResult>(name, f),
         "chat.cancel" => pair::<ChatCancelParams, ChatCancelResult>(name, f),
+        "chat.rewind" => pair::<ChatRewindParams, ChatRewindResult>(name, f),
         "chat.create" => pair::<ChatCreateParams, ChatCreateResult>(name, f),
         "chat.delete" => pair::<ChatDeleteParams, ChatDeleteResult>(name, f),
         "chat.events" => pair::<ChatEventsParams, ChatEventsResult>(name, f),
@@ -655,6 +656,7 @@ fn method_fixture(name: &str, f: &Value) {
         "session.model.get" => pair::<SessionModelGetParams, SessionModelGetResult>(name, f),
         "session.model.set" => pair::<SessionModelSetParams, SessionModelSetResult>(name, f),
         "session.cancel" => pair::<SessionCancelParams, SessionCancelResult>(name, f),
+        "session.rewind" => pair::<SessionRewindParams, SessionRewindResult>(name, f),
         "identity.list" => pair::<IdentityListParams, IdentityListResult>(name, f),
         "identity.human.create" => {
             pair::<IdentityHumanCreateParams, IdentityHumanCreateResult>(name, f)
@@ -1019,7 +1021,7 @@ fn rpc_version_const_matches_the_schema() {
         plur1bus_rpc::RPC_VERSION,
         schema["x-rpc-version"].as_str().unwrap()
     );
-    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.17.0");
+    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.18.0");
     assert!(schema["$id"]
         .as_str()
         .unwrap()

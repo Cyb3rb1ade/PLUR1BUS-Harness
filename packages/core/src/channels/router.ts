@@ -1,5 +1,6 @@
 import { resolveBehaviour, permitsMessage, type ResolvedBehaviour } from "./behaviour.ts";
 import { BehaviourRateGate, channelBehaviour, channelOrigin } from "./behaviour-context.ts";
+import { rewindDeniedReply } from "./rewind.ts";
 import type { Clock } from "./clock.ts";
 import type { ChannelLogger, IdentityPort, InboundMessage, OutboundMessage, SenderRef, SessionPort } from "./types.ts";
 
@@ -31,6 +32,8 @@ export interface RouterDeps {
   command?: (msg: InboundMessage, person: string, send: Send) => Promise<boolean>;
   observed?: (msg: InboundMessage, person: string, sessionId: string) => void;
   behaviour?: (msg: InboundMessage) => ResolvedBehaviour;
+  /** Trusted current channel configuration; absent or unavailable uses English. */
+  locale?: (msg: InboundMessage) => "de" | "en";
 }
 export type Send = (msg: OutboundMessage) => Promise<void>;
 
@@ -131,7 +134,9 @@ export class ChannelRouter {
       await this.#reply(send, msg, clipReply(out.text, profile.rateLimits.maxReplyChars));
     } catch (e) {
       this.#d.log.error("channel.session.failed", { channel: msg.channel, error: this.#err(e) });
-      await this.#reply(send, msg, FAILED_TEXT);
+      let locale: "de" | "en" = "en";
+      try { locale = this.#d.locale?.(msg) ?? "en"; } catch { /* The authorization refusal still needs a reply. */ }
+      await this.#reply(send, msg, rewindDeniedReply(e, locale) ?? FAILED_TEXT);
     }
   }
 

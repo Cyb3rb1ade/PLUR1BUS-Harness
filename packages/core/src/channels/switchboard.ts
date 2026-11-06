@@ -23,6 +23,8 @@ import { join } from "node:path";
 import type { HarnessConfig } from "@plur1bus/config-schema";
 import type { restartPlan } from "@plur1bus/config-schema";
 import { deriveUserPrincipal } from "../identity/principals.ts";
+import type { Role } from "../rbac/types.ts";
+import { requireRewindSender } from "./rewind.ts";
 import type { IdentityService, Link } from "../identity/service.ts";
 import type { ApprovalEvents, ApprovalView, ServiceDecideInput, ServiceDecideResult } from "../approvals/service.ts";
 import type { SessionStore } from "../session/store.ts";
@@ -102,6 +104,8 @@ export interface SwitchboardOptions {
    * inbound message, every turn and every approval press, never cached. Absent: nobody is disabled (tests without an admin store).
    */
   personActive?: (humanId: string) => boolean;
+  /** Trusted live admin-store role, never a role supplied by a channel message. Missing/failing lookup is unprivileged. */
+  personRole?: (humanId: string) => Role | undefined;
   turns: () => TurnPort | null;
   approvals: () => ApprovalDecider | null;
   /** The media output store (read-only use through the adapters' `outputs` port); absent: images are not sent. */
@@ -208,7 +212,11 @@ class Host implements Switchboard {
 
   constructor(o: SwitchboardOptions) {
     this.#o = o;
-    const router = new ChannelRouter({ identity: this.#identityPort(), sessions: this.#sessionPort(), clock: o.clock, log: o.log, behaviour: (msg) => this.behaviour(msg), ...(o.command ? { command: o.command } : {}), ...(o.observed ? { observed: o.observed } : {}) });
+    const locale = (msg: InboundMessage): "de" | "en" => {
+      const channel = (o.config.current().channels as unknown as Record<string, { locale?: unknown }>)[msg.channel];
+      return channel?.locale === "de" ? "de" : "en";
+    };
+    const router = new ChannelRouter({ identity: this.#identityPort(), sessions: this.#sessionPort(), clock: o.clock, log: o.log, locale, behaviour: (msg) => this.behaviour(msg), ...(o.command ? { command: o.command } : {}), ...(o.observed ? { observed: o.observed } : {}) });
     this.#registry = new ChannelRegistry({ clock: o.clock, router, log: o.log, redact: (t) => this.#redact(t), ...o.registry });
     for (const b of o.bindings) this.#bindings.set(b.id, b);
     const r = this.#registry;
@@ -492,6 +500,10 @@ class Host implements Switchboard {
     try { return f(humanId) !== false; } catch { return false; }
   }
 
+  #role(humanId: string): Role | undefined {
+    try { return this.#o.personRole?.(humanId); } catch { return undefined; }
+  }
+
   #linkOf(humanId: string, channel: string): Link | null {
     const svc = this.#o.identity();
     if (!svc) return null;
@@ -540,6 +552,9 @@ class Host implements Switchboard {
         const kind = this.#kinds.get(session.chatKey);
         // Defence in depth: a private chat's session only ever runs a turn for the person who owns it.
         if (kind === "direct" && session.owner !== deriveUserPrincipal(input.userId)) throw new Error("session belongs to someone else");
+        const role = this.#role(input.userId);
+        requireRewindSender({ text: input.text, chatKind: kind, owner: session.owner, person: input.userId,
+          ...(role ? { role } : {}) });
         // D109 §5: a private chat with a linked person is surface T2; anything else (a group, an unknown chat) is the lower T1.
         const surface = kind === "direct" ? 2 : 1;
         const handle = t.runner.submit({
