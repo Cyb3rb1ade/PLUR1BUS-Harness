@@ -48,7 +48,7 @@ credentials:
   {
     "provider": "anthropic",
     "model": "configured-default-model",
-    "baseUrl": "https://api.anthropic.com",
+    "baseUrl": "https://api.anthropic.com/v1",
     "wireFormat": "anthropic_messages"
   }
 ]
@@ -157,6 +157,14 @@ unsupported execution fail instead of producing successful skips. Core unit test
 trusted fixture commands support Linux/macOS. Live captures support Linux only, matching Nightly.
 
 ### Owner capture after #820 and K2a
+
+Before the first 72-case capture, run a Linux smoke check with exactly one task/seed for each owner-selected model.
+Use the same versioned provider endpoints, disposable credential setup, assigned-card provisioner, native dispatcher and
+network-isolated verifier as the full capture. Record provider/tool startup, bounded completion, authoritative usage and
+cleanup for each model. Keep these smoke results in a separate preflight record. Complete baseline reports retain the full
+72-case denominator per model and arm. Start the complete capture after all model smoke checks have usable infrastructure
+and the owner has supplied the model variable and provider secrets. The owner reviews the complete live results before
+baseline publication.
 
 Use the same approved `PLUR1BUS_TURN_EVAL_MODELS` list as `turn-eval-live`, with no credential fields. Its existing D110
 OpenAI restrictions remain in force. The only scheduled vendor credentials are `ANTHROPIC_API_KEY` and `GOOGLE_API_KEY`.
