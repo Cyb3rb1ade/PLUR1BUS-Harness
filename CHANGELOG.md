@@ -156,6 +156,9 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Fixed
 
+- Refresh the gap inventory against current source markers, distinguish prior fixes from SH closures, and record
+  remaining redaction, release-audit and remote-state coverage boundaries.
+
 - **Retired remote trust anchors (SH6).** Retain certificate and SPKI history in a strict private v2 file, clean rejected
   staging material, and validate activation size/state before changing TLS. Normal restart and activation recovery
   preserve history; device-side and lost-history limits remain documented.

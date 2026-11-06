@@ -53,6 +53,10 @@ any contiguous fragment of eight or more code points is also forbidden. Set/rota
 old one, including a retained description. The backend rechecks inside its serialized update so that a concurrent rotation
 cannot be reverted by a description edit. Values read internally for validation are registered with the existing redactor.
 
+Description checks apply to plain values and their plain contiguous fragments. The shared RPC/log redactor
+recognizes additional encoded spellings; its coverage does not establish encoded-value rejection in description
+metadata. That broader metadata review remains a [documented follow-up](reference/todo-inventory.md).
+
 ## Owner read view of agent access
 
 `secret.grants.list` returns effective grants separately from configuration references. The store still refuses every
