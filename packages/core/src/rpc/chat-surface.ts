@@ -1,3 +1,4 @@
+import { assertRoleContext } from "../session/context-fit.ts";
 // Direct-chat identity is always the authenticated harness person, never CallerIdentity supplied by a browser.
 import type { AgentRegistry } from "../agents.ts";
 import { requireAgent } from "../memory-ops.ts";
@@ -121,6 +122,7 @@ export function buildChatSurface(d: { sessions: () => SessionService | null; age
       const options=chatModelOptions(s,session.agentId), option=options.find(o=>o.name===p.profile);
       if(!option)throw new RpcError("E_NOT_AVAILABLE","model profile is not configured",{reason:"model-profile-unavailable"});
       if(option.disabledReason==="local-only")throw new RpcError("E_DENIED","only local models may be used in this chat",{reason:"local-only"});
+      assertRoleContext("chat", option.contextWindow);
       if(option.disabledReason==="unavailable")throw new RpcError("E_NOT_AVAILABLE","the model is not available",{reason:"model-unavailable"});
       const before=service.store.modelProfile(session.id), previousReasoning=storedChoice(service.store.modelReasoning(session.id));
       // Absent keeps the chat's stored choice (a model switch alone does not reset the level).

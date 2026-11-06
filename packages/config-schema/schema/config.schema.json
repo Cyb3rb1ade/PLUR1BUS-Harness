@@ -2802,8 +2802,13 @@
       }
     },
     "providers": {
-      "description": "Open namespace for provider definitions. Non-validating privacy metadata follows the existing auth, MCP and media consumers.",
-      "type": "object", "default": {}, "x-restart": "live", "x-tier": "basic", "x-reserved": "M2 (D15)", "additionalProperties": true,
+      "description": "Reserved namespace for model-provider configuration; apple-fm is synthesized and cannot be declared here (reserved-provider-id). Non-validating privacy metadata follows the existing auth, MCP and media consumers.",
+      "type": "object",
+      "default": {},
+      "x-restart": "live",
+      "x-tier": "basic",
+      "x-reserved": "M2 (D15)",
+      "additionalProperties": true,
       "x-value-schema": {
         "type": "object",
         "additionalProperties": {
@@ -3092,6 +3097,11 @@
               }
             }
           }
+        }
+      },
+      "propertyNames": {
+        "not": {
+          "const": "apple-fm"
         }
       }
     },
@@ -6229,6 +6239,31 @@
               }
             }
           }
+        }
+      }
+    },
+    "appleFm": {
+      "description": "Use Apple's on-device model for small decisions and short summaries on supported Macs.",
+      "type": "object",
+      "additionalProperties": false,
+      "default": {},
+      "x-restart": "live",
+      "x-tier": "advanced",
+      "x-write-roles": [
+        "owner",
+        "admin"
+      ],
+      "properties": {
+        "enabled": {
+          "description": "Enable Apple Foundation Models after Apple Intelligence is ready and the model licence has been accepted.",
+          "type": "boolean",
+          "default": false,
+          "x-restart": "live",
+          "x-tier": "advanced",
+          "x-write-roles": [
+            "owner",
+            "admin"
+          ]
         }
       }
     }

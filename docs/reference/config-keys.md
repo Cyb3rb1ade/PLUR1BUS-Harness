@@ -660,7 +660,7 @@ TypeScript validation returns optional, value-free `warnings` for endpoint useri
 | `a2aServer.signingKey` | object |  | live | advanced | false | false |  | Private key for signing agent cards. |
 | `a2aServer.signingKey.privateKeySecret` | string |  | live | advanced | true | false | #/$defs/backupSecretName | Name of the secret holding the agent card signing private key; never the key itself. |
 | `a2aServer.signingKey.kid` | string |  | live | advanced | false | false |  | Key identifier for the signing key. |
-| `providers` | object | `{}` | live | basic | false | false |  | Open namespace for provider definitions. Non-validating privacy metadata follows the existing auth, MCP and media consumers. |
+| `providers` | object | `{}` | live | basic | false | false |  | Reserved namespace for model-provider configuration; apple-fm is synthesized and cannot be declared here (reserved-provider-id). Non-validating privacy metadata follows the existing auth, MCP and media consumers. |
 | `providers.media` | object |  | live | basic | false | false |  |  |
 | `providers.media.adapters` | array |  | live | basic | false | false |  |  |
 | `providers.media.adapters[]` | object |  | live | basic | false | false |  |  |
@@ -1269,3 +1269,5 @@ TypeScript validation returns optional, value-free `warnings` for endpoint useri
 | `media.adapters.coreml.computeUnits` | string | `"auto"` | core | advanced | false | false |  | Where inference runs. `auto` lets the helper choose from the model's attention variant (split-einsum: Neural Engine, original: GPU). |
 | `media.adapters.coreml.scheduler` | string |  | core | advanced | false | false |  | Diffusion scheduler name understood by the helper; unset uses the helper default. |
 | `media.adapters.coreml.timeoutMs` | integer | `300000` | core | advanced | false | false |  | Upper bound for one generation in milliseconds. |
+| `appleFm` | object | `{}` | live | advanced | false | false |  | Use Apple's on-device model for small decisions and short summaries on supported Macs. |
+| `appleFm.enabled` | boolean | `false` | live | advanced | false | false |  | Enable Apple Foundation Models after Apple Intelligence is ready and the model licence has been accepted. |

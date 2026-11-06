@@ -619,5 +619,8 @@
         "timeoutMs": 300000
       }
     }
+  },
+  "appleFm": {
+    "enabled": false
   }
 }

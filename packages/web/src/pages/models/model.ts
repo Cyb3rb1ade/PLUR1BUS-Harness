@@ -11,7 +11,7 @@ const STATUSES: readonly CatalogModelStatus[] = ["available", "unavailable", "ma
 const SOURCES: readonly ModelSource[] = ["scan", "table", "manual"];
 const RESULTS: readonly ModelScanResultCode[] = ["ok", "failed:auth", "failed:network", "failed:server", "failed:invalid", "failed:empty"];
 const OUTCOMES: readonly ModelScanOutcomeCode[] = [...RESULTS, "already_running", "disabled", "no-scanner"];
-const WARNING_CODES = ["role_unavailable", "shadowed_by_manual", "empty_list"] as const;
+const WARNING_CODES = ["role_unavailable", "shadowed_by_manual", "empty_list", "filtered_by_policy"] as const;
 
 /** A catalog entry as the page uses it: the documented fields plus `extra`, any further scalar fields (already masked). */
 export type ModelEntry = Omit<WireEntry, "source" | "status"> & { source: ModelSource | "unknown"; status: CatalogModelStatus; extra: Record<string, string | number | boolean>; toolUse: "supported" | "limited tool use" | "unknown" };
@@ -85,7 +85,7 @@ function warnings(v: unknown): ModelScanWarning[] {
     const code = oneOf(WARNING_CODES, o.code);
     if (!code) continue;
     const role = str(o.role), provider = str(o.provider), id = str(o.id);
-    out.push({ code, ...(role ? { role } : {}), ...(provider ? { provider } : {}), ...(id ? { id } : {}) });
+    out.push({ code, ...(code === "filtered_by_policy" ? { count: count(o.count) } : {}), ...(role ? { role } : {}), ...(provider ? { provider } : {}), ...(id ? { id } : {}) });
   }
   return out;
 }

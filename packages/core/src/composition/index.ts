@@ -1,3 +1,4 @@
+import { createAppleFmRuntime, type AppleFmRuntime, type AppleFmOptions } from "./apple-fm.ts";
 import { pinnedGit } from "../external-agents/git.ts";
 import { gitText } from "../collab/verifier.ts";
 import { composeA2a } from "./a2a.ts";
@@ -100,6 +101,7 @@ import { rewindProjectContext } from '../session/rewind-project.ts';
 import { RewindCheckpoints } from '../session/rewind-checkpoints.ts';
 
 export interface CompositionOptions {
+  appleFm?: Pick<AppleFmOptions, "slot" | "platform">;
   /** Internal loopback-only System One test endpoint; never a configuration or RPC field. */
   decisionTestOrigin?: string;
   projectWorktrees?: import("../collab/coding-surface.ts").ProjectWorktreePort;
@@ -116,6 +118,7 @@ export interface CompositionOptions {
   tools?: Partial<Pick<ToolCompositionOptions, 'roots' | 'deny' | 'exec' | 'host' | 'extra' | 'mcp' | 'media' | 'documents'>>;
 }
 export interface CompositionDeps {
+  appleFm?: AppleFmRuntime;
   /** Background startup waits for the authenticated maintenance release. */
   maintenance?: CompositionMaintenance;
   mediaHostFetchReady?: boolean;
@@ -234,6 +237,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     };
     const unwatchCapabilities = deferMaintenanceStart(d.maintenance, startCapabilities);
     if (unwatchCapabilities) disposers.push(unwatchCapabilities); else startCapabilities();
+    const appleFm = d.appleFm ?? createAppleFmRuntime({ home: d.home, config: d.config, ...options.appleFm });
     const definitions = options.definitions ?? Object.fromEntries(Object.entries(cfg.providers).filter(([, value]) => !!value && typeof value === 'object' && 'wireFormat' in value)) as Record<string, ProviderDefinition>;
     const openai = createOpenAIRuntime(d); disposers.push(() => openai.close());
     let sessions: SessionService;
@@ -253,7 +257,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     const secretForms = (): readonly string[] => knownSecrets().forms;
     const registerSecret = (value: string) => { d.secrets.redaction?.register(value); registered.delete(value); registered.add(value); if (registered.size > 256) registered.delete(registered.values().next().value!); };
     disposers.push(() => registered.clear());
-    const auth = isolated('turn providers', () => composeAuth({ config: cfg, definitions, openai, secrets: d.secrets, egress: d.egress, registerSecret, log: record => d.logger.info('turn.stage', { ...record }), ...(options.fetch ? { fetch: options.fetch } : {}) }));
+    const auth = isolated('turn providers', () => composeAuth({ config: cfg, definitions, appleFm, openai, secrets: d.secrets, egress: d.egress, registerSecret, log: record => d.logger.info('turn.stage', { ...record }), ...(options.fetch ? { fetch: options.fetch } : {}) }));
     if (auth) disposers.push(() => auth.close());
     for (const r of auth?.refused ?? []) d.logger.error('turn provider refused', { code: r.code, provider: r.provider, reason: r.reason });
     const hostctl = createHostctlPool({ config: cfg.tools?.hostctl, audit: event => d.audit.append({ at: d.clock(), actor: { user: event.principal, host: 'local' }, action: event.operation, target: event.paths.join(';'), detail: { ...event } }) });
@@ -348,7 +352,8 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     // privacy.localOnly: a chat/role provider is local when its endpoint is loopback or listed in privacy.localEndpoints.
     // No base_url means the vendor's cloud default; a managed OpenAI login is always cloud. The in-process test provider
     // (`fixture`, only with PLUR1BUS_TEST_CHAT_PROVIDER) sends nothing anywhere.
-    const isLocalProvider = (id: string): boolean => {
+    const isLocalProvider = (id: string, model?: string): boolean => {
+      if (id === "apple-fm") return model === "system";
       if (id === 'fixture' && d.provider) return true;
       const def = definitions[id];
       if (!def || openai.handles(def)) return false;
@@ -386,7 +391,11 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       profiles: () => Object.fromEntries(Object.entries(profiles).map(([name, candidates]) => [name, candidates.map(c => ({ provider: c.provider, model: c.model }))])),
       defaultProfile: () => auth?.resolved.defaultProfile ?? (profiles.default ? 'default' : undefined),
       reasoning: reasoningFor, config: () => d.config(),
-      ...(d.chatModels?.catalog ? { catalog: d.chatModels.catalog } : {}), ...(d.chatModels?.endpoint ? { endpoint: d.chatModels.endpoint } : {}),
+      catalog: (provider, model) => provider === "apple-fm" && model === "system"
+        ? { displayName: "Apple Foundation Models — system", contextWindow: 4096,
+          status: appleFm.available() ? "available" : "unavailable" }
+        : d.chatModels?.catalog?.(provider, model),
+      endpoint: provider => provider === "apple-fm" ? "http://apple-fm.invalid/v1" : d.chatModels?.endpoint?.(provider),
     };
     const decisionOptions = { config: d.config, egress: d.egress, secrets: d.secrets, budget,
       ...(options.decisionTestOrigin ? { testOrigin: options.decisionTestOrigin } : {}) };
@@ -469,7 +478,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
         id: skill.id, source: skill.source, ...(skill.confidence === undefined ? {} : { confidence: skill.confidence }),
       })) });
       d.notify('session.event', { agentId: request.agentId, event: toWireEvent(event) }, { optIn: true });
-    }, requireTriage: !!cfg.modelRoles.decision, triageTimeoutMs: typeof cfg.decision.timeoutMs === 'number' ? cfg.decision.timeoutMs : 2000, profileForAgent: agent => d.config().agents[agent]?.model, capabilities, skillsForAgent: agent => d.config().agents[agent]?.skills ?? {}, profiles, reasoningFor, profile: auth?.resolved.defaultProfile ?? 'default', profileForClass: modelClass => loadClassProfiles(join(d.home, 'model-class-profiles.json'), (d.config().decision.classProfiles as Record<string, string> | undefined) ?? classProfiles)[modelClass as import('../triage/classes.ts').ModelClass], router: { profileDefaults: auth?.resolved.defaults ?? {}, unsupportedProfiles: auth?.resolved.unsupported ?? {}, ...options.providers?.router }, family: options.providers?.family ?? auth?.families ?? {}, billing: options.providers?.billing ?? auth?.billing ?? {}, cacheRoutes: auth?.cacheRoutes ?? {}, profileCache: Object.fromEntries(Object.entries(auth?.resolved.profiles ?? {}).map(([name, p]) => [name, p.cache])), allowCrossBilling: name => profilePolicy[name]?.allowCrossBilling === true, localOnly: agentId => localOnlyFor(d.config(), agentId), isLocalProvider, secrets: secretValues, secretForms, knownSecrets, onRouterEvent: routerEventSink(d), policyContext: (ctx, request) => {
+    }, requireTriage: !!cfg.modelRoles.decision, triageTimeoutMs: typeof cfg.decision.timeoutMs === 'number' ? cfg.decision.timeoutMs : 2000, profileForAgent: agent => d.config().agents[agent]?.model, capabilities, skillsForAgent: agent => d.config().agents[agent]?.skills ?? {}, profiles, reasoningFor, contextWindow: (provider, model) => chatModels.catalog?.(provider, model)?.contextWindow, profile: auth?.resolved.defaultProfile ?? 'default', profileForClass: modelClass => loadClassProfiles(join(d.home, 'model-class-profiles.json'), (d.config().decision.classProfiles as Record<string, string> | undefined) ?? classProfiles)[modelClass as import('../triage/classes.ts').ModelClass], router: { profileDefaults: auth?.resolved.defaults ?? {}, unsupportedProfiles: auth?.resolved.unsupported ?? {}, ...options.providers?.router }, family: options.providers?.family ?? auth?.families ?? {}, billing: options.providers?.billing ?? auth?.billing ?? {}, cacheRoutes: auth?.cacheRoutes ?? {}, profileCache: Object.fromEntries(Object.entries(auth?.resolved.profiles ?? {}).map(([name, p]) => [name, p.cache])), allowCrossBilling: name => profilePolicy[name]?.allowCrossBilling === true, localOnly: agentId => localOnlyFor(d.config(), agentId), isLocalProvider, secrets: secretValues, secretForms, knownSecrets, onRouterEvent: routerEventSink(d), policyContext: (ctx, request) => {
       const base = approvalPolicyContext(d.permissions, sessionId => sessions?.forSession(sessionId).store.getSession(sessionId)?.origin)(ctx, request);
       const taskId = request?.approver?.taskId;
       if (!taskId || !request || !codeSessions?.enabled(request)) return base;

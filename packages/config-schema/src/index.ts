@@ -1,4 +1,6 @@
+export { MIN_CONTEXT_AGENT_ROLE } from "./apple-fm.ts";
 import type { BehaviourSet } from "./behaviour.ts";
+import { appleFmConfigErrors } from "./apple-fm.ts";
 export { supportsConfigDisclosurePolicy } from "./disclosure-policy.ts";
 export type { BehaviourSet, BehaviourLayer } from "./behaviour.ts";
 import { privacyAcknowledgmentError, type PrivacyAcknowledgment } from "./privacy.ts";
@@ -60,6 +62,7 @@ export interface CollaborationTeamsConfig {
 }
 
 export interface HarnessConfig {
+  appleFm: { enabled: boolean };
   a2aClient?: { enabled: boolean; timeoutMs: number; maxCardBytes: number; maxRequestBytes: number; maxReplyBytes: number; maxPeers: number; peerCalls: number; turnCalls: number; peerTokens: number; turnTokens: number };
   import?: { ssh?: { connections?: Record<string, {
     host: string; port: number; user: string; roots: string[]; allowPrivate: boolean;
@@ -232,8 +235,10 @@ export function defaults(): HarnessConfig {
   return r.config;
 }
 
-export function validate(value: unknown): { ok: true; config: HarnessConfig; warnings?: ConfigWarning[] } | { ok: false; errors: string[] } {
+export function validate(value: unknown, options: { catalog?: unknown } = {}): { ok: true; config: HarnessConfig; warnings?: ConfigWarning[] } | { ok: false; errors: string[] } {
   const copy = structuredClone(value);
+  const appleErrors = appleFmConfigErrors(copy, options.catalog);
+  if (appleErrors.length) return { ok: false, errors: appleErrors };
   if (validateFn(copy)) {
     const c = (copy as HarnessConfig).session.compaction;
     if (c.softRatio >= c.hardRatio) return { ok: false, errors: ["/session/compaction softRatio must be below hardRatio"] };

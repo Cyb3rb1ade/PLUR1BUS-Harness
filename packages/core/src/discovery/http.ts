@@ -9,6 +9,8 @@ import type net from "node:net";
 import { gunzip, inflate, brotliDecompress } from "node:zlib";
 import type { CredentialLease } from "./ports.ts";
 import type { ScanResultCode } from "./types.ts";
+import { createUnixFetch, APPLE_FM_BASE_URL } from "../../../providers/src/local/unix.ts";
+import type { UnixSocketGuard } from "../../../providers/src/local/unix.ts";
 
 export const LIMITS = {
   connectTimeoutMs: 5000, requestTimeoutMs: 15000, scanTimeoutMs: 60000, maxPages: 10,
@@ -40,6 +42,11 @@ export interface PinnedClientOptions {
   egress?: import("../egress/service.ts").Egress;
   /** In-process test transport; the real egress decision still runs before each hop. */
   request?: typeof http.request;
+  /** Trusted composition-only managed transport; never populated from a provider configuration path. */
+  socketPath?: string;
+  socketGuard?: UnixSocketGuard;
+  unixFetch?: typeof fetch;
+  providerId?: string;
 }
 
 const MAX_RETRY_AFTER_MS = 86_400_000;
@@ -75,6 +82,7 @@ interface Reply { status: number; headers: http.IncomingHttpHeaders; body: Buffe
 export function createPinnedClient(o: PinnedClientOptions): PinnedClient {
   const limits: Limits = { ...LIMITS, ...o.limits };
   const base = parseBaseUrl(o.baseUrl);
+  if (o.socketPath !== undefined) return createUnixModelClient(o, limits);
   if (o.lease !== null) {
     if (o.lease.origin !== base.origin) throw new ScanError("failed:invalid", "credential_origin_mismatch");
     if (base.protocol === "http:" && !isLoopback(base.hostname)) throw new ScanError("failed:invalid", "insecure_transport");
@@ -231,6 +239,71 @@ export function createPinnedClient(o: PinnedClientOptions): PinnedClient {
   }
 
   return { get, get pages() { return pages; } };
+}
+
+async function unixJson(response: Response, maximum: number): Promise<{ value: unknown; bytes: number }> {
+  if (!response.body) throw new ScanError("failed:invalid", "bad_envelope");
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    for (;;) {
+      const next = await reader.read();
+      if (next.done) break;
+      size += next.value.byteLength;
+      if (size > maximum) throw new ScanError("failed:invalid", "response_too_large");
+      chunks.push(next.value);
+    }
+  } finally {
+    void reader.cancel().catch(() => undefined);
+    reader.releaseLock();
+  }
+  try {
+    return { value: JSON.parse(Buffer.concat(chunks, size).toString("utf8")), bytes: size };
+  } catch {
+    throw new ScanError("failed:invalid", "invalid_json");
+  }
+}
+
+function unixStatusFailure(status: number): ScanError["result"] {
+  if (status >= 500 || status === 429) return "failed:server";
+  if (status === 401 || status === 403) return "failed:auth";
+  return "failed:invalid";
+}
+
+/** Same managed boundary as inference: fixed models GET, no credential, redirect, DNS or egress invocation. */
+function createUnixModelClient(o: PinnedClientOptions, limits: Limits): PinnedClient {
+  if (o.baseUrl.replace(/\/$/, "") !== APPLE_FM_BASE_URL || o.lease !== null || !o.socketGuard) {
+    throw new ScanError("failed:invalid", "invalid_managed_transport");
+  }
+  const transport = o.unixFetch ?? createUnixFetch({ id: "apple-fm", path: o.socketPath! }, { guard: o.socketGuard });
+  const scan = AbortSignal.any([...(o.signal ? [o.signal] : []), AbortSignal.timeout(limits.scanTimeoutMs)]);
+  let pages = 0;
+  let total = 0;
+  return { get pages() { return pages; }, async get(request, headers) {
+    if (request.path !== "/models" || Object.keys(request.query ?? {}).length || Object.keys(headers ?? {}).length) {
+      throw new ScanError("failed:invalid", "managed_request_surface");
+    }
+    if (++pages > limits.maxPages) throw new ScanError("failed:invalid", "too_many_pages");
+    const signal = AbortSignal.any([scan, AbortSignal.timeout(limits.requestTimeoutMs)]);
+    try {
+      const response = await transport(`${APPLE_FM_BASE_URL}/models`, { signal, headers: { accept: "application/json" } });
+      if (!response.ok) {
+        await response.body?.cancel().catch(() => undefined);
+        throw new ScanError(unixStatusFailure(response.status),
+        `http_${response.status}`, { httpStatus: response.status });
+      }
+      const result = await unixJson(response, Math.min(limits.maxBodyBytes, limits.maxTotalBytes - total));
+      total += result.bytes;
+      return result.value;
+    } catch (error) {
+      if (error instanceof ScanError) throw error;
+      let reason = "unavailable";
+      if (signal.aborted) reason = "scan_timeout";
+      if (o.signal?.aborted) reason = "aborted";
+      throw new ScanError("failed:network", reason);
+    }
+  } };
 }
 
 function mapNetError(e: unknown): ScanError {

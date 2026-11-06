@@ -20,7 +20,7 @@ value-free warning. Invalid reference syntax also warns, including short values.
 | `agents` | object | `{}` | live | Per-agent settings keyed by a lowercase agent identifier. |
 | `embedding.useClass` | enum | `"general"` | core | Intended use of the embedding model: general, research, or commercial. |
 | `memory.mediaEmbedding` | object | `{}` | core | Media index (image, video, audio) with its own provider, independent of the text embedding. Captions land in the text index. |
-| `providers` | object | `{}` | live | Open namespace for provider definitions. Non-validating privacy metadata follows the existing auth, MCP and media consumers. |
+| `providers` | object | `{}` | live | Reserved namespace for model-provider configuration; apple-fm is synthesized and cannot be declared here (reserved-provider-id). Non-validating privacy metadata follows the existing auth, MCP and media consumers. |
 | `modelRoles` | object | `{}` | live | Model identifiers assigned to the supported functional roles. The summarize role is the model that writes session compaction summaries (a profile name or provider/model); when it is unset, compaction falls back to its deterministic digest. The embedding and rerank roles are still accepted but select no model: the memory engine takes its models from engine.embedding and engine.reranker. |
 | `privacy.localOnly` | boolean | `false` | live | Only local models: every model or inference endpoint must be loopback (localhost, 127.0.0.0/8, ::1) or listed in privacy.localEndpoints. A cloud provider is refused with E_DENIED reason local-only, never silently replaced by another model. Web tools (web.fetch, web.search) are not model calls and are not affected. An agent can override it with agents.<id>.privacy.localOnly. |
 
@@ -368,3 +368,4 @@ value-free warning. Invalid reference syntax also warns, including short values.
 | `media.adapters.coreml.computeUnits` | string | `"auto"` | core | Where inference runs. `auto` lets the helper choose from the model's attention variant (split-einsum: Neural Engine, original: GPU). |
 | `media.adapters.coreml.scheduler` | string |  | core | Diffusion scheduler name understood by the helper; unset uses the helper default. |
 | `media.adapters.coreml.timeoutMs` | integer | `300000` | core | Upper bound for one generation in milliseconds. |
+| `appleFm` | object | `{}` | live | Use Apple's on-device model for small decisions and short summaries on supported Macs. |

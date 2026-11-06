@@ -1,0 +1,5 @@
+[
+  { "home": "/h/.plur1bus", "directory": "/h/.plur1bus/run/apple-fm", "socket": "/h/.plur1bus/run/apple-fm/fm.sock" },
+  { "home": "/h/space home", "directory": "/h/space home/run/apple-fm", "socket": "/h/space home/run/apple-fm/fm.sock" },
+  { "home": "/h/grün", "directory": "/h/grün/run/apple-fm", "socket": "/h/grün/run/apple-fm/fm.sock" }
+]
