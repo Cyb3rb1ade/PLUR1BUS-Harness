@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript/Node 24.21, Rust 1.95, existing Ajv/jsonschema; no new dependency or RPC shape.
 
-**Spec:** F1 of `/Users/cyberblade/worktrees/reviews/controller-rulings-2026-11-01-pm.md`, supported by `sh12-review-2026-11-01.md`.
+**Spec:** F1 of the afternoon Controller rulings dated 2026-11-01, supported by `sh12-review-2026-11-01.md`.
 
 ## Global constraints
 

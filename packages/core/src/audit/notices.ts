@@ -3,6 +3,7 @@ import { closeSync, fstatSync, openSync, readSync } from "node:fs";
 import type { InboxPort } from "../inbox/service.ts";
 import type { AuditHealth } from "./health.ts";
 const HOUR = 3_600_000;
+const MAX_AUDIT_LINE_BYTES = 8 * 1024 * 1024;
 const CODES = new Set(["anchor-missing", "anchor-invalid", "chain-shorter-than-anchor", "tail-anchor-mismatch",
   "tail-malformed", "sequence-exhausted", "rotation-target-exists", "lock-timeout", "audit-unreadable", "audit-unavailable"]);
 export function createAuditNotices(d: { port: InboxPort; owners: () => readonly string[]; clock: () => number }) {
@@ -35,6 +36,28 @@ export function createAuditNotices(d: { port: InboxPort; owners: () => readonly 
 /** Incrementally consume complete audit.log rows, including queues drained between health samples. Read-only, bounded IO per tick. */
 export function createAuditNoticeLogReader(o: { file: string; consume: (row: unknown) => void; onOversize?: () => void }) {
   let offset = 0, identity = "", pending = Buffer.alloc(0), discarding = false;
+  const consumeChunk = (chunk: Buffer): void => {
+    if (discarding) {
+      const newline = chunk.indexOf(10);
+      if (newline === -1) return;
+      chunk = chunk.subarray(newline + 1);
+      discarding = false;
+    }
+    const data = pending.length ? Buffer.concat([pending, chunk]) : chunk;
+    let start = 0;
+    for (let end = data.indexOf(10); end !== -1; end = data.indexOf(10, start)) {
+      const line = data.subarray(start, end);
+      start = end + 1;
+      if (line.length > MAX_AUDIT_LINE_BYTES) { o.onOversize?.(); continue; }
+      let row: unknown;
+      try { row = JSON.parse(line.toString("utf8")); } catch { continue; }
+      o.consume(row);
+    }
+    const tail = data.subarray(start);
+    discarding = tail.length > MAX_AUDIT_LINE_BYTES;
+    pending = discarding ? Buffer.alloc(0) : Buffer.from(tail);
+    if (discarding) o.onOversize?.();
+  };
   return { scan(): boolean {
     let fd: number;
     try { fd = openSync(o.file, "r"); } catch (e) { if ((e as NodeJS.ErrnoException).code === "ENOENT") return false; throw e; }
@@ -43,18 +66,7 @@ export function createAuditNoticeLogReader(o: { file: string; consume: (row: unk
       if (key !== identity || st.size < offset) { identity = key; offset = 0; pending = Buffer.alloc(0); discarding = false; }
       const size = Math.min(1024 * 1024, st.size - offset); if (size <= 0) return false;
       const buffer = Buffer.alloc(size), read = readSync(fd, buffer, 0, size, offset); offset += read;
-      const data = Buffer.concat([pending, buffer.subarray(0, read)]); let start = 0;
-      for (let end = data.indexOf(10); end !== -1; end = data.indexOf(10, start)) {
-        if (discarding) discarding = false;
-        else {
-          let row: unknown;
-          try { row = JSON.parse(data.subarray(start, end).toString("utf8")); } catch { start = end + 1; continue; }
-          o.consume(row);
-        }
-        start = end + 1;
-      }
-      pending = Buffer.from(data.subarray(start));
-      if (pending.length > 8 * 1024 * 1024) { pending = Buffer.alloc(0); discarding = true; o.onOversize?.(); }
+      consumeChunk(buffer.subarray(0, read));
       return fstatSync(fd).size > offset;
     } finally { closeSync(fd); }
   } };

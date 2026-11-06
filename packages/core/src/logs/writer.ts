@@ -1,7 +1,8 @@
 import { KEY_ORDER, LIMITS, attrsSchemaFor, levelAtLeast, lookupEvent, validateRecord, type Level } from "@plur1bus/log-schema";
 import { createHash } from "node:crypto";
 import { serializeError } from "@plur1bus/module-api";
-import { createRedactor } from "./redact.ts";
+import { createRedactor, type Redactor } from "./redact.ts";
+import { createSecretMatcher, type SecretMatcher } from "./secret-matcher.ts";
 import { LevelPolicy, type LevelSettings, type Source } from "./levels.ts";
 export type { LevelSettings, Source };
 import { currentTrace, newTrace } from "./trace.ts";
@@ -12,7 +13,17 @@ const MAX_PENDING = 256;
 /** Most records written under one acquisition of the role lock (bounds how long other writers wait for it). */
 const MAX_BATCH = 256;
 export interface WriteFields { source?: Source; level?: Level; stream?: "stdout" | "stderr"; bypassRate?: boolean }
-export interface WriterOptions { dir: string; role: string; source: Source; now?: () => number; timers?: boolean; strict?: boolean; maxBytes?: number; keep?: number; retentionDays?: number; redactPii?: boolean; levels?: LevelSettings; /** Test seam: counts or replaces the sink's OS lock acquisition. */ acquireLock?: (lockPath: string) => ExclusiveLock | null }
+export interface OutputLineInput {
+  context: string; sourceBegin: number; sourceEnd: number; bytes: number; stream: "stdout" | "stderr"; oversized?: boolean;
+}
+export interface WriterOptions {
+  dir: string; role: string; source: Source; now?: () => number; timers?: boolean; strict?: boolean;
+  maxBytes?: number; keep?: number; retentionDays?: number; redactPii?: boolean; levels?: LevelSettings;
+  /** A populated live policy, applied before constructor records; manual writer registrations remain additive. */
+  redactor?: Redactor;
+  /** Test seam: counts or replaces the sink's OS lock acquisition. */
+  acquireLock?: (lockPath: string) => ExclusiveLock | null;
+}
 type RecordValue = Record<string, any>;
 interface Repeat { record: RecordValue; start: number; count: number }
 interface Bucket { tokens: number; at: number; start: number; dropped: number; source: Source }
@@ -29,7 +40,29 @@ export function createWriter(o: WriterOptions) {
   // are the current value of a stored secret; they are never displaced by the bound above (audit secrets #3).
   const secrets = new Set<string>(); const pinned = new Set<string>();
   const masked = (): Set<string> => new Set([...pinned, ...secrets]);
-  let redactor = createRedactor({ pii: o.redactPii ?? false, secrets: masked() });
+  let registeredRedactor = createRedactor({ pii: o.redactPii ?? false, secrets: masked() });
+  const redactor: Redactor = {
+    text: text => registeredRedactor.text(o.redactor ? o.redactor.text(text) : text),
+    value: value => registeredRedactor.value(o.redactor ? o.redactor.value(value) : value),
+  };
+  let outputMatchers: readonly (SecretMatcher | undefined)[] = [], outputPolicy: Redactor | undefined;
+  function outputRedactor(local?: SecretMatcher): Redactor {
+    const next = [o.redactor?.secretMatcher?.(), registeredRedactor.secretMatcher!(), local];
+    if (!outputPolicy || next.some((matcher, at) => matcher !== outputMatchers[at])) {
+      const active = next.filter((matcher): matcher is SecretMatcher => matcher !== undefined && matcher.forms.length > 0);
+      const first = active[0] ?? registeredRedactor.secretMatcher!();
+      const membership = new Set(first.forms);
+      const forms = [...new Set(active.flatMap(matcher => matcher.forms))];
+      const previous = outputPolicy?.secretMatcher?.();
+      const previousForms = new Set(previous?.forms ?? []);
+      const unchanged = previous && forms.length === previousForms.size && forms.every(form => previousForms.has(form));
+      const matcher = unchanged ? previous : active.every(value => value.forms.every(form => membership.has(form))) ? first : createSecretMatcher(forms);
+      outputPolicy = createRedactor({ pii: o.redactPii === true || o.redactor?.pii === true,
+        secretMatcher: matcher });
+      outputMatchers = next;
+    }
+    return outputPolicy;
+  }
   let closed = false; let flushing = false; let lastPrune = now();
   const pending: string[] = []; let lost = 0; let retryAt = 0; const repeats = new Map<string, Repeat>(); const buckets = new Map<string, Bucket>();
   const policy = new LevelPolicy({ now, expired: key => emit("log.level.expired", { source_key: key, from: "trace", to: "debug" }, {}, true) });
@@ -90,7 +123,7 @@ export function createWriter(o: WriterOptions) {
     }
     return record;
   }
-  function emit(event: string, attrs: RecordValue = {}, fields: WriteFields = {}, internal = false): void {
+  function emit(event: string, attrs: RecordValue = {}, fields: WriteFields = {}, internal = false, preparedText?: string): void {
     if (closed) throw new Error("log writer closed");
     const source = fields.source ?? o.source; const entry = lookupEvent(event);
     if (!entry) {
@@ -100,11 +133,19 @@ export function createWriter(o: WriterOptions) {
     if (entry.stream !== "diagnostic") throw new Error("diagnostic writer cannot write audit or payload");
     const level = fields.level ?? entry.level!;
     if (!internal && !levelAtLeast(level, policy.resolve(source))) return;
+    // The fixed failure event must survive the same broken policy that made the original record unavailable.
+    const failedPolicy = internal && event === "log.redaction.failed";
     let safeAttrs: RecordValue;
-    try { safeAttrs = redactor.value(attrs); }
+    try {
+      if (failedPolicy) safeAttrs = { attempted_event: lookupEvent(String(attrs.attempted_event))?.event ?? "process.output.line" };
+      else if (preparedText !== undefined) {
+        const { text: _text, ...other } = attrs;
+        safeAttrs = { ...redactor.value(other), text: preparedText };
+      } else safeAttrs = redactor.value(attrs);
+    }
     catch { emit("log.redaction.failed", { attempted_event: entry.event }, { source }, true); return; }
     const trace = currentTrace() ?? newTrace();
-    let record: RecordValue = { ts: new Date(now()).toISOString(), level, source: redactor.value({ kind: source.kind, id: source.id, version: source.version }), event, msg: entry.msg!, trace_id: trace.trace_id, span_id: trace.span_id,
+    let record: RecordValue = { ts: new Date(now()).toISOString(), level, source: failedPolicy ? { kind: "harness", id: "redaction", version: "0.1.0" } : redactor.value({ kind: source.kind, id: source.id, version: source.version }), event, msg: entry.msg!, trace_id: trace.trace_id, span_id: trace.span_id,
       ...(fields.stream ? { stream: fields.stream } : {}), attrs: { ...safeAttrs, ...(trace.link_trace_id ? { link_trace_id: trace.link_trace_id } : {}) } };
     record = fit(record);
     // Explicit ordering also protects callers from accidentally changing the wire format.
@@ -141,7 +182,32 @@ export function createWriter(o: WriterOptions) {
   const timer = o.timers === false ? null : setInterval(() => { try { tick(); flush(); } catch { /* keep queued records for the next flush */ } }, 1000);
   timer?.unref();
   return {
-    write: emit, flush, tick,
+    write: (event: string, attrs: RecordValue = {}, fields: WriteFields = {}) => emit(event, attrs, fields), flush, tick,
+    /** Trusted framing port: callers supply original source coordinates, never an already-redacted payload flag. */
+    outputMatcher(local?: SecretMatcher): SecretMatcher { return outputRedactor(local).secretMatcher!(); },
+    writeOutputLine(input: OutputLineInput, local?: SecretMatcher, transform: (text: string) => string = text => text): void {
+      let text: string;
+      try {
+        const policy = outputRedactor(local);
+        // Exact matching retains raw newline context; sanitisation may also join text into a known value or credential key.
+        text = input.oversized ? "[TRUNCATED:oversized-line]" : policy.secretMatcher!().maskTextWindow(input.context, input.sourceBegin, input.sourceEnd);
+        text = policy.text(transform(text));
+        // Arbitrary injected policies retain their transformations/failure behavior; native registry policies are combined above.
+        if (o.redactor && !o.redactor.secretMatcher) text = o.redactor.text(text);
+        if (Buffer.byteLength(text) > LIMITS.lineBytes) {
+          let size = 0, cut = "";
+          for (const char of text) { const bytes = Buffer.byteLength(char); if (size + bytes > LIMITS.lineBytes) break; cut += char; size += bytes; }
+          text = cut;
+        }
+      } catch { emit("log.redaction.failed", { attempted_event: "process.output.line" }, {}, true); return; }
+      emit("process.output.line", { text, untrusted: true, ...(input.oversized || input.bytes > LIMITS.lineBytes ? { truncated: true, bytes: input.bytes } : {}) },
+        { stream: input.stream, bypassRate: true }, false, text);
+    },
+    /** Internal framing boundary: apply this writer's live and manual policy before any caller cuts text. */
+    redactText(text: string): string {
+      try { return redactor.text(text); }
+      catch { return "[REDACTED:failed]"; }
+    },
     /** Transitional callers retain {at,role}; one sink owns both formats until their catalogue migration. */
     writeLegacy(level: Level, msg: string, fields: Record<string, unknown> = {}) {
       if (closed) throw new Error("log writer closed");
@@ -164,7 +230,7 @@ export function createWriter(o: WriterOptions) {
       if (opts?.pinned === true) { secrets.delete(value); pinned.add(value); }
       else { pinned.delete(value); secrets.delete(value); secrets.add(value); }
       if (secrets.size > 256) secrets.delete(secrets.values().next().value!);
-      redactor = createRedactor({ pii: o.redactPii ?? false, secrets: masked() });
+      registeredRedactor = createRedactor({ pii: o.redactPii ?? false, secrets: masked() });
     },
     currentLevels(): LevelSettings {
       return { defaultLevel: levelSettings.defaultLevel ?? "info", levels: { ...levelSettings.levels }, ...(levelSettings.traceUntil !== undefined ? { traceUntil: levelSettings.traceUntil } : {}) };

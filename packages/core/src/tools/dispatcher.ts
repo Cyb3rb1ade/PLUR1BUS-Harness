@@ -11,6 +11,9 @@ import type { RegisteredTool, ToolClassification, ToolRegistry, ToolRunContext, 
 import { ToolAdapterError } from "./tool-adapter-error.ts";
 import { FsFailure } from "./fs/failure.ts";
 import { createRedactor, maskSecretsInJson } from "../logs/redact.ts";
+import { SecretFormsCache, type SecretFormsSnapshot } from "../logs/secret-forms.ts";
+import { createSecretMatcher } from "../logs/secret-matcher.ts";
+import { wellFormedPrefix } from "../logs/utf16.ts";
 
 /** Arguments are bounded before they are validated or hashed. */
 export const MAX_ARGS_BYTES = 256 * 1024;
@@ -110,9 +113,31 @@ export interface ToolDispatcherDeps {
    * capture and every log or audit line only ever see the redacted value; so is the text of a failure message, before it is cut to
    * length. A result is checked as serialised JSON first: one that holds none of them is returned exactly as it is (no walk, no depth
    * cut), and the walk that masks one that does only looks for the forms that occur (a registered value that comes back as a JSON
-   * number cannot be masked, so that result is withheld). Without it nothing is redacted.
+   * number cannot be masked, so that result is withheld). Without a secret source nothing is redacted.
    */
   secrets?: () => Iterable<string>;
+  /** Same live registry as secrets; reuse its cached forms across dispatchers and output sinks. */
+  secretForms?: () => readonly string[];
+  /** Trusted shared generation, refreshed at every native output or presentation boundary. */
+  knownSecrets?: () => SecretFormsSnapshot;
+}
+
+/** Keep legacy internal callers on one compiled membership generation too. */
+export function createKnownSecretsSource(d: Pick<ToolDispatcherDeps, "knownSecrets" | "secrets" | "secretForms">): () => SecretFormsSnapshot {
+  if (d.knownSecrets) return d.knownSecrets;
+  const values = new SecretFormsCache();
+  let forms: Set<string> | undefined, snapshot: SecretFormsSnapshot | undefined;
+  return () => {
+    const currentValues = d.secrets?.() ?? [];
+    if (!d.secretForms) return values.snapshot(currentValues);
+    const next = new Set(d.secretForms());
+    if (!snapshot || !forms || next.size !== forms.size || [...next].some(form => !forms!.has(form))) {
+      const compiledForms = Object.freeze([...next]);
+      snapshot = Object.freeze({ forms: compiledForms, matcher: createSecretMatcher(compiledForms) });
+      forms = next;
+    }
+    return snapshot;
+  };
 }
 
 /** Stable JSON: object keys sorted, so equal arguments hash equal. */
@@ -125,14 +150,15 @@ export function canonicalJson(v: unknown): string {
   return JSON.stringify(v) ?? "null";
 }
 
-const clip = (s: string): string => (s.length > MAX_MESSAGE ? `${s.slice(0, MAX_MESSAGE - 1)}…` : s);
+const clip = (s: string): string => (s.length > MAX_MESSAGE ? `${wellFormedPrefix(s, MAX_MESSAGE - 1)}…` : s.toWellFormed());
 
 export class ToolDispatcher {
+  readonly #knownSecrets: () => SecretFormsSnapshot;
   readonly #taintedTurns = new Set<string>();
   #turnKey(ctx: DispatchContext): string { return JSON.stringify([ctx.principal, ctx.agentId, ctx.sessionId, ctx.turnId ?? ctx.sessionId]); }
 
   readonly #d: ToolDispatcherDeps;
-  constructor(d: ToolDispatcherDeps) { this.#d = d; }
+  constructor(d: ToolDispatcherDeps) { this.#d = d; this.#knownSecrets = createKnownSecretsSource(d); }
 
   /**
    * A message that leaves the dispatcher: the secret values this process holds are masked out of it BEFORE it is cut to length (a
@@ -141,7 +167,7 @@ export class ToolDispatcher {
    */
   #clip(message: string): string {
     let masked = message;
-    try { if (this.#d.secrets) masked = createRedactor({ secrets: this.#d.secrets(), secretsOnly: true }).text(message); }
+    try { masked = createRedactor({ secretMatcher: this.#knownSecrets().matcher, secretsOnly: true }).text(message); }
     catch { masked = "[message withheld: it could not be checked for secret values]"; }
     return clip(masked);
   }
@@ -170,11 +196,11 @@ export class ToolDispatcher {
 
       // 1. arguments: bounded, validated, at most one repair round. An invalid call is neither gated nor run.
       let args = req.args;
-      let issues = argIssues(tool, args);
+      let issues = argIssues(tool, args, this.#knownSecrets);
       if (issues.length > 0 && this.#d.repair && !tooLarge(args)) {
         try {
           const fixed = await this.#d.repair({ tool: tool.name, args, issues, message: repairMessage(tool.name, issues) });
-          if (fixed !== undefined) { args = fixed; issues = argIssues(tool, args); }
+          if (fixed !== undefined) { args = fixed; issues = argIssues(tool, args, this.#knownSecrets); }
         } catch { /* the original issues stand */ }
       }
       if (issues.length > 0) {
@@ -298,7 +324,7 @@ export class ToolDispatcher {
       // tool ran, so a value it registered itself counts. A result that holds none of them is passed on as it is. Fail closed: a result
       // that cannot be checked, or that holds a value the redactor cannot mask (a number), is withheld, never passed on.
       try {
-        const masked = this.#d.secrets ? maskSecretsInJson(json, value, this.#d.secrets()) : undefined;
+        const masked = maskSecretsInJson(json, value, [], this.#knownSecrets());
         if (masked) ({ value, json } = masked);
       } catch { return out(fail("tool-result-invalid", `${tool.name} returned a result that could not be checked for secret values; it was withheld`, via, {}, true)); }
       // Masking can lengthen a result (the marker is longer than a short value): the limit holds for what is passed on.
@@ -443,7 +469,13 @@ export class ToolDispatcher {
       const cancel = timers.set(() => { finish({ kind: "timeout" }); ac.abort(new Error("timeout")); }, tool.limits.timeoutMs);
       ctx.signal.addEventListener("abort", onAbort, { once: true });
       Promise.resolve().then(() => {
-        const runContext: ToolRunContext = { signal: ac.signal, onResultSettled, agentId: ctx.agentId, principal: ctx.principal, surface: ctx.surface, execution: { turnId: ctx.turnId || ctx.sessionId || "", ...(ctx.taskId ? { taskId: ctx.taskId } : {}), ...(ctx.recurring ? { recurring: ctx.recurring } : {}), policy }, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), ...(classified ? { classified } : {}) };
+        const runContext: ToolRunContext = {
+          signal: ac.signal, onResultSettled, knownSecrets: this.#knownSecrets,
+          agentId: ctx.agentId, principal: ctx.principal, surface: ctx.surface,
+          execution: { turnId: ctx.turnId || ctx.sessionId || "", ...(ctx.taskId ? { taskId: ctx.taskId } : {}),
+            ...(ctx.recurring ? { recurring: ctx.recurring } : {}), policy },
+          ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), ...(classified ? { classified } : {}),
+        };
         tool.beforeExecute?.(runContext);
         return tool.execute(args, runContext);
       })
@@ -495,9 +527,9 @@ function tooLarge(args: unknown): boolean {
   try { const s = JSON.stringify(args); return s !== undefined && Buffer.byteLength(s, "utf8") > MAX_ARGS_BYTES; } catch { return true; }
 }
 
-function argIssues(tool: RegisteredTool, args: unknown): ValidationIssue[] {
+function argIssues(tool: RegisteredTool, args: unknown, knownSecrets: () => SecretFormsSnapshot): ValidationIssue[] {
   if (tooLarge(args)) return [{ path: "", expected: `at most ${MAX_ARGS_BYTES} bytes`, got: "larger", message: "arguments are too large (or not JSON)" }];
-  return validateArgs(tool.inputSchema, args);
+  return validateArgs(tool.inputSchema, args, knownSecrets);
 }
 
 function provenance(ctx: DispatchContext, tool: RegisteredTool | null): ToolProvenance {

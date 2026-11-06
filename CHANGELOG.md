@@ -156,6 +156,14 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Fixed
 
+- **Secret redaction across encodings and output boundaries (SH3).** Cache compiled matchers with each secret-set
+  generation, cover overlapping and JSON-escaped forms, and mask before native exec, file-window, web-page and
+  diagnostic limits. Output framing carries partial matches across chunks and idle flushes without broken UTF-16.
+  Large escaped results have a deterministic regression budget, including 512 secrets and 170,000 short escaped tokens.
+- **Bounded Secret-Store startup (SH3).** Readable persisted values are protected before startup logs reach a sink.
+  Native backend work runs outside Core's event loop; an unavailable Store leaves Core responsive while secret use
+  fails closed. Startup snapshots remain protected until Core exits.
+
 - Outbound A2A approvals use their own wait limit instead of consuming the network timeout. Redirects retain one
   shared network allowance, and approved traffic obtains a fresh credential lease after the human decision.
 
@@ -173,8 +181,8 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
   `state/tool-results/` file and the capture. The dispatcher now masks the exact value and its base64, hex and URL-encoded
   forms with `[REDACTED:secret]`, once, as the result leaves it; a failed call is masked against the same registry, and a
   failure message is masked before it is cut to 500 characters (a value the cut split used to escape the later redaction).
-  "Registered" means read, written or leased in this core process (the secret store, provider and media credentials): after a
-  restart a stored secret that nothing has used yet is not masked. Values under 8 characters are still not masked (`secret.set`
+  "Registered" includes configured literals and readable Store values loaded at startup, plus values read, written or
+  leased later in this process (the secret store, provider and media credentials). Values under 8 UTF-16 units are still not masked (`secret.set`
   warns about them), and a stored low-entropy value of 8 or more characters (a short word, a path) masks every matching piece of
   text in a result too. A result that holds no registered value comes back exactly as the tool returned it; one over
   `maxResultBytes` is refused on its raw size before it is checked; a registered value that comes back as a JSON number cannot

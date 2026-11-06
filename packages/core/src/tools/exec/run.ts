@@ -9,6 +9,7 @@ import { buildEnv, DEFAULT_ENV_ALLOW, envFingerprint, isSecretishName } from "./
 import type { ToolClassification } from "../registry.ts";
 import { OutputLines } from "../../logs/output.ts";
 import { ExecFailure, type ExecDeps, type ExecRequest, type ExecResult } from "./types.ts";
+import { BoundedCapture } from "../sandbox/capture.ts";
 
 export const EXEC_TIMEOUT_MS = 30_000;
 export const EXEC_MAX_TIMEOUT_MS = 600_000;
@@ -36,25 +37,6 @@ function clampInt(v: unknown, def: number, max: number, what: string): number {
   if (v === undefined) return def;
   if (typeof v !== "number" || !Number.isInteger(v) || v < 1) throw new ExecFailure("invalid-input", `${what} must be a positive integer`);
   return Math.min(v, max);
-}
-
-/** Collects up to `limit` bytes; the rest is read and dropped so the child never blocks on a full pipe. */
-class Capture {
-  private readonly chunks: Uint8Array[] = [];
-  private size = 0;
-  truncated = false;
-  private readonly limit: number;
-  constructor(limit: number) { this.limit = limit; }
-  push(c: Uint8Array): void {
-    const room = this.limit - this.size;
-    if (room <= 0) { if (c.length > 0) this.truncated = true; return; }
-    const take = c.length > room ? c.subarray(0, room) : c;
-    if (take.length < c.length) this.truncated = true;
-    this.chunks.push(take);
-    this.size += take.length;
-  }
-  /** Decoded as UTF-8; a multi-byte character cut by the limit becomes U+FFFD, never an error. */
-  text(): string { return Buffer.concat(this.chunks).toString("utf8"); }
 }
 
 export async function execRun(req: ExecRequest, deps: ExecDeps, signal?: AbortSignal, classified?: ToolClassification): Promise<ExecResult> {
@@ -188,8 +170,8 @@ export async function execRun(req: ExecRequest, deps: ExecDeps, signal?: AbortSi
   audit("exec.run", program, via === "override" ? { ...base } : { ...base, decision: "allow", via });
 
   const started = deps.timers.now();
-  const out = new Capture(maxOut);
-  const err = new Capture(maxOut);
+  const out = new BoundedCapture(maxOut, deps.knownSecrets);
+  const err = new BoundedCapture(maxOut, deps.knownSecrets);
   const localSecrets = wrapSecrets(env, req.env, windows);
   const wrapOpts = { now: () => deps.timers.now(), ...(localSecrets.length ? { secrets: localSecrets } : {}) };
   const stdoutWrap = deps.output ? new OutputLines(deps.output, "stdout", wrapOpts) : null;

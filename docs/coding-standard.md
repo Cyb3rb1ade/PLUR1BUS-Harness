@@ -221,8 +221,10 @@ patterns; a retryable failure is never cached as a negative result (change packa
 
 ### 6.5 Start-up and footprint
 
-Heavy optional dependencies load lazily on first use (`@napi-rs/keyring` on the first `secret.*` call); the core starts
-without touching the keychain, the network or a model. A binary that an operator installs is as small as its job allows
+Heavy optional dependencies load when first needed. Core preloads readable stored values for startup redaction,
+including the OS keyring, through private child IPC with one three-second deadline. Timeout keeps Core responsive
+and secret use unavailable. Constructing a Store alone stays lazy. Startup does not need the network or a model.
+A binary that an operator installs is as small as its job allows
 (`plur1bus-attest` and the planned `plur1bus-engine` are separate binaries so `plur1bus` itself stays small).
 
 ### 6.6 Measure

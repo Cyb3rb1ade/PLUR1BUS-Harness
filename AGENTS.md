@@ -207,9 +207,15 @@ Env vars that matter when driving the core directly instead of through the CLI:
 - `PLUR1BUS_REEMBED_POLL_MS=<ms>` (with `PLUR1BUS_ALLOW_TEST_INTERNALS=1`) — the poll interval of `memory reembed --run`'s follow loop instead of 1000 ms (`crates/plur1bus/tests/memory_reembed.rs`).
 - **Update test seams** (all with `PLUR1BUS_ALLOW_TEST_INTERNALS=1`, and only in a build that honours seams: a debug build, or a release build without a baked release key such as the one release-smoke tests; a build with a baked `PLUR1BUS_RELEASE_PUBKEY_STABLE`/`_BETA` ignores them and says so on stderr, `install::pins::trust_seams_allowed`; the same holds for `PLUR1BUS_TEST_NODE_SHA256` and `PLUR1BUS_TEST_CORE_SHA256`): `PLUR1BUS_UPDATE_TARGET_BIN=<path>` — the binary `plur1bus update` swaps instead of `current_exe()` (tests point it at a shell script); `PLUR1BUS_UPDATE_GATE_TIMEOUT_MS=<ms>` — the health gate's budget (default 90 000); `PLUR1BUS_TEST_UPDATE_KILL_AT=<phase>` — the updater exits 137 right after writing that phase (`swapped`, `gated`, …), as a killed process would. `PLUR1BUS_TEST_RELEASE_PUBKEY` signs the local feed.
 - `PLUR1BUS_SECRETS_KEYRING=off|memory` (with `PLUR1BUS_ALLOW_TEST_INTERNALS=1`; refused without it) — M2 secret store: `off` makes the OS keyring
-  unavailable, `memory` swaps in an in-process one, so a test can never reach a real keychain. Absent, the real
-  `@napi-rs/keyring` loads lazily on the first `secret.*` call (starting the core never touches the keychain). The
-  encrypted-file fallback is a config flag, `secrets.fileFallback.enabled` (default `false`), not an env var.
+  unavailable, `memory` swaps in an in-process one, so a test can never reach a real keychain. A trusted constructor
+  `testInternals` defaults only its own Store to memory when no mode is supplied; explicit modes still require the gate.
+  Production startup contacts the real OS keyring through a private child and may trigger a platform prompt. Keyring
+  and enabled encrypted-file I/O stay outside the Core event loop. One three-second preload deadline leaves secret
+  use unavailable on timeout, discards unsafe queued startup logs, and permits demand-driven recovery after 30 seconds.
+  Fresh recovery values are registered before release; initial/recovery redaction pins last until Core exits. Helper
+  cleanup kills/disconnects immediately and bounds exit waiting to 250 ms. Core-start tests must use the trusted local
+  memory seam or both explicit R5 flags, never the personal keychain. The encrypted-file fallback is a config flag,
+  `secrets.fileFallback.enabled` (default `false`), not an env var.
 - `PLUR1BUS_MODULE_API_CURRENT=<n>` (with `PLUR1BUS_ALLOW_TEST_INTERNALS=1`) — overrides the
   supervisor's own module API version (module-guide.md "API-version policy"; `modules::manifest`).
 - `PLUR1BUS_TEST_BACKUP_FAIL_AT=<step>` (with `PLUR1BUS_ALLOW_TEST_INTERNALS=1`) — makes `backup restore` fail at the named
