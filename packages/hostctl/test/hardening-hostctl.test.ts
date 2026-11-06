@@ -94,10 +94,15 @@ describe('arguments are never interpreted by a shell', () => {
 describe('time, output and environment of real children', () => {
   it('a process that outlives its time limit is a TIMEOUT, is gone afterwards, and does not hold the call for its own lifetime', async () => {
     const h = make({ config: { exec: { timeoutMs: 400 } } }); const t0 = Date.now();
-    const r = await call(h, 'proc.exec', { ...node('console.log(process.pid); setInterval(() => {}, 1000)'), cwd: root });
+    const r = await call(h, 'proc.exec', { ...node('setInterval(() => {}, 1000)'), cwd: root });
     expect(r.ok).toBe(false); expect(r.error!.code).toBe('TIMEOUT'); expect(Date.now() - t0).toBeLessThan(8000);
     const list = await call(h, 'proc.list'); const job = list.value.processes[0]; expect(job.timedOut).toBe(true); expect(job.running).toBe(false);
-    const pid = Number(job.output.split('\n')[0]); expect(Number.isInteger(pid)).toBe(true); expect(await until(() => !alive(pid), 5000)).toBe(true);
+    // A timed-out child can be killed before it writes anything. Its PID comes from the spawn record.
+    expect(job.output).toBe('');
+    const pid = job.pid;
+    expect(Number.isInteger(pid)).toBe(true);
+    expect(pid).toBeGreaterThan(0);
+    expect(await until(() => !alive(pid), 5000)).toBe(true);
     const shorter = await call(h, 'proc.exec', { ...node('setInterval(() => {}, 1000)'), cwd: root, timeoutMs: 100 }); expect(shorter.error!.code).toBe('TIMEOUT');
     for (const bad of [0, -1, 1.5, 300001, 'x', NaN, Infinity, null]) expect((await call(h, 'proc.exec', { ...node('1'), cwd: root, timeoutMs: bad as never })).error!.code, String(bad)).toBe('INVALID_ARGUMENT');
   }, 30_000);
