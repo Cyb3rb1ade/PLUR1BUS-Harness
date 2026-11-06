@@ -91,6 +91,27 @@ fn setup_non_interactive_installs_everything_but_the_service() {
     );
 }
 
+#[test]
+fn setup_waits_for_core_to_authenticate_the_native_tools_service() {
+    let e = Env::new();
+    let core = payload();
+    let out = e
+        .cmd(&[
+            "--json",
+            "setup",
+            "--profile",
+            "host",
+            "--non-interactive",
+            "--no-service",
+            "--core-from",
+            core.to_str().unwrap(),
+        ])
+        .env("FAKE_CORE_MODE", "pending-tools-probe")
+        .output()
+        .unwrap();
+    assert_success(out.status.code().unwrap_or(-1), &doc(&out));
+}
+
 /// One installer at a time: an `update` (or another `setup`) holding the update lock keeps `setup` out of the home
 /// until it is done, and a lock that is free again lets the same `setup` run as usual.
 #[cfg(unix)]
