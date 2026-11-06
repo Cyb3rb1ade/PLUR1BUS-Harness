@@ -156,6 +156,9 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Fixed
 
+- **Release-audit exceptions (SH5).** Match advisory, crate and bounded stable-version range together; reject incomplete
+  approvals and unknown installed versions, preserving existing expiry dates.
+
 - **Collaboration replay regression (SH4).** Verify authorized W3C trace/span identity with deterministic replay cases;
   secret content, PII and access checks remain protected.
 
