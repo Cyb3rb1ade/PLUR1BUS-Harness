@@ -90,7 +90,8 @@ export const TURN_EVAL_SCENARIOS: TurnEvalScenario[] = (["en", "de"] as const).f
     },
     {
       id: `discovery-${language}`, language, tags: ["discovery"], turns: [{
-        input: de ? "Suche aktuelle Webquellen" : "Search current web sources",
+        input: de ? "Rufe die Seite https://example.com/report ab. Entdecke bei Bedarf eine passende Abruf-Fähigkeit."
+          : "Fetch the page at https://example.com/report. Discover a suitable fetch capability if needed.",
         rounds: [{ calls: [call("capabilities.search", "web fetch")] }, { calls: [call("web.fetch")] }, END],
         requiredTools: ["web.fetch"], choice: "required",
       }],

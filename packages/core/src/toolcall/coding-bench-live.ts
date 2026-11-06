@@ -12,7 +12,7 @@ import { loadCodingCorpus, renderCodingTask, type CodingLanguage } from "./codin
 import { verifyCodingTask } from "./coding-bench-checker.ts";
 import { codingEvalHome, codingSecretValues } from "./coding-bench-secrets.ts";
 import { parseCodingLiveReport, type CodingLiveCase, type CodingLiveReport } from "./coding-bench-report.ts";
-import { copyCodingRuntime, resolveCodingRuntimes, type CodingRuntimes } from "./coding-bench-runtime.ts";
+import { copyCodingRuntime, resolveCodingRuntimes, type CodingRuntimes, type CodingRuntimePhase } from "./coding-bench-runtime.ts";
 import { singleCodingArm, type CodingArm, type SingleCodingOptions } from "./coding-bench-subject.ts";
 import { verifyCodingCandidate } from "./coding-bench-verify.ts";
 import { defineCodingArm, type CodingArmSpec } from "./coding-bench-arms.ts";
@@ -45,7 +45,7 @@ export interface CodingLiveOptions {
   onCase?: (progress: { checked: number; resolved: number }) => void;
   /** Fixed coordinator stages only, suitable for a public failure log without foreign exception text. */
   onPhase?: (phase: "home" | "collab-api" | "corpus" | "sandbox" | "runtimes" | "native-preflight"
-    | "native-foundation" | "providers" | "case-setup" | "subject" | "verifier") => void;
+    | "native-foundation" | "providers" | "case-setup" | "subject" | "verifier" | `runtimes-${CodingRuntimePhase}`) => void;
 }
 
 /** Stable across harness revisions and temporary paths; changed model endpoints/settings cannot silently pair. */
@@ -192,7 +192,7 @@ export async function runCodingLive(root: string, options: CodingLiveOptions): P
   }
   const verifier = sandboxVerifier(90_000, { limitsHelper: options.limitsHelper, maxTasks: () => DEFAULT_MAX_TASKS });
   options.onPhase?.("runtimes");
-  const runtimes = await resolveCodingRuntimes(true, options.signal);
+  const runtimes = await resolveCodingRuntimes(true, options.signal, phase => options.onPhase?.(`runtimes-${phase}`));
   const native = new ToolsClient({ home: join(home, "native"), supervised: false, binary: options.toolsBinary });
   let providers: TurnEvalProviders | undefined;
   try {

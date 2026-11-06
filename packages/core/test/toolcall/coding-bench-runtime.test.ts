@@ -4,7 +4,20 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, writeFile, readFile, stat, symlink, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { copyCodingRuntime } from "../../src/toolcall/coding-bench-runtime.ts";
+import { copyCodingRuntime, resolveCodingRuntimes } from "../../src/toolcall/coding-bench-runtime.ts";
+
+test("runtime refusal emits fixed stages before any compiler can start", async () => {
+  const saved = process.env.PATH;
+  const phases: string[] = [];
+  process.env.PATH = "";
+  try {
+    await assert.rejects(resolveCodingRuntimes(false, new AbortController().signal, phase => phases.push(phase)), /unavailable/u);
+    assert.deepEqual(phases, process.platform === "win32" ? [] : ["toolchain-file", "rustc"]);
+  } finally {
+    if (saved === undefined) delete process.env.PATH;
+    else process.env.PATH = saved;
+  }
+});
 
 test("changing a staged toolchain never changes the trusted original", async () => {
   const root = await mkdtemp(join(tmpdir(), "p1b-runtime-copy-"));

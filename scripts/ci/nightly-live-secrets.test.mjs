@@ -109,3 +109,12 @@ test('failed coding runs scan their log before printing and never upload an abse
     assert.ok(steps.at(-1).includes(`hashFiles('artifacts/${folder}/report.json') != ''`));
   }
 });
+
+test('both coding live jobs explicitly prepare the pinned Go runtime before credential setup', () => {
+  for (const job of ['coding-bench-smoke', 'coding-bench-live']) {
+    const block = jobs[job];
+    const setup = block.indexOf('uses: actions/setup-go@');
+    assert.ok(setup >= 0 && setup < block.indexOf('coding-bench.ts --setup'), job);
+    assert.match(block.slice(setup, block.indexOf('coding-bench.ts --setup')), /go-version: "1\.27\.1"/);
+  }
+});

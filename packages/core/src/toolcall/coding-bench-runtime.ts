@@ -86,14 +86,20 @@ async function executable(name: string, system = false): Promise<string> {
   throw new Error("coding runtime unavailable");
 }
 
+export type CodingRuntimePhase = "toolchain-file" | "rustc" | "rust-sysroot" | "go" | "go-root"
+  | "python" | "shell" | "rust-version" | "go-version" | "python-version";
+
 /** Inspect installed tools before any model runs; missing tools refuse, never trigger a bootstrap/download. */
-export async function resolveCodingRuntimes(live: boolean, signal: AbortSignal): Promise<CodingRuntimes> {
+export async function resolveCodingRuntimes(
+  live: boolean, signal: AbortSignal, onPhase?: (phase: CodingRuntimePhase) => void,
+): Promise<CodingRuntimes> {
   if (process.platform === "win32" || (live && process.platform !== "linux")) {
     throw new Error("coding runtime platform unavailable");
   }
   const cache = await realpath(await mkdtemp(join(tmpdir(), "p1b-coding-runtime-")));
   try {
     const repository = fileURLToPath(new URL("../../../../", import.meta.url));
+    onPhase?.("toolchain-file");
     const toolchain = await readFile(join(repository, "rust-toolchain.toml"), "utf8");
     const channel = /channel\s*=\s*"([^"]+)"/u.exec(toolchain)?.[1];
     if (!channel) throw new Error("coding Rust toolchain unavailable");
@@ -113,15 +119,24 @@ export async function resolveCodingRuntimes(live: boolean, signal: AbortSignal):
       if (result.reason || result.code !== 0) throw new Error("coding runtime query unavailable");
       return result.stdout.trim();
     };
+    onPhase?.("rustc");
     let rustc = await executable("rustc");
     if (basename(rustc) === "rustup") rustc = await executable(await query(rustc, ["which", "rustc"], repository));
+    onPhase?.("rust-sysroot");
     const rustRoot = await realpath(await query(rustc, ["--print", "sysroot"]));
+    onPhase?.("go");
     const go = await executable("go");
+    onPhase?.("go-root");
     const goRoot = await realpath(await query(go, ["env", "GOROOT"]));
+    onPhase?.("python");
     const python = await executable("python3", live);
+    onPhase?.("shell");
     const shell = await executable("/bin/sh");
+    onPhase?.("rust-version");
     const rustVersion = /rustc ([0-9.]+)/u.exec(await query(rustc, ["--version"]))?.[1];
+    onPhase?.("go-version");
     const goVersion = /go([0-9.]+)/u.exec(await query(go, ["version"]))?.[1];
+    onPhase?.("python-version");
     const pythonVersion = /Python ([0-9.]+)/u.exec(await query(python, ["--version"]))?.[1];
     if (!rustVersion || !goVersion || !pythonVersion) throw new Error("coding runtime version unavailable");
     await mkdir(join(cache, "go-cache"), { mode: 0o700 });

@@ -6,6 +6,13 @@ import { TURN_EVAL_SCENARIOS } from "../fixtures/turn-eval/scenarios.ts";
 import { TURN_EVAL_POLICY_SCENARIOS } from "../fixtures/turn-eval/policy-scenarios.ts";
 
 describe("turn eval over createTurnProvider", () => {
+  it("the discovery gold asks for the page fetch that it scores", () => {
+    for (const scenario of TURN_EVAL_SCENARIOS.filter(item => item.tags.includes("discovery"))) {
+      assert.deepEqual(scenario.turns[0]?.requiredTools, ["web.fetch"]);
+      assert.match(scenario.turns[0]!.input, /https:\/\/example\.com\/report/u);
+      assert.match(scenario.turns[0]!.input, /fetch|abruf/iu);
+    }
+  });
   it("checks Sonnet 5.5 automatic choice while still requiring the actual tool execution", async () => {
     const scenario = TURN_EVAL_SCENARIOS.find(item => item.id === "file-needed-en")!;
     const report = await runTurnEval([scenario], { family: "anthropic", model: "claude-sonnet-5-5" });
