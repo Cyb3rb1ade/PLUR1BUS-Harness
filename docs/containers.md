@@ -139,9 +139,11 @@ architecture is pushed by digest with its own SBOM and provenance, then `imageto
 joins them into one multi-arch index under the `sha-` and ref tags. The job fails if that
 index lacks a platform or the attestation manifests. Actions use commit SHA pins;
 publication has package-write permission only in its job. Builds include SBOM and maximum
-provenance. Trivy's JSON report is informational and uploaded as an artifact. New packages
-are private; release publication may switch visibility to public. Registry visibility is
-checked before main publication. Creating a PR is not evidence of a CI build or publication.
+provenance. Trivy's JSON report is informational and uploaded as an artifact. Main publishes to
+`ghcr.io/cyb3rb1ade/plur1bus-harness-distribution-staging`. On first use a scratch image
+initializes the package. The workflow requires confirmed private visibility before pushing
+either architecture and before creating the index. Version tags publish to
+`ghcr.io/cyb3rb1ade/plur1bus-harness-distribution`. Creating a PR is not evidence of a CI build or publication.
 
 ```sh
 cargo fmt --all -- --check

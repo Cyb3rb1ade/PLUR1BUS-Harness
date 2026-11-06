@@ -1,11 +1,12 @@
-import { validateAcpMount } from "./acp-worktree.ts";
+import { selectedWorktreeMount, validateWorktreeMount } from './worktree-mount.ts';
+import { assertNoProtectedWorktreeAliases, type WorktreeInventory } from './worktree-inventory.ts';
 import { lstat, readdir, realpath, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { canonicalisePath, checkSyntax, matchDeny, type DenyEntry, type PathRoot } from '../../policy/paths.ts';
 import { denyEntriesFor } from '../../host-tools/denylist.ts';
 import { isHostPlatform } from '../../host-tools/types.ts';
 import { SandboxFailure, type SandboxPolicy } from './types.ts';
-export interface PreparedPolicy extends SandboxPolicy { denied: readonly DenyEntry[]; runtimeRoots: readonly string[]; runtimePaths: readonly string[] }
+export interface PreparedPolicy extends SandboxPolicy { denied: readonly DenyEntry[]; runtimeRoots: readonly string[]; runtimePaths: readonly string[]; mountInventory?: WorktreeInventory }
 // Runtime support is read-only and never includes a user or writable package-manager prefix.
 export const RUNTIME_ROOTS = process.platform === 'darwin'
   ? ['/usr/bin', '/usr/sbin', '/usr/lib', '/usr/share', '/bin', '/sbin', '/System/Library', '/Library/Apple', '/dev/null', '/dev/urandom', '/dev/random']
@@ -57,7 +58,7 @@ async function absolute(p: string, denied: readonly DenyEntry[] = []): Promise<s
   if (!checkSyntax(real).ok) throw new SandboxFailure('sandbox path has no canonical form the path policy accepts');
   return real;
 }
-export async function preparePolicy(p: SandboxPolicy): Promise<PreparedPolicy> {
+export async function preparePolicy(p: SandboxPolicy, options: { signal?: AbortSignal } = {}): Promise<PreparedPolicy> {
   if (!isHostPlatform(process.platform)) throw new SandboxFailure('unsupported sandbox platform');
   if (!['none', 'egress', 'full'].includes(p.network)) throw new SandboxFailure('invalid network policy');
   if (!Number.isSafeInteger(p.limits.maxTasks) || p.limits.maxTasks < 0 || p.limits.maxTasks > 65536)
@@ -65,7 +66,8 @@ export async function preparePolicy(p: SandboxPolicy): Promise<PreparedPolicy> {
   for (const [key, n] of Object.entries(p.limits)) if (key !== 'maxTasks' && (!Number.isSafeInteger(n) || n <= 0))
     throw new SandboxFailure('sandbox limits must be positive safe integers');
   if (p.limits.maxOutputBytes > 4 * 1024 * 1024 || p.limits.timeoutMs > (p.acpScratch ? 3600000 : 600000)) throw new SandboxFailure('sandbox limits exceed hard caps');
-  const mount = p.acpWorktree ? await validateAcpMount(p.acpWorktree, p.writeRoots.map(r => r.path)) : undefined;
+  const grant = selectedWorktreeMount(p);
+  const mount = grant ? await validateWorktreeMount(grant, p.writeRoots.map(r => r.path), { ...options, timeoutMs: p.limits.timeoutMs }) : undefined;
   const home = await absolute(p.home), userHome = await absolute(p.userHome);
   const denied: DenyEntry[] = [...denyEntriesFor(userHome, process.env, process.platform), { path: join(home, 'run') }, ...(mount ? [] : [{ path: join(home, 'state') }]), { path: join(home, 'secrets') }, { path: join(home, 'config.json') }, { path: join(home, 'bin') }, { path: join(home, 'runtime') }, ...(p.deny ?? [])];
   if (denied.some(d => 'name' in d && !/^[a-z0-9_.-]+$/i.test(d.name))) throw new SandboxFailure('credential deny names require ASCII path segments');
@@ -81,6 +83,7 @@ export async function preparePolicy(p: SandboxPolicy): Promise<PreparedPolicy> {
     return { ...r, path: c.canonical };
   }));
   const readRoots = await roots(p.readRoots), writeRoots = await roots(p.writeRoots);
+  if (mount?.inventory) assertNoProtectedWorktreeAliases(mount.inventory, denied);
   const limitsHelper = await absolute(p.limitsHelper);
   if (writeRoots.some(r => within(limitsHelper, r.path, true))) throw new SandboxFailure('sandbox launcher must be outside writable roots');
   // A pre-existing hard-link alias loses its protected source pathname at the kernel boundary.
@@ -96,7 +99,10 @@ export async function preparePolicy(p: SandboxPolicy): Promise<PreparedPolicy> {
       if (info.isDirectory()) await scan(target);
     }
   };
-  for (const r of [...readRoots, ...writeRoots]) await scan(r.path);
+  for (const r of [...readRoots, ...writeRoots]) {
+    if (mount?.inventory?.root === r.path) continue; // The native inventory already freshly checked every inode/link.
+    await scan(r.path);
+  }
   const cwd = await absolute(p.cwd, denied).catch(() => { throw new SandboxFailure('sandbox cwd is outside roots'); });
   if (![...readRoots, ...writeRoots].some(r => within(cwd, r.path, false)) || matchDeny(cwd, denied)) throw new SandboxFailure('sandbox cwd is outside roots');
   const runtime = (await Promise.all(RUNTIME_ROOTS.map(async source => { const canonical = await realpath(source).catch(() => null); return canonical ? { source, canonical } : null; }))).filter((s): s is {source:string;canonical:string} => s !== null);
@@ -106,5 +112,5 @@ export async function preparePolicy(p: SandboxPolicy): Promise<PreparedPolicy> {
     runtimeRoots.push(mount.gitDir, mount.commonGitDir);
     runtimePaths.push(mount.gitDir, mount.commonGitDir);
   }
-  return { ...p, limitsHelper, home, userHome, cwd, readRoots, writeRoots, denied, runtimeRoots: [...new Set(runtimeRoots)], runtimePaths };
+  return { ...p, limitsHelper, home, userHome, cwd, readRoots, writeRoots, denied, runtimeRoots: [...new Set(runtimeRoots)], runtimePaths, ...(mount?.inventory ? { mountInventory: mount.inventory } : {}) };
 }

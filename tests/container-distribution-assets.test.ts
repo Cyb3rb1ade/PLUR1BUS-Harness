@@ -27,3 +27,12 @@ test("compose has no default host API and preserves hardening", () => {
   for (const invariant of ["read_only: true", "cap_drop: [ALL]", "no-new-privileges:true", "pids_limit:", "mem_limit:"]) assert.ok(compose.includes(invariant));
   assert.match(read("containers/compose.api.yaml"), /127\.0\.0\.1:/);
 });
+
+test("all distribution payload pushes verify their destination after the private initialization barrier", () => {
+  const workflow = read(".github/workflows/containers.yml");
+  assert.match(workflow, /needs: prepare-publication/);
+  assert.equal(workflow.match(/bash containers\/ci\/publication.sh verify/g)?.length, 2);
+  const publish = workflow.split("\n  publish:\n")[1] ?? "";
+  assert.ok(publish.indexOf("uses: actions/checkout@") < publish.indexOf("uses: actions/download-artifact@"));
+  assert.ok(publish.indexOf("publication.sh verify") < publish.indexOf("docker buildx imagetools create"));
+});

@@ -1,7 +1,8 @@
 # ADR-015: Decision service
 
 **Status:** Proposed implementation contract; implements owner decisions D18/D30/D33/D34/D69/D70,
-without claiming acceptance of new implementation choices. **Date:** 2026-10-20.
+without claiming acceptance of new implementation choices. **Amended 2026-11-06 by D125:** triage backend, see
+the note after "Privacy refusal". **Date:** 2026-10-20.
 **Decider:** Christian (owner).
 
 ## Context and sources
@@ -114,6 +115,13 @@ in the request trace. F2 has role only and therefore cannot claim local-backend 
 Privacy refusal for an explicitly selected forbidden cloud backend is terminal, in keeping with
 `privacy/local-only.ts`; do not silently replace that explicit model. Auto first filters forbidden
 backends, and can choose a permitted local backend. Every fallback rechecks current privacy.
+
+**D125 amendment (owner, 2026-11-06).** D105 triage stays on `role` whatever `backend` says; `jev` and
+`auto` never send triage text to Jev on their own. Jev triages only after the explicit opt-in
+`decision.triage: jev`, with the bounded view of the
+[D125 plan](../superpowers/plans/2026-11-06-d125-jev-triage-opt-in.md) (current and previous user message,
+category list; never assistant text, tool output, attachments or memories) and the fallback `role`, then
+rules, under one deadline. `decision.triage: rules` runs rule triage with no model call.
 
 ## Consumers, budgets and conservative result
 

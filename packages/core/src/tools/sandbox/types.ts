@@ -1,11 +1,16 @@
 import type { AcpWorktreeMount } from "./acp-worktree.ts";
+import type { WorktreeMount } from './worktree-mount.ts';
 import type { DenyEntry, PathRoot } from '../../policy/paths.ts';
 export type SandboxNetwork = 'none' | 'egress' | 'full';
 /** Default tasks per sandboxed run, excluding bubblewrap's init. */
 export const DEFAULT_MAX_TASKS = 512;
+/** Existing ACP process budget; Linux enforces this as virtual address space, rather than RSS. */
+export const DEFAULT_WORKTREE_PROCESS_MEMORY_BYTES = 8 * 1024 ** 3;
 /** The measured process-cap mechanism, including why it cannot be used. */
 export interface SandboxTasks { mechanism: 'namespace-limit' | 'fork-denied' | 'none'; reason: string; hint?: string }
 export interface SandboxPolicy {
+  /** Opaque provisioner identity shared by ACP and native coding; no raw-path opt-in. */
+  worktreeMount?: WorktreeMount;
   /** #820: opaque provisioner grant; never supplied by tool arguments. */
   acpWorktree?: AcpWorktreeMount;
   /** Fresh private scratch, created by the ACP launcher and removed after exit. */

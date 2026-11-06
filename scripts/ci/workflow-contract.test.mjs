@@ -18,6 +18,28 @@ const jobBlocks = yaml => Object.fromEntries(yaml.slice(yaml.indexOf('\njobs:\n'
 // A job's block also carries the comment lines written above the next job; they are not steps.
 const stepsOf = block => block.slice(block.indexOf('\n    steps:\n')).replace(/(?:^  #.*\n)+$/m, '');
 
+test('WSL setup attempts cannot consume the job budget before retries and real tests', () => {
+  const wsl = jobBlocks(workflow()).wsl;
+  assert.match(wsl, /^    timeout-minutes: 20$/m);
+  const steps = stepsOf(wsl).split(/(?=^      - )/m);
+  let totalSetupMinutes = 0;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const step = steps.find(block => block.includes(`id: wsl_setup_${attempt}\n`));
+    assert.ok(step, `setup attempt ${attempt} missing`);
+    const minutes = Number(/^        timeout-minutes: (\d+)$/m.exec(step)?.[1]);
+    assert.ok(minutes > 0 && minutes <= 4, `attempt ${attempt} must have its own bounded deadline`);
+    totalSetupMinutes += minutes;
+    assert.match(step, /continue-on-error: true/);
+    if (attempt > 1) assert.ok(step.includes(`if: steps.wsl_setup_${attempt - 1}.outcome == 'failure'`));
+  }
+  assert.ok(totalSetupMinutes <= 12, 'leave the remaining job budget for preparation and actual WSL assertions');
+  const status = steps.find(block => block.includes('id: wsl_setup_status\n'));
+  assert.match(status, /if: always\(\)/);
+  assert.match(status, /echo "ready=false"/);
+  assert.match(status, /exit 1/);
+  assert.ok(steps.some(block => block.includes('name: synthetic WSL source and import detect')));
+});
+
 test('every job running Core builds the native sandbox launcher before its assertions', () => {
   const jobs = jobBlocks(workflow());
   for (const name of ['unit', 'unit-os', 'core-unit-shard', 'core-unit-shard-windows']) {
@@ -113,6 +135,9 @@ test('unit-os preserves every unit step while Ubuntu and Windows run Core only i
     '          else\n' +
     '            pnpm test\n' +
     '          fi\n';
+  const timingStep = jobs['unit-os'].split(/(?=^      - )/m).find(step => step.includes('name: unit tests with file timings'));
+  assert.match(timingStep, /PLUR1BUS_CORE_TEST_CONCURRENCY: \$\{\{ runner.os == 'macOS' && 'bounded' \|\| '' \}\}/);
+  assert.match(timingStep, /timeout-minutes: \$\{\{ matrix.os == 'windows-2025' && 35 \|\| 25 \}\}/);
   assert.ok(stepsOf(jobs.unit).includes(coreSplit));
   assert.equal(stepsOf(jobs['unit-os']), stepsOf(jobs.unit).replace(coreSplit, osSplit));
   assert.match(jobs['core-unit-shard'], /pnpm --filter @plur1bus\/core test/);

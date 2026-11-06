@@ -1,5 +1,6 @@
 /** Actual HTTP cookie/CSRF -> Core plan -> native maintenance -> restarted Core; the Rust parent owns all processes. */
 import assert from "node:assert/strict";
+import { assertCoreRestarted } from "./core-restart.ts";
 import { createHash, generateKeyPairSync, randomBytes } from "node:crypto";
 import { mkdir, readFile, writeFile, access, readdir, lstat } from "node:fs/promises";
 import { join } from "node:path";
@@ -16,7 +17,7 @@ import { AccountStore } from "../../src/account-store.ts";
 import { systemClock } from "../../src/clock.ts";
 import { hashPassword } from "../../src/password.ts";
 import { TotpService, totpCodeAt } from "../../src/totp.ts";
-import { snapshot, diff } from "./import-maintenance-diagnostics.mjs";
+import { snapshot, diff, failureReports } from "./import-maintenance-diagnostics.mjs";
 
 const [home, sourceDir, mode = "complete"] = process.argv.slice(2);
 if (
@@ -486,18 +487,20 @@ try {
   mark("import-submitted");
   const finished = await waitForRun(cookie, otherCookie, otherCsrf, started.runId, mode === "abort",
     mode === "abort" ? { planId: plan.planId, preflightId: preflight.preflightId } : undefined);
+  const expectedState = mode === "abort" ? "aborted" : mode === "failure" ? "failed" : "completed";
+  if (finished.run?.state !== expectedState) {
+    process.stderr.write(JSON.stringify({ diagnostic: "native-import-report-counts",
+      reports: await failureReports(home, started.runId) }) + "\n");
+  }
   assert.equal(
     finished.run?.state,
-    mode === "abort" ? "aborted" : mode === "failure" ? "failed" : "completed",
+    expectedState,
     `native maintenance reaches its expected terminal state: ${JSON.stringify(finished.run)}`,
   );
   mark("maintenance-terminal");
   const after = await rpc(verificationCookie, "core.status");
   mark("restarted-core-answered");
-  assert.ok(
-    Number.isInteger(before.pid) && Number.isInteger(after.pid) && before.pid !== after.pid,
-    "actual Core process restarted",
-  );
+  assertCoreRestarted(before, after);
   let summary;
   if (mode === "abort" || mode === "failure") {
     assert.equal(finished.run.restored, true);
@@ -588,7 +591,7 @@ try {
       assert.equal(rollback.run.state, "completed", `native rollback terminal state: ${JSON.stringify(rollback.run)}`);
       assert.equal(rollback.run.restored, true);
       const restored = await rpc(cookie, "core.status");
-      assert.notEqual(restored.pid, after.pid, "manual rollback genuinely restarts the Core again");
+      assertCoreRestarted(after, restored);
       assert.equal(await exists(join(home, "skills", skillName)), false, "manual rollback removes the imported skill");
       assert.equal(await baselineFingerprint(), baselineBefore);
       assert.equal(sha256(await readFile(join(home, "config.json"))), configBefore);
