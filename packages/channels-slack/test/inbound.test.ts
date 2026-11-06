@@ -134,7 +134,7 @@ test("mentions are stripped; wire text is decoded; thread replies get a thread-s
   assert.equal(rich[0]!.chatKind, "group");
 });
 
-test("images and files arrive as bounded attachments on the rich handler, and the framework path logs the rich-turn gap", async () => {
+test("images and files preserve rich bounded attachments on the framework path", async () => {
   await up();
   fake.files.set("F1", { name: "pic.png", mime: "image/png", data: Buffer.from([137, 80, 78, 71]) });
   fake.files.set("F2", { name: "doc.pdf", mime: "application/pdf", data: Buffer.from("%PDF-1.4") });
@@ -152,8 +152,7 @@ test("images and files arrive as bounded attachments on the rich handler, and th
   );
   assert.equal(rich.length, 1);
   assert.deepEqual(rich[0]!.attachments!.map((a) => [a.kind, a.mimeType, a.filename]), [["photo", "image/png", "pic.png"], ["document", "application/pdf", "doc.pdf"]]);
-  assert.equal(w.received.length, 0, "rich-only turn is not handed to the text-only framework");
-  assert.ok(w.logs.some((l) => l.event === "channel.slack.framework-rich-turn-gap"));
+  assert.deepEqual(w.received, rich);
 });
 
 test("oversized, HTML and disguised attachments drop the whole message with a content-free log", async () => {

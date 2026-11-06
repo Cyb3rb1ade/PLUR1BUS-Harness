@@ -18,6 +18,13 @@
       "done": 12,
       "total": 16,
       "startedAt": "2026-10-10T08:00:00.000Z"
-    }
+    },
+    "capabilities": {
+      "text": true,
+      "image": true,
+      "audio": true,
+      "video": true
+    },
+    "encoders": []
   }
 }

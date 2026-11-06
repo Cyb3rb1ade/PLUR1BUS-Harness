@@ -10,12 +10,12 @@ import type { EmbeddingChange, MemoryModelStatus } from "../embedding-migrate/se
 
 export function buildMemoryModelsSurface(d: {
   status(): MemoryModelStatus;
-  check(changes: AdminEmbeddingCheckParams["changes"]): EmbeddingChange;
+  check(changes: AdminEmbeddingCheckParams["changes"]): EmbeddingChange | Promise<EmbeddingChange>;
   /** Whether the engine can validate a re-embedded generation, so that a migration reaches its switch. */
   canSwitch(): boolean;
 }): Record<string, Handler> {
   return {
-    "admin.embedding.check": async (p: AdminEmbeddingCheckParams): Promise<AdminEmbeddingCheckResult> => ({ ...d.check(p.changes), canSwitch: d.canSwitch() }),
+    "admin.embedding.check": async (p: AdminEmbeddingCheckParams): Promise<AdminEmbeddingCheckResult> => ({ ...await d.check(p.changes), canSwitch: d.canSwitch() }),
     "model.memory.status": async (_p, ctx) => {
       const who = authenticatedPrincipal(ctx);
       if (who.kind !== "person" || !["owner", "admin"].includes(who.role)) throw new RpcError("E_DENIED", "the memory model status requires Owner/Admin");

@@ -13,6 +13,7 @@ import { assertEmbeddingChangeAllowed, embeddingChange, memoryModelStatus, store
 import { creationDigest } from "./agents/saga.ts";
 import { LicenceLedger } from "./licences/ledger.ts";
 import { buildLicenceSurface, LICENCE_RULES } from "./rpc/licence-surface.ts";
+import { validateMediaChanges } from "./media-search/validate.ts";
 import { buildChatSurface } from "./rpc/chat-surface.ts";
 import { configuredDefaults } from './toolcall/host-eval-store.ts';
 import { apiAdmission } from "./rpc/api-admission.ts";
@@ -831,6 +832,8 @@ export function createCore(o: CoreOptions): Core {
           try { await send({ chatId: msg.chatId, text }); } catch { log.warn("channel.handoff.send.failed", { channel: msg.channel }); } return true;
         },
         ...(o.channels ?? {}),
+        ingestAttachments: input => turnComposition?.ingestChannelAttachments(input)
+          ?? Promise.reject(new RpcError("E_NOT_AVAILABLE", "channel upload storage is unavailable")),
         layout: l, config: cs, secrets: secretStore, identity: () => identity, personActive: id => !people.person(id)?.disabled,
         personRole: id => people.role(id, id === LOCAL_OWNER.userId ? "owner" : "member"),
         sessions: () => sessions, agents: registry, permissions: () => permissions,
@@ -1147,10 +1150,16 @@ export function createCore(o: CoreOptions): Core {
         ...buildEngineTestSurface({ embedding: eng.embedding, config: () => engineConfig, diagnostics: engineTestDiagnostics }),
         // The API runs model.licence.check before every web config.set: another embedding identity is written only while the
         // store holds no table (a populated store moves with memory reembed).
-        ...buildLicenceSurface(licenceLedger, cfg, changes => assertEmbeddingChangeAllowed({ current: cfg(), changes, layout: l, active: engineConfig, holdsTables: () => storeHoldsTables(String(engineConfig.baseDbPath)) })),
+        ...buildLicenceSurface(licenceLedger, cfg, async changes => {
+          assertEmbeddingChangeAllowed({ current: cfg(), changes, layout: l, active: engineConfig, holdsTables: () => storeHoldsTables(String(engineConfig.baseDbPath)) });
+          await validateMediaChanges(cfg(), changes);
+        }),
         ...buildMemoryModelsSurface({
           status: () => memoryModelStatus(engineConfig, cfg(), storeHoldsTables(String(engineConfig.baseDbPath))),
-          check: changes => embeddingChange({ current: cfg(), changes, layout: l, active: engineConfig, holdsTables: () => storeHoldsTables(String(engineConfig.baseDbPath)), acceptances: licenceLedger.list() }),
+          check: async changes => {
+            await validateMediaChanges(cfg(), changes);
+            return embeddingChange({ current: cfg(), changes, layout: l, active: engineConfig, holdsTables: () => storeHoldsTables(String(engineConfig.baseDbPath)), acceptances: licenceLedger.list() });
+          },
           canSwitch: () => typeof reembedEnginePort.validate === "function",
         }),
         ...sessionTranscriptSurface({ sessions: () => sessions?.store ?? null, lookup: id => sessions?.forSession(id).store ?? null, breakglass, ownership, personOf }),

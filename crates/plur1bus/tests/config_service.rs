@@ -1200,3 +1200,34 @@ fn a_local_agent_rejects_shared_cloud_engine_writes_and_dry_runs_before_mutation
         assert_eq!(running(&mut c).1, revision);
     }
 }
+
+#[test]
+fn raw_supervisor_refuses_unknown_active_media_providers_and_keeps_config_bytes_and_revision() {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path();
+    write_config(home, &json!({"schemaVersion":1}));
+    let _sup = start(home);
+    let mut c = client(home);
+    let before = std::fs::read(config_path(home)).unwrap();
+    let (_, revision) = running(&mut c);
+    let media = json!({
+        "enabled":true, "provider":"unknown-remote", "model":"unknown-model",
+        "privacyAck":{"provider":"unknown-remote","acknowledgedAt":"2026-11-01T00:00:00Z","by":"owner"}
+    });
+    for dry in [true, false] {
+        for changes in [
+            json!([{"key":"memory.mediaEmbedding","value":media}]),
+            json!([{"key":"agents.child","value":{"memory":{"mediaEmbedding":media}}}]),
+        ] {
+            let result = set(
+                &mut c,
+                json!({"changes":changes,"dryRun":dry,"ifRevision":revision}),
+            );
+            let message = result.as_ref().unwrap_err().to_string();
+            assert!(message.contains("E_MEDIA_UNAVAILABLE"), "{message}");
+            assert_eq!(call_error(result).0, ErrorCode::EConfigInvalid);
+            assert_eq!(std::fs::read(config_path(home)).unwrap(), before);
+            assert_eq!(running(&mut c).1, revision);
+        }
+    }
+}

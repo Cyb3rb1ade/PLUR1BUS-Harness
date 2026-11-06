@@ -1024,11 +1024,46 @@ fn rpc_version_const_matches_the_schema() {
         plur1bus_rpc::RPC_VERSION,
         schema["x-rpc-version"].as_str().unwrap()
     );
-    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.19.0");
+    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.20.0");
     assert!(schema["$id"]
         .as_str()
         .unwrap()
         .contains(&format!("/{}/", plur1bus_rpc::RPC_VERSION)));
+}
+
+#[test]
+fn media_status_results_preserve_empty_encoders_and_accept_older_missing_fields() {
+    for method in ["model.memory.status", "media.index.status"] {
+        let fixture: Value = serde_json::from_str(
+            &fs::read_to_string(fixtures().join(format!("methods/{method}.json"))).unwrap(),
+        )
+        .unwrap();
+        let mut result = fixture["result"].clone();
+        let object = result.as_object_mut().unwrap();
+        object.remove("capabilities");
+        object.remove("encoders");
+        match method {
+            "model.memory.status" => round_trip::<types::ModelMemoryStatusResult>(&result, method),
+            "media.index.status" => round_trip::<types::MediaIndexStatusResult>(&result, method),
+            _ => unreachable!(),
+        }
+        result["encoders"] = serde_json::json!([]);
+        match method {
+            "model.memory.status" => round_trip::<types::ModelMemoryStatusResult>(&result, method),
+            "media.index.status" => round_trip::<types::MediaIndexStatusResult>(&result, method),
+            _ => unreachable!(),
+        }
+        result["encoders"] = Value::Null;
+        match method {
+            "model.memory.status" => {
+                assert!(serde_json::from_value::<types::ModelMemoryStatusResult>(result).is_err())
+            }
+            "media.index.status" => {
+                assert!(serde_json::from_value::<types::MediaIndexStatusResult>(result).is_err())
+            }
+            _ => unreachable!(),
+        }
+    }
 }
 
 #[test]

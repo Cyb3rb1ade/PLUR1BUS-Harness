@@ -1797,6 +1797,41 @@ fn config_set_without_a_supervisor_writes_the_file() {
     assert_eq!(v["applied"], true);
 }
 
+#[test]
+fn offline_media_provider_dry_run_and_write_fail_before_changing_config_bytes() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = dir.path().to_str().unwrap();
+    let path = dir.path().join("config.json");
+    std::fs::write(
+        &path,
+        serde_json::to_vec(&plur1bus_config::defaults()).unwrap(),
+    )
+    .unwrap();
+    let before = std::fs::read(&path).unwrap();
+    let media = serde_json::json!({
+        "enabled":true,"provider":"unknown-remote","model":"unknown-model",
+        "privacyAck":{"provider":"unknown-remote","acknowledgedAt":"2026-11-01T00:00:00Z","by":"owner"}
+    }).to_string();
+    for mode in ["--dry-run", "--yes"] {
+        bin()
+            .args([
+                "--json",
+                "--home",
+                h,
+                "config",
+                "set",
+                "memory.mediaEmbedding",
+                &media,
+                mode,
+            ])
+            .assert()
+            .code(1)
+            .stdout(predicate::str::contains("E_CONFIG_INVALID"))
+            .stdout(predicate::str::contains("E_MEDIA_UNAVAILABLE"));
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+    }
+}
+
 #[cfg(unix)]
 #[test]
 fn config_set_with_an_unresponsive_supervisor_fails_and_writes_nothing() {

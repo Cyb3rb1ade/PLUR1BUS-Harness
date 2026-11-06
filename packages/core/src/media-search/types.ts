@@ -5,6 +5,7 @@ export type CaptionSource = "prompt" | "user" | "auto";
 export type Segment = { idx: number; startMs: number; endMs: number };
 
 import type { Principal } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
+import type { MediaCapabilities, MediaEncoderStatus } from "@plur1bus/rpc-schema";
 
 /** Same visibility model as memory entries: the engine's own `Principal` (agent, workspace, optional user, trust). */
 export type Scope = Principal;
@@ -31,6 +32,8 @@ export interface MediaIndexStatus {
   enabled: boolean; provider: string; model: string; variant?: string; dim: number; fingerprint: string;
   counts: { indexed: number; pending: number; failed: number; unsupported: number };
   backfill: { state: BackfillState; done: number; total: number; startedAt?: string; pausedReason?: "budget" | "user" | "error" };
+  capabilities?: MediaCapabilities;
+  encoders?: MediaEncoderStatus[];
 }
 
 export interface MediaIndexPort {

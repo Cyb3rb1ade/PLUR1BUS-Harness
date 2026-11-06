@@ -19,7 +19,7 @@ use plur1bus_rpc::{ConnectOptions, Endpoint};
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::fs;
-use std::io::{self, BufRead, Write};
+use std::io::{self, BufRead, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
@@ -1026,7 +1026,7 @@ fn step_config(
         None
     } else {
         let m = answer_media(o, &config, ask)?;
-        changes.extend(media_changes(&config, &m));
+        changes.extend(media_setup_changes(&config, &m));
         Some(m)
     };
     if let Some(model) = answer_decision(o.non_interactive, &config, layout, ask) {
@@ -1054,6 +1054,17 @@ fn step_config(
         let ws = layout.workspace_dir(agent);
         fs::create_dir_all(&ws).map_err(|e| StepError::io(&ws, e))?;
     }
+    let ffmpeg = media
+        .as_ref()
+        .filter(|m| m.enabled && m.provider != "off")
+        .filter(|m| m.modalities.iter().any(|kind| matches!(kind.as_str(), "audio" | "video")))
+        .map(|_| {
+            // E7: discovery and manual guidance only; setup never starts sudo or a package manager.
+            let interactive = !o.non_interactive && !out.json
+                && io::stdin().is_terminal() && io::stderr().is_terminal();
+            let result = super::media_ffmpeg::setup(interactive);
+            json!({ "available": result.available, "state": result.state, "manualCommands": result.manual_commands })
+        });
     Ok(StepResult::done(
         "config",
         json!({
@@ -1070,6 +1081,7 @@ fn step_config(
                 || json!({ "skipped": "profile-host" }),
                 MediaAnswers::detail,
             ),
+            "ffmpeg": ffmpeg,
         }),
     ))
 }
@@ -1312,10 +1324,14 @@ pub fn answer_media(
         eprintln!(
             "  Default: EmbeddingGemma 2, runs on this machine, licence {LOCAL_LICENCE}, downloaded once on first use."
         );
+        // E1: Controller-verified q8 vision/audio pins, revision daa72c51243991dfcaf9f9137d2c573d8f7790c0.
+        eprintln!("  Additional q8 media encoders: 535699121 bytes (about 511 MiB), excluding the text model.");
+        eprintln!("  Time per photo on this hardware has not yet been measured.");
+        eprintln!("  Recommended: yes for new media. The existing library is indexed only when you explicitly start manual backfill.");
         let yes = ask_valid(
             ask,
             "memory.mediaEmbedding.enabled",
-            "Set up media search (yes/no)",
+            "Set up media search for new media (yes/no)",
             "yes",
             None,
             &|v| matches!(v, "yes" | "no"),
@@ -1457,6 +1473,19 @@ pub fn answer_media(
 /// The `config.set` changes for `a`: only keys whose effective value (the configured one, else the schema default)
 /// differs from the answer. A cloud caption provider is never defaulted; a local one is the default for a local media
 /// provider and is written only when media runs elsewhere.
+fn media_setup_changes(config: &Value, a: &MediaAnswers) -> Vec<(String, Value)> {
+    let mut changes = media_changes(config, a);
+    // Owner E1: historical media require a separate manual backfill. A rerun preserves the saved choice.
+    // This wrapper is called only for a media-capable profile; host-only setup skips media configuration.
+    if config.is_null() {
+        changes.push((
+            "memory.mediaEmbedding.backfill".to_string(),
+            json!("manual"),
+        ));
+    }
+    changes
+}
+
 fn media_changes(config: &Value, a: &MediaAnswers) -> Vec<(String, Value)> {
     let cur = &config["memory"]["mediaEmbedding"];
     let mut changes = Vec::new();
@@ -1947,6 +1976,24 @@ mod tests {
         let unattended =
             answer_config(&opts(true), "full", None, &mut scripted(vec![], true)).unwrap();
         assert!(!unattended.local_only);
+    }
+
+    #[test]
+    fn new_installation_uses_manual_backfill_and_reruns_preserve_the_saved_choice() {
+        let answers =
+            answer_media(&opts(true), &Value::Null, &mut scripted(vec![], false)).unwrap();
+        let initial = media_setup_changes(&Value::Null, &answers);
+        assert!(initial
+            .iter()
+            .any(|(key, value)| key == "memory.mediaEmbedding.backfill" && value == "manual"));
+        for choice in ["auto", "manual"] {
+            let mut saved = plur1bus_config::defaults();
+            saved["agents"]["main"] = json!({});
+            saved["embedding"]["useClass"] = json!("general");
+            saved["memory"]["mediaEmbedding"]["backfill"] = json!(choice);
+            assert!(media_setup_changes(&saved, &answers).is_empty());
+            assert_eq!(saved["memory"]["mediaEmbedding"]["backfill"], choice);
+        }
     }
 
     #[test]

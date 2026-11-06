@@ -1,4 +1,9 @@
-import { privacyAcknowledgmentError, type PrivacyAcknowledgment } from "@plur1bus/config-schema";
+/** Catalog and configuration checks; model support never proves encoder installation. */
+import {
+  CONFIG_SCHEMA, MEDIA_MODEL_CATALOG, privacyAcknowledgmentError, validate, type HarnessConfig, type PrivacyAcknowledgment,
+} from "@plur1bus/config-schema";
+import { localOnlyShared } from "../privacy/local-only.ts";
+import { RpcError } from "../rpc/errors.ts";
 import { mediaError } from "./errors.ts";
 import type { MediaKind } from "./types.ts";
 
@@ -21,6 +26,28 @@ export interface MediaModelInfo {
 /** Adapter over the existing provider/embedding catalogue. */
 export interface MediaProviderCatalog { lookup(provider: string, model: string): MediaModelInfo | undefined }
 
+/** MM-3a fixed local entry until MM-1 supplies the Rust encoder catalog. No download or runtime probe. */
+export const productionMediaProviderCatalog: MediaProviderCatalog = {
+  lookup(provider, model) {
+    if (!MEDIA_MODEL_CATALOG.providers.includes(provider)) return undefined;
+    const info = Object.hasOwn(MEDIA_MODEL_CATALOG.models, model)
+      ? MEDIA_MODEL_CATALOG.models[model as keyof typeof MEDIA_MODEL_CATALOG.models] : undefined;
+    return info ? structuredClone(info) : undefined;
+  },
+};
+
+/** Runtime-only fallback for legacy local entries; never rewrite the file or repair a pending config write. */
+export function mediaConfigForLoad<T extends MediaEmbeddingConfig>(config: T): T {
+  if (config.enabled === false || !config.provider || !MEDIA_MODEL_CATALOG.providers.includes(config.provider)) return config;
+  const properties = CONFIG_SCHEMA.properties.memory.properties.mediaEmbedding.properties;
+  const known = productionMediaProviderCatalog.lookup(config.provider, config.model ?? "");
+  const model: string = known ? config.model! : properties.model.default;
+  const info = known ?? productionMediaProviderCatalog.lookup(config.provider, model);
+  const dimensions: number = config.dimensions !== undefined && info?.dimensions.includes(config.dimensions)
+    ? config.dimensions : properties.dimensions.default;
+  return model === config.model && dimensions === config.dimensions ? config : { ...config, model, dimensions };
+}
+
 export interface MediaValidationContext {
   catalog: MediaProviderCatalog;
   privacyPinned: boolean;
@@ -29,6 +56,51 @@ export interface MediaValidationContext {
 }
 
 const ALL_KINDS: MediaKind[] = ["image", "video", "audio"];
+
+/**
+ * Validate a whole pending config.set result, including inherited agent media settings, before any write.
+ * MM-3a checks that a local model can be configured; optional encoder downloads are not a prerequisite for setup.
+ * An injected availability probe is awaited. Unrelated changes leave existing media settings alone.
+ */
+export async function validateMediaChanges(current: HarnessConfig, changes: readonly { key: string; value: unknown }[],
+  context: Partial<MediaValidationContext> = {}): Promise<void> {
+  if (!changes.some(({ key }) =>
+    /^(memory|agents|privacy)$/.test(key)
+      || /^memory\.mediaEmbedding(\.|$)/.test(key)
+      || /^privacy\.localOnly(\.|$)/.test(key)
+      || /^agents\.[^.]+$/.test(key)
+      || /^agents\.[^.]+\.(memory|privacy)$/.test(key)
+      || /^agents\.[^.]+\.(memory\.mediaEmbedding|privacy\.localOnly)(\.|$)/.test(key))) return;
+  const next = structuredClone(current);
+  for (const { key, value } of changes) {
+    const parts = key.split(".");
+    if (parts.some(part => ["__proto__", "constructor", "prototype"].includes(part))) {
+      throw mediaError("E_MEDIA_UNAVAILABLE", "Invalid configuration path", { reason: "invalid-key" });
+    }
+    let node = next as unknown as Record<string, unknown>;
+    for (const part of parts.slice(0, -1)) {
+      const child = node[part];
+      node[part] = child && typeof child === "object" && !Array.isArray(child) ? child : {};
+      node = node[part] as Record<string, unknown>;
+    }
+    node[parts.at(-1)!] = structuredClone(value);
+  }
+  const result = validate(next);
+  if (!result.ok) throw new RpcError("E_CONFIG_INVALID", result.errors.join("; "));
+  const base = result.config.memory.mediaEmbedding;
+  const layers = [base, ...Object.values(result.config.agents).map(agent => {
+    const override = agent.memory?.mediaEmbedding;
+    return { ...base, ...override,
+      modalities: (override?.modalities ?? base.modalities).filter((kind): kind is MediaKind => kind !== undefined),
+      caption: { ...base.caption, ...override?.caption },
+    };
+  })];
+  const ctx: MediaValidationContext = {
+    catalog: productionMediaProviderCatalog, privacyPinned: localOnlyShared(result.config), licenceAccepted: () => false,
+    available: (provider, model) => productionMediaProviderCatalog.lookup(provider, model) !== undefined, ...context,
+  };
+  for (const media of layers) await validateMediaEmbedding(media, ctx);
+}
 
 async function checkModel(provider: string, model: string, ctx: MediaValidationContext, extra?: (info: MediaModelInfo) => void): Promise<void> {
   const info = ctx.catalog.lookup(provider, model);

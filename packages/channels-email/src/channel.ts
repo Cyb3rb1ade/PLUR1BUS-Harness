@@ -633,7 +633,7 @@ export class EmailChannel implements Channel {
       }
     }
     if (!this.#host) return;
-    if (!text || attachments.length) {
+    if (!text && !attachments.length) {
       this.#log("warn", "channel.email.framework-rich-turn-gap", {});
       return;
     }
@@ -645,6 +645,7 @@ export class EmailChannel implements Channel {
         senderId: from,
         accountId: this.#cfg.address,
         text,
+        ...(attachments.length ? { attachments } : {}),
         ...(mid !== undefined ? { messageId: mid } : {}),
       });
     } catch {

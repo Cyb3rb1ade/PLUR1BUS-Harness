@@ -5,6 +5,8 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { HarnessConfig } from "@plur1bus/config-schema";
+import type { MediaCapabilities, ModelMemoryStatusResult } from "@plur1bus/rpc-schema";
+import { productionMediaProviderCatalog } from "../media-search/validate.ts";
 import { embeddingFingerprintId } from "@cyb3rb1ade/plur1bus-memory/lib/reembedding/fingerprint.js";
 import { embeddingFingerprintFromNormalizedConfig } from "@cyb3rb1ade/plur1bus-memory/lib/reembedding/runtime-config.js";
 import { normalizeEmbeddingConfig } from "@cyb3rb1ade/plur1bus-memory/lib/providers/config-normalize.js";
@@ -46,6 +48,8 @@ export interface MemoryModelStatus {
   reranker: { provider: string; model?: string };
   /** `allowed` while the store holds no table; afterwards another embedding needs `plur1bus memory reembed`. */
   embeddingSwitch: "allowed" | "migration-required";
+  capabilities?: MediaCapabilities;
+  encoders?: NonNullable<ModelMemoryStatusResult["encoders"]>;
 }
 
 /** The models the running engine was built with (`engineConfig`), and whether another embedding can still be written. */
@@ -58,6 +62,10 @@ export function memoryModelStatus(engineConfig: Record<string, unknown>, cfg: Ha
     embedding: { provider: String(emb.provider), model: String(emb.model), dimensions: Number(emb.dimensions), configured: chosen.provider !== undefined || plain(chosen.local).model !== undefined },
     reranker: { provider, ...(typeof model === "string" && model !== "" ? { model } : {}) },
     embeddingSwitch: freshStore(engineConfig, holdsTables) ? "allowed" : "migration-required",
+    capabilities: productionMediaProviderCatalog.lookup(String(emb.provider), String(emb.model))?.capabilities
+      ?? { text: true, image: false, audio: false, video: false },
+    // MM-3a has no Rust media artifact catalog or installation probe; support flags are not installation evidence.
+    encoders: [],
   };
 }
 

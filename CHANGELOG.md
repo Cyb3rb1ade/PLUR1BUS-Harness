@@ -138,6 +138,14 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Changed
 
+- **Channel uploads have bounded, private storage.** Generated outputs and uploads share a 1 GiB quota and 30-day
+  retention. Private direct-message uploads require their owning person in addition to agent rights. Missing ffmpeg
+  produces a manual installation hint; the Harness never runs sudo or a package manager.
+
+- **Media search backfill defaults to manual.** New installations and existing configurations without an explicit
+  `memory.mediaEmbedding.backfill` value now use `manual`, rather than the previous `auto` default. With this default,
+  existing media are indexed only after an explicit start. Saved `auto` and `manual` choices are preserved.
+
 - **#156:** Reconciled milestone and repository status documentation with merged work.
 - **#170:** Added German and English user quickstart and operations handbooks.
 - **#186:** Unified provider errors, profile-driven routing and streaming contracts.

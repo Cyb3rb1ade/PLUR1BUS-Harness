@@ -4,7 +4,7 @@
 //! Where typify alone would lose part of the schema, the generator adjusts (tests in `tests/generative.rs`):
 //! - `const` becomes a one-value `enum` (`pin_const`; booleans become `ConstTrue`/`ConstFalse`), so a pinned field refuses other values;
 //! - only the `format` *keyword* is dropped, never a property named `format`;
-//! - optional params fields that allow `null` or are arrays keep missing, `null` and `[]` apart (`keep_explicit_values`).
+//! - optional params fields and MM-3a encoder results keep missing, `null` and `[]` apart (`keep_explicit_values`).
 use serde_json::{Map, Value};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::{env, fs, path::PathBuf};
@@ -342,12 +342,14 @@ fn main() {
         defs.insert(format!("{}Notification", pascal(n)), notification);
     }
     let rpc_version = root["x-rpc-version"].as_str().unwrap().to_string();
-    let params_types: Vec<String> = methods
+    let mut explicit_types: Vec<String> = methods
         .as_object()
         .unwrap()
         .keys()
         .map(|m| format!("{}Params", pascal(m)))
         .collect();
+    // MM-3a: an absent field comes from an older producer; [] explicitly reports no verified encoder facts.
+    explicit_types.extend(["MediaIndexStatus", "ModelMemoryStatusResult"].map(str::to_owned));
     let mut flat = serde_json::json!({ "$schema": "http://json-schema.org/draft-07/schema#", "title": "RpcRoot", "type": "object", "definitions": defs });
     normalize_scalar_unions(&mut flat);
     name_contract_union_fields(&mut flat);
@@ -389,7 +391,7 @@ fn main() {
     space.add_root_schema(schema).expect("typify");
     let mut file = syn::parse2::<syn::File>(space.to_stream()).expect("generated code parses");
     keep_empty_wire_objects(&mut file, &empty_wire_objects);
-    keep_explicit_values(&mut file, &flat_defs, &params_types);
+    keep_explicit_values(&mut file, &flat_defs, &explicit_types);
     file.items.extend(
         syn::parse_str::<syn::File>(SUPPORT)
             .expect("support code parses")
@@ -449,7 +451,7 @@ impl ::std::convert::From<ConstFalse> for bool {
         false
     }
 }
-/// `deserialize_with` of an optional params field that keeps an explicit value (`keep_explicit_values` in `build.rs`): a present
+/// `deserialize_with` of an optional wire field that keeps an explicit value (`keep_explicit_values` in `build.rs`): a present
 /// key is `Some`, also when its value is `null` (`Some(None)`) or `[]` (`Some(vec![])`); only a missing key is `None`.
 fn deserialize_present<'de, D, T>(d: D) -> ::std::result::Result<::std::option::Option<T>, D::Error>
 where
@@ -466,9 +468,13 @@ where
 /// could not send a clear. Each one becomes `Option<F>` of the field type `F` typify chose: a missing key is `None`, a present one
 /// `Some(…)`, so `null` is `Some(None)` and `[]` is `Some(vec![])`, and each is written back as it was read. A `null` for an array
 /// that does not allow it is still refused. Applies to the `<Method>Params` types and every struct reachable from them (a shared
-/// definition such as `ModelOverrides` changes in the results that use it too); results and notifications are otherwise left as
-/// they are.
-fn keep_explicit_values(file: &mut syn::File, defs: &Map<String, Value>, params_types: &[String]) {
+/// definition such as `ModelOverrides` changes in the results that use it too), plus the MM-3a media encoder statuses;
+/// other results and notifications are left as they are.
+fn keep_explicit_values(
+    file: &mut syn::File,
+    defs: &Map<String, Value>,
+    explicit_types: &[String],
+) {
     let structs: HashMap<String, &syn::ItemStruct> = file
         .items
         .iter()
@@ -479,7 +485,7 @@ fn keep_explicit_values(file: &mut syn::File, defs: &Map<String, Value>, params_
         .collect();
     let mut wanted: BTreeMap<String, BTreeMap<String, bool>> = BTreeMap::new();
     let mut seen = BTreeSet::new();
-    for p in params_types {
+    for p in explicit_types {
         find_explicit(&defs[p], p, defs, &structs, &mut wanted, &mut seen);
     }
     let mut done = 0usize;

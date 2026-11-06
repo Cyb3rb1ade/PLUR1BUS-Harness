@@ -131,18 +131,35 @@ fn firstaid_check_includes_models_roles_at_end() {
     );
 
     let checks = doc["checks"].as_array().unwrap();
-    // Check ids are append-only: tools.service follows the existing remote, model, privacy and API rows.
-    let last = &checks[checks.len() - 6];
-    assert_eq!(last["id"], "dreams.last-runs");
-    assert_eq!(last["status"], "skip");
-    assert_eq!(checks[checks.len() - 5]["id"], "remote.exposure");
+    // Check IDs are append-only: later checks must not shift this established sequence.
+    let dreams = checks
+        .iter()
+        .position(|check| check["id"] == "dreams.last-runs")
+        .unwrap();
+    let ids: Vec<_> = checks[dreams..]
+        .iter()
+        .take(8)
+        .map(|check| check["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        ids,
+        [
+            "dreams.last-runs",
+            "remote.exposure",
+            "models.decision",
+            "privacy.local-only",
+            "api.supervised",
+            "tools.service",
+            "media.ffmpeg",
+            "media.uploads"
+        ]
+    );
+    assert_eq!(checks[dreams]["status"], "skip");
     // No decision role on a fresh home: an info row, not a warning, naming the way to set it.
     let decision = checks
         .iter()
         .find(|c| c["id"] == "models.decision")
         .unwrap();
-    assert_eq!(checks[checks.len() - 2]["id"], "api.supervised");
-    assert_eq!(checks.last().unwrap()["id"], "tools.service");
     assert_eq!(decision["id"], "models.decision");
     assert_eq!(decision["status"], "info", "{decision}");
     assert_eq!(

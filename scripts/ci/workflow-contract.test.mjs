@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { classify } from './changes.mjs';
 import { selections, evaluateGate, UNGATED } from './gate.mjs';
+import { listTestFiles, selectShard } from './test-shards.mjs';
+import { fileURLToPath } from 'node:url';
 
 // Execute the narrow boolean expression subset used at the actual job boundaries.
 function condition(expression, outputs) {
@@ -17,6 +19,31 @@ const jobBlocks = yaml => Object.fromEntries(yaml.slice(yaml.indexOf('\njobs:\n'
   .map(block => [/^  ([\w-]+):/.exec(block)[1], block]));
 // A job's block also carries the comment lines written above the next job; they are not steps.
 const stepsOf = block => block.slice(block.indexOf('\n    steps:\n')).replace(/(?:^  #.*\n)+$/m, '');
+
+test('media capability acceptance runs in a required browser shard behind the web merge gate', () => {
+  const jobs = jobBlocks(workflow()), shard = jobs['web-browser-shard'];
+  assert.match(shard, /^      PLUR1BUS_WEB_E2E_REQUIRED: "1"$/m);
+  assert.doesNotMatch(shard, /PLUR1BUS_WEB_BROWSER:\s*["']?off/);
+  const steps = stepsOf(shard);
+  const install = steps.indexOf('pnpm --filter @plur1bus/web exec playwright install --with-deps chromium');
+  const run = steps.indexOf('run: pnpm --filter @plur1bus/web test');
+  assert.ok(install >= 0 && run > install, 'lockfile-matched browser installation precedes the suite');
+  assert.match(shard, /^      PLUR1BUS_TEST_SHARD: \$\{\{ matrix.shard \}\}\/\$\{\{ matrix.total \}\}$/m);
+  const total = Number(/^        total: \[(\d+)\]$/m.exec(shard)?.[1]);
+  assert.ok(Number.isInteger(total) && total > 0, 'the browser job defines its shard count');
+  const files = listTestFiles(fileURLToPath(new URL('../../packages/web', import.meta.url)));
+  const target = 'test/media-capabilities.test.ts';
+  assert.ok(files.includes(target), 'media acceptance is in the production package runner list');
+  const owners = Array.from({ length: total }, (_, i) => i + 1)
+    .filter(index => selectShard(files, { index, total }).includes(target));
+  assert.equal(owners.length, 1, 'exactly one required browser shard runs media acceptance');
+  assert.match(jobs['web-browser'], /^    needs: \[changes, web-browser-build, web-browser-shard\]$/m);
+  assert.match(jobs['ci-gate'], /^    needs: \[[^\]\n]*\bweb-browser\b[^\]\n]*\]$/m);
+  const outputs = Object.fromEntries(Object.entries({ proceed: true, macos: false,
+    ...classify({ event: 'pull_request', files: ['packages/web/test/media-capabilities.test.ts'] }) })
+    .map(([key, value]) => [key, String(value)]));
+  assert.equal(selections(outputs)['web-browser'], true, 'media acceptance changes require the browser gate');
+});
 
 test('WSL setup attempts cannot consume the job budget before retries and real tests', () => {
   const wsl = jobBlocks(workflow()).wsl;

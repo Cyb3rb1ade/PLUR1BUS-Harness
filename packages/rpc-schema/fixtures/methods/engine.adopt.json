@@ -46,7 +46,7 @@
         "supported": false,
         "mode": "fd-capability"
       },
-      "rpc": "1.19.0",
+      "rpc": "1.20.0",
       "instanceId": "workspace:v1:test",
       "pid": 0,
       "process": {
