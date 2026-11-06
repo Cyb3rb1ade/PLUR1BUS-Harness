@@ -4,6 +4,8 @@
 
 **Amended 2026-10-19 (owner):** no money dimension in the harness — the `dream_run` cost column stays empty for good; dream cost is measured and limited in tokens and session counts only.
 
+**Amended 2026-11-06 (owner, D126):** a harness-owned dream job `learn` analyses session transcripts including tool calls per project (off by default). Its transcript selection mirrors the target store's rights, it may only propose (memory proposals, curation, skill-mining review; nothing is applied automatically), it gets its own breaker and idempotency key, it counts tokens only and it never routes transcript content to Jev. Dream writes record `update_source: "dream:<phase>:<runId>"`. See the [D126 plan](../superpowers/plans/2026-11-06-d126-memory-versions-preconditions-learning-pass.md).
+
 ## Context
 
 ### The owner's experience

@@ -282,6 +282,8 @@ All additive; existing callers unchanged:
 
 The harness detects the capability; without it the track's harness parts stay dark (feature off), never half-on.
 
+**D126 amendment (owner, 2026-11-06).** Every mutating `MemoryOps.tree` method (`rename`, `move`, `merge`) and `MemoryOps.place` take `expectedRevision` for each node they change; a mismatch is refused with `MemoryOpError` `conflict` (harness `E_CONFLICT`). The tree tidy job of §5.3 goes through the same check, and on a conflict it reloads and retries once, then leaves the merge as a proposal. See the [D126 plan](../plans/2026-11-06-d126-memory-versions-preconditions-learning-pass.md).
+
 ## 7. Placing a memory (capture)
 
 ### 7.1 Flow
