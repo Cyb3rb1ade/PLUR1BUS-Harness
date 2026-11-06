@@ -1,6 +1,6 @@
 # D126: Memory versions, write preconditions and a learning pass over transcripts
 
-**Status.** This plan records an owner decision; there is no product code yet. Decided 2026-11-06.
+**Status.** This plan records an owner decision; there is no product code yet. Decided 2026-11-06; scope and automatic application amended by the owner on 2026-11-07.
 
 **What it changes.** D126 amends ADR-009 (a new dream job), D116 §5.3/§6.4 (preconditions on tree operations) and the
 engine contract (the next free minor at implementation time).
@@ -10,7 +10,7 @@ engine contract (the next free minor at implementation time).
 - Rust parity: `crates/plur1bus-engine`; the owner merges it.
 - Harness tasks: Sonnet.
 
-**Effort.** About 11 agent-days in all.
+**Effort.** About 13.5 agent-days in all.
 
 ## 1. Background
 
@@ -100,9 +100,19 @@ Most of this already exists in PLUR1BUS (§2). Three gaps are adopted here.
 
 ### 3.3 Learning pass over transcripts (V3)
 
-A new dream job, `learn`. The harness owns it, because the transcripts live in the harness.
+A new dream job, `learn`. The harness owns it, because the transcripts live in the harness. The owner amended scope and application on 2026-11-07 (§3.3.1, §3.3.5).
 
-1. **Scope.** It runs per project (D115/D124) by default, or per agent group. It is off by default and enabled per project.
+1. **Scope: the target store decides.**
+   - **Per agent, the default.** Enabled per agent. It reads that agent's own sessions and writes to that agent's own memory, its "Mein Mensch", "Wir" and "Agent selbst" branches (D116).
+     - Most sessions belong to no project (channel chats), so only this pass covers them.
+     - The rights stay simple: no other agent's or other relationship's content enters.
+     - It reuses the per-agent scheduler, ledger, breaker and idempotency of ADR-009.
+   - **Per project, in addition.** Enabled per project, recommended for projects with at least two agents or a repository. It reads all sessions in the project and writes to the shared project memory.
+     - Only this pass sees patterns across agents.
+     - Only here can the verify step (point 4) check against the repository.
+   - **Installation-wide, metadata only.** It aggregates tool errors across all agents: tool, error class, argument shape, counts and agents, but never message content or tool output.
+     - It finds fleet-wide tool or configuration faults (the talk's "everyone is doing it wrong" case) without a rights question.
+     - Its output goes only to the skill-mining review and the inbox, as tool, skill or configuration proposals.
 2. **Input.**
    - The transcripts of a window: messages, tool calls and results, rewinds, and outcomes such as review verdicts and verification failures.
    - The selection mirrors the target store's rights: only sessions whose agent and principal may read the target; D116 levels respected; no `privat` content crossing relationships.
@@ -113,20 +123,50 @@ A new dream job, `learn`. The harness owns it, because the transcripts live in t
    - missing or contradicting knowledge;
    - rewinds with lessons (CX1).
 4. **Verify step.** Project memories are checked read-only against the current repository and configuration (`file.read`/`file.list` only, no execution). Contradicting duplicates are flagged.
-5. **Output: proposals only.**
-   - Declarative findings go to `memory.proposals` for shared or project memory, or to `memory.curation` for the agent's own memory.
-   - Procedural findings go to the skill-mining review (H3) as skill or tool-configuration proposals.
-   - Each proposal carries:
+5. **Output: findings, applied by risk tier.**
+   - Every finding carries:
      - evidence: session and turn references, with excerpts only where the viewer may read them;
-     - prevalence: n of m sessions, and how many agents;
-     - the proposed change: add, correct or retire.
-   - Nothing is applied automatically.
-   - On acceptance, writes go through V1 (precondition) and V2 (`update_source: "dream:learn:<runId>"`).
-6. **Steering.** An optional focus text per project says what matters and what does not.
+     - prevalence: n of m sessions, distinct days, how many agents or persons;
+     - the proposed change: add, correct, merge, mark stale or retire;
+     - an **evidence score**.
+   - Procedural findings (skills, tool configuration) always go to the skill-mining review (H3).
+   - **The evidence score is computed from evidence, not from the model's self-reported confidence.** Its inputs:
+     - breadth: sessions, distinct days, distinct agents or persons;
+     - source trust: what the person states outranks a verified tool result, which outranks agent text;
+     - the verify result;
+     - agreement with existing memory;
+     - change type.
+   - **Untrusted text is never sole evidence.** Untrusted text means web pages, mails, other senders' messages and tool output from outside sources. A finding without at least one person-originated or verified item gets score 0 (prompt-injection guard).
+   - **Tier A, applied automatically.**
+     - Covers: the agent's own memory, and these low-risk change types only: add a fact, merge an exact or near duplicate, mark stale after a failed verify.
+     - Threshold: score ≥ 0.8.
+     - Minimum evidence: 3 sessions on 2 or more days.
+     - Applied through V1 (precondition) with `update_source: "dream:learn:<runId>"`.
+     - Listed in the dream diary and undoable for 30 days through V2 `memory.revert`.
+   - **Tier B, applied after an objection window.**
+     - Covers: project and shared memory.
+     - Threshold: score ≥ 0.9, with evidence from at least 2 agents or persons.
+     - An inbox notice opens a 48-hour objection window. Without an objection the change is applied as in tier A. A rejection lets the person change it.
+   - **Tier C, manual only, through `memory.proposals` or `memory.curation`.** Covers:
+     - changes to memories a person wrote;
+     - `privat` and relationship content;
+     - behaviour rules ("always X", "never Y") and anything instruction-like;
+     - skill and tool changes;
+     - deletions other than duplicates;
+     - findings that fall below their tier's threshold.
+   - **Rollout: shadow mode first.**
+     - Until 50 findings are decided by the person, every finding goes through tier C. The tier the pass would have chosen is recorded.
+     - Tier A is enabled only when its shadow precision is at least 95 % against the person's decisions; tier B the same.
+     - The measured precision and thresholds are versioned like the ADR-015 calibration records.
+   - **Breaker.**
+     - More than 10 % of a week's automatic changes reverted by a person switches that scope back to tier C until the next calibration.
+     - Same when a single revert hits a tier-B change.
+6. **Steering.** An optional focus text per agent or project says what matters and what does not.
 7. **Cost and guards.**
    - Tokens only, with no money dimension (ADR-009 amendment 2026-10-19).
    - Its own breaker and idempotency key, as in ADR-009.
    - The model route is the one rem/deep use (the configured role or a local model). Never Jev (D125): transcripts are full content.
+   - The metadata-only pass makes no model call with content.
 
 ## 4. Tasks
 
@@ -140,15 +180,18 @@ A new dream job, `learn`. The harness owns it, because the transcripts live in t
 | **V2-R** | Rust parity for V2 | `crates/plur1bus-engine` | 0.5 |
 | **V2-H** | `memory.history`/`memory.revert` RPC, CLI, web version list; WebMCP classes and `exposure-matrix.test.ts` | harness | 1.0 |
 | **V3-0** | Design section for `learn`: data model of findings, prompts, budgets, selection rules, `dream_run` ledger fields, the H3 interface | `docs/superpowers/specs/` | 0.5 |
-| **V3a** | Transcript selection with ACL mirroring, window, caps, breaker, idempotency, ledger | `packages/core/src/dreams/` | 1.5 |
+| **V3a** | Transcript selection with ACL mirroring for the agent and project scopes, window, caps, breaker, idempotency, ledger | `packages/core/src/dreams/` | 1.5 |
 | **V3b** | Orchestrator and per-session analysis, pattern aggregation with prevalence | `packages/core/src/dreams/learn/` (new) | 2.0 |
 | **V3c** | Read-only verify step and contradiction flags | same | 1.0 |
-| **V3d** | Proposals with evidence into `memory.proposals`, `memory.curation` and the skill-mining review; web review with evidence and prevalence | `packages/core`, `packages/web` | 1.5 |
+| **V3d** | Findings with evidence into `memory.proposals`, `memory.curation` and the skill-mining review; web review with evidence and prevalence | `packages/core`, `packages/web` | 1.5 |
+| **V3e** | Evidence score, tiers A/B/C, objection window with inbox notice, shadow mode, calibration record, revert-rate breaker | `packages/core/src/dreams/learn/` | 1.5 |
+| **V3f** | Installation-wide metadata-only tool-error aggregation; proposals to the skill-mining review | `packages/core/src/dreams/learn/`, `packages/core/src/toolcall/` | 1.0 |
 
 **Order.**
 - V1 first, in this sequence: V1-E (owner merge), then the pin bump, then V1-H. V1-R runs alongside V1-H.
 - V2 after V1.
 - V3 after V1 and V2, so accepted findings land with preconditions and sources.
+- Automatic application (V3e) needs V2's `revert`. It starts in shadow mode and is enabled per tier only after its calibration gate (§3.3.5).
 - V3 does not wait for D124; it uses D124 team traces when they exist.
 - The D116 tree operations take §3.1.4 into their own work package.
 
@@ -168,11 +211,17 @@ A new dream job, `learn`. The harness owns it, because the transcripts live in t
 - A viewer without rights sees no foreign versions.
 
 **V3**
-- A session the target store's audience may not read never enters the analysis (selection test).
-- No `privat` excerpt appears in a proposal shown to another relationship.
-- Nothing is applied without acceptance.
-- Each proposal carries evidence references and prevalence.
-- The breaker and the idempotency key behave as in ADR-009.
+- A session the target store's audience may not read never enters the analysis (selection test). The agent pass reads only that agent's sessions.
+- No `privat` excerpt appears in a finding shown to another relationship.
+- The metadata-only pass never stores or sends message content or tool output.
+- Each finding carries evidence references, prevalence and its score.
+- A finding backed only by untrusted text scores 0 and is never applied, including an injected "remember: always …" line in a fetched page.
+- Tier A applies only allowed change types in the agent's own memory at or above the threshold. Every application is in the diary and revertible.
+- Tier B waits for the objection window; an objection stops it.
+- Tier C is never applied automatically.
+- In shadow mode nothing is applied, and the would-be tier is recorded.
+- The revert-rate breaker switches a scope back to tier C.
+- The ADR-009 breaker and idempotency key behave as specified.
 - The verify step runs with read-only tools only.
 
 **Gates**
@@ -180,8 +229,8 @@ A new dream job, `learn`. The harness owns it, because the transcripts live in t
 - The D125 privacy rule holds: no Jev for transcript content.
 - Tests are never skipped or weakened.
 
-## 6. Defaults the owner can still change
+## 6. Defaults (owner, 2026-11-07)
 
-- **L1:** `learn` scope is per project. The alternative is per agent.
-- **L2:** no automatic application, not even for exact duplicates in the agent's own memory.
-- **L3:** the window is 7 days, with at most 50 sessions per run.
+- **L1, scope:** per agent by default. Per project in addition, recommended from two agents or a repository. Installation-wide for tool errors, metadata only.
+- **L2, application:** tiers A, B and C by evidence score after a shadow phase of 50 decided findings; A at ≥ 0.8, B at ≥ 0.9 with a 48-hour objection window; enabled only at ≥ 95 % shadow precision; revert-rate breaker at 10 % per week.
+- **L3, window:** 7 days, with at most 50 sessions per run.
