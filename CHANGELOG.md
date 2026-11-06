@@ -156,6 +156,9 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Fixed
 
+- **Collaboration replay regression (SH4).** Verify authorized W3C trace/span identity with deterministic replay cases;
+  secret content, PII and access checks remain protected.
+
 - **Secret redaction across encodings and output boundaries (SH3).** Cache compiled matchers with each secret-set
   generation, cover overlapping and JSON-escaped forms, and mask before native exec, file-window, web-page and
   diagnostic limits. Output framing carries partial matches across chunks and idle flushes without broken UTF-16.
