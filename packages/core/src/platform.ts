@@ -97,7 +97,7 @@ function openDirNoFollow(dir: string, what: string): number {
 
 /** Checks, and never changes, that `dir` is a real directory of `euid` with no group/other access (logind's
  *  `/run/user/<euid>`: it is the system's to manage, not ours to chmod). */
-function requirePrivateDir(dir: string, euid: number): void {
+export function requirePrivateDir(dir: string, euid: number): void {
   const fd = openDirNoFollow(dir, "runtime directory");
   try {
     const st = fstatSync(fd);
@@ -111,7 +111,7 @@ function requirePrivateDir(dir: string, euid: number): void {
  *  symlink, our uid, no group/other access). It is opened with `O_NOFOLLOW | O_DIRECTORY` and examined and tightened
  *  through that descriptor, so a symlink swapped in between check and use cannot redirect the chmod. Anything else
  *  (a symlink, a file, another user's directory) is refused. */
-function ensurePrivateDir(dir: string, euid: number): void {
+export function ensurePrivateDir(dir: string, euid: number): void {
   try { mkdirSync(dir, { mode: 0o700 }); } catch (e) {
     if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw new Error(`cannot create the socket directory ${dir}: ${(e as Error).message}`);
   }

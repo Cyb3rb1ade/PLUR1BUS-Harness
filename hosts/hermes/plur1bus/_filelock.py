@@ -44,10 +44,18 @@ class FileLock:
             os.makedirs(os.path.dirname(self.path) or ".", mode=0o700, exist_ok=True)
             fd = os.open(self.path, os.O_RDWR | os.O_CREAT, 0o600)
             try:
+                busy = f"lock busy: {os.path.basename(self.path)}"
+                if timeout > 0 and time.monotonic() >= deadline:
+                    raise LockTimeout(busy)
                 while not _try_lock(fd):
-                    if time.monotonic() >= deadline:
-                        raise LockTimeout(f"lock busy: {os.path.basename(self.path)}")
-                    time.sleep(0.005)
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise LockTimeout(busy)
+                    delay = min(0.005, remaining)
+                    time.sleep(delay)
+                    # A coarse monotonic clock may still show time left after the final sleep.
+                    if delay == remaining or time.monotonic() >= deadline:
+                        raise LockTimeout(busy)
                 try:
                     yield
                 finally:

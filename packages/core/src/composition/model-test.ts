@@ -5,12 +5,12 @@ import type { ChatProvider } from '../session/provider.ts';
 import { RpcError } from '../rpc/errors.ts';
 import { localOnlyDenied } from '../privacy/local-only.ts';
 /** privacy.localOnly for the probe (owner decision 2026-10-18): a probe sends a real request, so a cloud model is refused before any provider exists. */
-export interface ProbeLocalPolicy { localOnly: (agentId: string) => boolean; isLocalProvider: (provider: string) => boolean }
+export interface ProbeLocalPolicy { localOnly: (agentId: string) => boolean; isLocalProvider: (provider: string, model?: string) => boolean }
 export async function testModel(model: string, profiles: ProfileTable, create: (selected: ProfileTable) => ChatProvider, principal: string, agentId: string, signal: AbortSignal, local?: ProbeLocalPolicy): Promise<{ ok: true; durationMs: number }> {
   const candidate = Object.values(profiles).flat().find(c => `${c.provider}/${c.model}` === model);
   if (!candidate) throw new RpcError('E_NOT_AVAILABLE', 'Model has no configured chat adapter', { reason: 'model-not-configured' });
   // Refused, never replaced by another model; the provider is not even constructed.
-  if (local?.localOnly(agentId) === true && !local.isLocalProvider(candidate.provider)) throw localOnlyDenied(`model ${model}`);
+  if (local?.localOnly(agentId) === true && !local.isLocalProvider(candidate.provider, candidate.model)) throw localOnlyDenied(`model ${model}`);
   const started = Date.now();
   const timeout = AbortSignal.timeout(10_000);
   const bounded = AbortSignal.any([signal, timeout]);

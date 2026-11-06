@@ -13,6 +13,9 @@ import { useTempDirs } from "./helpers.ts";
 import { createSecretStore } from "../../src/secrets/store.ts";
 import { createMemoryBackend } from "../../src/secrets/memory-backend.ts";
 import { createMemoryAuditSink } from "../../src/secrets/audit.ts";
+import { createHash } from "node:crypto";
+import { MEDIA_OUTPUT_RETENTION_MS } from "../../src/media-output-store.ts";
+import { createImportMaintenanceHold } from "../../src/import/maintenance-admission.ts";
 import { loadConfigDisclosurePolicy } from "../../src/config-disclosure.ts";
 
 const tmp = useTempDirs("p1b-open-comp-");
@@ -53,6 +56,67 @@ async function open(over: Partial<CompositionDeps> = {}, prepare: (home: string)
 }
 
 describe("composition openTurnComposition", () => {
+  it("runs deferred retention before the actual import hold opens public admission", async () => {
+    const id = "22222222-2222-4222-8222-222222222222";
+    const runId = "33333333-3333-4333-8333-333333333333";
+    const hold = createImportMaintenanceHold(runId);
+    const { composition: c, home, identity } = await open({ maintenance: { held: () => hold.held, onRelease: fn => hold.onRelease(fn) } }, home => {
+      const data = Buffer.concat([Buffer.from("RIFF"), Buffer.from([36, 0, 0, 0]), Buffer.from("WAVE"), Buffer.alloc(32)]);
+      const directory = join(home, "media", "outputs", ".uploads", id);
+      mkdirSync(directory, { recursive: true, mode: 0o700 });
+      mkdirSync(join(home, "media", "owners"), { recursive: true, mode: 0o700 });
+      writeFileSync(join(directory, "0.wav"), data, { mode: 0o600 });
+      writeFileSync(join(directory, "manifest.json"), JSON.stringify({ schema: "media.upload/1", id,
+        createdAt: Date.now() - MEDIA_OUTPUT_RETENTION_MS - 1, kind: "audio", mimeType: "audio/wav",
+        file: { path: "0.wav", format: "wav", bytes: data.length, sha256: createHash("sha256").update(data).digest("hex") },
+      }), { mode: 0o600 });
+      writeFileSync(join(home, "media", "owners", `${id}.json`), JSON.stringify({ agentId: "bernd", userId: "private-person" }), { mode: 0o600 });
+    });
+    try {
+      const owner = join(home, "media", "owners", `${id}.json`);
+      assert.equal(existsSync(owner), true);
+      await hold.release(runId);
+      assert.equal(hold.held, false);
+      assert.equal(existsSync(join(home, "media", "outputs", ".uploads", id)), false);
+      assert.equal(existsSync(owner), false);
+    } finally { await c.close(); identity.close(); }
+  });
+  it("applies production retention at startup and removes expired upload owners", async () => {
+    const id = "11111111-1111-4111-8111-111111111111";
+    const { composition: c, home, identity } = await open({}, home => {
+      const data = Buffer.concat([Buffer.from("RIFF"), Buffer.from([36, 0, 0, 0]), Buffer.from("WAVE"), Buffer.alloc(32)]);
+      const directory = join(home, "media", "outputs", ".uploads", id);
+      mkdirSync(directory, { recursive: true, mode: 0o700 });
+      mkdirSync(join(home, "media", "owners"), { recursive: true, mode: 0o700 });
+      writeFileSync(join(directory, "0.wav"), data, { mode: 0o600 });
+      writeFileSync(join(directory, "manifest.json"), JSON.stringify({
+        schema: "media.upload/1", id, createdAt: Date.now() - MEDIA_OUTPUT_RETENTION_MS - 1,
+        kind: "audio", mimeType: "audio/wav", file: { path: "0.wav", format: "wav", bytes: data.length,
+          sha256: createHash("sha256").update(data).digest("hex") },
+      }), { mode: 0o600 });
+      writeFileSync(join(home, "media", "owners", `${id}.json`), JSON.stringify({ agentId: "bernd", userId: "private-person" }), { mode: 0o600 });
+    });
+    try {
+      assert.equal(existsSync(join(home, "media", "outputs", ".uploads", id)), false);
+      assert.equal(existsSync(join(home, "media", "owners", `${id}.json`)), false);
+    } finally { await c.close(); identity.close(); }
+  });
+  it("recovers unpublished upload state without a generation provider", async () => {
+    const stage = ".stage-11111111-1111-1111-1111-111111111111";
+    const { composition: c, home, identity } = await open({}, home => {
+      const outputs = join(home, "media", "outputs");
+      mkdirSync(join(outputs, ".lock"), { recursive: true });
+      mkdirSync(join(outputs, stage));
+      writeFileSync(join(outputs, stage, "partial"), "unpublished");
+    });
+    try {
+      assert.equal(existsSync(join(home, "media", "outputs", ".lock")), false);
+      assert.equal(existsSync(join(home, "media", "outputs", stage)), false);
+    } finally {
+      await c.close();
+      identity.close();
+    }
+  });
   it("actual collaboration replay masks live Store and config-policy values while keeping declared public module controls", async () => {
     const stored = randomUUID(), configured = randomUUID(), publicRegion = "public-eu-region", publicPath = "/public/report.txt";
     const secrets = createSecretStore({ keyring: createMemoryBackend(), file: createMemoryBackend(), fileFallback: () => false, audit: createMemoryAuditSink() });
@@ -115,12 +179,14 @@ describe("composition openTurnComposition", () => {
   it("assembles sessions, collaboration, voice, openai and the media RPC surface", async () => {
     const { composition: c, identity } = await open();
     try {
-      assert.deepEqual(Object.keys(c).sort(), ["a2a", "budget", "cacheTelemetry", "capabilities", "chatModels", "close", "collab", "discoveryCredentials", "engineComplete", "importSsh", "mining", "openai", "refusedProviders", "sessions", "skillReview", "surfaceMethods", "voice"]);
+      assert.deepEqual(Object.keys(c).sort(), ["a2a", "budget", "cacheTelemetry", "capabilities", "chatModels", "close", "codeSessions", "collab", "discoveryCredentials", "engineComplete", "importSsh", "ingestChannelAttachments", "mining", "openai", "refusedProviders", "sessions", "skillReview", "surfaceMethods", "voice"]);
       assert.equal(c.skillReview.status().state, "engine-unavailable");
       assert.equal(c.mining.status().state, "engine-unavailable");
       assert.ok(c.collab, "collaboration needs the call budget, which opened");
       assert.equal(typeof c.sessions.close, "function");
-      assert.deepEqual(Object.keys(c.surfaceMethods).sort(), [...MEDIA_METHODS, ...SEARCH_METHODS, ...EXTENSION_METHODS, ...SSH_METHODS, ...EXTERNAL_TURN_METHODS, "a2a.peer.add", "a2a.peer.list", "a2a.peer.remove", "a2a.peer.trust", "decision.status", "decision.test", "models.test"].sort());
+      assert.ok(c.codeSessions, "coding session binding must be composed");
+      assert.equal(typeof c.codeSessions.connectionClosed, "function", "coding grants must follow connection lifetime");
+      assert.deepEqual(Object.keys(c.surfaceMethods).sort(), [...MEDIA_METHODS, ...SEARCH_METHODS, ...EXTENSION_METHODS, ...SSH_METHODS, ...EXTERNAL_TURN_METHODS, "a2a.peer.add", "a2a.peer.list", "a2a.peer.remove", "a2a.peer.trust", "code.session.open", "code.session.diff", "code.session.check", "code.session.mode", "decision.status", "decision.test", "models.test"].sort());
       for (const m of Object.values(c.surfaceMethods)) assert.equal(typeof m, "function");
     } finally { await c.close(); identity.close(); }
   });

@@ -72,6 +72,17 @@ export function isLocalEndpoint(raw: string | URL, listed: readonly string[] = [
   return listed.some((entry) => { const e = parse(entry); return e !== null && e.origin === url.origin; });
 }
 
+/** Managed locality is a fixed model rule. A custom provider or PCC never inherits system's local classification. */
+export function isLocalModel(provider: string, model: string): boolean {
+  return provider === "apple-fm" && model === "system";
+}
+
+/** Chat callers consult identity before endpoint origin; an endpoint allowlist cannot authorize managed PCC. */
+export function isLocalChatModel(provider: string, model: string, endpoint: string | undefined, cfg: unknown): boolean {
+  if (provider === "apple-fm") return isLocalModel(provider, model);
+  return endpoint !== undefined && isLocalEndpoint(endpoint, localEndpoints(cfg));
+}
+
 /** The refusal every enforcement point throws: E_DENIED, reason local-only, never a substitute model. */
 export function localOnlyDenied(what: string, endpoint?: string): RpcError {
   return new RpcError("E_DENIED", `${what} is not a local model${endpoint ? ` (${redactEndpoint(endpoint)})` : ""}; ${LOCAL_ONLY_HINT}`, { reason: LOCAL_ONLY_REASON });

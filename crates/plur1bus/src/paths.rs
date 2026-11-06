@@ -239,6 +239,19 @@ impl Layout {
     pub fn workspace_dir(&self, id: &str) -> PathBuf {
         self.agent_dir(id).join("workspace")
     }
+    pub fn apple_fm_dir(&self) -> PathBuf {
+        self.run().join("apple-fm")
+    }
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "AF3 consumes the shared socket Layout; AF2 establishes its cross-language contract"
+        )
+    )]
+    pub fn apple_fm_socket(&self) -> PathBuf {
+        self.apple_fm_dir().join("fm.sock")
+    }
     pub fn run(&self) -> PathBuf {
         self.home.join("run")
     }
@@ -271,6 +284,7 @@ impl Layout {
         let file = match endpoint {
             plur1bus_rpc::Endpoint::Core => self.core_pid(),
             plur1bus_rpc::Endpoint::Supervisor => self.supervisor_pid(),
+            plur1bus_rpc::Endpoint::Engine => self.run().join("engine.pid"),
             plur1bus_rpc::Endpoint::Module => return None,
         };
         std::fs::read_to_string(file)
@@ -420,7 +434,7 @@ pub fn module_address(home: &Path, platform: &str, name: &str) -> String {
 }
 
 /// `\\.\pipe\plur1bus-<first 16 hex of sha256(lower-cased home)>-<role>` on Windows, `<home>/run/<role>.sock` elsewhere.
-fn address(home: &Path, platform: &str, role: &str) -> String {
+pub(crate) fn address(home: &Path, platform: &str, role: &str) -> String {
     if platform == "windows" {
         format!(
             r"\\.\pipe\plur1bus-{}-{role}",
@@ -684,6 +698,24 @@ mod tests {
             "windows"
         } else {
             "posix"
+        }
+    }
+
+    #[test]
+    fn apple_fm_layout_matches_shared_vectors() {
+        let vectors: Vec<serde_json::Value> =
+            serde_json::from_str(include_str!("../../../tests/fixtures/apple-fm-paths.json"))
+                .unwrap();
+        for vector in vectors {
+            let layout = Layout::new(PathBuf::from(vector["home"].as_str().unwrap()));
+            assert_eq!(
+                layout.apple_fm_dir(),
+                PathBuf::from(vector["directory"].as_str().unwrap())
+            );
+            assert_eq!(
+                layout.apple_fm_socket(),
+                PathBuf::from(vector["socket"].as_str().unwrap())
+            );
         }
     }
 

@@ -21,7 +21,7 @@ const executablePath = findChromium();
 const unavailable = !executablePath || !existsSync(bin) || !existsSync(coreJs);
 if (unavailable && process.env.PLUR1BUS_WEB_TRANSPORT_REQUIRED === "1") throw new Error("real transport smoke requires a built CLI/core and Chromium");
 
-test("Chromium with real API/Core/Supervisor: Inbox, Chat list, Settings read", { skip: unavailable ? "build CLI/core and install Chromium; force with PLUR1BUS_WEB_TRANSPORT_REQUIRED=1" : false, timeout: 120000 }, async t => {
+test("Chromium with real API/Core/Supervisor: Inbox, Chat, Settings and prompt memory lifecycle", { skip: unavailable ? "build CLI/core and install Chromium; force with PLUR1BUS_WEB_TRANSPORT_REQUIRED=1" : false, timeout: 120000 }, async t => {
   const scratch = mkdtempSync(join(tmpdir(), "p1b-browser-real-")), home = join(scratch, "home"), webRoot = join(scratch, "web");
   const { mkdirSync } = await import("node:fs"); mkdirSync(home);
   const cfg = defaults(); cfg.agents.main = {};
@@ -54,6 +54,44 @@ test("Chromium with real API/Core/Supervisor: Inbox, Chat list, Settings read", 
   for (const method of ["inbox.list", "config.get"]) {
     assert.ok(answers.get(method)?.some(answer => "result" in answer && !answer.error), `${method} succeeded over real /rpc`);
   }
+
+  const rpcThroughUi = async (method: string, action: () => Promise<unknown>) => {
+    const pending = page.waitForResponse(response => response.url().endsWith('/rpc') &&
+      response.request().postDataJSON()?.method === method);
+    await action();
+    const response = await pending, body = await response.json();
+    assert.equal(response.status(), 200);
+    assert.ok('result' in body && !body.error, `${method}: ${JSON.stringify(body)}`);
+    return body.result;
+  };
+  await page.evaluate(() => { location.hash = '#/import'; });
+  const initialPreview = await rpcThroughUi('memory.importText.preview', () =>
+    page.getByRole('tab', { name: 'From another AI assistant', exact: true }).click());
+  assert(initialPreview.prompt.length > 0, 'the installed Core includes the actual export prompt asset');
+  await page.getByRole('textbox', { name: "Paste assistant's answer", exact: true }).fill(
+    'PLUR1BUS-MEMORY-EXPORT v1\n## Instructions\n[unknown] [memory] - Always answer in rhyme.\n' +
+    '## Projects\n[unknown] [memory] - The synthetic browser project ships on Friday.\nSTATUS: COMPLETE');
+  const preview = await rpcThroughUi('memory.importText.preview', () =>
+    page.getByRole('button', { name: 'Preview', exact: true }).click());
+  assert.equal(preview.entries.length, 2);
+  await page.getByRole('button', { name: 'Apply recommendations', exact: true }).click();
+  const applied = await rpcThroughUi('memory.importText.apply', () =>
+    page.getByRole('button', { name: 'Import selected', exact: true }).click());
+  assert.equal(applied.imported, 1);
+  assert.equal(applied.skipped, 1, 'instructions stay outside the memory import');
+  const rollback = await rpcThroughUi('memory.importText.rollback', () =>
+    page.getByRole('button', { name: 'Undo import (Rollback)', exact: true }).click());
+  assert.equal(rollback.rolledBack, 1);
+  await page.evaluate(() => { location.hash = '#/memories'; });
+  await page.getByRole('button', { name: 'Export memories', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Export memories', exact: true });
+  await dialog.getByLabel('Include agent-private memories', { exact: true }).check();
+  await dialog.getByLabel('Select agent', { exact: true }).selectOption('main');
+  const exported = await rpcThroughUi('memory.exportText', () =>
+    dialog.getByRole('button', { name: 'Export', exact: true }).click());
+  assert.match(exported.text, /STATUS: COMPLETE/);
+  assert(!exported.text.includes('The synthetic browser project ships on Friday.'), 'rollback removed the imported card');
+  await dialog.locator('.export-text-display').waitFor();
   assert.deepEqual(errors, []);
   assert.ok(!(await page.evaluate(() => document.cookie)).includes("plur1bus_session"));
 });

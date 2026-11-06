@@ -442,8 +442,16 @@ impl Lock {
             .clamp(stale_after, max);
         let mut reaped = false;
         let mut transients = 0;
+        let mut options = OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            // Process identity stamps stay private even with a permissive caller umask.
+            options.mode(0o600);
+        }
         loop {
-            match OpenOptions::new().write(true).create_new(true).open(path) {
+            match options.open(path) {
                 Ok(file) => {
                     let nonce = stamp(file, path, &context)?;
                     return Ok(Some(LockGuard {

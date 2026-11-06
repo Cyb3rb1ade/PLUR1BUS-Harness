@@ -541,6 +541,11 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 fixture,
                 &root_schema,
             ),
+            "engine.adopt" => check_pair::<types::EngineAdoptParams, types::EngineAdoptResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
             "engine.open" => check_pair::<types::EngineOpenParams, types::EngineOpenResult>(
                 name,
                 fixture,
@@ -592,6 +597,11 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 &root_schema,
             ),
             "chat.cancel" => check_pair::<types::ChatCancelParams, types::ChatCancelResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "chat.rewind" => check_pair::<types::ChatRewindParams, types::ChatRewindResult>(
                 name,
                 fixture,
                 &root_schema,
@@ -1354,6 +1364,22 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::MemoryProposalsRejectParams,
                 types::MemoryProposalsRejectResult,
             >(name, fixture, &root_schema),
+            "memory.importText.preview" => check_pair::<
+                types::MemoryImportTextPreviewParams,
+                types::MemoryImportTextPreviewResult,
+            >(name, fixture, &root_schema),
+            "memory.importText.apply" => check_pair::<
+                types::MemoryImportTextApplyParams,
+                types::MemoryImportTextApplyResult,
+            >(name, fixture, &root_schema),
+            "memory.importText.rollback" => check_pair::<
+                types::MemoryImportTextRollbackParams,
+                types::MemoryImportTextRollbackResult,
+            >(name, fixture, &root_schema),
+            "memory.exportText" => check_pair::<
+                types::MemoryExportTextParams,
+                types::MemoryExportTextResult,
+            >(name, fixture, &root_schema),
             "external.turn.cancel" => check_pair::<
                 types::ExternalTurnCancelParams,
                 types::ExternalTurnCancelResult,
@@ -1630,6 +1656,22 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                     &root_schema,
                 )
             }
+            "code.session.open" => check_pair::<
+                types::CodeSessionOpenParams,
+                types::CodeSessionOpenResult,
+            >(name, fixture, &root_schema),
+            "code.session.mode" => check_pair::<
+                types::CodeSessionModeParams,
+                types::CodeSessionModeResult,
+            >(name, fixture, &root_schema),
+            "code.session.diff" => check_pair::<
+                types::CodeSessionDiffParams,
+                types::CodeSessionDiffResult,
+            >(name, fixture, &root_schema),
+            "code.session.check" => check_pair::<
+                types::CodeSessionCheckParams,
+                types::CodeSessionCheckResult,
+            >(name, fixture, &root_schema),
             "session.model.get" => check_pair::<
                 types::SessionModelGetParams,
                 types::SessionModelGetResult,
@@ -1640,6 +1682,13 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
             >(name, fixture, &root_schema),
             "session.cancel" => {
                 check_pair::<types::SessionCancelParams, types::SessionCancelResult>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
+            "session.rewind" => {
+                check_pair::<types::SessionRewindParams, types::SessionRewindResult>(
                     name,
                     fixture,
                     &root_schema,

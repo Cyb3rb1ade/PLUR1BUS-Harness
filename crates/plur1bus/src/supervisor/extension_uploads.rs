@@ -253,12 +253,6 @@ pub fn bind_inspection(layout: &Layout, id: &str, caller: Caller<'_>) -> Result<
     };
     match created {
         Ok(()) => {
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt;
-                fs::set_permissions(&dir, fs::Permissions::from_mode(0o700))
-                    .map_err(|_| record::expired())?;
-            }
             #[cfg(windows)]
             {
                 let user = plur1bus_rpc::win::user_sid().map_err(|_| record::expired())?;

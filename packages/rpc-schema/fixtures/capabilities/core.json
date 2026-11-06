@@ -432,22 +432,6 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
-    "a2a.peer.add": {
-      "stability": "experimental",
-      "since": "1.12.0"
-    },
-    "a2a.peer.list": {
-      "stability": "experimental",
-      "since": "1.12.0"
-    },
-    "a2a.peer.remove": {
-      "stability": "experimental",
-      "since": "1.12.0"
-    },
-    "a2a.peer.trust": {
-      "stability": "experimental",
-      "since": "1.12.0"
-    },
     "project.agent.add": {
       "stability": "experimental",
       "since": "1.5.0"
@@ -455,14 +439,6 @@
     "project.agent.remove": {
       "stability": "experimental",
       "since": "1.5.0"
-    },
-    "project.repo.bind": {
-      "stability": "experimental",
-      "since": "1.14.0"
-    },
-    "project.repo.unbind": {
-      "stability": "experimental",
-      "since": "1.14.0"
     },
     "task.complete": {
       "stability": "experimental",
@@ -1191,6 +1167,70 @@
     "approval.audit": {
       "stability": "experimental",
       "since": "1.5.0"
+    },
+    "code.session.open": {
+      "stability": "experimental",
+      "since": "1.19.0"
+    },
+    "code.session.diff": {
+      "stability": "experimental",
+      "since": "1.19.0"
+    },
+    "code.session.check": {
+      "stability": "experimental",
+      "since": "1.19.0"
+    },
+    "code.session.mode": {
+      "stability": "experimental",
+      "since": "1.21.0"
+    },
+    "chat.rewind": {
+      "stability": "experimental",
+      "since": "1.18.0"
+    },
+    "session.rewind": {
+      "stability": "experimental",
+      "since": "1.18.0"
+    },
+    "a2a.peer.add": {
+      "stability": "experimental",
+      "since": "1.12.0"
+    },
+    "a2a.peer.list": {
+      "stability": "experimental",
+      "since": "1.12.0"
+    },
+    "a2a.peer.remove": {
+      "stability": "experimental",
+      "since": "1.12.0"
+    },
+    "a2a.peer.trust": {
+      "stability": "experimental",
+      "since": "1.12.0"
+    },
+    "project.repo.bind": {
+      "stability": "experimental",
+      "since": "1.14.0"
+    },
+    "project.repo.unbind": {
+      "stability": "experimental",
+      "since": "1.14.0"
+    },
+    "memory.importText.preview": {
+      "stability": "experimental",
+      "since": "1.22.0"
+    },
+    "memory.importText.apply": {
+      "stability": "experimental",
+      "since": "1.22.0"
+    },
+    "memory.importText.rollback": {
+      "stability": "experimental",
+      "since": "1.22.0"
+    },
+    "memory.exportText": {
+      "stability": "experimental",
+      "since": "1.22.0"
     }
   },
   "notifications": {

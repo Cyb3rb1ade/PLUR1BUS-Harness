@@ -30,7 +30,7 @@ export class ToolPruner {
     const visibility = new Map(this.#store.toolVisibility(sessionId).map(p => [p.ref, p]));
     const boundary = this.#boundary(sessionId);
     const pending = new Map<string, EventRecord>(); const pairs: ToolPair[] = [];
-    for (const event of this.#store.toolEvents(sessionId)) {
+    for (const event of this.#store.contextToolEvents(sessionId)) {
       const id = `${event.turnId}:${event.data.id}`;
       if (event.type === 'tool.call') { pending.set(id, event); continue; }
       const call = pending.get(id); if (!call || !call.turnId) continue;
@@ -48,7 +48,7 @@ export class ToolPruner {
   #boundary(sessionId: string) {
     const turns = this.#store.listTurns(sessionId);
     const pending = new Map<string, EventRecord>();
-    for (const event of this.#store.toolEvents(sessionId)) { const key=`${event.turnId}:${event.data.id}`; if(event.type==='tool.call') pending.set(key,event); else pending.delete(key); }
+    for (const event of this.#store.contextToolEvents(sessionId)) { const key=`${event.turnId}:${event.data.id}`; if(event.type==='tool.call') pending.set(key,event); else pending.delete(key); }
     return { pending: [...pending.values()], turns: new Map(turns.map(t => [t.id,t])), latest: turns.at(-1)?.seq ?? 0, assistant: this.#store.latestAssistantContext(sessionId) };
   }
   #protected(sessionId: string, pair: ToolPair, boundary = this.#boundary(sessionId)): boolean {
@@ -85,7 +85,7 @@ export class ToolPruner {
     void run.finally(() => this.#running.delete(sessionId)).catch(() => {}); return run;
   }
   async #run(sessionId: string): Promise<number> {
-    if (this.#hooks.signal?.aborted || !this.cfg.enabled || this.cfg.decider === 'off' || this.#store.runningTurn(sessionId)) return 0;
+    if (this.#hooks.signal?.aborted || !this.cfg.enabled || this.cfg.decider === 'off' || this.#store.runningTurn(sessionId) || this.#store.rewindReserved(sessionId)) return 0;
     const started = performance.now();
     const revision = this.#store.lastEventSeq(sessionId);
     const proposed: { pair: ToolPair; reason: string; detail?: { mode: 'truncate' | 'drop'; confidence: number; tokensSaved: number } }[] = [];
@@ -95,7 +95,7 @@ export class ToolPruner {
     const abort = new AbortController(); const signal = this.#hooks.signal ? AbortSignal.any([abort.signal, this.#hooks.signal]) : abort.signal;
     const timer = setTimeout(() => abort.abort(Error('prune-timeout')), this.cfg.maxMs);
     const timedOut = new Promise<null>(resolve => signal.addEventListener('abort', () => resolve(null), { once: true }));
-    const task = this.#store.listMessages(sessionId).filter(m => m.role === 'user').at(-1)?.text ?? '';
+    const task = this.#store.contextMessages(sessionId).filter(m => m.role === 'user').at(-1)?.text ?? '';
     let hidden = 0;
     try {
       for (let i = 0; i < candidates.length; i += this.cfg.batchSize) {
@@ -121,7 +121,7 @@ export class ToolPruner {
           proposed.push({ pair, reason: decision.reason, ...(decision.verdict && decision.confidence !== undefined ? {detail:{mode:decision.verdict as 'truncate'|'drop',confidence:decision.confidence,tokensSaved:Math.max(0,Math.ceil(pair.text.length/4)-Math.ceil(prunedText(pair,decision.verdict as 'truncate'|'drop').length/4))}}:{}) });
         }
       }
-      if (signal.aborted || performance.now() - started >= this.cfg.maxMs || this.#store.runningTurn(sessionId) || this.#store.lastEventSeq(sessionId) !== revision) return 0;
+      if (signal.aborted || performance.now() - started >= this.cfg.maxMs || this.#store.runningTurn(sessionId) || this.#store.rewindReserved(sessionId) || this.#store.lastEventSeq(sessionId) !== revision) return 0;
       const boundary = this.#boundary(sessionId);
       const visibility = new Set(this.#store.toolVisibility(sessionId).map(p => p.ref));
       const changes = proposed.filter(({pair}) => !this.#protected(sessionId,pair,boundary) && !visibility.has(pair.ref));

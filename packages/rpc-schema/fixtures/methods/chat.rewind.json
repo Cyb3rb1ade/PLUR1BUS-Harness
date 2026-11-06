@@ -1,0 +1,23 @@
+{
+  "params": {
+    "sessionId": "ses_fixture",
+    "toSeq": 2,
+    "lesson": "Inspect the types first."
+  },
+  "result": {
+    "sessionId": "ses_fixture",
+    "rewind": {
+      "id": "rew_fixture",
+      "sessionId": "ses_fixture",
+      "parentSeq": 2,
+      "hiddenFromSeq": 3,
+      "hiddenToSeq": 4,
+      "lessonMessageId": "msg_lesson",
+      "hiddenDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "trigger": "user",
+      "actor": "owner",
+      "createdAt": 1234,
+      "undoneAt": null
+    }
+  }
+}

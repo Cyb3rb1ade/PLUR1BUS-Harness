@@ -32,7 +32,8 @@ export interface CatalogFile {
 export type ScanWarning =
   | { code: "role_unavailable"; role: string; provider: string; id: string }
   | { code: "shadowed_by_manual"; provider: string; id: string }
-  | { code: "empty_list"; provider: string };
+  | { code: "empty_list"; provider: string }
+  | { code: "filtered_by_policy"; provider: string; count: number };
 export interface ScanErrorInfo {
   code: "auth" | "network" | "timeout" | "server" | "rate-limited" | "invalid-request"; reason: string; retryable: boolean; hint: string;
   httpStatus?: number; retryAfterS?: number;

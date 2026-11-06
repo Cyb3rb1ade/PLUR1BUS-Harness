@@ -21,6 +21,11 @@ function bodySchema(name:string) {
   delete schema.properties.idempotencyKey;
   delete schema.properties.resumeAfterSeq;
   schema.required=schema.required.filter((key:string)=>Object.hasOwn(schema.properties,key));
+  // D120 apply/undo are closed alternatives too; path-supplied identity must disappear from each request-body branch.
+  for (const branch of schema.oneOf ?? []) {
+    for (const key of ["sessionId", "idempotencyKey", "resumeAfterSeq"]) delete branch.properties?.[key];
+    branch.required = branch.required?.filter((key: string) => Object.hasOwn(branch.properties ?? {}, key));
+  }
   return inlineSchema(schema);
 }
 const routes = [
@@ -29,6 +34,7 @@ const routes = [
   ["get","GET","/api/v1/chats/{sessionId}","read"], ["update","PATCH","/api/v1/chats/{sessionId}","write"],
   ["messages","GET","/api/v1/chats/{sessionId}/messages","read"], ["submit","POST","/api/v1/chats/{sessionId}/messages","write"],
   ["events","GET","/api/v1/chats/{sessionId}/events","read"], ["cancel","POST","/api/v1/chats/{sessionId}/cancel","write"],
+  ["rewind","POST","/api/v1/chats/{sessionId}/rewind","write"],
   ["archive","POST","/api/v1/chats/{sessionId}/archive","write"], ["restore","POST","/api/v1/chats/{sessionId}/restore","write"],
   ["fork","POST","/api/v1/chats/{sessionId}/fork","write"], ["export","POST","/api/v1/chats/{sessionId}/export","read"],
   ["delete","DELETE","/api/v1/chats/{sessionId}","delete"],

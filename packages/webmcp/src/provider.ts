@@ -50,8 +50,11 @@ export const PAGE_SUPPLIED_PARAMS: readonly string[] = ["caller"];
 /** Methods that are never exposed, even when named in `include`: authentication, process lifecycle,
  *  supervisor/daemon/module control, subscriptions, configuration writes and admin ops (D55: `admin.*`). */
 const FORBIDDEN_EXACT = new Set([
+  "code.session.open", "code.session.diff", "code.session.check", "code.session.mode",
+  "chat.rewind", "session.rewind",
   "a2a.peer.add", "a2a.peer.list", "a2a.peer.remove", "a2a.peer.trust",
   "memory.curation.list", "memory.curation.resolve",
+  "memory.importText.preview", "memory.importText.apply", "memory.importText.rollback", "memory.exportText",
   "session.model.get", "session.model.set", "chat.model.set", "task.complete",
   "jobs.create", "jobs.update", "jobs.delete", "doctor.report", "telemetry.cache.summary", "agent.activity.list",
   "core.auth", "core.shutdown", "core.adopt", "memory.checkpoint", "agent.open", "agent.close",

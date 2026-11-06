@@ -154,6 +154,7 @@ TypeScript validation returns optional, value-free `warnings` for endpoint useri
 | `logs.otlp.headers.*` | string |  |  | advanced | true | false |  |  |
 | `agents` | object | `{}` | live | basic | false | false |  | Per-agent settings keyed by a lowercase agent identifier. |
 | `agents.*` | object |  | live | basic | false | false |  | Settings for one agent. |
+| `agents.*.coding` | boolean | `false` | live | advanced | false | false |  | Enable the static coding profile and pre-admit registered coding tools. Filesystem permissions and grants stay unchanged. |
 | `agents.*.behaviour` | object |  | live | advanced | false | false |  | ADR-003 four-level restrictive behaviour: default, direct/group, channel kind, bot connection. No per-chat layer. |
 | `agents.*.behaviour.default` | object |  | live | advanced | false | false |  | Agent-wide restrictions inherited by every channel. |
 | `agents.*.behaviour.default.reply` | object |  | live | advanced | false | false |  | Controls when the agent may reply. |
@@ -387,12 +388,36 @@ TypeScript validation returns optional, value-free `warnings` for endpoint useri
 | `agents.*.memory.mediaEmbedding.dimensions` | integer |  | core | advanced | false | false |  | Vector dimensions of the media index; must be supported by the model (EmbeddingGemma: 768, 512, 256 or 128). |
 | `agents.*.memory.mediaEmbedding.modalities` | array |  | core | basic | false | false |  | Media kinds that are indexed. |
 | `agents.*.memory.mediaEmbedding.modalities[]` | string |  | core | basic | false | false |  | One media kind. |
+| `agents.*.memory.mediaEmbedding.image` | object |  | core | advanced | false | false |  | Image preprocessing token budget (owner E3). |
+| `agents.*.memory.mediaEmbedding.image.softTokens` | integer |  | core | advanced | false | false |  | Soft token budget per photo; changing it changes the media vector space. |
+| `agents.*.memory.mediaEmbedding.dtypes` | object |  | core | advanced | false | false |  | Pinned encoder precision per platform (owner E2): q8 until a separate measured decision. Audio always uses q8. |
+| `agents.*.memory.mediaEmbedding.dtypes.linux-x64` | object |  | core | advanced | false | false |  | Encoder precision on linux-x64. |
+| `agents.*.memory.mediaEmbedding.dtypes.linux-x64.text` | string |  | core | advanced | false | false |  | Pinned text encoder precision. |
+| `agents.*.memory.mediaEmbedding.dtypes.linux-x64.vision` | string |  | core | advanced | false | false |  | Pinned vision encoder precision. |
+| `agents.*.memory.mediaEmbedding.dtypes.linux-x64.audio` | string |  | core | advanced | false | false |  | Pinned audio encoder precision. |
+| `agents.*.memory.mediaEmbedding.dtypes.linux-arm64` | object |  | core | advanced | false | false |  | Encoder precision on linux-arm64. |
+| `agents.*.memory.mediaEmbedding.dtypes.linux-arm64.text` | string |  | core | advanced | false | false |  | Pinned text encoder precision. |
+| `agents.*.memory.mediaEmbedding.dtypes.linux-arm64.vision` | string |  | core | advanced | false | false |  | Pinned vision encoder precision. |
+| `agents.*.memory.mediaEmbedding.dtypes.linux-arm64.audio` | string |  | core | advanced | false | false |  | Pinned audio encoder precision. |
+| `agents.*.memory.mediaEmbedding.dtypes.darwin-arm64` | object |  | core | advanced | false | false |  | Encoder precision on darwin-arm64. |
+| `agents.*.memory.mediaEmbedding.dtypes.darwin-arm64.text` | string |  | core | advanced | false | false |  | Pinned text encoder precision. |
+| `agents.*.memory.mediaEmbedding.dtypes.darwin-arm64.vision` | string |  | core | advanced | false | false |  | Pinned vision encoder precision. |
+| `agents.*.memory.mediaEmbedding.dtypes.darwin-arm64.audio` | string |  | core | advanced | false | false |  | Pinned audio encoder precision. |
+| `agents.*.memory.mediaEmbedding.dtypes.win32-x64` | object |  | core | advanced | false | false |  | Encoder precision on win32-x64. |
+| `agents.*.memory.mediaEmbedding.dtypes.win32-x64.text` | string |  | core | advanced | false | false |  | Pinned text encoder precision. |
+| `agents.*.memory.mediaEmbedding.dtypes.win32-x64.vision` | string |  | core | advanced | false | false |  | Pinned vision encoder precision. |
+| `agents.*.memory.mediaEmbedding.dtypes.win32-x64.audio` | string |  | core | advanced | false | false |  | Pinned audio encoder precision. |
+| `agents.*.memory.mediaEmbedding.dtypes.win32-arm64` | object |  | core | advanced | false | false |  | Encoder precision on win32-arm64. |
+| `agents.*.memory.mediaEmbedding.dtypes.win32-arm64.text` | string |  | core | advanced | false | false |  | Pinned text encoder precision. |
+| `agents.*.memory.mediaEmbedding.dtypes.win32-arm64.vision` | string |  | core | advanced | false | false |  | Pinned vision encoder precision. |
+| `agents.*.memory.mediaEmbedding.dtypes.win32-arm64.audio` | string |  | core | advanced | false | false |  | Pinned audio encoder precision. |
 | `agents.*.memory.mediaEmbedding.video` | object |  | core | basic | false | false |  | How video is cut into segments and frames before embedding. |
 | `agents.*.memory.mediaEmbedding.video.segmentSec` | integer |  | core | advanced | false | false |  | Length of one video segment in seconds. |
 | `agents.*.memory.mediaEmbedding.video.maxFrames` | integer |  | core | advanced | false | false |  | Maximum number of frames embedded per video; capped by the model limit. |
 | `agents.*.memory.mediaEmbedding.video.sceneDetect` | boolean |  | core | advanced | false | false |  | Whether frames are picked at scene changes instead of a fixed interval. |
+| `agents.*.memory.mediaEmbedding.video.softTokens` | integer |  | core | advanced | false | false |  | Soft token budget per video frame (owner E3); changing it changes the media vector space. |
 | `agents.*.memory.mediaEmbedding.audio` | object |  | core | basic | false | false |  | How audio is cut into segments before embedding. |
-| `agents.*.memory.mediaEmbedding.audio.segmentSec` | integer |  | core | advanced | false | false |  | Length of one audio segment in seconds. |
+| `agents.*.memory.mediaEmbedding.audio.segmentSec` | integer |  | core | advanced | false | false |  | Length of one audio segment in seconds; the model silently truncates above 30 (owner E8). |
 | `agents.*.memory.mediaEmbedding.audio.maxSeconds` | integer |  | core | advanced | false | false |  | Maximum audio duration in seconds that is indexed; longer media is truncated. |
 | `agents.*.memory.mediaEmbedding.caption` | object |  | core | basic | false | false |  | Captions: one text entry per medium in the text index, written by the prompt, the user or an automatic captioner. |
 | `agents.*.memory.mediaEmbedding.caption.source` | string |  | core | advanced | false | false |  | Caption order: generation prompt, then user caption or alt text, then automatic captioning; user-only skips automatic captions; off disables captions. |
@@ -448,12 +473,36 @@ TypeScript validation returns optional, value-free `warnings` for endpoint useri
 | `memory.mediaEmbedding.dimensions` | integer | `768` | core | advanced | false | false |  | Vector dimensions of the media index; must be supported by the model (EmbeddingGemma: 768, 512, 256 or 128). |
 | `memory.mediaEmbedding.modalities` | array | `["image","video","audio"]` | core | basic | false | false |  | Media kinds that are indexed. |
 | `memory.mediaEmbedding.modalities[]` | string |  | core | basic | false | false |  | One media kind. |
+| `memory.mediaEmbedding.image` | object | `{}` | core | advanced | false | false |  | Image preprocessing token budget (owner E3). |
+| `memory.mediaEmbedding.image.softTokens` | integer | `140` | core | advanced | false | false |  | Soft token budget per photo; changing it changes the media vector space. |
+| `memory.mediaEmbedding.dtypes` | object | `{}` | core | advanced | false | false |  | Pinned encoder precision per platform (owner E2): q8 until a separate measured decision. Audio always uses q8. |
+| `memory.mediaEmbedding.dtypes.linux-x64` | object | `{}` | core | advanced | false | false |  | Encoder precision on linux-x64. |
+| `memory.mediaEmbedding.dtypes.linux-x64.text` | string | `"q8"` | core | advanced | false | false |  | Pinned text encoder precision. |
+| `memory.mediaEmbedding.dtypes.linux-x64.vision` | string | `"q8"` | core | advanced | false | false |  | Pinned vision encoder precision. |
+| `memory.mediaEmbedding.dtypes.linux-x64.audio` | string | `"q8"` | core | advanced | false | false |  | Pinned audio encoder precision. |
+| `memory.mediaEmbedding.dtypes.linux-arm64` | object | `{}` | core | advanced | false | false |  | Encoder precision on linux-arm64. |
+| `memory.mediaEmbedding.dtypes.linux-arm64.text` | string | `"q8"` | core | advanced | false | false |  | Pinned text encoder precision. |
+| `memory.mediaEmbedding.dtypes.linux-arm64.vision` | string | `"q8"` | core | advanced | false | false |  | Pinned vision encoder precision. |
+| `memory.mediaEmbedding.dtypes.linux-arm64.audio` | string | `"q8"` | core | advanced | false | false |  | Pinned audio encoder precision. |
+| `memory.mediaEmbedding.dtypes.darwin-arm64` | object | `{}` | core | advanced | false | false |  | Encoder precision on darwin-arm64. |
+| `memory.mediaEmbedding.dtypes.darwin-arm64.text` | string | `"q8"` | core | advanced | false | false |  | Pinned text encoder precision. |
+| `memory.mediaEmbedding.dtypes.darwin-arm64.vision` | string | `"q8"` | core | advanced | false | false |  | Pinned vision encoder precision. |
+| `memory.mediaEmbedding.dtypes.darwin-arm64.audio` | string | `"q8"` | core | advanced | false | false |  | Pinned audio encoder precision. |
+| `memory.mediaEmbedding.dtypes.win32-x64` | object | `{}` | core | advanced | false | false |  | Encoder precision on win32-x64. |
+| `memory.mediaEmbedding.dtypes.win32-x64.text` | string | `"q8"` | core | advanced | false | false |  | Pinned text encoder precision. |
+| `memory.mediaEmbedding.dtypes.win32-x64.vision` | string | `"q8"` | core | advanced | false | false |  | Pinned vision encoder precision. |
+| `memory.mediaEmbedding.dtypes.win32-x64.audio` | string | `"q8"` | core | advanced | false | false |  | Pinned audio encoder precision. |
+| `memory.mediaEmbedding.dtypes.win32-arm64` | object | `{}` | core | advanced | false | false |  | Encoder precision on win32-arm64. |
+| `memory.mediaEmbedding.dtypes.win32-arm64.text` | string | `"q8"` | core | advanced | false | false |  | Pinned text encoder precision. |
+| `memory.mediaEmbedding.dtypes.win32-arm64.vision` | string | `"q8"` | core | advanced | false | false |  | Pinned vision encoder precision. |
+| `memory.mediaEmbedding.dtypes.win32-arm64.audio` | string | `"q8"` | core | advanced | false | false |  | Pinned audio encoder precision. |
 | `memory.mediaEmbedding.video` | object | `{}` | core | basic | false | false |  | How video is cut into segments and frames before embedding. |
 | `memory.mediaEmbedding.video.segmentSec` | integer | `10` | core | advanced | false | false |  | Length of one video segment in seconds. |
 | `memory.mediaEmbedding.video.maxFrames` | integer | `32` | core | advanced | false | false |  | Maximum number of frames embedded per video; capped by the model limit. |
 | `memory.mediaEmbedding.video.sceneDetect` | boolean | `true` | core | advanced | false | false |  | Whether frames are picked at scene changes instead of a fixed interval. |
+| `memory.mediaEmbedding.video.softTokens` | integer | `70` | core | advanced | false | false |  | Soft token budget per video frame (owner E3); changing it changes the media vector space. |
 | `memory.mediaEmbedding.audio` | object | `{}` | core | basic | false | false |  | How audio is cut into segments before embedding. |
-| `memory.mediaEmbedding.audio.segmentSec` | integer | `30` | core | advanced | false | false |  | Length of one audio segment in seconds. |
+| `memory.mediaEmbedding.audio.segmentSec` | integer | `30` | core | advanced | false | false |  | Length of one audio segment in seconds; the model silently truncates above 30 (owner E8). |
 | `memory.mediaEmbedding.audio.maxSeconds` | integer | `3600` | core | advanced | false | false |  | Maximum audio duration in seconds that is indexed; longer media is truncated. |
 | `memory.mediaEmbedding.caption` | object | `{}` | core | basic | false | false |  | Captions: one text entry per medium in the text index, written by the prompt, the user or an automatic captioner. |
 | `memory.mediaEmbedding.caption.source` | string | `"prompt-then-user-then-auto"` | core | advanced | false | false |  | Caption order: generation prompt, then user caption or alt text, then automatic captioning; user-only skips automatic captions; off disables captions. |
@@ -465,7 +514,7 @@ TypeScript validation returns optional, value-free `warnings` for endpoint useri
 | `memory.mediaEmbedding.caption.privacyAck.endpoint` | string |  | core | advanced | false | true |  | Exact configured endpoint, when the provider has one. |
 | `memory.mediaEmbedding.caption.maxChars` | integer | `280` | core | advanced | false | false |  | Maximum caption length in characters. |
 | `memory.mediaEmbedding.caption.perSegment` | boolean | `false` | core | advanced | false | false |  | Whether video and audio get one caption per segment instead of one per medium. |
-| `memory.mediaEmbedding.backfill` | string | `"auto"` | core | advanced | false | false |  | Whether existing media are indexed automatically in the background (auto) or only on request (manual). |
+| `memory.mediaEmbedding.backfill` | string | `"manual"` | core | advanced | false | false |  | Whether existing media are indexed automatically in the background (auto) or only on request (manual). |
 | `engine` | object | `{}` | core | advanced | false | false |  | Pass-through to the engine's EngineConfig — [57 engine keys, all advanced and core](../config-engine-keys.md). |
 | `engine.implementation` | string | `"node"` | core | advanced | false | false |  | Memory engine implementation. Rust is experimental and requires the separately running engine process; unavailable engines leave the Core running and recall reports engine-unavailable. |
 | `engine.schicht15` | object |  | core | advanced | false | false |  | Curated knowledge promotion settings passed to the Engine. |
@@ -611,7 +660,7 @@ TypeScript validation returns optional, value-free `warnings` for endpoint useri
 | `a2aServer.signingKey` | object |  | live | advanced | false | false |  | Private key for signing agent cards. |
 | `a2aServer.signingKey.privateKeySecret` | string |  | live | advanced | true | false | #/$defs/backupSecretName | Name of the secret holding the agent card signing private key; never the key itself. |
 | `a2aServer.signingKey.kid` | string |  | live | advanced | false | false |  | Key identifier for the signing key. |
-| `providers` | object | `{}` | live | basic | false | false |  | Open namespace for provider definitions. Non-validating privacy metadata follows the existing auth, MCP and media consumers. |
+| `providers` | object | `{}` | live | basic | false | false |  | Reserved namespace for model-provider configuration; apple-fm is synthesized and cannot be declared here (reserved-provider-id). Non-validating privacy metadata follows the existing auth, MCP and media consumers. |
 | `providers.media` | object |  | live | basic | false | false |  |  |
 | `providers.media.adapters` | array |  | live | basic | false | false |  |  |
 | `providers.media.adapters[]` | object |  | live | basic | false | false |  |  |
@@ -767,6 +816,12 @@ TypeScript validation returns optional, value-free `warnings` for endpoint useri
 | `privacy.localEndpoints` | array | `[]` | live | advanced | false | true |  | Self-hosted model servers outside loopback that count as local for privacy.localOnly (for example your own Ollama or vLLM server in the home network), as exact origins scheme://host[:port]. LAN addresses are not local unless listed here. |
 | `privacy.localEndpoints[]` | string |  | live | advanced | false | true |  |  |
 | `session` | object | `{}` |  | advanced | false | false |  | Session context maintenance. |
+| `session.rewind` | object | `{}` |  | advanced | false | false |  | D120 reversible conversation paths. Automatic rewind and file checkpoints each require an explicit project opt-in. |
+| `session.rewind.autoProjects` | array | `[]` | live | advanced | false | false |  | Projects that permit automatic rewind after three failed edit/test cycles on unattended D115 cards. Interactive sessions only propose; no file restore is automatic. |
+| `session.rewind.autoProjects[]` | string |  | live | advanced | false | false |  |  |
+| `session.rewind.fileProjects` | array | `[]` | live | advanced | false | false |  | Projects that permit tracked-file checkpoints and separately approved file rewind on D115 card sessions. Empty disables capture and file restore. |
+| `session.rewind.fileProjects[]` | string |  | live | advanced | false | false |  |  |
+| `session.rewind.checkpointRetentionTurns` | integer | `50` | live | advanced | false | false |  | Keep private file-checkpoint refs only within this many recent session turns. Archived sessions and completed cards release their refs earlier. |
 | `session.compaction` | object | `{}` |  | advanced | false | false |  | Progressive session compaction (D23, L14); hide originals without deleting them. |
 | `session.compaction.softRatio` | number | `0.65` | core | advanced | false | false |  | Prepare a summary above this fraction of the model context window. |
 | `session.compaction.hardRatio` | number | `0.88` | core | advanced | false | false |  | Swap prepared summary above this fraction. Must exceed softRatio. |
@@ -1214,3 +1269,5 @@ TypeScript validation returns optional, value-free `warnings` for endpoint useri
 | `media.adapters.coreml.computeUnits` | string | `"auto"` | core | advanced | false | false |  | Where inference runs. `auto` lets the helper choose from the model's attention variant (split-einsum: Neural Engine, original: GPU). |
 | `media.adapters.coreml.scheduler` | string |  | core | advanced | false | false |  | Diffusion scheduler name understood by the helper; unset uses the helper default. |
 | `media.adapters.coreml.timeoutMs` | integer | `300000` | core | advanced | false | false |  | Upper bound for one generation in milliseconds. |
+| `appleFm` | object | `{}` | live | advanced | false | false |  | Use Apple's on-device model for small decisions and short summaries on supported Macs. |
+| `appleFm.enabled` | boolean | `false` | live | advanced | false | false |  | Enable Apple Foundation Models after Apple Intelligence is ready and the model licence has been accepted. |

@@ -107,6 +107,8 @@ pub enum Cmd {
     },
     /// [experimental] Chat with an agent (one message, or a line-by-line conversation on stdin)
     Chat(ChatArgs),
+    /// [experimental] Code in a bound Git worktree with streamed tools, diffs and inline approvals
+    Code(crate::commands::code::CodeArgs),
     /// Agent Client Protocol (ACP): serve a harness agent to an editor over stdio
     Acp {
         #[command(subcommand)]
@@ -777,8 +779,62 @@ pub enum MemoryCmd {
         #[arg(long)]
         agent: Option<String>,
     },
+    /// [experimental] Import memories from any chat assistant export by prompt
+    ImportText(MemoryImportTextArgs),
+    /// [experimental] Export memories formatted for portable text import
+    ExportText(MemoryExportTextArgs),
     /// [experimental] Re-embed the store into a new embedding model: plan, run, status, abort (M2)
     Reembed(ReembedArgs),
+}
+
+// Separate argument builders keep the unoptimized command-tree construction
+// within the Windows main-thread stack budget as the memory CLI grows.
+#[derive(Args, Debug)]
+pub struct MemoryImportTextArgs {
+    /// path to text file or '-' for stdin (at most 512 KiB); stdin needs --yes or --dry-run
+    #[arg(long, default_value = "-")]
+    pub file: String,
+    /// agent that receives project memories and stores user-scope ones (default: the core's first agent)
+    #[arg(long)]
+    pub agent: Option<String>,
+    /// store preference memories at user scope (default: skipped; the core refuses it for a non-person caller)
+    #[arg(long)]
+    pub all_preferences_to_user: bool,
+    /// preview only without applying changes
+    #[arg(long, conflicts_with = "yes")]
+    pub dry_run: bool,
+    /// apply or roll back without asking (required without a terminal, with --json and for stdin input)
+    #[arg(long)]
+    pub yes: bool,
+    /// print the export prompt text for the other assistant and exit
+    #[arg(
+        long,
+        conflicts_with_all = [
+            "file", "agent", "all_preferences_to_user", "dry_run", "yes", "rollback"
+        ]
+    )]
+    pub show_prompt: bool,
+    /// roll back a previous prompt import run (needs --yes or a terminal confirmation)
+    #[arg(
+        long,
+        conflicts_with_all = [
+            "file", "agent", "all_preferences_to_user", "dry_run", "show_prompt"
+        ]
+    )]
+    pub rollback: Option<String>,
+}
+
+#[derive(Args, Debug)]
+pub struct MemoryExportTextArgs {
+    /// include agent-private memories of this agent
+    #[arg(long)]
+    pub agent: Option<String>,
+    /// output path or '-' for stdout (default: '-'); a file is written atomically with mode 0600
+    #[arg(long, default_value = "-")]
+    pub output: String,
+    /// overwrite an existing --output file without asking (required without a terminal)
+    #[arg(long)]
+    pub yes: bool,
 }
 
 /// `memory reembed`: exactly one of `--plan`, `--run`, `--status`, `--abort`. The migration covers the whole installation
@@ -1189,6 +1245,9 @@ pub enum AcpCmd {
         /// The agent the editor talks to (default: the only registered agent)
         #[arg(long)]
         agent: Option<String>,
+        /// Initial ACP session mode; coding binds the granted editor worktree
+        #[arg(long, value_parser = ["chat", "coding"], default_value = "chat")]
+        profile: String,
     },
 }
 
@@ -2112,6 +2171,18 @@ mod tests {
     }
 
     #[test]
+    fn acp_accepts_chat_and_coding_profiles_and_refuses_unknown_values() {
+        for profile in ["chat", "coding"] {
+            assert!(
+                Cli::try_parse_from(["plur1bus", "acp", "serve", "--profile", profile]).is_ok()
+            );
+        }
+        assert!(
+            Cli::try_parse_from(["plur1bus", "acp", "serve", "--profile", "automatic"]).is_err()
+        );
+    }
+
+    #[test]
     fn session_and_chat_parse_their_flags() {
         match parse(&[
             "session",
@@ -2148,8 +2219,11 @@ mod tests {
         }
         match parse(&["acp", "serve", "--agent", "bernd"]).cmd {
             Cmd::Acp {
-                sub: AcpCmd::Serve { agent },
-            } => assert_eq!(agent.as_deref(), Some("bernd")),
+                sub: AcpCmd::Serve { agent, profile },
+            } => assert_eq!(
+                (agent.as_deref(), profile.as_str()),
+                (Some("bernd"), "chat")
+            ),
             other => panic!("{other:?}"),
         }
         match parse(&["mcp", "serve", "--agent", "bernd"]).cmd {

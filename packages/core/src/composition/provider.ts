@@ -1,3 +1,4 @@
+import { assertRoleContext } from "../session/context-fit.ts";
 import { randomUUID } from 'node:crypto';
 import { TurnDelegations } from '../collab/delegations.ts';
 import { createTurnTelemetry, type TurnTelemetry } from '../session/turn-telemetry.ts';
@@ -102,7 +103,7 @@ export class TurnToolError extends Error {
   constructor(code: string, detail: unknown) { super(code); this.name = 'TurnToolError'; this.code = code; this.detail = detail; }
 }
 /** Plan (subscription) vs paid (metered) billing of a provider; a fallback never crosses it silently (ADR-005 §Never). */
-export type BillingClass = 'plan' | 'paid';
+export type BillingClass = 'plan' | 'paid' | 'local';
 export type TurnRouterEvent = RouterEvent
   | { type: 'provider.cross_billing_refused'; profile: string; from: Served & { billing: BillingClass }; to: Served & { billing: BillingClass } };
 export interface TurnProviderOptions {
@@ -163,7 +164,8 @@ export interface TurnProviderOptions {
    * the chosen model is a cloud model, and a cloud fallback is never tried. Never replaced by another model silently.
    */
   localOnly?: (agentId: string) => boolean;
-  isLocalProvider?: (provider: string) => boolean;
+  isLocalProvider?: (provider: string, model?: string) => boolean;
+  contextWindow?: (provider: string, model: string) => number | undefined;
   /** Where each provider's requests go (from its base URL): selects the cache profile's platform rows and gateway. */
   cacheRoutes?: Readonly<Record<string, CacheRoute>>;
   /** `modelProfiles.*.cache` by profile name: `hint` and `ttlSeconds` choose the stable zones' TTL, `none` places no breakpoint. */
@@ -401,7 +403,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
       const search = described(searchName);
       if (search && eligible(search) && !tools.includes(search)) tools.push(search);
       const maxTools = Math.min(128, ...(routeProfiles[profile] ?? []).map(candidate =>
-        lookupQuirks(o.isLocalProvider?.(candidate.provider) ? 'local-small'
+        lookupQuirks(o.isLocalProvider?.(candidate.provider, candidate.model) ? 'local-small'
           : o.family?.[candidate.provider] ?? 'openai-chat').maxTools));
       const offer = stableToolOffer({ available: registry.entries().filter(eligible).map(tool => tool.name),
         previous: [...remembered], relevant: tools.map(tool => tool.name), maxTools });
@@ -428,15 +430,16 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     const candidate = routeProfiles[profile]?.[0];
     if (!candidate) throw new TurnToolError('unknown_profile', profile);
     const localOnly = () => o.localOnly?.(req.agentId) === true;
-    const isLocal = (provider: string) => o.isLocalProvider?.(provider) === true;
+    assertRoleContext(req.role ?? "chat", o.contextWindow?.(candidate.provider, candidate.model));
+    const isLocal = (provider: string, model: string) => o.isLocalProvider?.(provider, model) === true;
     const cacheConfig = o.profileCache?.[logicalProfile];
     // The route selects the cache profile's platform rows; the profile's cache hint and ttlSeconds choose the TTL tier.
     const cacheFor = (provider: string, model: string): Pick<RenderInput, 'route' | 'cacheTtl' | 'cacheHint'> => {
-      const route: CacheRoute = { ...o.cacheRoutes?.[provider], ...(isLocal(provider) ? { local: true } : {}) };
+      const route: CacheRoute = { ...o.cacheRoutes?.[provider], ...(isLocal(provider, model) ? { local: true } : {}) };
       const long = cacheConfig?.hint === 'prefer' || (cacheConfig?.ttlSeconds ?? 0) >= 3600;
       return { route, cacheTtl: chooseCacheTtl({ model, route, projectedReads: long ? Number.MAX_SAFE_INTEGER : 0, policy: cacheConfig?.hint === 'none' ? 'never' : 'auto' }), ...(cacheConfig?.hint ? { cacheHint: cacheConfig.hint } : {}) };
     };
-    if (localOnly() && !isLocal(candidate.provider)) throw new TurnToolError('local-only', { provider: candidate.provider, model: candidate.model, profile, message: `${candidate.provider}/${candidate.model} is not a local model; ${LOCAL_ONLY_HINT}` });
+    if (localOnly() && !isLocal(candidate.provider, candidate.model)) throw new TurnToolError('local-only', { provider: candidate.provider, model: candidate.model, profile, message: `${candidate.provider}/${candidate.model} is not a local model; ${LOCAL_ONLY_HINT}` });
     const key = `${req.agentId}:${req.sessionId}`;
     if (!snapshots.has(key)) snapshots.set(key, req.memory);
     if (snapshots.size > 1024) snapshots.delete(snapshots.keys().next().value!);
@@ -489,7 +492,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         const effectiveReasoning = directive ?? request.reasoning;
         const choice = toolChoiceForTurn({ mode: req.role ? 'auto' : mode, need, round: modelRound,
           hasToolCall: hasModelToolCall, tools: selected.map(tool => tool.name), family: dialect,
-          local: isLocal(c.provider), thinking: effectiveReasoning?.adaptiveThinking === true
+          local: isLocal(c.provider, c.model), thinking: effectiveReasoning?.adaptiveThinking === true
             || (effectiveReasoning?.vendorParam === 'thinking.budget_tokens' && Number(effectiveReasoning.value) > 0) });
         const toolChoice = typeof choice.choice === 'object'
           ? { name: aliases.get(choice.choice.name) ?? choice.choice.name } : choice.choice;
@@ -498,7 +501,8 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           observation.toolChoice.status = typeof toolChoice === 'object' ? 'named' : 'required';
         } else if (choice.suppressed && !observation.toolChoice.forced) observation.toolChoice.status = 'unsupported';
         const assertCurrentPrivacy = () => {
-          if(localOnly() && !isLocal(c.provider)) throw new TurnToolError('local-only', {provider:c.provider,model:c.model,message:LOCAL_ONLY_HINT});
+          assertRoleContext(req.role ?? "chat", o.contextWindow?.(c.provider, c.model));
+          if(localOnly() && !isLocal(c.provider, c.model)) throw new TurnToolError('local-only', {provider:c.provider,model:c.model,message:LOCAL_ONLY_HINT});
         };
         assertCurrentPrivacy();
         const stream = c.adapter.stream({ ...request, messages: mapped, tools, ...(tools.length ? { toolChoice } : {}), ...(family(c.provider) === "anthropic" || directive?.vendorParam === "thinking.budget_tokens" || directive?.vendorParam === "output_config.effort" ? {maxTokens:request.maxTokens ?? o.maxTokens ?? 4096} : {}), ...(directive ? { reasoning: directive } : {}) }, options);
@@ -526,7 +530,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     const guardFor = (call: CallState): BudgetGuard => ({
       async authorize(info, request) {
         if (req.turnProfile?.allowModel && !req.turnProfile.allowModel(info.provider, info.model)) return { ok: false as const, reason: "voice privacy pin requires a local model" };
-        if (localOnly() && !isLocal(info.provider)) return { ok: false as const, reason: 'privacy.localOnly refuses a cloud model' };
+        if (localOnly() && !isLocal(info.provider, info.model)) return { ok: false as const, reason: 'privacy.localOnly refuses a cloud model' };
         // ADR-005: never fall back silently between plan and paid billing; refusing this candidate lets the router try the next.
         const from = primary && o.billing?.[primary.provider], to = o.billing?.[info.provider];
         if (from && to && from !== to && !(o.allowCrossBilling?.(logicalProfile) ?? false)) {

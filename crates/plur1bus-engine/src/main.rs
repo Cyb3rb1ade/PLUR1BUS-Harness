@@ -1,39 +1,112 @@
-//! `plur1bus-engine`: the engine process entry point. RE-00 has only `--version` and the hidden placeholder `serve`,
-//! which RE-08 fills (`plur1bus-engine serve --home <dir> ...`, plan §2.4). Exit codes follow docs/errors.md: clap's
-//! usage errors exit 2, and so does the placeholder (`E_NOT_AVAILABLE`, like every milestone stub).
-use clap::{Parser, Subcommand};
-use std::process::ExitCode;
-
-/// Exit code for `E_NOT_AVAILABLE` and `E_INVALID_PARAMS` (docs/errors.md).
-const EXIT_REFUSED: u8 = 2;
+//! The supervised engine process. Lifecycle and transport follow ADR-012 §10.
+use clap::{Parser, Subcommand, ValueEnum};
+use plur1bus_engine::rpc::{
+    config, diagnostics,
+    engine::ProcessEngine,
+    host_client::RpcHost,
+    layout::EngineLayout,
+    lifeline::Lifeline,
+    platform, seams,
+    server::{self, ServeError},
+};
+use std::{
+    io::{self, Write},
+    path::PathBuf,
+    process::ExitCode,
+    sync::Arc,
+};
 
 #[derive(Parser)]
-#[command(
-    name = "plur1bus-engine",
-    version = plur1bus_engine::CRATE_VERSION,
-    about = "The PLUR1BUS memory engine process (started by the harness supervisor)",
-    subcommand_required = true,
-    arg_required_else_help = true
-)]
+#[command(name="plur1bus-engine",version=plur1bus_engine::CRATE_VERSION,about="The PLUR1BUS memory engine process (started by the harness supervisor)",subcommand_required=true,arg_required_else_help=true)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
 }
-
+#[derive(Clone, Copy, ValueEnum)]
+enum LifelineArg {
+    Stdin,
+}
 #[derive(Subcommand)]
 enum Command {
-    /// Serve `engine.*` RPC for one home (RE-08; not implemented yet).
+    /// Serve the authenticated engine RPC endpoint for one Harness home.
     #[command(hide = true)]
-    Serve,
+    Serve {
+        #[arg(long)]
+        home: PathBuf,
+        #[arg(long)]
+        lifeline: Option<LifelineArg>,
+        #[arg(long)]
+        instance: Option<uuid::Uuid>,
+        #[arg(long, hide = true)]
+        test_internals: Option<String>,
+    },
+}
+
+fn run(command: Command) -> Result<(), (u8, String)> {
+    let Command::Serve {
+        home,
+        lifeline,
+        instance,
+        test_internals,
+    } = command;
+    let allow = std::env::var_os("PLUR1BUS_ALLOW_TEST_INTERNALS").as_deref()
+        == Some(std::ffi::OsStr::new("1"));
+    let seam = if let Some(variant) = test_internals {
+        seams::parse(&variant, allow).map(Some)
+    } else {
+        seams::from_env()
+    }
+    .map_err(|e| (2, e.to_string()))?;
+    let mut layout = EngineLayout::new(
+        &home,
+        instance.unwrap_or_else(uuid::Uuid::new_v4).to_string(),
+    )
+    .map_err(|_| (2, "engine home is unavailable or untrusted".into()))?;
+    let (config, grace) = config::load(&layout.home).map_err(|e| (2, e.to_string()))?;
+    layout.grace = grace;
+    let host = Arc::new(
+        RpcHost::new(layout.home.clone(), layout.token().to_owned(), config)
+            .with_platform(platform::capabilities()),
+    );
+    let engine = Arc::new(ProcessEngine::new(host.clone(), seam).map_err(|e| (2, e.to_string()))?);
+    let weak_engine = Arc::downgrade(&engine);
+    host.set_egress_invalidator(Arc::new(move || {
+        if let Some(engine) = weak_engine.upgrade() {
+            engine.invalidate_egress();
+        }
+    }));
+    // The trusted supervisor/spawner owns process-group isolation. A hand start
+    // stays in its terminal's foreground group so Ctrl-C and stdin keep working.
+    server::serve(
+        engine,
+        &layout,
+        if lifeline.is_some() {
+            Lifeline::Stdin
+        } else {
+            Lifeline::None
+        },
+    )
+    .map_err(|e| {
+        let code = if matches!(e, ServeError::Locked) {
+            3
+        } else {
+            2
+        };
+        (code, e.to_string())
+    })
 }
 
 fn main() -> ExitCode {
-    match Cli::parse().command {
-        Command::Serve => {
-            eprintln!(
-                "plur1bus-engine serve: E_NOT_AVAILABLE reason=not-implemented (the engine process arrives with RE-08)"
-            );
-            ExitCode::from(EXIT_REFUSED)
+    match run(Cli::parse().command) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err((code, message)) => {
+            // An initialized diagnostic writer may be blocked on stderr after
+            // the shutdown deadline. Early startup refusals retain the human
+            // fallback; runtime failures already have structured diagnostics.
+            if !diagnostics::initialized() {
+                let _ = writeln!(io::stderr().lock(), "plur1bus-engine: {message}");
+            }
+            ExitCode::from(code)
         }
     }
 }

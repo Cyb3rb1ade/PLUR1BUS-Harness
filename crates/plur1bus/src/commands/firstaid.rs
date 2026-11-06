@@ -33,7 +33,7 @@ pub(crate) const GATHER_BUDGET: Duration = Duration::from_secs(3);
 
 /// Every check id, in the fixed table order (ruling H3-R5) — used to fill in the checks a budget-exhausted `gather`
 /// never got to.
-const CHECK_IDS: [&str; 31] = [
+const CHECK_IDS: [&str; 33] = [
     "config.valid",
     "config.store-path",
     "host_mode_coexistence",
@@ -65,6 +65,8 @@ const CHECK_IDS: [&str; 31] = [
     "privacy.local-only",
     "api.supervised",
     "tools.service",
+    "media.ffmpeg",
+    "media.uploads",
 ];
 
 /// The summary of a row [`gather`] never got to before its deadline (`1staid repair` plans nothing for it).
@@ -194,6 +196,7 @@ fn probe(
     let address = match endpoint {
         Endpoint::Core => layout.endpoints(&Role::core(), platform).address,
         Endpoint::Supervisor => supervisor_address(&layout.home, platform),
+        Endpoint::Engine => crate::paths::address(&layout.home, platform, "engine"),
         // 1staid probes only the core and the supervisor (modules through the supervisor's view); a module's address
         // needs its name (Layout::endpoints).
         Endpoint::Module => {
@@ -400,7 +403,35 @@ pub fn gather(layout: &Layout, env: &Env, deadline: Instant) -> Vec<Check> {
     checks.push(check_local_only(layout));
     checks.push(check_api_supervised(daemon_status));
     checks.push(check_tools_service(core_status.as_ref()));
+    if out_of_budget(deadline, &mut checks) {
+        return checks;
+    }
+    let ffmpeg = crate::install::media_ffmpeg::inspect();
+    checks.push(check_media_ffmpeg(
+        ffmpeg.available,
+        &ffmpeg.manual_commands,
+    ));
+    if out_of_budget(deadline, &mut checks) {
+        return checks;
+    }
+    checks.push(super::firstaid_media::check_uploads(layout, deadline));
     checks
+}
+
+fn check_media_ffmpeg(available: bool, manual_commands: &[&str]) -> Check {
+    const ID: &str = "media.ffmpeg";
+    if available {
+        return Check::ok(ID, "ffmpeg is available for audio and video decoding");
+    }
+    Check::warn(
+        ID,
+        "ffmpeg is unavailable; photos work, audio and video need ffmpeg",
+        None,
+        Some(format!(
+            "Run with the matching system package manager: {}",
+            manual_commands.join("; ")
+        )),
+    )
 }
 
 fn check_local_only(layout: &Layout) -> Check {
@@ -1768,6 +1799,22 @@ pub fn run(out: &Out, layout: &Layout, cmd: FirstAidCmd) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn missing_ffmpeg_is_a_warning_with_an_actionable_command() {
+        let check = check_media_ffmpeg(false, &["sudo apt install ffmpeg"]);
+        assert_eq!(check.id, "media.ffmpeg");
+        assert_eq!(check.status, Status::Warn);
+        assert!(check.summary.contains("photos work"));
+        assert!(check.hint.unwrap().contains("sudo apt install ffmpeg"));
+    }
+
+    #[test]
+    fn available_ffmpeg_needs_no_repair_hint() {
+        let check = check_media_ffmpeg(true, &["brew install ffmpeg"]);
+        assert_eq!(check.status, Status::Ok);
+        assert!(check.hint.is_none());
+    }
 
     /// A process that has exited is not alive, even while a handle to it is still open: here the `Child` that ran it
     /// (on Windows its process object, and so the pid, stays until that handle is closed).

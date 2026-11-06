@@ -20,7 +20,7 @@ value-free warning. Invalid reference syntax also warns, including short values.
 | `agents` | object | `{}` | live | Per-agent settings keyed by a lowercase agent identifier. |
 | `embedding.useClass` | enum | `"general"` | core | Intended use of the embedding model: general, research, or commercial. |
 | `memory.mediaEmbedding` | object | `{}` | core | Media index (image, video, audio) with its own provider, independent of the text embedding. Captions land in the text index. |
-| `providers` | object | `{}` | live | Open namespace for provider definitions. Non-validating privacy metadata follows the existing auth, MCP and media consumers. |
+| `providers` | object | `{}` | live | Reserved namespace for model-provider configuration; apple-fm is synthesized and cannot be declared here (reserved-provider-id). Non-validating privacy metadata follows the existing auth, MCP and media consumers. |
 | `modelRoles` | object | `{}` | live | Model identifiers assigned to the supported functional roles. The summarize role is the model that writes session compaction summaries (a profile name or provider/model); when it is unset, compaction falls back to its deterministic digest. The embedding and rerank roles are still accepted but select no model: the memory engine takes its models from engine.embedding and engine.reranker. |
 | `privacy.localOnly` | boolean | `false` | live | Only local models: every model or inference endpoint must be loopback (localhost, 127.0.0.0/8, ::1) or listed in privacy.localEndpoints. A cloud provider is refused with E_DENIED reason local-only, never silently replaced by another model. Web tools (web.fetch, web.search) are not model calls and are not affected. An agent can override it with agents.<id>.privacy.localOnly. |
 
@@ -105,6 +105,9 @@ value-free warning. Invalid reference syntax also warns, including short values.
 | `egress.modelDownloads` | object | `{}` | live | Named exception for credential-free GET/HEAD model artifact downloads. Ordinary provider/web traffic stays under allowHosts. Remove a host or disable to block subsequent downloads; DNS pinning and private-address refusal always apply. |
 | `egress.allowLoopback` | boolean | `false` | live | Allow http(s) to loopback hosts (localhost, 127.0.0.0/8, ::1) that are also listed in allowHosts. A public name that resolves to loopback stays refused. |
 | `privacy.localEndpoints` | array | `[]` | live | Self-hosted model servers outside loopback that count as local for privacy.localOnly (for example your own Ollama or vLLM server in the home network), as exact origins scheme://host[:port]. LAN addresses are not local unless listed here. |
+| `session.rewind.autoProjects` | array | `[]` | live | Projects that permit automatic rewind after three failed edit/test cycles on unattended D115 cards. Interactive sessions only propose; no file restore is automatic. |
+| `session.rewind.fileProjects` | array | `[]` | live | Projects that permit tracked-file checkpoints and separately approved file rewind on D115 card sessions. Empty disables capture and file restore. |
+| `session.rewind.checkpointRetentionTurns` | integer | `50` | live | Keep private file-checkpoint refs only within this many recent session turns. Archived sessions and completed cards release their refs earlier. |
 | `session.compaction.softRatio` | number | `0.65` | core | Prepare a summary above this fraction of the model context window. |
 | `session.compaction.hardRatio` | number | `0.88` | core | Swap prepared summary above this fraction. Must exceed softRatio. |
 | `session.compaction.summaryMaxTokens` | integer | `1228` | core | Maximum summary tokens; also capped to 15 percent of the catalogue window. |
@@ -365,3 +368,4 @@ value-free warning. Invalid reference syntax also warns, including short values.
 | `media.adapters.coreml.computeUnits` | string | `"auto"` | core | Where inference runs. `auto` lets the helper choose from the model's attention variant (split-einsum: Neural Engine, original: GPU). |
 | `media.adapters.coreml.scheduler` | string |  | core | Diffusion scheduler name understood by the helper; unset uses the helper default. |
 | `media.adapters.coreml.timeoutMs` | integer | `300000` | core | Upper bound for one generation in milliseconds. |
+| `appleFm` | object | `{}` | live | Use Apple's on-device model for small decisions and short summaries on supported Macs. |

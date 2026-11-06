@@ -8,6 +8,7 @@
 pub mod archive;
 pub mod fetch;
 pub mod manifest;
+pub(crate) mod media_ffmpeg;
 pub mod pins;
 pub mod setup;
 pub mod skills;

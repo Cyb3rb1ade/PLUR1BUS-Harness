@@ -49,13 +49,20 @@ fn besides_embedding(changes: &[(String, Value)]) -> Vec<String> {
 }
 
 /// Keys the core checks first: the embedding, the reranker (its licence gate) and what a non-commercial model's licence
-/// acceptance rests on (`embedding.*`, `engine.modelPreparation`).
+/// acceptance rests on (`embedding.*`, `engine.modelPreparation`), plus media and effective agent/privacy overrides.
 pub(crate) fn touches_memory_models(changes: &[(String, Value)]) -> bool {
     touches_embedding(changes)
         || changes.iter().any(|(k, _)| {
-            ["engine.reranker", "engine.modelPreparation", "embedding"]
-                .iter()
-                .any(|root| within(k, root))
+            [
+                "engine.reranker",
+                "engine.modelPreparation",
+                "embedding",
+                "memory",
+                "agents",
+                "privacy",
+            ]
+            .iter()
+            .any(|root| within(k, root))
         })
 }
 
@@ -240,15 +247,21 @@ mod tests {
             "engine.reranker.local",
             "engine.modelPreparation",
             "embedding.useClass",
+            "memory.mediaEmbedding",
+            "memory",
+            "memory.embedding.privacyAck",
+            "agents.main.memory.mediaEmbedding.model",
+            "agents.main",
+            "privacy.localOnly",
         ] {
             assert!(touches_memory_models(&keys(&[k])), "{k}");
         }
         for k in [
             "engine.recallMinScore",
             "engine.embeddingCache",
-            "memory.embedding.privacyAck",
+            "memoryOther.embedding",
             "embeddings",
-            "agents.main",
+            "agentsOther.main",
         ] {
             assert!(!touches_memory_models(&keys(&[k])), "{k}");
         }

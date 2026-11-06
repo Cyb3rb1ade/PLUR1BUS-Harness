@@ -1,0 +1,20 @@
+agent · main · /repo                                                                                |
+┌Verl┌Freigabe────────────────────────────────────────────────────────────────────────────────┐────┐|
+│Read│file.write /repo/src/main.rs                                                            │    │|
+│    │Risiko: niedrig                                                                         │    │|
+│    │+new condition                                                                          │    │|
+│    │                                                                                        │    │|
+│    │                                                                                        │    │|
+│    │                                                                                        │    │|
+│    │                                                                                        │    │|
+│    │                                                                                        │    │|
+│    │                                                                                        │    │|
+│    │[y] einmal  [n] nein  [?] Details                                                       │    │|
+│    │› n                                                                                     │    │|
+│    │Enter bestätigt · Esc: nein                                                             │    │|
+└────└────────────────────────────────────────────────────────────────────────────────────────┘────┘|
+Modell — · Letzte Tokens — · Cache — · Tokenbudget —                                                |
+läuft · Tab Bereich · Bild↑/↓ blättern · Ctrl+F klappen · F1 Hilfe                                  |
+┌Nachricht · Enter · Alt+Enter stellt an───────────────────────────────────────────────────────────┐|
+│Entwurf bleibt erhalten                                                                           │|
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘|

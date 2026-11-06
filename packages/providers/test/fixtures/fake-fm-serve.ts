@@ -16,6 +16,8 @@ export interface FakeFmRequest {
 
 /** Boundary variants; no mode invokes a real executable or a model. */
 export interface FakeFmOptions {
+  /** Caller-owned private directory for Layout integration tests; close never removes that directory. */
+  directory?: string;
   mode?: "text" | "tools" | "schema" | "overflow" | "stream-overflow" | "hang" | "hang-headers";
   /** Measured text stream:false is JSON; tools/schema JSON shapes are synthetic (AF0 measured them only as SSE).
    * always-sse is a synthetic tolerance case; the native tool/schema JSON shape remains open (L7). */
@@ -132,8 +134,10 @@ function completion(request: FakeFmRequest, response: ServerResponse, options: F
 /** Start a fake fm boundary on a real Unix socket; options stay mutable for deterministic failure transitions. */
 export async function startFakeFmServe(options: FakeFmOptions = {}): Promise<FakeFmServe> {
   // macOS's default per-user TMPDIR can already consume sun_path; this is a test fixture, not a production layout.
-  const directory = await mkdtemp(join(process.platform === "darwin" ? "/private/tmp" : tmpdir(), "p1fm-"));
-  await chmod(directory, 0o700);
+  const ownedDirectory = options.directory === undefined;
+  const directory = options.directory
+    ?? await mkdtemp(join(process.platform === "darwin" ? "/private/tmp" : tmpdir(), "p1fm-"));
+  if (ownedDirectory) await chmod(directory, 0o700);
   const path = join(directory, "fm.sock");
   const sockets = new Set<Socket>();
   const requests: FakeFmRequest[] = [];
@@ -183,7 +187,7 @@ export async function startFakeFmServe(options: FakeFmOptions = {}): Promise<Fak
     await chmod(path, 0o755);
   } catch (error) {
     server.close();
-    await rm(directory, { recursive: true, force: true });
+    if (ownedDirectory) await rm(directory, { recursive: true, force: true });
     throw error;
   }
   const disconnect = () => {
@@ -199,7 +203,7 @@ export async function startFakeFmServe(options: FakeFmOptions = {}): Promise<Fak
     async close() {
       disconnect();
       await new Promise<void>((resolve) => server.close(() => resolve()));
-      await rm(directory, { recursive: true, force: true });
+      if (ownedDirectory) await rm(directory, { recursive: true, force: true });
     },
   };
 }

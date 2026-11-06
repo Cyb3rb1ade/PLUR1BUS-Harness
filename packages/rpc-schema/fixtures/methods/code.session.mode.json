@@ -1,0 +1,15 @@
+{
+  "params": {
+    "caller": {
+      "channel": "cli",
+      "accountId": "host",
+      "userId": "owner"
+    },
+    "sessionId": "session-fixture",
+    "mode": "chat"
+  },
+  "result": {
+    "mode": "chat",
+    "changed": true
+  }
+}

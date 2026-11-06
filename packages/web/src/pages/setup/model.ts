@@ -161,6 +161,8 @@ function loadMedia(raw: unknown): MediaSetup {
     modalities: [...new Set(modalities)],
     caption: CAPTION_CHOICES.includes(o.caption as CaptionChoice) ? (o.caption as CaptionChoice) : null,
     captionSource: CAPTION_SOURCES.includes(o.captionSource as CaptionSourceSetting) ? (o.captionSource as CaptionSourceSetting) : d.captionSource,
-    backfill: o.backfill === "manual" ? ("manual" as MediaBackfillSetting) : d.backfill,
+    backfill: o.backfill === "manual" || o.backfill === "auto" ? (o.backfill as MediaBackfillSetting) : d.backfill,
+    // Older saved answers have no marker: their explicit choice still wins on a resumed setup.
+    backfillChosen: typeof o.backfillChosen === "boolean" ? o.backfillChosen : o.backfill === "auto" || o.backfill === "manual",
   };
 }

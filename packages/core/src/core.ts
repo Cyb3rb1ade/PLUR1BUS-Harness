@@ -1,3 +1,4 @@
+import { createAppleFmRuntime, type AppleFmRuntime } from "./composition/apple-fm.ts";
 import { ToolsClient } from "./tools-service/client.ts";
 import { ChannelHandoff } from "./channel-handoff/service.ts";
 import { handoffMethods } from "./channel-handoff/rpc.ts";
@@ -13,6 +14,7 @@ import { assertEmbeddingChangeAllowed, embeddingChange, memoryModelStatus, store
 import { creationDigest } from "./agents/saga.ts";
 import { LicenceLedger } from "./licences/ledger.ts";
 import { buildLicenceSurface, LICENCE_RULES } from "./rpc/licence-surface.ts";
+import { validateMediaChanges } from "./media-search/validate.ts";
 import { buildChatSurface } from "./rpc/chat-surface.ts";
 import { configuredDefaults } from './toolcall/host-eval-store.ts';
 import { apiAdmission } from "./rpc/api-admission.ts";
@@ -24,7 +26,7 @@ import { createAuthSecretStore } from "./auth/secret-store.ts";
 import { createWriter } from "./logs/writer.ts";
 import { withRedaction } from "./logs/with-redaction.ts";
 import { createD111Events } from "./discovery/events-logger.ts";
-import { createPinnedClient } from "./discovery/http.ts";
+import { createPinnedClient, ScanError } from "./discovery/http.ts";
 import type { DiscoveryProviderDefinition } from "./discovery/real-adapters.ts";
 import { randomBytes, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -56,7 +58,7 @@ import { EngineClient } from "./engine/client.ts";
 import { registerHostMethods } from "./engine/host-methods.ts";
 import { isEngineContext } from "./engine/engine-principal.ts";
 import { buildEngineConfig, checkEngineConfigLicences, checkEngineEgress } from "./engine-config.ts";
-import { isLocalEndpoint, localEndpoints, localOnlyFor } from "./privacy/local-only.ts";
+import { localOnlyFor, isLocalChatModel } from "./privacy/local-only.ts";
 import { localOnlyCheck } from "./privacy/doctor.ts";
 import { emailAuthChecks } from "./channels/email-auth-check.ts";
 import { mapEngineEvent } from "./events-map.ts";
@@ -319,6 +321,7 @@ export function createCore(o: CoreOptions): Core {
   let toolsService: ToolsClient | null = null;
   let sessions: SessionService | null = null;
   let turnComposition: TurnComposition | null = null;
+  let appleFm: AppleFmRuntime | null = null;
   let extensionSpawnSecrets: Awaited<ReturnType<typeof startExtensionSpawnSecrets>> | null = null;
   let importComposition: ReturnType<typeof composeImports> | null = null;
   let importRuntime: ReturnType<typeof createImportRuntime> | null = null;
@@ -391,6 +394,7 @@ export function createCore(o: CoreOptions): Core {
       ...(replay ? { journalReplay: replay.status() } : {}),
       ...(jobs ? { jobs } : {}),
       ...(webSearch ? { webSearch: webSearch.status() } : {}),
+      ...(appleFm?.enabled() ? { providers: { "apple-fm": appleFm.metrics() } } : {}),
       ...(source ? { config: { revision: source.revision(), source: source.source, restartPending: source.restartPending() } } : {}),
       deprecationsUsed: server?.deprecationsUsed() ?? [],
     };
@@ -484,6 +488,7 @@ export function createCore(o: CoreOptions): Core {
     await secretStore.preloadRedaction();
     shutdown.signal.throwIfAborted();
     const startupSecrets = secretStore.startupStatus();
+    appleFm = createAppleFmRuntime({ home: l.home, config: cfg, ...o.composition?.appleFm });
     const createdLog = o.logger ? null : (await import("./logs/bootstrap.ts")).createCoreLog({
       dir: l.logs, role: "core", source: { kind: "harness", id: "core", version: "0.1.0" },
       levels: { defaultLevel: config.core.logLevel }, maxBytes: config.logs.maxBytes, keep: config.logs.keep,
@@ -562,10 +567,13 @@ export function createCore(o: CoreOptions): Core {
     cs.onChange((prev, next, plan) => {
       if (plan.changed.some(k => k === "egress" || k.startsWith("egress."))) server?.notify("egress.changed", {});
       if(plan.changed.some(k=>k==="privacy"||k.startsWith("privacy.")||/^agents\.[^.]+\.privacy(?:\.|$)/.test(k)))server?.notify("chat.models.changed",{at:clock(),reason:"privacy"});
+      if (plan.changed.some(key => key === "appleFm" || key.startsWith("appleFm."))) {
+        server?.notify("chat.models.changed", { at: clock(), reason: "catalog" });
+      }
       if (next.core.logLevel !== prev.core.logLevel) log.setLevel(next.core.logLevel);
       if (next.logs.maxBytes !== prev.logs.maxBytes || next.logs.keep !== prev.logs.keep) log.setRotation({ maxBytes: next.logs.maxBytes, keep: next.logs.keep });
       if (next.supervisor.graceMs !== prev.supervisor.graceMs) watchedOrphans.setGraceMs(next.supervisor.graceMs);
-      if (plan.changed.some((k) => k.startsWith("models.scan.") || k === "providers" || k.startsWith("providers.") || k === "privacy" || k.startsWith("privacy."))) scanScheduler?.replan();
+      if (plan.changed.some((k) => k.startsWith("models.scan.") || k.startsWith("appleFm") || k === "providers" || k.startsWith("providers.") || k === "privacy" || k.startsWith("privacy."))) scanScheduler?.replan();
       // An agent that left the configuration loses its dream schedule at once (forgetAgent refuses one the registry still lists).
       for (const id of Object.keys(prev.agents)) if (!Object.hasOwn(next.agents, id)) forgetRemovedAgent(dreams?.scheduler, id, log);
       if (discoveryWriter) discoveryWriter.updateLevels({ ...discoveryWriter.currentLevels(), defaultLevel: next.core.logLevel });
@@ -642,8 +650,18 @@ export function createCore(o: CoreOptions): Core {
         source: { kind: "harness", id: "discovery", version: "0.1.0" },
         levels: { defaultLevel: config.core.logLevel }, now: clock, maxBytes: config.logs.maxBytes,
         keep: config.logs.keep, redactor: redaction.redactor() });
-      const discProfiles = o.discovery?.profiles ?? discDefaults.profiles;
-      const discCredentials = o.discovery?.credentials ?? discDefaults.credentials;
+      const discProfiles = o.discovery?.profiles ?? { list: () => {
+        const ordinary = discDefaults.profiles.list().filter(profile => profile.id !== "apple-fm");
+        const managed = appleFm?.profile();
+        return managed ? [...ordinary, managed] : ordinary;
+      } };
+      const discCredentials = o.discovery?.credentials ?? { resolve: async (id: string, origin: string) => {
+        if (id === "apple-fm") {
+          if (origin !== "http://apple-fm.invalid") throw new ScanError("failed:invalid", "credential_origin_mismatch");
+          return null;
+        }
+        return discDefaults.credentials.resolve(id, origin);
+      } };
       const discEvents = o.discovery?.events ?? createD111Events(discoveryWriter);
       const discClock = o.discovery?.clock ?? discDefaults.clock;
       const discRng = o.discovery?.rng ?? discDefaults.rng;
@@ -685,7 +703,14 @@ export function createCore(o: CoreOptions): Core {
 
       const discovery = createDiscoveryService({
         store: catalogStore,
-        makeClient: options => createPinnedClient({ ...options, egress, ...(o.discovery?.request ? { request: o.discovery.request } : {}) }),
+        makeClient: options => {
+          if (options.providerId === "apple-fm") {
+            if (!appleFm) throw new ScanError("failed:network", "unavailable");
+            return createPinnedClient({ ...options, socketPath: appleFm.socket.path,
+              socketGuard: appleFm.guard, unixFetch: appleFm.fetch });
+          }
+          return createPinnedClient({ ...options, egress, ...(o.discovery?.request ? { request: o.discovery.request } : {}) });
+        },
         profiles: discProfiles,
         credentials: discCredentials,
         events: discEvents,
@@ -697,7 +722,8 @@ export function createCore(o: CoreOptions): Core {
         logger,
         onScanned: (p) => scanScheduler?.onScanned(p),
         // privacy.localOnly: cloud models stay in the list, marked locked, so the person sees why they cannot be chosen.
-        modelLocked: (_provider, profile) => localOnlyFor(cfg()) && !(profile !== undefined && isLocalEndpoint(profile.baseUrl, localEndpoints(cfg()))),
+        modelLocked: (provider, profile, model) => localOnlyFor(cfg())
+          && !isLocalChatModel(provider, model ?? (provider === "apple-fm" ? "system" : ""), profile?.baseUrl, cfg()),
         ...(o.discovery?.scanners ? { scanners: o.discovery.scanners } : {}),
       });
       discovery.onChanged((e) => server?.notify("models.changed", e));
@@ -709,7 +735,9 @@ export function createCore(o: CoreOptions): Core {
       const profileOf = (provider: string) => discProfiles.list().find(p => p.id === provider);
       const chatModels = {
         reasoning: (provider: string, model: string) => resolveReasoning({ vendor: profileOf(provider)?.vendor, id: model, api: catalogEntry(provider, model)?.api?.reasoning }, reasoningTable),
-        catalog: (provider: string, model: string) => { const e = catalogEntry(provider, model); return e ? { displayName: e.displayName, status: e.status } : undefined; },
+        catalog: (provider: string, model: string) => { const e = catalogEntry(provider, model); return provider === "apple-fm" && model === "system"
+          ? { displayName: "Apple Foundation Models — system", status: appleFm?.available() ? "available" : "unavailable", contextWindow: 4096 }
+          : e ? { displayName: e.displayName, status: e.status, ...(e.contextWindow ? { contextWindow: e.contextWindow } : {}) } : undefined; },
         endpoint: (provider: string) => profileOf(provider)?.baseUrl,
       };
 
@@ -831,7 +859,11 @@ export function createCore(o: CoreOptions): Core {
           try { await send({ chatId: msg.chatId, text }); } catch { log.warn("channel.handoff.send.failed", { channel: msg.channel }); } return true;
         },
         ...(o.channels ?? {}),
-        layout: l, config: cs, secrets: secretStore, identity: () => identity, personActive: id => !people.person(id)?.disabled, sessions: () => sessions, agents: registry, permissions: () => permissions,
+        ingestAttachments: input => turnComposition?.ingestChannelAttachments(input)
+          ?? Promise.reject(new RpcError("E_NOT_AVAILABLE", "channel upload storage is unavailable")),
+        layout: l, config: cs, secrets: secretStore, identity: () => identity, personActive: id => !people.person(id)?.disabled,
+        personRole: id => people.role(id, id === LOCAL_OWNER.userId ? "owner" : "member"),
+        sessions: () => sessions, agents: registry, permissions: () => permissions,
         clock, log: { info: (m, f) => log.info(m, f), warn: (m, f) => { channelToInbox(inboxPort, m, f); log.warn(m, f); }, error: (m, f) => log.error(m, f) },
       });
       permissions = createPermissionRuntime({
@@ -868,7 +900,7 @@ export function createCore(o: CoreOptions): Core {
           return t;
         },
       });
-      try { turnComposition = await openTurnComposition({ home: l.home, systemJobs, mediaHostFetchReady: typeof host.fetch === "function", supervised: o.supervisorConfig !== undefined, config: cfg, configChanges: listener => cs.onChange(() => listener()), engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
+      try { turnComposition = await openTurnComposition({ home: l.home, appleFm, systemJobs, mediaHostFetchReady: typeof host.fetch === "function", supervised: o.supervisorConfig !== undefined, config: cfg, configChanges: listener => cs.onChange(() => listener()), engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
         maintenance: { held: () => importHold.held, onRelease: callback => importHold.onRelease(callback) },
         voiceConfigSource: changes => cs.set(changes), importConfigSource: changes => cs.set(changes), inbox: inboxPort, resolvePrincipal,
         surfaceOf: (principal, ctx) => connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }),
@@ -1145,10 +1177,16 @@ export function createCore(o: CoreOptions): Core {
         ...buildEngineTestSurface({ embedding: eng.embedding, config: () => engineConfig, diagnostics: engineTestDiagnostics }),
         // The API runs model.licence.check before every web config.set: another embedding identity is written only while the
         // store holds no table (a populated store moves with memory reembed).
-        ...buildLicenceSurface(licenceLedger, cfg, changes => assertEmbeddingChangeAllowed({ current: cfg(), changes, layout: l, active: engineConfig, holdsTables: () => storeHoldsTables(String(engineConfig.baseDbPath)) })),
+        ...buildLicenceSurface(licenceLedger, cfg, async changes => {
+          assertEmbeddingChangeAllowed({ current: cfg(), changes, layout: l, active: engineConfig, holdsTables: () => storeHoldsTables(String(engineConfig.baseDbPath)) });
+          await validateMediaChanges(cfg(), changes);
+        }),
         ...buildMemoryModelsSurface({
           status: () => memoryModelStatus(engineConfig, cfg(), storeHoldsTables(String(engineConfig.baseDbPath))),
-          check: changes => embeddingChange({ current: cfg(), changes, layout: l, active: engineConfig, holdsTables: () => storeHoldsTables(String(engineConfig.baseDbPath)), acceptances: licenceLedger.list() }),
+          check: async changes => {
+            await validateMediaChanges(cfg(), changes);
+            return embeddingChange({ current: cfg(), changes, layout: l, active: engineConfig, holdsTables: () => storeHoldsTables(String(engineConfig.baseDbPath)), acceptances: licenceLedger.list() });
+          },
           canSwitch: () => typeof reembedEnginePort.validate === "function",
         }),
         ...sessionTranscriptSurface({ sessions: () => sessions?.store ?? null, lookup: id => sessions?.forSession(id).store ?? null, breakglass, ownership, personOf }),
@@ -1206,7 +1244,7 @@ export function createCore(o: CoreOptions): Core {
         engineToken: () => { try { return readRunToken(l.home, engineRunFiles(l.home).token); } catch { return undefined; } },
         canReadAgent: async (ctx, agentId) => authorize(await resolvePrincipal(ctx, "events.subscribe", { agentId }), "agent.read", { kind: "agent", agentId }, { now: clock() }).effect === "allow",
         address, token, apiToken, authorizeClient: hostClients.authorize, apiPrincipalOf: apiIdentity.forwarded, onApiAuthenticated: apiIdentity.authenticated, apiPersonOfConnection: async (connectionId, p) => { const who = apiIdentity.resolve({ requestId: "audience", connectionId, signal: shutdown.signal }); return who?.kind === "person" && who.userId === p.userId ? who.userId : null; }, personOfConnection: async connectionId => { const p = await resolvePrincipal({ requestId: "audience", connectionId, signal: shutdown.signal }, "events.subscribe", {}); return p?.kind === "person" ? p.userId : null; }, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
-        onConnectionClosed: (id) => { apiIdentity.closed(id); orphans?.connectionClosed(id); void turnComposition?.voice.v3.connectionClosed(id); },
+        onConnectionClosed: (id) => { turnComposition?.codeSessions?.connectionClosed(id); apiIdentity.closed(id); orphans?.connectionClosed(id); void turnComposition?.voice.v3.connectionClosed(id); },
         onCall: (method, result) => metrics.rpcCall(method, result),
       });
 

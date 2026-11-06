@@ -103,10 +103,19 @@ export function SetupPage({ item }: PageProps): View {
       requestAnimationFrame(() => { document.querySelector<HTMLElement>('[aria-invalid="true"], #setup-backup-create, #setup-token')?.focus(); });
       return;
     }
-    const changes = changesFor(def.id, answers);
+    let changes = changesFor(def.id, answers);
     if (changes.length > 0) {
       saving.current = true; setBusy(true); setFail("");
       try {
+        if (def.id === "memory" && !answers.media.backfillChosen) {
+          // Recheck at save time too: Next may be clicked before the Memory step has loaded the existing choice.
+          const previous = await getApi().rpc("config.get", { key: "memory.mediaEmbedding" }, { write: false });
+          const value = previous.value;
+          const backfill = value && typeof value === "object" ? (value as { backfill?: unknown }).backfill : undefined;
+          if (backfill === "auto" || backfill === "manual") {
+            changes = changes.filter((change) => change.key !== "memory.mediaEmbedding.backfill");
+          }
+        }
         // The licence ledger records each confirmed non-commercial model; the config.set pre-check and the engine start require it.
         if (def.id === "memory") for (const kind of ["embedding", "rerank"] as const) {
           const model = choiceById(chosen(kind, answers));
