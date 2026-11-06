@@ -569,8 +569,12 @@ are changes to existing TypeScript, so TypeScript (decision 3, rule 3):
   `cwd` of `session/new` binds the worktree through `code.session.open` with the same rules as the CLI; a `cwd` that is
   not a granted root is refused with an explanation rather than granted from an editor without a person present.
 - **Inline diffs and approvals in the editor.** `file.edit`/`file.write` tool calls stream as `tool_call` updates with
-  ACP `diff` content, so the editor shows the change inline. D109 approvals become `session/request_permission` (the
-  agent side does not implement it today, `docs/acp.md`), with ACP's allow-once, allow-always and reject options mapped
+  ACP `diff` content only when complete old/new contents are exact (Controller 2026-11-01). A successful full UTF-8
+  write with Core proof of a new file uses `oldText: null`. Otherwise show a labelled text patch, including truncated
+  patches; full diff contents are capped at 128 KiB combined. Reversing an untruncated patch additionally requires
+  proof that the post-tool file is unchanged and a Core-only, worktree-bound read. K stays unchanged; a later additive
+  before/after integrity contract is open in the plan and does not block CLI-ACP. D109 approvals become
+  `session/request_permission` (`docs/acp.md`), with ACP's allow-once, allow-always and reject options mapped
   to approve once, grant and deny under the same caps.
 - **Steering.** ACP v1 has no steer method. Following ACP's extensibility rules (custom methods start with an underscore
   and use a reverse-DNS prefix; support is advertised in `_meta` of the capability object), the server advertises

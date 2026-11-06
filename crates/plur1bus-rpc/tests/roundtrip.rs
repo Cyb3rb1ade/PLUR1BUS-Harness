@@ -1644,6 +1644,10 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 types::CodeSessionOpenParams,
                 types::CodeSessionOpenResult,
             >(name, fixture, &root_schema),
+            "code.session.mode" => check_pair::<
+                types::CodeSessionModeParams,
+                types::CodeSessionModeResult,
+            >(name, fixture, &root_schema),
             "code.session.diff" => check_pair::<
                 types::CodeSessionDiffParams,
                 types::CodeSessionDiffResult,

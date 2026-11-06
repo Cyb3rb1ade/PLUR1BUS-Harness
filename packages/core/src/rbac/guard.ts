@@ -198,6 +198,7 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "breakglass.revoke": rule("admin.breakglass.write", system),
   "breakglass.notices": rule("admin.notices.read", system),
   "code.session.open": { ...rule("admin.sessions.write", system), humanOnly: true },
+  "code.session.mode": { ...rule("admin.sessions.write", system), humanOnly: true },
   "code.session.check": { ...rule("admin.sessions.write", system), humanOnly: true },
   "code.session.diff": { ...rule("admin.sessions.transcript", system), humanOnly: true },
   "session.model.get": rule("admin.sessions.transcript", system),

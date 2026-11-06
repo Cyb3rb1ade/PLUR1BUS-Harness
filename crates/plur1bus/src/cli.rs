@@ -1191,6 +1191,9 @@ pub enum AcpCmd {
         /// The agent the editor talks to (default: the only registered agent)
         #[arg(long)]
         agent: Option<String>,
+        /// Initial ACP session mode; coding binds the granted editor worktree
+        #[arg(long, value_parser = ["chat", "coding"], default_value = "chat")]
+        profile: String,
     },
 }
 
@@ -2114,6 +2117,18 @@ mod tests {
     }
 
     #[test]
+    fn acp_accepts_chat_and_coding_profiles_and_refuses_unknown_values() {
+        for profile in ["chat", "coding"] {
+            assert!(
+                Cli::try_parse_from(["plur1bus", "acp", "serve", "--profile", profile]).is_ok()
+            );
+        }
+        assert!(
+            Cli::try_parse_from(["plur1bus", "acp", "serve", "--profile", "automatic"]).is_err()
+        );
+    }
+
+    #[test]
     fn session_and_chat_parse_their_flags() {
         match parse(&[
             "session",
@@ -2150,8 +2165,11 @@ mod tests {
         }
         match parse(&["acp", "serve", "--agent", "bernd"]).cmd {
             Cmd::Acp {
-                sub: AcpCmd::Serve { agent },
-            } => assert_eq!(agent.as_deref(), Some("bernd")),
+                sub: AcpCmd::Serve { agent, profile },
+            } => assert_eq!(
+                (agent.as_deref(), profile.as_str()),
+                (Some("bernd"), "chat")
+            ),
             other => panic!("{other:?}"),
         }
         match parse(&["mcp", "serve", "--agent", "bernd"]).cmd {

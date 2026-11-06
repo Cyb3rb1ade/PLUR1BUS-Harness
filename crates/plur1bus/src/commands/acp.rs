@@ -23,7 +23,7 @@ pub(crate) fn locate_acp_js(layout: &Layout) -> PathBuf {
 
 /// The adapter's argv after the script path. The caller identity is the CLI's own (`identity::caller()`), exactly as
 /// `chat` sends it; the core derives the session owner from it.
-pub(crate) fn acp_args(layout: &Layout, agent: &str) -> Vec<OsString> {
+pub(crate) fn acp_args(layout: &Layout, agent: &str, profile: &str) -> Vec<OsString> {
     let caller = identity::caller();
     vec![
         "--home".into(),
@@ -34,16 +34,18 @@ pub(crate) fn acp_args(layout: &Layout, agent: &str) -> Vec<OsString> {
         caller.account_id.into(),
         "--user".into(),
         caller.user_id.into(),
+        "--profile".into(),
+        profile.into(),
     ]
 }
 
 pub fn run(out: &Out, layout: &Layout, sub: AcpCmd) {
     match sub {
-        AcpCmd::Serve { agent } => serve(out, layout, agent),
+        AcpCmd::Serve { agent, profile } => serve(out, layout, agent, &profile),
     }
 }
 
-fn serve(out: &Out, layout: &Layout, agent: Option<String>) {
+fn serve(out: &Out, layout: &Layout, agent: Option<String>, profile: &str) {
     let config = cfg::read_for_lookup(&layout.config_path(), &[])
         .unwrap_or_else(|e| out.fail("E_CONFIG_INVALID", &e.to_string(), json!({})));
     let agent = pick_agent(out, &config, agent);
@@ -60,7 +62,7 @@ fn serve(out: &Out, layout: &Layout, agent: Option<String>) {
     let node = locate_node(layout);
     let status = Command::new(&node)
         .arg(&js)
-        .args(acp_args(layout, &agent))
+        .args(acp_args(layout, &agent, profile))
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
@@ -81,14 +83,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn argv_names_home_agent_and_the_cli_identity_and_nothing_else() {
+    fn argv_names_home_agent_cli_identity_and_the_explicit_profile() {
         let layout = Layout::new(PathBuf::from("/h"));
-        let a: Vec<String> = acp_args(&layout, "bernd")
-            .iter()
-            .map(|s| s.to_string_lossy().into_owned())
-            .collect();
-        assert_eq!(a[..4], ["--home", "/h", "--agent", "bernd"]);
-        assert_eq!((a[4].as_str(), a[6].as_str()), ("--account", "--user"));
-        assert_eq!(a.len(), 8);
+        for profile in ["chat", "coding"] {
+            let a: Vec<String> = acp_args(&layout, "bernd", profile)
+                .iter()
+                .map(|s| s.to_string_lossy().into_owned())
+                .collect();
+            assert_eq!(a[..4], ["--home", "/h", "--agent", "bernd"]);
+            assert_eq!((a[4].as_str(), a[6].as_str()), ("--account", "--user"));
+            assert_eq!((a[8].as_str(), a[9].as_str()), ("--profile", profile));
+            assert_eq!(a.len(), 10);
+        }
     }
 }

@@ -1430,6 +1430,12 @@ stdout carries only ACP JSON-RPC lines; diagnostics go to stderr and never conta
 ###### **Options:**
 
 * `--agent <AGENT>` — The agent the editor talks to (default: the only registered agent)
+* `--profile <PROFILE>` — Initial ACP session mode; coding binds the granted editor worktree
+
+  Default value: `chat`
+
+  Possible values: `chat`, `coding`
+
 
 
 

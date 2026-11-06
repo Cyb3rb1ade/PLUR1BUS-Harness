@@ -126,7 +126,7 @@ for at most 1024 sessions, least recently recorded first out; an evicted session
 again. Invalid usage throws before any counter or state changes.
 
 `sessionModels(agentId, sessionId)` returns the per-model summaries of one harness session. The core method
-`telemetry.cache.summary` (introduced in RPC 1.10.0; current contract 1.20.0) serves these together with the hit ratio per provider, agent and
+`telemetry.cache.summary` (introduced in RPC 1.10.0; current contract 1.21.0) serves these together with the hit ratio per provider, agent and
 model from the budget ledger over a 24h or 7d window. The ledger cannot mark estimated settlements; they
 count as `uncachedCalls`, and `hitRatioCaching` is the ratio over calls that reported cache activity.
 
