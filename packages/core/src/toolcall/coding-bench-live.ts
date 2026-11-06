@@ -68,7 +68,7 @@ export function codingConfiguration(model: TurnEvalModel): string {
 }
 
 /** Stage writable private copies only. Compiler wrappers set their own scrubbed environment inside the sandbox. */
-async function livePrograms(
+export async function stageCodingPrograms(
   runtime: CodingRuntimes,
   root: string,
   language: CodingLanguage,
@@ -96,7 +96,7 @@ async function livePrograms(
     GOMODCACHE: join(directory, "go-modules"),
   };
   if (language === "rust" || language === "go") {
-    const compilerRoot = join(directory, language);
+    const compilerRoot = join(directory, `${language}-toolchain`);
     await copyCodingRuntime(language === "rust" ? runtime.rustRoot : runtime.goRoot, compilerRoot);
     const program = join(compilerRoot, "bin", language === "rust" ? "rustc" : "go");
     const prefix = language === "rust" ? ["--sysroot", compilerRoot] : [];
@@ -230,7 +230,7 @@ export async function runCodingLive(root: string, options: CodingLiveOptions): P
       options.signal,
     );
     try {
-      const programs = await livePrograms(runtimes, probeWorkspace.worktree, "typescript", "unused");
+      const programs = await stageCodingPrograms(runtimes, probeWorkspace.worktree, "typescript", "unused");
       await assertCodingTurn(probeWorkspace, programs[0]!, options.limitsHelper, options.signal);
       const probe = await verifier.run(
         probeWorkspace.worktree,
@@ -258,7 +258,7 @@ export async function runCodingLive(root: string, options: CodingLiveOptions): P
             const instance = await renderCodingTask(task, seed, "start");
             const workspace = await provisionCodingCard(home, instance.files, options.signal);
             try {
-              const programs = await livePrograms(
+              const programs = await stageCodingPrograms(
                 runtimes,
                 workspace.worktree,
                 task.meta.language,
