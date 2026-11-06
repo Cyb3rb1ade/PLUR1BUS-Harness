@@ -3,11 +3,17 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { readFile, writeFile, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { realTempDir } from "../helpers/real-temp-dir.ts";
 import { loadCodingCorpus } from "../../src/toolcall/coding-bench-corpus.ts";
 import {
   compareCodingReports,
   mergeCodingReports,
   parseCodingLiveReport,
+  parseCodingComparison,
   publicCodingReport,
   type CodingLiveReport,
 } from "../../src/toolcall/coding-bench-report.ts";
@@ -70,6 +76,29 @@ test("reports refuse fixture evidence, unknown fields, missing pairs and duplica
   assert.throws(() => parseCodingLiveReport({ ...report, cases: [...report.cases.slice(1), report.cases[1]] }));
 });
 
+test("ignored fixture counts survive publication while legacy captures retain their absent measurement", async () => {
+  const report = await structuralReport();
+  assert.equal(Object.hasOwn(parseCodingLiveReport(report).cases[0]!, "ignoredEntries"), false);
+  for (const row of report.cases) row.ignoredEntries = 0;
+  report.cases[0]!.ignoredEntries = 6;
+  assert.equal(JSON.parse(publicCodingReport(report, [])).cases[0].ignoredEntries, 6);
+  const legacy = await structuralReport();
+  const comparison = compareCodingReports(legacy, report);
+  assert.equal(comparison.gate, "incomparable");
+  assert.equal(parseCodingComparison(comparison).gate, "incomparable");
+  assert.equal(comparison.models[0]!.pairs.unmatchedBaseline, 72);
+  assert.equal(comparison.models[0]!.pairs.unmatchedCandidate, 72);
+  assert.equal(JSON.parse(publicCodingReport({ ...report, comparison }, [])).comparison.gate, "incomparable");
+  const mixed = structuredClone(report);
+  delete mixed.cases[0]!.ignoredEntries;
+  assert.throws(() => parseCodingLiveReport(mixed));
+  for (const value of [-1, 0.5, 2049, null, "1"]) {
+    const invalid = structuredClone(report);
+    Object.assign(invalid.cases[0]!, { ignoredEntries: value });
+    assert.throws(() => parseCodingLiveReport(invalid));
+  }
+});
+
 test("unknown usage stays unknown and inconsistent buckets or a false success refuse", async () => {
   const report = await structuralReport();
   report.cases[0]!.metrics.totalInput = 5;
@@ -77,6 +106,32 @@ test("unknown usage stays unknown and inconsistent buckets or a false success re
   report.cases[0]!.metrics.totalInput = 10;
   report.cases[0]!.resolved = true;
   assert.throws(() => parseCodingLiveReport(report));
+});
+
+test("the comparison CLI publishes unmatched old/new snapshot observations before failing its gate", async () => {
+  const directory = await realTempDir("p1b-coding-comparison-");
+  try {
+    const legacy = await structuralReport();
+    const current = structuredClone(legacy);
+    for (const row of current.cases) row.ignoredEntries = 0;
+    const baseline = join(directory, "baseline.json");
+    const candidate = join(directory, "candidate.json");
+    const output = join(directory, "comparison.json");
+    await writeFile(baseline, JSON.stringify(legacy));
+    await writeFile(candidate, JSON.stringify(current));
+    const script = fileURLToPath(new URL("../../../../scripts/eval/coding-bench.ts", import.meta.url));
+    await assert.rejects(promisify(execFile)(process.execPath, [
+      "--experimental-strip-types", "--conditions=source", script,
+      "--compare", "--baseline", baseline, "--candidate", candidate, "--out", output,
+    ], { env: {}, timeout: 10_000 }), { code: 1 });
+    const result = parseCodingComparison(JSON.parse(await readFile(output, "utf8")));
+    assert.equal(result.gate, "incomparable");
+    assert.equal(result.models[0]!.pairs.paired, 0);
+    assert.equal(result.models[0]!.pairs.unmatchedBaseline, 72);
+    assert.equal(result.models[0]!.pairs.unmatchedCandidate, 72);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test("a single paired loss blocks the resolved-rate gate even when its sign probability is one", async () => {

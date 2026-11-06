@@ -2,11 +2,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { realTempDir } from "../helpers/real-temp-dir.ts";
-import { rm } from "node:fs/promises";
+import { rm, symlink } from "node:fs/promises";
 import { loadCodingCorpus, renderCodingTask } from "../../src/toolcall/coding-bench-corpus.ts";
 import { verifyCodingTask } from "../../src/toolcall/coding-bench-checker.ts";
-import type { CodingImage } from "../../src/toolcall/coding-bench-workspace.ts";
+import { stageCodingFixture, type CodingImage } from "../../src/toolcall/coding-bench-workspace.ts";
+import { verifyCodingCandidate } from "../../src/toolcall/coding-bench-verify.ts";
 
 const root = fileURLToPath(new URL("../../../../tests/bench/coding/", import.meta.url));
 const image = (files: Map<string, { text: string; mode: number }>): CodingImage =>
@@ -23,6 +25,33 @@ const runtime = {
   versions: { node: process.versions.node, rust: "", go: "", python: "" },
   close: async () => {},
 };
+
+test("correct symlink-task solutions still reach the checker with model-created link fixtures", { skip: process.platform === "win32" }, async () => {
+  const corpus = await loadCodingCorpus(root);
+  const signal = new AbortController().signal;
+  for (const id of ["easy-shell-lines", "medium-shell-retain", "hard-shell-export", "hard-python-cache"]) {
+    const task = corpus.tasks.find((candidate) => candidate.meta.id === id)!;
+    const reference = await renderCodingTask(task, 11, "reference");
+    const workspace = await stageCodingFixture(reference.files, signal);
+    try {
+      await symlink(reference.variant.entry, join(workspace.tree, "test-link"));
+      await symlink("missing-fixture", join(workspace.tree, "dangling-link"));
+      const result = await verifyCodingCandidate(
+        workspace.tree,
+        (snapshot) => verifyCodingTask(task, reference.variant, snapshot, {
+          mode: "fixture",
+          runtimes: { ...runtime, python: "python3", shell: "/bin/sh" },
+          signal,
+        }),
+        reference.variant.entry,
+      );
+      assert.equal(result.checker, "passed", id);
+      assert.equal(result.ignoredEntries, 2, id);
+    } finally {
+      await workspace.close();
+    }
+  }
+});
 
 test("the same hidden checker rejects the seeded starter and accepts the real reference", async () => {
   const corpus = await loadCodingCorpus(root);

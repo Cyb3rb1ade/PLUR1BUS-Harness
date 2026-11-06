@@ -1,5 +1,6 @@
 /** B1 source copying and frozen images. Trusted fixture copies are separate from shared-provisioner live worktrees. */
-import { lstat, mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { lstat, mkdir, mkdtemp, open, readdir, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join } from "node:path";
 import type { CodingSourceFile } from "./coding-bench-corpus.ts";
@@ -14,37 +15,80 @@ export interface CodingFixtureWorkspace {
 /** Frozen candidate bytes retained outside the verifier root, restored for each independent hidden invocation. */
 export type CodingImage = Map<string, { data: Buffer; mode: number }>;
 
+/** Snapshot limits and a missing/nonregular entry are candidate failures; unexpected I/O errors propagate. */
+export class CodingSnapshotInvalid extends Error {
+  readonly ignoredEntries: number;
+  constructor(message: string, ignoredEntries: number) {
+    super(message);
+    this.ignoredEntries = ignoredEntries;
+  }
+}
+
+export interface CodingSnapshot {
+  image: CodingImage;
+  ignoredEntries: number;
+}
+
 /** Copy only bounded regular code files after the subject has stopped. Never inspect Git metadata on the host. */
-export async function snapshotCodingSources(root: string): Promise<CodingImage> {
+export async function snapshotCodingSources(root: string, entry: string): Promise<CodingSnapshot> {
   const image: CodingImage = new Map();
   const ignored = new Set([".git", "target", "node_modules", "__pycache__", ".cache", ".build"]);
   let bytes = 0;
   let entries = 0;
+  let ignoredEntries = 0;
   const initial = await lstat(root);
-  if (!initial.isDirectory() || initial.isSymbolicLink()) throw new Error("invalid coding snapshot root");
+  if (!initial.isDirectory() || initial.isSymbolicLink()) {
+    throw new Error("invalid coding snapshot root");
+  }
   async function walk(relative: string, depth: number): Promise<void> {
-    if (depth > 32) throw new Error("coding snapshot depth limit");
+    if (depth > 32) throw new CodingSnapshotInvalid("coding snapshot depth limit", ignoredEntries);
     for (const name of (await readdir(join(root, relative))).sort()) {
-      if (++entries > 2048) throw new Error("coding snapshot entry limit");
+      if (++entries > 2048) throw new CodingSnapshotInvalid("coding snapshot entry limit", ignoredEntries);
       const rel = relative ? `${relative}/${name}` : name;
       const source = join(root, rel);
       const stat = await lstat(source);
-      if (stat.isSymbolicLink()) throw new Error("coding snapshot link refused");
+      if (stat.isSymbolicLink() || (!stat.isDirectory() && !stat.isFile())) {
+        ignoredEntries++;
+        continue;
+      }
       if (ignored.has(name)) continue;
+      if (!codingSourceName(rel)) {
+        ignoredEntries++;
+        continue;
+      }
       if (stat.isDirectory()) await walk(rel, depth + 1);
       else {
-        if (!stat.isFile() || !codingSourceName(rel) || stat.size > 16_777_216 || bytes + stat.size > 16_777_216) {
-          throw new Error("coding snapshot file limit");
+        // The stopped subject's fixtures are untrusted. A final-component race must never follow a link or block on a FIFO.
+        let file;
+        try {
+          file = await open(source, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "ELOOP") throw error;
+          ignoredEntries++;
+          continue;
         }
-        const data = await readFile(source);
-        bytes += data.length;
-        if (bytes > 16_777_216) throw new Error("coding snapshot byte limit");
-        image.set(rel, { data, mode: stat.mode & 0o100 ? 0o700 : 0o600 });
+        try {
+          const current = await file.stat();
+          if (!current.isFile()) {
+            ignoredEntries++;
+            continue;
+          }
+          if (current.size > 16_777_216 || bytes + current.size > 16_777_216) {
+            throw new CodingSnapshotInvalid("coding snapshot file limit", ignoredEntries);
+          }
+          const data = await file.readFile();
+          bytes += data.length;
+          if (bytes > 16_777_216) throw new CodingSnapshotInvalid("coding snapshot byte limit", ignoredEntries);
+          image.set(rel, { data, mode: current.mode & 0o100 ? 0o700 : 0o600 });
+        } finally {
+          await file.close();
+        }
       }
     }
   }
   await walk("", 0);
-  return image;
+  if (!image.has(entry)) throw new CodingSnapshotInvalid("coding snapshot entry missing or nonregular", ignoredEntries);
+  return { image, ignoredEntries };
 }
 
 /** Restore an immutable code image into a fresh private directory; no hardlinks or source aliases. */

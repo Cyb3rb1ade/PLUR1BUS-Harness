@@ -15,16 +15,18 @@ test("verifier provisioning or cleanup failures propagate instead of becoming in
     for (const phase of ["provision", "cleanup"]) {
       const failure = new Error(`trusted ${phase} failed`);
       await assert.rejects(
-        verifyCodingCandidate(root, async () => {
-          throw failure;
-        }),
+        verifyCodingCandidate(
+          root,
+          async () => { throw failure; },
+          "solution.ts",
+        ),
         (error) => error === failure,
       );
     }
-    const invalid = await verifyCodingCandidate(join(root, "missing"), async () => {
-      throw new Error("invalid candidates must not invoke the verifier");
-    });
-    assert.equal(invalid.checker, "invalid-image");
+    const neverVerify = async (): Promise<never> => { throw new Error("invalid candidates must not invoke the verifier"); };
+    await assert.rejects(verifyCodingCandidate(join(root, "missing"), neverVerify, "solution.ts"), { code: "ENOENT" });
+    await assert.rejects(verifyCodingCandidate(join(root, "solution.ts"), neverVerify, "solution.ts"), /snapshot root/u);
+    assert.equal((await verifyCodingCandidate(root, neverVerify, "missing.ts")).checker, "invalid-image");
   } finally {
     await rm(root, { recursive: true, force: true });
   }

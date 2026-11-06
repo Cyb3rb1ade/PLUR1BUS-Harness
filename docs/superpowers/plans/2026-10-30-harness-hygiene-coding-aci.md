@@ -123,6 +123,12 @@ skill's diagnose playbook. Acceptance: `plur1bus --json 1staid check` lists the 
 
 ## H2-3 — The `turn-eval-live` baseline (1.5 agent days + an owner credentials run; Sonnet, TypeScript) — GATE
 
+B1 finding, 2026-11-06, reserved for H2 by the owner. The initial 72-case Haiku 4.5 (`20251001`) capture reports zero
+cache-read and cache-create tokens throughout. The owner identifies its 4,096-token cache minimum as the cause to
+address in H2. Preserve this finding and measure the cacheable-prefix size in H2's analysis. B1 keeps its existing
+prompts, caching configuration and budgets for the corrected snapshot capture. Original evidence is
+[run 42289344197, Haiku artifact 13544311785](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/42289344197/artifacts/13544311785).
+
 Extend `packages/core/src/toolcall/turn-eval-live.ts` and `scripts/eval/turn-eval.ts` reports with provider cache-read
 share per scenario and provider, fixed overhead per agent, inline tool-result bytes and tokens (p50/p95), counts of
 `tool-result-too-large` and opaque-pointer results, rounds, turns and wall time; run the fixture regression and one live

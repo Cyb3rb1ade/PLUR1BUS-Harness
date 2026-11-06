@@ -247,6 +247,22 @@ measured model losses. Expected values remain in the parent.
 
 ### Reports, baseline and comparisons
 
+The November 6 snapshot correction skips symlinks and nonregular fixture entries without following or copying them.
+Each new case records `ignoredEntries`, including skipped names that cannot safely be restored on all supported hosts.
+The snapshot excludes ordinary Git/build/cache directories separately; a symlink or special file with one of those
+names is counted before that exclusion. A count on an `invalid-image` row covers entries observed before the limit or
+entry check stopped capture and may be partial. Skipped entries still consume the 2,048-entry
+limit. Depth (32), total bytes (16 MiB), and the requirement for a regular task entry remain enforced. Those violations
+produce `invalid-image`; an invalid provisioned root and unexpected filesystem I/O failures propagate as infrastructure errors. The checker runs against
+the remaining regular source files. A reference solution with symlink fixtures now reaches the hidden checker.
+
+Historical reports omit `ignoredEntries`; their missing count remains unknown. The parser retains these reports for
+audit, refuses mixed old/new case shapes, and leaves cases with old/new snapshot rules unpaired and incomparable. The initial November 6
+Sonnet/Haiku captures at `25d5be27fc8a16cdd545be605f07289ebf26a403` retain their original results in
+[run 42289344197](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/42289344197).
+The owner's corrected baseline requires complete new captures of both models on the same revision and day, with the
+existing task budgets. The follow-up Haiku-only run at that old revision was cancelled before completion.
+
 The closed live format is `plur1bus.coding-bench/1`, `evidence: live`. It records corpus hash, harness revision, runtime and
 RPC versions, model/configuration identities and capture dates, arms and the full task/seed matrix. Endpoints, credentials,
 source, model responses and tool transcripts are excluded. Publication applies the full Core redactor, validates the result

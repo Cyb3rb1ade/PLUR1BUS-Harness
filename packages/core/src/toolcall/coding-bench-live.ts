@@ -288,8 +288,9 @@ export async function runCodingLive(root: string, options: CodingLiveOptions): P
               });
               const wallMs = Math.round(performance.now() - began);
               options.onPhase?.("verifier");
-              const { checker, verificationMs } = await verifyCodingCandidate(workspace.worktree, (image) =>
-                verifyCodingTask(task, instance.variant, image, {
+              const { checker, verificationMs, ignoredEntries } = await verifyCodingCandidate(
+                workspace.worktree,
+                (image) => verifyCodingTask(task, instance.variant, image, {
                   mode: "live",
                   runtimes,
                   verifier,
@@ -303,6 +304,7 @@ export async function runCodingLive(root: string, options: CodingLiveOptions): P
                     return { root: checker.worktree, close: () => checker.close() };
                   },
                 }),
+                instance.variant.entry,
               );
               cases.push({
                 arm: arm.id,
@@ -313,6 +315,7 @@ export async function runCodingLive(root: string, options: CodingLiveOptions): P
                 checker,
                 wallMs,
                 verificationMs,
+                ignoredEntries,
                 metrics: subject.metrics,
                 resolved: subject.outcome === "completed" && checker === "passed",
               });

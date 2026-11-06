@@ -69,6 +69,8 @@ export interface CodingLiveCase {
   checker: "passed" | "unresolved" | "unavailable" | "aborted" | "invalid-image";
   wallMs: number;
   verificationMs: number;
+  /** Absent only in historical captures made before fixture entries were skipped and counted. */
+  ignoredEntries?: number;
   metrics: CodingMetrics;
 }
 /** A real run's complete matrix. Fixture-selftest documents deliberately have a different schema. */
@@ -147,7 +149,8 @@ export function compareCodingReports(
     const newRows = select(candidate, candidateArm);
     const outcomes = (rows: CodingLiveCase[], report: CodingLiveReport) =>
       rows.map((row) => ({
-        key: JSON.stringify([report.corpus, identity(model), row.taskId, row.seed]),
+        // Snapshot rules change what reaches the checker; cross-rule observations cannot form a pair.
+        key: JSON.stringify([report.corpus, identity(model), row.taskId, row.seed, Object.hasOwn(row, "ignoredEntries")]),
         resolved: row.resolved,
       }));
     const pairs = comparePairedOutcomes(outcomes(oldRows, baseline), outcomes(newRows, candidate));
@@ -269,6 +272,7 @@ function validateTaskMatrix(root: Record<string, unknown>): CodingArmDefinition[
   const cases = array(root.cases, 24 * 3 * 32 * 8);
   if (cases.length !== tasks.length * seeds.length * models.length * arms.length) invalid();
   const keys = cases.map((value) => validateCase(value, tasks, seeds, models, arms));
+  if (new Set(cases.map((value) => Object.hasOwn(value as object, "ignoredEntries"))).size !== 1) invalid();
   unique(keys);
   return definitions;
 }
@@ -291,6 +295,7 @@ function validateCase(
     "wallMs",
     "verificationMs",
     "metrics",
+    ...(Object.prototype.hasOwnProperty.call(value ?? {}, "ignoredEntries") ? ["ignoredEntries"] : []),
   ]);
   if (
     !arms.includes(row.arm as string) ||
@@ -304,6 +309,7 @@ function validateCase(
     invalid();
   count(row.wallMs, 3_600_000);
   count(row.verificationMs, 3_600_000);
+  if (Object.hasOwn(row, "ignoredEntries")) count(row.ignoredEntries, 2048);
   validateMetrics(row.metrics);
   if (row.resolved && (row.subject !== "completed" || row.checker !== "passed")) invalid();
   return JSON.stringify([row.arm, row.configuration, row.taskId, row.seed]);
@@ -501,6 +507,9 @@ export function summarizeCodingRows(report: CodingLiveReport, rows: readonly Cod
   return {
     ...rate(rows),
     measured: rows.filter(measured).length,
+    ignoredEntries: rows.every((row) => row.ignoredEntries !== undefined)
+      ? rows.reduce((sum, row) => sum + row.ignoredEntries!, 0)
+      : null,
     groups,
     metrics: sums,
     cacheShare:

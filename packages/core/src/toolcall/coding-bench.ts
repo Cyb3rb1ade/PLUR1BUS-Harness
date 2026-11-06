@@ -50,7 +50,7 @@ export async function runCodingFixture(root: string, options: CodingFixtureOptio
           const instance = await renderCodingTask(task, seed, stage);
           const workspace = await stageCodingFixture(instance.files, options.signal);
           try {
-            const image = await snapshotCodingSources(workspace.tree);
+            const { image } = await snapshotCodingSources(workspace.tree, instance.variant.entry);
             results.push(
               await verifyCodingTask(task, instance.variant, image, {
                 mode: "fixture",

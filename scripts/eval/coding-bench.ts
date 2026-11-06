@@ -252,6 +252,8 @@ function baselineMarkdown(report: CodingLiveReport): string {
         "",
         `Usage and counters: ${JSON.stringify(metrics.metrics)}.`,
         "",
+        `Observed ignored fixture entries (partial for invalid images): ${metrics.ignoredEntries ?? "unavailable in historical capture"}.`,
+        "",
         `Weighted provider cache-read share: ${metrics.cacheShare ?? "unavailable"}.`,
         "",
         `Solve wall time in ms: ${JSON.stringify(metrics.wallMs)}.`,
