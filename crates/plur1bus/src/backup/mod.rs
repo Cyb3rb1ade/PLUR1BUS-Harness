@@ -11,6 +11,7 @@ pub mod create;
 pub mod manifest;
 pub mod redact;
 pub mod restore;
+mod store_guard;
 
 #[cfg(test)]
 mod hardening;

@@ -42,10 +42,22 @@ benötigen weiterhin ihre Secret-Store-Werte oder sonstigen Ziele auf dem Zielsy
 `channels.telegram.webhook.secret` erzeugt Restore wie bisher einen neuen Zufallswert: Der Telegram-Kanal meldet ihn
 beim nächsten Start per `setWebhook` an; der alte Wert wird nicht wiederhergestellt.
 
-**Bekannte Lücke (SH8):** Die API-Kontendatenbank `state/api/accounts.db` liegt derzeit im Standard-Backup. Laut Owner-Entscheid vom **2026-10-21** darf sie nur per Opt-in enthalten sein; die Umsetzung folgt nach diesem Stapel als eigener SH8-PR. Die Datenbank enthält Passwort-Hashes (Argon2id), TOTP-Seeds, deren
-Backup-Code-Hashes und Hashes persönlicher Tokens. Wer das Archiv besitzt, kann Hashes offline angreifen und den zweiten
-Faktor nachbilden. Das Archiv ist weder signiert noch verschlüsselt; bewahre es entsprechend geschützt auf (für eine
-verschlüsselte Variante siehe [portables Backup](../portable-backup.md)). Ein externes Obsidian-Vault ist nicht Teil des
+Die API-Kontendatenbank `state/api/accounts.db` ist standardmäßig **nicht im Archiv**. Mit
+`backup create --include-api-accounts` nimmst du sie ausdrücklich auf, sofern sie vorhanden ist. Sie enthält
+Passwort-Hashes (Argon2id), TOTP-Seeds, Backup-Code-Hashes und Hashes persönlicher Tokens. Wer ein solches Archiv
+besitzt, kann Hashes offline angreifen und den zweiten Faktor nachbilden. Auch mit Opt-in ist das gewöhnliche Archiv
+weder signiert noch verschlüsselt; bewahre es entsprechend geschützt auf. Das
+[portable verschlüsselte Backup](../portable-backup.md) wählt die Kontendatenbank für Sicherung und Rückrollen
+jeweils ausdrücklich aus.
+
+Der Core kopiert SQLite-Datenbanken weiterhin konsistent in einen privaten Snapshot-Bereich, einschließlich der
+Kontendatenbank. Die Auswahl entscheidet erst, welche dieser Kopien ins Archiv gelangen; der Snapshot-Bereich wird
+danach entfernt. Ein Restore ohne Konteneinheit lässt die vorhandene Kontendatenbank des Ziels samt
+`-wal`-, `-shm`- und `-journal`-Dateien unverändert. Fehlt die Kontendatenbank in der Quelle, gilt das auch bei gewähltem
+Opt-in. Lege den Engine-Store getrennt von diesem Kontenpfad ab: `create` verweigert überlappende Pfade,
+auch über Symlinks oder Junctions.
+
+Ein externes Obsidian-Vault ist nicht Teil des
 Backups. Ist `config.json` kein gültiges JSON oder enthält es wiederholte Objektschlüssel, bricht `create` mit
 `config-unreadable` ab, statt die Datei ungeprüft zu archivieren; `plur1bus 1staid repair` stellt sie wieder her.
 
@@ -74,6 +86,12 @@ Systemdienst-Registrierung steuert `daemon` den Supervisor.
 
    ```sh
    plur1bus backup create --out "/pfad/zum/ziel/backup.tar.gz"
+   ```
+
+   Wenn API-Konten mitgesichert werden sollen, verwende das Opt-in:
+
+   ```sh
+   plur1bus backup create --include-api-accounts --out "/pfad/zum/ziel/backup-mit-konten.tar.gz"
    ```
 
    Unter PowerShell beispielsweise:

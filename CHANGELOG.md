@@ -29,6 +29,10 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
   before the copy. An agent table without memories validates on the generation check alone. See
   `docs/embedding-migration.md`.
 
+- **API account archive opt-in (SH8).** Ordinary `backup create` excludes API password hashes, TOTP seeds and token
+  hashes unless `--include-api-accounts` is selected. Omitted account data stays untouched on restore. Portable
+  encrypted backups and their pre-restore rollback archives explicitly include accounts.
+
 - **Schema-owned configuration outputs (SH2).** Public Supervisor/CLI reads, Web settings and palette values, config
   audit entries, diagnostics, support bundles and agent exports apply the schema's sensitivity and URL policies.
   Untouched replacement controls preserve the original values; URL views retain hosts and paths. Internal provisioning

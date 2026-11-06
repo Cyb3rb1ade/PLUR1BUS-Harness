@@ -4,8 +4,8 @@
 //! `restore` are offline, and `restore` refuses while a supervisor or core answers for the home (R5).
 use crate::audit;
 use crate::backup::archive::verify;
-use crate::backup::create::{self, Snapshot};
-use crate::backup::manifest::{Manifest, SECRETS_NOTE};
+use crate::backup::create::{self, CreateOpts, Snapshot};
+use crate::backup::manifest::{secrets_policy_note, Manifest};
 use crate::backup::restore::{self, RestoreOpts, RestoreReport};
 use crate::backup::{now_ms, BackupError};
 use crate::cli::BackupCmd;
@@ -46,7 +46,19 @@ fn units_line(m: &Manifest) -> String {
 
 pub fn run(out: &Out, layout: &Layout, cmd: BackupCmd) {
     match cmd {
-        BackupCmd::Create { out: dest, dry_run } => create_cmd(out, layout, dest, dry_run),
+        BackupCmd::Create {
+            out: dest,
+            dry_run,
+            include_api_accounts,
+        } => create_cmd(
+            out,
+            layout,
+            dest,
+            dry_run,
+            CreateOpts {
+                include_api_accounts,
+            },
+        ),
         BackupCmd::Verify { file } => {
             let m = verify(&file).unwrap_or_else(|e| fail(out, e));
             let doc = json!({
@@ -68,7 +80,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: BackupCmd) {
     }
 }
 
-fn create_cmd(out: &Out, layout: &Layout, dest: Option<PathBuf>, dry_run: bool) {
+fn create_cmd(out: &Out, layout: &Layout, dest: Option<PathBuf>, dry_run: bool, opts: CreateOpts) {
     let path = dest.unwrap_or_else(|| create::default_out(layout, now_ms()));
     if path.exists() {
         fail(
@@ -83,6 +95,7 @@ fn create_cmd(out: &Out, layout: &Layout, dest: Option<PathBuf>, dry_run: bool) 
         );
     }
     if dry_run {
+        let note = secrets_policy_note(opts.include_api_accounts);
         let plain: Vec<&str> = create::plain_targets()
             .into_iter()
             .map(|(t, _)| t)
@@ -91,11 +104,11 @@ fn create_cmd(out: &Out, layout: &Layout, dest: Option<PathBuf>, dry_run: bool) 
         let doc = json!({
             "dryRun": true, "path": path.display().to_string(), "plain": plain,
             "staged": ["store (engine snapshot)", "memory state (engine snapshot)", "SQLite databases under state/ (backup API)"],
-            "secrets": { "included": false, "note": SECRETS_NOTE },
+            "secrets": { "included": false, "note": note },
         });
         out.ok("backup.create/1", &doc, || {
             format!(
-                "would write {}\n  copied: {}\n  staged by the core: the memory store, the memory state, SQLite databases under state/\n  {SECRETS_NOTE}",
+                "would write {}\n  copied: {}\n  staged by the core: the memory store, the memory state, SQLite databases under state/\n  {note}",
                 path.display(), plain.join(", ")
             )
         });
@@ -109,7 +122,7 @@ fn create_cmd(out: &Out, layout: &Layout, dest: Option<PathBuf>, dry_run: bool) 
         .unwrap_or_else(|e| out.from_rpc_error(&e));
     drop(c);
     let snap = Snapshot::from_rpc(&snap).unwrap_or_else(|e| fail(out, e));
-    let r = create::create(layout, &path, &snap).unwrap_or_else(|e| fail(out, e));
+    let r = create::create_with_opts(layout, &path, &snap, opts).unwrap_or_else(|e| fail(out, e));
     audit_line(
         layout,
         "backup.create",

@@ -123,10 +123,33 @@ pub struct Secrets {
     pub note: String,
 }
 
-/// What the manifest says about secrets. It must say what the archive holds: the secret store is never read, but the API account
-/// database `state/api/accounts.db` is currently included by default; the owner decision of 2026-10-21 requires opt-in, to be implemented in SH8, and
-/// it holds password hashes, TOTP seeds and token hashes. Keep both phrases the tests look for.
-pub const SECRETS_NOTE: &str = "no secret-store values are part of this archive: API keys and tokens stay in the OS keyring, run/ is never archived, and the encrypted fallback file is not included; config secret references are preserved, schema-marked literals are replaced by placeholders, and URL userinfo, query and fragment values are masked; the API account database (state/api/accounts.db, when present) is currently included in the default ordinary archive with its password hashes, TOTP seeds and token hashes, contrary to the owner decision of 2026-10-21 requiring opt-in; that correction follows in SH8, and the archive is neither signed nor encrypted";
+/// Ordinary archives exclude API accounts by default (owner decision 2026-10-21, SH8); the secret store is never read.
+pub const SECRETS_NOTE: &str = concat!(
+    "no secret-store values are part of this archive: API keys and tokens stay in the OS keyring, ",
+    "run/ is never archived, and the encrypted fallback file is not included; config secret references ",
+    "are preserved, schema-marked literals are replaced by placeholders, and URL userinfo, query and ",
+    "fragment values are masked; the API account database (state/api/accounts.db) is excluded by default; ",
+    "--include-api-accounts explicitly includes it when present, with its password hashes, TOTP seeds ",
+    "and token hashes; the archive is neither signed nor encrypted"
+);
+
+const INCLUSIVE_SECRETS_NOTE: &str = concat!(
+    "no secret-store values are part of this archive: API keys and tokens stay in the OS keyring, ",
+    "run/ is never archived, and the encrypted fallback file is not included; config secret references ",
+    "are preserved, schema-marked literals are replaced by placeholders, and URL userinfo, query and ",
+    "fragment values are masked; the API account database (state/api/accounts.db, when present) is ",
+    "explicitly included with its password hashes, TOTP seeds and token hashes; ",
+    "the archive is neither signed nor encrypted"
+);
+
+/// Selected archive policy, independent of any collected snapshot redaction metadata.
+pub fn secrets_policy_note(include_api_accounts: bool) -> &'static str {
+    if include_api_accounts {
+        INCLUSIVE_SECRETS_NOTE
+    } else {
+        SECRETS_NOTE
+    }
+}
 
 // The existing note field carries versioned names-only metadata without changing CLI/RPC result shapes (SH2).
 const CONFIG_REDACTIONS_PREFIX: &str = "plur1bus.backup.config-redactions/";
@@ -135,8 +158,14 @@ const MAX_REDACTED_CONFIG_KEY_BYTES: usize = 4096;
 
 /// Append sorted, unique replaced-key names, never values; manifest validation enforces this input contract.
 pub fn secrets_note(keys: &[String]) -> String {
+    secrets_note_with_api_accounts(keys, false)
+}
+
+/// Disclose the selected API-account policy and append names-only config metadata without changing archive shapes.
+pub fn secrets_note_with_api_accounts(keys: &[String], include_api_accounts: bool) -> String {
+    let note = secrets_policy_note(include_api_accounts);
     format!(
-        "{SECRETS_NOTE}\n{CONFIG_REDACTIONS_PREFIX}1: {}",
+        "{note}\n{CONFIG_REDACTIONS_PREFIX}1: {}",
         serde_json::json!(keys)
     )
 }
@@ -433,6 +462,64 @@ mod tests {
     #[test]
     fn a_well_formed_manifest_validates() {
         base().validate().unwrap();
+    }
+
+    #[test]
+    fn selected_account_notes_preserve_names_only_metadata_and_credential_disclosure() {
+        let keys = vec!["engine.apiKey".into(), "providers.one.apiKey".into()];
+        for include_api_accounts in [false, true] {
+            let note = secrets_note_with_api_accounts(&keys, include_api_accounts);
+            assert_eq!(redacted_config_keys(&note).unwrap(), keys);
+            assert_eq!(
+                note.lines()
+                    .filter(|line| line.starts_with(CONFIG_REDACTIONS_PREFIX))
+                    .count(),
+                1
+            );
+            assert!(note.contains(if include_api_accounts {
+                "explicitly included"
+            } else {
+                "excluded by default"
+            }));
+            for phrase in [
+                "state/api/accounts.db",
+                "password hashes",
+                "TOTP seeds",
+                "token hashes",
+                "neither signed nor encrypted",
+                "run/ is never archived",
+                "encrypted fallback file is not included",
+            ] {
+                assert!(note.contains(phrase), "missing disclosure: {phrase}");
+            }
+            if !include_api_accounts {
+                assert_eq!(note, secrets_note(&keys));
+            }
+        }
+    }
+
+    #[test]
+    fn legacy_account_units_and_overlapping_store_manifests_remain_readable() {
+        let mut account = base();
+        account.secrets.note = "legacy account-inclusive archive".into();
+        account.units.push(Unit {
+            archive: "sqlite/api/accounts.db".into(),
+            target: "state/api/accounts.db".into(),
+            kind: Kind::File,
+        });
+        account.files.push(FileEntry {
+            path: "sqlite/api/accounts.db".into(),
+            bytes: 1,
+            sha256: "2".repeat(64),
+            mode: None,
+        });
+        account.validate().unwrap();
+
+        // SH8 refuses this configuration only when creating; old archives keep their reader contract.
+        let mut overlapping = base();
+        overlapping.store_target = "state/api".into();
+        overlapping.units[0].target = overlapping.store_target.clone();
+        overlapping.validate().unwrap();
     }
 
     #[test]
