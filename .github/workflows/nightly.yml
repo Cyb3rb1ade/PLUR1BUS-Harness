@@ -307,13 +307,15 @@ jobs:
           PLUR1BUS_CODING_BENCH_MODEL_INDEX: ${{ matrix.model }}
           PLUR1BUS_CODING_BENCH_HOME: ${{ runner.temp }}/coding-smoke-home
         run: |
-          node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/eval/coding-bench.ts --scan --report artifacts/coding-smoke/report.json --log artifacts/coding-smoke/run.log
+          report=()
+          if [ -f artifacts/coding-smoke/report.json ]; then report=(--report artifacts/coding-smoke/report.json); fi
+          node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/eval/coding-bench.ts --scan "${report[@]}" --log artifacts/coding-smoke/run.log
           cat artifacts/coding-smoke/run.log
       - name: remove the eval home
         if: always()
         run: rm -rf "${{ runner.temp }}/coding-smoke-home"
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-        if: ${{ always() && steps.coding-canary.outcome == 'success' }}
+        if: ${{ always() && steps.coding-canary.outcome == 'success' && hashFiles('artifacts/coding-smoke/report.json') != '' }}
         with:
           name: coding-bench-smoke-${{ matrix.model }}
           path: artifacts/coding-smoke/report.json
@@ -398,13 +400,15 @@ jobs:
           PLUR1BUS_CODING_BENCH_MODEL_INDEX: ${{ matrix.model }}
           PLUR1BUS_CODING_BENCH_HOME: ${{ runner.temp }}/coding-bench-home
         run: |
-          node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/eval/coding-bench.ts --scan --report artifacts/coding-bench/report.json --log artifacts/coding-bench/run.log
+          report=()
+          if [ -f artifacts/coding-bench/report.json ]; then report=(--report artifacts/coding-bench/report.json); fi
+          node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/eval/coding-bench.ts --scan "${report[@]}" --log artifacts/coding-bench/run.log
           cat artifacts/coding-bench/run.log
       - name: remove the eval home
         if: always()
         run: rm -rf "${{ runner.temp }}/coding-bench-home"
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-        if: ${{ always() && steps.coding-canary.outcome == 'success' }}
+        if: ${{ always() && steps.coding-canary.outcome == 'success' && hashFiles('artifacts/coding-bench/report.json') != '' }}
         with:
           name: coding-bench-live-${{ matrix.model }}
           path: artifacts/coding-bench/report.json

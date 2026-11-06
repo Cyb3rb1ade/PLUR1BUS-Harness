@@ -98,3 +98,14 @@ test('extra smoke calls are limited to explicit baseline capture and a capture c
   assert.match(jobs['coding-bench-live'], /!cancelled\(\)/);
   assert.match(jobs['coding-bench-live'], /needs\.coding-bench-smoke\.result == 'skipped' &&\s*!\(github\.event_name == 'workflow_dispatch' && inputs\.coding-baseline-capture\)/);
 });
+
+test('failed coding runs scan their log before printing and never upload an absent report', () => {
+  for (const [job, folder] of [['coding-bench-smoke', 'coding-smoke'], ['coding-bench-live', 'coding-bench']]) {
+    const steps = stepsOf(jobs[job]);
+    const scan = steps.find(step => /coding-bench\.ts --scan/.test(step));
+    assert.ok(scan.includes(`if [ -f artifacts/${folder}/report.json ]; then report=(--report artifacts/${folder}/report.json); fi`));
+    assert.ok(scan.includes('--scan "${report[@]}" --log'));
+    assert.ok(scan.indexOf('--scan') < scan.indexOf('cat artifacts/'));
+    assert.ok(steps.at(-1).includes(`hashFiles('artifacts/${folder}/report.json') != ''`));
+  }
+});

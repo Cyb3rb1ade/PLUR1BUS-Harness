@@ -3,9 +3,46 @@ import { it } from "node:test";
 import assert from "node:assert/strict";
 import { collect, readTool, scriptedAdapter, turnFixture, turnRequest, useTempDirs } from "./helpers.ts";
 import type { ProviderFamily } from "../../src/toolcall/quirks.ts";
-import { ProviderError } from "../../../providers/src/index.ts";
+import { ProviderError, buildAnthropicBody } from "../../../providers/src/index.ts";
 
 const tmp = useTempDirs("n-provider-choice-");
+
+it("Sonnet 5.5 uses automatic choice at the actual candidate boundary", async () => {
+  const wire = scriptedAdapter([
+    { calls: [{ id: "read", name: "file.read", args: { path: "x" } }] }, { text: "done" },
+  ]);
+  const f = turnFixture(wire.adapter, {
+    family: { fixture: "anthropic" },
+    profiles: { default: [{ provider: "fixture", model: "claude-sonnet-5-5", adapter: wire.adapter }] },
+  }, tmp.make());
+  f.registry.register(readTool("file.read", async () => "contents"));
+  try {
+    const chunks = await collect(f.provider, turnRequest({ messages: [{ role: "user", text: "Read ./x" }] }));
+    assert.deepEqual(wire.requests.map(request => request.toolChoice), ["auto", "auto"]);
+    const last = chunks.at(-1);
+    assert.equal(last?.type === "telemetry" && last.telemetry.toolChoice.status, "unsupported");
+    assert.ok(chunks.some(chunk => chunk.type === "tool.result"));
+  } finally { f.close(); }
+});
+
+it("prior peer results form valid Anthropic tool history before the next user turn", async () => {
+  const wire = scriptedAdapter([{ text: "continued" }]);
+  const adapter = { async *stream(request: Parameters<typeof wire.adapter.stream>[0]) {
+    const body = buildAnthropicBody(request, { stream: true, defaultMaxTokens: 1024 });
+    assert.equal((body.messages as { role: string }[])[0]?.role, "user");
+    yield* wire.adapter.stream(request);
+  } };
+  const f = turnFixture(adapter, { family: { fixture: "anthropic" } }, tmp.make());
+  f.registry.register(readTool("file.read", async () => "contents"));
+  try {
+    const chunks = await collect(f.provider, turnRequest({
+      messages: [{ role: "user", text: "Continue from the prior result." }],
+      peerResults: [{ id: "prior-read", name: "file.read", text: "untrusted prior contents" }],
+    }));
+    assert.ok(chunks.some(chunk => chunk.type === "delta" && chunk.text === "continued"));
+    assert.ok(wire.requests[0]?.messages.some(message => message.role === "tool" && message.content === "untrusted prior contents"));
+  } finally { f.close(); }
+});
 
 for (const family of ["openai-chat", "openai-responses", "anthropic", "gemini"] as ProviderFamily[]) {
   it(`${family} forces a needed first round and restores auto after the model calls a tool`, async () => {

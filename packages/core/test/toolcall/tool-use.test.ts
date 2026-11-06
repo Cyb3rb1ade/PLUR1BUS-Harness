@@ -118,3 +118,18 @@ test("named choice requires an offered tool and retries cannot create a continui
     choice: "auto", forced: false,
   });
 });
+
+
+test("Sonnet 5.5 suppresses named and required forcing only for its exact Anthropic model", () => {
+  const input = {
+    family: "anthropic" as const, model: "claude-sonnet-5-5", tools: ["file.read"],
+    need: { needed: true, reasons: [] }, round: 0,
+  };
+  for (const need of [input.need, { ...input.need, namedTool: "file.read" }]) {
+    assert.deepEqual(toolChoiceForTurn({ ...input, need }), {
+      choice: "auto", forced: false, suppressed: "model-unsupported",
+    });
+  }
+  assert.equal(toolChoiceForTurn({ ...input, model: "claude-haiku-4-5-20251001" }).choice, "required");
+  assert.equal(toolChoiceForTurn({ ...input, family: "openai-chat" }).choice, "required");
+});

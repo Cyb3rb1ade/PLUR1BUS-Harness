@@ -121,6 +121,7 @@ async function live(args: Map<string, string>, signal: AbortSignal): Promise<voi
     throw new Error("coding live refuses credential environment");
   }
   const models = modelsOf();
+  phase = "live-home";
   const home = await codingEvalHome(homeOf());
   const secrets = await codingSecretValues(home, models);
   const baseline = args.has("--baseline")
@@ -146,6 +147,7 @@ async function live(args: Map<string, string>, signal: AbortSignal): Promise<voi
       toolsBinary,
       limitsHelper,
       signal,
+      onPhase(value) { phase = `live-${value}`; },
       onCase(progress) {
         console.log(JSON.stringify(progress));
       },
@@ -188,14 +190,18 @@ async function smoke(args: Map<string, string>, signal: AbortSignal): Promise<vo
   const limitsHelper = process.env.PLUR1BUS_SANDBOX_LIMITS_BIN ?? "";
   if (process.platform !== "linux" || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u.test(revision)
     || !isAbsolute(toolsBinary) || !isAbsolute(limitsHelper)) throw new Error("coding smoke environment unavailable");
+  phase = "smoke-home";
   const home = await codingEvalHome(homeOf());
+  phase = "smoke-secret-store";
   const secrets = await codingSecretValues(home, models);
+  phase = "smoke-publication-reservation";
   const publication = await reserveCodingPublication(output);
   try {
     phase = "smoke-preflight-and-run";
     const result = await runCodingSmoke(CORPUS, {
       home, models, revision, toolsBinary, limitsHelper,
       signal: AbortSignal.any([signal, AbortSignal.timeout(20 * 60_000)]),
+      onPhase(value) { phase = `smoke-${value}`; },
     });
     phase = "publication";
     const record = {
@@ -333,7 +339,9 @@ async function main(): Promise<void> {
     if (args.has("--cleanup")) await cleanupCodingHome(home);
     else if (args.has("--setup")) await setupCodingSecrets(home, modelsOf(), process.env);
     else {
-      await scanCodingPublications(home, modelsOf(), [required(args, "--report"), required(args, "--log")]);
+      const files = [required(args, "--log")];
+      if (args.has("--report")) files.unshift(required(args, "--report"));
+      await scanCodingPublications(home, modelsOf(), files);
     }
     console.log(JSON.stringify({ status: "completed" }));
   } finally {

@@ -6,6 +6,14 @@ import { TURN_EVAL_SCENARIOS } from "../fixtures/turn-eval/scenarios.ts";
 import { TURN_EVAL_POLICY_SCENARIOS } from "../fixtures/turn-eval/policy-scenarios.ts";
 
 describe("turn eval over createTurnProvider", () => {
+  it("checks Sonnet 5.5 automatic choice while still requiring the actual tool execution", async () => {
+    const scenario = TURN_EVAL_SCENARIOS.find(item => item.id === "file-needed-en")!;
+    const report = await runTurnEval([scenario], { family: "anthropic", model: "claude-sonnet-5-5" });
+    assert.equal(report.scenarios[0]?.passed, true);
+    assert.ok(report.scenarios[0]?.checks.some(check => check.name === "turn 1: round zero tool_choice is auto" && check.passed));
+    assert.equal(report.metrics.toolHitRate, 1);
+    assert.equal(report.metrics.missingToolRate, 0);
+  });
   it("runs every German and English case and reports its harness checks", async () => {
     const report = await runTurnEval(TURN_EVAL_SCENARIOS);
     assert.equal(report.scenarios.length, TURN_EVAL_SCENARIOS.length);

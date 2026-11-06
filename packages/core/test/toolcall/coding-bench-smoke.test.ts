@@ -40,6 +40,16 @@ test("smoke stops after one case, awaits cleanup and retains numeric evidence", 
   assert.deepEqual(result.metrics, { rounds: 1, toolCalls: 1, toolErrors: 0, input: 5, output: 2, cacheRead: 0, cacheCreated: 0, totalInput: 5 });
 });
 
+test("smoke forwards bounded stage diagnostics through the actual runner options", async () => {
+  const phases: string[] = [];
+  const capture: typeof runCodingLive = async (...args) => {
+    args[1].onPhase?.("runtimes");
+    return simulate(...args);
+  };
+  await runCodingSmoke("unused", { ...options(), onPhase: phase => phases.push(phase) }, capture, factory());
+  assert.deepEqual(phases, ["runtimes"]);
+});
+
 test("provider failure and unavailable usage cannot pass smoke readiness", async () => {
   for (const outcome of ["provider-error", "budget", "aborted"] as const) {
     assert.equal((await runCodingSmoke("unused", options(), simulate, factory(outcome))).ready, false);

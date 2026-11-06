@@ -43,6 +43,9 @@ export interface CodingLiveOptions {
   signal: AbortSignal;
   arms?: readonly CodingArmFactory[];
   onCase?: (progress: { checked: number; resolved: number }) => void;
+  /** Fixed coordinator stages only, suitable for a public failure log without foreign exception text. */
+  onPhase?: (phase: "home" | "collab-api" | "corpus" | "sandbox" | "runtimes" | "native-preflight"
+    | "native-foundation" | "providers" | "case-setup" | "subject" | "verifier") => void;
 }
 
 /** Stable across harness revisions and temporary paths; changed model endpoints/settings cannot silently pair. */
@@ -164,7 +167,9 @@ export async function runCodingLive(root: string, options: CodingLiveOptions): P
   if (process.platform !== "linux" || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u.test(options.revision)) {
     throw new Error("coding live environment unavailable");
   }
+  options.onPhase?.("home");
   const home = await codingEvalHome(options.home);
+  options.onPhase?.("collab-api");
   await codingProvisionerApi();
   const models = parseTurnEvalModels(JSON.stringify(options.models));
   const configurations = models.map(codingConfiguration);
@@ -178,16 +183,20 @@ export async function runCodingLive(root: string, options: CodingLiveOptions): P
     arms.some((arm) => typeof arm.create !== "function")
   )
     throw new Error("coding matrix refused");
+  options.onPhase?.("corpus");
   const corpus = await loadCodingCorpus(root);
+  options.onPhase?.("sandbox");
   const isolation = await detectSandbox(options.limitsHelper);
   if (!isolation.available || isolation.tasks.mechanism !== "namespace-limit") {
     throw new Error("coding live process-count isolation unavailable");
   }
   const verifier = sandboxVerifier(90_000, { limitsHelper: options.limitsHelper, maxTasks: () => DEFAULT_MAX_TASKS });
+  options.onPhase?.("runtimes");
   const runtimes = await resolveCodingRuntimes(true, options.signal);
   const native = new ToolsClient({ home: join(home, "native"), supervised: false, binary: options.toolsBinary });
   let providers: TurnEvalProviders | undefined;
   try {
+    options.onPhase?.("native-preflight");
     const probeWorkspace = await provisionCodingCard(
       home,
       new Map([["README.md", { text: "Private B1 preflight.\n", mode: 0o600 }]]),
@@ -205,8 +214,10 @@ export async function runCodingLive(root: string, options: CodingLiveOptions): P
     } finally {
       await probeWorkspace.close();
     }
+    options.onPhase?.("native-foundation");
     const health = await native.health();
     if (health.process.state !== "ready") throw new Error("coding native foundation unavailable");
+    options.onPhase?.("providers");
     const secrets = await codingSecretValues(home, models);
     providers = composeTurnEvalProviders(models, { secrets: openTurnEvalSecrets(home) });
     const cases: CodingLiveCase[] = [];
@@ -216,6 +227,7 @@ export async function runCodingLive(root: string, options: CodingLiveOptions): P
         for (const task of corpus.tasks)
           for (const seed of corpus.seeds) {
             options.signal.throwIfAborted();
+            options.onPhase?.("case-setup");
             const instance = await renderCodingTask(task, seed, "start");
             const workspace = await provisionCodingCard(home, instance.files, options.signal);
             try {
@@ -237,6 +249,7 @@ export async function runCodingLive(root: string, options: CodingLiveOptions): P
               });
               if (arm.id !== factory.id) throw new Error("coding arm identity refused");
               const began = performance.now();
+              options.onPhase?.("subject");
               const subject = await arm.run({
                 root: workspace.worktree,
                 worktree: workspace.worktree,
@@ -247,6 +260,7 @@ export async function runCodingLive(root: string, options: CodingLiveOptions): P
                 signal: options.signal,
               });
               const wallMs = Math.round(performance.now() - began);
+              options.onPhase?.("verifier");
               const { checker, verificationMs } = await verifyCodingCandidate(workspace.worktree, (image) =>
                 verifyCodingTask(task, instance.variant, image, {
                   mode: "live",

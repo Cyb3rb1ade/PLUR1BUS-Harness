@@ -6,7 +6,7 @@ import { createTurnProvider, type TurnProviderOptions } from "../composition/pro
 import { createCallBudget } from "../budget/index.ts";
 import { ToolRegistry } from "../tools/registry.ts";
 import { LiveCapabilityIndex } from "./live-index.ts";
-import type { ProviderFamily } from "./quirks.ts";
+import { lookupQuirks, type ProviderFamily } from "./quirks.ts";
 import type { ChatChunk, ChatRequest } from "../session/provider.ts";
 import type { ChatRequest as WireRequest, JsonObject, StreamingAdapter } from "../../../providers/src/index.ts";
 
@@ -194,7 +194,7 @@ function emptyResult(id: string): TurnEvalResult {
 
 function checkTurn(
   result: TurnEvalResult, turn: TurnEvalTurn, requests: readonly WireRequest[], chunks: readonly ChatChunk[],
-  executed: readonly string[], turnIndex: number,
+  executed: readonly string[], turnIndex: number, expectedChoice: TurnEvalTurn["choice"],
 ): void {
   const check = (name: string, passed: boolean) =>
     result.checks.push({ name: `turn ${turnIndex + 1}: ${name}`, passed });
@@ -217,7 +217,7 @@ function checkTurn(
     check(`${name} instructions are loaded`, loaded);
   }
   const firstChoice = requests[0]?.toolChoice ?? "auto";
-  check(`round zero tool_choice is ${turn.choice}`, turn.choice === "auto"
+  check(`round zero tool_choice is ${expectedChoice}`, expectedChoice === "auto"
     ? firstChoice === "auto" : firstChoice === "required" || typeof firstChoice === "object");
   const normalRounds = requests.slice(1).filter(r => !content(r).includes("Invalid arguments (data):"));
   check("later rounds use auto tool_choice",
@@ -308,7 +308,9 @@ export async function runTurnScenario(
       result.turns++;
       result.termination.push(termination);
       result.checks.push({ name: `turn ${index + 1}: completes`, passed: termination === "completed" });
-      checkTurn(result, turn, turnRequests, chunks, executed.slice(executionOffset), index);
+      const expectedChoice = lookupQuirks(options.family ?? "openai-chat", options.model).supportsForcedToolChoice
+        ? turn.choice : "auto";
+      checkTurn(result, turn, turnRequests, chunks, executed.slice(executionOffset), index, expectedChoice);
       if (turnRequests[0]) {
         const tools = JSON.stringify(turnRequests[0].tools ?? []);
         if (previousTools !== undefined && tools !== previousTools) result.toolPrefixChanges++;
