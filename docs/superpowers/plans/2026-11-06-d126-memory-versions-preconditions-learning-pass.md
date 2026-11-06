@@ -130,6 +130,7 @@ A new dream job, `learn`. The harness owns it, because the transcripts live in t
      - the proposed change: add, correct, merge, mark stale or retire;
      - an **evidence score**.
    - Procedural findings (skills, tool configuration) always go to the skill-mining review (H3).
+   - Planning constraints (D127 K5) are a finding kind of the per-project pass. They are tier B: project memory under a planning node, injected into the D124 lead's plan brief. See the [D127 plan](2026-11-07-d127-checks-edges-lanes-learning.md).
    - **The evidence score is computed from evidence, not from the model's self-reported confidence.** Its inputs:
      - breadth: sessions, distinct days, distinct agents or persons;
      - source trust: what the person states outranks a verified tool result, which outranks agent text;
@@ -181,7 +182,7 @@ A new dream job, `learn`. The harness owns it, because the transcripts live in t
 | **V2-H** | `memory.history`/`memory.revert` RPC, CLI, web version list; WebMCP classes and `exposure-matrix.test.ts` | harness | 1.0 |
 | **V3-0** | Design section for `learn`: data model of findings, prompts, budgets, selection rules, `dream_run` ledger fields, the H3 interface | `docs/superpowers/specs/` | 0.5 |
 | **V3a** | Transcript selection with ACL mirroring for the agent and project scopes, window, caps, breaker, idempotency, ledger | `packages/core/src/dreams/` | 1.5 |
-| **V3b** | Orchestrator and per-session analysis, pattern aggregation with prevalence | `packages/core/src/dreams/learn/` (new) | 2.0 |
+| **V3b** | Orchestrator and per-session analysis; pattern aggregation with prevalence in code: clustering, counting, deduplication and ranking are deterministic computations, never model judgements (D127 K6) | `packages/core/src/dreams/learn/` (new) | 2.0 |
 | **V3c** | Read-only verify step and contradiction flags | same | 1.0 |
 | **V3d** | Findings with evidence into `memory.proposals`, `memory.curation` and the skill-mining review; web review with evidence and prevalence | `packages/core`, `packages/web` | 1.5 |
 | **V3e** | Evidence score, tiers A/B/C, objection window with inbox notice, shadow mode, calibration record, revert-rate breaker | `packages/core/src/dreams/learn/` | 1.5 |
