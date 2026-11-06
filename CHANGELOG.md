@@ -29,6 +29,15 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
   before the copy. An agent table without memories validates on the generation check alone. See
   `docs/embedding-migration.md`.
 
+- **Schema-owned configuration outputs (SH2).** Public Supervisor/CLI reads, Web settings and palette values, config
+  audit entries, diagnostics, support bundles and agent exports apply the schema's sensitivity and URL policies.
+  Untouched replacement controls preserve the original values; URL views retain hosts and paths. Internal provisioning
+  and repair use private watch snapshots. Core and Supervisor register declared values before dependent logs and live
+  listeners, including installed module declarations; captured child output uses bounded streaming masking. Regular
+  backups preserve explicit secret references, replace literal credentials and report the affected key names after
+  restore. Safe reference names stay readable in every view and log; pasted keys in reference slots are masked,
+  registered and produce a value-free warning. Portable encrypted backups keep their existing behavior. See `docs/config-disclosure.md`.
+
 - **Schema-owned configuration sensitivity (SH1).** Secret strings and references carry boolean `x-sensitive` metadata;
   endpoint URLs use `x-url-credentials` for userinfo and query values. Coverage checks enforce explicit classifications
   and public exceptions. Shared helpers extract only credential-bearing URL parts, and TypeScript validation reports

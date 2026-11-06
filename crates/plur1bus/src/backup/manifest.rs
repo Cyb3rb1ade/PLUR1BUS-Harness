@@ -124,9 +124,54 @@ pub struct Secrets {
 }
 
 /// What the manifest says about secrets. It must say what the archive holds: the secret store is never read, but the API account
-/// database `state/api/accounts.db` is part of the archive (docs/portable-backup.md: the API accounts are restored from it) and
+/// database `state/api/accounts.db` is currently included by default; the owner decision of 2026-10-21 requires opt-in, to be implemented in SH8, and
 /// it holds password hashes, TOTP seeds and token hashes. Keep both phrases the tests look for.
-pub const SECRETS_NOTE: &str = "no secret-store values are part of this archive: API keys and tokens stay in the OS keyring, run/ is never archived, and the encrypted fallback file is not included; a webhook secret in config.json is replaced by a placeholder; the API account database (state/api/accounts.db, when present) is archived with its password hashes, TOTP seeds and token hashes, and the archive is neither signed nor encrypted";
+pub const SECRETS_NOTE: &str = "no secret-store values are part of this archive: API keys and tokens stay in the OS keyring, run/ is never archived, and the encrypted fallback file is not included; config secret references are preserved, schema-marked literals are replaced by placeholders, and URL userinfo, query and fragment values are masked; the API account database (state/api/accounts.db, when present) is currently included in the default ordinary archive with its password hashes, TOTP seeds and token hashes, contrary to the owner decision of 2026-10-21 requiring opt-in; that correction follows in SH8, and the archive is neither signed nor encrypted";
+
+// The existing note field carries versioned names-only metadata without changing CLI/RPC result shapes (SH2).
+const CONFIG_REDACTIONS_PREFIX: &str = "plur1bus.backup.config-redactions/";
+const MAX_REDACTED_CONFIG_KEYS: usize = 65_536;
+const MAX_REDACTED_CONFIG_KEY_BYTES: usize = 4096;
+
+/// Append sorted, unique replaced-key names, never values; manifest validation enforces this input contract.
+pub fn secrets_note(keys: &[String]) -> String {
+    format!(
+        "{SECRETS_NOTE}\n{CONFIG_REDACTIONS_PREFIX}1: {}",
+        serde_json::json!(keys)
+    )
+}
+
+/// Read replaced-key metadata; older archives have none. Malformed or unsupported metadata refuses the archive.
+pub fn redacted_config_keys(note: &str) -> Result<Vec<String>, BackupError> {
+    let invalid = || {
+        BackupError::new(
+            "manifest-invalid",
+            "config redaction metadata is malformed or unsupported",
+        )
+    };
+    let mut lines = note
+        .lines()
+        .filter(|line| line.contains(CONFIG_REDACTIONS_PREFIX));
+    let Some(line) = lines.next() else {
+        return Ok(Vec::new());
+    };
+    if lines.next().is_some() {
+        return Err(invalid());
+    }
+    let encoded = line
+        .strip_prefix("plur1bus.backup.config-redactions/1: ")
+        .ok_or_else(invalid)?;
+    let keys: Vec<String> = serde_json::from_str(encoded).map_err(|_| invalid())?;
+    if keys.len() > MAX_REDACTED_CONFIG_KEYS
+        || keys
+            .iter()
+            .any(|key| key.is_empty() || key.len() > MAX_REDACTED_CONFIG_KEY_BYTES)
+        || keys.windows(2).any(|pair| pair[0] >= pair[1])
+    {
+        return Err(invalid());
+    }
+    Ok(keys)
+}
 
 /// A home-relative path that is the same on every OS and cannot climb out: non-empty `/`-separated segments, none of them
 /// `.`/`..`, no backslash, colon or NUL (a drive or stream on Windows), not absolute.
@@ -266,6 +311,7 @@ impl Manifest {
         if self.secrets.included {
             return bad("the manifest claims secrets are included".into());
         }
+        redacted_config_keys(&self.secrets.note)?;
         if !store_target_allowed(&self.store_target) {
             return bad(format!(
                 "store target {:?} is not allowed",
@@ -387,6 +433,25 @@ mod tests {
     #[test]
     fn a_well_formed_manifest_validates() {
         base().validate().unwrap();
+    }
+
+    #[test]
+    fn malformed_config_redaction_metadata_is_refused_instead_of_losing_restore_guidance() {
+        for suffix in [
+            "plur1bus.backup.config-redactions/1: not-json",
+            "plur1bus.backup.config-redactions/1: [42]",
+            "plur1bus.backup.config-redactions/1: [\"\"]",
+            "plur1bus.backup.config-redactions/1: [\"engine.apiKey\",\"engine.apiKey\"]",
+            "plur1bus.backup.config-redactions/2: []",
+            "plur1bus.backup.config-redactions/1: []\nplur1bus.backup.config-redactions/1: []",
+        ] {
+            let mut manifest = base();
+            manifest.secrets.note = format!("{SECRETS_NOTE}\n{suffix}");
+            assert_eq!(manifest.validate().unwrap_err().reason, "manifest-invalid");
+        }
+        let mut legacy = base();
+        legacy.secrets.note = "the older archive has no redaction metadata".into();
+        legacy.validate().expect("older manifests remain readable");
     }
 
     #[test]

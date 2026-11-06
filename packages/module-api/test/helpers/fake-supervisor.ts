@@ -20,8 +20,8 @@ export interface FakeSupervisor {
   readonly runtimeSets: AdminImportRuntimeConfigSetParams[];
   /** The token each successful `config.watch` connection authenticated with, in order. */
   readonly watches: string[];
-  /** Makes `config` the running configuration and sends `config.changed` to every watcher. */
-  push(config: Record<string, unknown>, o?: Partial<Omit<ConfigChanged, "config" | "revision" | "previousRevision">>): ConfigChanged;
+  /** Updates the authoritative snapshot. A deferred notification can be delivered later with pushRaw. */
+  push(config: Record<string, unknown>, o?: Partial<Omit<ConfigChanged, "config" | "revision" | "previousRevision">>, delivery?: "immediate" | "deferred"): ConfigChanged;
   /** Sends raw `config.changed` params without changing what `config.watch` answers (e.g. an invalid config). */
   pushRaw(params: ConfigChanged): void;
   /** Stops accepting connections; the connections already open stay (a supervisor process that is going away while
@@ -123,14 +123,14 @@ export async function startFakeSupervisor(o: { home: string; config: Record<stri
       home: o.home, token: p.token,
       get config() { return p.config; }, get revision() { return p.revision; },
       sets: p.sets, runtimeSets: p.runtimeSets, watches: p.watches,
-      push(next, extra = {}) {
+      push(next, extra = {}, delivery = "immediate") {
         const previousRevision = p.revision;
         p.n += 1; p.config = next; p.revision = `r${p.n}`;
         const params: ConfigChanged = {
           revision: p.revision, previousRevision, changed: extra.changed ?? [], restart: extra.restart ?? { live: [], core: false, modules: [] },
           config: next, source: extra.source ?? "set",
         };
-        send(params);
+        if (delivery === "immediate") send(params);
         return params;
       },
       pushRaw: send,

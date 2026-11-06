@@ -4,10 +4,11 @@
 // values and role are parameters.
 import { catalogues, type Key, type Lang } from "../i18n.ts";
 import { ALL_ITEMS, GROUPS } from "../nav.ts";
-import { isSensitiveKey, maskUrlSecrets, type Entry } from "./match.ts";
+import { maskUrlSecrets, type Entry } from "./match.ts";
 import { roleIn, type RolePreset } from "../pages/common/load.ts";
 import { SECTIONS, sectionOf, settingsHref } from "../settings-sections.ts";
 import { SETTINGS, type SettingSpec } from "./settings-index.ts";
+import { configPolicyOf, isConfigReference } from "../config-policy.ts";
 
 export { settingsHref };
 
@@ -27,18 +28,36 @@ export function humanize(key: string): string {
 const scalar = (v: unknown, urlCredentials = false): string | null =>
   typeof v === "string" ? maskUrlSecrets(v, urlCredentials) : typeof v === "number" || typeof v === "boolean" ? String(v) : null;
 
-/** Text values of the catalogued settings from a `config.get` value (the whole configuration). Objects and null are skipped, a list of
- * scalars is joined, and sensitive keys are never read. Anything that is not an object gives {}. */
-export function settingValues(config: unknown, settings: readonly SettingSpec[] = SETTINGS): Record<string, string> {
-  const out: Record<string, string> = {};
+/** List boundaries survive until final index rendering so masking one URL cannot consume a following public endpoint. */
+export type SettingValue = string | readonly string[];
+
+function hiddenSetting(value: unknown, setting: SettingSpec): boolean {
+  if (isConfigReference(value, setting.key)) return false;
+  const policy = configPolicyOf(setting.key);
+  if (setting.sensitive || policy.declaredSensitive || policy.referenceSchema !== undefined) return true;
+  return policy.sensitive && typeof value !== "number" && typeof value !== "boolean";
+}
+
+/** Catalogued values from public `config.get`. Objects/null and secret literals are skipped; safe reference names stay readable. */
+export function settingValues(config: unknown, settings: readonly SettingSpec[] = SETTINGS): Record<string, SettingValue> {
+  const out: Record<string, SettingValue> = {};
   if (typeof config !== "object" || config === null) return out;
-  for (const { key, sensitive, urlCredentials } of settings) {
-    if (sensitive || isSensitiveKey(key)) continue;
+  for (const setting of settings) {
+    const { key, urlCredentials } = setting;
     let at: unknown = config;
     for (const seg of key.split(".")) at = typeof at === "object" && at !== null ? (at as Record<string, unknown>)[seg] : undefined;
-    const parts = Array.isArray(at) ? at.map(value => scalar(value, urlCredentials)) : [];
-    const text = Array.isArray(at) ? (parts.length > 0 && parts.every(value => value !== null) ? parts.join(", ") : null) : scalar(at, urlCredentials);
-    if (text !== null) out[key] = text;
+    const policy = configPolicyOf(key);
+    if (hiddenSetting(at, setting)) continue;
+    const reference = isConfigReference(at, key);
+    const endpoint = urlCredentials || policy.urlCredentials;
+    if (Array.isArray(at)) {
+      const parts = at.map(value => scalar(value, endpoint));
+      if (parts.length > 0 && parts.every((value): value is string => value !== null)) out[key] = parts;
+    } else {
+      const text = (reference || policy.unknownMembers === "public") && typeof at === "string"
+        ? at : scalar(at, endpoint);
+      if (text !== null) out[key] = text;
+    }
   }
   return out;
 }
@@ -92,8 +111,8 @@ export function sessionEntries(sessions: readonly { id: string; title: string; a
 
 export type BuildOptions = {
   lang: Lang;
-  /** Dotted key -> value text, from `settingValues`. Sensitive keys are dropped here again, whatever is passed. */
-  values?: Readonly<Record<string, string>> | null;
+  /** Dotted key -> value text, from `settingValues`. Sensitive values are checked again so only safe references survive. */
+  values?: Readonly<Record<string, SettingValue>> | null;
   settings?: readonly SettingSpec[];
   /** The signed-in role; entries the role may not see are left out. Undefined (not signed in, unknown role): the server decides. */
   role?: string | undefined;
@@ -122,8 +141,14 @@ export function buildIndex({ lang, values, settings = SETTINGS, role }: BuildOpt
   }));
   const actions: Entry[] = ACTIONS.map((a) => ({ id: `action:${a.id}`, group: "action", ...both(a.label), key: a.to, to: a.to, ...(a.roles ? { roles: a.roles } : {}) }));
   const set: Entry[] = settings.map((s) => {
-    const raw = s.sensitive || isSensitiveKey(s.key) ? undefined : values?.[s.key];
-    const value = raw === undefined ? undefined : maskUrlSecrets(raw, s.urlCredentials);
+    const candidate = values?.[s.key];
+    const policy = configPolicyOf(s.key);
+    const raw = hiddenSetting(candidate, s) ? undefined : candidate;
+    const endpoint = s.urlCredentials || policy.urlCredentials;
+    const value = raw === undefined ? undefined
+      : typeof raw === "string"
+        ? (policy.unknownMembers === "public" || isConfigReference(raw, s.key) ? raw : maskUrlSecrets(raw, endpoint))
+      : raw.map((value) => maskUrlSecrets(value, endpoint)).join(", ");
     const label = humanize(s.key);
     return {
       id: `setting:${s.key}`, group: "setting", label, labels: [label], key: s.key, to: settingsHref(s.key),

@@ -1,4 +1,5 @@
 // Pure matching, ranking and highlighting for the palette. No DOM, no i18n, no signals: unit-tested in test/palette-match.test.ts.
+import { configPolicyOf, maskConfigUrl } from "../config-policy.ts";
 import type { RolePreset } from "../pages/common/load.ts";
 
 export type Group = "nav" | "action" | "log" | "agent" | "session" | "setting";
@@ -14,7 +15,7 @@ export type Entry = {
   /** Config key, or route path for navigation. */
   key: string;
   help?: string;
-  /** Current non-sensitive value, as text. Never set for a sensitive key (see `isSensitiveKey`). */
+  /** Current public value or validated reference name, as text. Secret literals never enter the index. */
   value?: string;
   /** Second line for navigation entries (the sidebar group). */
   meta?: string;
@@ -43,52 +44,14 @@ export function fold(s: string): { text: string; map: number[] } {
 
 const words = (q: string): string[] => fold(q).text.split(/\s+/).filter((w) => w !== "");
 
-/** Keys whose value must never be indexed or shown: a name that says key, token, secret, password (or passwd/pwd/passphrase), credential,
- * authorization, bearer, cookie, private material, a signature, jwt or hmac, or a leaf called `auth`. The same list as the Settings page
- * (pages/settings/config/model.ts `isSecretKey`), kept here because Settings imports this module and a back-import would be a cycle.
- * `auth.*` tuning keys (timeouts, capacity) are not secrets, hence the leaf-only `auth` rule. */
-const SENSITIVE = /key|token|secret|passw|pwd|passphrase|credential|authori[sz]ation|bearer|cookie|private|signature|jwt|hmac|(^|[._-])auth$/i;
+/** Schema policy and the credential-leaf backstop protect unknown and classified configuration values. */
 export function isSensitiveKey(key: string): boolean {
-  return SENSITIVE.test(key);
+  return configPolicyOf(key).sensitive;
 }
 
-const MASK = "••••";
-/** Schema-classified endpoints keep their host/path and conceal userinfo and every query value. */
-function maskEndpoint(value: string): string {
-  const normalized = value.replace(/^[\u0000-\u0020]+|[\u0000-\u0020]+$/g, "").replace(/[\t\n\r]/g, "");
-  const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(normalized);
-  const special = !scheme || /^(?:https?|ftp|wss?)$/i.test(scheme[1] ?? "");
-  let start = scheme?.[0].length ?? 0;
-  const hasAuthority = special
-    ? Boolean(scheme) || /^[\\/]{2}/.test(normalized)
-    : normalized.slice(start, start + 2) === "//";
-  if (hasAuthority) {
-    if (special) {
-      while (/[\\/]/.test(normalized.charAt(start)) && start < normalized.length) start++;
-    } else start += 2;
-    const rest = normalized.slice(start);
-    const authority =
-      (special || scheme?.[1]?.toLowerCase() === "file" ? /^[^/\\?#]*/ : /^[^/?#]*/).exec(rest)?.[0] ?? "";
-    const separator = authority.lastIndexOf("@");
-    if (separator >= 0) value = `${normalized.slice(0, start)}${MASK}@${rest.slice(separator + 1)}`;
-  }
-  const query = value.indexOf("?");
-  const fragment = value.indexOf("#");
-  if (query < 0 || (fragment >= 0 && fragment < query)) return value;
-  const parameters = value.slice(query + 1, fragment < 0 ? undefined : fragment).split("&").map(parameter => {
-    const equal = parameter.indexOf("=");
-    return equal < 0 ? parameter : `${parameter.slice(0, equal + 1)}${MASK}`;
-  });
-  return `${value.slice(0, query + 1)}${parameters.join("&")}${fragment < 0 ? "" : value.slice(fragment)}`;
-}
-/** A value that is a URL may carry its secret in the text: `scheme://user:password@host` loses the user part, and a query parameter with a
- * sensitive name (`?api_key=…`) loses its value. Schema-classified endpoints mask all query values. */
+/** Classified endpoints and the URL backstop hide userinfo, query values and fragments, retaining host and path. */
 export function maskUrlSecrets(value: string, urlCredentials = false): string {
-  if (urlCredentials) return maskEndpoint(value);
-  if (!value.includes("://") && !value.includes("?")) return value;
-  return value
-    .replace(/([a-z][a-z0-9+.-]{0,31}:\/\/)[^/?#\s@]*@/gi, `$1${MASK}@`)
-    .replace(/([?&;])([^=&#\s]+)=([^&#\s]*)/g, (m, sep: string, name: string) => (isSensitiveKey(name) ? `${sep}${name}=${MASK}` : m));
+  return maskConfigUrl(value, urlCredentials);
 }
 
 // Field classes, best first: label starts with the word, label contains it, key, help, value.

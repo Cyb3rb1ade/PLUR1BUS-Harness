@@ -1,216 +1,185 @@
-// Schema-owned policy lookup and credential extraction; metadata never changes configuration validation.
+// Schema-owned disclosure: structural policy is browser-safe; reference validation stays at the Node edge.
+import { Ajv2020, type ValidateFunction } from "ajv/dist/2020.js";
 import schemaJson from "../schema/config.schema.json" with { type: "json" };
+import { credentialName, urlParts } from "./url-credentials.ts";
+import { looksLikePastedKey, referenceSafety } from "./secret-reference.ts";
+import {
+  configPolicyAt, redactWithPolicy, referenceSchema, valuePolicy, visitConfigPolicy,
+  type ConfigSchemaNode,
+} from "./policy.ts";
+export type { ConfigSchemaNode } from "./policy.ts";
 
-/** Configuration-member metadata, independent of validation and of credential-looking names. */
-export interface ConfigSchemaNode {
-  type?: string | readonly string[];
-  properties?: Readonly<Record<string, ConfigSchemaNode>>;
-  additionalProperties?: boolean | ConfigSchemaNode;
-  items?: boolean | ConfigSchemaNode;
-  /** Nonvalidating metadata for supported members of an opaque pass-through object. */
-  "x-value-schema"?: ConfigSchemaNode;
-  "x-sensitive"?: boolean;
-  "x-url-credentials"?: boolean;
-}
-/** One concrete string to register, with its schema path or extracted URL-component slot. */
-export interface ConfigSecretEntry {
-  key: string;
-  value: string;
-}
-/** A bounded validation notice containing a key and guidance, never the configured value. */
-export interface ConfigWarning {
-  key: string;
-  message: string;
-}
-interface Annotations {
-  sensitive: boolean;
-  urlCredentials: boolean;
-}
-interface StringField extends Annotations {
-  key: string;
-  value: string;
-  parent: ConfigSchemaNode;
-}
+export interface ConfigSecretEntry { key: string; value: string }
+export interface ConfigWarning { key: string; message: string }
 const SCHEMA = schemaJson as unknown as ConfigSchemaNode;
 const WARNING_LIMIT = 50;
-const valueSchema = (node: ConfigSchemaNode): ConfigSchemaNode =>
-  node["x-value-schema"]
-    ? { ...node, ...node["x-value-schema"], properties: { ...node.properties, ...node["x-value-schema"].properties } }
-    : node;
-const schemaObject = (value: boolean | ConfigSchemaNode | undefined): ConfigSchemaNode =>
-  typeof value === "object" && value !== null ? valueSchema(value) : {};
-const propertySchema = (node: ConfigSchemaNode, key: string): ConfigSchemaNode | undefined =>
-  node.properties && Object.hasOwn(node.properties, key) ? node.properties[key] : undefined;
-const annotations = (node: ConfigSchemaNode, inherited: Annotations): Annotations => ({
-  sensitive: inherited.sensitive || node["x-sensitive"] === true,
-  urlCredentials: inherited.urlCredentials || node["x-url-credentials"] === true,
-});
+const REFERENCE_POLICY = SCHEMA["x-secret-reference-policy"]!;
+// A reference-name length bound is not evidence that a long command argument or query value is a token.
+const TEXT_POLICY = { ...REFERENCE_POLICY, maxNameLength: Number.POSITIVE_INFINITY };
+const TEXT_TOKEN_PREFIX = new RegExp(`^(?:${REFERENCE_POLICY.tokenPrefixPattern})`, "i");
+const ENDPOINT_PREFIX = /^(?:(?:https?|wss?|ftp):|[a-z][a-z0-9+.-]*:[\\/]+|[\\/]{2})/i;
+const partsOf = (key: string | readonly string[]): readonly string[] => typeof key === "string"
+  ? key.replace(/\[\d*\]/g, ".*").split(".").filter(Boolean) : key;
+const hasReference = (node: ConfigSchemaNode): boolean =>
+  node["x-secret-reference"] !== undefined && node["x-secret-reference"] !== false;
 
-function pathAnnotations(key: string, schema: ConfigSchemaNode): Annotations {
-  let node = valueSchema(schema);
-  let flags = annotations(node, { sensitive: false, urlCredentials: false });
-  for (const part of key
-    .replace(/\[\d*\]/g, ".*")
-    .split(".")
-    .filter(Boolean)) {
-    node = valueSchema(
-      propertySchema(node, part) ??
-        (node.items && /^(?:\d+|\*)$/.test(part) ? schemaObject(node.items) : schemaObject(node.additionalProperties)),
-    );
-    flags = annotations(node, flags);
-  }
-  // A string-list widget must not display sensitive items just because the collection itself is unmarked.
-  const item = schemaObject(node.items);
-  return annotations(item, flags);
-}
-
-/** Resolve whole-value sensitivity through property, map and array-item annotations. */
-export const sensitiveOf = (key: string, schema: ConfigSchemaNode = SCHEMA): boolean =>
-  pathAnnotations(key, schema).sensitive;
-/** Resolve endpoint-component policy without treating the host or path as a secret. */
-export const urlCredentialsOf = (key: string, schema: ConfigSchemaNode = SCHEMA): boolean =>
-  pathAnnotations(key, schema).urlCredentials;
-
-/** Walk actual values with their property/map/item schemas; unknown members gain no name-based classification. */
-function stringFields(value: unknown, schema: ConfigSchemaNode, consume: (field: StringField) => void): void {
-  function visit(
-    at: unknown,
-    node: ConfigSchemaNode,
-    key: string,
-    inherited: Annotations,
-    parent: ConfigSchemaNode,
-  ): void {
-    node = valueSchema(node);
-    const flags = annotations(node, inherited);
-    if (typeof at === "string") {
-      consume({ key, value: at, parent, ...flags });
-      return;
-    }
-    if (Array.isArray(at)) {
-      for (const [index, child] of at.entries())
-        visit(child, schemaObject(node.items), key ? `${key}.${index}` : String(index), flags, node);
-    } else if (at && typeof at === "object") {
-      for (const [name, child] of Object.entries(at))
-        visit(
-          child,
-          propertySchema(node, name) ?? schemaObject(node.additionalProperties),
-          key ? `${key}.${name}` : name,
-          flags,
-          node,
-        );
-    }
-  }
-  visit(value, schema, "", { sensitive: false, urlCredentials: false }, {});
-}
-
-const decode = (text: string): string => {
-  try {
-    return decodeURIComponent(text);
-  } catch {
-    // URL userinfo can retain a literal percent sign beside valid escapes. Decode the valid parts too.
-    return new URLSearchParams(`value=${text.replaceAll("&", "%26").replaceAll("+", "%2B")}`).get("value") ?? text;
-  }
+export const sensitiveOf = (key: string | readonly string[], schema: ConfigSchemaNode = SCHEMA): boolean => {
+  const policy = configPolicyAt(schema, partsOf(key));
+  return valuePolicy(policy.node, policy).sensitive;
+};
+export const urlCredentialsOf = (key: string | readonly string[], schema: ConfigSchemaNode = SCHEMA): boolean => {
+  const policy = configPolicyAt(schema, partsOf(key));
+  return valuePolicy(policy.node, policy).urlCredentials;
 };
 
-/** Locate userinfo after WHATWG input normalization, including invalid hosts and ports. */
-function userInfoRange(value: string): { start: number; end: number } | undefined {
-  const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(value);
-  const special = !scheme || /^(?:https?|ftp|wss?)$/i.test(scheme[1] ?? "");
-  if (!scheme && !/^[\\/]{2}/.test(value)) return;
-  let start = scheme?.[0].length ?? 0;
-  if (special) {
-    while (/[\\/]/.test(value.charAt(start)) && start < value.length) start++;
-  } else if (value.slice(start, start + 2) === "//") start += 2;
-  else return;
-  const rest = value.slice(start);
-  const authority =
-    (special || scheme?.[1]?.toLowerCase() === "file" ? /^[^/\\?#]*/ : /^[^/?#]*/).exec(rest)?.[0] ?? "";
-  const separator = authority.lastIndexOf("@");
-  return separator < 0 ? undefined : { start, end: start + separator };
+// Cache validators by immutable schema identity and definition, never by configured values.
+const REFERENCE_VALIDATORS = new WeakMap<ConfigSchemaNode, Map<string, ValidateFunction>>();
+function referenceMatches(node: ConfigSchemaNode, value: unknown, schema: ConfigSchemaNode): boolean {
+  const definition = referenceSchema(node, schema);
+  if (!definition) return false;
+  const metadata = node["x-secret-reference"];
+  const ref = typeof metadata === "object" ? metadata.$ref : undefined;
+  const cacheKey = ref ?? JSON.stringify(node);
+  let validators = REFERENCE_VALIDATORS.get(schema);
+  if (!validators) { validators = new Map(); REFERENCE_VALIDATORS.set(schema, validators); }
+  let validator = validators.get(cacheKey);
+  if (!validator) {
+    try {
+      validator = new Ajv2020({ strict: false }).compile(ref
+        ? { $ref: ref, $defs: schema.$defs } : { ...node, $defs: schema.$defs });
+    } catch { throw new Error("Invalid config secret-reference metadata"); }
+    validators.set(cacheKey, validator);
+  }
+  return validator(value) && referenceSafety(value, definition, REFERENCE_POLICY);
 }
 
-/** Map a normalized offset back without dropping controls that belong to the literal credential. */
-function literalOffset(value: string, normalizedOffset: number): number {
-  let index = 0;
-  for (let offset = 0; offset < normalizedOffset && index < value.length; index++) {
-    if (!/[\t\n\r]/.test(value.charAt(index))) offset++;
-  }
-  return index;
+/** Reference classification never retrieves a target; structured paths preserve dotted member names. */
+export function secretReferenceOf(
+  key: string | readonly string[], value: unknown, schema: ConfigSchemaNode = SCHEMA,
+): boolean { return referenceMatches(configPolicyAt(schema, partsOf(key)).node, value, schema); }
+
+export interface ConfigRedactionOptions {
+  schema?: ConfigSchemaNode;
+  key?: string;
+  path?: readonly string[];
+}
+/** Unknown strings are private; projection never changes the live configuration. */
+export function redactConfig(value: unknown, options: ConfigRedactionOptions = {}): unknown {
+  const schema = options.schema ?? SCHEMA;
+  return redactWithPolicy(value, schema, options.path ?? partsOf(options.key ?? ""),
+    (node, at) => referenceMatches(node, at, schema));
 }
 
-/** Extract credentials without treating any host or path as a secret, even for a malformed endpoint. */
-function urlParts(value: string): { values: string[]; userInfo: boolean } {
-  const values = new Set<string>();
-  const add = (text: string, query = false): void => {
-    if (text !== "") values.add(text);
-    const plain = decode(query ? text.replaceAll("+", " ") : text);
-    if (plain !== "") values.add(plain);
+function textParts(value: unknown, named = false): string[] {
+  const out = new Set<string>();
+  const inspect = (text: string, credential = false, sourcePath = false): void => {
+    // Hierarchical endpoints contribute selected parts; ordinary colon-bearing passwords remain literals.
+    if (ENDPOINT_PREFIX.test(text)) {
+      for (const part of urlParts(text, TEXT_POLICY).textValues) out.add(part);
+      return;
+    }
+    const equal = text.indexOf("=");
+    const left = equal < 0 ? "" : text.slice(0, equal);
+    const right = equal < 0 ? "" : text.slice(equal + 1);
+    if (!credential && equal >= 0 && (/^--?/.test(left) || credentialName(left) ||
+      (/^[A-Za-z_][A-Za-z0-9_.-]*$/.test(left) && ENDPOINT_PREFIX.test(right)))) {
+      const name = left.replace(/^-+/, "");
+      inspect(right, credentialName(name), /(?:file|path|dir|directory|cwd|root)$/i.test(name));
+      return;
+    }
+    const relativePath = /[\\/]/.test(text) && /(?:^|[\\/])[^\\/]*[._-][^\\/]*(?:[\\/]|$)/.test(text) &&
+      !TEXT_TOKEN_PREFIX.test(text);
+    const rootedPath = /^(?:[/\\]|\.{1,2}[/\\]|~[/\\]|[A-Za-z]:[/\\])/.test(text);
+    const token = looksLikePastedKey(text, TEXT_POLICY);
+    if ((sourcePath && (rootedPath || relativePath || !token)) ||
+      (!credential && (rootedPath || relativePath)) || (!credential && /^--?[^=]+$/.test(text))) return;
+    if ((credential && text) || token) out.add(text);
   };
-  let userInfo = false;
-  const addUserInfo = (text: string): void => {
-    userInfo = true;
-    const colon = text.indexOf(":");
-    add(text);
-    add(colon < 0 ? text : text.slice(0, colon));
-    if (colon >= 0) add(text.slice(colon + 1));
+  const visit = (at: unknown, credential = false, sourcePath = false): void => {
+    if (typeof at === "string") { inspect(at, credential, sourcePath); return; }
+    if (Array.isArray(at)) {
+      let credentialArgument = false, pathArgument = false;
+      for (const item of at) {
+        const option = typeof item === "string" && /^--?[^=]+$/.test(item);
+        visit(item, credential || (credentialArgument && !option), sourcePath || (pathArgument && !option));
+        credentialArgument = option && credentialName(item.replace(/^-+/, ""));
+        pathArgument = option && /(?:file|path|dir|directory|cwd|root)$/i.test(item);
+      }
+    } else if (at && typeof at === "object") {
+      for (const [name, child] of Object.entries(at))
+        visit(child, credential || credentialName(name), sourcePath || /(?:file|path|dir|directory|cwd|root)$/i.test(name));
+    }
   };
-  const literal = value.replace(/^[\u0000-\u0020]+|[\u0000-\u0020]+$/g, "");
-  const normalized = literal.replace(/[\t\n\r]/g, "");
-  const range = userInfoRange(normalized);
-  if (range) {
-    const start = literalOffset(literal, range.start);
-    let end = literalOffset(literal, range.end);
-    while (/[\t\n\r]/.test(literal.charAt(end)) && end < literal.length) end++;
-    addUserInfo(literal.slice(start, end));
-    addUserInfo(normalized.slice(range.start, range.end));
-  }
-  try {
-    const relative = /^[\\/]{2}/.test(normalized);
-    const parsed = new URL(relative ? `https:${normalized}` : normalized);
-    if (parsed.username || parsed.password)
-      addUserInfo(`${parsed.username}${parsed.password ? `:${parsed.password}` : ""}`);
-  } catch {
-    // Literal extraction above also covers incomplete endpoints; validation is unchanged.
-  }
-  for (const text of new Set([value, normalized])) {
-    const fragment = text.indexOf("#");
-    const query = text.indexOf("?");
-    if (query >= 0 && (fragment < 0 || query < fragment)) {
-      for (const parameter of text.slice(query + 1, fragment < 0 ? undefined : fragment).split("&")) {
-        const equal = parameter.indexOf("=");
-        if (equal >= 0) add(parameter.slice(equal + 1), true);
+  visit(value, named);
+  return [...out];
+}
+
+/** Internal inventory includes references; text sinks must use configTextSecretEntries. */
+export function configSecretEntries(value: unknown, schema: ConfigSchemaNode = SCHEMA): ConfigSecretEntry[] {
+  return collectEntries(value, schema, false);
+}
+export function configTextSecretEntries(value: unknown, schema: ConfigSchemaNode = SCHEMA): ConfigSecretEntry[] {
+  return collectEntries(value, schema, true);
+}
+function collectEntries(value: unknown, schema: ConfigSchemaNode, text: boolean): ConfigSecretEntry[] {
+  const out: ConfigSecretEntry[] = [];
+  visitConfigPolicy(value, schema, [], (at, policy, parts) => {
+    const key = parts.join(".");
+    if (text) {
+      try { if (!policy.urlCredentials && referenceMatches(policy.node, at, schema)) return false; }
+      catch { /* Invalid policy cannot make a configured literal public. */ }
+      if (policy.textCredentials === "parts") {
+        for (const [index, part] of textParts(at).entries()) out.push({ key: `${key}#part:${index}`, value: part });
+        return false;
       }
     }
-  }
-  return { values: [...values], userInfo };
-}
-
-/** Registry slots for declared sensitive strings; endpoint slots contain only extracted credential parts. */
-export function configSecretEntries(value: unknown, schema: ConfigSchemaNode = SCHEMA): ConfigSecretEntry[] {
-  const entries: ConfigSecretEntry[] = [];
-  stringFields(value, schema, (field) => {
-    if (field.sensitive) entries.push({ key: field.key, value: field.value });
-    else if (field.urlCredentials) {
-      for (const [index, part] of urlParts(field.value).values.entries())
-        entries.push({ key: `${field.key}#url:${index}`, value: part });
-    }
+    const flags = valuePolicy(policy.node, policy);
+    const referenceLiteral = hasReference(policy.node) && !policy.urlCredentials;
+    if (typeof at === "string") {
+      const types = Array.isArray(policy.node.type) ? policy.node.type
+        : policy.node.type === undefined ? [] : [policy.node.type];
+      const privateValue = flags.sensitive || referenceLiteral || (types.length > 0 && !types.includes("string"));
+      if (text && privateValue && !flags.declaredSensitive && !referenceLiteral) {
+        for (const [index, part] of textParts(at, credentialName(parts.at(-1) ?? "")).entries())
+          out.push({ key: `${key}#part:${index}`, value: part });
+      } else if (privateValue) {
+        out.push({ key, value: at });
+        if (text && ENDPOINT_PREFIX.test(at)) {
+          for (const [index, part] of urlParts(at, TEXT_POLICY).textValues.entries())
+            out.push({ key: `${key}#url:${index}`, value: part });
+        }
+      }
+      else if (flags.urlCredentials) {
+        const components = urlParts(at, TEXT_POLICY);
+        for (const [index, part] of (text ? components.textValues : components.values).entries())
+          out.push({ key: `${key}#url:${index}`, value: part });
+      }
+    } else if ((flags.declaredSensitive || referenceLiteral) && (typeof at === "number" || typeof at === "boolean"))
+      out.push({ key, value: String(at) });
   });
-  return entries;
+  return out;
 }
 
-/** Value-free, bounded warnings. Endpoints remain valid and retain their original representation. */
+/** Bounded notices contain only paths and guidance, never configured values. */
 export function configurationWarnings(value: unknown, schema: ConfigSchemaNode = SCHEMA): ConfigWarning[] {
   const warnings: ConfigWarning[] = [];
-  stringFields(value, schema, (field) => {
-    if (warnings.length >= WARNING_LIMIT || !field.urlCredentials || !urlParts(field.value).userInfo) return;
-    const sibling = Object.entries(field.parent.properties ?? {}).find(
-      ([, node]) => node["x-sensitive"] === true && node.type === "string",
-    )?.[0];
-    const parentKey = field.key.split(".").slice(0, -1).join(".");
-    const hint = sibling
-      ? `${parentKey ? `${parentKey}.` : ""}${sibling}`
-      : "the provider's secret-store reference field";
-    warnings.push({ key: field.key, message: `URL userinfo is discouraged; use ${hint} instead.` });
+  visitConfigPolicy(value, schema, [], (at, policy, parts, parent) => {
+    if (warnings.length >= WARNING_LIMIT) return false;
+    const key = parts.join(".");
+    if (hasReference(policy.node) && at !== "" && at !== null && at !== undefined) {
+      try {
+        if (!referenceMatches(policy.node, at, schema)) warnings.push({ key,
+          message: looksLikePastedKey(at, REFERENCE_POLICY)
+            ? "Reference looks like a pasted key; use a secret-store reference name."
+            : "Value does not match the declared reference syntax; use a secret-store reference name.",
+        });
+      } catch { /* Invalid metadata stays private and is rejected at manifest boundaries. */ }
+    }
+    if (warnings.length >= WARNING_LIMIT || typeof at !== "string" || !policy.urlCredentials || !urlParts(at).userInfo) return;
+    const sibling = Object.entries(parent?.properties ?? {}).find(([, node]) =>
+      node["x-sensitive"] === true && node.type === "string")?.[0];
+    const hint = sibling ? [...parts.slice(0, -1), sibling].join(".") : "the provider's secret-store reference field";
+    warnings.push({ key, message: `URL userinfo is discouraged; use ${hint} instead.` });
   });
   return warnings;
 }

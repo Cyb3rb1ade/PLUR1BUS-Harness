@@ -59,6 +59,8 @@ pub struct CreateReport {
     pub skipped: Vec<String>,
     pub created_at_ms: u64,
     pub engine: Engine,
+    /// The manifest's names-only disclosure note, reused by the CLI without adding result fields.
+    pub secrets_note: String,
 }
 
 /// Removes a directory tree when dropped (staging areas, on every exit path).
@@ -254,6 +256,7 @@ pub fn create(layout: &Layout, out: &Path, snap: &Snapshot) -> Result<CreateRepo
     let store = snap.store_target.as_str();
 
     let mut skipped = Vec::new();
+    let mut redacted_config_keys = Vec::new();
     let mut units: Vec<Unit> = vec![Unit {
         archive: "store".into(),
         target: store.into(),
@@ -316,7 +319,7 @@ pub fn create(layout: &Layout, out: &Path, snap: &Snapshot) -> Result<CreateRepo
                 copy_file_stable(&live, &dst, target)?;
                 if target == "config.json" {
                     // A secret VALUE kept in the config never reaches the archive (the live file is not touched).
-                    super::redact::redact_staged_config(&dst)?;
+                    redacted_config_keys = super::redact::redact_staged_config(layout, &dst)?;
                 }
                 units.push(Unit {
                     archive,
@@ -423,7 +426,7 @@ pub fn create(layout: &Layout, out: &Path, snap: &Snapshot) -> Result<CreateRepo
         skipped,
         secrets: Secrets {
             included: false,
-            note: SECRETS_NOTE.into(),
+            note: secrets_note(&redacted_config_keys),
         },
     };
     manifest.validate()?;
@@ -442,6 +445,7 @@ pub fn create(layout: &Layout, out: &Path, snap: &Snapshot) -> Result<CreateRepo
         skipped: manifest.skipped.clone(),
         created_at_ms: ms,
         engine: manifest.engine.clone(),
+        secrets_note: manifest.secrets.note.clone(),
     })
 }
 

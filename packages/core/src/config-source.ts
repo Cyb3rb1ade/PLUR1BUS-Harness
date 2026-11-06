@@ -1,11 +1,12 @@
 import { statSync, watch as watchDirectory } from "node:fs";
 import { basename, dirname } from "node:path";
 import { assertSharedEnginePrivacy } from "./privacy/shared-engine.ts";
-import { restartPlan, type HarnessConfig } from "@plur1bus/config-schema";
+import { configurationWarnings, restartPlan, type HarnessConfig } from "@plur1bus/config-schema";
 import { watchSupervisorConfig, type ConfigWatch, type ImportRunControl } from "@plur1bus/module-api";
 import { loadConfig, readConfigFile, validateConfig } from "./config-load.ts";
 import type { HarnessLogger } from "./logger.ts";
 import type { Layout } from "./paths.ts";
+import { logConfigWarnings } from "./config-warnings.ts";
 
 type Plan = ReturnType<typeof restartPlan>;
 type Log = Pick<HarnessLogger, "debug" | "info" | "warn" | "error">;
@@ -45,6 +46,8 @@ export interface ConfigSourceOptions {
   filePollMs?: number;
   /** The directory watcher (default `fs.watch`); a port so a test can play an OS that reports nothing. */
   watchDirectory?: typeof watchDirectory;
+  /** Prepare private disclosure metadata before publishing a candidate. A failure retains the last accepted snapshot. */
+  prepareChange?: (previous: HarnessConfig, next: HarnessConfig) => void | Promise<void>;
 }
 
 /** The interval of the stat check that backs the directory watcher. `fs.watch` is best effort: on macOS (FSEvents) a change
@@ -91,15 +94,44 @@ export async function openConfigSource(o: ConfigSourceOptions): Promise<ConfigSo
     log?.warn(`${what} is invalid; ignored`, { revision: rev, errors: r.errors });
     return null;
   };
-  const apply = (next: HarnessConfig, rev: string | null) => {
-    assertSharedEnginePrivacy(next, builtWith.engine as Record<string, unknown>);
+  const commit = (next: HarnessConfig, rev: string | null) => {
     const prev = current; current = next; revision = rev;
     pending = restartPlan(builtWith, next).restart.core;
     const plan = restartPlan(prev, next);
     if (plan.changed.length === 0) return;
+    logConfigWarnings(log, configurationWarnings(next));
     for (const fn of [...listeners]) {
       try { fn(prev, next, plan); } catch (err) { log?.error("config change listener failed", { err }); }
     }
+  };
+  let preparation: Promise<void> | null = null;
+  let waiting: { next: HarnessConfig; revision: string | null } | null = null;
+  const refusedPreparation = (): void => log?.warn(
+    "configuration sensitivity metadata is unavailable; the running configuration stays; repair module manifests and retry", {});
+  const apply = (next: HarnessConfig, rev: string | null): void => {
+    if (closed) return;
+    assertSharedEnginePrivacy(next, builtWith.engine as Record<string, unknown>);
+    if (preparation) {
+      // One pending candidate, not an unbounded queue of complete configurations during slow filesystem reads.
+      waiting = { next, revision: rev };
+      return;
+    }
+    let prepared: void | Promise<void>;
+    try { prepared = o.prepareChange?.(current, next); }
+    catch { refusedPreparation(); return; }
+    if (!prepared) { commit(next, rev); return; }
+    preparation = Promise.resolve(prepared)
+      .then(() => { if (!closed) commit(next, rev); })
+      .catch(refusedPreparation)
+      .finally(() => {
+        preparation = null;
+        const candidate = waiting;
+        waiting = null;
+        if (candidate) apply(candidate.next, candidate.revision);
+      });
+  };
+  const preparedChanges = async (): Promise<void> => {
+    while (preparation) await preparation;
   };
   /** Makes `w` the live watch: its pushes are applied from now on, then whatever it holds now (the snapshot plus any
    *  push that arrived before this listener, I1) is applied if it differs from what runs. */
@@ -156,12 +188,13 @@ export async function openConfigSource(o: ConfigSourceOptions): Promise<ConfigSo
         const old = watch;
         const from = revision;
         if (!follow(w)) { await w.close(); if (!watch) scheduleRetry(); return; }
+        await preparedChanges();
         log?.info("configuration re-watched", { revision: w.revision, previousRevision: from });
         if (old && old !== w) await old.close().catch(() => {});
         return;
       }
       if (explicit) log?.warn("supervisor configuration re-watch failed", { live: watch !== null });
-      if (!watch) { readFile(); scheduleRetry(); }
+      if (!watch) { readFile(); await preparedChanges(); scheduleRetry(); }
     });
     return chain;
   };
@@ -177,6 +210,7 @@ export async function openConfigSource(o: ConfigSourceOptions): Promise<ConfigSo
   // or migrating the file; a standalone core keeps loadConfig (defaults written, migration persisted).
   current = snapshot ?? (o.supervised ? readConfigFile(o.layout.configPath) : loadConfig(o.layout.configPath).config); // ConfigInvalid propagates: the core exits 2 (B18)
   builtWith = current;
+  logConfigWarnings(log, configurationWarnings(current));
   if (first) follow(first);
   else if (o.supervised) scheduleRetry(); // M1: a supervised core that missed the start window keeps trying
 
@@ -207,7 +241,15 @@ export async function openConfigSource(o: ConfigSourceOptions): Promise<ConfigSo
     resubscribe: () => rewatch(true),
     set(changes) {
       if (!watch) return null;
-      return watch.set(changes).then(() => undefined);
+      if (revision !== watch.revision) return Promise.reject({ error: "E_NOT_AVAILABLE", reason: "config-policy-unavailable" });
+      return watch.set(changes).then(async result => {
+        // The RPC reply can precede the corresponding push. Read an authoritative snapshot in that case.
+        if (!closed && watch && watch.revision !== result.revision) await rewatch(true);
+        await preparedChanges();
+        // A rejected or superseded disclosure policy cannot authorize a follow-up operation.
+        if (closed || !watch || watch.revision !== result.revision || revision !== result.revision)
+          throw { error: "E_NOT_AVAILABLE", reason: "config-policy-unavailable" };
+      });
     },
     async setDuringImport(run, changes) {
       if (closed || !watch?.setDuringImport) throw { error: "E_NOT_AVAILABLE", reason: "import-config-transport" };
@@ -215,6 +257,7 @@ export async function openConfigSource(o: ConfigSourceOptions): Promise<ConfigSo
     },
     async close() {
       closed = true;
+      waiting = null;
       fileWatch?.close(); clearInterval(filePoll);
       if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
       detach?.(); detach = null;

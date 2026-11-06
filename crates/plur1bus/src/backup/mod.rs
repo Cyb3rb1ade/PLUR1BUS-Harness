@@ -5,6 +5,8 @@
 //! (`admin.backup.snapshot`, RULING R1/R6); everything else is a point-in-time copy of an allow-listed unit. Nothing
 //! here reads a secret store (R4). The module is reached only from `commands::backup`, never from `supervisor/`.
 pub mod archive;
+mod config_json;
+mod config_policy;
 pub mod create;
 pub mod manifest;
 pub mod redact;
@@ -12,6 +14,8 @@ pub mod restore;
 
 #[cfg(test)]
 mod hardening;
+#[cfg(test)]
+mod module_policy_tests;
 
 use std::fmt;
 

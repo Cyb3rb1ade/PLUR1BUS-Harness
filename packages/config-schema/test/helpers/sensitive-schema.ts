@@ -55,6 +55,24 @@ export function configNodes(schema: SchemaNode): ConfigNode[] {
 
 /** Public heuristic matches require an exact key and a maintained justification. */
 export const PUBLIC_EXCEPTIONS: Readonly<Record<string, string>> = {
+  "providers.*.profile.auth_header_scheme": "Header template with a required {token} substitution; the credential is supplied separately.",
+  "engine.embedding.routes[].identity.tokenCap": "Numeric embedding-space input cap, not an access token.",
+  "engine.embedding.local.maxTokens": "Numeric embedding input-token cap.",
+  "engine.emotion.t3.encodingMaxTokens": "Numeric emotion-encoding token limit.",
+  "engine.neo.corpusDefaultWorkspaceKey": "Public default workspace identity, not an authentication key.",
+  "engine.neo.workspaces[].workspaceKey": "Public workspace identity, not an authentication key.",
+  "engine.neo.workspaces[].legacyKeys": "Array of former public workspace identifiers.",
+  "engine.neo.workspaces[].legacyKeys[]": "Former public workspace identifier.",
+  "engine.recall.adaptiveBudget.tokenBudgetPct": "Numeric recall budget percentage.",
+  "engine.recall.semanticCompression.tokenBudget": "Numeric recall token budget.",
+
+  "providers.*.profile.tokenUrl": "Token endpoint address; x-url-credentials conceals userinfo and query values only.",
+  "providers.*.profile.authorization_endpoint":
+    "Authorization endpoint address; x-url-credentials conceals userinfo and query values only.",
+  "providers.*.profile.token_endpoint":
+    "Token endpoint address; x-url-credentials conceals userinfo and query values only.",
+  "providers.*.profile.device_authorization_endpoint":
+    "Device authorization endpoint address; x-url-credentials conceals userinfo and query values only.",
   "import.ssh.connections.*.allowPrivate":
     "Boolean consent for private destination addresses, not private key material.",
   "import.ssh.connections.*.hostKey": "Public SSH host-key metadata; no private material.",

@@ -226,6 +226,9 @@ export function createRedactor(o: RedactOptions = {}): Redactor {
   // overflow the stack (and fail a whole query); what is deeper is replaced, never passed on unredacted.
   const walk = (v: unknown, ancestors: object[]): unknown => {
     if (typeof v === "string") return text(v);
+    // Opaque config slots can hold malformed numeric credentials. Preserve number type in diagnostic attrs;
+    // secretsOnly retains the existing fail-closed contract for a ToolResult containing a non-string secret.
+    if (typeof v === "number" && o.secretsOnly !== true && secretForms.some((form) => String(v).includes(form))) return 0;
     if (v !== null && typeof v === "object") {
       if (ancestors.includes(v)) throw new TypeError("circular value"); // the callers turn this into log.redaction.failed
       if (ancestors.length >= MAX_DEPTH) return "[TRUNCATED:depth]";

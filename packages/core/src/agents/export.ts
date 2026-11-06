@@ -2,7 +2,8 @@
 import { constants, openSync, readFileSync, closeSync, fstatSync, lstatSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
-import { createRedactor, isSecretKey } from "../logs/redact.ts";
+import { createRedactor, isSecretKey, maskSecretsInJson } from "../logs/redact.ts";
+import { configTextSecretEntries, redactConfig } from "@plur1bus/config-schema";
 import { canonicalManifest } from "./manifest.ts";
 import { RpcError } from "../rpc/errors.ts";
 const MAX_BYTES = 2 * 1024 * 1024;
@@ -17,17 +18,20 @@ export interface ExportInput {
   signer: (hash: string) => Promise<{ publicKey: string; signature: string }>;
 }
 export async function exportAgent(i: ExportInput) {
-  const redactor = createRedactor(i.secrets ? { secrets: i.secrets } : {});
+  const secrets = [...(i.secrets ?? []), ...configTextSecretEntries({ agents: { [i.agentId]: i.config } }).map(({ value }) => value)];
+  const redactor = createRedactor({ secrets });
   const files: { path: string; text: string }[] = [];
   let bytes = 0;
-  const add = (path: string, raw: string) => {
-    const text = redactor.text(raw); bytes += Buffer.byteLength(text);
+  const keep = (path: string, text: string) => {
+    bytes += Buffer.byteLength(text);
     if (bytes > MAX_BYTES || files.length >= MAX_FILES) throw new RpcError("E_NOT_AVAILABLE", "agent export exceeds transfer limit", { reason: "export-too-large" });
     files.push({ path, text });
   };
-  // Secret-named config keys are omitted, rather than exporting masked references as if they were usable config.
-  const clean = (v: any): any => Array.isArray(v) ? v.map(clean) : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).filter(([k]) => !isSecretKey(k)).map(([k, value]) => [k, clean(value)])) : typeof v === "string" ? redactor.text(v) : v;
-  add("config.json", JSON.stringify(clean(i.config)));
+  const add = (path: string, raw: string) => keep(path, redactor.text(raw));
+  // Configuration follows its root schema prefix. The exact-value backstop cannot reinterpret public key names or JSON types.
+  const config = redactConfig(i.config, { key: "agents.*" });
+  const configJson = JSON.stringify(config);
+  keep("config.json", maskSecretsInJson(configJson, config, secrets)?.json ?? configJson);
   add("memory/cards.json", JSON.stringify(redactor.value(i.memories)));
   const read = (rel: string) => {
     const path = join(i.root, rel);
@@ -56,7 +60,13 @@ export async function exportAgent(i: ExportInput) {
   walk("", 0);
   files.sort((a, b) => a.path.localeCompare(b.path));
   const manifest = canonicalManifest({ format: "plur1bus.agent-export/1", agentId: i.agentId, ...(i.rights ? { rights: i.rights } : {}), ...(i.requiredSecrets?.length ? { requiredSecrets: i.requiredSecrets } : {}), files: files.map(f => ({ path: f.path, bytes: Buffer.byteLength(f.text), sha256: sha(f.text) })) });
-  const manifestHash = sha(JSON.stringify(manifest));
+  const manifestJson = JSON.stringify(manifest);
+  // Reference names normally stay readable. A known-value collision cannot be masked into an invalid signed manifest.
+  let unsafeMetadata = true;
+  try { unsafeMetadata = maskSecretsInJson(manifestJson, manifest, secrets) !== undefined; }
+  catch { /* An uncheckable metadata value must also withhold the export. */ }
+  if (unsafeMetadata) throw new RpcError("E_NOT_AVAILABLE", "agent export metadata contains a registered secret value; resolve the reference-name collision before exporting", { reason: "export-secret-metadata" });
+  const manifestHash = sha(manifestJson);
   const signed = await i.signer(manifestHash);
   return { format: "plur1bus.agent-export/1", files, manifest, manifestHash, algorithm: "Ed25519", publicKey: signed.publicKey, signature: signed.signature };
 }

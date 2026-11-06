@@ -3,6 +3,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { policyForNode, policySchema, valuePolicy } from "@plur1bus/config-schema/policy";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const schemaPath = resolve(here, "../../config-schema/schema/config.schema.json");
@@ -26,13 +27,13 @@ const schema = JSON.parse(readFileSync(schemaPath, "utf8"));
 
 export function fromSchema(schemaObj) {
   const rows = [];
-  const walk = (props, prefix, inherited, policy = {}) => {
+  const walk = (props, prefix, inherited, parentPolicy) => {
     for (const [k, v] of Object.entries(props)) {
       const key = prefix ? `${prefix}.${k}` : k;
       if (key === "$schema" || key === "schemaVersion") continue;
       const help = v.description ?? inherited;
-      const sensitive = policy.sensitive === true || v["x-sensitive"] === true || v.items?.["x-sensitive"] === true;
-      const urlCredentials = policy.urlCredentials === true || v["x-url-credentials"] === true || v.items?.["x-url-credentials"] === true;
+      const policy = policyForNode(v, parentPolicy);
+      const { sensitive, urlCredentials } = valuePolicy(v, parentPolicy);
       if (!v.properties || v["x-tier"]) {
         rows.push({
           key,
@@ -43,34 +44,16 @@ export function fromSchema(schemaObj) {
           ...(help ? { help } : {}),
         });
       }
-      if (v.properties) walk(v.properties, key, help, { sensitive, urlCredentials });
+      if (v.properties) walk(v.properties, key, help, policy);
     }
   };
-  walk(schemaObj.properties, "", undefined);
-  return rows;
-}
-
-/** Policy includes opaque pass-through members; it must not invent editable settings or deep-link targets. */
-export function policiesFromSchema(schemaObj) {
-  const rows = [];
-  function walk(raw, key, inherited = {}) {
-    const node = raw["x-value-schema"] ? { ...raw, ...raw["x-value-schema"], properties: { ...raw.properties, ...raw["x-value-schema"].properties } } : raw;
-    const sensitive = inherited.sensitive === true || node["x-sensitive"] === true || node.items?.["x-sensitive"] === true;
-    const urlCredentials = inherited.urlCredentials === true || node["x-url-credentials"] === true || node.items?.["x-url-credentials"] === true;
-    if (key && (sensitive || urlCredentials)) rows.push({ key, ...(sensitive ? { sensitive: true } : {}), ...(urlCredentials ? { urlCredentials: true } : {}) });
-    const flags = { sensitive, urlCredentials };
-    for (const [name, child] of Object.entries(node.properties ?? {})) walk(child, key ? `${key}.${name}` : name, flags);
-    if (node.additionalProperties && typeof node.additionalProperties === "object") walk(node.additionalProperties, `${key}.*`, flags);
-    if (node.items && typeof node.items === "object") walk(node.items, `${key}[]`, flags);
-  }
-  walk(schemaObj, "");
+  walk(schemaObj.properties, "", undefined, policyForNode(schemaObj));
   return rows;
 }
 
 const HEADER = `// The settings catalogue behind the palette's "Settings" group: a static subset of \`packages/config-schema/schema/config.schema.json\`
-// (the schema of config.json, \`config.get\` / \`config.set\` in docs/rpc.md; docs/config.md for the tiers). The schema package is NOT
-// imported: it pulls ajv and Node code, and the bundle must not. test/palette-index.test.ts reads the schema file and fails when
-// this list drifts from it (a key added, removed, or its tier or help changed), so regenerate the rows when it does.
+// (the schema of config.json, \`config.get\` / \`config.set\` in docs/rpc.md; docs/config.md for the tiers). Runtime consumers import only
+// the browser-safe config-schema/policy entry point. test/palette-index.test.ts reads the schema and rejects catalogue drift.
 //
 // What is real: key, type, tier, sensitivity, URL-credential policy and help text, all copied from the schema. A key is listed when it is a leaf or carries an
 // \`x-tier\` (objects such as \`agents\` or \`modules\` are edited as a whole). \`help\` is the node's own \`description\`, else its nearest
@@ -79,6 +62,8 @@ const HEADER = `// The settings catalogue behind the palette's "Settings" group:
 // What is NOT available: localised labels. The schema has no titles, so the label is derived from the last key segment
 // (\`softBudgetMs\` -> "Soft budget ms") and help stays in the schema's English. A localised catalogue needs schema titles or an
 // owner-approved UI catalogue (follow-up).
+import type { ConfigSchemaNode } from "@plur1bus/config-schema/policy";
+
 export type SettingSpec = { readonly key: string; readonly type: string; readonly tier: "basic" | "advanced"; readonly sensitive?: boolean; readonly urlCredentials?: boolean; readonly help?: string };
 
 export const SETTINGS: readonly SettingSpec[] = [
@@ -99,8 +84,8 @@ export function generateFileContent(schemaObj) {
     }
     return `  { ${parts.join(", ")} },`;
   });
-  const policy = policiesFromSchema(schemaObj).map(row => `  ${JSON.stringify(row)},`).join("\n");
-  return `${HEADER}${lines.join("\n")}\n];\n\n// Complete sensitivity policy, including nonvalidating x-value-schema members, maps and array items.\n// These rows describe values; they do not add widgets or palette navigation targets.\nexport type ConfigPolicySpec = Pick<SettingSpec, "key" | "sensitive" | "urlCredentials">;\nexport const CONFIG_POLICY: readonly ConfigPolicySpec[] = [\n${policy}\n];\n`;
+  const policy = JSON.stringify(policySchema(schemaObj), null, 2);
+  return `${HEADER}${lines.join("\n")}\n];\n\n// Structural policy uses the shared schema format, retaining public members, unknown-member rules and reference definitions.\n// It describes values without adding editable widgets or palette targets.\nexport const CONFIG_POLICY_SCHEMA: ConfigSchemaNode = ${policy};\n`;
 }
 
 const content = generateFileContent(schema);

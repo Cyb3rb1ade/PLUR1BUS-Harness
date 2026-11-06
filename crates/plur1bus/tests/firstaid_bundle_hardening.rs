@@ -201,11 +201,11 @@ fn prepared() -> Home {
         &(lines.join("\n") + "\n"),
     );
     write(&h.home.join("logs/core.out.log"), "plain stdout\n");
-    // A secret under a credential-looking key name in the config.
+    // A declared Engine credential; arbitrary unmarked member names do not classify configuration.
     write(
         &h.home.join("config.json"),
         &format!(
-            r#"{{"schemaVersion":1,"supervisor":{{"graceMs":900}},"engine":{{"apiKey":"{KEYED_MARKER}"}}}}"#
+            r#"{{"schemaVersion":1,"supervisor":{{"graceMs":900}},"engine":{{"embedding":{{"apiKey":"{KEYED_MARKER}"}}}}}}"#
         ),
     );
     // Places a bundle never reads.
@@ -262,14 +262,14 @@ fn no_known_form_of_a_registered_secret_is_in_any_entry_name_or_byte_of_the_bund
 }
 
 #[test]
-fn a_value_under_a_credential_key_name_in_the_config_is_removed() {
+fn a_value_at_a_schema_declared_credential_path_is_removed() {
     let h = prepared();
     let dest = h.root.join("b.zip");
     assert_eq!(h.bundle(&dest).status.code(), Some(0));
     let zip = unzip(&dest);
     assert!(found_in(&zip, KEYED_MARKER).is_empty());
     let cfg: Value = serde_json::from_slice(&zip["config.json"]).unwrap();
-    assert_eq!(cfg["engine"]["apiKey"], "[REDACTED:key]");
+    assert_eq!(cfg["engine"]["embedding"]["apiKey"], "••••");
     assert_eq!(cfg["supervisor"]["graceMs"], 900);
 }
 
@@ -447,7 +447,8 @@ fn hex_that_is_not_a_registered_secrets_stays_in_the_bundle() {
 }
 
 #[test]
-fn credential_key_names_in_every_common_spelling_are_removed_from_the_config() {
+fn declared_header_maps_and_unstructured_credential_spellings_are_removed_but_public_config_is_kept(
+) {
     let names = [
         "authorization",
         "Authorization",
@@ -486,22 +487,48 @@ fn credential_key_names_in_every_common_spelling_are_removed_from_the_config() {
     ];
     for chunk in names.chunks(12) {
         let h = Home::new();
-        let mut engine = serde_json::Map::new();
+        let config_marker = uuid::Uuid::new_v4().to_string();
+        let text_marker = uuid::Uuid::new_v4().to_string();
+        let mut headers = serde_json::Map::new();
+        let mut lines = Vec::new();
         for n in chunk {
-            engine.insert((*n).to_string(), json!(format!("{KEYED_MARKER}-{n}")));
+            headers.insert((*n).to_string(), json!(format!("{config_marker}-{n}")));
+            lines.push(json!({(*n): format!("{text_marker}-{n}")}).to_string());
         }
+        headers.insert("ordinary".into(), json!(config_marker));
         write(
             &h.home.join("config.json"),
-            &json!({ "schemaVersion": 1, "engine": engine }).to_string(),
+            &json!({ "schemaVersion": 1, "engine": {"merging":{"headers":headers}},
+                "modelProfiles":{"primary":{"params":{"maxTokens":4096}}},
+                "unknown":{"password":config_marker} })
+            .to_string(),
+        );
+        write(
+            &h.home.join("logs/core.out.log"),
+            &(lines.join("\n") + "\n"),
         );
         let dest = h.root.join("b.zip");
         assert_eq!(h.bundle(&dest).status.code(), Some(0));
         let zip = unzip(&dest);
-        let left = found_in(&zip, KEYED_MARKER);
-        assert!(left.is_empty(), "values under {chunk:?} are in {left:?}");
+        for marker in [&config_marker, &text_marker] {
+            let left = found_in(&zip, marker);
+            assert!(left.is_empty(), "values under {chunk:?} are in {left:?}");
+        }
         let cfg: Value = serde_json::from_slice(&zip["config.json"]).unwrap();
+        assert_eq!(cfg["engine"]["merging"]["headers"]["ordinary"], "••••");
+        assert_eq!(cfg["modelProfiles"]["primary"]["params"]["maxTokens"], 4096);
+        assert_eq!(cfg["unknown"]["password"], "••••");
+        let log = String::from_utf8(zip["logs/core.out.log"].clone()).unwrap();
+        let rows: Vec<Value> = log
+            .lines()
+            .map(|line| serde_json::from_str(line).unwrap())
+            .collect();
         for n in chunk {
-            assert_eq!(cfg["engine"][n], "[REDACTED:key]", "{n}");
+            assert_eq!(cfg["engine"]["merging"]["headers"][n], "••••", "{n}");
+            assert!(
+                rows.iter().any(|row| row[n] == "[REDACTED:key]"),
+                "{n}: key backstop was lost"
+            );
         }
     }
 }
@@ -531,4 +558,34 @@ fn a_bundle_is_never_written_over_an_existing_file_and_the_zip_is_private() {
             0o600
         );
     }
+}
+
+#[test]
+fn unknown_namespace_values_and_their_log_occurrences_never_enter_a_real_bundle() {
+    let h = Home::new();
+    let marker = format!("runtime-canary-{}", uuid::Uuid::new_v4());
+    let value = json!({"schemaVersion":1,
+        "providers":{"unlisted":{"apiKey":marker}},
+        "oauth":{"opaque":{"clientSecret":marker}},
+        "engine":{"someUnknownKey":marker,"schicht15":{"undeclared":marker}},
+        "modules":{"absent":{"token":marker,"nested":{"password":marker}}},
+        "voice":{"local":{"catalogOverride":{"entry":{"opaque":marker}}}},
+        "unknown":{"password":marker,"count":7,"enabled":true}
+    });
+    write(&h.home.join("config.json"), &value.to_string());
+    write(
+        &h.home.join("logs/core.out.log"),
+        &format!("opaque diagnostic {marker}\n"),
+    );
+    let dest = h.root.join("namespaces.zip");
+    assert_eq!(h.bundle(&dest).status.code(), Some(0));
+    let entries = unzip(&dest);
+    assert!(
+        found_in(&entries, &marker).is_empty(),
+        "a runtime unknown namespace credential escaped"
+    );
+    let public: Value = serde_json::from_slice(&entries["config.json"]).unwrap();
+    assert_eq!(public["unknown"]["count"], 7);
+    assert_eq!(public["unknown"]["enabled"], true);
+    assert_eq!(public["engine"]["someUnknownKey"], "••••");
 }
