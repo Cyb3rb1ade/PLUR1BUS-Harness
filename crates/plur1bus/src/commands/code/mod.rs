@@ -9,6 +9,8 @@ mod render;
 mod runtime;
 mod signals;
 mod stream;
+#[cfg(feature = "tui")]
+mod tui;
 
 use plur1bus_rpc::Client;
 use std::path::PathBuf;
@@ -107,4 +109,7 @@ pub struct CodeArgs {
     /// Keep the session and its transcript only in memory
     #[arg(long)]
     pub no_memory: bool,
+    /// Use the fullscreen terminal UI (line mode for pipes and dumb terminals)
+    #[arg(long)]
+    pub tui: bool,
 }

@@ -87,6 +87,47 @@ Ctrl+C cancels the running turn or check. Two Ctrl+C presses within two seconds 
 
 Checks run with the same command detector and runner as the card gate. An advisory result does not complete a card or replace its independent review. An uncommitted verifier manifest cannot enable network access. Diffs are limited to 4 MiB before paging and preserve the real index, HEAD and staging state.
 
+### Fullscreen view
+
+```sh
+plur1bus code . --tui --agent worker
+```
+
+The fullscreen view uses the same session, event stream, commands and permission decisions as the line view.
+Piped input, a single message, `--json`, a dumb terminal or a build without fullscreen support selects the line
+view and reports the fallback. No terminal screen is opened for help or scripts.
+
+At 90 columns and above, the transcript and tool/diff panes appear side by side. In a narrower terminal, Tab
+chooses the visible pane. The draft remains editable while output arrives.
+
+| Key | Action |
+|---|---|
+| Enter / Alt+Enter | Submit or steer / queue, with the same core capability checks as the line view. |
+| Tab | Select transcript or tool/diff pane. |
+| Page Up / Page Down | Scroll the selected pane. |
+| Ctrl+Home / Ctrl+End | Go to its beginning or end; the transcript follows new output at the end. |
+| Alt+Up / Alt+Down | Select the previous or next retained tool call. |
+| Ctrl+F | Fold or expand the selected tool's diff. |
+| F1 | Open or close the key guide. |
+| F2 | Open or close the currently loaded queue; Page Up / Page Down scroll it. `/queue` refreshes it. |
+| Ctrl+C / Ctrl+D | Cancel; twice within two seconds exits / exit when idle. |
+
+The status line shows the model selection, the last completed turn's measured input/output tokens, this
+session's measured cache ratio and the applicable global and agent token limits. A dash means the core did
+not report a value or access to it was refused. An unlimited token budget is shown only after a successful
+budget response without applicable token limits. The heading shows the bound worktree and its branch at open.
+
+An approval appears over the work area with its tool, targets, risk and available preview. Type the displayed
+choice and press Enter; an empty answer makes no decision. Escape denies. The draft underneath remains intact.
+If the request changes, an answer to the old request is discarded and a draft overtaken by a new question is
+restored. A required operating-system confirmation still uses the existing approval flow.
+
+The display keeps a bounded window: up to 1 MiB of transcript text in 512 entries, and 128 tool previews with a
+shared 1 MiB limit. Each frame scrolls within the newest 128 KiB or 8,192 lines of transcript; an ellipsis
+marks omitted text. Individual previews retain up to 64 KiB and visibly mark truncation. The core's transcript
+is unchanged. For a larger diff, use the line/JSON view to read the core's paged result. Closing the view,
+interrupting it or an unexpected renderer failure restores the terminal's input, cursor and normal screen.
+
 ### Approvals
 
 For a request in this session, the terminal shows the recorded tool, targets, risk and available diff preview. Answer `y` for once, `a` for the displayed grant scope, `n` to deny, or `?` for details. The core offers and enforces the permitted scopes. A required operating-system confirmation appears through the existing D109 flow. Model replies and tool output cannot answer this prompt.

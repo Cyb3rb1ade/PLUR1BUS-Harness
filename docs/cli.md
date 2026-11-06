@@ -1404,6 +1404,7 @@ Chat sessions: list, show, archive
 
 * `--yes` — Confirm a model switch for scripts; never approves a folder or tool
 * `--no-memory` — Keep the session and its transcript only in memory
+* `--tui` — Use the fullscreen terminal UI (line mode for pipes and dumb terminals)
 
 
 

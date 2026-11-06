@@ -158,6 +158,7 @@ input.on("line", (line) => {
         edits,
         osConfirmations,
         sessions: db.prepare("SELECT count(*) n FROM sessions").get().n,
+        running: db.prepare("SELECT count(*) n FROM turns WHERE state = 'running'").get().n,
         bindings: db.prepare("SELECT count(*) n FROM session_worktrees").get().n,
         codingInstructions: containsCodingInstructions(wire.requests),
         tools: wire.requests[0]?.tools?.map((tool) => tool.name) ?? [],

@@ -1,0 +1,16 @@
+agent · main · /repo                                        |
+┌Transcript · Tab: pane────────────────────────────────────┐|
+│Ready for the next task.                                  │|
+│Inspecting the worktree...                                │|
+│Checking the current change                               │|
+│                                                          │|
+│                                                          │|
+│                                                          │|
+│                                                          │|
+│                                                          │|
+└──────────────────────────────────────────────────────────┘|
+Model — · Last tokens — · Cache — · Token budget —          |
+running · Tab pane · PgUp/PgDn scroll · Ctrl+F fold · F1 hel|
+┌Message · Enter · Alt+Enter queues────────────────────────┐|
+│please keep the public interface                          │|
+└──────────────────────────────────────────────────────────┘|
