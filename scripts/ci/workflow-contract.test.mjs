@@ -110,6 +110,9 @@ test('unit-os preserves every unit step while Ubuntu and Windows run Core only i
     '          else\n' +
     '            pnpm test\n' +
     '          fi\n';
+  const timingStep = jobs['unit-os'].split(/(?=^      - )/m).find(step => step.includes('name: unit tests with file timings'));
+  assert.match(timingStep, /PLUR1BUS_CORE_TEST_CONCURRENCY: \$\{\{ runner.os == 'macOS' && 'bounded' \|\| '' \}\}/);
+  assert.match(timingStep, /timeout-minutes: \$\{\{ matrix.os == 'windows-2025' && 35 \|\| 25 \}\}/);
   assert.ok(stepsOf(jobs.unit).includes(coreSplit));
   assert.equal(stepsOf(jobs['unit-os']), stepsOf(jobs.unit).replace(coreSplit, osSplit));
   assert.match(jobs['core-unit-shard'], /pnpm --filter @plur1bus\/core test/);

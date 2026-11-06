@@ -377,6 +377,32 @@ fn slot_mut<'a>(st: &'a mut SupervisorState, name: &str) -> Option<&'a mut Slot>
     st.slot_mut(name)
 }
 
+/// The health probe and the watchdog compete to finish startup for one process.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Startup {
+    Starting,
+    Ready,
+    Failed(CrashReason),
+}
+
+impl Startup {
+    fn confirm(&mut self) -> bool {
+        self.finish(Self::Ready)
+    }
+
+    fn time_out(&mut self) -> bool {
+        self.finish(Self::Failed(CrashReason::ReadyTimeout))
+    }
+
+    fn finish(&mut self, next: Self) -> bool {
+        if *self != Self::Starting {
+            return false;
+        }
+        *self = next;
+        true
+    }
+}
+
 /// One spawned process.
 struct Gen {
     /// The name of its slot: always the monitor's `ctx.role.name` (M1), never the spec's.
@@ -391,10 +417,9 @@ struct Gen {
     control: Mutex<Option<Client>>,
     /// The supervisor asked it to stop (`daemon.stop`): its exit is `Requested`.
     requested: AtomicBool,
-    ready: AtomicBool,
+    startup: Mutex<Startup>,
     /// Set together with the exit's state update, under the state lock.
     exited: AtomicBool,
-    kill_reason: Mutex<Option<CrashReason>>,
     last_ok: Mutex<Instant>,
     /// `Some` for an adopted core (then `process` and `stdin` are `None`): the pid the OS named as its server.
     peer: Option<Peer>,
@@ -524,9 +549,8 @@ impl Monitor {
             stdin: Mutex::new(None),
             control: Mutex::new(Some(lifeline)),
             requested: AtomicBool::new(false),
-            ready: AtomicBool::new(true),
+            startup: Mutex::new(Startup::Ready),
             exited: AtomicBool::new(false),
-            kill_reason: Mutex::new(None),
             last_ok: Mutex::new(now),
             peer: Some(peer),
             lifeline_in_control: AtomicBool::new(true),
@@ -801,9 +825,8 @@ impl Monitor {
             stdin: Mutex::new(stdin),
             control: Mutex::new(None),
             requested: AtomicBool::new(false),
-            ready: AtomicBool::new(false),
+            startup: Mutex::new(Startup::Starting),
             exited: AtomicBool::new(false),
-            kill_reason: Mutex::new(None),
             last_ok: Mutex::new(Instant::now()),
             peer: None,
             lifeline_in_control: AtomicBool::new(false),
@@ -1173,7 +1196,9 @@ fn health_loop(shared: &Shared, ctx: &Ctx, gen: &Gen) {
     if gen.peer.is_none() {
         wait_ready(shared, ctx, gen);
     }
-    poll_loop(shared, ctx, gen);
+    if *relock(&gen.startup) == Startup::Ready {
+        poll_loop(shared, ctx, gen);
+    }
     // An adopted core keeps its lifeline until it has exited; closing it now would orphan a core being stopped.
     let last = relock(&gen.control).take();
     if gen.lifeline_in_control.swap(false, Ordering::SeqCst) {
@@ -1188,6 +1213,7 @@ fn api_health_loop(shared: &Shared, ctx: &Ctx, gen: &Gen) {
         .redirect(reqwest::redirect::Policy::none())
         .timeout(ctx.timing.poll_deadline)
         .build();
+    let mut published = false;
     loop {
         if gen.exited.load(Ordering::SeqCst) || gen.requested.load(Ordering::SeqCst) {
             break;
@@ -1217,7 +1243,10 @@ fn api_health_loop(shared: &Shared, ctx: &Ctx, gen: &Gen) {
             });
         if let Some(report) = verified {
             *relock(&gen.last_ok) = Instant::now();
-            if !gen.ready.swap(true, Ordering::SeqCst) {
+            if !published {
+                if !relock(&gen.startup).confirm() {
+                    break;
+                }
                 // A fresh private file, never follow an old symlink or retain trailing bytes.
                 let path = ctx.layout.run().join("api.json");
                 let _ = std::fs::remove_file(&path);
@@ -1226,21 +1255,22 @@ fn api_health_loop(shared: &Shared, ctx: &Ctx, gen: &Gen) {
                     f.sync_all()
                 });
                 if write.is_err() {
-                    gen.ready.store(false, Ordering::SeqCst);
+                    *relock(&gen.startup) = Startup::Starting;
                     gen.kill();
                     break;
                 }
+                published = true;
                 if let Some(slot) = slot_mut(&mut shared.lock(), "api") {
                     slot.backoff.on_ready(Instant::now());
                 }
             }
             set_health(shared, gen, Health::Ready, false);
-        } else if gen.ready.load(Ordering::SeqCst) {
+        } else if published {
             set_health(shared, gen, Health::Degraded("unresponsive".into()), false);
         }
         if !sleep_while_alive(
             gen,
-            if gen.ready.load(Ordering::SeqCst) {
+            if published {
                 ctx.timing.current(shared).health_interval
             } else {
                 ctx.timing.ready_poll
@@ -1281,7 +1311,8 @@ fn wait_ready(shared: &Shared, ctx: &Ctx, gen: &Gen) {
                 &format!("{} reports another identity, killing", gen.role),
                 json!({ "pid": gen.pid, "reason": reason, "hello": client.hello()["module"] }),
             );
-            *relock(&gen.kill_reason) = Some(CrashReason::ManifestInvalid);
+            // A verified identity mismatch is fatal even if the watchdog already began terminating the process.
+            *relock(&gen.startup) = Startup::Failed(CrashReason::ManifestInvalid);
             gen.kill();
             return;
         }
@@ -1297,7 +1328,9 @@ fn wait_ready(shared: &Shared, ctx: &Ctx, gen: &Gen) {
     );
     let now = Instant::now();
     *relock(&gen.last_ok) = now;
-    gen.ready.store(true, Ordering::SeqCst);
+    if !relock(&gen.startup).confirm() {
+        return;
+    }
     {
         let mut st = shared.lock();
         if let Some(slot) = slot_mut(&mut st, &gen.role) {
@@ -1515,18 +1548,14 @@ fn waiter(shared: &Arc<Shared>, ctx: &Arc<Ctx>, gen: &Arc<Gen>) {
             }
         }
         if !gen.requested.load(Ordering::SeqCst) {
-            let ready = gen.ready.load(Ordering::SeqCst);
-            if !ready && gen.started.elapsed() >= t.ready_timeout {
-                let mut reason = relock(&gen.kill_reason);
-                if reason.is_none() {
-                    *reason = Some(CrashReason::ReadyTimeout);
-                    drop(reason);
-                    shared.log.warn(
-                        &format!("{} not ready in time, killing", gen.role),
-                        json!({ "pid": gen.pid, "readyTimeoutMs": t.ready_timeout.as_millis() as u64 }),
-                    );
-                    gen.kill();
-                }
+            let ready = *relock(&gen.startup) == Startup::Ready;
+            if !ready && gen.started.elapsed() >= t.ready_timeout && relock(&gen.startup).time_out()
+            {
+                shared.log.warn(
+                    &format!("{} not ready in time, killing", gen.role),
+                    json!({ "pid": gen.pid, "readyTimeoutMs": t.ready_timeout.as_millis() as u64 }),
+                );
+                gen.kill();
             }
             if ready && hung_since.is_none() {
                 let silent = relock(&gen.last_ok).elapsed();
@@ -1582,7 +1611,10 @@ fn waiter(shared: &Arc<Shared>, ctx: &Arc<Ctx>, gen: &Arc<Gen>) {
         None => (None, None),
     };
     let requested = gen.requested.load(Ordering::SeqCst);
-    let killed_for = *relock(&gen.kill_reason);
+    let killed_for = match *relock(&gen.startup) {
+        Startup::Failed(reason) => Some(reason),
+        _ => None,
+    };
     let forced = match gen.peer {
         Some(_) => killed_for.or(Some(CrashReason::AdoptedExit)),
         None => killed_for,
@@ -1964,6 +1996,20 @@ mod tests {
     }
 
     #[test]
+    fn a_ready_probe_and_the_startup_watchdog_cannot_both_win() {
+        let mut late_reply = Startup::Starting;
+        assert!(late_reply.time_out());
+        assert!(!late_reply.confirm());
+        assert!(!late_reply.time_out());
+        assert_eq!(late_reply, Startup::Failed(CrashReason::ReadyTimeout));
+
+        let mut late_watchdog = Startup::Starting;
+        assert!(late_watchdog.confirm());
+        assert!(!late_watchdog.time_out());
+        assert_eq!(late_watchdog, Startup::Ready);
+    }
+
+    #[test]
     fn a_ready_timeout_has_a_floor_only_below_it() {
         let t = Timing::new(0.02, 5_000);
         assert_eq!(
@@ -2023,9 +2069,8 @@ mod tests {
             stdin: Mutex::new(None),
             control: Mutex::new(None),
             requested: AtomicBool::new(true),
-            ready: AtomicBool::new(true),
+            startup: Mutex::new(Startup::Ready),
             exited: AtomicBool::new(false),
-            kill_reason: Mutex::new(None),
             last_ok: Mutex::new(Instant::now()),
             peer: None,
             lifeline_in_control: AtomicBool::new(false),
