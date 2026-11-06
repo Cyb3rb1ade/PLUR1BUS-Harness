@@ -1,3 +1,7 @@
 [workspace]
 resolver = "2"
 members = ["src-tauri", "mock-harness", "test-bins", "desktop-contract", "host-helper", "transport-spike", "net"]
+
+# The native pairing tests perform the full Argon2id derivation on both peers.
+[profile.test.package.argon2]
+opt-level = 3

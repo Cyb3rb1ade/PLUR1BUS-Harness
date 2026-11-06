@@ -99,6 +99,31 @@ test('the ungated jobs can neither delay nor fail the gate', () => {
     'an ungated job in needs is a contract error, never a silent pass');
 });
 
+test('every Desktop platform builds test executables before the unchanged execution deadline', () => {
+  const yaml = readFileSync(new URL('../../.github/workflows/desktop.yml', import.meta.url), 'utf8');
+  const desktop = jobBlocks(yaml).desktop;
+  const steps = desktop.split(/(?=^      - )/m);
+  const build = steps.find(step => /run: cargo test --locked --workspace --no-run\n/.test(step));
+  const execute = steps.find(step => /id: desktop-rust-tests\n/.test(step));
+  assert(build, 'cold compilation must have its own bounded step');
+  assert.doesNotMatch(build, /^        if:/m, 'Linux and macOS must not charge compilation to test execution');
+  assert.match(build, /^        timeout-minutes: 15$/m);
+  assert.match(execute, /^        timeout-minutes: 15$/m);
+  assert.match(execute, /cargo test --locked --workspace --no-fail-fast -- --test-threads=1 --nocapture/);
+  assert(steps.indexOf(build) < steps.indexOf(execute));
+  assert.match(desktop, /^    timeout-minutes: 60$/m);
+});
+
+test('macOS unit opts into bounded Core concurrency without changing deadlines or test selection', () => {
+  const block = jobBlocks(workflow())['unit-os'];
+  assert.match(block, /PLUR1BUS_CORE_TEST_CONCURRENCY: \$\{\{ runner.os == 'macOS' && 'bounded' \|\| '' \}\}/);
+  assert.match(block, /timeout-minutes: \$\{\{ matrix.os == 'windows-2025' && 35 \|\| 25 \}\}/);
+  assert.match(block, /            pnpm test\n/);
+  const runner = readFileSync(new URL('../test-package.mjs', import.meta.url), 'utf8');
+  assert.match(runner, /const TEST_TIMEOUT_MS = 120_000/);
+  assert.match(runner, /\.\.\.files\], \{ stdio: "inherit" \}/);
+});
+
 test('unit-os preserves every unit step while Ubuntu and Windows run Core only in their measured shards', () => {
   const jobs = jobBlocks(workflow());
   const coreSplit = '          # The Core files run exactly once in core-unit-shard; every other package stays here.\n' +
