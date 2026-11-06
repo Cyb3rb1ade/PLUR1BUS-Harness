@@ -158,7 +158,19 @@ trusted fixture commands support Linux/macOS. Live captures support Linux only, 
 
 ### Owner capture after #820 and K2a
 
-Before the first 72-case capture, run a Linux smoke check with exactly one task/seed for each owner-selected model.
+For an explicit `coding-baseline-capture` dispatch, `coding-bench-smoke` runs exactly one task/seed for each owner-selected
+model. Every model's smoke job must succeed before any full capture starts. Regular scheduled comparisons execute their
+72-case matrix directly. The smoke uses the existing setup and scan commands with its own disposable home. Its command is
+
+```sh
+node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/eval/coding-bench.ts \
+  --smoke --out artifacts/coding-smoke/report.json
+```
+
+Select one model with `PLUR1BUS_CODING_BENCH_MODEL_INDEX`. A `plur1bus.coding-smoke/1` report records the first case after
+cleanup. Readiness requires a completed, resolved case with authoritative usage. Failure, cancellation, missing usage or
+failed cleanup stops the full capture. Review an unresolved smoke before scheduling a complete capture.
+
 Use the same versioned provider endpoints, disposable credential setup, assigned-card provisioner, native dispatcher and
 network-isolated verifier as the full capture. Record provider/tool startup, bounded completion, authoritative usage and
 cleanup for each model. Keep these smoke results in a separate preflight record. Complete baseline reports retain the full

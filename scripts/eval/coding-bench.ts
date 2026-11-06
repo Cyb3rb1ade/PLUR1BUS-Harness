@@ -2,9 +2,11 @@
 import { lstat, open } from "node:fs/promises";
 import { isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 import { createRedactor, secretFormsIn } from "../../packages/core/src/logs/redact.ts";
 import { runCodingBench, runCodingFixture } from "../../packages/core/src/toolcall/coding-bench.ts";
 import { codingConfiguration } from "../../packages/core/src/toolcall/coding-bench-live.ts";
+import { runCodingSmoke } from "../../packages/core/src/toolcall/coding-bench-smoke.ts";
 import { reserveCodingPublication } from "../../packages/core/src/toolcall/coding-bench-publication.ts";
 import { loadCodingCorpus } from "../../packages/core/src/toolcall/coding-bench-corpus.ts";
 import {
@@ -26,7 +28,7 @@ import {
 import { parseTurnEvalModels, TURN_EVAL_KEY_ENV } from "../../packages/core/src/toolcall/turn-eval-live.ts";
 
 const CORPUS = fileURLToPath(new URL("../../tests/bench/coding/", import.meta.url));
-const MODES = ["--fixture", "--setup", "--live", "--compare", "--merge", "--render-baseline", "--scan", "--cleanup"];
+const MODES = ["--fixture", "--setup", "--smoke", "--live", "--compare", "--merge", "--render-baseline", "--scan", "--cleanup"];
 const VALUES = [
   "--out",
   "--baseline",
@@ -171,6 +173,47 @@ async function live(args: Map<string, string>, signal: AbortSignal): Promise<voi
   }
 }
 
+async function smoke(args: Map<string, string>, signal: AbortSignal): Promise<void> {
+  allowed(args, ["--out"]);
+  const output = required(args, "--out");
+  phase = "configuration";
+  if (Object.values(TURN_EVAL_KEY_ENV).some((name) => process.env[name])) {
+    throw new Error("coding smoke refuses credential environment");
+  }
+  const models = modelsOf();
+  if (models.length !== 1) throw new Error("one model per smoke");
+  const model = models[0]!;
+  const revision = process.env.PLUR1BUS_CODING_BENCH_REVISION ?? process.env.GITHUB_SHA ?? "";
+  const toolsBinary = process.env.PLUR1BUS_TOOLS_BIN ?? "";
+  const limitsHelper = process.env.PLUR1BUS_SANDBOX_LIMITS_BIN ?? "";
+  if (process.platform !== "linux" || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u.test(revision)
+    || !isAbsolute(toolsBinary) || !isAbsolute(limitsHelper)) throw new Error("coding smoke environment unavailable");
+  const home = await codingEvalHome(homeOf());
+  const secrets = await codingSecretValues(home, models);
+  const publication = await reserveCodingPublication(output);
+  try {
+    phase = "smoke-preflight-and-run";
+    const result = await runCodingSmoke(CORPUS, {
+      home, models, revision, toolsBinary, limitsHelper,
+      signal: AbortSignal.any([signal, AbortSignal.timeout(20 * 60_000)]),
+    });
+    phase = "publication";
+    const record = {
+      ...result, revision, configuration: codingConfiguration(model), provider: model.provider,
+      model: model.model, capturedAt: new Date().toISOString(),
+    };
+    const sanitized = createRedactor({ secrets }).value(record);
+    if (!isDeepStrictEqual(sanitized, record)) throw new Error("smoke metadata refused");
+    const text = JSON.stringify(sanitized, null, 2) + "\n";
+    if (secretFormsIn(secrets).some((value) => text.includes(value))) throw new Error("smoke publication refused");
+    await publication.commit(text);
+    console.log(JSON.stringify({ status: result.ready ? "smoke-ready" : "smoke-needs-review", checked: 1 }));
+    if (!result.ready) process.exitCode = 1;
+  } finally {
+    await publication.close();
+  }
+}
+
 function baselineMarkdown(report: CodingLiveReport): string {
   const summary = summarizeCodingRows(report);
   if (summary.measured !== summary.denominator) throw new Error("incomplete coding measurement");
@@ -226,6 +269,7 @@ async function main(): Promise<void> {
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
   try {
+    if (args.has("--smoke")) return await smoke(args, abort.signal);
     if (args.has("--live")) return await live(args, abort.signal);
     if (args.has("--fixture")) {
       allowed(args, ["--out"]);

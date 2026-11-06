@@ -50,3 +50,15 @@ test("live requires its output option before any setup, preflight or model confi
   assert.equal(result.code, 1);
   assert.match(result.output, /"phase":"arguments"/u);
 });
+
+
+test("smoke refuses credentials before setup and requires a separate output", async () => {
+  const value = randomBytes(32).toString("base64url");
+  const result = await invoke(["--smoke", "--out", "unused"], { ANTHROPIC_API_KEY: value });
+  assert.equal(result.code, 1);
+  assert.match(result.output, /"phase":"configuration"/u);
+  assert.equal(result.output.includes(value), false);
+  const missing = await invoke(["--smoke"]);
+  assert.equal(missing.code, 1);
+  assert.match(missing.output, /"phase":"arguments"/u);
+});
