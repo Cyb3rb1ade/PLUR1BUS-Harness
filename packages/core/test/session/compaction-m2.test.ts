@@ -144,10 +144,34 @@ it('shutdown discards an in-flight LLM summary and never writes a late digest', 
   const job = c.afterTurn(session.id); await Promise.resolve(); c.stop(); release(); assert.deepEqual(await job,{ prepared:false }); assert.equal(store.listSummaries(session.id).length,0); store.close();
 });
 it('a later batch timeout commits no visibility changes from earlier batches', async t => {
-  t.mock.timers.enable({apis:['setTimeout']}); const {store,session}=rig(); toolTurn(store,session.id); toolTurn(store,session.id); advance(store,session.id);
-  let batches=0; const second=Promise.withResolvers<void>();
-  const p=new ToolPruner(store,{...defaultPrune(),keepLastTurns:1,batchSize:1,maxMs:10},{decide:async batch=>{batches++; if(batches===2){second.resolve(); await new Promise(()=>{});} return batch.map(pair=>({ref:pair.ref,relevant:false,reason:'old'}));}});
-  const job=p.run(session.id); await second.promise; t.mock.timers.tick(11); assert.equal(await job,0); assert.ok(p.view(session.id).every(pair=>!pair.hidden)); store.close();
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let elapsedMs = 0;
+  t.mock.method(performance, 'now', () => elapsedMs);
+  const { store, session } = rig();
+  t.after(() => store.close());
+  toolTurn(store, session.id);
+  toolTurn(store, session.id);
+  advance(store, session.id);
+  let batches = 0;
+  const second = Promise.withResolvers<void>();
+  const pruner = new ToolPruner(store, { ...defaultPrune(), keepLastTurns: 1, batchSize: 1, maxMs: 10 }, {
+    decide: async batch => {
+      batches++;
+      if (batches === 2) {
+        second.resolve();
+        await new Promise(() => {});
+      }
+      return batch.map(pair => ({ ref: pair.ref, relevant: false, reason: 'old' }));
+    },
+  });
+  const job = pruner.run(session.id);
+  await second.promise;
+  elapsedMs = 11;
+  t.mock.timers.tick(elapsedMs);
+  assert.equal(await job, 0);
+  assert.equal(batches, 2);
+  assert.ok(pruner.view(session.id).every(pair => !pair.hidden));
+  assert.deepEqual(store.toolVisibility(session.id), []);
 });
 
 it('unpaired calls are not pruning candidates and remain visible in the context', async () => {

@@ -116,6 +116,11 @@ function run(shell: string, f: Fixture, args: string[], env: NodeJS.ProcessEnv =
     // Only LOCALAPPDATA moves into the temp home; PowerShell itself also writes caches below it
     // (Microsoft\Windows\PowerShell), which is why the checks look only at the install root (`ours`).
     base.LOCALAPPDATA = join(f.home, "AppData", "Local");
+    if (shell === "pwsh" && process.arch === "arm64" && process.env.RUNNER_ENVIRONMENT === "github-hosted") {
+      // The hosted ARM64 PowerShell can crash during taskbar initialization (actions/runner-images#15107).
+      // Use its documented 64 MiB gen-0 workaround only for this installer child.
+      base.DOTNET_GCgen0size = "4000000";
+    }
     let file = INSTALL_PS1;
     let fileArgs = args;
     if (hostArch !== undefined) {
@@ -151,10 +156,12 @@ function filesUnder(dir: string): string[] {
 }
 
 const NAME = WIN ? "install.ps1" : "install.sh";
-/** Windows: Windows PowerShell 5.1 always, and pwsh 7 when installed (windows-2025 has both; this test is started from
- *  a pwsh step, so 5.1 inherits pwsh's PSModulePath, as it does for a user who starts it from pwsh). */
+// Both PowerShell versions are installed on the hosted Windows images. Locally, look up the
+// executable without running it: a broken PowerShell must fail its tests instead of hiding them.
+const hasPwsh = WIN && (process.env.RUNNER_ENVIRONMENT === "github-hosted"
+  || spawnSync("where.exe", ["pwsh.exe"], { stdio: "ignore" }).status === 0);
 const SHELLS = WIN
-  ? ["powershell.exe", ...(spawnSync("pwsh", ["-NoProfile", "-Command", "exit 0"]).status === 0 ? ["pwsh"] : [])]
+  ? ["powershell.exe", ...(hasPwsh ? ["pwsh"] : [])]
   : ["sh"];
 
 for (const shell of SHELLS)

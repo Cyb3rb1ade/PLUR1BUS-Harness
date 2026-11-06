@@ -41,6 +41,8 @@ export interface ChatRequest {
   readOnlyWorktree?: string;
   /** Trusted coding composition only; never taken from model messages. */
   codingWorktree?: string;
+  /** Opaque trusted card authority; never accepted by an RPC or a model adapter. */
+  worktreeMount?: import('../tools/sandbox/worktree-mount.ts').WorktreeMount;
   collaborationTier?: 'cheap' | 'standard' | 'premium';
   /** Internal peer envelopes: persisted/rendered as tool results, never system or assistant text. */
   peerResults?: readonly { id: string; name: string; text: string }[];

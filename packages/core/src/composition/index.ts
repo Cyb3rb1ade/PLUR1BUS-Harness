@@ -70,6 +70,7 @@ import { NO_REASONING, type ReasoningDescriptor } from '../../../providers/src/r
 import { fitToWire } from '../discovery/reasoning.ts';
 import type { ChatModelSources } from '../session/chat-models.ts';
 import { ToolRegistry } from '../tools/registry.ts';
+import { firstPartyToolNames } from '../toolcall/first-party-metadata.ts';
 import { createCollab, alsAgentScopePort, type Collab } from '../collab/index.ts';
 import { liveLogsRedactionPort } from '../collab/ports.ts';
 import { ChatPromotion, promotionMethods } from '../collab/chat-promotion.ts';
@@ -503,6 +504,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     collab = budget ? isolated('collaboration', () => createCollab({ home: d.home, provisionWorktrees: true, path: join(d.home, 'state', 'collab.sqlite'), clock: d.clock, limits: () => d.config().collaboration.limits,
       capacity: () => { const config = d.config(), cores = availableParallelism(); return { cores: config.supervisor.maxCores > 0 ? Math.min(cores, config.supervisor.maxCores) : cores, availableMemory: freemem(), totalMemory: totalmem(), settings: config.collaboration.teams.capacity }; },
       sessions: () => sessions.store, redact: liveLogsRedactionPort(secretValues, knownSecrets),
+      toolView: id => d.agents.has(id) && d.config().agents[id]?.engine?.kind !== 'external' && !delegationTargets.some(target => target.accepts(id)) ? firstPartyToolNames() : [],
       runner: provider ? composedAgentRunner(provider, alsAgentScopePort(), d.home, delegationTargets, collabMemory({ memory, config: d.config, logger: d.logger }), options.projectWorktrees) : targetRunner([...delegationTargets, { kind: 'local', accepts: id => !delegationTargets.some(t => t.accepts(id)), async ack() { throw new Error('no-provider'); }, async run() { throw new Error('no-provider'); } }]),
       directory: { get: id => {
         const matches = options.delegationTargets?.filter(target => target.accepts(id)) ?? [];

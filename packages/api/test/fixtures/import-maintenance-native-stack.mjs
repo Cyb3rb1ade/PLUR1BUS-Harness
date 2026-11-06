@@ -1,5 +1,6 @@
 /** Actual HTTP cookie/CSRF -> Core plan -> native maintenance -> restarted Core; the Rust parent owns all processes. */
 import assert from "node:assert/strict";
+import { assertCoreRestarted } from "./core-restart.ts";
 import { createHash, generateKeyPairSync, randomBytes } from "node:crypto";
 import { mkdir, readFile, writeFile, access, readdir, lstat } from "node:fs/promises";
 import { join } from "node:path";
@@ -499,10 +500,7 @@ try {
   mark("maintenance-terminal");
   const after = await rpc(verificationCookie, "core.status");
   mark("restarted-core-answered");
-  assert.ok(
-    Number.isInteger(before.pid) && Number.isInteger(after.pid) && before.pid !== after.pid,
-    "actual Core process restarted",
-  );
+  assertCoreRestarted(before, after);
   let summary;
   if (mode === "abort" || mode === "failure") {
     assert.equal(finished.run.restored, true);
@@ -593,7 +591,7 @@ try {
       assert.equal(rollback.run.state, "completed", `native rollback terminal state: ${JSON.stringify(rollback.run)}`);
       assert.equal(rollback.run.restored, true);
       const restored = await rpc(cookie, "core.status");
-      assert.notEqual(restored.pid, after.pid, "manual rollback genuinely restarts the Core again");
+      assertCoreRestarted(after, restored);
       assert.equal(await exists(join(home, "skills", skillName)), false, "manual rollback removes the imported skill");
       assert.equal(await baselineFingerprint(), baselineBefore);
       assert.equal(sha256(await readFile(join(home, "config.json"))), configBefore);

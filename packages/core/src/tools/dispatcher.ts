@@ -7,7 +7,7 @@ import type { PolicyAudit, PolicyAuditFields } from "../policy/audit.ts";
 import { headlessGate } from "../policy/headless.ts";
 import type { ApprovalAnswer, ApprovalAsk, ApprovalPort } from "./approval.ts";
 import { repairMessage, validateArgs, type RepairHook, type ValidationIssue } from "./repair.ts";
-import type { RegisteredTool, ToolClassification, ToolRegistry, ToolTrust } from "./registry.ts";
+import type { RegisteredTool, ToolClassification, ToolRegistry, ToolRunContext, ToolTrust } from "./registry.ts";
 import { ToolAdapterError } from "./tool-adapter-error.ts";
 import { FsFailure } from "./fs/failure.ts";
 import { createRedactor, maskSecretsInJson } from "../logs/redact.ts";
@@ -468,7 +468,17 @@ export class ToolDispatcher {
       const onAbort = (): void => { finish({ kind: "aborted" }); ac.abort(ctx.signal.reason); };
       const cancel = timers.set(() => { finish({ kind: "timeout" }); ac.abort(new Error("timeout")); }, tool.limits.timeoutMs);
       ctx.signal.addEventListener("abort", onAbort, { once: true });
-      Promise.resolve().then(() => tool.execute(args, { signal: ac.signal, onResultSettled, knownSecrets: this.#knownSecrets, agentId: ctx.agentId, principal: ctx.principal, surface: ctx.surface, execution: { turnId: ctx.turnId || ctx.sessionId || "", ...(ctx.taskId ? { taskId: ctx.taskId } : {}), ...(ctx.recurring ? { recurring: ctx.recurring } : {}), policy }, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), ...(classified ? { classified } : {}) }))
+      Promise.resolve().then(() => {
+        const runContext: ToolRunContext = {
+          signal: ac.signal, onResultSettled, knownSecrets: this.#knownSecrets,
+          agentId: ctx.agentId, principal: ctx.principal, surface: ctx.surface,
+          execution: { turnId: ctx.turnId || ctx.sessionId || "", ...(ctx.taskId ? { taskId: ctx.taskId } : {}),
+            ...(ctx.recurring ? { recurring: ctx.recurring } : {}), policy },
+          ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), ...(classified ? { classified } : {}),
+        };
+        tool.beforeExecute?.(runContext);
+        return tool.execute(args, runContext);
+      })
         .then((value) => finish({ kind: "ok", value }), (e: unknown) => {
           const sourceCode = e && typeof e === "object" && "code" in e && typeof e.code === "string"
             && /^[a-z0-9_.-]{1,64}$/.test(e.code) ? e.code : undefined;

@@ -1,8 +1,9 @@
-import { validateAcpMount } from "./acp-worktree.ts";
+import { selectedWorktreeMount, validateWorktreeMount } from './worktree-mount.ts';
+import { assertNoProtectedWorktreeAliases } from './worktree-inventory.ts';
 import { execFile } from 'node:child_process';
 import { access, lstat, readdir } from 'node:fs/promises';
 import { constants, readlinkSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import type { PreparedPolicy } from './policy.ts';
 import { SandboxFailure, type SandboxDetection, type SandboxTasks } from './types.ts';
 /** Trusted launcher path inside a bubblewrap run. */
@@ -105,23 +106,31 @@ async function masks(p: PreparedPolicy): Promise<{ path: string; directory: bool
       else if (d.isDirectory()) await walk(target);
     }
   };
-  for (const r of [...p.readRoots, ...p.writeRoots]) await walk(r.path);
+  for (const r of [...p.readRoots, ...p.writeRoots]) {
+    if (p.mountInventory?.root === r.path) {
+      for (const entry of p.mountInventory.entries.values()) {
+        if (entry.path !== r.path && names.has(basename(entry.path).toLowerCase())) out.set(entry.path, entry.stat.isDirectory());
+      }
+    } else await walk(r.path);
+  }
   for (const d of p.denied) if ('path' in d) {
     const s = await lstat(d.path).catch(() => null);
     if (s && [...p.readRoots, ...p.writeRoots].some(r => d.path.startsWith(r.path + '/'))) out.set(d.path, s.isDirectory());
   }
   return [...out].sort(([a], [b]) => a.length - b.length).filter(([path], _, all) => !all.some(([parent]) => parent !== path && path.startsWith(parent + '/'))).map(([path, directory]) => ({ path, directory }));
 }
-export async function backendArgv(p: PreparedPolicy, d: SandboxDetection, argv: readonly string[]): Promise<string[]> {
+export async function backendArgv(p: PreparedPolicy, d: SandboxDetection, argv: readonly string[], options: { signal?: AbortSignal } = {}): Promise<string[]> {
   if (d.backend === 'seatbelt') return ['/usr/bin/sandbox-exec', '-p', seatbeltProfile(p), ...argv];
   if (d.backend !== 'bubblewrap') throw new SandboxFailure(d.reason);
-  const tasksRequired = p.acpScratch !== undefined || p.acpWorktree !== undefined;
+  const grant = selectedWorktreeMount(p);
+  const tasksRequired = p.acpScratch !== undefined || grant !== undefined;
   if (tasksRequired && (d.tasks.mechanism !== 'namespace-limit'
     || !Number.isSafeInteger(p.limits.maxTasks) || p.limits.maxTasks < 1 || p.limits.maxTasks > 65536))
-    throw new SandboxFailure('ACP requires an enforced positive namespace task limit');
+    throw new SandboxFailure('writable worktree requires an enforced positive namespace task limit');
   // Writable mounts could create/rename credential files after the mask scan. Refuse until a dynamic Landlock/seccomp layer exists.
-  if (p.writeRoots.length && !p.acpWorktree) throw new SandboxFailure('bubblewrap writable roots require dynamic credential-name enforcement; backend refused');
-  const mount = p.acpWorktree ? await validateAcpMount(p.acpWorktree, p.writeRoots.map(r => r.path)) : undefined;
+  if (p.writeRoots.length && !grant) throw new SandboxFailure('bubblewrap writable roots require dynamic credential-name enforcement; backend refused');
+  const mount = grant ? await validateWorktreeMount(grant, p.writeRoots.map(r => r.path), { ...options, timeoutMs: p.limits.timeoutMs }) : undefined;
+  if (mount?.inventory) assertNoProtectedWorktreeAliases(mount.inventory, p.denied);
   const args = ['/usr/bin/bwrap', '--unshare-all', '--die-with-parent', '--new-session', '--cap-drop', 'ALL', '--proc', '/proc', '--dev', '/dev'];
   if (p.network === 'full') args.push('--share-net');
   for (const r of [...p.runtimePaths, ...p.readRoots.map(r => r.path)]) args.push('--ro-bind', r, r);
@@ -130,7 +139,7 @@ export async function backendArgv(p: PreparedPolicy, d: SandboxDetection, argv: 
     args.push('--ro-bind', mount.gitDir, mount.gitDir, '--ro-bind', mount.commonGitDir, mount.commonGitDir);
   }
   if (p.acpScratch) args.push('--tmpfs', p.acpScratch);
-  for (const m of await masks(p)) args.push(...(m.directory ? ['--tmpfs', m.path] : ['--ro-bind', '/dev/null', m.path]));
+  for (const m of await masks(mount?.inventory ? { ...p, mountInventory: mount.inventory } : p)) args.push(...(m.directory ? ['--tmpfs', m.path] : ['--ro-bind', '/dev/null', m.path]));
   const step = d.tasks.mechanism === 'namespace-limit' && p.limits.maxTasks > 0 ? tasksStep(p.limitsHelper, p.limits.maxTasks, tasksRequired) : undefined;
   args.push(...(step?.bind ?? []), '--remount-ro', '/', '--chdir', p.cwd, '--', ...(step?.prefix ?? []), ...argv);
   return args;

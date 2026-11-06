@@ -12,7 +12,11 @@ import type { CodingGate } from './coding-gate.ts';
 import type { ReturnEnvelope } from './handoff.ts';
 
 /** Shared existing-worktree port. M6 adapters supply their bound checkout here; no second worktree creator exists. */
-export interface ProjectWorktreePort { root(agentId: string, projectId: string, cardId: string): string | null }
+export interface ProjectWorktreePort {
+  root(agentId: string, projectId: string, cardId: string): string | null;
+  /** Trusted native handoff only; null denotes a project without a coding repository. */
+  mount?(agentId: string, projectId: string, cardId: string, fromAgentId?: string): import('../tools/sandbox/worktree-mount.ts').WorktreeMount | null;
+}
 
 /**
  * One git implementation, shared with M5+ (subprojects spec §6.5).

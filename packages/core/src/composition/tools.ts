@@ -1,6 +1,8 @@
 import { classifyHostTool } from '../host-tools/classify.ts';
 import { firstPartyDiscovery } from '../toolcall/first-party-metadata.ts';
 import { createSandboxProcessPort, createSandboxHostExec, type SandboxOptions } from '../tools/sandbox/ports.ts';
+import { nativeWorktreeBinding } from '../tools/sandbox/worktree-mount.ts';
+import { SandboxFailure } from '../tools/sandbox/types.ts';
 import { codingCompletionTool, type CodingCompletion } from '../collab/coding-surface.ts';
 import { collaborationTools, type CollaborationTools } from '../tools/collaboration.ts';
 import type { createHostctlPool } from '../../../hostctl/src/pool.ts';
@@ -88,12 +90,29 @@ function unwrap(value: unknown): unknown {
 }
 /** Registration is per turn for scoped MCP visibility. No executable tool escapes the dispatcher. */
 export async function composeTools(o: ToolCompositionOptions, req: ChatRequest): Promise<ToolRegistry> {
+  const { worktreeMount: configuredMount, ...sandbox } = o.sandbox ?? {};
+  if (req.worktreeMount && configuredMount && req.worktreeMount !== configuredMount)
+    throw new SandboxFailure('conflicting native worktree grants');
+  const worktreeMount = req.worktreeMount ?? configuredMount;
+  if (worktreeMount) {
+    if (req.readOnlyWorktree !== undefined) throw new SandboxFailure('read-only turn cannot obtain a native mount');
+    if (o.sandbox?.required === false) throw new SandboxFailure('native card mount requires the sandbox');
+    const binding = nativeWorktreeBinding(worktreeMount, req.agentId, req.projectId, req.codingWorktree);
+    req = { ...req, codingWorktree: binding.path };
+  }
+  // Host tools receive neither the turn grant nor a grant hidden in shared sandbox options.
+  if (o.sandbox) o = { ...o, sandbox };
   if (req.codingWorktree) o = { ...o, roots: [{ id: req.agentId, path: req.codingWorktree }] };
   if (req.readOnlyWorktree) o = { ...o, roots: [{ id: req.agentId, path: req.readOnlyWorktree }] };
   const registry = new ToolRegistry();
   const register = (tool: ToolDef) => {
     const discovery = tool.discovery ?? (tool.trust === 'first-party' ? firstPartyDiscovery(tool.name) : undefined);
-    registry.register({ ...tool, ...(discovery ? { discovery } : {}), ...(req.codingWorktree && tool.classify ? { classify: async (...args: Parameters<NonNullable<ToolDef["classify"]>>) => {
+    registry.register({ ...tool, ...(discovery ? { discovery } : {}), ...(worktreeMount ? { beforeExecute: (ctx: Parameters<ToolDef['execute']>[1]) => {
+      if (ctx.agentId !== req.agentId || ctx.principal !== req.principal) throw new SandboxFailure('foreign native turn identity');
+      nativeWorktreeBinding(worktreeMount, ctx.agentId, req.projectId, req.codingWorktree);
+      tool.beforeExecute?.(ctx);
+      return undefined;
+    } } : {}), ...(req.codingWorktree && tool.classify ? { classify: async (...args: Parameters<NonNullable<ToolDef["classify"]>>) => {
       const result = await tool.classify!(...args);
       return { ...result, flags: { ...result.flags, ...(result.flags?.outsideRoots ? { denyListHit: true } : {}) } };
     } } : {}) });
@@ -116,7 +135,7 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
   const host = { ...(o.host ?? createNodeHostContext()), exec: createSandboxHostExec(sandboxOptions) };
   for (const tool of HOST_TOOLS) {
     const cap = CAPABILITIES.get(tool.capability)!;
-    register({ name: tool.name, description: tool.description, inputSchema: tool.schema.input, capability: tool.capability, effect: cap.intrinsicEffect, risk: tool.riskClass, trust: 'first-party', classify: args => classifyHostTool(tool, args, { roots: o.roots, deny }), execute: async (args, ctx) => tool.run(args, { ...host, signal: ctx.signal }) });
+    register({ name: tool.name, description: tool.description, inputSchema: tool.schema.input, capability: tool.capability, effect: cap.intrinsicEffect, risk: tool.riskClass, trust: 'first-party', classify: args => classifyHostTool(tool, args, { roots: o.roots, deny }), execute: async (args, ctx) => tool.run(args, { ...host, signal: ctx.signal, ...(ctx.knownSecrets ? { knownSecrets: ctx.knownSecrets } : {}) }) });
   }
   // Only ToolDispatcher invokes this closure after a recorded D109 authorization. The inner exec gate is narrowed
   // to that already-authorized invocation; it still enforces config.mode, roots, deny paths, arguments and env.
@@ -128,7 +147,7 @@ export async function composeTools(o: ToolCompositionOptions, req: ChatRequest):
       }
     }
     const invocationRoots = ctx.classified?.flags?.outsideRoots && ctx.classified.targets?.[0] ? [...o.roots, { id: 'invocation-only', path: ctx.classified.targets[0] }] : o.roots;
-    const tool = createExecTool({ config: { ...o.exec, mode: o.exec?.mode ?? 'deny', roots: invocationRoots, deny }, process: createSandboxProcessPort({ ...sandboxOptions, roots: invocationRoots }), timers: systemTimers, audit: o.audit, policy: { grants: o.grants, clock: { now: Date.now } }, policyContext: { principal: { person: ctx.principal }, subject: { kind: 'agent', agentId: ctx.agentId }, surface: ctx.surface ?? 0, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), overrides: { 'shell.exec': 'allowed' } }, ...(ctx.knownSecrets ? { knownSecrets: ctx.knownSecrets } : {}), ...(o.output ? { output: o.output } : {}) });
+    const tool = createExecTool({ config: { ...o.exec, mode: o.exec?.mode ?? 'deny', roots: invocationRoots, deny }, process: createSandboxProcessPort({ ...sandboxOptions, roots: invocationRoots, ...(worktreeMount ? { worktreeMount } : {}) }), timers: systemTimers, audit: o.audit, policy: { grants: o.grants, clock: { now: Date.now } }, policyContext: { principal: { person: ctx.principal }, subject: { kind: 'agent', agentId: ctx.agentId }, surface: ctx.surface ?? 0, ...(ctx.sessionId ? { sessionId: ctx.sessionId } : {}), overrides: { 'shell.exec': 'allowed' } }, ...(ctx.knownSecrets ? { knownSecrets: ctx.knownSecrets } : {}), ...(o.output ? { output: o.output } : {}) });
     const run = tool.execute; const value = unwrap(await run(args, ctx)); const result = value as { stdout: string; stderr: string }; return { ...(value as object), stdout: redactText(result.stdout), stderr: redactText(result.stderr), sandboxed: o.sandbox?.required !== false };
   } });
   if (o.media) for (const name of ['image.generate', 'image.edit', 'media.generate', 'media.edit'] as const) {
