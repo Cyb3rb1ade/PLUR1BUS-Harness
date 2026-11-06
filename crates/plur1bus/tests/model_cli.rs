@@ -131,17 +131,18 @@ fn firstaid_check_includes_models_roles_at_end() {
     );
 
     let checks = doc["checks"].as_array().unwrap();
-    // `remote.exposure`, `models.decision`, `privacy.local-only` and `api.supervised` are appended after it (check ids are append-only).
-    let last = &checks[checks.len() - 5];
+    // Check ids are append-only: tools.service follows the existing remote, model, privacy and API rows.
+    let last = &checks[checks.len() - 6];
     assert_eq!(last["id"], "dreams.last-runs");
     assert_eq!(last["status"], "skip");
-    assert_eq!(checks[checks.len() - 4]["id"], "remote.exposure");
+    assert_eq!(checks[checks.len() - 5]["id"], "remote.exposure");
     // No decision role on a fresh home: an info row, not a warning, naming the way to set it.
     let decision = checks
         .iter()
         .find(|c| c["id"] == "models.decision")
         .unwrap();
-    assert_eq!(checks.last().unwrap()["id"], "api.supervised");
+    assert_eq!(checks[checks.len() - 2]["id"], "api.supervised");
+    assert_eq!(checks.last().unwrap()["id"], "tools.service");
     assert_eq!(decision["id"], "models.decision");
     assert_eq!(decision["status"], "info", "{decision}");
     assert_eq!(

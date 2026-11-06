@@ -354,3 +354,53 @@ test('a PR without the platform policy still gets a passing gate when the gated 
   assert.deepEqual(evaluateGate(needs), []);
   assert(!('unit-os' in needs), 'the gated non-Linux jobs are not part of the gate');
 });
+
+test("Core shards prepare the pinned Rust toolchain and protected cache before native integration builds", () => {
+  const jobs = jobBlocks(workflow());
+  for (const job of ["core-unit-shard", "core-unit-shard-windows"]) {
+    const block = jobs[job];
+    const build = block.indexOf(
+      "run: cargo build --locked -p plur1bus-tools -p plur1bus",
+    );
+    const toolchain = block.indexOf(
+      "uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d",
+    );
+    const cache = block.indexOf(
+      "uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c",
+    );
+    assert.ok(
+      toolchain >= 0 && toolchain < build,
+      `${job}: pinned toolchain before native build`,
+    );
+    assert.ok(
+      cache > toolchain && cache < build,
+      `${job}: pinned cache after toolchain and before build`,
+    );
+    assert.match(block.slice(toolchain, cache), /toolchain: "1\.95"/);
+    assert.match(
+      block.slice(cache, build),
+      /save-if: \$\{\{ github\.ref == 'refs\/heads\/main' \}\}/,
+    );
+    assert.match(block.slice(cache, build), /cache-on-failure: false/);
+  }
+});
+
+test('native installation and served-stack acceptance carry the required CLI and tools release pair', () => {
+  const jobs = jobBlocks(workflow());
+  const build = jobs['web-browser-build'];
+  assert.match(build, /path: \|\n\s+target\/debug\/plur1bus\n\s+target\/debug\/plur1bus-tools/);
+  assert.match(jobs['web-browser-shard'], /chmod \+x.*plur1bus-tools/);
+  for (const workflowName of ['release-smoke.yml', 'hermes-host.yml', 'nightly.yml']) {
+    const text = readFileSync(new URL(`../../.github/workflows/${workflowName}`, import.meta.url), 'utf8');
+    const commands = text.split('\n').filter(line => /cargo build --release -p plur1bus(?: |$)/.test(line));
+    assert.ok(commands.length > 0, workflowName);
+    for (const command of commands) assert.match(command, /-p plur1bus-tools(?: |$)/, workflowName);
+  }
+  const release = readFileSync(new URL('../../.github/workflows/harness-release.yml', import.meta.url), 'utf8');
+  for (const command of release.split('\n').filter(line => /cargo (?:zigbuild|build) --locked --release -p plur1bus(?: |$)/.test(line))) {
+    assert.match(command, /-p plur1bus-tools(?: |$)/);
+  }
+  assert.match(release, /cp "target\/\$TRIPLE\/release\/plur1bus-tools\$ext" "out\/plur1bus-tools-\$TARGET\$ext"/);
+  assert.match(release, /for binary in out\/plur1bus-darwin-arm64 out\/plur1bus-tools-darwin-arm64; do/);
+  assert.match(release, /name: signed-darwin-arm64\n\s+path: \|\n\s+out\/plur1bus-darwin-arm64\n\s+out\/plur1bus-tools-darwin-arm64/);
+});

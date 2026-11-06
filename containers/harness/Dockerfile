@@ -22,9 +22,10 @@ COPY . .
 RUN test "${SOURCE_DATE_EPOCH}" -gt 0 && rm -f rust-toolchain.toml
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/src/target,sharing=locked \
-    cargo build --release --locked -p plur1bus \
+    cargo build --release --locked -p plur1bus -p plur1bus-tools \
     && install -D -m 0755 target/release/plur1bus /out/plur1bus \
-    && touch -m -d "@${SOURCE_DATE_EPOCH}" /out/plur1bus
+    && install -D -m 0755 target/release/plur1bus-tools /out/plur1bus-tools \
+    && touch -m -d "@${SOURCE_DATE_EPOCH}" /out/plur1bus /out/plur1bus-tools
 
 # ---- 2. the core: build, then `pnpm deploy` a self-contained production tree -----------------------------------------
 FROM node:24.21.0-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS node-build
@@ -90,6 +91,7 @@ RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack 
     && test "$(getent shadow plur1bus | cut -d: -f3)" = "$expected_day" \
     && install -d -o 10001 -g 10001 -m 0700 /state /state/models
 COPY --from=rust-build /out/plur1bus /usr/local/bin/plur1bus
+COPY --from=rust-build /out/plur1bus-tools /usr/local/bin/plur1bus-tools
 COPY --from=node-build /out/core /opt/plur1bus/core
 COPY containers/harness/healthcheck.mjs /opt/plur1bus/healthcheck.mjs
 ENV PLUR1BUS_CONTAINER=1 \

@@ -6,4 +6,6 @@ The `provisioning` group includes check IDs, normalized statuses, redacted summa
 
 The Doctor page reads this report alongside its existing health and uploaded-report views. The health refresh button is natively disabled while the current request is pending, fixing the previous race where a click could be silently dropped before loading finished.
 
+D120 adds the append-only `tools.service` row: `ok` when Core’s cached `tools.health` probe reports ready, `fail` when tools is down, and `skip` when Core is unavailable. The live doctor overlay uses the same Core probe without starting a second process. Core continues serving turns during tools restarts.
+
 The Core-owned `external.agents.sandbox` row reports ACP process policy separately from `tools.sandbox` and `tools.sandbox.tasks`. On macOS it fails with `sandbox-unavailable (macos-acceptance-pending)` for agents, terminals and discovery probes while ordinary Seatbelt tools retain their own availability. Windows also refuses ACP without the Mac acceptance cause; Linux requires available bubblewrap, the `namespace-limit` task mechanism and a positive safe-integer `tools.sandbox.maxTasks` (zero refuses ACP), with connector acceptance checked separately. Native macOS acceptance remains D123 SB-1/SB-3; the fixed cause also appears in the bounded `external.agent.refused` Core event.

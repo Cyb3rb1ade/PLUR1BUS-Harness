@@ -85,7 +85,7 @@ esac\n# {}\n",
     )
 }
 
-/// A release of `version` on stable: the manifest, its minisign signature, and the one artefact it names.
+/// A release of `version` on stable: the manifest, its minisign signature, and the two artefacts it names.
 struct Release {
     version: String,
     script: String,
@@ -102,6 +102,7 @@ impl Release {
     fn manifest(&self) -> Vec<u8> {
         let native = json!({
             "binary": { HOST: { "url": "https://example.invalid/dl/plur1bus-new", "sha256": sha(self.script.as_bytes()) } },
+            "tools": { HOST: { "url": "https://example.invalid/dl/plur1bus-tools-new", "sha256": sha(b"native tools fixture") } },
             "core": { "version": "0.1.0", "contract": "1.9.0", "rpc": "1.3.0",
                       "payload": { HOST: { "url": "https://example.invalid/core.tar.gz", "sha256": "a".repeat(64) } } },
             "node": { "version": "24.21.0" },
@@ -119,6 +120,10 @@ impl Release {
     fn bundle_files(&self, key: &minisign::KeyPair) -> Vec<(String, Vec<u8>)> {
         let m = self.manifest();
         vec![
+            (
+                "artefacts/plur1bus-tools-new".into(),
+                b"native tools fixture".to_vec(),
+            ),
             ("manifest.json".into(), m.clone()),
             ("manifest.json.minisig".into(), sign(key, &m).into_bytes()),
             (

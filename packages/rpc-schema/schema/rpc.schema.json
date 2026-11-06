@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://plur1bus.dev/schema/rpc/1.14.0/rpc.schema.json",
-  "title": "PLUR1BUS harness RPC 1.14.0",
-  "description": "JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor, module (methods only), or engine (since 1.7.0). host.* is served by core and requires the engine principal at dispatch.",
-  "x-rpc-version": "1.14.0",
+  "$id": "https://plur1bus.dev/schema/rpc/1.15.0/rpc.schema.json",
+  "title": "PLUR1BUS harness RPC 1.15.0",
+  "description": "JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor, module (methods only), or engine (since 1.7.0). host.* is served by core and requires the engine principal at dispatch. D120: tools methods are served by plur1bus-tools and require the Core principal.",
+  "x-rpc-version": "1.15.0",
   "$defs": {
     "EngineContractEngineCapabilitiesData": {
       "title": "EngineContractEngineCapabilitiesData",
@@ -5679,6 +5679,9 @@
             "type": "string"
           },
           "description": "Deprecated methods/notifications used at least once since start, as `method:<name>`/`notification:<name>`, sorted (ADR-016 §5, S13)."
+        },
+        "tools": {
+          "$ref": "#/$defs/ToolsServiceStatus"
         }
       }
     },
@@ -6065,9 +6068,10 @@
           "enum": [
             "core",
             "module",
-            "api"
+            "api",
+            "tools"
           ],
-          "description": "Experimental (1.3.0). Whether the child is the core, HTTP API or a module; absent from supervisors before 1.3.0."
+          "description": "Experimental (1.3.0). Whether the child is Core, HTTP API, an installable module, or the native tools service (since 1.15.0 / D120 H1-1); absent from supervisors before 1.3.0."
         }
       }
     },
@@ -27971,6 +27975,69 @@
             }
           }
         }
+      },
+      "tools.hello": {
+        "x-stability": "experimental",
+        "x-since": "1.15.0",
+        "x-server": "tools",
+        "description": "First call on a Core tools connection. The dedicated credential and recorded Core PID/instance establish the principal; where available the kernel peer PID must match run/core.pid. The first hello installs a process-wide 32-byte hex HMAC ticketKey for that Core start (D120 §11.2); further connections must present the same key. A new Core identity replaces the key and closes old Core connections. Neither credential is returned or logged. Supervisor lifecycle uses a separate control token.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "token",
+            "ticketKey"
+          ],
+          "properties": {
+            "token": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "ticketKey": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "rpc",
+            "instanceId",
+            "pid",
+            "capabilities"
+          ],
+          "properties": {
+            "rpc": {
+              "type": "string"
+            },
+            "instanceId": {
+              "type": "string"
+            },
+            "pid": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "capabilities": {
+              "$ref": "#/$defs/Capabilities"
+            }
+          }
+        }
+      },
+      "tools.health": {
+        "x-stability": "experimental",
+        "x-since": "1.15.0",
+        "x-server": "tools",
+        "description": "Core-only tools readiness. A tools failure does not stop Core turns.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {}
+        },
+        "result": {
+          "$ref": "#/$defs/ToolsHealth"
+        }
       }
     },
     "BudgetLimit": {
@@ -31994,6 +32061,62 @@
           "grant": {
             "$ref": "#/$defs/GrantRecord"
           }
+        }
+      }
+    },
+    "ToolsHealth": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "process",
+        "rpc",
+        "instanceId",
+        "pid",
+        "uptimeMs"
+      ],
+      "properties": {
+        "process": {
+          "$ref": "#/$defs/ProcessState"
+        },
+        "rpc": {
+          "type": "string"
+        },
+        "instanceId": {
+          "type": "string"
+        },
+        "pid": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "uptimeMs": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "ToolsServiceStatus": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "ready",
+        "pid",
+        "checkedAt"
+      ],
+      "properties": {
+        "ready": {
+          "type": "boolean"
+        },
+        "pid": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "checkedAt": {
+          "type": [
+            "integer",
+            "null"
+          ]
         }
       }
     }

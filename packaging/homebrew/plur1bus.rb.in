@@ -25,8 +25,9 @@ class Plur1bus < Formula
   end
   depends_on "node@24"
   def install
-    bin.install "bin/plur1bus", "bin/plur1bus-attest"
+    bin.install "bin/plur1bus", "bin/plur1bus-attest", "bin/plur1bus-tools"
     chmod 0755, bin/"plur1bus-attest"
+    chmod 0755, bin/"plur1bus-tools"
     on_linux do
       pkgshare.install "share/polkit-1"
     end

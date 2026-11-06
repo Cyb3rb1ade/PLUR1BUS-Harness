@@ -21,6 +21,18 @@ function fakeCall(result: unknown = { ok: true }): RpcCall & { calls: Call[] } {
 const byName = (tools: WebMcpTool[], method: string): WebMcpTool | undefined => tools.find((t) => t.name === toolNameFor(method));
 const textOf = (r: { content: { text: string }[] }) => JSON.parse(r.content[0]!.text);
 
+it("the native tools namespace stays forbidden for future methods", () => {
+  for (const method of [
+    "tools.hello",
+    "tools.health",
+    "tools.artifact.read",
+    "tools.team.check",
+    "tools.future",
+  ]) {
+    assert.equal(isForbiddenMethod(method), true, method);
+  }
+});
+
 describe("tool naming and selection", () => {
   it("names tools plur1bus_<method with dots as underscores>", () => {
     assert.equal(toolNameFor("memory.proposals.list"), "plur1bus_memory_proposals_list");

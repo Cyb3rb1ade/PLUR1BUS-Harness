@@ -143,7 +143,7 @@ jobs:
           done
           export GIT_CONFIG_COUNT=$n
           unset GH_ENGINE_READ_TOKEN base
-          pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus
+          pnpm install --frozen-lockfile && pnpm gen && pnpm build && cargo build --release -p plur1bus -p plur1bus-tools
           # The core payload exactly as harness-release builds it (hoisted, link-free, resolvability-checked), not a
           # plain `pnpm deploy`: that tree reaches the workspace packages' deps (ajv) only through pnpm's links, which
           # setup dereferences on Windows (CI round 1: ERR_MODULE_NOT_FOUND 'ajv' from @plur1bus/config-schema).
@@ -361,7 +361,9 @@ jobs:
         run: node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test --test-concurrency=1 packages/core/test/hermes/scoped-client.test.ts packages/rpc-schema/test/hermes-client-auth.test.ts
       - name: profile transaction and read-only dry-run
         timeout-minutes: 20
-        run: cargo test -p plur1bus --test hm4 --test setup_profile
+        run: |
+          cargo build --locked -p plur1bus -p plur1bus-tools
+          cargo test -p plur1bus --test hm4 --test setup_profile
       - name: profile rollback and store inode preservation
         timeout-minutes: 10
         run: cargo test -p plur1bus profile_upgrade

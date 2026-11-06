@@ -48,7 +48,7 @@ fn stop_writers(
         .lock()
         .slots
         .iter()
-        .filter(|slot| slot.role.kind != RoleKind::Api)
+        .filter(|slot| !matches!(slot.role.kind, RoleKind::Api | RoleKind::Tools))
         .map(|slot| slot.role.clone())
         .collect();
     // Also adopt surviving children after a killed supervisor, without spawning any writer.
