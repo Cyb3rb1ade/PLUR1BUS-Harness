@@ -1,6 +1,7 @@
 /** Missing #820/K2a APIs must stop before creating a substitute worktree or granting arbitrary temporary roots. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { access, readdir, rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { sep } from "node:path";
@@ -33,6 +34,11 @@ test("live workspaces require the shared provisioner and opaque native mount, wi
         assert.ok(workspace.worktree.startsWith(workspace.home + sep + "state" + sep + "worktrees" + sep));
         assert.ok(workspace.binding.cardId);
         assert.equal(typeof workspace.binding.worktreeMount, "object");
+        const identity = execFileSync("git", ["log", "-1", "--format=%an <%ae>%n%cn <%ce>"], {
+          cwd: workspace.worktree,
+          encoding: "utf8",
+        });
+        assert.equal(identity.trim(), "B1 Bench <bench@invalid>\nB1 Bench <bench@invalid>");
       } finally {
         await workspace.close();
       }
