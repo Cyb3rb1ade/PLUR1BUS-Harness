@@ -1,3 +1,5 @@
+import '../projects/rpc-types.ts';
+import { LearnReview } from './learn-review.ts';
 // The "Dreams" tab (`#/memories/dreams[/<runId>]`): whether dreaming ever ran, per agent and phase (dreams.status), the schedule
 // (dreams.schedule.get), the run ledger with each run's log (dreams.log), and, when the role allows, Run now / Enable / Disable.
 import { h } from "preact";
@@ -95,6 +97,7 @@ function AgentSection({ agent, tick, onAction }: { agent: DreamAgentStatus; tick
         t(showDiary ? "memory.dreams.hideDiary" : "memory.dreams.readDiary")),
       showDiary ? h(DiaryContent, { agentId: agent.agentId, tick }) : null),
     sched.state.status === "fail" ? h("p", { class: "m-muted" }, sched.state.failure.kind === "forbidden" ? t("memory.dreams.scheduleForbidden") : t("memory.dreams.scheduleUnavailable")) : null,
+    h(LearnReview, { target: { scope: 'agent', agentId: agent.agentId }, tick }),
     PHASES.map((p) => {
       const ph = agent.phases.find((x) => x.phase === p);
       return ph ? h(PhaseCard, { key: p, agentId: agent.agentId, phase: ph, schedule: schedules.find((x) => x.phase === p), onAction }) : null;
@@ -184,6 +187,14 @@ function RunLog({ runId, tick }: { runId: string | null; tick: number }): View {
   });
 }
 
+function ProjectLearning({ tick }: { tick: number }): View {
+  const { state } = useLoad(signal => getApi().rpc('project.list', {}, { write: false, signal }), [], tick);
+  if (state.status !== 'ok') return h('div', {});
+  return h('div', { class: 'm-stack' }, state.data.projects.filter(p => p.archivedAt === null).flatMap(p =>
+    p.agents.map(agentId => h(Panel, { key: `${p.id}:${agentId}`, title: `${p.name} / ${agentId}` },
+      h(LearnReview, { target: { scope: 'project', projectId: p.id, agentId }, tick })))));
+}
+
 export type DreamsTabProps = { runId: string | null; tick: number };
 
 export function DreamsTab({ runId, tick }: DreamsTabProps): View {
@@ -200,11 +211,13 @@ export function DreamsTab({ runId, tick }: DreamsTabProps): View {
     : h("div", { class: "m-stack" },
       h(Summary, { agents: state.data.agents }),
       state.data.agents.map((a) => h(AgentSection, { key: a.agentId, agent: a, tick: all, onAction: setDialog })),
+      currentRole() === 'owner' && state.data.agents[0] ? h(Panel, { title: t('memory.learn.installation') }, h(LearnReview, { target: { scope: 'installation', agentId: state.data.agents[0].agentId }, tick: all })) : null,
       h(Counters, { c: state.data.counters }));
 
   return h("div", { class: "m-stack" },
     notice ? h("p", { class: "form-notice", role: "status" }, notice.text, " ", notice.runId ? h("a", { href: `#/memories/dreams/${encodeURIComponent(notice.runId)}` }, t("memory.dreams.openRun")) : null) : null,
     body,
+    h(ProjectLearning, { tick: all }),
     h("h2", { class: "m-section" }, t("memory.dreams.runs")),
     state.status === "fail" && state.failure.kind === "unavailable" ? null : h(RunLog, { runId, tick: all }),
     dialog?.kind === "run" ? h(RunDialog, { agentId: dialog.agentId, phase: dialog.phase, onClose: () => setDialog(null), onDone: done }) : null,

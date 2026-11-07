@@ -49,7 +49,7 @@ plur1bus module graph --json
 plur1bus service status --json
 ```
 
-`1staid check` runs eighteen read-only checks covering the configuration file, file permissions and
+`1staid check` runs an append-only set of read-only checks covering the configuration file, file permissions and
 stale files, the supervisor and core process state, model readiness, shared-memory support, the
 engine's on-disk lock, installed modules, the operating-system service registration, agent
 activity, the write-ahead journal, scheduled-job history, deprecated API usage, the Windows named-
@@ -158,6 +158,19 @@ create, move, unarchive or column-transfer mutation commits no changes. Move or
 archive another active card to free capacity, choose another target column, or
 have a human project lead deliberately request `overrideWip`. Agents cannot
 bypass the limit. See [Project board backend](projects-board.md).
+
+## Learning diagnostics
+
+`dreams.learn.store` checks private file permissions and, through the resident Core,
+schema version and SQLite integrity. A missing database is expected before learning
+is initialized; an unavailable Core leaves integrity explicitly unverified. Do not
+delete the database to clear a warning: it contains review decisions and calibration.
+
+`dreams.learn.breaker` reports repeated failed learning attempts within the current
+UTC day. Inspect the count-only run reason and configured model route before retrying.
+`dreams.learn.backlog` reports pending human reviews and read-only `waiting-h3`
+findings. A backlog is not corruption and never authorizes automatic acceptance or
+skill installation. See [Learning operation](dreams.md#betrieb-und-bedienung-lq4).
 
 ## Voice V3 diagnostics
 

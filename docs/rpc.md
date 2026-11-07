@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.22.0)
+# RPC reference (rpc 1.23.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -251,6 +251,13 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `dreams.schedule.set`: experimental, since 1.5.0
 - `dreams.enable`: experimental, since 1.5.0
 - `dreams.disable`: experimental, since 1.5.0
+- `dreams.learn.run`: experimental, since 1.23.0
+- `dreams.learn.status`: experimental, since 1.23.0
+- `dreams.learn.list`: experimental, since 1.23.0
+- `dreams.learn.get`: experimental, since 1.23.0
+- `dreams.learn.decide`: experimental, since 1.23.0
+- `dreams.learn.rollback`: experimental, since 1.23.0
+- `dreams.learn.calibration`: experimental, since 1.23.0
 - `dreams.diary`: experimental, since 1.6.0
 - `admin.obsidian.detect`: experimental, since 1.3.0
 - `admin.obsidian.prepare`: experimental, since 1.3.0
@@ -14359,6 +14366,437 @@ Disables one phase schedule; cron and importance triggers stop, run-now still wo
       "$ref": "#/$defs/DreamSchedule"
     }
   }
+}
+```
+
+### `dreams.learn.run`
+
+**Stability:** experimental · since 1.23.0
+
+**Served by:** core
+
+Human-only shadow learning run. Owner-scoped evidence and existing public MemoryOps authorization; no automatic adoption.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "scope": {
+      "enum": [
+        "agent",
+        "project",
+        "installation"
+      ]
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "scope",
+    "agentId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "run": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "required": [
+    "run"
+  ]
+}
+```
+
+### `dreams.learn.status`
+
+**Stability:** experimental · since 1.23.0
+
+**Served by:** core
+
+Human-only shadow learning status. Owner-scoped evidence and existing public MemoryOps authorization; no automatic adoption.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "scope": {
+      "enum": [
+        "agent",
+        "project",
+        "installation"
+      ]
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "scope",
+    "agentId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "status": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "required": [
+    "status"
+  ]
+}
+```
+
+### `dreams.learn.list`
+
+**Stability:** experimental · since 1.23.0
+
+**Served by:** core
+
+Human-only shadow learning list. Owner-scoped evidence and existing public MemoryOps authorization; no automatic adoption.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "scope": {
+      "enum": [
+        "agent",
+        "project",
+        "installation"
+      ]
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "scope",
+    "agentId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "nextOffset": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    }
+  },
+  "required": [
+    "nextOffset",
+    "items"
+  ]
+}
+```
+
+### `dreams.learn.get`
+
+**Stability:** experimental · since 1.23.0
+
+**Served by:** core
+
+Human-only shadow learning get. Owner-scoped evidence and existing public MemoryOps authorization; no automatic adoption.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "id"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "finding": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "prediction": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": true
+    },
+    "contentHash": {
+      "type": "string"
+    },
+    "action": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": true
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "prediction",
+    "finding",
+    "evidence",
+    "contentHash",
+    "action"
+  ]
+}
+```
+
+### `dreams.learn.decide`
+
+**Stability:** experimental · since 1.23.0
+
+**Served by:** core
+
+Human-only shadow learning decide. Owner-scoped evidence and existing public MemoryOps authorization; no automatic adoption.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "contentHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "outcome": {
+      "enum": [
+        "accepted",
+        "rejected"
+      ]
+    },
+    "staleAction": {
+      "enum": [
+        "correct",
+        "forget"
+      ]
+    }
+  },
+  "required": [
+    "id",
+    "contentHash",
+    "outcome"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "status": {
+      "enum": [
+        "accepted",
+        "rejected"
+      ]
+    },
+    "receipt": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "required": [
+    "status"
+  ]
+}
+```
+
+### `dreams.learn.rollback`
+
+**Stability:** experimental · since 1.23.0
+
+**Served by:** core
+
+Human-only shadow learning rollback. Owner-scoped evidence and existing public MemoryOps authorization; no automatic adoption.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "id"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "result": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "required": [
+    "result"
+  ]
+}
+```
+
+### `dreams.learn.calibration`
+
+**Stability:** experimental · since 1.23.0
+
+**Served by:** core
+
+Human-only shadow learning calibration. Owner-scoped evidence and existing public MemoryOps authorization; no automatic adoption.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "scope": {
+      "enum": [
+        "agent",
+        "project",
+        "installation"
+      ]
+    },
+    "agentId": {
+      "$ref": "#/$defs/AgentId"
+    },
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "scope",
+    "agentId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "record": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "required": [
+    "record"
+  ]
 }
 ```
 
@@ -33613,6 +34051,41 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "agents"
   ],
   "properties": {
+    "learning": {
+      "description": "Owner-only, content-free learning store health; null when composition failed.",
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "type": "integer"
+        },
+        "integrity": {
+          "type": "boolean"
+        },
+        "pending": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "waitingH3": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "breakers": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "schema",
+        "integrity",
+        "pending",
+        "waitingH3",
+        "breakers"
+      ]
+    },
     "process": {
       "$ref": "#/$defs/ProcessState"
     },

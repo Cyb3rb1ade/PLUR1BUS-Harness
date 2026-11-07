@@ -668,6 +668,34 @@
       "stability": "experimental",
       "since": "1.5.0"
     },
+    "dreams.learn.run": {
+      "stability": "experimental",
+      "since": "1.23.0"
+    },
+    "dreams.learn.status": {
+      "stability": "experimental",
+      "since": "1.23.0"
+    },
+    "dreams.learn.list": {
+      "stability": "experimental",
+      "since": "1.23.0"
+    },
+    "dreams.learn.get": {
+      "stability": "experimental",
+      "since": "1.23.0"
+    },
+    "dreams.learn.decide": {
+      "stability": "experimental",
+      "since": "1.23.0"
+    },
+    "dreams.learn.rollback": {
+      "stability": "experimental",
+      "since": "1.23.0"
+    },
+    "dreams.learn.calibration": {
+      "stability": "experimental",
+      "since": "1.23.0"
+    },
     "dreams.diary": {
       "stability": "experimental",
       "since": "1.6.0"

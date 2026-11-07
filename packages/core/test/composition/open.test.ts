@@ -179,7 +179,7 @@ describe("composition openTurnComposition", () => {
   it("assembles sessions, collaboration, voice, openai and the media RPC surface", async () => {
     const { composition: c, identity } = await open();
     try {
-      assert.deepEqual(Object.keys(c).sort(), ["a2a", "budget", "cacheTelemetry", "capabilities", "chatModels", "close", "codeSessions", "collab", "discoveryCredentials", "engineComplete", "importSsh", "ingestChannelAttachments", "mining", "openai", "refusedProviders", "sessions", "skillReview", "surfaceMethods", "voice"]);
+      assert.deepEqual(Object.keys(c).sort(), ["a2a", "budget", "cacheTelemetry", "capabilities", "chatModels", "close", "codeSessions", "collab", "discoveryCredentials", "engineComplete", "importSsh", "ingestChannelAttachments", "learn", "mining", "openai", "refusedProviders", "sessions", "skillReview", "surfaceMethods", "voice"]);
       assert.equal(c.skillReview.status().state, "engine-unavailable");
       assert.equal(c.mining.status().state, "engine-unavailable");
       assert.ok(c.collab, "collaboration needs the call budget, which opened");

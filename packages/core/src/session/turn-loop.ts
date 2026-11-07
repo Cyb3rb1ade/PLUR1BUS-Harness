@@ -1,3 +1,5 @@
+import { learningToolMetadata, takeLearningTool } from '../tools/learning-metadata.ts';
+import { channelOrigin } from "../channels/behaviour-context.ts";
 import { runWithAgentScope, scopeFor } from "../agents/scope.ts";
 // The submit/event turn loop (ADR-010 L2): `submit` records the user's message and a running turn atomically and returns
 // at once; the turn then runs in the background, every step persisted as an ordered per-session event and relayed to
@@ -69,7 +71,8 @@ export class TurnRunner {
     const localCommand = rewind !== null || a.text.trim() === '/compact --explain' || /^\/compact --restore event:\d+$/.test(a.text.trim());
     if ((!provider || provider.modelProfiles?.().length === 0) && !localCommand) throw new NoProviderError();
     if (a.text.length === 0) throw new SessionError("invalid", "message text is empty", "text-empty");
-    const { turn, message, event } = this.#d.store.beginTurn(a.session.id, a.text, estimateTokens(a.text), { harnessCommand: localCommand });
+    const origin = a.session.kind === "channel" ? channelOrigin.getStore() : undefined;
+    const { turn, message, event } = this.#d.store.beginTurn(a.session.id, a.text, estimateTokens(a.text), { harnessCommand: localCommand, ...(origin ? { channelOrigin: { ...origin } } : {}) });
     this.#emit(event, a.session);
     const cancel = new AbortController();
     this.#cancels.set(turn.id, cancel);
@@ -227,12 +230,13 @@ export class TurnRunner {
           if (tc) {
             // The dispatcher never throws; its error envelopes are results like any other. Only an abort ends the turn.
             const res = await tc.dispatcher.call({ id: chunk.id, name: chunk.name, args: chunk.args }, { ...tc.context({ session, caller }), signal, onResultSettled: settle => { registerDelivery(chunk.id, settle); } });
-            persistToolResult(chunk.id, { id: chunk.id, output: JSON.stringify(res), isError: res.isError });
+            const learnTool = learningToolMetadata(res, chunk.args, tc.dispatcher.describe().some(t => t.name === chunk.name));
+            persistToolResult(chunk.id, { id: chunk.id, output: JSON.stringify(res), isError: res.isError, ...(learnTool ? { learnTool } : {}) });
             signal.throwIfAborted();
           }
         }
         // RULING: with a dispatcher the harness executes; a result the provider reports itself is ignored (it could forge provenance).
-        else if (chunk.type === "tool.result") { if (!this.#d.toolCalls) persistToolResult(chunk.id, { id: chunk.id, output: chunk.output }); }
+        else if (chunk.type === "tool.result") { if (!this.#d.toolCalls) { const learnTool = takeLearningTool(chunk); persistToolResult(chunk.id, { id: chunk.id, output: chunk.output, ...(learnTool ? { learnTool } : {}) }); } }
         else usage = { inputTokens: chunk.inputTokens, outputTokens: chunk.outputTokens, ...(chunk.model ? { model: chunk.model } : {}), ...(chunk.measurements ? { measurements: chunk.measurements } : {}) };
       }
 

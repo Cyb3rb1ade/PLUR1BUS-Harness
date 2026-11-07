@@ -417,3 +417,10 @@ describe("person-only (humanOnly) families are never agent tools", () => {
     for (const m of neighbours) assert.ok(byName(tools, m), m);
   });
 });
+
+it('learning review and future learning methods remain human-only even with explicit WebMCP opt-in', () => {
+  const methods = ['run', 'status', 'list', 'get', 'decide', 'rollback', 'calibration', 'future'].map(op => `dreams.learn.${op}`);
+  for (const method of methods) assert.equal(isForbiddenMethod(method), true);
+  const tools = buildWebMcpTools({ capabilities: caps, schema: SCHEMA, call: fakeCall(), include: methods });
+  assert.ok(tools.every(tool => !methods.some(method => tool.name === toolNameFor(method))));
+});

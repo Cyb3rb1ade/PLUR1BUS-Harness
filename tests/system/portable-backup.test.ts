@@ -9,6 +9,7 @@ import { join, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { BIN, cli, coreEnv, home, startDaemon, stopDaemon, reapHome } from './helpers.ts';
 import { AccountStore } from '../../packages/api/src/account-store.ts';
+import { LearnStore } from '../../packages/core/src/dreams/learn/store.ts';
 import { DreamStore } from '../../packages/core/src/dreams/store.ts';
 
 test('portable backup restores stores, vault, config, identities, API accounts, sessions and dream ledger', { timeout: 180000 }, async () => {
@@ -43,10 +44,13 @@ test('portable backup restores stores, vault, config, identities, API accounts, 
     mkdirSync(join(source, 'state', 'dreams'), { recursive: true });
     const dreams = new DreamStore(dreamsPath); dreams.close();
     db(dreamsPath, d => d.exec("INSERT INTO dream_run(run_id,agent_id,phase,job_id,idempotency_key,trigger,started_at,outcome) VALUES ('backup-dream','bernd','light','backup-job','backup-once','manual',1,'completed')"));
+    const learn = new LearnStore(join(source, 'state', 'dreams', 'learn.db'));
+    const learned = learn.begin({ scope: 'agent', owner: 'local-owner', agentId: 'bernd' }, { from: 0, to: 1 }, 1);
+    learn.finish(learned, 'skipped', 'disabled', 2); learn.close();
     startDaemon(source, env);
     startDaemon(target, env);
     const created = portable('create');
-    for (const unit of ['state/lancedb', 'config.json', 'state/identity.sqlite', 'state/admin.sqlite', 'state/api/accounts.db', 'state/sessions.sqlite', 'state/dreams/dreams.db']) assert.ok(created.plan.units.includes(unit), unit);
+    for (const unit of ['state/lancedb', 'config.json', 'state/identity.sqlite', 'state/admin.sqlite', 'state/api/accounts.db', 'state/sessions.sqlite', 'state/dreams/dreams.db', 'state/dreams/learn.db']) assert.ok(created.plan.units.includes(unit), unit);
     assert.deepEqual(created.plan.secrets, ['provider/test']);
     assert.equal(JSON.stringify(created).includes(secret), false);
     assert.equal(readFileSync(file).includes(secret), false);
@@ -67,6 +71,7 @@ test('portable backup restores stores, vault, config, identities, API accounts, 
       ['identity.sqlite', 'SELECT display_name AS value FROM humans WHERE id=\'backup-user\'', 'Backup Person'],
       ['admin.sqlite', 'SELECT role AS value FROM admin_roles WHERE user_id=\'backup-user\'', 'member'],
       ['api/accounts.db', 'SELECT password_hash AS value FROM accounts WHERE person_id=\'backup-user\'', accountHash],
+      ['dreams/learn.db', "SELECT json_extract(metadata,'$.outcome') AS value FROM learn_run", 'skipped'],
       ['dreams/dreams.db', 'SELECT outcome AS value FROM dream_run WHERE run_id=\'backup-dream\'', 'completed'],
     ]) db(join(target, 'state', path!), d => assert.equal(d.prepare(sql!).get()!.value, expected));
     db(join(target, 'state', 'api', 'accounts.db'), d =>

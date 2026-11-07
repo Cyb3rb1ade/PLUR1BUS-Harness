@@ -12,6 +12,29 @@ TypeScript validation returns optional, value-free `warnings` for endpoint useri
 
 | Key | Type | Default | Restart | Tier | x-sensitive | x-url-credentials | Reference form | Description |
 |---|---|---|---|---|---|---|---|---|
+| `dreams` | object | `{}` | core | advanced | false | false |  | Harness-owned dreaming and learning configuration. |
+| `dreams.learn` | object | `{}` | core | advanced | false | false |  | Optional shadow learning; all memory changes require human review. Only the owner may change these settings. |
+| `dreams.learn.windowDays` | integer | `7` | core | advanced | false | false |  | Completed-session lookback window in days, ending at UTC midnight. |
+| `dreams.learn.checkpointDays` | integer | `7` | core | advanced | false | false |  | Maximum retention of unfinished learning extraction checkpoints in days. |
+| `dreams.learn.maxSessions` | integer | `50` | core | advanced | false | false |  | Maximum authorized sessions included in one learning run. |
+| `dreams.learn.maxTokens` | integer | `100000` | core | advanced | false | false |  | Maximum input and output token budget per learning run; an integer count, not a credential. |
+| `dreams.learn.agents` | object | `{}` | core | advanced | false | false |  | Per-agent learning targets keyed by agent ID. |
+| `dreams.learn.agents.*` | object | `{}` | core | advanced | false | false |  | Learning target settings. |
+| `dreams.learn.agents.*.enabled` | boolean | `false` | core | advanced | false | false |  | Opt in to scheduled learning for this target; disabled by default. |
+| `dreams.learn.agents.*.owner` | string | `""` | core | advanced | false | false |  | Human identity ID whose current source and destination rights govern the run. |
+| `dreams.learn.agents.*.agentId` | string | `""` | core | advanced | false | false |  | Configured agent route used for this project or installation target. |
+| `dreams.learn.agents.*.focus` | string | `""` | core | advanced | false | false |  | Optional owner-written focus for isolated extraction; not an additional permission. |
+| `dreams.learn.projects` | object | `{}` | core | advanced | false | false |  | Per-project learning targets keyed by project ID. |
+| `dreams.learn.projects.*` | object | `{}` | core | advanced | false | false |  | Learning target settings. |
+| `dreams.learn.projects.*.enabled` | boolean | `false` | core | advanced | false | false |  | Opt in to scheduled learning for this target; disabled by default. |
+| `dreams.learn.projects.*.owner` | string | `""` | core | advanced | false | false |  | Human identity ID whose current source and destination rights govern the run. |
+| `dreams.learn.projects.*.agentId` | string | `""` | core | advanced | false | false |  | Configured agent route used for this project or installation target. |
+| `dreams.learn.projects.*.focus` | string | `""` | core | advanced | false | false |  | Optional owner-written focus for isolated extraction; not an additional permission. |
+| `dreams.learn.installation` | object | `{}` | core | advanced | false | false |  | Content-free installation tool-error aggregation target. |
+| `dreams.learn.installation.enabled` | boolean | `false` | core | advanced | false | false |  | Opt in to scheduled learning for this target; disabled by default. |
+| `dreams.learn.installation.owner` | string | `""` | core | advanced | false | false |  | Human identity ID whose current source and destination rights govern the run. |
+| `dreams.learn.installation.agentId` | string | `""` | core | advanced | false | false |  | Configured agent route used for this project or installation target. |
+| `dreams.learn.installation.focus` | string | `""` | core | advanced | false | false |  | Optional owner-written focus for isolated extraction; not an additional permission. |
 | `import` | object | `{}` |  | advanced | false | false |  | Read-only import source configuration. |
 | `import.ssh` | object | `{}` | live | advanced | false | false |  | Owner-managed SSH source identity and endpoint configuration. |
 | `import.ssh.connections` | object | `{}` | live | advanced | false | false |  | Owner-managed named SSH source connections. |

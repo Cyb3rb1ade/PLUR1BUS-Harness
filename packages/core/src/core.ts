@@ -1,3 +1,5 @@
+import { learningLifecycle } from './dreams/learn/lifecycle.ts';
+import { learnMethods } from './dreams/learn/methods.ts';
 import { createAppleFmRuntime, type AppleFmRuntime } from "./composition/apple-fm.ts";
 import { ToolsClient } from "./tools-service/client.ts";
 import { ChannelHandoff } from "./channel-handoff/service.ts";
@@ -900,7 +902,7 @@ export function createCore(o: CoreOptions): Core {
           return t;
         },
       });
-      try { turnComposition = await openTurnComposition({ home: l.home, appleFm, systemJobs, mediaHostFetchReady: typeof host.fetch === "function", supervised: o.supervisorConfig !== undefined, config: cfg, configChanges: listener => cs.onChange(() => listener()), engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
+      try { turnComposition = await openTurnComposition({ learningMetrics: metrics, securePath: platform.securePath, home: l.home, appleFm, systemJobs, mediaHostFetchReady: typeof host.fetch === "function", supervised: o.supervisorConfig !== undefined, config: cfg, configChanges: listener => cs.onChange(() => listener()), engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
         maintenance: { held: () => importHold.held, onRelease: callback => importHold.onRelease(callback) },
         voiceConfigSource: changes => cs.set(changes), importConfigSource: changes => cs.set(changes), inbox: inboxPort, resolvePrincipal,
         surfaceOf: (principal, ctx) => connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }),
@@ -1106,6 +1108,7 @@ export function createCore(o: CoreOptions): Core {
           return current?.kind === 'person' && current.userId === id ? people.resolve(current) : null;
         }, clock, audit: rbacAudit, agentId: () => channelAgentId(executionRegistry), baseUrl: () => cfg().core.webHandoffBaseUrl });
       const rawMethods = {
+        ...learnMethods(() => turnComposition?.learn ?? null, name => guardedMethods[name]!),
         ...buildTelemetryMethods({ clock, budget: () => budget, cacheTelemetry: () => turnComposition?.cacheTelemetry ?? null, sessionsAvailable: () => sessions !== null,
           sessionAgent: (id) => { try { return sessions?.forSession(id).store.getSession(id)?.agentId ?? null; } catch { return null; } } }),
         ...(memorySensitivity ? buildMemorySensitivityMethods({
@@ -1222,9 +1225,11 @@ export function createCore(o: CoreOptions): Core {
       rawMethods["core.status"] = async (params, ctx) => {
         const result = await publicStatus(params, ctx) as object;
         const principal = await resolvePrincipal(ctx, "core.status", params);
-        return projectAuditStatus(result, principal, () => auditHealth.status());
+        const projected = projectAuditStatus(result, principal, () => auditHealth.status());
+        return principal?.kind === 'person' && principal.role === 'owner'
+          ? { ...projected, learning: turnComposition?.learn?.store.health(clock()) ?? null } : projected;
       };
-      const guardedMethods = guardMethods(apiAdmission(lifecycleAdmission(rawMethods, lifecycle, id => sessions?.forSession(id).store.getSession(id)?.agentId), resolvePrincipal), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: { ...AGENT_CREATION_RULES, ...LICENCE_RULES } });
+      const guardedMethods = guardMethods(apiAdmission(lifecycleAdmission(learningLifecycle(rawMethods, () => turnComposition?.learn ?? null, id => { try { return identity?.getLink(id).humanId; } catch { return undefined; } }), lifecycle, id => sessions?.forSession(id).store.getSession(id)?.agentId), resolvePrincipal), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: { ...AGENT_CREATION_RULES, ...LICENCE_RULES } });
       registerHostMethods(guardedMethods, { host, egress, secrets: secretStore, agents: executionRegistry,
         canCompleteFor: id => selectedEngine instanceof EngineClient && selectedEngine.canCompleteFor(id),
         complete: (agentId, params) => {
@@ -1319,8 +1324,9 @@ export function createCore(o: CoreOptions): Core {
                 promote: (agentId: string, ids: readonly string[]) => dreamMemory.promote!({ ids }, dreamPrincipal(agentId), dreamContext),
               } : {}),
             },
-            scheduler: { ...(o.dreams?.defaultTimezone ? { defaultTimezone: o.dreams.defaultTimezone } : {}), onEvent: event => { if (event.name === 'run.finished') void delivery?.notify('dreams', event.phase ?? 'unknown', event.agentId, String(event.outcome)).catch(err => log.warn("delivery notify failed", { err })); } },
+            scheduler: { ...(turnComposition?.learn ? { learn: turnComposition.learn } : {}), ...(o.dreams?.defaultTimezone ? { defaultTimezone: o.dreams.defaultTimezone } : {}), onEvent: event => { if (event.name === 'run.finished') void delivery?.notify('dreams', event.phase ?? 'unknown', event.agentId, String(event.outcome)).catch(err => log.warn("delivery notify failed", { err })); } },
           });
+          if (turnComposition?.learn) { const scheduler = dreams.scheduler; turnComposition.learn.setAdmission(work => scheduler.runJob(work)); }
         } catch (err) { dreams = null; dreamsError = String((err as Error)?.message ?? err).slice(0, 300); logger.error("dreaming scheduler unavailable", { err }); }
       };
       // Complete local constructors and lazy read-pool initialization while the authenticated maintenance generation

@@ -16,6 +16,7 @@ import {
 type PromotionCandidate = { candidateId: string; memoryId: string; decision: Decision };
 
 export interface SchedulerOptions {
+  learn?: { due(signal: AbortSignal): Promise<void>; nextRunAt(): number | null; runner: { idle(): Promise<void> } };
   store: DreamStore; engine: DreamEngine; clock: Clock; logger: DreamLogger;
   /** Directory of the per-run logs: `<logsDir>/<agentId>/<phase>/<runId>.log`. */
   logsDir: string;
@@ -158,8 +159,22 @@ export class DreamScheduler {
       this.#o.logger.info("dreams retrying a crashed window", { agentId: c.agentId, phase: c.phase, crashedRunId: c.runId, scheduledFor: c.scheduledFor });
       catchups.push(this.#launch(c.agentId, c.phase, "catchup", c.scheduledFor));
     }
+    if (this.#o.learn) catchups.push(this.#learn());
     this.#arm();
     await Promise.allSettled(catchups);
+  }
+
+  runJob<T>(work: () => Promise<T>): Promise<T> {
+    const task = (async () => {
+      await this.#sem.acquire();
+      try { this.#stop.signal.throwIfAborted(); return await work(); } finally { this.#sem.release(); }
+    })().finally(() => this.#inflight.delete(task));
+    this.#inflight.add(task); return task;
+  }
+
+  #learn(): Promise<void> {
+    const task = this.#o.learn!.due(this.#stop.signal).finally(() => this.#inflight.delete(task));
+    this.#inflight.add(task); return task;
   }
 
   async stop(): Promise<void> {
@@ -241,7 +256,7 @@ export class DreamScheduler {
     const known = new Set(this.#o.agents());
     const times = this.#o.store.listSchedules().filter((s) => s.enabled && known.has(s.agentId) && s.nextRunAt !== null).map((s) => s.nextRunAt!);
     // Re-check at least hourly so agents created later get their schedules without a restart.
-    const next = Math.min(...times, this.#o.clock.now() + 3_600_000);
+    const next = Math.min(...times, this.#o.learn?.nextRunAt() ?? Infinity, this.#o.clock.now() + 3_600_000);
     this.#timer = this.#o.clock.setTimer(() => this.#tick(), Math.max(0, next - this.#o.clock.now()));
   }
 
@@ -264,6 +279,7 @@ export class DreamScheduler {
       this.#o.store.updateSchedule(s.agentId, s.phase, { nextRunAt: this.#computeNext(s, now) });
       runs.push(this.#launch(s.agentId, s.phase, returning.has(s.agentId) ? "catchup" : "cron", s.nextRunAt));
     }
+    if (this.#o.learn) runs.push(this.#learn());
     this.#arm();
     await Promise.allSettled(runs);
   }

@@ -1,0 +1,11 @@
+{
+  "params": {
+    "id": "learn-finding-fixture"
+  },
+  "result": {
+    "result": {
+      "runId": "import-fixture",
+      "rolledBack": 1
+    }
+  }
+}

@@ -77,6 +77,7 @@ impl Home {
             &format!("prompt {}\n", CANARIES[7]),
         );
         write(&home.join("state/store.db"), CANARIES[8]);
+        write(&home.join("state/dreams/learn.db"), CANARIES[8]);
         Home { _dir: dir, home }
     }
 
@@ -149,7 +150,11 @@ fn the_bundle_has_the_expected_parts_and_a_matching_manifest() {
     ] {
         assert!(names.contains(&want), "{want} missing from {names:?}");
     }
-    for never in ["logs/audit.log", "logs/payload.log"] {
+    for never in [
+        "logs/audit.log",
+        "logs/payload.log",
+        "state/dreams/learn.db",
+    ] {
         assert!(!names.contains(&never), "{never} must not be bundled");
     }
     assert!(

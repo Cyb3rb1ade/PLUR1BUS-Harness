@@ -22,3 +22,31 @@ again. Doctor reflects accepted live policy without rerunning every provisioning
 Engine model changes still follow the existing migration/restart path. Migrate and restart a remote engine before
 enabling the switch; the running endpoint inventory is checked alongside the proposed config. The automatic
 engine-only restart and actual reembed usage are pending the public Engine ports: see [egress](egress.md#live-local-only-policy-ii).
+
+## Lern-Pass: Prüfspeicher und Löschfristen
+
+`state/dreams/learn.db` enthält abgeleitete Befunde, Evidenzreferenzen, Laufmetadaten und
+inhaltsfreie Entscheidungsquittungen. Belegauszüge werden ausschließlich live aus dem
+Session-Store mit aktuellen Leserechten geladen. Der Lern-Pass ist standardmäßig aus.
+
+Erasure einer Session bereinigt den Prüfspeicher direkt nach dem Tombstone-Commit.
+Agent schließen/archivieren/löschen, Projekt archivieren, Identität entfernen und
+Person deaktivieren lösen ebenfalls einen Abgleich aus. Der Core wiederholt ihn beim
+Start und vor Lernläufen und Review-Zugriffen. Ein Restore durchläuft denselben Abgleich.
+Ein Befund mit gelöschten Belegen wird vorsorglich vollständig zurückgezogen, sein
+Text und Verify-Snippets werden gelöscht, verbleibende Referenzen werden geprüft. Er
+zählt nicht mehr in die Präzision. Eine neue Extraktion kann eine neue Revision anlegen;
+eine alte Zustimmung gilt dafür nicht. Bereits laufende Extraktionen dürfen nach der
+Löschung keine Checkpoints oder Befunde zurückschreiben.
+
+Extraktions-Checkpoints verschwinden bei Veröffentlichung oder endgültiger Verweigerung.
+Wiederaufnehmbare Unterbrechungen, Budgetstopps und Providerfehler behalten sie höchstens
+`dreams.learn.checkpointDays` (Default 7, einstellbar von 1 bis 7 Tagen).
+30 Tage nach einer Entscheidung werden Befundtext und Verify-Snippets entfernt.
+Schlüssel, Hash, Prüfer, Ergebnis, Zeit und Operationsquittung bleiben erhalten.
+Der Abgleich läuft im bestehenden Scheduler, ohne zusätzlichen Timer. SQLite nutzt
+`secure_delete`; nach einer Bereinigung wird das WAL geleert.
+
+Ruling: `learn.db` gehört zum privaten Backup, damit Review und Kalibrierung einen
+Restore überstehen. Die vorhandene SQLite-Allowlist erfasst es als eigenes konsistentes
+Datenbank-Abbild. Ein `1staid bundle` enthält diese Datenbank niemals.

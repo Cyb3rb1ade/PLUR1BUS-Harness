@@ -1,3 +1,4 @@
+import { brandLearningTool } from '../tools/learning-metadata.ts';
 import { assertRoleContext } from "../session/context-fit.ts";
 import { randomUUID } from 'node:crypto';
 import { TurnDelegations } from '../collab/delegations.ts';
@@ -770,7 +771,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
             const text = JSON.stringify(safe);
             observation.errorsReturned++;
             consecutiveErrors++;
-            const chunk: ChatChunk = { type: 'tool.result', id: call.id, output: text };
+            const chunk: ChatChunk = brandLearningTool({ type: 'tool.result', id: call.id, output: text }, output, args, !!tool);
             if (!req.onToolResultDelivery && settleDelivery) deliveries.set(chunk, settleDelivery);
             yield chunk;
             messages.push({ role: 'tool', toolCallId: call.id, content: text });
@@ -793,7 +794,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
           if (call.name === 'skill.load' && output.value && typeof output.value === 'object' && 'name' in output.value && typeof output.value.name === 'string') {
             loaded.set(output.value.name, { id: call.id, name: output.value.name, text, turnId });
           }
-          const chunk: ChatChunk = { type: 'tool.result', id: call.id, output: text };
+          const chunk: ChatChunk = brandLearningTool({ type: 'tool.result', id: call.id, output: text }, output, args, !!tool);
           if (!req.onToolResultDelivery && settleDelivery) deliveries.set(chunk, settleDelivery);
           yield chunk;
           messages.push({ role: 'tool', toolCallId: call.id, content: text });

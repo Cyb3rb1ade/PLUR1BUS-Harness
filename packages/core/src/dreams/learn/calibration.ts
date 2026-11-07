@@ -1,0 +1,51 @@
+import { SensitivityScanner } from '../../memory-sensitivity/scanner.ts';
+import { digest } from './selection.ts';
+import type { LearnStore } from './store.ts';
+import { PROMPT_VERSION, type Finding, type Target, type Tier } from './types.ts';
+
+export const CALIBRATION_POLICY = Object.freeze({ version: 2, minimumDecisions: 50, precisionGate: 0.95, scoreA: 0.8, scoreB: 0.9 });
+const scanner = new SensitivityScanner();
+export function instructionLike(text: string): boolean {
+  return /\b(always|never|must|ignore|remember|instructions?|system prompt|immer|niemals|nie|musst|muss|ignoriere|speichere|anweisungen?|merke)\b/iu.test(text);
+}
+export interface FindingSafety { personAuthored: boolean; sensitive: boolean; targetVerified: boolean }
+/** Counterfactual tier, not permission. The shadow executor always retains effectiveTier C. */
+export function scoreFinding(finding: Finding, safety: FindingSafety): Finding {
+  // A trivial model-chosen match is not independent evidence for the claim.
+  const verifiedClaim = finding.verify === 'supported' && finding.checks?.some(check =>
+    [...check.contains].length >= 16 && /[\p{L}\p{N}]/u.test(check.contains) && finding.text.includes(check.contains));
+  const p = finding.prevalence, trusted = finding.evidence.some(e => e.trust === 'person' || e.trust === 'verified') || verifiedClaim;
+  const person = finding.evidence.some(e => e.trust === 'person');
+  let score = trusted ? Math.min(1, (person ? 0.35 : 0.25) + 0.3 * Math.min(p.sessions / 3, 1) + 0.2 * Math.min(p.days / 2, 1) +
+    (Math.max(p.agents, p.persons) >= 2 ? 0.05 : 0) + (finding.verify === 'supported' ? 0.05 : 0) + (finding.agreement === 'agrees' ? 0.05 : 0) +
+    (['add', 'duplicate', 'stale'].includes(finding.change) ? 0.05 : 0)) : 0;
+  if ((finding.verify === 'contradicted' && finding.change !== 'stale') || finding.agreement === 'contradicts') score = Math.min(score, 0.2);
+  score = Math.round(score * 1000) / 1000;
+  const manual = !safety.targetVerified || safety.personAuthored || safety.sensitive || scanner.scan(finding.text).length > 0 ||
+    instructionLike(finding.text) || finding.kind === 'procedural' || finding.change === 'retire' ||
+    (finding.change === 'duplicate' && finding.agreement !== 'agrees') || (finding.change === 'stale' && finding.verify !== 'contradicted');
+  let desiredTier: Tier = 'C';
+  if (!manual && trusted) {
+    if (finding.target.scope === 'agent' && ['add', 'duplicate', 'stale'].includes(finding.change) && score >= CALIBRATION_POLICY.scoreA && p.sessions >= 3 && p.days >= 2) desiredTier = 'A';
+    if (finding.target.scope === 'project' && score >= CALIBRATION_POLICY.scoreB && Math.max(p.agents, p.persons) >= 2) desiredTier = 'B';
+  }
+  return { ...finding, score, desiredTier, effectiveTier: 'C' };
+}
+export type GateReason = 'shadow-incomplete' | 'precision-below-gate' | 'revert-unavailable';
+export interface Precision { accepted: number; decided: number; precision: number | null; allowed: false; reason: GateReason }
+export function precisionGate(accepted: number, decided: number): Precision {
+  const precision = decided ? accepted / decided : null;
+  return { accepted, decided, precision, allowed: false, reason: decided < CALIBRATION_POLICY.minimumDecisions ? 'shadow-incomplete' : precision! < CALIBRATION_POLICY.precisionGate ? 'precision-below-gate' : 'revert-unavailable' };
+}
+export function calibration(store: LearnStore, target: Target, modelClasses: readonly string[]) {
+  const classes = [...new Set(modelClasses)].sort(), modelIds = new Set<string>();
+  const revision = digest([target.owner, PROMPT_VERSION, classes, CALIBRATION_POLICY]);
+  const counts = { A: { accepted: 0, decided: 0 }, B: { accepted: 0, decided: 0 } };
+  for (const { finding, outcome } of store.decidedFindings(target.owner)) {
+    if (finding.kind !== 'knowledge' || finding.desiredTier === 'C' || finding.promptVersion !== PROMPT_VERSION || JSON.stringify([...(finding.modelClasses ?? [])].sort()) !== JSON.stringify(classes)) continue;
+    finding.models.forEach(model => modelIds.add(model));
+    const count = counts[finding.desiredTier]; count.decided++; if (outcome === 'accepted') count.accepted++;
+  }
+  return { version: 2, revision, owner: target.owner, promptVersion: PROMPT_VERSION, modelClasses: classes, models: [...modelIds].sort(), thresholds: CALIBRATION_POLICY,
+    predictions: store.predictionSummary(target.owner, classes), A: precisionGate(counts.A.accepted, counts.A.decided), B: precisionGate(counts.B.accepted, counts.B.decided) };
+}

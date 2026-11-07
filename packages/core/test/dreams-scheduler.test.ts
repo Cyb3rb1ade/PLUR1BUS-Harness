@@ -328,3 +328,18 @@ describe("dreams store", () => {
     assert.equal(s.claimKey("r2", "K"), true, "released by the failure");
   });
 });
+
+describe('learning shares the scheduler lifecycle', () => {
+  it('manual learning jobs share the three-slot cap and stop waits for admitted jobs', async () => {
+    const h = mkHarness(); let active = 0, peak = 0, release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const work = () => h.sched.runJob(async () => { active++; peak = Math.max(peak, active); await held; active--; });
+    const jobs = [work(), work(), work()];
+    await new Promise(resolve => setImmediate(resolve)); assert.equal(active, 3);
+    const queued = work(); const rejected = assert.rejects(() => queued);
+    let stopped = false; const stop = h.sched.stop().then(() => { stopped = true; });
+    await new Promise(resolve => setImmediate(resolve)); assert.equal(stopped, false);
+    release(); await Promise.all(jobs); await rejected; await stop;
+    assert.equal(peak, 3); assert.equal(active, 0);
+  });
+});

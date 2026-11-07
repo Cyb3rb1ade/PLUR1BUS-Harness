@@ -542,6 +542,20 @@ mod tests {
     }
 
     #[test]
+    fn learning_review_database_is_a_portable_sqlite_unit() {
+        assert_eq!(
+            target_kind("state/dreams/learn.db", "state/lancedb"),
+            Some(Kind::File)
+        );
+        assert_eq!(
+            archive_prefix("state/dreams/learn.db", "state/lancedb"),
+            "sqlite/dreams/learn.db"
+        );
+        assert!(is_sqlite_sidecar("state/dreams/learn.db-wal"));
+        assert!(is_sqlite_sidecar("state/dreams/learn.db-shm"));
+    }
+
+    #[test]
     fn paths_must_be_relative_portable_and_inside() {
         for ok in ["a", "a/b", "state/x.db"] {
             assert!(safe_rel(ok), "{ok}");

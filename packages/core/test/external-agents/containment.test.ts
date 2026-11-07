@@ -1,5 +1,7 @@
 import { provisionFixture, mountOptions, limitsHelper } from "./fixture.ts";
 import assert from "node:assert/strict";
+import os from "node:os";
+import { syncBuiltinESMExports } from "node:module";
 import { execFileSync } from "node:child_process";
 import { existsSync, linkSync, mkdirSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { createConnection, createServer } from "node:net";
@@ -27,8 +29,11 @@ function gitWorktree(root: string): { repo: string; worktree: string; home: stri
 
 const reason = (e: unknown) => e instanceof ContainmentError && e.reason;
 
-test("filesystem writes stay in the worktree", async () => {
+test("filesystem writes stay in the worktree", async t => {
   const root = tempDir("m6b-fs-");
+  // Deny-list scans must inspect the fixture, never the developer's credential trees.
+  const userHome = t.mock.method(os, 'homedir', () => root); syncBuiltinESMExports();
+  t.after(() => { userHome.mock.restore(); syncBuiltinESMExports(); });
   const { worktree, home } = gitWorktree(root);
   const box = { worktree, home };
   await containedWrite(box, join(worktree, "ok.txt"), "hello");

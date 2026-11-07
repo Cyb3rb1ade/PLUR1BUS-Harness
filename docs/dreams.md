@@ -229,3 +229,110 @@ core; the browser receives no filesystem access.
 
 The integration regression runs the real pinned engine with a flat embedder and a stub LLM, generates a light dream
 through capture, then reads the actual engine-written diary through `dreams.diary`. No live provider is called.
+
+## Shadow learning (`learn`, LP)
+
+Learning is a Harness job in the existing Dreams scheduler. Agent, project and installation targets
+are off by default. It selects completed, remembered turns in the last seven days, newest sessions
+first, up to 50 authorized sessions and 100,000 tokens per run. Session overflow is recorded as
+`truncated` with `omittedSessions`; an oversized individual transcript defers the run. The current
+window ends at UTC midnight. Repeating it resumes checkpoints or returns the completed run.
+
+Configure `dreams.learn.agents.<agentId>` with `owner` (the Harness person ID), `enabled` and optional
+`focus`; projects use `dreams.learn.projects.<projectId>` with `owner` and `agentId`. Global
+`windowDays`, `maxSessions` and `maxTokens` are bounded configuration values. These keys require a
+Core restart. `dreams.learn.installation` is reserved for the metadata-only pass. No target is
+implicitly enabled by model configuration.
+
+Extraction uses the configured D105 `small` profile, skeptic and wording use `large`. All calls go
+through the ProviderRouter and existing user/agent/project token admission. No Jev or triage route
+is involved. Missing class profiles produce `skipped:no-model`; local-only policy is enforced before
+provider access, and budget refusal produces `skipped:budget` without publishing a partial batch.
+Three failed attempts in a UTC day open the target's breaker, including retries of the same window.
+
+Use `plur1bus dreams learn run --agent <id>`, `status`, `list` and `calibration`. For project targets,
+add `--project <id>`. `show <finding-id>` returns the current review hash and authorized live evidence.
+`accept <finding-id> --hash <hash>` or `reject <finding-id> --hash <hash>` records an explicit person
+choice; a changed finding requires another review. Stale findings additionally require
+`--stale-action correct` or `--stale-action forget`. The web review is in Memories > Dreams.
+
+Every finding remains tier C. The desired A/B tier, evidence score, prevalence and skeptic verdict
+remain visible; refuted findings are folded, not discarded. Stable content keys deduplicate repeated
+observations across runs. Rejected findings reopen only for new evidence from a later day, linked to
+the prior decision. Calibration counts one latest person decision per stable knowledge finding,
+pooled by owner, desired tier and model-class/prompt/policy revision. Actual model IDs remain in the
+record. With fewer than 50 decisions the gate reports `shadow-incomplete`, below 95% it reports
+`precision-below-gate`, and otherwise `revert-unavailable`. No state enables automatic adoption.
+
+Manual acceptance dispatches existing guarded public MemoryOps with the reviewing person's rights:
+new agent facts use `memory.importText.apply`, corrections use `memory.correct`, duplicate/retire
+use `memory.forget`, and shared-card changes use `memory.propose`. Import receipts permit
+`plur1bus dreams learn rollback <finding-id>`. New project facts remain pending with
+`unsupported-target`: public importText v1 does not accept workspace targets. No scope is substituted.
+An uncertain interrupted write is held for reconciliation instead of being repeated automatically.
+
+Procedural findings are read-only `waiting-h3` entries in the learn review store, excluded from A/B
+precision. They create no skill proposal queue, skill file, installation or enablement. The existing
+unavailable H3 backend remains unchanged. Logs, generic run rows and Inbox notices contain only IDs,
+counts, hashes and classes. Evidence text is loaded for authorized review directly from SessionStore.
+
+### Installationsweite Tool-Muster (LP7)
+
+Der optionale Installationslauf liest ausschließlich die beim Tool-Dispatcher erzeugten
+Metadaten: registrierter Tool-Name (sonst `unknown`), geschlossene Fehlerklasse, gezählte
+JSON-Argumenttypen, Häufigkeit und betroffene Agenten. Argumentnamen, Argumentwerte,
+Nachrichten und Tool-Ausgaben werden nicht gelesen. Historische Ergebnisse ohne diese
+Host-Metadaten werden nicht nachträglich aus Text klassifiziert. Ein Lauf hat höchstens
+4.000 Metadatenereignisse, 50 Sessions und 100 Muster; eine übergroße Ereignismenge wird
+als `deferred` ausgewiesen. Er benötigt kein Modell und schreibt keine MemoryOps.
+
+Alle Muster bleiben `waiting-h3`, sichtbar mit Zählern in Review und Inbox. Der heutige
+Engine-Pin hat keinen öffentlichen H3-Vertrag. Ein optionaler Host-Adapter kann bei
+bereitstehendem Vertrag automatisch liefern; Inhalts-Hash und Idempotenzschlüssel
+sichern Wiederholungen, aktuelle Leserechte werden davor erneut geprüft. Der Adapter
+ist heute nicht verdrahtet. `UnavailableSkillProposals` bleibt unverändert; es gibt
+keinen lokalen Skill-Queue-Ersatz und weder Installation noch Enable von Skills.
+
+### Vorhersagen in der Schattenphase (LQ2)
+
+Die Annahme eines Wissensbefunds legt eine inhaltsfreie Vorhersage an: gehashter
+Inhaltsschlüssel, Richtung „seltener“, Annahmezeit und frühestes Ende nach 14 Tagen.
+Spätere vollständige Lernläufe zählen relevante Sessions und erneute Signale im Code,
+auch wenn ein bereits angenommener Befund keinen weiteren Prüfeintrag erzeugt.
+Überlappende Zeitfenster zählen eine Session nur einmal. Mindestens zehn Sessions und
+lückenlose Beobachtungsfenster über mindestens 14 Tage sind nötig; beide Bedingungen
+müssen erfüllt sein. Gekappte Läufe liefern keinen Bestätigungsnachweis.
+
+Kein erneutes Signal ergibt `confirmed`, ein erneutes Signal `not-confirmed`, zu wenig
+Beobachtungsdaten `insufficient-data`. Die Prüfansicht zeigt bei `not-confirmed` einen
+Retire-Vorschlag und den Weg zur manuellen Kuration; eine vorhandene Importquittung
+bietet zusätzlich einen bestätigten Rollback. Es gibt keine automatische Speicheränderung.
+Die Bestätigungsrate steht neben der Präzision im Kalibrier-Record. Erasure einer
+Beobachtung invalidiert deren Bestätigung; fehlende Daten gelten nicht als Erfolg.
+
+### Betrieb und Bedienung (LQ4)
+
+Im Dreams-Tab stehen pro Agent und Projekt Aktivierung, letzter und nächster Lauf,
+„Jetzt ausführen“ und die Kalibrierung für Tier A/B. Die Aktivierung schreibt die
+revisionierte Konfiguration über `config.set` des Supervisors. Nur der Owner darf
+`dreams.learn` ändern, auch bei Ersetzen eines übergeordneten Konfigurationsobjekts.
+Der Hinweis vor der Aktivierung erklärt gelesene Quellen und gespeicherte Daten.
+Konfigurationsänderungen haben die Restart-Klasse `core`; die Oberfläche zeigt das an.
+Installationsweite Tool-Muster sind im eigenen Abschnitt sichtbar. Prüflisten sind
+in Seiten zu 50 Befunden unterteilt; Belege werden bei jeder Anzeige erneut geprüft.
+
+`plur1bus 1staid check` hängt drei IDs an die bestehende Tabelle an:
+`dreams.learn.store` prüft Schema, SQLite-Integrität und private Dateirechte;
+`dreams.learn.breaker` meldet offene Breaker, `dreams.learn.backlog` zählt offene
+und auf H3 wartende Befunde. Ohne laufenden Core bleiben Integrität und Datenbankzähler
+explizit ungeprüft; Dateirechte werden nativ gelesen. Eine noch nicht angelegte
+Lern-Datenbank wird als `skip` ausgewiesen. Die Core-Statusprojektion mit den Zählern
+ist nur für den Owner sichtbar und enthält weder Namen noch Texte.
+
+Prometheus exportiert `plur1bus_learn_runs_total` nach Ergebnis und festem Grund,
+`plur1bus_learn_findings_total` nach Wunsch-Tier und Statusübergang sowie
+`plur1bus_learn_tokens_total` für tatsächlich gemessene Input-/Output-Tokens.
+Labels sind geschlossene Aufzählungen: keine Agenten-, Personen-, Session-, Modell-
+oder Befund-IDs. Ein Inbox-Hinweis pro Lauf enthält nur Zähler und den Review-Link,
+auch bei Verweigerungen. Retries verwenden denselben Deduplizierungsschlüssel.
+Manuelle Lernläufe teilen Semaphore und Shutdown-Abschluss mit dem Dreams-Scheduler.

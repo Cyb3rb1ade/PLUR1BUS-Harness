@@ -85,6 +85,15 @@ This document contains the help content for the `plur1bus` command-line program.
 * [`plur1bus jobs list`↴](#plur1bus-jobs-list)
 * [`plur1bus jobs create`↴](#plur1bus-jobs-create)
 * [`plur1bus dreams`↴](#plur1bus-dreams)
+* [`plur1bus dreams learn`↴](#plur1bus-dreams-learn)
+* [`plur1bus dreams learn run`↴](#plur1bus-dreams-learn-run)
+* [`plur1bus dreams learn status`↴](#plur1bus-dreams-learn-status)
+* [`plur1bus dreams learn list`↴](#plur1bus-dreams-learn-list)
+* [`plur1bus dreams learn show`↴](#plur1bus-dreams-learn-show)
+* [`plur1bus dreams learn accept`↴](#plur1bus-dreams-learn-accept)
+* [`plur1bus dreams learn reject`↴](#plur1bus-dreams-learn-reject)
+* [`plur1bus dreams learn rollback`↴](#plur1bus-dreams-learn-rollback)
+* [`plur1bus dreams learn calibration`↴](#plur1bus-dreams-learn-calibration)
 * [`plur1bus dreams status`↴](#plur1bus-dreams-status)
 * [`plur1bus dreams run`↴](#plur1bus-dreams-run)
 * [`plur1bus dreams log`↴](#plur1bus-dreams-log)
@@ -1535,6 +1544,7 @@ Dreaming: phase schedules, status, run, log
 
 ###### **Subcommands:**
 
+* `learn` — [experimental] Shadow learning runs and human review
 * `status` — [experimental] Dreaming status: the three phase schedules, last runs, breaker and importance, plus the engine jobs
 * `run` — [experimental] Run a dreaming phase (light, rem or deep) now under every guard but the cron gate; an engine job name still runs that job
 * `log` — [experimental] Dreaming run history; with --run, one run and its log
@@ -1542,6 +1552,141 @@ Dreaming: phase schedules, status, run, log
 * `enable` — [experimental] Enable one phase's schedule
 * `disable` — [experimental] Disable one phase's schedule (run now still works)
 * `diary` — [experimental] Read the private dreaming diary of an agent
+
+
+
+## `plur1bus dreams learn`
+
+[experimental] Shadow learning runs and human review
+
+**Usage:** `plur1bus dreams learn <COMMAND>`
+
+###### **Subcommands:**
+
+* `run` — [experimental] Run the current learning window
+* `status` — [experimental] Last run, next run and breaker
+* `list` — [experimental] List review findings
+* `show` — [experimental] Inspect a finding and authorized live evidence
+* `accept` — [experimental] Apply a reviewed finding through public MemoryOps
+* `reject` — [experimental] Reject the reviewed finding
+* `rollback` — [experimental] Roll back an imported finding
+* `calibration` — [experimental] Show measured shadow precision and closed gates
+
+
+
+## `plur1bus dreams learn run`
+
+[experimental] Run the current learning window
+
+**Usage:** `plur1bus dreams learn run [OPTIONS] --agent <AGENT>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+* `--project <PROJECT>`
+* `--installation`
+
+
+
+## `plur1bus dreams learn status`
+
+[experimental] Last run, next run and breaker
+
+**Usage:** `plur1bus dreams learn status [OPTIONS] --agent <AGENT>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+* `--project <PROJECT>`
+* `--installation`
+
+
+
+## `plur1bus dreams learn list`
+
+[experimental] List review findings
+
+**Usage:** `plur1bus dreams learn list [OPTIONS] --agent <AGENT>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+* `--project <PROJECT>`
+* `--installation`
+
+
+
+## `plur1bus dreams learn show`
+
+[experimental] Inspect a finding and authorized live evidence
+
+**Usage:** `plur1bus dreams learn show <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+
+
+## `plur1bus dreams learn accept`
+
+[experimental] Apply a reviewed finding through public MemoryOps
+
+**Usage:** `plur1bus dreams learn accept [OPTIONS] --hash <HASH> <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+###### **Options:**
+
+* `--hash <HASH>`
+* `--stale-action <STALE_ACTION>`
+
+  Possible values: `correct`, `forget`
+
+
+
+
+## `plur1bus dreams learn reject`
+
+[experimental] Reject the reviewed finding
+
+**Usage:** `plur1bus dreams learn reject --hash <HASH> <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+###### **Options:**
+
+* `--hash <HASH>`
+
+
+
+## `plur1bus dreams learn rollback`
+
+[experimental] Roll back an imported finding
+
+**Usage:** `plur1bus dreams learn rollback <ID>`
+
+###### **Arguments:**
+
+* `<ID>`
+
+
+
+## `plur1bus dreams learn calibration`
+
+[experimental] Show measured shadow precision and closed gates
+
+**Usage:** `plur1bus dreams learn calibration [OPTIONS] --agent <AGENT>`
+
+###### **Options:**
+
+* `--agent <AGENT>`
+* `--project <PROJECT>`
+* `--installation`
 
 
 

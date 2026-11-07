@@ -1,0 +1,36 @@
+{
+  "params": {
+    "id": "learn-finding-fixture"
+  },
+  "result": {
+    "finding": {
+      "id": "learn-finding-fixture",
+      "kind": "knowledge",
+      "change": "add",
+      "status": "pending",
+      "text": "Synthetic project uses Go.",
+      "score": 0.9,
+      "desiredTier": "A",
+      "effectiveTier": "C",
+      "skeptic": "holds",
+      "verify": "not-applicable",
+      "revision": 1,
+      "target": {
+        "scope": "agent",
+        "agentId": "bernd",
+        "owner": "fixture-owner"
+      },
+      "prevalence": {
+        "sessions": 3,
+        "total": 3,
+        "days": 2,
+        "agents": 1,
+        "persons": 1
+      }
+    },
+    "evidence": [],
+    "contentHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "action": null,
+    "prediction": null
+  }
+}

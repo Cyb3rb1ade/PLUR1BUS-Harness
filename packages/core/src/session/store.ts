@@ -1,5 +1,6 @@
 // The session store (M1b-2c, A7): node:sqlite + FTS5. Synchronous by design (one resident core, one writer), so a
 // "transaction" here is a plain BEGIN IMMEDIATE .. COMMIT with no await inside.
+import type { ChannelOrigin } from "../channels/behaviour-context.ts";
 import { randomUUID } from "node:crypto";
 import { chmodSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
@@ -372,6 +373,15 @@ export class SessionStore {
     return s;
   }
 
+  /** LP: bounded metadata selection, with the time/owner/project predicates before LIMIT. No transcript text. */
+  learningSessions(f: { owner: string; agentId?: string; projectId?: string; from: number; to: number; limit: number; offset?: number }): SessionRecord[] {
+    const where = ["s.owner=?", "s.memory_mode='remember'", "EXISTS (SELECT 1 FROM turns t WHERE t.session_id=s.id AND t.state='completed' AND t.incognito=0 AND t.ended_at>=? AND t.ended_at<?)"];
+    const args: (string | number)[] = [f.owner, f.from, f.to];
+    if (f.agentId) { where.push('s.agent_id=?'); args.push(f.agentId); }
+    if (f.projectId) { where.push('s.scope=?'); args.push(f.projectId); }
+    return this.#all(`SELECT s.* FROM sessions s WHERE ${where.join(' AND ')} ORDER BY COALESCE(s.last_turn_at,s.updated_at) DESC,s.id LIMIT ? OFFSET ?`, ...args, Math.max(1, Math.min(51, f.limit)), f.offset ?? 0).map(toSession);
+  }
+
   listSessions(f: ListFilter): { sessions: SessionRecord[]; truncated: boolean } {
     const limit = Math.min(Math.max(f.limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT);
     const where = ["s.owner = ?"]; const args: (string | number | null)[] = [f.owner];
@@ -520,9 +530,11 @@ export class SessionStore {
 
   /** Explicit transcript erasure requires an archived session and leaves a content-free audit tombstone.
    *  Private checkpoint cleanup intents survive until their native refs have actually been released. */
+  readonly #eraseListeners = new Set<() => void>();
+  onErasure(listener: () => void): () => void { this.#eraseListeners.add(listener); return () => this.#eraseListeners.delete(listener); }
   eraseSession(id: string, o: { actor: string; reason: string }): { tombstoneId: string; messages: number } {
     if (!o.actor || !o.reason) throw new SessionError("invalid", "an erasure needs an actor and a reason", "erasure-audit");
-    return this.#tx(() => {
+    const result = this.#tx(() => {
       const s = this.getSession(id);
       if (!s) throw new SessionError("not-found", `session ${id} not found`, "session");
       if (s.archivedAt === null) throw new SessionError("conflict", "erasure requires the session to be archived first (archive-first)", "not-archived");
@@ -534,6 +546,8 @@ export class SessionStore {
       this.#run("DELETE FROM sessions WHERE id = ?", id);
       return { tombstoneId, messages };
     });
+    for (const listener of this.#eraseListeners) listener();
+    return result;
   }
 
   erasures(): { id: string; sessionId: string; owner: string; messageCount: number; actor: string; reason: string }[] {
@@ -545,7 +559,7 @@ export class SessionStore {
   // ---- turns, messages, events ----------------------------------------------------------------------------------
 
   /** Atomically records the user's message, the running turn and `turn.started`. One running turn per session. */
-  beginTurn(sessionId: string, text: string, tokens: number, options: { harnessCommand?: boolean } = {}): { turn: TurnRecord; message: MessageRecord; event: EventRecord } {
+  beginTurn(sessionId: string, text: string, tokens: number, options: { harnessCommand?: boolean; channelOrigin?: ChannelOrigin } = {}): { turn: TurnRecord; message: MessageRecord; event: EventRecord } {
     return this.#tx(() => {
       const s = this.getSession(sessionId);
       if (!s) throw new SessionError("not-found", `session ${sessionId} not found`, "session");
@@ -557,7 +571,8 @@ export class SessionStore {
       this.#run("UPDATE sessions SET turn_count = ?, last_turn_at = ?, updated_at = ? WHERE id = ?", seq, now, now, sessionId);
       const message = this.#insertMessage(sessionId, turnId, "user", text, tokens);
       const event = this.#insertEvent(sessionId, turnId, "turn.started", { turnId, turnSeq: seq, messageId: message.id,
-        ...(options.harnessCommand ? { provider: "harness-command" } : {}) });
+        ...(options.harnessCommand ? { provider: "harness-command" } : {}),
+        ...(options.channelOrigin ? { channelOrigin: options.channelOrigin } : {}) });
       return { turn: toTurn(this.#get("SELECT * FROM turns WHERE id = ?", turnId)!), message, event };
     });
   }
@@ -607,6 +622,36 @@ export class SessionStore {
   }
   getTurn(id: string): TurnRecord | null { const r = this.#get("SELECT * FROM turns WHERE id = ?", id); return r ? toTurn(r) : null; }
   listTurns(sessionId: string): TurnRecord[] { return this.#all("SELECT * FROM turns WHERE session_id = ? ORDER BY seq", sessionId).map(toTurn); }
+
+  /** Learning reads the completed-turn window before imposing content caps. One extra row exposes overflow. */
+  /** LP7 deliberately projects only trusted metadata; never selects event data, output or messages. */
+  learningToolErrors(owner: string, window: { from: number; to: number }, limit = 4001) {
+    return this.#all(`SELECT e.session_id,e.turn_id,e.seq,e.at,json_extract(e.data,'$.learnTool') AS metadata
+      FROM events e JOIN turns t ON t.id=e.turn_id JOIN sessions s ON s.id=e.session_id
+      WHERE s.owner=? AND s.memory_mode='remember' AND t.incognito=0 AND t.state IN ('completed','failed')
+      AND t.ended_at>=? AND t.ended_at<? AND e.type='tool.result' AND json_extract(e.data,'$.learnTool.version')=1
+      ORDER BY t.ended_at DESC,e.session_id,e.seq LIMIT ?`, owner, window.from, window.to, Math.min(4001, limit))
+      .map(r => ({ sessionId: String(r.session_id), turnId: String(r.turn_id), seq: Number(r.seq), at: Number(r.at),
+        metadata: JSON.parse(String(r.metadata)) as import('../tools/learning-metadata.ts').LearningToolMetadata }));
+  }
+
+  learningTranscript(sessionId: string, window: { from: number; to: number }, caps: { messages: number; events: number }, turnIds?: readonly string[]): { messages: MessageRecord[]; events: EventRecord[] } {
+    let predicate = "t.session_id=? AND t.state='completed' AND t.incognito=0 AND t.ended_at>=? AND t.ended_at<?";
+    const args: (string | number)[] = [sessionId, window.from, window.to];
+    if (turnIds) {
+      if (!turnIds.length || turnIds.length > 100) return { messages: [], events: [] };
+      predicate += ` AND t.id IN (${turnIds.map(() => '?').join(',')})`; args.push(...turnIds);
+    }
+    const messages = this.#all(`SELECT m.* FROM messages m JOIN turns t ON t.id=m.turn_id
+      WHERE ${predicate} AND m.session_id=t.session_id AND NOT EXISTS
+      (SELECT 1 FROM path_rewinds r WHERE r.session_id=m.session_id AND
+       ((r.undone_at IS NULL AND m.seq BETWEEN r.hidden_from_seq AND r.hidden_to_seq)
+        OR (r.undone_at IS NOT NULL AND m.id=r.lesson_message_id)))
+      ORDER BY m.seq LIMIT ?`, ...args, caps.messages + 1).map(toMessage);
+    const events = this.#all(`SELECT e.* FROM events e JOIN turns t ON t.id=e.turn_id
+      WHERE ${predicate} AND e.session_id=t.session_id ORDER BY e.seq LIMIT ?`, ...args, caps.events + 1).map(toEvent);
+    return { messages, events };
+  }
 
   #insertMessage(sessionId: string, turnId: string | null, role: MessageRole, text: string, tokens: number): MessageRecord {
     const seq = (this.#get("SELECT last_message_seq FROM sessions WHERE id = ?", sessionId)!.last_message_seq as number) + 1;

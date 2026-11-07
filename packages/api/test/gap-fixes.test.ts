@@ -59,10 +59,10 @@ test("without a gateway the address bucket stays strict: five failed logins from
 const wide = { auth: { capacity: 1000, refillPerSec: 1000 }, read: { capacity: 1000, refillPerSec: 1000 }, write: { capacity: 1000, refillPerSec: 1000 } };
 const rpc = async (h: Harness, cookie: string, method: string, params: object = {}) =>
   raw(h, { method: "POST", path: "/rpc", headers: { "content-type": "application/json", cookie, "x-csrf-token": await csrfToken(h, cookie) }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) });
-const RPC_PARAMS: Record<string, object> = { "jobs.run": { job: "models.scan" }, "dreams.run": { agentId: "main", phase: "light" }, "voice.realtime.start": { agentId: "main", chatSessionId: "chat-1" }, "session.submit": { sessionId: "ses_1", text: "hello" } };
+const RPC_PARAMS: Record<string, object> = { "dreams.learn.run": { scope: "agent", agentId: "main" }, "jobs.run": { job: "models.scan" }, "dreams.run": { agentId: "main", phase: "light" }, "voice.realtime.start": { agentId: "main", chatSessionId: "chat-1" }, "session.submit": { sessionId: "ses_1", text: "hello" } };
 
 test("ADR-004: the model-backed methods and the chat submit are class `expensive`, everything else keeps its class", () => {
-  assert.deepEqual([...EXPENSIVE_RPC_METHODS].sort(), ["dreams.run", "jobs.run", "media.edit", "media.generate", "session.submit", "voice.realtime.start"]);
+  assert.deepEqual([...EXPENSIVE_RPC_METHODS].sort(), ["dreams.learn.run", "dreams.run", "jobs.run", "media.edit", "media.generate", "session.submit", "voice.realtime.start"]);
   assert.equal(ROUTES.find(r => r.id === "chats.submit")!.rate, "expensive");
   assert.equal(ROUTES.find(r => r.id === "chats.create")!.rate, "write"); assert.equal(ROUTES.find(r => r.id === "chats.messages")!.rate, "read");
   assert.equal(ROUTES.find(r => r.id === "web.rpc")!.rate, "rpc");
@@ -78,6 +78,7 @@ test("model-backed RPC methods share one `expensive` bucket per person; other me
     const third = await rpc(h, owner, "voice.realtime.start", RPC_PARAMS["voice.realtime.start"]);
     assert.equal(third.status, 429); assert.equal(third.json.reason, "rate-limited"); assert.ok(Number(third.headers["retry-after"]) >= 1);
     assert.equal((await rpc(h, owner, "session.submit", RPC_PARAMS["session.submit"])).status, 429, "session.submit draws on the same bucket");
+    assert.equal((await rpc(h, owner, "dreams.learn.run", RPC_PARAMS["dreams.learn.run"])).status, 429, "learning draws on the same bucket");
     assert.equal((await rpc(h, owner, "core.status")).status, 200, "a cheap method is not counted");
     assert.ok(h.audit.events.some(e => e.action === "auth.rate-limited" && (e.detail as { class?: string }).class === "expensive"));
     const alice = (await raw(h, { method: "POST", path: "/api/v1/session", headers: jsonHeaders(), body: JSON.stringify({ username: "alice", password: FIXTURE_PASSWORD }) })).headers["set-cookie"]![0]!.split(";", 1)[0]!;

@@ -83,7 +83,14 @@ describe("metrics http endpoint", () => {
   it("no secret appears in the exposition", async () => {
     const r = await get(port, { headers: auth });
     assert.equal(r.body.includes(TOKEN), false);
-    assert.equal(/token|secret|password|bearer|api[_-]?key/i.test(r.body), false);
+    // The public token-usage counter is not an authentication token. Only its exact
+    // static metadata is exempt; all labels and values retain the secret check.
+    const publicUsage = parseExposition(r.body).find(f => f.name === 'plur1bus_learn_tokens_total');
+    assert.equal(publicUsage?.help, 'Measured learning input and output tokens; no estimates.');
+    assert.ok(publicUsage?.samples.every(s => Object.keys(s.labels).length === 0 && Number.isFinite(s.value)));
+    const checked = r.body.replaceAll('plur1bus_learn_tokens_total', 'learning_usage')
+      .replace('Measured learning input and output tokens; no estimates.', 'Measured learning usage.');
+    assert.equal(/token|secret|password|bearer|api[_-]?key/i.test(checked), false);
   });
 });
 

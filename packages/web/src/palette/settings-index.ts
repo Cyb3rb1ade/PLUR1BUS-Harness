@@ -14,6 +14,19 @@ import type { ConfigSchemaNode } from "@plur1bus/config-schema/policy";
 export type SettingSpec = { readonly key: string; readonly type: string; readonly tier: "basic" | "advanced"; readonly sensitive?: boolean; readonly urlCredentials?: boolean; readonly help?: string };
 
 export const SETTINGS: readonly SettingSpec[] = [
+  { key: "dreams", type: "object", tier: "advanced", help: "Harness-owned dreaming and learning configuration." },
+  { key: "dreams.learn", type: "object", tier: "advanced", help: "Optional shadow learning; all memory changes require human review. Only the owner may change these settings." },
+  { key: "dreams.learn.windowDays", type: "integer", tier: "advanced", help: "Completed-session lookback window in days, ending at UTC midnight." },
+  { key: "dreams.learn.checkpointDays", type: "integer", tier: "advanced", help: "Maximum retention of unfinished learning extraction checkpoints in days." },
+  { key: "dreams.learn.maxSessions", type: "integer", tier: "advanced", help: "Maximum authorized sessions included in one learning run." },
+  { key: "dreams.learn.maxTokens", type: "integer", tier: "advanced", help: "Maximum input and output token budget per learning run; an integer count, not a credential." },
+  { key: "dreams.learn.agents", type: "object", tier: "advanced", help: "Per-agent learning targets keyed by agent ID." },
+  { key: "dreams.learn.projects", type: "object", tier: "advanced", help: "Per-project learning targets keyed by project ID." },
+  { key: "dreams.learn.installation", type: "object", tier: "advanced", help: "Content-free installation tool-error aggregation target." },
+  { key: "dreams.learn.installation.enabled", type: "boolean", tier: "advanced", help: "Opt in to scheduled learning for this target; disabled by default." },
+  { key: "dreams.learn.installation.owner", type: "string", tier: "advanced", help: "Human identity ID whose current source and destination rights govern the run." },
+  { key: "dreams.learn.installation.agentId", type: "string", tier: "advanced", help: "Configured agent route used for this project or installation target." },
+  { key: "dreams.learn.installation.focus", type: "string", tier: "advanced", help: "Optional owner-written focus for isolated extraction; not an additional permission." },
   { key: "import.ssh", type: "object", tier: "advanced", help: "Owner-managed SSH source identity and endpoint configuration." },
   { key: "import.ssh.connections", type: "object", tier: "advanced", help: "Owner-managed named SSH source connections." },
   { key: "collaboration.fanoutEnabled", type: "boolean", tier: "advanced", help: "Enable collaboration fan-out only after owner review of the equal-token-budget evaluation." },
@@ -603,6 +616,99 @@ export const CONFIG_POLICY_SCHEMA: ConfigSchemaNode = {
   },
   "x-unknown-members": "sensitive",
   "properties": {
+    "dreams": {
+      "type": "object",
+      "properties": {
+        "learn": {
+          "type": "object",
+          "properties": {
+            "windowDays": {
+              "type": "integer"
+            },
+            "checkpointDays": {
+              "type": "integer"
+            },
+            "maxSessions": {
+              "type": "integer"
+            },
+            "maxTokens": {
+              "type": "integer"
+            },
+            "agents": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "owner": {
+                    "type": "string",
+                    "maxLength": 128
+                  },
+                  "agentId": {
+                    "type": "string",
+                    "maxLength": 128
+                  },
+                  "focus": {
+                    "type": "string",
+                    "maxLength": 4000
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "projects": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "owner": {
+                    "type": "string",
+                    "maxLength": 128
+                  },
+                  "agentId": {
+                    "type": "string",
+                    "maxLength": 128
+                  },
+                  "focus": {
+                    "type": "string",
+                    "maxLength": 4000
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "installation": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "owner": {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                "agentId": {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                "focus": {
+                  "type": "string",
+                  "maxLength": 4000
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
     "import": {
       "type": "object",
       "required": [],

@@ -90,6 +90,203 @@
   "additionalProperties": false,
   "required": ["schemaVersion"],
   "properties": {
+    "dreams": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {},
+      "properties": {
+        "learn": {
+          "x-write-roles": [
+            "owner"
+          ],
+          "x-audit": true,
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "properties": {
+            "windowDays": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30,
+              "default": 7,
+              "x-restart": "core",
+              "x-tier": "advanced",
+              "description": "Completed-session lookback window in days, ending at UTC midnight."
+            },
+            "checkpointDays": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 7,
+              "default": 7,
+              "x-restart": "core",
+              "x-tier": "advanced",
+              "description": "Maximum retention of unfinished learning extraction checkpoints in days."
+            },
+            "maxSessions": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 50,
+              "x-restart": "core",
+              "x-tier": "advanced",
+              "description": "Maximum authorized sessions included in one learning run."
+            },
+            "maxTokens": {
+              "type": "integer",
+              "minimum": 4096,
+              "maximum": 1000000,
+              "default": 100000,
+              "x-restart": "core",
+              "x-tier": "advanced",
+              "description": "Maximum input and output token budget per learning run; an integer count, not a credential."
+            },
+            "agents": {
+              "type": "object",
+              "default": {},
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "default": {},
+                "properties": {
+                  "enabled": {
+                    "type": "boolean",
+                    "default": false,
+                    "x-restart": "core",
+                    "x-tier": "advanced",
+                    "description": "Opt in to scheduled learning for this target; disabled by default."
+                  },
+                  "owner": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "default": "",
+                    "x-restart": "core",
+                    "x-tier": "advanced",
+                    "description": "Human identity ID whose current source and destination rights govern the run."
+                  },
+                  "agentId": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "default": "",
+                    "x-restart": "core",
+                    "x-tier": "advanced",
+                    "description": "Configured agent route used for this project or installation target."
+                  },
+                  "focus": {
+                    "type": "string",
+                    "maxLength": 4000,
+                    "default": "",
+                    "x-restart": "core",
+                    "x-tier": "advanced",
+                    "description": "Optional owner-written focus for isolated extraction; not an additional permission."
+                  }
+                },
+                "x-restart": "core",
+                "x-tier": "advanced",
+                "description": "Learning target settings."
+              },
+              "x-restart": "core",
+              "x-tier": "advanced",
+              "description": "Per-agent learning targets keyed by agent ID."
+            },
+            "projects": {
+              "type": "object",
+              "default": {},
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "default": {},
+                "properties": {
+                  "enabled": {
+                    "type": "boolean",
+                    "default": false,
+                    "x-restart": "core",
+                    "x-tier": "advanced",
+                    "description": "Opt in to scheduled learning for this target; disabled by default."
+                  },
+                  "owner": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "default": "",
+                    "x-restart": "core",
+                    "x-tier": "advanced",
+                    "description": "Human identity ID whose current source and destination rights govern the run."
+                  },
+                  "agentId": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "default": "",
+                    "x-restart": "core",
+                    "x-tier": "advanced",
+                    "description": "Configured agent route used for this project or installation target."
+                  },
+                  "focus": {
+                    "type": "string",
+                    "maxLength": 4000,
+                    "default": "",
+                    "x-restart": "core",
+                    "x-tier": "advanced",
+                    "description": "Optional owner-written focus for isolated extraction; not an additional permission."
+                  }
+                },
+                "x-restart": "core",
+                "x-tier": "advanced",
+                "description": "Learning target settings."
+              },
+              "x-restart": "core",
+              "x-tier": "advanced",
+              "description": "Per-project learning targets keyed by project ID."
+            },
+            "installation": {
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "default": false,
+                  "x-restart": "core",
+                  "x-tier": "advanced",
+                  "description": "Opt in to scheduled learning for this target; disabled by default."
+                },
+                "owner": {
+                  "type": "string",
+                  "maxLength": 128,
+                  "default": "",
+                  "x-restart": "core",
+                  "x-tier": "advanced",
+                  "description": "Human identity ID whose current source and destination rights govern the run."
+                },
+                "agentId": {
+                  "type": "string",
+                  "maxLength": 128,
+                  "default": "",
+                  "x-restart": "core",
+                  "x-tier": "advanced",
+                  "description": "Configured agent route used for this project or installation target."
+                },
+                "focus": {
+                  "type": "string",
+                  "maxLength": 4000,
+                  "default": "",
+                  "x-restart": "core",
+                  "x-tier": "advanced",
+                  "description": "Optional owner-written focus for isolated extraction; not an additional permission."
+                }
+              },
+              "x-restart": "core",
+              "x-tier": "advanced",
+              "description": "Content-free installation tool-error aggregation target."
+            }
+          },
+          "x-restart": "core",
+          "x-tier": "advanced",
+          "description": "Optional shadow learning; all memory changes require human review. Only the owner may change these settings."
+        }
+      },
+      "x-restart": "core",
+      "x-tier": "advanced",
+      "description": "Harness-owned dreaming and learning configuration."
+    },
     "import": {
       "type": "object",
       "additionalProperties": false,

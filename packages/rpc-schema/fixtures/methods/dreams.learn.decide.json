@@ -1,0 +1,10 @@
+{
+  "params": {
+    "id": "learn-finding-fixture",
+    "contentHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "outcome": "rejected"
+  },
+  "result": {
+    "status": "rejected"
+  }
+}

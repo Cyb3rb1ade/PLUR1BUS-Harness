@@ -249,17 +249,42 @@ test("concurrent uploads cannot overcommit quota across store instances", async 
   });
 });
 
-test("an upload snapshots caller bytes before waiting for a busy store", async () => {
+test("an upload snapshots caller bytes before waiting for a busy store", async t => {
   await withRoot(async root => {
     const store = new OutputStore(root);
-    await fs.mkdir(join(root, ".lock"), { recursive: true });
-    const data = Buffer.from(PNG);
-    const pending = store.putUploaded({ kind: "image", mimeType: "image/png", data });
-    data.fill(0);
-    await fs.rm(join(root, ".lock"), { recursive: true });
-    const upload = await pending;
-    assert.deepEqual(await fs.readFile(upload.file), PNG);
-    assert.deepEqual(await store.getUploaded(upload.manifest.id), upload);
+    const lock = join(root, ".lock");
+    await fs.mkdir(lock, { recursive: true });
+    const entered = Promise.withResolvers<void>();
+    const released = Promise.withResolvers<void>();
+    const original = fs.mkdir;
+    const mkdir = t.mock.method(fs, "mkdir", async (...args: Parameters<typeof fs.mkdir>) => {
+      try { return await original(...args); }
+      catch (error) {
+        if (String(args[0]) === lock && (error as NodeJS.ErrnoException).code === "EEXIST") {
+          // Finish the failed mkdir before removing the directory: Windows can otherwise
+          // report a deletion-in-progress error instead of the intended busy-lock result.
+          entered.resolve();
+          await released.promise;
+        }
+        throw error;
+      }
+    });
+    syncBuiltinESMExports();
+    try {
+      const data = Buffer.from(PNG);
+      const pending = store.putUploaded({ kind: "image", mimeType: "image/png", data });
+      data.fill(0);
+      await Promise.race([entered.promise, pending.then(() => assert.fail("upload bypassed the held lock"))]);
+      await fs.rm(lock, { recursive: true });
+      released.resolve();
+      const upload = await pending;
+      assert.deepEqual(await fs.readFile(upload.file), PNG);
+      assert.deepEqual(await store.getUploaded(upload.manifest.id), upload);
+    } finally {
+      released.resolve();
+      mkdir.mock.restore();
+      syncBuiltinESMExports();
+    }
   });
 });
 

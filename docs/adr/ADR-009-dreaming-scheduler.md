@@ -349,3 +349,35 @@ record the historical decision. Imports now copy source `DREAMS.md` (or `dreams.
 keeps imported history in `DREAMS.openclaw.md`, and explicit replace retains a backup for rollback. An existing legacy
 `dreaming.md` is left untouched; A5 introduces no second runtime writer and performs no automatic legacy-file migration.
 Point 8 remains open for the other curated files and the later D116 work.
+
+### Implementation record: LP shadow learning (2026-11-07)
+
+The Harness `learn` job shares DreamScheduler's timer, stop signal and concurrency semaphore;
+manual and scheduled runs use one daily UTC window. The private `state/dreams/learn.db` separates
+content-free run/step/decision metadata from scoped review payloads. Selection queries apply the
+completed-turn window before caps, page past denied sessions and record overflow. Checkpoints and
+canonical target/window identity survive restart. Failed retries count toward the same target breaker.
+
+The ProviderRouter supplies tool-free extraction and skeptic/wording contexts through D105 classes,
+with ordinary agent/project budgets and local-only checks. Repository verification has only file.read
+and file.list through D109. Generic model self-confidence never enters the score. Trivial verification
+snippets cannot establish trust. Channel person evidence requires persisted direct-chat provenance
+and a current identity link; unknown historic senders and groups stay untrusted.
+
+The owner ruling replaces H3 submission with a learning-only review store. Explicit human decisions
+reuse guarded public MemoryOps, preserving existing refusals and import rollback receipts. There is
+no skill queue, Engine pin change or automatic A/B executor. Stable findings retain review revisions;
+calibration pools by owner/tier/class/prompt/policy and always keeps activation closed until V2.
+The operational UI and experimental RPC 1.23.0 expose review and counters without granting agents a
+human surface; all dreams.learn methods are forbidden over WebMCP.
+
+### Lern-Pass Betrieb, LQ1–LQ4 (2026-11-07)
+
+Der private Lern-Prüfspeicher erhält Erasure-/Lebenszyklusabgleich, begrenzte
+Payload-Aufbewahrung und inhaltsfreie Vorhersagen. Wiederaufnehmbare Läufe teilen
+weiterhin die bestehende Scheduler-Semaphore; auch manuelle Aufträge werden beim
+Shutdown abgewartet. Keine zweite Uhr, kein automatischer Ausführer.
+Die append-only Diagnose-IDs `dreams.learn.store`, `dreams.learn.breaker` und
+`dreams.learn.backlog` ergänzen die bisherigen Checks. Ein synthetischer Offline-Eval
+gehört zur Core-Suite; ein Live-Workflow erfordert einen manuellen Dispatch mit
+expliziter Kostenfreigabe. Die Implementierung hat keinen Live-Lauf ausgeführt.

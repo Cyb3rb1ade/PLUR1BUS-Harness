@@ -1553,6 +1553,34 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                     &root_schema,
                 )
             }
+            "dreams.learn.run" => check_pair::<
+                types::DreamsLearnRunParams,
+                types::DreamsLearnRunResult,
+            >(name, fixture, &root_schema),
+            "dreams.learn.status" => check_pair::<
+                types::DreamsLearnStatusParams,
+                types::DreamsLearnStatusResult,
+            >(name, fixture, &root_schema),
+            "dreams.learn.list" => check_pair::<
+                types::DreamsLearnListParams,
+                types::DreamsLearnListResult,
+            >(name, fixture, &root_schema),
+            "dreams.learn.get" => check_pair::<
+                types::DreamsLearnGetParams,
+                types::DreamsLearnGetResult,
+            >(name, fixture, &root_schema),
+            "dreams.learn.decide" => check_pair::<
+                types::DreamsLearnDecideParams,
+                types::DreamsLearnDecideResult,
+            >(name, fixture, &root_schema),
+            "dreams.learn.rollback" => check_pair::<
+                types::DreamsLearnRollbackParams,
+                types::DreamsLearnRollbackResult,
+            >(name, fixture, &root_schema),
+            "dreams.learn.calibration" => check_pair::<
+                types::DreamsLearnCalibrationParams,
+                types::DreamsLearnCalibrationResult,
+            >(name, fixture, &root_schema),
             "dreams.diary" => check_pair::<types::DreamsDiaryParams, types::DreamsDiaryResult>(
                 name,
                 fixture,
