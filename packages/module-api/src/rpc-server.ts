@@ -7,6 +7,7 @@ import { createConnection, createServer, type Server, type Socket } from "node:n
 import { dirname } from "node:path";
 import { METHODS_BY_SERVER, buildCapabilities, validateParams, validateRequest, validateResult, type Deprecation, type RpcServerRole } from "@plur1bus/rpc-schema";
 import { LineDecoder, encodeLine } from "./framing.ts";
+import { parityRecorder } from "./parity-recorder.ts";
 import type { HarnessLogger } from "./logger.ts";
 import { RpcError } from "./rpc-error.ts";
 
@@ -116,6 +117,7 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
   const authIdleMs = o.authIdleMs ?? 30_000;
   const tokenBuf = Buffer.from(o.token, "utf8");
   const conns = new Map<string, Conn>();
+  const rec = parityRecorder(); // P4-02: null unless PLUR1BUS_ALLOW_TEST_INTERNALS=1 and PLUR1BUS_PARITY_RECORD are both set
   const dispatches = new Set<Dispatch>(); // handler calls whose reply is not written yet (drain() waits on these)
   let server: Server | null = null;
   let closing: Promise<void> | null = null;
@@ -128,7 +130,7 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
       c.sock.destroy();
     }
   }
-  const send = (c: Conn, msg: unknown) => writeToSocket(c, encodeLine(msg));
+  const send = (c: Conn, msg: unknown) => { rec?.record(c.id, "out", msg); writeToSocket(c, encodeLine(msg)); };
   const errorReply = (c: Conn, id: unknown, e: RpcError) => send(c, { jsonrpc: "2.0", id: id ?? null, error: e.toJSON() });
   /** Send a final error, then close. destroy() right after write() drops the pending reply on Windows named pipes. */
   function replyAndClose(c: Conn, id: unknown, e: RpcError): void {
@@ -284,7 +286,7 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
       // Each line is parsed on its own: the valid requests of this chunk are served, only the broken line gets the
       // parse error (a valid request next to a garbled one used to be dropped and its client waited for a timeout).
       const { values, bad, tooLong } = c.dec.decode(chunk);
-      for (const m of values) void dispatch(c, m);
+      for (const m of values) { rec?.record(c.id, "in", m); void dispatch(c, m); }
       for (let i = 0; i < bad.length; i++) errorReply(c, null, new RpcError("E_INVALID_PARAMS", "parse error", { reason: "parse-error", jsonrpcCode: -32700 }));
       if (tooLong) replyAndClose(c, null, new RpcError("E_INVALID_PARAMS", tooLong.message, { reason: "line-too-long" }));
     });
@@ -382,9 +384,10 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
                 || paramAgent === sub.agentId)) continue;
             } else if (c.api !== undefined && method !== "core.state") continue;
             else if (sub.agentId && paramAgent !== sub.agentId) continue;
-            const line = encodeLine({ jsonrpc: "2.0", method, params,
-              ...(c.api !== undefined ? { audience: audience ?? null, connectionId: c.id } : {}) });
-            writeToSocket(c, line); break;
+            const note = { jsonrpc: "2.0", method, params,
+              ...(c.api !== undefined ? { audience: audience ?? null, connectionId: c.id } : {}) };
+            rec?.record(c.id, "out", note);
+            writeToSocket(c, encodeLine(note)); break;
           }
         }).catch(() => {}).finally(() => { c.pendingNotifications--; }); // failed lookup denies this event, never subsequent events
 
