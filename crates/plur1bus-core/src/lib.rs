@@ -125,6 +125,10 @@ pub fn plan(args: &ServeArgs) -> Result<ServePlan, ServeError> {
 const LEGACY_LOCK_RETRY_MARGIN: Duration = Duration::from_secs(10);
 /// The margin `bin.ts` gives itself beyond the stop budget before it exits on its own.
 const LEGACY_STOP_MARGIN: Duration = Duration::from_secs(5);
+/// The stop reason of an orphan grace that ran out. That stop ends the legacy core's own lifeline instead of sending it
+/// `core.shutdown`: its grace (0) expires at once and it takes the TypeScript core's grace-expiry path, so
+/// `logs/core.log` records "orphan grace expired" as it does for a TypeScript core.
+const GRACE_EXPIRED: &str = "lifeline grace expired";
 /// How long the control link's handshake may take.
 const CONTROL_AUTH_TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -206,7 +210,7 @@ pub fn serve(plan: &ServePlan) -> Result<i32, ServeError> {
             Ok(Event::GraceExpired(generation)) => {
                 if front.grace_applies(generation) {
                     server::log("warn", "orphan grace expired, stopping", Value::Null);
-                    break Some((timings.shutdown_budget, "lifeline grace expired", 0));
+                    break Some((timings.shutdown_budget, GRACE_EXPIRED, 0));
                 }
             }
             Ok(Event::LegacyExited) | Err(_) => break None,
@@ -402,7 +406,7 @@ fn stop(
     front: &Arc<server::FrontDoor>,
     child: &Arc<Mutex<Child>>,
     control: &relay::Link,
-    lifeline: Option<std::process::ChildStdin>,
+    mut lifeline: Option<std::process::ChildStdin>,
     request: Option<(Duration, &'static str, i32)>,
 ) -> i32 {
     front.begin_stop();
@@ -414,7 +418,9 @@ fn stop(
     );
     front.set_state(ProcessState::now("stopping"));
     let mut failed = request.is_none();
-    if request.is_some() {
+    if request.is_some() && why == GRACE_EXPIRED {
+        drop(lifeline.take());
+    } else if request.is_some() {
         let budget_ms = u64::try_from(budget.as_millis())
             .unwrap_or(u64::MAX)
             .min(120_000);

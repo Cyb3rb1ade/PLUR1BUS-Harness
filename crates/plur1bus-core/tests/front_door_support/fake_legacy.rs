@@ -126,9 +126,14 @@ pub fn run(args: &[String]) -> ! {
     )
     .unwrap();
     out.flush().unwrap();
-    // The lifeline: the front door holds stdin; behind a front door there is no grace.
-    std::thread::spawn(|| {
+    // The lifeline: the front door holds stdin; behind a front door there is no grace. `run/core-legacy.stopped` says
+    // which way the front door stopped it (`shutdown` or `lifeline`), unless a shutdown came first.
+    let stopped = run.join("core-legacy.stopped");
+    std::thread::spawn(move || {
         let _ = std::io::copy(&mut std::io::stdin().lock(), &mut std::io::sink());
+        if !stopped.exists() {
+            let _ = std::fs::write(&stopped, "lifeline");
+        }
         std::process::exit(0);
     });
     let mut listener = Some(listener);
@@ -258,6 +263,7 @@ fn serve(l: &Arc<Legacy>, conn: Accepted, mode: &str) {
                 }
             }
             "core.shutdown" => {
+                let _ = std::fs::write(l.home.join("run/core-legacy.stopped"), "shutdown");
                 send(
                     &writer,
                     &json!({"jsonrpc":"2.0","id":id,"result":{"accepted":true}}),

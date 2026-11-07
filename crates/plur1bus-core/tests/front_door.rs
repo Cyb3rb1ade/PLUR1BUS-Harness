@@ -780,6 +780,9 @@ fn adoption_and_the_lifeline() {
         Some(0),
         "the grace ran out: a clean stop"
     );
+    // The legacy core is stopped through its own lifeline, so it takes the TypeScript core's grace-expiry path and
+    // `logs/core.log` records "orphan grace expired" as for a TypeScript core (tests/system kill-soak checks it).
+    assert_eq!(d.token("core-legacy.stopped"), "lifeline");
 }
 
 fn a_legacy_core_that_fails_to_start_decides_the_exit_code() {
@@ -951,6 +954,11 @@ fn sigterm_stops_the_pair() {
             .status
             .success();
         assert!(!alive, "the legacy core stopped first");
+        assert_eq!(
+            d.token("core-legacy.stopped"),
+            "shutdown",
+            "a stop request drains through core.shutdown (ADR-012 §3)"
+        );
         assert!(!d.path("run/core.token").exists());
         assert!(d.stderr().contains("core stopping"), "{}", d.stderr());
     }
