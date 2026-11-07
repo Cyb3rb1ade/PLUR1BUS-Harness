@@ -311,3 +311,12 @@ their separate policy. Linux ACP still requires the accepted namespace task limi
 and a positive safe-integer `tools.sandbox.maxTasks`; zero refuses ACP launch.
 Native Mac acceptance remains pending D123 SB-1 (pnpm/RSS) and SB-3 (Git/libxcrun,
 open/osascript); see [ACP containment](acp.md#external-process-containment-820-q3).
+
+### Core front door (Phase 4, P4-10)
+
+The Rust front door (`plur1bus-core`, opt-in with `core.impl: "rust"`) keeps every existing code and reason; the legacy core behind it still answers every relayed call. It adds these reasons, no new code:
+
+- `E_UNAUTHORIZED` with `front-door-link`: a `core.auth` carried the `frontDoor` link credential where it does not belong (any client of the front door, a core not running behind one), or the legacy core received a link without it, with a wrong token, or with a `caller` that differs from what the credentials in the same params prove. The connection is closed.
+- `E_DENIED` with `bridge-principal`: a `bridge.*` method from a connection that is not the legacy core's, or any other method from the legacy core's bridge connection.
+- `E_CORE_UNAVAILABLE` with `legacy-unavailable`: the front door could not open or keep the link to the legacy core for this connection (the legacy core is starting, stopping or gone). Retry after a moment; `plur1bus daemon status` shows the core's state.
+- `E_CORE_UNAVAILABLE` with `store-pending`: a Rust store refused to open because the legacy core has not migrated it yet (`OlderSchema`, `Missing`); retry. A store newer than this build (`NewerSchema`) is `E_STORAGE` with `store-newer`. No P4-10 method opens a store; the mapping is fixed here for the packages that port one.

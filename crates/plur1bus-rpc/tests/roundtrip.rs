@@ -106,6 +106,11 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
 
     for (name, fixture) in &fixtures {
         match name.as_str() {
+            "bridge.hello" => check_pair::<types::BridgeHelloParams, types::BridgeHelloResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
             "tools.hello" => check_pair::<types::ToolsHelloParams, types::ToolsHelloResult>(
                 name,
                 fixture,

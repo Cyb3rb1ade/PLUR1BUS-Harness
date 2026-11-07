@@ -3,7 +3,8 @@
 use plur1bus_rpc::server::CoreMethods;
 use plur1bus_rpc::server::{
     compile, dispatch_core, findings, pruned_root, schema, server_of, DispatchError, MethodError,
-    Validators, CORE_METHODS, ENGINE_METHODS, MODULE_METHODS, SUPERVISOR_METHODS, TOOLS_METHODS,
+    Validators, BRIDGE_METHODS, CORE_METHODS, ENGINE_METHODS, MODULE_METHODS, SUPERVISOR_METHODS,
+    TOOLS_METHODS,
 };
 use plur1bus_rpc::types;
 use serde_json::{json, Value};
@@ -13,7 +14,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::task::{Context, Poll, Waker};
 
-const SERVERS: [&str; 5] = ["core", "engine", "module", "supervisor", "tools"];
+const SERVERS: [&str; 6] = ["bridge", "core", "engine", "module", "supervisor", "tools"];
 
 /// `packages/rpc-schema/fixtures/methods/<m>.json` as (method, params, result); `jobs.run.system`/`.user` are `jobs.run`.
 fn fixtures() -> Vec<(String, Value, Value)> {
@@ -76,6 +77,7 @@ fn the_generated_method_lists_are_the_schema_split_by_x_server() {
             .push(name);
     }
     for (server, generated) in SERVERS.iter().zip([
+        BRIDGE_METHODS,
         CORE_METHODS,
         ENGINE_METHODS,
         MODULE_METHODS,
@@ -111,7 +113,7 @@ fn every_method_fixture_passes_its_pruned_params_and_result_validators() {
         }
         checked += 1;
     }
-    assert_eq!(checked, 427, "every committed fixture");
+    assert_eq!(checked, 428, "every committed fixture");
 }
 
 /// Per method family (the name up to the first dot) at least one invalid params object is refused, by the pruned

@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.23.0)
+# RPC reference (rpc 1.25.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -12,7 +12,7 @@ capabilities is a convenience, while every handler enforces the principal at dis
 `engine.event` with its `x-engine-notification` schema; the deprecated Core emitter keeps its existing payload and opt-in rule.
 Design and rationale: `docs/adr/ADR-012-process-model-and-languages.md`.
 
-JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor, module (methods only), or engine (since 1.7.0). host.* is served by core and requires the engine principal at dispatch. D120: tools methods are served by plur1bus-tools and require the Core principal.
+JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor, module (methods only), or engine (since 1.7.0). host.* is served by core and requires the engine principal at dispatch. D120: tools methods are served by plur1bus-tools and require the Core principal. Phase 4 (P4-10, since 1.25.0): bridge methods are served by the Rust front door to the legacy core behind it only, and are removed at the 0.1 cut.
 
 ## Local endpoint trust
 
@@ -515,6 +515,10 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 - `tools.hello`: experimental, since 1.15.0
 - `tools.health`: experimental, since 1.15.0
+
+### bridge server
+
+- `bridge.hello`: experimental, since 1.25.0
 
 ## Methods
 
@@ -11211,6 +11215,49 @@ Human-only principals; self or authenticated administrator, codes revealed only 
 }
 ```
 
+### `bridge.hello`
+
+**Stability:** experimental · since 1.25.0 · **deprecated** since 1.25.0, removal not before the 0.1 cut (P4-90); use none: the bridge exists only while the legacy TypeScript core runs behind the Rust front door (Phase 4, plan §2.4); docs/phase4/bridge.md lists every bridge method and the package that removes it
+
+**Served by:** bridge
+
+Phase 4 (P4-10): the bridge's handshake and probe. Served by the Rust front door to the legacy-core principal only, that is a connection that authenticated with `core.auth { token: <run/core-legacy.token> }`; any other caller gets E_DENIED reason=bridge-principal, and the legacy-core principal may call nothing but bridge.* methods. Returns the front door's identity, which the legacy core reports as its own.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "rpc",
+    "instanceId",
+    "pid"
+  ],
+  "properties": {
+    "rpc": {
+      "type": "string"
+    },
+    "instanceId": {
+      "type": "string"
+    },
+    "pid": {
+      "type": "integer"
+    }
+  }
+}
+```
+
 ### `core.auth`
 
 **Stability:** stable · since 1.0.0
@@ -11237,6 +11284,9 @@ Human-only principals; self or authenticated administrator, codes revealed only 
     },
     "engine": {
       "$ref": "#/$defs/EngineDelegation"
+    },
+    "frontDoor": {
+      "$ref": "#/$defs/FrontDoorLink"
     }
   }
 }
@@ -31669,6 +31719,34 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "token": {
       "type": "string",
       "pattern": "^[a-fA-F0-9]{64}$"
+    }
+  }
+}
+```
+
+### `FrontDoorLink`
+
+```json
+{
+  "description": "Phase 4 (P4-10, x-since 1.25.0, experimental, removed at the 0.1 cut by P4-90): the front door's credential on a link to the legacy core behind it (core-legacy). Only the Rust front door sends it, and only to core-legacy, which refuses a `core.auth` without it; every other server, the front door included, refuses a `core.auth` that carries it (E_UNAUTHORIZED reason=front-door-link). `token` is the content of run/core-legacy.token. `caller` is the kind of principal the front door authenticated from the rest of the same params; core-legacy re-verifies those credentials itself and refuses the link when its own finding differs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "token",
+    "caller"
+  ],
+  "properties": {
+    "token": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "caller": {
+      "enum": [
+        "owner",
+        "api",
+        "engine",
+        "client"
+      ]
     }
   }
 }

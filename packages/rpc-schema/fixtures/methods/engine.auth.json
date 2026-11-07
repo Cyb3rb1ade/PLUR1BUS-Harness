@@ -5,7 +5,7 @@
   },
   "result": {
     "contract": "workspace:v1:test",
-    "rpc": "1.23.0",
+    "rpc": "1.25.0",
     "instanceId": "workspace:v1:test",
     "pid": 0,
     "capabilities": {

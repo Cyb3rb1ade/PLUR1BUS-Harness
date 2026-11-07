@@ -37,9 +37,9 @@ describe("rpc-schema stability annotations", () => {
     assert.deepEqual(stableNotifications, ["core.state"]);
   });
 
-  it("every method declares x-server core, supervisor, module, engine or tools; every notification core, supervisor or engine", () => {
+  it("every method declares x-server core, supervisor, module, engine, tools or bridge; every notification core, supervisor or engine", () => {
     for (const [name, def] of Object.entries(methods) as [string, { "x-server"?: string }][]) {
-      assert.ok(def["x-server"] === "core" || def["x-server"] === "supervisor" || def["x-server"] === "module" || def["x-server"] === "engine" || def["x-server"] === "tools", `${name} x-server`);
+      assert.ok(def["x-server"] === "core" || def["x-server"] === "supervisor" || def["x-server"] === "module" || def["x-server"] === "engine" || def["x-server"] === "tools" || def["x-server"] === "bridge", `${name} x-server`);
     }
     for (const [name, def] of Object.entries(notifications) as [string, { "x-server"?: string }][]) {
       assert.ok(def["x-server"] === "core" || def["x-server"] === "supervisor" || def["x-server"] === "engine", `${name} x-server`);
@@ -70,13 +70,13 @@ describe("rpc-schema stability annotations", () => {
     assert.deepEqual(Object.keys(supervisor.notifications), ["import.progress", "config.changed", "module.state", "ext.changed"]);
     assert.deepEqual(supervisor.features, ["adoption", "lifelines"]);
     assert.deepEqual([...METHODS_BY_SERVER.supervisor].sort(), supervisorMethods);
-    assert.deepEqual([...METHODS_BY_SERVER.core, ...METHODS_BY_SERVER.supervisor, ...METHODS_BY_SERVER.module, ...METHODS_BY_SERVER.engine, ...METHODS_BY_SERVER.tools].sort(), [...METHODS].sort());
+    assert.deepEqual([...METHODS_BY_SERVER.core, ...METHODS_BY_SERVER.supervisor, ...METHODS_BY_SERVER.module, ...METHODS_BY_SERVER.engine, ...METHODS_BY_SERVER.tools, ...METHODS_BY_SERVER.bridge].sort(), [...METHODS].sort());
     assert.deepEqual([...METHODS_BY_SERVER.module].sort(), ["module.adopt", "module.auth", "module.shutdown", "module.status"]);
     assert.deepEqual(validateResult("supervisor.auth", { rpc: "1.2.0", instanceId: "s", pid: 2, capabilities: supervisor }), { ok: true });
   });
 
   it("capability fixtures match buildCapabilities", () => {
-    for (const server of ["core", "supervisor", "module", "engine", "tools"] as const) {
+    for (const server of ["core", "supervisor", "module", "engine", "tools", "bridge"] as const) {
       const fixture = JSON.parse(readFileSync(new URL(`../fixtures/capabilities/${server}.json`, import.meta.url), "utf8"));
       assert.deepEqual(fixture, buildCapabilities([], server), `fixtures/capabilities/${server}.json`);
     }

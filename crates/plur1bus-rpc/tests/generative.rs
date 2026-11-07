@@ -2274,6 +2274,8 @@ table! {
     Result "identity.principals" IdentityPrincipalsResult,
     Params "core.auth" CoreAuthParams,
     Result "core.auth" CoreAuthResult,
+    Params "bridge.hello" BridgeHelloParams,
+    Result "bridge.hello" BridgeHelloResult,
     Params "tools.hello" ToolsHelloParams,
     Result "tools.hello" ToolsHelloResult,
     Params "tools.health" ToolsHealthParams,
