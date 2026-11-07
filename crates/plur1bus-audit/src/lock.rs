@@ -76,11 +76,10 @@ mod tests {
     fn a_second_process_is_refused_until_the_holder_exits() {
         if let Some(path) = std::env::var_os(CHILD) {
             let held = CoreLock::try_acquire(Path::new(&path)).unwrap();
-            println!(
-                "\nlock-verdict:{}",
-                if held.is_some() { "held" } else { "refused" }
-            );
-            std::io::stdout().flush().unwrap();
+            let verdict = if held.is_some() { "held" } else { "refused" };
+            let mut out = std::io::stdout();
+            writeln!(out, "\nlock-verdict:{verdict}").unwrap();
+            out.flush().unwrap();
             let mut line = String::new();
             std::io::stdin().read_line(&mut line).unwrap();
             return;
