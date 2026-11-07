@@ -10,7 +10,7 @@ Which TypeScript file maps to which mode: `docs/superpowers/plans/phase4/MODULE-
 | T, transcripts | this directory | record RPC traffic of the TypeScript core, replay it against a core |
 | S, system | `tests/system/helpers.ts` | `PLUR1BUS_CORE_IMPL=ts\|rust` for every suite in `tests/system/` |
 | W, wire | arrives with P4-03 | a Rust fake HTTP/WebSocket server (`crates/plur1bus-core/tests/support/`) |
-| B, stores | `store-roundtrip.ts` | open a copy of a core SQLite store, write, read, check `user_version` |
+| B, stores | `store-roundtrip.ts`, `store-b-driver.ts` | open a copy of a core SQLite store, write, read, check `user_version`; `crates/plur1bus-store/tests/mode_b.rs` drives the driver |
 
 ## T, transcripts
 

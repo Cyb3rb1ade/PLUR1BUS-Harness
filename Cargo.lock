@@ -5784,6 +5784,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "plur1bus-store"
+version = "0.1.0"
+dependencies = [
+ "rusqlite",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "plur1bus-tokens"
 version = "0.1.0"
 dependencies = [

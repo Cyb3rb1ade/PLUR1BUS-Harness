@@ -1,0 +1,17 @@
+[package]
+name = "plur1bus-store"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "SQLite connection conventions of the TypeScript core stores, for the Rust core (Phase 4, P4-03)."
+
+[lints]
+workspace = true
+
+[dependencies]
+# The version and build the P4-01 spike verified against node:sqlite on the same files (already locked by the engine).
+rusqlite = { version = "0.40", features = ["bundled"] }
+
+[dev-dependencies]
+tempfile.workspace = true
+serde_json.workspace = true
