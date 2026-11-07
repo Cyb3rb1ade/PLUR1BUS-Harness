@@ -185,3 +185,8 @@ Nur lückenlose, ungekappte Fenster können bestätigen; mindestens zehn verschi
 Sessions mit Aktivität nach der Annahme und 14 Tage müssen gemeinsam vorliegen.
 Wiederholte Befunde werden vor der Review-Deduplizierung gezählt. Der Retire-Vorschlag
 führt zur bestehenden manuellen Kuration, nicht zu einer neuen automatischen Mutation.
+
+LQ3-Ruling: Extraktionsmetriken vergleichen kanonische Inhaltsschlüssel exakt;
+kein zusätzlicher Modellrichter und keine versteckten API-Kosten. Kosten: Eine
+semantisch richtige Live-Paraphrase mit anderem Schlüssel wird konservativ als
+Fehler gezählt. Nur Dry-Run und Fixture-Modell wurden zur Implementierung ausgeführt.
