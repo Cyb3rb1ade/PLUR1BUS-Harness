@@ -399,6 +399,13 @@ fn ready_line_run_files_and_modes() {
         Some("123e4567-e89b-12d3-a456-426614174000"),
         "the legacy core runs as the front door's instance: the tools service binds it to run/core.pid by instance"
     );
+    // As a TypeScript core writes them right before it listens, the public credential files appear only once the legacy
+    // core is ready (a client or the API that sees them finds a core about to listen); the legacy core's own copy goes.
+    assert_eq!(
+        d.token("core-legacy.saw"),
+        "core.token:absent api-delegation.token:absent"
+    );
+    assert!(!d.path("run/core-legacy.credentials").exists());
     #[cfg(unix)]
     {
         assert_eq!(mode(&d.path("run")), 0o700);

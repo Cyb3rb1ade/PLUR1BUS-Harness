@@ -1,7 +1,7 @@
 //! The core's run files under a home, with the names the TypeScript core uses (`packages/core/src/paths.ts`, module-api's
 //! `unitAddress`): `run/core.sock` or the per-home pipe, `run/core.token`, `run/core.pid`, and the lock `state/core.lock`;
-//! since P4-10 also the front door's `run/api-delegation.token` and `run/core-legacy.token`, and the legacy core's address
-//! and `run/core-legacy.pid`.
+//! since P4-10 also the front door's `run/api-delegation.token`, `run/core-legacy.token` and
+//! `run/core-legacy.credentials`, and the legacy core's address and `run/core-legacy.pid`.
 //!
 //! [`prepare`] creates `state/` and `run/` (`0700`, or the user-and-SYSTEM DACL on Windows) and checks `run/` is trusted;
 //! [`write_private`] writes a file `0600` through a temporary file and a rename, so a reader never sees half a token.
@@ -30,6 +30,9 @@ pub struct RunFiles {
     pub api_token: PathBuf,
     /// `run/core-legacy.token`: the front door's link credential to the legacy core (P4-10).
     pub legacy_token: PathBuf,
+    /// `run/core-legacy.credentials`: `{ "core", "api" }`, the owner and API tokens for the legacy core alone while it
+    /// starts; the public `run/core.token` and `run/api-delegation.token` are written once it is ready (P4-10).
+    pub legacy_credentials: PathBuf,
     /// The legacy core's address: `run/core-legacy.sock`, or the per-home `-core-legacy` pipe (P4-10).
     pub legacy_address: String,
     /// `run/core-legacy.pid`, written by the legacy core (P4-10).
@@ -56,6 +59,7 @@ impl RunFiles {
             lock: home.join("state").join("core.lock"),
             api_token: run.join("api-delegation.token"),
             legacy_token: run.join("core-legacy.token"),
+            legacy_credentials: run.join("core-legacy.credentials"),
             legacy_address: unit_address(home, "core-legacy", cfg!(windows)),
             legacy_pid: run.join("core-legacy.pid"),
             engine_token: run.join("engine.token"),
@@ -67,8 +71,14 @@ impl RunFiles {
     }
 
     /// The files the front door owns and removes on a clean stop (never the legacy core's or the engine's).
-    pub fn owned(&self) -> [&Path; 4] {
-        [&self.token, &self.api_token, &self.legacy_token, &self.pid]
+    pub fn owned(&self) -> [&Path; 5] {
+        [
+            &self.token,
+            &self.api_token,
+            &self.legacy_token,
+            &self.legacy_credentials,
+            &self.pid,
+        ]
     }
 }
 
@@ -220,6 +230,10 @@ mod tests {
         assert_eq!(files.lock, Path::new("/h/state/core.lock"));
         assert_eq!(files.api_token, Path::new("/h/run/api-delegation.token"));
         assert_eq!(files.legacy_token, Path::new("/h/run/core-legacy.token"));
+        assert_eq!(
+            files.legacy_credentials,
+            Path::new("/h/run/core-legacy.credentials")
+        );
         assert_eq!(files.legacy_pid, Path::new("/h/run/core-legacy.pid"));
         assert_eq!(files.engine_token, Path::new("/h/run/engine.token"));
         assert_eq!(files.supervisor_token, Path::new("/h/run/supervisor.token"));

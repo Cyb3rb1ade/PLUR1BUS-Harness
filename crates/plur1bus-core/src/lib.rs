@@ -49,6 +49,7 @@ use std::process::{Child, ExitStatus};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use zeroize::Zeroizing;
 
 /// What `serve` was asked to do, resolved from the arguments.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -248,8 +249,13 @@ fn start(
         run_files::write_private(path, text)
             .map_err(|e| ServeError::Start(format!("{}: {e}", path.display())))
     };
-    write(&files.token, credentials.core.expose())?;
-    write(&files.api_token, credentials.api.expose())?;
+    // The legacy core reads its credentials from files only it uses. run/core.token and run/api-delegation.token are
+    // written once it is ready, right before the bind, as the TypeScript core writes them right before it listens: a
+    // client or the API that finds them finds a core about to listen (tests/system's import maintenance relies on it).
+    let legacy_credentials = Zeroizing::new(
+        json!({"core": credentials.core.expose(), "api": credentials.api.expose()}).to_string(),
+    );
+    write(&files.legacy_credentials, &legacy_credentials)?;
     write(&files.legacy_token, credentials.link.expose())?;
     write(&files.pid, &format!("{} {instance}\n", std::process::id()))?;
 
@@ -294,6 +300,13 @@ fn start(
             return Err(ServeError::Legacy(e));
         }
     };
+    let _ = std::fs::remove_file(&files.legacy_credentials);
+    let published = write(&files.token, credentials.core.expose())
+        .and_then(|()| write(&files.api_token, credentials.api.expose()));
+    if let Err(e) = published {
+        legacy.kill();
+        return Err(e);
+    }
     let listener = match Listener::bind(&files.address) {
         Ok(l) => l,
         Err(e) => {

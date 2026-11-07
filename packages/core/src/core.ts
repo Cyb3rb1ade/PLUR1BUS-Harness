@@ -211,8 +211,8 @@ export interface CoreOptions {
   onOrphanGraceExpired?: () => void;
   /** Phase 4 seam (P4-10, `--behind-front-door`): this core runs as core-legacy behind the Rust front door, which spawned it
    *  and holds its `lifeline`. It listens on the `core-legacy` address, takes its credentials from the files the front door
-   *  wrote into run/ (core.token, api-delegation.token, and core-legacy.token, which every core.auth must carry as
-   *  `frontDoor`), holds state/core-legacy.lock instead of state/core.lock, writes only run/core-legacy.pid, stamps
+   *  wrote into run/ for it (core-legacy.credentials: the owner and API tokens; core-legacy.token, which every core.auth
+   *  must carry as `frontDoor`), holds run/core-legacy.lock instead of state/core.lock, writes only run/core-legacy.pid, stamps
    *  engine-models.json with the front door's identity, and stops at once when the front door goes (no grace; nothing can
    *  adopt it). `supervised`: the front door runs under the supervisor, so configuration comes from its `config.watch`. */
   behindFrontDoor?: "supervised" | "standalone";
@@ -274,6 +274,18 @@ function projectJobs(jobs: EngineStatus["jobs"] | undefined): JobsStatus | null 
   };
 }
 
+/** P4-10: run/core-legacy.credentials, `{ core, api }`, which the front door wrote for this core alone before it spawned
+ *  it. The public run/core.token and run/api-delegation.token appear only once this core is ready, right before the front
+ *  door listens, as a TypeScript core writes them right before it listens. Never logged; an error names no value. */
+function frontDoorCredentials(text: string): { core: string; api: string } {
+  let v: unknown;
+  try { v = JSON.parse(text); } catch { v = undefined; }
+  const hex64 = (s: unknown): s is string => typeof s === "string" && /^[0-9a-f]{64}$/.test(s);
+  const c = v as { core?: unknown; api?: unknown } | undefined;
+  if (!c || !hex64(c.core) || !hex64(c.api)) throw new Error("run/core-legacy.credentials is not the front door's credentials file");
+  return { core: c.core, api: c.api };
+}
+
 /** P4-10: `<pid> <instanceId>` of run/core.pid, which the front door wrote before it spawned this core. */
 function frontDoorIdentity(corePid: string): { pid: number; instanceId: string } {
   const [pid, instanceId] = readFileSync(corePid, "utf8").trim().split(/\s+/);
@@ -294,15 +306,19 @@ export function createCore(o: CoreOptions): Core {
   const l = layout(home); const clock = o.clock ?? Date.now;
   const importHold = createImportMaintenanceHold(process.env.PLUR1BUS_IMPORT_MAINTENANCE);
   const instanceId = o.instanceId ?? randomUUID();
-  // P4-10 seam (`behindFrontDoor`): the front door owns run/core.token, run/api-delegation.token and run/core.pid and wrote
-  // them before it spawned this process; this core reads its credentials from there and serves on its own address.
+  // P4-10 seam (`behindFrontDoor`): the front door owns run/core.token, run/api-delegation.token and run/core.pid; before it
+  // spawned this process it wrote run/core.pid, run/core-legacy.credentials and run/core-legacy.token, which this core
+  // reads; it serves on its own address.
   const frontDoor = o.behindFrontDoor !== undefined;
   const supervisedSpawn = frontDoor ? o.behindFrontDoor === "supervised" : o.lifeline !== undefined || o.supervisorConfig !== undefined;
-  const token = frontDoor ? readRunToken(home, l.coreToken) : randomBytes(32).toString("hex");
-  const apiToken = frontDoor ? readRunToken(home, path.join(l.run, "api-delegation.token")) : randomBytes(32).toString("hex");
+  const credentials = frontDoor ? frontDoorCredentials(readRunToken(home, path.join(l.run, "core-legacy.credentials"))) : undefined;
+  const token = credentials?.core ?? randomBytes(32).toString("hex");
+  const apiToken = credentials?.api ?? randomBytes(32).toString("hex");
   const frontDoorToken = frontDoor ? readRunToken(home, path.join(l.run, "core-legacy.token")) : undefined;
   const address = frontDoor ? unitAddress(home, "core-legacy") : coreAddress(home);
-  const coreLockPath = frontDoor ? path.join(l.state, "core-legacy.lock") : l.coreLock;
+  // Behind the front door the lock goes to run/: state/ is a data root (backups, restores, the import's target
+  // fingerprint), which knows only state/core.lock, the front door's.
+  const coreLockPath = frontDoor ? path.join(l.run, "core-legacy.lock") : l.coreLock;
   const pidPath = frontDoor ? path.join(l.run, "core-legacy.pid") : l.corePid;
   const startedAt = clock();
   let activityCapacity = () => 1000;

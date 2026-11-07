@@ -74,10 +74,29 @@ pub fn run(args: &[String]) -> ! {
     assert_eq!(arg("--lifeline"), "stdin");
     let home = PathBuf::from(arg("--home"));
     let run = home.join("run");
+    // What the TypeScript core reads behind the front door: run/core-legacy.credentials and run/core-legacy.token. The
+    // public credential files must not exist yet (they appear right before the front door listens); record what it saw.
+    let saw: Vec<String> = ["core.token", "api-delegation.token"]
+        .iter()
+        .map(|n| {
+            format!(
+                "{n}:{}",
+                if run.join(n).exists() {
+                    "present"
+                } else {
+                    "absent"
+                }
+            )
+        })
+        .collect();
+    std::fs::write(run.join("core-legacy.saw"), saw.join(" ")).unwrap();
+    let credentials: Value =
+        serde_json::from_str(&read(&run.join("core-legacy.credentials"))).unwrap_or(Value::Null);
+    let field = |k: &str| credentials[k].as_str().unwrap_or_default().to_owned();
     let legacy = Arc::new(Legacy {
         instance: arg("--instance"),
-        owner: read(&run.join("core.token")),
-        api: read(&run.join("api-delegation.token")),
+        owner: field("core"),
+        api: field("api"),
         link: read(&run.join("core-legacy.token")),
         home: home.clone(),
         subs: Mutex::new(HashMap::new()),
