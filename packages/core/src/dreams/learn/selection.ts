@@ -22,7 +22,7 @@ export function selectTranscripts(source: SelectionSource, target: Target, princ
     const transcript = source.transcript(session, window);
     if (transcript.session.id !== session.id || transcript.session.owner !== owner ||
       transcript.messages.some(m => m.sessionId !== session.id) || transcript.events.some(e => e.sessionId !== session.id)) throw new LearnError('source-unavailable');
-    if (transcript.messages.length > LIMITS.messages || transcript.events.length > LIMITS.events || Buffer.byteLength(JSON.stringify(transcript)) > LIMITS.bytes) throw new LearnError('source-unavailable');
+    if (transcript.messages.length > LIMITS.messages || transcript.events.length > LIMITS.events || Buffer.byteLength(JSON.stringify(transcript)) > LIMITS.bytes) throw new LearnError('transcript-cap');
     return transcript;
   }).filter(t => t.messages.length > 0 || t.events.length > 0);
 }

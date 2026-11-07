@@ -35,7 +35,7 @@ test('a foreign content row or oversized transcript fails closed instead of crea
   const t = transcript('a'); t.messages[0]!.sessionId = 'foreign';
   assert.throws(() => selectTranscripts(source([t]), target, principal, window, 50), /source-unavailable/);
   const huge = transcript('b'); huge.messages[0]!.text = 'x'.repeat(262_145);
-  assert.throws(() => selectTranscripts(source([huge]), target, principal, window, 50), /source-unavailable/);
+  assert.throws(() => selectTranscripts(source([huge]), target, principal, window, 50), /transcript-cap/);
 });
 test('same target/window has one durable run and resumes completed checkpoints without content in ledger rows', () => {
   const dir = mkdtempSync(join(tmpdir(), 'learn-store-')); const file = join(dir, 'learn.db');

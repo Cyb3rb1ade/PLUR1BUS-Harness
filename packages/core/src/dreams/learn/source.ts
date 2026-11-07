@@ -3,7 +3,6 @@ import type { SessionStore } from '../../session/store.ts';
 import type { Project } from '../../collab/types.ts';
 import { deriveUserPrincipal } from '../../identity/principals.ts';
 import { readRights, resolveExposure } from '../../memory-exposure/index.ts';
-import { activePath } from '../../session/rewind-path.ts';
 import { LIMITS, type SelectionSource } from './types.ts';
 
 /** All scope inputs come from the configured target and live registries, never model output. */
@@ -24,9 +23,7 @@ export function learningSource(store: SessionStore, o: { config(): HarnessConfig
       return target.scope === 'project' ? exposure.recall.workspace && exposure.recall.agentPrivate : exposure.recall.agentPrivate;
     },
     transcript(session, window) {
-      const turns = new Set(store.listTurns(session.id).filter(t => t.state === 'completed' && !t.incognito && t.endedAt !== null && t.endedAt >= window.from && t.endedAt < window.to).map(t => t.id));
-      const messages = activePath(store.listMessages(session.id, { limit: LIMITS.messages + 1, keep: 'oldest' }), store.rewinds(session.id)).filter(m => m.turnId !== null && turns.has(m.turnId));
-      const events = store.listEvents(session.id, 0, LIMITS.events + 1).filter(e => e.turnId !== null && turns.has(e.turnId));
+      const { messages, events } = store.learningTranscript(session.id, window, LIMITS);
       return { session, messages, events, days: [...new Set(messages.map(m => new Date(m.createdAt).toISOString().slice(0, 10)))].sort() };
     },
   };

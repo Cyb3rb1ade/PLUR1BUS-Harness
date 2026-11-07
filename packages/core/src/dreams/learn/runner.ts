@@ -72,7 +72,7 @@ export class LearnRunner {
       o.notice?.(run, { pending: reviewed.filter(f => f.status === 'pending').length, waitingH3: reviewed.filter(f => f.status === 'waiting-h3').length });
     } catch (error) {
       const reason = signal.aborted ? 'interrupted' : error instanceof LearnError ? error.reason : 'provider-failed';
-      o.store.finish(run, ['invalid-output', 'provider-failed', 'source-unavailable'].includes(reason) ? 'failed' : 'skipped', reason, o.now());
+      o.store.finish(run, reason === 'transcript-cap' ? 'deferred' : ['invalid-output', 'provider-failed', 'source-unavailable'].includes(reason) ? 'failed' : 'skipped', reason, o.now());
     }
     return run;
   }

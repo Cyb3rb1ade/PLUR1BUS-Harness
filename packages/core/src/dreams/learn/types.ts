@@ -22,8 +22,8 @@ export interface Finding extends RawFinding {
   score: number; desiredTier: Tier; effectiveTier: 'C'; skeptic: Verdict;
   models: string[]; promptVersion: string; status: 'pending' | 'accepted' | 'rejected' | 'waiting-h3';
 }
-export type Reason = 'disabled' | 'no-sessions' | 'budget' | 'breaker-open' | 'no-model' | 'local-only' | 'source-unavailable' | 'invalid-output' | 'provider-failed' | 'rights-changed' | 'interrupted';
-export interface LearnRun { id: string; target: Target; window: Window; sessionIds: string[]; digest: string; startedAt: number; finishedAt: number | null; outcome: 'completed' | 'skipped' | 'failed' | null; reason: Reason | null; tokens: number; findings: number }
+export type Reason = 'transcript-cap' | 'disabled' | 'no-sessions' | 'budget' | 'breaker-open' | 'no-model' | 'local-only' | 'source-unavailable' | 'invalid-output' | 'provider-failed' | 'rights-changed' | 'interrupted';
+export interface LearnRun { id: string; target: Target; window: Window; sessionIds: string[]; digest: string; startedAt: number; finishedAt: number | null; outcome: 'completed' | 'skipped' | 'failed' | 'deferred' | null; reason: Reason | null; tokens: number; findings: number }
 export interface SelectionSource {
   sessions(target: Target, window: Window, limit: number): SessionRecord[];
   transcript(session: SessionRecord, window: Window): Transcript;

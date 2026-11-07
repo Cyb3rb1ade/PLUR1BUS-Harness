@@ -617,6 +617,21 @@ export class SessionStore {
   getTurn(id: string): TurnRecord | null { const r = this.#get("SELECT * FROM turns WHERE id = ?", id); return r ? toTurn(r) : null; }
   listTurns(sessionId: string): TurnRecord[] { return this.#all("SELECT * FROM turns WHERE session_id = ? ORDER BY seq", sessionId).map(toTurn); }
 
+  /** Learning reads the completed-turn window before imposing content caps. One extra row exposes overflow. */
+  learningTranscript(sessionId: string, window: { from: number; to: number }, caps: { messages: number; events: number }): { messages: MessageRecord[]; events: EventRecord[] } {
+    const predicate = "t.session_id=? AND t.state='completed' AND t.incognito=0 AND t.ended_at>=? AND t.ended_at<?";
+    const args = [sessionId, window.from, window.to];
+    const messages = this.#all(`SELECT m.* FROM messages m JOIN turns t ON t.id=m.turn_id
+      WHERE ${predicate} AND m.session_id=t.session_id AND NOT EXISTS
+      (SELECT 1 FROM path_rewinds r WHERE r.session_id=m.session_id AND
+       ((r.undone_at IS NULL AND m.seq BETWEEN r.hidden_from_seq AND r.hidden_to_seq)
+        OR (r.undone_at IS NOT NULL AND m.id=r.lesson_message_id)))
+      ORDER BY m.seq LIMIT ?`, ...args, caps.messages + 1).map(toMessage);
+    const events = this.#all(`SELECT e.* FROM events e JOIN turns t ON t.id=e.turn_id
+      WHERE ${predicate} AND e.session_id=t.session_id ORDER BY e.seq LIMIT ?`, ...args, caps.events + 1).map(toEvent);
+    return { messages, events };
+  }
+
   #insertMessage(sessionId: string, turnId: string | null, role: MessageRole, text: string, tokens: number): MessageRecord {
     const seq = (this.#get("SELECT last_message_seq FROM sessions WHERE id = ?", sessionId)!.last_message_seq as number) + 1;
     const id = this.#newId("msg"); const now = this.#clock();
