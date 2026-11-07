@@ -53,11 +53,27 @@ pub struct ChildSpec {
 /// The core in supervised mode: `node <core.js> --home <home> --lifeline stdin --instance <id>`, plus
 /// `--test-internals <v>` when `PLUR1BUS_TEST_INTERNALS` is set (exactly like `core run`). With `core.impl: "rust"` (or
 /// `PLUR1BUS_CORE_IMPL=rust`, P4-10) the slot runs the front door instead, `plur1bus-core serve --home <home> --lifeline
-/// stdin --instance <id>`, which starts the TypeScript core behind it from the located Node and core.js. Read afresh at
-/// every spawn, so a changed `core.impl` takes effect at the core's restart. Fails when core.js (or plur1bus-core) is
-/// missing.
+/// stdin --instance <id>`, which starts the TypeScript core behind it from the located Node and core.js. A restart
+/// builds it again when `core.impl` changed ([`core_spec_stale`]), so the switch takes effect at the core's restart.
+/// Fails when core.js (or plur1bus-core) is missing.
 pub fn core_spec(layout: &Layout, instance_id: &str) -> Result<ChildSpec, String> {
     core_spec_for(layout, instance_id, core_impl(layout)?)
+}
+
+/// Whether a core restart must build its spec again (P4-10): there is none yet, `core.impl` cannot be read (so the
+/// rebuild reports it), or it now names the other implementation than the spec runs (`plur1bus-core` is the front
+/// door, anything else the TypeScript core). An unchanged `core.impl` keeps the spec the monitor was given.
+fn core_spec_stale(spec: Option<&ChildSpec>, configured: Result<CoreImpl, String>) -> bool {
+    let Some(spec) = spec else { return true };
+    let runs_front_door = spec
+        .program
+        .file_stem()
+        .is_some_and(|stem| stem == "plur1bus-core");
+    match configured {
+        Ok(CoreImpl::Rust) => !runs_front_door,
+        Ok(CoreImpl::Ts) => runs_front_door,
+        Err(_) => true,
+    }
 }
 
 fn core_spec_for(layout: &Layout, instance_id: &str, imp: CoreImpl) -> Result<ChildSpec, String> {
@@ -722,8 +738,12 @@ impl Monitor {
                 }
                 Err(e) => return mark_unspawnable(&self.shared, &name, &e),
             }
-        } else if self.spec.is_none() || self.ctx.role.kind == RoleKind::Core {
-            // The core's spec is read afresh too: `core.impl` (P4-10) takes effect at its next spawn.
+        } else if self.spec.is_none()
+            || (self.ctx.role.kind == RoleKind::Core
+                && self.spawned
+                && core_spec_stale(self.spec.as_ref(), core_impl(&self.ctx.layout)))
+        {
+            // P4-10: a restart of the core builds its spec again when `core.impl` now names the other implementation.
             match spec_for(
                 &self.ctx.layout,
                 &self.ctx.role,
@@ -2153,6 +2173,43 @@ mod tests {
             .map(|(k, _)| k.to_string_lossy().into_owned())
             .collect();
         assert!(env.contains(&"PLUR1BUS_NODE".into()) && env.contains(&"PLUR1BUS_CORE_JS".into()));
+    }
+
+    #[test]
+    fn a_core_restart_rebuilds_the_spec_only_when_core_impl_changed() {
+        let spec = |program: &str| ChildSpec {
+            role: "core".into(),
+            program: PathBuf::from(program),
+            args: Vec::new(),
+            env: Vec::new(),
+            cwd: None,
+        };
+        let front_door = if cfg!(windows) {
+            r"C:\p1b\runtime\bin\plur1bus-core.exe"
+        } else {
+            "/p1b/runtime/bin/plur1bus-core"
+        };
+        // A spec given to `Monitor::start` (a test's own program included) is kept while the implementation is the same.
+        assert!(!core_spec_stale(
+            Some(&spec("/usr/bin/node")),
+            Ok(CoreImpl::Ts)
+        ));
+        assert!(!core_spec_stale(
+            Some(&spec(front_door)),
+            Ok(CoreImpl::Rust)
+        ));
+        // `core.impl` (restart class `core`) switched since the spec was built: the restart builds the other one.
+        assert!(core_spec_stale(
+            Some(&spec("/usr/bin/node")),
+            Ok(CoreImpl::Rust)
+        ));
+        assert!(core_spec_stale(Some(&spec(front_door)), Ok(CoreImpl::Ts)));
+        // No spec yet, or an invalid PLUR1BUS_CORE_IMPL: build it, so the error is reported as unspawnable.
+        assert!(core_spec_stale(None, Ok(CoreImpl::Ts)));
+        assert!(core_spec_stale(
+            Some(&spec("/usr/bin/node")),
+            Err("bad value".into())
+        ));
     }
 
     #[test]
