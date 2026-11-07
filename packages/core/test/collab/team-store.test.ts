@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DatabaseSync } from 'node:sqlite';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import fixture from '../../../rpc-schema/fixtures/team/plan.json' with { type: 'json' };
 import { CollabStore } from '../../src/collab/store.ts';
 import { DEFAULT_TEAM_POLICY } from '../../src/collab/team/store.ts';
@@ -9,6 +12,31 @@ import { MIGRATIONS, migrate } from '../../src/collab/migrations.ts';
 
 import type { TeamMember } from '@plur1bus/rpc-schema';
 const members: TeamMember[] = [{ id: 'writer', kind: 'native' as const, role: 'writer' as const, model: 'fixture', agentId: 'writer', disclosure: [] }];
+test('TK1 re-confirmation cannot change records once execution has an outbox action', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'team-confirm-'));
+  const path = join(dir, 'collab.sqlite');
+  const store = new CollabStore({ path });
+  const db = new DatabaseSync(path);
+  try {
+    const project = store.createProject({ name: 'team', owner: 'person' });
+    store.addAgent(project.id, 'writer');
+    let run = store.team.create({ projectId: project.id, leadAgent: 'writer', objective: 'fixture', targetBranch: 'integration' });
+    run = store.team.confirm(run.id, run.compositionHash, members, 'person');
+    run = store.team.stagePlan(run.id, fixture, { policyHash: teamHash(DEFAULT_TEAM_POLICY), planHash: teamHash(fixture), findings: [],
+      lanes: [{ package: 'duration', lane: 'contained', reasons: [] }], overlapScore: 0, criticalPathMs: 10000 });
+    store.team.approve({ runId: run.id, planHash: run.planHash!, checkHash: run.checkHash!, compositionHash: run.compositionHash, scope: { kind: 'plan' } }, 'person');
+    db.prepare("UPDATE team_runs SET state='running' WHERE id=?").run(run.id);
+    db.prepare("INSERT INTO team_actions VALUES(?,1,?,?,'pending',0,0)").run(run.id, JSON.stringify({ kind: 'create-worktree', package: 'duration' }), 'fixture-action');
+    const snapshot = () => ['team_runs', 'team_members', 'team_events', 'team_actions', 'team_packages', 'team_sections']
+      .map(table => db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all());
+    for (const state of ['pending', 'applied', 'done', 'failed']) {
+      db.prepare('UPDATE team_actions SET state=? WHERE run_id=?').run(state, run.id);
+      const before = snapshot();
+      assert.throws(() => store.team.confirm(run.id, run.compositionHash, [{ ...members[0]!, model: 'other' }], 'person'), { code: 'conflict' });
+      assert.deepEqual(snapshot(), before, `no writes with ${state} execution history`);
+    }
+  } finally { db.close(); store.close(); rmSync(dir, { recursive: true, force: true }); }
+});
 test('TK1 team records round trip with redaction, bound approvals and an empty action outbox', () => {
   const store = new CollabStore({ path: ':memory:', redact: { text: s => s.replaceAll('private marker', '[redacted]'), value: v => v } });
   try {

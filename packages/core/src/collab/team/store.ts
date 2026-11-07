@@ -98,6 +98,7 @@ export class TeamStore {
     return this.tx(() => {
       const run = this.get(runId), project = this.liveProject(run.projectId), members = this.clean(input).sort((a, b) => a.id.localeCompare(b.id));
       if (run.compositionHash !== expectedHash) throw new CollabError('conflict', 'composition changed', { reason: 'team-composition-stale' });
+      if (this.db.prepare('SELECT 1 FROM team_actions WHERE run_id=? LIMIT 1').get(runId)) throw new CollabError('conflict', 'executed composition requires shell revision handling');
       if (!members.length || members.length > 64 || new Set(members.map(m => m.id)).size !== members.length || members.some(m => !validateDefinition('TeamMember', m).ok)) throw new CollabError('invalid', 'invalid composition');
       if (members.some(m => m.kind !== 'a2a' && (!m.agentId || !project.agents.includes(m.agentId)) || m.kind === 'a2a' && !m.peerId)) throw new CollabError('invalid', 'member is not bound to the project', { reason: 'team-member' });
       // Keep members referenced by package history; identity edits need a new draft plan first.
