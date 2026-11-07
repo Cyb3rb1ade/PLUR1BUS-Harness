@@ -10,6 +10,7 @@ import { LIMITS, type Evidence, type SelectionSource } from './types.ts';
 /** All scope inputs come from the configured target and live registries, never model output. */
 export function learningSource(store: SessionStore, o: { config(): HarnessConfig; hasAgent(id: string): boolean; project(id: string): Project | null; identity?(): Pick<IdentityService, 'resolve' | 'getLink'> | null }): SelectionSource {
   const source: SelectionSource = {
+    toolErrors: (t, w) => store.learningToolErrors(deriveUserPrincipal(t.owner), w),
     session: id => store.getSession(id),
     sessions: (t, w, limit, offset = 0) => store.learningSessions({ owner: deriveUserPrincipal(t.owner), ...(t.scope === 'agent' ? { agentId: t.agentId } : {}), ...(t.projectId ? { projectId: t.projectId } : {}), ...w, limit, offset }),
     mayRead(target, session, principal) {
@@ -20,7 +21,7 @@ export function learningSource(store: SessionStore, o: { config(): HarnessConfig
       if (target.projectId) {
         const project = o.project(target.projectId);
         if (!project || project.archivedAt !== null || project.owner !== target.owner || !project.agents.includes(session.agentId) || !project.agents.includes(target.agentId)) return false;
-      } else if (session.agentId !== target.agentId) return false;
+      } else if (target.scope !== 'installation' && session.agentId !== target.agentId) return false;
       // External and project exposure can only narrow the already granted rights.
       const channel = session.origin === 'mcp' ? 'mcp' : session.origin === 'a2a' ? 'a2a' : 'collab';
       const exposure = resolveExposure({ channel, agentId: session.agentId, principal, config: o.config() });

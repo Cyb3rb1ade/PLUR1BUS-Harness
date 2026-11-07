@@ -620,6 +620,17 @@ export class SessionStore {
   listTurns(sessionId: string): TurnRecord[] { return this.#all("SELECT * FROM turns WHERE session_id = ? ORDER BY seq", sessionId).map(toTurn); }
 
   /** Learning reads the completed-turn window before imposing content caps. One extra row exposes overflow. */
+  /** LP7 deliberately projects only trusted metadata; never selects event data, output or messages. */
+  learningToolErrors(owner: string, window: { from: number; to: number }, limit = 4001) {
+    return this.#all(`SELECT e.session_id,e.turn_id,e.seq,e.at,json_extract(e.data,'$.learnTool') AS metadata
+      FROM events e JOIN turns t ON t.id=e.turn_id JOIN sessions s ON s.id=e.session_id
+      WHERE s.owner=? AND s.memory_mode='remember' AND t.incognito=0 AND t.state IN ('completed','failed')
+      AND t.ended_at>=? AND t.ended_at<? AND e.type='tool.result' AND json_extract(e.data,'$.learnTool.version')=1
+      ORDER BY t.ended_at DESC,e.session_id,e.seq LIMIT ?`, owner, window.from, window.to, Math.min(4001, limit))
+      .map(r => ({ sessionId: String(r.session_id), turnId: String(r.turn_id), seq: Number(r.seq), at: Number(r.at),
+        metadata: JSON.parse(String(r.metadata)) as import('../tools/learning-metadata.ts').LearningToolMetadata }));
+  }
+
   learningTranscript(sessionId: string, window: { from: number; to: number }, caps: { messages: number; events: number }, turnIds?: readonly string[]): { messages: MessageRecord[]; events: EventRecord[] } {
     let predicate = "t.session_id=? AND t.state='completed' AND t.incognito=0 AND t.ended_at>=? AND t.ended_at<?";
     const args: (string | number)[] = [sessionId, window.from, window.to];

@@ -17,6 +17,7 @@ export interface Evidence { sessionId: string; turnId: string; sourceId: string;
 export interface VerificationRequest { path: string; contains: string }
 export interface RawFinding { kind: 'knowledge' | 'procedural'; change: Change; text: string; contentKey?: string; memoryId?: string; evidence: Evidence[]; checks?: VerificationRequest[] }
 export interface Finding extends RawFinding {
+  toolPattern?: import('../../tools/learning-metadata.ts').LearningToolMetadata & { count: number; affectedAgents: string[] };
   id: string; runId: string; target: Target; revision?: number; previousDecision?: { revision: number; outcome: string; at: number; hash: string }; prevalence: { sessions: number; total: number; days: number; agents: number; persons: number };
   verify: 'supported' | 'contradicted' | 'unknown' | 'not-applicable'; agreement: 'agrees' | 'contradicts' | 'unknown';
   score: number; desiredTier: Tier; effectiveTier: 'C'; skeptic: Verdict;
@@ -25,6 +26,7 @@ export interface Finding extends RawFinding {
 export type Reason = 'transcript-cap' | 'disabled' | 'no-sessions' | 'budget' | 'breaker-open' | 'no-model' | 'local-only' | 'source-unavailable' | 'invalid-output' | 'provider-failed' | 'rights-changed' | 'interrupted';
 export interface LearnRun { id: string; target: Target; window: Window; sessionIds: string[]; digest: string; startedAt: number; finishedAt: number | null; outcome: 'completed' | 'skipped' | 'failed' | 'deferred' | null; reason: Reason | null; tokens: number; findings: number; truncated?: boolean; omittedSessions?: number }
 export interface SelectionSource {
+  toolErrors?(target: Target, window: Window): { sessionId: string; turnId: string; seq: number; at: number; metadata: import('../../tools/learning-metadata.ts').LearningToolMetadata }[];
   session?(id: string): SessionRecord | null;
   sessions(target: Target, window: Window, limit: number, offset?: number): SessionRecord[];
   evidence?(session: SessionRecord, refs: readonly Evidence[]): Transcript;

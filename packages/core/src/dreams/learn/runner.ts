@@ -1,3 +1,4 @@
+import { installationFindings } from './installation.ts';
 import type { Principal } from '../../rbac/types.ts';
 import { aggregate, parseExtraction, vocabulary } from './aggregation.ts';
 import { prompt, usage, type LearnModel, type LearnModelResult, type Stage } from './model.ts';
@@ -39,6 +40,13 @@ export class LearnRunner {
       signal.throwIfAborted();
       const principal = o.principal(target.owner);
       if (!principal) throw new LearnError('rights-changed');
+      if (target.scope === 'installation') {
+        const selected = installationFindings(o.source, target, principal, window, run.id, cfg.maxSessions);
+        run.sessionIds = selected.sessionIds; run.digest = selected.digest; run.truncated = selected.truncated; run.omittedSessions = selected.omittedSessions;
+        o.store.save(run); signal.throwIfAborted(); o.store.publish(run, selected.findings, o.now());
+        try { o.notice?.(run, { pending: 0, waitingH3: selected.findings.length }); } catch { /* Count-only notice is best effort. */ }
+        return run;
+      }
       o.store.step(run.id, 'selection', 'started');
       const selection = selectTranscriptsWithCounts(o.source, target, principal, window, cfg.maxSessions);
       const selected = selection.transcripts; run.truncated = selection.truncated; run.omittedSessions = selection.omittedSessions;

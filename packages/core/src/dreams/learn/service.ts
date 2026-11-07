@@ -22,6 +22,9 @@ export interface LearnServiceOptions {
   card(finding: Finding): Promise<LearnCard | null>;
   inbox?: InboxPort;
   signal: AbortSignal;
+  /** Future public H3 adapter; absent at the pinned Engine. Must honor the supplied idempotency key. */
+  h3?: { available(): boolean; submit(input: { finding: Finding; idempotencyKey: string }): Promise<{ receiptId: string }> };
+
 }
 export type PublicMemoryCall = (method: string, params: Record<string, unknown>) => Promise<unknown>;
 const denied = () => new RpcError('E_DENIED', 'Learning review is not available for this person', { reason: 'learn-access' });
@@ -84,6 +87,7 @@ export class LearnService {
       breakerOpen: this.store.breakerOpen(target, this.#o.now()) };
   }
   async due(signal: AbortSignal): Promise<void> {
+    await this.handoff();
     // Same scheduler lifecycle, sequential targets; no additional cron or unbounded fanout.
     for (const target of learnTargets(this.#o.config())) {
       if (signal.aborted || this.#o.signal.aborted) return;
@@ -91,6 +95,18 @@ export class LearnService {
       const previous = this.store.runs(target.owner, target)[0];
       if (previous?.window.to === this.window(target).to && previous.outcome !== null) continue;
       try { await this.run(target, this.person(target.owner), signal); } catch { /* Fixed authorization refusal, no content log. */ }
+    }
+  }
+  async handoff(): Promise<void> {
+    const port = this.#o.h3; if (!port?.available()) return;
+    for (const target of learnTargets(this.#o.config())) for (const finding of this.store.targetFindings(target)) {
+      if (finding.status !== 'waiting-h3') continue;
+      try {
+        this.transcripts(finding, this.person(target.owner));
+        const hash = digest(finding); if (this.store.handoff(finding.id, hash)) continue;
+        const result = await port.submit({ finding, idempotencyKey: `learn:${finding.id}:${hash}` });
+        this.store.handedOff(finding.id, hash, result.receiptId);
+      } catch { /* Missing capability/rights stays read-only; retry uses the same idempotency key. */ }
     }
   }
   nextRunAt(): number | null { return learnTargets(this.#o.config()).some(t => learnConfig(this.#o.config(), t).enabled) ? (Math.floor(this.#o.now() / DAY) + 1) * DAY : null; }
@@ -102,6 +118,7 @@ export class LearnService {
       if (!session || !this.#o.source.mayRead(finding.target, session, person)) throw denied();
       const refs = finding.evidence.filter(e => e.sessionId === id);
       if (refs.some(e => e.owner !== session.owner || e.agentId !== session.agentId)) throw denied();
+      if (finding.target.scope === 'installation' && finding.toolPattern) continue;
       const t = this.#o.source.evidence?.(session, refs);
       if (!t || t.messages.length > LIMITS.messages || t.events.length > LIMITS.events || Buffer.byteLength(JSON.stringify(t)) > LIMITS.bytes) throw new LearnError('transcript-cap');
       result.push(t);
@@ -110,7 +127,8 @@ export class LearnService {
   }
   get(id: string, person: Principal) {
     const finding = this.store.finding(id); if (!finding) throw unavailable('finding-not-found');
-    const evidence = evidenceView(finding, this.transcripts(finding, person));
+    const transcripts = this.transcripts(finding, person);
+    const evidence = finding.toolPattern ? [] : evidenceView(finding, transcripts);
     return { finding, evidence, contentHash: digest(finding), action: this.store.action(id, finding.revision ?? 1) };
   }
   list(target: Target, person: Principal) {

@@ -1,3 +1,4 @@
+import { learningToolMetadata, takeLearningTool } from '../tools/learning-metadata.ts';
 import { channelOrigin } from "../channels/behaviour-context.ts";
 import { runWithAgentScope, scopeFor } from "../agents/scope.ts";
 // The submit/event turn loop (ADR-010 L2): `submit` records the user's message and a running turn atomically and returns
@@ -229,12 +230,13 @@ export class TurnRunner {
           if (tc) {
             // The dispatcher never throws; its error envelopes are results like any other. Only an abort ends the turn.
             const res = await tc.dispatcher.call({ id: chunk.id, name: chunk.name, args: chunk.args }, { ...tc.context({ session, caller }), signal, onResultSettled: settle => { registerDelivery(chunk.id, settle); } });
-            persistToolResult(chunk.id, { id: chunk.id, output: JSON.stringify(res), isError: res.isError });
+            const learnTool = learningToolMetadata(res, chunk.args, tc.dispatcher.describe().some(t => t.name === chunk.name));
+            persistToolResult(chunk.id, { id: chunk.id, output: JSON.stringify(res), isError: res.isError, ...(learnTool ? { learnTool } : {}) });
             signal.throwIfAborted();
           }
         }
         // RULING: with a dispatcher the harness executes; a result the provider reports itself is ignored (it could forge provenance).
-        else if (chunk.type === "tool.result") { if (!this.#d.toolCalls) persistToolResult(chunk.id, { id: chunk.id, output: chunk.output }); }
+        else if (chunk.type === "tool.result") { if (!this.#d.toolCalls) { const learnTool = takeLearningTool(chunk); persistToolResult(chunk.id, { id: chunk.id, output: chunk.output, ...(learnTool ? { learnTool } : {}) }); } }
         else usage = { inputTokens: chunk.inputTokens, outputTokens: chunk.outputTokens, ...(chunk.model ? { model: chunk.model } : {}), ...(chunk.measurements ? { measurements: chunk.measurements } : {}) };
       }
 

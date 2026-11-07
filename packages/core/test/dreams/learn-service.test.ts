@@ -15,7 +15,7 @@ import type { CallContext, Handler } from '../../src/rpc/server.ts';
 const target = { scope: 'agent' as const, owner: 'person', agentId: 'agent' };
 const person: Principal = { userId: 'person', kind: 'person', role: 'owner' };
 const DAY = 86400000;
-function rig() {
+function rig(h3?: import('../../src/dreams/learn/service.ts').LearnServiceOptions['h3']) {
   let now = 10 * DAY, mayRead = true;
   const sessions = new SessionStore({ path: ':memory:', clock: () => now }), store = new LearnStore(':memory:');
   const config = defaults(); config.dreams = { learn: { agents: { agent: { enabled: true, owner: 'person' } } } };
@@ -28,7 +28,7 @@ function rig() {
   const source = learningSource(sessions, { config: () => config, hasAgent: () => true, project: () => null });
   const read = source.mayRead; source.mayRead = (...args) => mayRead && read(...args);
   const notices: unknown[] = [];
-  const service = new LearnService({ store, source, config: () => config, now: () => now, principal: () => person,
+  const service = new LearnService({ ...(h3 ? { h3 } : {}), store, source, config: () => config, now: () => now, principal: () => person,
     mayReadTarget: (_t, p) => mayRead && p.userId === person.userId, readPort: async () => null, card: async () => null,
     signal: new AbortController().signal, inbox: { publish: n => { notices.push(n); }, settle: () => {} },
     model: { async complete(req) {
@@ -126,5 +126,19 @@ test('LP6: publication cannot change a finding during an awaited human mutation'
       return { runId: 'receipt', imported: 1, linked: 0 };
     });
     assert.equal(r.store.finding(f.id)!.text, f.text);
+  } finally { await r.close(); }
+});
+
+test('LP7: a future public H3 adapter receives pending findings once and only with live rights', async () => {
+  let available = false, calls = 0;
+  const r = rig({ available: () => available, async submit({ finding, idempotencyKey }) {
+    assert.equal(finding.kind, 'procedural'); assert.match(idempotencyKey, /^learn:/); calls++; return { receiptId: 'h3-receipt' };
+  } });
+  try {
+    const run = await r.service.run(target, person, new AbortController().signal), f = r.store.findings(run.id)[0]!;
+    r.store.publish(run, [{ ...f, kind: 'procedural', status: 'waiting-h3' }], 14 * DAY);
+    await r.service.handoff(); assert.equal(calls, 0);
+    available = true; await r.service.handoff(); await r.service.handoff(); assert.equal(calls, 1);
+    assert.equal(r.store.finding(f.id)!.status, 'waiting-h3'); assert.equal(r.store.decidedFindings('person').length, 0);
   } finally { await r.close(); }
 });

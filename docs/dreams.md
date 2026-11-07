@@ -275,3 +275,20 @@ Procedural findings are read-only `waiting-h3` entries in the learn review store
 precision. They create no skill proposal queue, skill file, installation or enablement. The existing
 unavailable H3 backend remains unchanged. Logs, generic run rows and Inbox notices contain only IDs,
 counts, hashes and classes. Evidence text is loaded for authorized review directly from SessionStore.
+
+### Installationsweite Tool-Muster (LP7)
+
+Der optionale Installationslauf liest ausschließlich die beim Tool-Dispatcher erzeugten
+Metadaten: registrierter Tool-Name (sonst `unknown`), geschlossene Fehlerklasse, gezählte
+JSON-Argumenttypen, Häufigkeit und betroffene Agenten. Argumentnamen, Argumentwerte,
+Nachrichten und Tool-Ausgaben werden nicht gelesen. Historische Ergebnisse ohne diese
+Host-Metadaten werden nicht nachträglich aus Text klassifiziert. Ein Lauf hat höchstens
+4.000 Metadatenereignisse, 50 Sessions und 100 Muster; eine übergroße Ereignismenge wird
+als `deferred` ausgewiesen. Er benötigt kein Modell und schreibt keine MemoryOps.
+
+Alle Muster bleiben `waiting-h3`, sichtbar mit Zählern in Review und Inbox. Der heutige
+Engine-Pin hat keinen öffentlichen H3-Vertrag. Ein optionaler Host-Adapter kann bei
+bereitstehendem Vertrag automatisch liefern; Inhalts-Hash und Idempotenzschlüssel
+sichern Wiederholungen, aktuelle Leserechte werden davor erneut geprüft. Der Adapter
+ist heute nicht verdrahtet. `UnavailableSkillProposals` bleibt unverändert; es gibt
+keinen lokalen Skill-Queue-Ersatz und weder Installation noch Enable von Skills.

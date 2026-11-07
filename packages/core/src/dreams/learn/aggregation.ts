@@ -61,6 +61,6 @@ export function mergeEvidence(previous: Finding, next: Finding): Finding {
   const evidence = [...new Map([...previous.evidence, ...next.evidence].map(e => [evidenceKey(e), e])).values()]
     .sort((a, b) => evidenceKey(a).localeCompare(evidenceKey(b)));
   const sessions = new Set(evidence.map(e => e.sessionId)).size;
-  return { ...next, evidence, prevalence: { sessions, total: Math.max(previous.prevalence.total, next.prevalence.total, sessions),
+  return { ...next, evidence, ...(next.toolPattern ? { toolPattern: { ...next.toolPattern, count: evidence.length, affectedAgents: [...new Set(evidence.map(e => e.agentId))].sort() } } : {}), prevalence: { sessions, total: Math.max(previous.prevalence.total, next.prevalence.total, sessions),
     days: new Set(evidence.map(e => e.day)).size, agents: new Set(evidence.map(e => e.agentId)).size, persons: new Set(evidence.map(e => e.owner)).size } };
 }

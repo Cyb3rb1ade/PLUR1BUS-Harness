@@ -163,3 +163,10 @@ suites, docs generation/check and Rust fmt/clippy/CLI tests precede the single r
   with the existing Dreams timer and global concurrency semaphore. Manual execution uses that
   same window and guards. This makes retries idempotent; data from the current partial day is
   evaluated in the next window rather than generating overlapping manual runs.
+
+LP7-Ruling: Fehlerklassen kommen ausschließlich aus dem vertrauenswürdigen Dispatcher,
+Argumentformen enthalten nur Typzähler, keine Schlüssel oder Werte. Alte Tool-Resultate
+bleiben unberücksichtigt, weil sich Host-Provenienz nicht aus deren Text rekonstruieren
+lässt. Kosten: Die installationsweite Beobachtungsbasis wächst erst ab dieser Revision.
+H3 bleibt ein unverdrahteter öffentlicher Capability-Port am heutigen Pin; erst ein
+vorhandener Engine-Vertrag darf den Adapter liefern, keine Engine-Internals oder Ersatzqueue.

@@ -18,7 +18,7 @@ export class LearnStore {
     try {
       this.#db.exec('PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON;');
       const version = Number(this.#db.prepare('PRAGMA user_version').get()!.user_version);
-      if (version > 4) throw Error('newer learn schema');
+      if (version > 5) throw Error('newer learn schema');
       if (!version) this.#db.exec(`BEGIN IMMEDIATE;
         CREATE TABLE learn_run(id TEXT PRIMARY KEY, target_hash TEXT NOT NULL, window_from INTEGER NOT NULL, window_to INTEGER NOT NULL, metadata TEXT NOT NULL, UNIQUE(target_hash,window_from,window_to));
         CREATE TABLE learn_step(run_id TEXT NOT NULL REFERENCES learn_run(id), step TEXT NOT NULL, state TEXT NOT NULL, PRIMARY KEY(run_id,step));
@@ -53,6 +53,7 @@ export class LearnStore {
         CREATE TABLE learn_action(finding_id TEXT NOT NULL REFERENCES learn_finding(id), revision INTEGER NOT NULL,
           state TEXT NOT NULL, receipt TEXT NOT NULL, PRIMARY KEY(finding_id,revision));
         PRAGMA user_version=4; COMMIT;`);
+      if (version < 5) this.#db.exec(`CREATE TABLE learn_handoff(finding_id TEXT NOT NULL REFERENCES learn_finding(id), hash TEXT NOT NULL, receipt TEXT NOT NULL, PRIMARY KEY(finding_id,hash)); PRAGMA user_version=5;`);
       if (file !== ':memory:') { chmodSync(file, 0o600); secure?.(file); }
     } catch (error) { this.#db.close(); throw error; }
   }
@@ -162,6 +163,8 @@ export class LearnStore {
     const row = this.#db.prepare('SELECT state,receipt FROM learn_action WHERE finding_id=? AND revision=?').get(id, revision);
     return row ? { state: String(row.state), receipt: JSON.parse(String(row.receipt)) as Record<string, string | number> } : null;
   }
+  handoff(id: string, hash: string): boolean { return !!this.#db.prepare('SELECT 1 FROM learn_handoff WHERE finding_id=? AND hash=?').get(id, hash); }
+  handedOff(id: string, hash: string, receipt: string): void { this.#db.prepare('INSERT OR IGNORE INTO learn_handoff VALUES(?,?,?)').run(id, hash, receipt); }
   decisions(runId: string): { findingId: string; outcome: string; receipt: Record<string, string | number> }[] {
     return this.#db.prepare('SELECT d.* FROM learn_decision d JOIN learn_finding f ON f.id=d.finding_id WHERE f.run_id=?').all(runId).map(r => ({ findingId: r.finding_id as string, outcome: r.outcome as string, receipt: JSON.parse(r.receipt as string) as Record<string, string | number> }));
   }

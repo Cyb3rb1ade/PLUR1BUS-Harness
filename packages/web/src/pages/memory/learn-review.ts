@@ -30,6 +30,7 @@ function ReviewDetail({ id, refresh }: { id: string; refresh(): void }): View {
   const blocked = busy || failure?.kind === 'forbidden' || (data.action !== null && data.action.state === 'started');
   return h('div', { class: 'm-stack' },
     h('p', { class: 'm-wrap' }, f.text),
+    f.toolPattern ? h('pre', { class: 'm-pre' }, JSON.stringify(f.toolPattern, null, 2)) : null,
     h(Facts, { rows: [[t('memory.learn.score'), String(f.score)], [t('memory.learn.tier'), f.desiredTier],
       [t('memory.learn.prevalence'), `${f.prevalence.sessions}/${f.prevalence.total} · ${f.prevalence.days}`],
       [t('memory.learn.skeptic'), t(`memory.learn.verdict.${f.skeptic}`)], [t('memory.learn.verify'), f.verify]] }),
