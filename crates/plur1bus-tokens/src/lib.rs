@@ -4,6 +4,7 @@
 //! Phase 4 (P4-03, D120 §12.3): moved out of `plur1bus-engine` (`src/tokens/` and `src/cache_profiles.rs`) unchanged, so
 //! the Rust core and the engine share one counter. The engine re-exports this crate as `plur1bus_engine::tokens` and
 //! [`cache_profiles`] as `plur1bus_engine::cache_profiles`, so every existing path keeps compiling.
+#![forbid(unsafe_code)]
 #![warn(missing_docs)]
 #![warn(clippy::print_stdout, clippy::print_stderr)]
 

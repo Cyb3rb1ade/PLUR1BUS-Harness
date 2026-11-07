@@ -391,3 +391,28 @@ fn date_time_and_uuid_follow_ajv_formats() {
     assert!(check("uuid", "123E4567-E89B-12D3-A456-426614174000"));
     assert!(!check("uuid", "123e4567e89b12d3a456426614174000"));
 }
+
+/// P4-03 review F6: the format probes the review ran against ajv-formats, pinned as vectors
+/// (`fixtures/parity/formats/ajv-formats.json`, recorded by `scripts/parity/export-formats.ts`). An upgrade of `jsonschema`
+/// that changes a verdict fails here instead of drifting from the TypeScript server unnoticed.
+#[test]
+fn every_format_probe_matches_ajv_formats() {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../fixtures/parity/formats/ajv-formats.json");
+    let vectors: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    let cases = vectors["cases"].as_array().unwrap();
+    assert!(cases.len() >= 40);
+    let mut wrong = Vec::new();
+    for case in cases {
+        let format = case["format"].as_str().unwrap();
+        let value = case["value"].as_str().unwrap();
+        let validator = compile(&json!({"type": "string", "format": format})).unwrap();
+        if validator.is_valid(&json!(value)) != case["valid"].as_bool().unwrap() {
+            wrong.push(format!(
+                "{format} {value:?}: ajv-formats says {}",
+                case["valid"]
+            ));
+        }
+    }
+    assert!(wrong.is_empty(), "{wrong:#?}");
+}

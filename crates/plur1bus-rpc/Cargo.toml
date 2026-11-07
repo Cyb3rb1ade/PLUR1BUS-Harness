@@ -8,7 +8,7 @@ build = "build.rs"
 [features]
 # The server half for Rust servers (`plur1bus-core`, P4-03): one generated method trait per `x-server` value, their
 # dispatchers, and params/result validators compiled from pruned schema roots. The client-only builds leave it off.
-server = ["dep:jsonschema", "dep:plur1bus-config"]
+server = ["dep:jsonschema", "dep:plur1bus-config", "serde_json/float_roundtrip"]
 
 [dependencies]
 serde.workspace = true

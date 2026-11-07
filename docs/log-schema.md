@@ -76,7 +76,7 @@ Keys are written in this order: `at`, `actor`, `action`, `target`, `detail`, `v`
 | `surface` | `string` | Where the action came from (cli, desktop, api, …). |
 | `store_ref` | `string` | D109 mirror lines: row id and chain value of the authoritative store row (R2). |
 | `chain` | `string` | The shared chain declined this audit.log line; it may be in the pending journal. |
-| `chainReason` | `string` | Fixed refusal code emitted by audit_chain.rs; contains no record details. |
+| `chainReason` | `string` | Fixed refusal code emitted by the audit chain writer (crates/plur1bus-audit); contains no record details. |
 
 `validateAuditRecord`/`validateAuditLine` (TypeScript) and `validate_audit_line` (Rust) check: object → `action` is an audit-stream catalogue entry → `detail` bytes → schema → key order → source kind (when `source` is present) → `detail` against the entry's attribute group. An audit action written as a diagnostic record is refused with `wrong_stream`.
 

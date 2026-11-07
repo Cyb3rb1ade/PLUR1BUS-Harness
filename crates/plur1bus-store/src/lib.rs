@@ -20,6 +20,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 #![warn(clippy::print_stdout, clippy::print_stderr)]
+#![cfg_attr(test, allow(clippy::unwrap_used))]
 
 /// The `rusqlite` this crate links (bundled SQLite), so callers use the same version.
 pub use rusqlite;
@@ -227,7 +228,18 @@ pub fn migrate(path: &Path, spec: &StoreSpec, steps: &[&str]) -> Result<u32, Sto
         });
     }
     configure(&conn, spec)?;
-    for (index, step) in steps.iter().enumerate().skip(found as usize) {
+    apply_steps(&mut conn, spec, steps, found)
+}
+
+/// Runs `steps[from..]`, each in its own `BEGIN IMMEDIATE` transaction. `from` is the version read before the lock.
+fn apply_steps(
+    conn: &mut Connection,
+    spec: &StoreSpec,
+    steps: &[&str],
+    from: u32,
+) -> Result<u32, StoreError> {
+    let target = u32::try_from(steps.len()).unwrap_or(u32::MAX);
+    for (index, step) in steps.iter().enumerate().skip(from as usize) {
         let to = index as u32 + 1;
         let failed = |error| StoreError::Migration {
             store: spec.name,
@@ -237,11 +249,59 @@ pub fn migrate(path: &Path, spec: &StoreSpec, steps: &[&str]) -> Result<u32, Sto
         let tx = conn
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(failed)?;
+        // P4-03 review F5: the version read above predates the write lock. Another migrator (a TypeScript core, or a
+        // second Rust one) may have applied this step while we waited for `BEGIN IMMEDIATE`; re-read it under the lock
+        // and skip a step that is already in, so no DDL runs twice. (The TypeScript `migrate()` reads outside the
+        // transaction too; recorded as P4D-1, contained because only one side migrates a store before its flip.)
+        let now: u32 = tx
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .map_err(failed)?;
+        if now >= to {
+            tx.commit().map_err(failed)?;
+            continue;
+        }
+        if now > target {
+            return Err(StoreError::NewerSchema {
+                store: spec.name,
+                found: now,
+                supported: target,
+            });
+        }
         tx.execute_batch(step).map_err(failed)?;
         tx.pragma_update(None, "user_version", to).map_err(failed)?;
         tx.commit().map_err(failed)?;
     }
     Ok(target)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// P4-03 review F5: a step another migrator applied after our first read is skipped under the lock, never re-run.
+    #[test]
+    fn a_step_applied_meanwhile_is_skipped_not_run_twice() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("s.sqlite");
+        let other = Connection::open(&path).unwrap();
+        other
+            .execute_batch("PRAGMA journal_mode=WAL; CREATE TABLE a (x); PRAGMA user_version = 1;")
+            .unwrap();
+        let mut conn = connect(&path).unwrap();
+        let steps = ["CREATE TABLE a (x)", "CREATE TABLE b (y)"];
+        // `from` = 0 is what a migrator read before the other one applied step 1.
+        let reached = apply_steps(&mut conn, &StoreSpec::new("s", 2), &steps, 0).unwrap();
+        assert_eq!(reached, 2);
+        assert_eq!(user_version(&conn).unwrap(), 2);
+        let tables: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name IN ('a', 'b')",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(tables, 2);
+    }
 }
 
 /// Opens an existing file read-write, never creating it.

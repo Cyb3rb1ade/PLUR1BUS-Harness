@@ -21,9 +21,11 @@ path = "src/main.rs"
 plur1bus-rpc = { path = "../plur1bus-rpc", features = ["server"] }
 clap.workspace = true
 sha2 = "0.10"
+# P4-03 review F1: the front door parses frames itself, so it needs JSON.parse's exact float rounding on its own
+# dependency edge, not only through feature unification with plur1bus-canon.
+serde_json = { workspace = true, features = ["float_roundtrip"] }
 
 [dev-dependencies]
-serde_json.workspace = true
 tempfile.workspace = true
 # Mode W fake server (tests/support/): the engine's tokio, loopback sockets only.
 tokio = { version = "=1.53.3", features = ["rt-multi-thread", "net", "io-util"] }

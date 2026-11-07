@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { FIXTURE_ROOT, exporterMain, fixtureText, fixturePath, writeFixture } from "./lib.mjs";
 import { buildDispatcherVectors } from "./export-dispatcher.ts";
 import { buildWireFixtures } from "./export-wire.ts";
+import { buildFormatVectors } from "./export-formats.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
 describe("parity fixture writer (mode V)", () => {
@@ -91,6 +92,20 @@ describe("wire fixtures (mode W, P4-03)", () => {
       // The fake's client-id prefix is assembled the way the fake assembles it, so no credential-like literal sits here.
       assert.ok(!text.includes(["oai", "app_"].join("")), `${name}: a minted client id`);
       assert.doesNotMatch(text, /_token":\s*"(?!\[REDACTED)/, `${name}: an unredacted token value`);
+    }
+  });
+});
+
+describe("format vectors (P4-03 review F6)", () => {
+  it("the committed fixtures are exactly what ajv-formats says today, with valid and invalid probes per format", async () => {
+    const built = await buildFormatVectors();
+    for (const [name, data] of Object.entries(built)) {
+      assert.equal(readFileSync(fixturePath("formats", name), "utf8"), fixtureText(data), `fixtures/parity/formats/${name}.json is stale: run scripts/parity/export-formats.ts`);
+    }
+    const cases = (built["ajv-formats"] as any).cases as Array<{ format: string; valid: boolean }>;
+    for (const format of ["date", "date-time", "uri", "uuid"]) {
+      assert.ok(cases.some((c) => c.format === format && c.valid), `${format}: a valid probe`);
+      assert.ok(cases.some((c) => c.format === format && !c.valid), `${format}: an invalid probe`);
     }
   });
 });

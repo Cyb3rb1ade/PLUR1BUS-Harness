@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "note": "Writer verdicts for chain/anchor states; shared by packages/core/test/audit/shared-recovery.test.ts and crates/plur1bus/src/audit_chain.rs. The base lines are those of audit-chain-v1.json.",
+  "note": "Writer verdicts for chain/anchor states; shared by packages/core/test/audit/shared-recovery.test.ts and crates/plur1bus-audit/src/chain.rs. The base lines are those of audit-chain-v1.json.",
   "cases": [
     {
       "name": "one-line-chain-anchor-missing-is-not-healed",
