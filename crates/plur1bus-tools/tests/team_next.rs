@@ -490,3 +490,25 @@ fn shared_transition_vectors_cover_nonempty_outbox_and_epoch_noops() {
         );
     }
 }
+#[test]
+fn incoherent_authority_snapshots_are_refused_before_actions() {
+    for defect in 0..3 {
+        let mut s = initial();
+        match defect {
+            0 => {
+                s["run"]["approved"] = json!(true);
+                s["run"]["scope"] = json!({"kind":"auto"});
+            }
+            1 => s["lead"]["member"] = json!("writer"),
+            _ => {
+                s["packages"][0]["activeRole"] = json!("reviewer");
+                s["packages"][0]["reviewer"] = json!("writer");
+            }
+        }
+        assert!(dispatch(
+            "tools.team.next",
+            &json!({"state":s,"event":{"kind":"timer","at":1,"seq":1}})
+        )
+        .is_err());
+    }
+}

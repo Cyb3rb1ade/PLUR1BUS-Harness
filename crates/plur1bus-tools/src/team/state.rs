@@ -4,6 +4,18 @@ use crate::ToolError;
 use serde_json::Value;
 use std::collections::BTreeSet;
 pub(super) fn validate(s: &Value) -> Result<(), ToolError> {
+    if s["run"]["approved"] == true
+        && (s["run"]["scope"].is_null()
+            || (s["run"]["scope"]["kind"] == "auto" && s["run"]["autoAllowed"] != true))
+    {
+        return Err(invalid());
+    }
+    if !list(s, "members")
+        .iter()
+        .any(|m| m["id"] == s["lead"]["member"] && list(m, "roles").iter().any(|r| r == "lead"))
+    {
+        return Err(invalid());
+    }
     let packages = list(s, "packages");
     let plans = list(&s["plan"], "packages");
     let sections = list(s, "sections");
@@ -35,6 +47,23 @@ pub(super) fn validate(s: &Value) -> Result<(), ToolError> {
         .iter()
         .any(|p| !list(s, "members").iter().any(|m| m["id"] == p["writer"]))
     {
+        return Err(invalid());
+    }
+    if list(&s["plan"], "sections")
+        .iter()
+        .any(|planned| !sections.iter().any(|row| row["key"] == planned["key"]))
+    {
+        return Err(invalid());
+    }
+    if packages.iter().any(|p| {
+        (!p["reviewer"].is_null()
+            && (p["reviewer"] == p["writer"]
+                || !list(s, "members").iter().any(|m| {
+                    m["id"] == p["reviewer"]
+                        && list(m, "roles").iter().any(|role| role == "reviewer")
+                })))
+            || (p["activeRole"] == "reviewer" && p["reviewer"].is_null())
+    }) {
         return Err(invalid());
     }
     if list(s, "mergeQueue")
