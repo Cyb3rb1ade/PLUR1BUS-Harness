@@ -29987,13 +29987,17 @@
             },
             "config": {
               "$ref": "#/$defs/TeamPolicy"
+            },
+            "sectionBranchPattern": {
+              "$ref": "#/$defs/TeamGlob"
             }
           },
           "required": [
             "plan",
             "files",
             "workflows",
-            "config"
+            "config",
+            "sectionBranchPattern"
           ]
         },
         "result": {
@@ -35500,6 +35504,18 @@
         "policyHash": {
           "type": "string",
           "pattern": "^[a-f0-9]{64}$"
+        },
+        "targetDeploys": {
+          "type": "boolean"
+        },
+        "targetDeployReasons": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1152
+          },
+          "maxItems": 384
         }
       },
       "required": [
@@ -35508,7 +35524,9 @@
         "lanes",
         "overlapScore",
         "criticalPathMs",
-        "policyHash"
+        "policyHash",
+        "targetDeploys",
+        "targetDeployReasons"
       ]
     },
     "TeamPolicy": {
@@ -36607,6 +36625,9 @@
               "type": "integer",
               "minimum": 0,
               "maximum": 9007199254740991
+            },
+            "targetDeploys": {
+              "type": "boolean"
             }
           },
           "required": [
@@ -36622,7 +36643,8 @@
             "budgetAvailable",
             "scope",
             "lastEventSeq",
-            "now"
+            "now",
+            "targetDeploys"
           ]
         },
         "plan": {

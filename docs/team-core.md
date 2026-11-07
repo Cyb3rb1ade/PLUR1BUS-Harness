@@ -3,6 +3,8 @@
 The human `team.*` RPCs store bounded plans, immutable approval bindings and pending
 commands. They do not call the transition function or execute actions. PT-4b owns
 persistence, reconciliation, authenticated event construction and execution.
+Under ADR-019/D131, PT-4b is implemented in Rust as part of P4-50; TK's existing
+TypeScript persistence surface is running work and supplies the parity contract.
 
 `rpc.schema.json` is the wire source. TypeScript is generated from it and Rust uses
 `typify`; the native boundary additionally validates schema limits and closed objects.
@@ -22,10 +24,32 @@ traversal are refused. Explicit files or `src/*` express those scopes. The inter
 algorithm searches the product of two finite automata; it does not infer disjointness
 from the current file inventory.
 
-Workflow classification is deliberately conservative. JSON-form YAML is understood;
-other YAML syntax, unreadable contents and push workflows with opaque executable jobs
-are treated as potentially deploying. This can require extra confirmations. There is
-no workflow execution, shell parsing, or unsafe claim that a test-named job cannot deploy.
+The Core/PT-4b shell safely parses workflow YAML and supplies `workflows[].content`
+as JSON, together with the complete inventory and an explicit `sectionBranchPattern`.
+Rust does not parse YAML. Non-JSON, unreadable contents, unknown keys/events/filters,
+unresolved workflow references and cycles conservatively mean possible deployment.
+`push`, PR/PR-target `closed`, `merge_group` and their `workflow_run` chains are checked
+against branch filters. Workflows may execute opaque code regardless of their job names.
+
+The report's required `targetDeploys` and `targetDeployReasons` describe the target
+branch separately from package lanes. Matching `deployBranches` policy entries count
+too. Deployment on the target requires an exact human-confirmed section-to-target
+merge, even under `auto`. Packages become closed for deployment only when a direct
+merge trigger (`push`, PR/PR-target `closed`, or its `workflow_run` chain) also matches
+the section branch language. `merge_group` affects the target only: **PT-4b must never
+create section branches with branch protection or merge-queue rules.** The Harness
+merges section branches locally, never through a GitHub queue (Owner ruling 2026-11-07).
+Unsupported GitHub glob syntax remains conservative; partial exclusions of a section
+pattern do not prove that every possible section branch is excluded.
+
+Ruling (D127 K4 amendment): the deployment gate belongs to the merge that deploys.
+This preserves usable contained/wide lanes while requiring human approval before any
+merge onto a deployment target. An incorrect branch classification could permit an
+automatic deployment, so the full inventory and the section-branch premise are required.
+The checker report participates in `checkHash`; a changed deployment report invalidates
+approval. The shell must fill required boolean `run.targetDeploys` from that report;
+missing or null values are rejected. Protected lockfiles, Cargo/toolchain configuration
+and audit policy remain closed independently of deployment classification.
 
 `tools.team.diffcheck` prioritizes interface/shared restrictions over an overlapping
 own declaration. `tools.team.impact` includes explicit dependencies, consumed provided
@@ -59,6 +83,13 @@ Checks bind both the package tree and section head. Outcomes identify the check 
 criterion; every declared check must pass. Worker `met` is consulted only for criteria
 without a check. Missing and unavailable outcomes fail. A new section head invalidates
 old merge confirmations and requires fresh checks before a merge proposal.
+An obsolete `checks.finished` while checking invalidates the result and immediately
+emits `run-checks` against the current snapshot. The executor persists that snapshot
+and action together; it must take the current package tree and section head from it.
+
+Ruling: scope `package` never permits an autonomous merge into the section, even for
+a contained package. A human must confirm the exact tree and section head. This is
+deliberately stricter than D124 Q7 and costs one additional approval step.
 
 A stop action increments the epoch first. `writer.stopped` acknowledges the new epoch and
 permits subsequent work; `stopEpoch` identifies the revoked session. Handover additionally
@@ -73,3 +104,16 @@ PT-4b must execute each idempotently and turn completion into a new event. `rest
 merges and recording already completed effects; pending actions are replayed, not guessed
 from the snapshot. Timers and quota probes are actions/facts only: TK performs no probes,
 model calls, worktree operations or merges.
+
+## Binding prerequisites before PT-4b
+
+[TK-Folgen vor PT-4b (#901)](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/issues/901)
+tracks the remaining L1–L5 prerequisites from the Controller review of #900. Resolve
+them before enabling the executor: uniform run visibility errors, trusted A2A peer
+binding, cross-language hash parity, traversal-free config globs and cancellation/approval
+ordering. Unknown A2A peers must be refused; an owner role alone does not establish peer trust.
+M1–M3 are implemented in TK under the Owner ruling above.
+
+Composition confirmation is allowed only before the first outbox action. Pending,
+applied, completed and failed action history all require shell revision handling;
+re-confirmation must not reset an executing run to planning or invalidate its approval.

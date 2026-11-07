@@ -76,7 +76,8 @@
       },
       "closedPaths": [],
       "deployBranches": []
-    }
+    },
+    "sectionBranchPattern": "team/**"
   },
   "result": {
     "policyHash": "5c3114396b176eb6568caf3c1909446790fc2e6443993629fa38117eda51791c",
@@ -90,6 +91,8 @@
       }
     ],
     "overlapScore": 0.0,
-    "criticalPathMs": 10000
+    "criticalPathMs": 10000,
+    "targetDeploys": false,
+    "targetDeployReasons": []
   }
 }

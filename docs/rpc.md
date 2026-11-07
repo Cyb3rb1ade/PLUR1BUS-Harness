@@ -27118,13 +27118,17 @@ D124 pure Core-only team facts; no execution or filesystem access.
     },
     "config": {
       "$ref": "#/$defs/TeamPolicy"
+    },
+    "sectionBranchPattern": {
+      "$ref": "#/$defs/TeamGlob"
     }
   },
   "required": [
     "plan",
     "files",
     "workflows",
-    "config"
+    "config",
+    "sectionBranchPattern"
   ]
 }
 ```
@@ -43282,6 +43286,18 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "policyHash": {
       "type": "string",
       "pattern": "^[a-f0-9]{64}$"
+    },
+    "targetDeploys": {
+      "type": "boolean"
+    },
+    "targetDeployReasons": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1152
+      },
+      "maxItems": 384
     }
   },
   "required": [
@@ -43290,7 +43306,9 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "lanes",
     "overlapScore",
     "criticalPathMs",
-    "policyHash"
+    "policyHash",
+    "targetDeploys",
+    "targetDeployReasons"
   ]
 }
 ```
@@ -44474,6 +44492,9 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
           "type": "integer",
           "minimum": 0,
           "maximum": 9007199254740991
+        },
+        "targetDeploys": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -44489,7 +44510,8 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "budgetAvailable",
         "scope",
         "lastEventSeq",
-        "now"
+        "now",
+        "targetDeploys"
       ]
     },
     "plan": {

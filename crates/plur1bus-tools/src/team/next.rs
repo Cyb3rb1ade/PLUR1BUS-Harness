@@ -712,6 +712,7 @@ fn pump(m: &mut Machine) {
                     && section["confirmation"]["targetHead"] == section["targetHead"];
                 if confirmed
                     || !closed
+                        && m.s["run"]["targetDeploys"] == false
                         && m.s["run"]["scope"]["kind"] == "auto"
                         && members.iter().all(|&i| state::autonomous(&m.s, i))
                 {

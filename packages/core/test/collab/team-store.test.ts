@@ -23,7 +23,7 @@ test('TK1 re-confirmation cannot change records once execution has an outbox act
     let run = store.team.create({ projectId: project.id, leadAgent: 'writer', objective: 'fixture', targetBranch: 'integration' });
     run = store.team.confirm(run.id, run.compositionHash, members, 'person');
     run = store.team.stagePlan(run.id, fixture, { policyHash: teamHash(DEFAULT_TEAM_POLICY), planHash: teamHash(fixture), findings: [],
-      lanes: [{ package: 'duration', lane: 'contained', reasons: [] }], overlapScore: 0, criticalPathMs: 10000 });
+      lanes: [{ package: 'duration', lane: 'contained', reasons: [] }], overlapScore: 0, criticalPathMs: 10000, targetDeploys: false, targetDeployReasons: [] });
     store.team.approve({ runId: run.id, planHash: run.planHash!, checkHash: run.checkHash!, compositionHash: run.compositionHash, scope: { kind: 'plan' } }, 'person');
     db.prepare("UPDATE team_runs SET state='running' WHERE id=?").run(run.id);
     db.prepare("INSERT INTO team_actions VALUES(?,1,?,?,'pending',0,0)").run(run.id, JSON.stringify({ kind: 'create-worktree', package: 'duration' }), 'fixture-action');
@@ -46,7 +46,7 @@ test('TK1 team records round trip with redaction, bound approvals and an empty a
     assert.equal(run.objective, '[redacted]');
     assert.equal(store.team.list(project.id, 1, 0).runs[0]?.id, run.id);
     run = store.team.confirm(run.id, run.compositionHash, members, 'person');
-    const report = { policyHash: teamHash(DEFAULT_TEAM_POLICY), planHash: teamHash(fixture), findings: [], lanes: [{ package: 'duration', lane: 'contained' as const, reasons: [] }], overlapScore: 0, criticalPathMs: 10000 };
+    const report = { policyHash: teamHash(DEFAULT_TEAM_POLICY), planHash: teamHash(fixture), findings: [], lanes: [{ package: 'duration', lane: 'contained' as const, reasons: [] }], overlapScore: 0, criticalPathMs: 10000, targetDeploys: false, targetDeployReasons: [] };
     run = store.team.stagePlan(run.id, fixture, report);
     const approval = { runId: run.id, planHash: run.planHash!, checkHash: run.checkHash!, compositionHash: run.compositionHash, scope: { kind: 'plan' as const } };
     assert.throws(() => store.team.approve({ ...approval, checkHash: '0'.repeat(64) }, 'person'));
@@ -83,7 +83,7 @@ test('TK1 approval rejects absent executable checks, blockers, stale facts and d
     run = store.team.confirm(run.id, run.compositionHash, members, 'person');
     const stage = (plan: unknown, blocking = false) => store.team.stagePlan(run.id, plan, {
       policyHash: teamHash(policy), planHash: teamHash(plan), findings: blocking ? [{ kind: 'false-edge', package: 'duration', detail: 'fixture', blocking: true }] : [],
-      lanes: [{ package: 'duration', lane: 'contained', reasons: [] }], overlapScore: 0, criticalPathMs: 10000,
+      lanes: [{ package: 'duration', lane: 'contained', reasons: [] }], overlapScore: 0, criticalPathMs: 10000, targetDeploys: false, targetDeployReasons: [],
     });
     const approve = () => ({ runId: run.id, planHash: run.planHash!, checkHash: run.checkHash!, compositionHash: run.compositionHash, scope: { kind: 'plan' as const } });
     for (const checks of [[], [{ kind: 'paths', paths: ['src/duration.ts'], criterion: 0 }]]) {
@@ -111,5 +111,23 @@ test('TK1 project restrictions are additive and changing project policy invalida
     const run = store.team.create({ projectId: project.id, leadAgent: 'writer', objective: 'fixture' });
     assert.deepEqual(run.policy.closedPaths, ['secrets/**', 'private/**']);
     assert.deepEqual(run.policy.deployBranches, ['production', 'release']);
+  } finally { store.close(); }
+});
+
+test('TK1 a changed deployment report invalidates the previous approval binding', () => {
+  const store = new CollabStore({ path: ':memory:' });
+  try {
+    const project = store.createProject({ name: 'team', owner: 'person' }); store.addAgent(project.id, 'writer');
+    let run = store.team.create({ projectId: project.id, leadAgent: 'writer', objective: 'fixture', targetBranch: 'integration' });
+    run = store.team.confirm(run.id, run.compositionHash, members, 'person');
+    const report = { policyHash: teamHash(DEFAULT_TEAM_POLICY), planHash: teamHash(fixture), findings: [], lanes: [{ package: 'duration', lane: 'contained' as const, reasons: [] }], overlapScore: 0, criticalPathMs: 10000, targetDeploys: false, targetDeployReasons: [] as string[] };
+    run = store.team.stagePlan(run.id, fixture, report);
+    const approval = { runId: run.id, planHash: run.planHash!, checkHash: run.checkHash!, compositionHash: run.compositionHash, scope: { kind: 'plan' as const } };
+    store.team.approve(approval, 'person');
+    run = store.team.stagePlan(run.id, fixture, { ...report, targetDeploys: true, targetDeployReasons: ['workflow added'] });
+    assert.equal(run.approval, null);
+    assert.notEqual(run.checkHash, approval.checkHash);
+    assert.throws(() => store.team.approve(approval, 'person'), { code: 'conflict' });
+    assert.ok(store.team.approve({ ...approval, checkHash: run.checkHash! }, 'person').approval);
   } finally { store.close(); }
 });

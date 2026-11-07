@@ -4,6 +4,9 @@ use crate::ToolError;
 use serde_json::Value;
 use std::collections::BTreeSet;
 pub(super) fn validate(s: &Value) -> Result<(), ToolError> {
+    if !s["run"]["targetDeploys"].is_boolean() {
+        return Err(invalid());
+    }
     if s["run"]["approved"] == true
         && (s["run"]["scope"].is_null()
             || (s["run"]["scope"]["kind"] == "auto" && s["run"]["autoAllowed"] != true))

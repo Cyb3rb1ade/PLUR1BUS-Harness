@@ -1,4 +1,4 @@
-use super::{glob, hash, list, num, text};
+use super::{glob, hash, list, num, text, workflow};
 use crate::ToolError;
 use serde_json::{json, Value};
 use std::collections::{BTreeSet, VecDeque};
@@ -70,136 +70,6 @@ fn fanout(deps: &[Vec<usize>], source: usize) -> usize {
     }
     seen.len()
 }
-// JSON is a YAML subset. Other workflow syntax stays unknown until a reviewed parser is added;
-// an unknown/unreadable workflow is deliberately deployment-capable, never an allow signal.
-fn workflow_deploys(workflow: &Value, branch: &str) -> bool {
-    let Some(content) = workflow["content"].as_str() else {
-        return true;
-    };
-    let Ok(value) = serde_json::from_str::<Value>(content) else {
-        return true;
-    };
-    let Some(root) = value.as_object() else {
-        return true;
-    };
-    if !root.contains_key("on") || !root.contains_key("jobs") {
-        return true;
-    }
-    let known_events = [
-        "push",
-        "pull_request",
-        "pull_request_target",
-        "workflow_dispatch",
-        "workflow_call",
-        "workflow_run",
-        "schedule",
-        "release",
-        "create",
-        "delete",
-        "issues",
-        "issue_comment",
-        "merge_group",
-        "repository_dispatch",
-        "check_run",
-        "check_suite",
-        "deployment",
-        "deployment_status",
-        "discussion",
-        "discussion_comment",
-        "fork",
-        "gollum",
-        "label",
-        "milestone",
-        "page_build",
-        "public",
-        "registry_package",
-        "status",
-        "watch",
-    ];
-    if root.keys().any(|k| {
-        ![
-            "name",
-            "run-name",
-            "on",
-            "jobs",
-            "permissions",
-            "env",
-            "defaults",
-            "concurrency",
-        ]
-        .contains(&k.as_str())
-    }) || !value["jobs"].is_object()
-    {
-        return true;
-    }
-    let on = &value["on"];
-    let names: Vec<&str> = match on {
-        Value::String(name) => vec![name],
-        Value::Array(names) => names.iter().map(|n| n.as_str().unwrap_or("")).collect(),
-        Value::Object(names) => names.keys().map(String::as_str).collect(),
-        _ => return true,
-    };
-    if names.is_empty() || names.iter().any(|name| !known_events.contains(name)) {
-        return true;
-    }
-    let push = match on {
-        Value::String(s) => s == "push",
-        Value::Array(events) => {
-            if events.iter().any(|e| !e.is_string()) {
-                return true;
-            }
-            events.iter().any(|e| e == "push")
-        }
-        Value::Object(events) => {
-            if let Some(push) = events.get("push") {
-                if push.is_null() {
-                    true
-                } else if let Some(options) = push.as_object() {
-                    if options.keys().any(|k| {
-                        !matches!(
-                            k.as_str(),
-                            "branches"
-                                | "branches-ignore"
-                                | "paths"
-                                | "paths-ignore"
-                                | "tags"
-                                | "tags-ignore"
-                        )
-                    }) {
-                        return true;
-                    }
-                    if let Some(branches) = options.get("branches") {
-                        let Some(branches) = branches.as_array() else {
-                            return true;
-                        };
-                        if branches
-                            .iter()
-                            .any(|b| !glob::valid(b.as_str().unwrap_or("")))
-                        {
-                            return true;
-                        }
-                        branches
-                            .iter()
-                            .any(|b| glob::matches(b.as_str().unwrap_or(""), branch))
-                    } else {
-                        true
-                    }
-                } else {
-                    return true;
-                }
-            } else {
-                false
-            }
-        }
-        _ => return true,
-    };
-    if !push {
-        return false;
-    }
-    // A push workflow is executable code and may deploy via an opaque action or script.
-    // Without a proof of its effects, assume deployment even when its name says "test".
-    true
-}
 fn closed_pattern(pattern: &str) -> bool {
     const CLOSED: &[&str] = &[
         "**/migrations/**",
@@ -229,6 +99,15 @@ fn closed_pattern(pattern: &str) -> bool {
         "**/config.schema.json",
         "**/package.json",
         "**/Cargo.toml",
+        "**/pnpm-lock.yaml",
+        "**/package-lock.json",
+        "**/yarn.lock",
+        "**/Cargo.lock",
+        "**/deny.toml",
+        "audit-allowlist.json",
+        "**/.cargo/**",
+        "rust-toolchain",
+        "rust-toolchain.toml",
         "**/.npmrc",
         "**/compose.yaml",
         "**/compose.yml",
@@ -453,11 +332,10 @@ pub(super) fn check(input: &Value) -> Result<Value, ToolError> {
     }
     let config = &input["config"];
     let branch = text(plan, "targetBranch");
-    let deploy = list(config, "deployBranches").iter().any(|b| {
-        !glob::valid(b.as_str().unwrap_or("")) || glob::matches(b.as_str().unwrap_or(""), branch)
-    }) || list(input, "workflows")
-        .iter()
-        .any(|w| workflow_deploys(w, branch));
+    let section_pattern = text(input, "sectionBranchPattern");
+    let target_reasons = workflow::reasons(list(input, "workflows"), config, branch, false);
+    let section_deploys =
+        !workflow::reasons(list(input, "workflows"), config, section_pattern, true).is_empty();
     let unknown_files = list(input, "files")
         .iter()
         .any(|f| !glob::valid(text(f, "path")) || text(f, "path").contains('*'));
@@ -469,8 +347,8 @@ pub(super) fn check(input: &Value) -> Result<Value, ToolError> {
             if p["dataDeletion"] == true {
                 reasons.push("data deletion")
             };
-            if deploy {
-                reasons.push("deploying or unknown workflow/branch")
+            if section_deploys {
+                reasons.push("deploying or unknown section workflow/branch")
             };
             if unknown_files {
                 reasons.push("ambiguous path")
@@ -506,6 +384,6 @@ pub(super) fn check(input: &Value) -> Result<Value, ToolError> {
         .collect();
     let pairs = packages.len() * (packages.len() - 1) / 2;
     Ok(
-        json!({"planHash":hash(plan),"policyHash":hash(config),"findings":findings,"lanes":lanes,"overlapScore":if overlaps==0{json!(0)}else{json!(f64::from(overlaps)/pairs as f64)},"criticalPathMs":critical_path.unwrap_or(0)}),
+        json!({"targetDeploys":!target_reasons.is_empty(),"targetDeployReasons":target_reasons,"planHash":hash(plan),"policyHash":hash(config),"findings":findings,"lanes":lanes,"overlapScore":if overlaps==0{json!(0)}else{json!(f64::from(overlaps)/pairs as f64)},"criticalPathMs":critical_path.unwrap_or(0)}),
     )
 }

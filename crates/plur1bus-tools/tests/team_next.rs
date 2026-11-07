@@ -169,6 +169,76 @@ fn closed_and_wide_lanes_require_exact_human_confirmations() {
     }
 }
 #[test]
+fn deploying_target_never_merges_without_exact_human_confirmation() {
+    for seed in 0..32_u64 {
+        let mut s = writing("contained", "auto");
+        s["run"]["targetDeploys"] = json!(true);
+        s = checked(s, "passed");
+        let r = review(&s);
+        assert!(
+            has(&r, "merge-into-section"),
+            "target deployment must not close the package lane"
+        );
+        s = r["state"].clone();
+        let mut e = pkg("package.merge.done", &s);
+        e["treeHash"] = s["packages"][0]["treeHash"].clone();
+        e["sectionHead"] = json!("e".repeat(64));
+        e["affected"] = json!([]);
+        s = step(&s, e)["state"].clone();
+        let r = step(
+            &s,
+            json!({"kind":"section.summary","section":"first","treeHash":s["sections"][0]["head"]}),
+        );
+        assert!(has(&r, "ask-person"));
+        assert!(!has(&r, "merge-section"));
+        s = r["state"].clone();
+        let mut random = seed + 1;
+        let mut confirmed_count = 0;
+        for _ in 0..40 {
+            random = random.wrapping_mul(6364136223846793005).wrapping_add(1);
+            let e = if s["sections"][0]["status"] == "merging" {
+                json!({"kind":"section.merge.conflict","section":"first"})
+            } else {
+                match (random >> 32) % 4 {
+                    0 => json!({"kind":"timer"}),
+                    which => {
+                        json!({"kind":"team.section.merge","section":"first","actor":"person","by":"owner",
+                        "treeHash":if which==1 { json!("f".repeat(64)) } else { s["sections"][0]["head"].clone() },
+                        "targetHead":if which==2 { json!("f".repeat(64)) } else { s["sections"][0]["targetHead"].clone() }})
+                    }
+                }
+            };
+            let r = step(&s, e.clone());
+            let exact = e["kind"] == "team.section.merge"
+                && e["treeHash"] == s["sections"][0]["head"]
+                && e["targetHead"] == s["sections"][0]["targetHead"];
+            assert_eq!(has(&r, "merge-section"), exact);
+            confirmed_count += usize::from(exact);
+            s = r["state"].clone();
+        }
+        assert!(
+            confirmed_count > 0,
+            "the property must exercise actual confirmed merges"
+        );
+    }
+    for bad in [Value::Null, json!("false")] {
+        let mut s = initial();
+        s["run"]["targetDeploys"] = bad;
+        assert!(dispatch(
+            "tools.team.next",
+            &json!({"state":s,"event":{"kind":"timer","seq":1,"at":1}})
+        )
+        .is_err());
+    }
+    let mut s = initial();
+    s["run"].as_object_mut().unwrap().remove("targetDeploys");
+    assert!(dispatch(
+        "tools.team.next",
+        &json!({"state":s,"event":{"kind":"timer","seq":1,"at":1}})
+    )
+    .is_err());
+}
+#[test]
 fn unavailable_or_missing_checks_override_worker_met() {
     for status in ["failed", "unavailable"] {
         let s = checked(writing("contained", "plan"), status);

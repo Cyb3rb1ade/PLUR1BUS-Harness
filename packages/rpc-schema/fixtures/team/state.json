@@ -27,7 +27,8 @@
     "budgetAvailable": true,
     "scope": null,
     "lastEventSeq": 0,
-    "now": 0
+    "now": 0,
+    "targetDeploys": false
   },
   "plan": {
     "schema": "plur1bus.teamplan/1",

@@ -31,7 +31,8 @@
           "budgetAvailable": true,
           "scope": null,
           "lastEventSeq": 0,
-          "now": 0
+          "now": 0,
+          "targetDeploys": false
         },
         "plan": {
           "schema": "plur1bus.teamplan/1",
@@ -253,7 +254,8 @@
             "kind": "plan"
           },
           "lastEventSeq": 1,
-          "now": 1
+          "now": 1,
+          "targetDeploys": false
         },
         "plan": {
           "schema": "plur1bus.teamplan/1",
@@ -472,7 +474,8 @@
             "kind": "plan"
           },
           "lastEventSeq": 1,
-          "now": 1
+          "now": 1,
+          "targetDeploys": false
         },
         "plan": {
           "schema": "plur1bus.teamplan/1",
@@ -694,7 +697,8 @@
             "kind": "plan"
           },
           "lastEventSeq": 1,
-          "now": 1
+          "now": 1,
+          "targetDeploys": false
         },
         "plan": {
           "schema": "plur1bus.teamplan/1",
@@ -904,7 +908,8 @@
           "budgetAvailable": true,
           "scope": null,
           "lastEventSeq": 0,
-          "now": 0
+          "now": 0,
+          "targetDeploys": false
         },
         "plan": {
           "schema": "plur1bus.teamplan/1",
@@ -1117,7 +1122,8 @@
           "budgetAvailable": true,
           "scope": null,
           "lastEventSeq": 0,
-          "now": 0
+          "now": 0,
+          "targetDeploys": false
         },
         "plan": {
           "schema": "plur1bus.teamplan/1",

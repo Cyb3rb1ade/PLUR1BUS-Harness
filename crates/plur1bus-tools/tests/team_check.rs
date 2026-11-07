@@ -2,7 +2,7 @@
 use plur1bus_tools::team::{dispatch, hash};
 use serde_json::{json, Value};
 fn input() -> Value {
-    json!({"plan":serde_json::from_str::<Value>(include_str!("../../../packages/rpc-schema/fixtures/team/plan.json")).unwrap(),"files":[],"workflows":[],"config":{"approval":{"auto":false},"closedPaths":[],"deployBranches":[]}})
+    json!({"plan":serde_json::from_str::<Value>(include_str!("../../../packages/rpc-schema/fixtures/team/plan.json")).unwrap(),"sectionBranchPattern":"team/**","files":[],"workflows":[],"config":{"approval":{"auto":false},"closedPaths":[],"deployBranches":[]}})
 }
 fn run(v: &Value) -> Value {
     dispatch("tools.team.check", v).unwrap()
@@ -43,6 +43,34 @@ fn fixture_hash_and_schema_contract() {
     bad = v;
     bad["unexpected"] = json!(true);
     assert!(dispatch("tools.team.check", &bad).is_err());
+}
+#[test]
+fn repository_ci_only_closes_the_target_merge() {
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../packages/rpc-schema/fixtures/team/ci-workflow.json"
+    ))
+    .unwrap();
+    use sha2::{Digest, Sha256};
+    assert_eq!(
+        fixture["sha256"],
+        format!(
+            "{:x}",
+            Sha256::digest(include_bytes!("../../../.github/workflows/ci.yml"))
+        )
+    );
+    let mut v = input();
+    v["plan"]["targetBranch"] = json!("main");
+    v["workflows"] = json!([{"path":fixture["source"],"content":fixture["workflow"].to_string()}]);
+    let r = run(&v);
+    assert_eq!(r["targetDeploys"], true);
+    assert_eq!(r["lanes"][0]["lane"], "contained");
+    // A workflow chain fed only by merge_group likewise cannot trigger on a local section merge.
+    v["workflows"] = json!([
+        {"path":"queue.json","content":json!({"name":"Queue","on":"merge_group","jobs":{}}).to_string()},
+        {"path":"follow.json","content":json!({"on":{"workflow_run":{"workflows":["Queue"]}},"jobs":{}}).to_string()}
+    ]);
+    assert_eq!(run(&v)["targetDeploys"], true);
+    assert_eq!(run(&v)["lanes"][0]["lane"], "contained");
 }
 #[test]
 fn cycles_later_sections_merge_order_overlap_and_missing_checks() {
@@ -111,6 +139,15 @@ fn every_builtin_protection_and_project_additions_are_closed() {
         "Dockerfile",
         "config/server.json",
         "permissions/policy.json",
+        "pnpm-lock.yaml",
+        "nested/package-lock.json",
+        "yarn.lock",
+        "apps/desktop/Cargo.lock",
+        "deny.toml",
+        "audit-allowlist.json",
+        "nested/.cargo/config.toml",
+        "rust-toolchain",
+        "rust-toolchain.toml",
     ] {
         let mut v = input();
         v["plan"]["packages"][0]["owns"][0]["glob"] = json!(path);
@@ -124,14 +161,15 @@ fn every_builtin_protection_and_project_additions_are_closed() {
     assert_eq!(run(&v)["lanes"][0]["lane"], "closed");
     v = input();
     v["config"]["deployBranches"] = json!(["integration"]);
-    assert_eq!(run(&v)["lanes"][0]["lane"], "closed");
+    assert_eq!(run(&v)["lanes"][0]["lane"], "contained");
+    assert_eq!(run(&v)["targetDeploys"], true);
 }
 #[test]
 fn workflows_fail_closed_and_section_overlap_or_fanout_is_wide() {
     for content in [
         Value::Null,
         json!("unreadable yaml: ["),
-        json!(r#"{"on":{"push":{"branches":["integration"]}},"jobs":{}}"#),
+        json!(r#"{"on":{"push":{}},"jobs":{}}"#),
     ] {
         let mut v = input();
         v["workflows"] = json!([{"path":".github/workflows/release.yml","content":content}]);
@@ -192,6 +230,80 @@ fn ambiguous_workflow_events_and_case_variants_fail_closed() {
     ] {
         let mut v = input();
         v["plan"]["packages"][0]["owns"][0]["glob"] = json!(path);
+        assert_eq!(run(&v)["lanes"][0]["lane"], "closed");
+    }
+}
+
+#[test]
+fn merge_triggers_apply_to_the_branch_that_receives_the_merge() {
+    for (on, expected) in [
+        (json!({"push":{"branches":["integration"]}}), true),
+        (
+            json!({"pull_request":{"types":["closed"],"branches":["integration"]}}),
+            true,
+        ),
+        (
+            json!({"pull_request_target":{"types":["closed"],"branches":["integration"]}}),
+            true,
+        ),
+        (json!({"merge_group":{"branches":["integration"]}}), true),
+        (
+            json!({"pull_request":{"types":["opened","synchronize"]}}),
+            false,
+        ),
+        (json!({"pull_request":null}), false),
+        (json!({"push":{"branches":["other"]}}), false),
+        (json!({"push":{"branches-ignore":["integration"]}}), false),
+        (json!({"push":{"branches":"integration"}}), true),
+        (json!({"push":{"unknown":true}}), true),
+    ] {
+        let mut v = input();
+        v["workflows"] =
+            json!([{"path":"workflow.json","content":json!({"on":on,"jobs":{}}).to_string()}]);
+        let r = run(&v);
+        assert_eq!(r["targetDeploys"], expected, "{on}");
+        assert_eq!(
+            !r["targetDeployReasons"].as_array().unwrap().is_empty(),
+            expected
+        );
+    }
+    for filter in [
+        json!({}),
+        json!({"branches":["team/**"]}),
+        json!({"branches":["team/*/section/*"]}),
+    ] {
+        let mut v = input();
+        v["workflows"] = json!([{"path":"workflow.json","content":json!({"on":{"push":filter},"jobs":{}}).to_string()}]);
+        assert_eq!(run(&v)["lanes"][0]["lane"], "closed", "{filter}");
+    }
+    let mut v = input();
+    v["workflows"] = json!([{"path":"workflow.json","content":json!({"on":{"push":{"branches":["integration"]}},"jobs":{}}).to_string()}]);
+    assert_eq!(run(&v)["lanes"][0]["lane"], "contained");
+    assert_eq!(run(&v)["targetDeploys"], true);
+}
+#[test]
+fn workflow_run_resolves_upstream_merge_triggers_and_fails_closed_on_missing_or_cycles() {
+    for (upstream, expected) in [
+        (json!({"push":{"branches":["integration"]}}), true),
+        (json!("workflow_dispatch"), false),
+    ] {
+        let mut v = input();
+        v["workflows"] = json!([
+            {"path":"ci.json","content":json!({"name":"CI","on":upstream,"jobs":{}}).to_string()},
+            {"path":"follow.json","content":json!({"on":{"workflow_run":{"workflows":["CI"],"types":["completed"],"branches":["integration"]}},"jobs":{}}).to_string()}
+        ]);
+        let r = run(&v);
+        assert_eq!(r["targetDeploys"], expected);
+        assert_eq!(r["lanes"][0]["lane"], "contained");
+        assert_eq!(
+            r["targetDeployReasons"].as_array().unwrap().len(),
+            if expected { 2 } else { 0 }
+        );
+    }
+    for refs in [json!(["missing"]), json!(["Cycle"])] {
+        let mut v = input();
+        v["workflows"] = json!([{"path":"cycle.json","content":json!({"name":"Cycle","on":{"workflow_run":{"workflows":refs}},"jobs":{}}).to_string()}]);
+        assert_eq!(run(&v)["targetDeploys"], true);
         assert_eq!(run(&v)["lanes"][0]["lane"], "closed");
     }
 }

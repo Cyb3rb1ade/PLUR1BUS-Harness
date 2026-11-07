@@ -7,6 +7,7 @@ mod impact;
 mod lead;
 mod next;
 mod state;
+mod workflow;
 use crate::{CoreContext, ToolError, ToolsModule};
 use plur1bus_rpc::types::{
     ErrorCode, ToolsTeamCheckParams, ToolsTeamCheckResult, ToolsTeamDiffcheckParams,
