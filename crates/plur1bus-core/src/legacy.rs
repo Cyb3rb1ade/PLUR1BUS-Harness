@@ -101,14 +101,17 @@ pub enum StartError {
     Stopped,
 }
 
-/// Spawns the legacy core and waits for its ready line, while `stop` is not set. The legacy core's stderr is inherited
-/// (it goes where the front door's goes: the supervisor's `logs/core.err.log`, or the terminal of `core run`).
+/// Spawns the legacy core as the front door's `instance` and waits for its ready line, while `stop` is not set. The
+/// shared instance id is what binds `run/core-legacy.pid` to `run/core.pid` for the peers that check the core's pid
+/// (the tools service). The legacy core's stderr is inherited (it goes where the front door's goes: the supervisor's
+/// `logs/core.out.log`, or the terminal of `core run`).
 pub fn start(
     spec: &LegacySpec,
+    instance: &str,
     expected_address: &str,
     stop: &mut dyn FnMut() -> bool,
 ) -> Result<Legacy, StartError> {
-    let instance = uuid::Uuid::new_v4().to_string();
+    let instance = instance.to_owned();
     let mut child = Command::new(&spec.node)
         .args(spec.args(&instance))
         .stdin(Stdio::piped())

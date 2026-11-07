@@ -394,6 +394,11 @@ fn ready_line_run_files_and_modes() {
         "supervised",
         "--lifeline stdin: the legacy core reads the supervisor's config"
     );
+    assert_eq!(
+        d.token("core-legacy.pid").split_whitespace().nth(1),
+        Some("123e4567-e89b-12d3-a456-426614174000"),
+        "the legacy core runs as the front door's instance: the tools service binds it to run/core.pid by instance"
+    );
     #[cfg(unix)]
     {
         assert_eq!(mode(&d.path("run")), 0o700);

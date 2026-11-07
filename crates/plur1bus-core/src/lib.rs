@@ -264,7 +264,7 @@ fn start(
             }
             _ => false,
         };
-        match legacy::start(&spec, &files.legacy_address, &mut stop_requested) {
+        match legacy::start(&spec, &instance, &files.legacy_address, &mut stop_requested) {
             Ok(legacy) => break legacy,
             Err(legacy::StartError::Exited(status))
                 if status.code() == Some(3) && Instant::now() < retry_until =>

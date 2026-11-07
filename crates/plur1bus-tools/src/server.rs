@@ -230,6 +230,19 @@ impl Runtime {
         Ok(CoreIdentity { pid, instance })
     }
 
+    /// Phase 4 (P4-10): with `core.impl: "rust"`, `run/core.pid` names the front door (`plur1bus-core`), and the
+    /// TypeScript core behind it, which is the one that connects here, records itself in `run/core-legacy.pid` with the
+    /// front door's instance id. That process counts as the core; a record of another instance or process does not.
+    fn is_legacy_core(&self, peer: u32, identity: &CoreIdentity) -> bool {
+        let Ok(recorded) = files::read_private(&self.home.join("run/core-legacy.pid")) else {
+            return false;
+        };
+        let mut fields = recorded.split_whitespace();
+        let pid = fields.next().and_then(|value| value.parse::<u32>().ok());
+        let instance = fields.next();
+        fields.next().is_none() && pid == Some(peer) && instance == Some(identity.instance.as_str())
+    }
+
     fn authorize_core(
         &self,
         state: &ConnectionState,
@@ -239,7 +252,10 @@ impl Runtime {
             return Err(ToolError::denied());
         }
         let identity = self.core_identity()?;
-        if state.peer_pid.is_some_and(|pid| pid != identity.pid) {
+        if state
+            .peer_pid
+            .is_some_and(|pid| pid != identity.pid && !self.is_legacy_core(pid, &identity))
+        {
             return Err(ToolError {
                 code: ErrorCode::EDenied,
                 reason: "tools-core-identity",
@@ -799,14 +815,22 @@ mod panic_boundary_tests {
 
     impl Running {
         fn start() -> Self {
+            Self::start_with(
+                &format!("{} {}\n", std::process::id(), uuid::Uuid::new_v4()),
+                None,
+            )
+        }
+
+        /// A service whose `run/core.pid` (and, behind the Phase 4 front door, `run/core-legacy.pid`) say `core` and
+        /// `legacy`.
+        fn start_with(core: &str, legacy: Option<&str>) -> Self {
             let home = tempfile::tempdir().unwrap();
             fs::create_dir(home.path().join("state")).unwrap();
             files::run_dir(&home.path().join("run")).unwrap();
-            files::write_private(
-                &home.path().join("run/core.pid"),
-                &format!("{} {}\n", std::process::id(), uuid::Uuid::new_v4()),
-            )
-            .unwrap();
+            files::write_private(&home.path().join("run/core.pid"), core).unwrap();
+            if let Some(legacy) = legacy {
+                files::write_private(&home.path().join("run/core-legacy.pid"), legacy).unwrap();
+            }
             let service = Service::bind(
                 home.path(),
                 "panic-fixture",
@@ -892,6 +916,45 @@ mod panic_boundary_tests {
             }
         }
     }
+    fn hello(service: &Running) -> Value {
+        let stream = plur1bus_rpc::transport::connect(
+            &crate::address(service.home.path()),
+            Duration::from_secs(2),
+        )
+        .unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .unwrap();
+        let mut stream = BufReader::new(stream);
+        rpc(&mut stream, "tools.hello", &json!({
+            "token": files::read_private(&service.home.path().join("run/tools-core.token")).unwrap(),
+            "ticketKey": files::fresh_token().unwrap(),
+        }))
+    }
+
+    #[test]
+    fn behind_the_front_door_only_the_legacy_core_of_the_same_instance_is_the_core() {
+        let me = std::process::id();
+        let instance = uuid::Uuid::new_v4();
+        // `run/core.pid` names the Phase 4 front door, not this process; this process is the legacy core behind it.
+        let front_door = format!("{} {instance}\n", me.wrapping_add(1).max(1));
+        let refused = |v: Value| v["error"]["data"]["reason"] == "tools-core-identity";
+        let legacy = Running::start_with(&front_door, Some(&format!("{me} {instance}\n")));
+        assert!(hello(&legacy)["result"].is_object(), "the legacy core of this instance");
+        let other_instance = Running::start_with(
+            &front_door,
+            Some(&format!("{me} {}\n", uuid::Uuid::new_v4())),
+        );
+        assert!(refused(hello(&other_instance)), "a legacy record of another instance");
+        let other_pid = Running::start_with(
+            &front_door,
+            Some(&format!("{} {instance}\n", me.wrapping_add(2).max(1))),
+        );
+        assert!(refused(hello(&other_pid)), "a legacy record of another process");
+        let no_legacy = Running::start_with(&front_door, None);
+        assert!(refused(hello(&no_legacy)), "no legacy record");
+    }
+
     #[test]
     fn accept_errors_back_off_count_and_reset_only_after_a_connection() {
         let mut errors = AcceptErrors::default();
