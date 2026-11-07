@@ -78,6 +78,7 @@ fn every_state_keeps_words_and_maps_to_the_four_badge_shapes() {
         HarnessState::Ready,
         HarnessState::Degraded,
         HarnessState::Down,
+        HarnessState::Disconnected,
         HarnessState::Unpaired,
         HarnessState::Updating,
         HarnessState::Rollback,
@@ -152,6 +153,7 @@ fn native_tray_words_follow_saved_language_and_system_locale() {
         HarnessState::Ready,
         HarnessState::Degraded,
         HarnessState::Down,
+        HarnessState::Disconnected,
         HarnessState::Unpaired,
         HarnessState::Updating,
         HarnessState::Rollback,
@@ -693,4 +695,52 @@ fn rebuild_requests_are_debounced_to_the_latest() {
     assert!(debounce.is_latest(third));
     assert!(REBUILD_DEBOUNCE >= std::time::Duration::from_millis(50));
     assert!(REBUILD_DEBOUNCE <= std::time::Duration::from_millis(500));
+}
+
+#[test]
+fn a_paired_connection_that_cannot_be_reached_is_not_connected_not_stopped() {
+    // Owner decision 2026-11-04 (#740): two axes, pairing and connection.
+    assert_eq!(HarnessState::Disconnected.words(), "Not connected");
+    assert_eq!(Language::De.harness(HarnessState::Disconnected), "Nicht verbunden");
+    assert_eq!(HarnessState::Unpaired.words(), "Not paired");
+    // A lost event stream of a remote or local connection reads *Not connected* …
+    assert_eq!(
+        connection_state(HarnessState::Down, false, false),
+        HarnessState::Disconnected
+    );
+    // … a bundled connection keeps `Down`, because its controller knows whether the harness is stopped …
+    assert_eq!(connection_state(HarnessState::Down, false, true), HarnessState::Down);
+    // … and a harness that itself reports `down` over a live stream is *Stopped*.
+    assert_eq!(connection_state(HarnessState::Down, true, false), HarnessState::Down);
+    for state in [HarnessState::Ready, HarnessState::Unpaired, HarnessState::Crashed] {
+        assert_eq!(connection_state(state, false, false), state);
+    }
+    let view = TrayState {
+        harness: HarnessState::Disconnected,
+        ..Default::default()
+    };
+    assert_eq!(view.badge(), Badge::Attention);
+    assert_eq!(
+        Language::De.status(&view, "Büro"),
+        "PLUR1BUS — Büro — Nicht verbunden"
+    );
+}
+
+#[test]
+fn a_waiting_approval_raises_attention_and_keeps_the_harness_word() {
+    // Owner decision 2026-10-21 (#740 item 7).
+    let mut view = TrayState {
+        harness: HarnessState::Ready,
+        approvals_pending: true,
+        ..Default::default()
+    };
+    assert_eq!(view.badge(), Badge::Attention);
+    assert_eq!(Language::En.status(&view, "Home"), "PLUR1BUS — Home — Running");
+    view.update_available = true;
+    assert_eq!(view.badge(), Badge::Attention, "a waiting request outranks an update");
+    view.approvals_pending = false;
+    assert_eq!(view.badge(), Badge::Update);
+    view.approvals_pending = true;
+    view.harness = HarnessState::Starting;
+    assert_eq!(view.badge(), Badge::Busy);
 }

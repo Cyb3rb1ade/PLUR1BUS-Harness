@@ -111,6 +111,7 @@ pub fn retire_connection(app: &tauri::AppHandle, id: uuid::Uuid) {
                 }
                 let mut view = state.view.lock().unwrap();
                 view.harness = crate::tray::HarnessState::Unpaired;
+                view.approvals_pending = false;
                 view.set_transport(None);
                 update_tray(&gui, &view);
                 drop(view);
@@ -239,11 +240,12 @@ pub fn start_events(
         host.cards.lock().unwrap().clear();
     }
     *state.connection.lock().unwrap() = Some(connection.clone());
-    state
-        .view
-        .lock()
-        .unwrap()
-        .set_transport(checked.map(|(report, transport)| (*transport, report)));
+    {
+        let mut view = state.view.lock().unwrap();
+        // The pending cards were cleared above; a new connection starts without a waiting approval.
+        view.approvals_pending = false;
+        view.set_transport(checked.map(|(report, transport)| (*transport, report)));
+    }
     let earlier_private =
         std::sync::Arc::new(AtomicBool::new(checked.is_some_and(|(report, _)| {
             report.category != Some(crate::transport::Category::Public)
@@ -576,8 +578,18 @@ async fn enqueue_update(app: &tauri::AppHandle, generation: u64, update: EventUp
         .run_on_main_thread(move || {
             let state = handle.state::<NativeState>();
             let applied = state.events.with_current(generation, || {
+                let bundled = state
+                    .connection
+                    .lock()
+                    .unwrap()
+                    .as_ref()
+                    .is_some_and(|c| c.kind == crate::connections::Kind::Bundled);
                 let mut view = state.view.lock().unwrap();
-                view.harness = state.effective_harness(update.state);
+                view.harness = state.effective_harness(crate::tray::connection_state(
+                    update.state,
+                    update.connected,
+                    bundled,
+                ));
                 view.secrets_locked = update.secrets_locked;
                 let value = view.clone();
                 drop(view);
@@ -1116,6 +1128,24 @@ pub fn refresh_language(app: &tauri::AppHandle, preference: crate::settings::Loc
     {
         eprintln!("TRAY_LANGUAGE_REFRESH_FAILED");
     }
+}
+/// #740: a request waiting in the Approvals window raises the *Attention* badge; the harness word stays. Called with the
+/// approval cards just updated, on the main thread.
+pub fn set_approvals_pending(app: &tauri::AppHandle, pending: bool) {
+    let state = app.state::<NativeState>();
+    let mut view = state.view.lock().unwrap();
+    if view.approvals_pending == pending {
+        return;
+    }
+    view.approvals_pending = pending;
+    let value = view.clone();
+    drop(view);
+    update_tray(app, &value);
+    let _ = app.emit_to(
+        tauri::EventTarget::webview_window("shell"),
+        "desktop-tray-state",
+        value,
+    );
 }
 fn update_tray(app: &tauri::AppHandle, view: &TrayState) {
     let state = app.state::<NativeState>();
