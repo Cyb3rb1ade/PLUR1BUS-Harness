@@ -19,10 +19,11 @@ located runtime; it spawns `node core.js --home <dir> --behind-front-door superv
 |---|---|---|
 | `run/` | `0700` (user-and-SYSTEM DACL on Windows) | front door |
 | `run/core.sock` / `\\.\pipe\plur1bus-<hash>-core` | `0600` / explicit SDDL (closes ADR-012 deviation C2) | front door |
-| `run/core.token`, `run/api-delegation.token`, `run/core-legacy.token` | `0600`, 32 random bytes as hex, fresh per start | front door |
-| `run/core.pid` | `0600`, `<pid> <instanceId>` | front door |
+| `run/core-legacy.token`, `run/core-legacy.credentials` | `0600`; the link token, and `{core, api}` for the legacy core alone while it starts (removed once it is ready) | front door, before the legacy core starts |
+| `run/core.token`, `run/api-delegation.token` | `0600`, 32 random bytes as hex, fresh per start | front door, once the legacy core is ready, right before the bind (as the TypeScript core writes them right before it listens) |
+| `run/core.pid` | `0600`, `<pid> <instanceId>`; the legacy core runs as the same instance | front door |
 | `state/core.lock` | the TypeScript core's SQLite byte range | front door |
-| `run/core-legacy.sock`, `run/core-legacy.pid`, `state/core-legacy.lock`, `run/engine-models.json` | | legacy core |
+| `run/core-legacy.sock`, `run/core-legacy.pid`, `run/core-legacy.lock`, `run/engine-models.json` | the legacy core's lock is in `run/`, never in `state/` (a data root for backups, restores and imports) | legacy core |
 
 ## Layout
 

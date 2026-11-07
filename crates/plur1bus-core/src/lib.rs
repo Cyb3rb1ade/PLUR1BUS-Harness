@@ -120,7 +120,7 @@ pub fn plan(args: &ServeArgs) -> Result<ServePlan, ServeError> {
     })
 }
 
-/// How long a legacy core that exits 3 (a previous legacy core still holds `state/core-legacy.lock` while it stops) is
+/// How long a legacy core that exits 3 (a previous legacy core still holds `run/core-legacy.lock` while it stops) is
 /// retried, on top of the stop budget.
 const LEGACY_LOCK_RETRY_MARGIN: Duration = Duration::from_secs(10);
 /// The margin `bin.ts` gives itself beyond the stop budget before it exits on its own.

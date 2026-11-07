@@ -7,8 +7,8 @@ a later package removes. Each entry names the component, its MODULE-MAP row
 (`docs/superpowers/plans/phase4/MODULE-MAP.md`), a severity, the owning package and a reproduction; it is closed by the
 PR that flips the owning package with its vector green.
 
-Severity: `security`, `data-loss`, `low` (a wrong answer or refusal on a path no shipped client takes), `info` (a
-documented difference with no wrong answer).
+Severity: `security`, `data-loss`, `low` (a wrong answer or refusal on a path no shipped client takes, or a narrow
+window that was not reproduced; the entry says which), `info` (a documented difference with no wrong answer).
 
 | Id | Component | MODULE-MAP row | Severity | Owner | Status |
 |---|---|---|---|---|---|
@@ -16,7 +16,7 @@ documented difference with no wrong answer).
 | P4D-2 | An API subscriber does not see the front door's own `core.state` | `packages/core/src/events-map.ts` | low | P4-12 | open |
 | P4D-3 | Before the handshake, a line with a lone surrogate escape is a parse error | `packages/module-api/src/rpc-server.ts` (reference) | info | P4-12 | open |
 | P4D-4 | The front door accepts at most 512 connections at once | `packages/core/src/core.ts` | info | P4-12 | open |
-| P4D-5 | After the front door dies abruptly, the old legacy core stops on its own while a new front door waits | `packages/core/src/core.ts` | info | P4-90 | open |
+| P4D-5 | After the front door dies abruptly, the old legacy core stops on its own while a new front door waits; an offline writer could overlap it | `packages/core/src/core.ts` | low | P4-90 | open |
 | P4D-6 | The legacy core's Windows pipe keeps Node's default DACL (ADR-012 C2) | `packages/core/src/core.ts` | low | P4-90 | open, contained |
 | P4D-7 | The front door's own diagnostics are plain stderr lines, not log-schema records in `logs/core.log` | `packages/core/src/logger.ts` | info | P4-11 | open |
 
@@ -69,11 +69,19 @@ connections. P4-12 sets the limit for the Rust core for good (the async server o
 ## P4D-5 — the old legacy core outlives an abruptly stopped front door
 
 When the front door is killed, its lock (`state/core.lock`) is released at once, but the legacy core behind it runs until
-it sees its lifeline (stdin) close and finishes its stop. A new front door started in that window takes `state/core.lock`,
-and its legacy core exits with code 3 on `state/core-legacy.lock` until the old one is gone; the new front door retries
-that start for the shutdown budget plus 10 s and binds `run/core.sock` only once its legacy core is ready. The stores are
-never written by two legacy cores at once (`state/core-legacy.lock`), and clients see the address refused as they do
-while a TypeScript core restarts. The window ends with the legacy core (P4-90).
+it sees its lifeline (stdin) close and finishes its stop (it stops at once, without grace, but finishes what is in
+flight). A new front door started in that window takes `state/core.lock`, and its legacy core exits with code 3 on
+`run/core-legacy.lock` until the old one is gone; the new front door retries that start for the shutdown budget plus
+10 s and binds `run/core.sock` only once its legacy core is ready. The stores are never written by two legacy cores at
+once (`run/core-legacy.lock`), and clients see the address refused as they do while a TypeScript core restarts
+(tests/system kill-soak SIGKILLs the front door and passes on the rust leg: no fact lost, none replayed twice).
+
+What the window does not cover: an offline writer that takes only `state/core.lock` (the import worker, a restore) and
+starts within the old legacy core's stop could overlap with it (two writers on the stores). It needs a crash or SIGKILL
+of the front door followed within seconds by such a writer; the supervisor stops the core gracefully before every
+import or restore, and a graceful stop of the front door waits for its legacy core. Not reproduced; severity `low` because
+it touches data safety. Fix options for the owner: the offline writers also take `run/core-legacy.lock` while a front
+door is configured, or the window ends with the legacy core (P4-90).
 
 ## P4D-6 — the legacy core's pipe on Windows
 
