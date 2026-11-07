@@ -231,7 +231,8 @@ template while the orchestrator runs.
 
 `ci.yml`, `desktop.yml` and `hermes-host.yml` each have a `schedule:` trigger (full matrix); `nightly.yml` keeps the real-model
 and fuzz jobs. `nightly-report.yml` listens (`workflow_run`) for those four finishing and, only for a failed `schedule`
-run, opens or comments on one issue titled `Nightly CI red: <UTC date>`. It holds `issues: write` and nothing else, runs no
+run, comments on the open issue titled exactly `Nightly CI red` (one line per run, with its UTC date) or opens it when none is
+open. A person closes that issue once the failures are dealt with; the next red run opens a new one. It holds `issues: write` and nothing else, runs no
 repository code, and never fires for PRs, pushes or manual runs. A `workflow_run` workflow is read from the default
 branch, so it starts working once this is merged.
 
