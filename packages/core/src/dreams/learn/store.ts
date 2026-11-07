@@ -13,7 +13,7 @@ export class LearnStore {
     try {
       this.#db.exec('PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON;');
       const version = Number(this.#db.prepare('PRAGMA user_version').get()!.user_version);
-      if (version > 1) throw Error('newer learn schema');
+      if (version > 2) throw Error('newer learn schema');
       if (!version) this.#db.exec(`BEGIN IMMEDIATE;
         CREATE TABLE learn_run(id TEXT PRIMARY KEY, target_hash TEXT NOT NULL, window_from INTEGER NOT NULL, window_to INTEGER NOT NULL, metadata TEXT NOT NULL, UNIQUE(target_hash,window_from,window_to));
         CREATE TABLE learn_step(run_id TEXT NOT NULL REFERENCES learn_run(id), step TEXT NOT NULL, state TEXT NOT NULL, PRIMARY KEY(run_id,step));
@@ -21,6 +21,12 @@ export class LearnStore {
         CREATE TABLE learn_finding(id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES learn_run(id), state TEXT NOT NULL);
         CREATE TABLE learn_decision(finding_id TEXT PRIMARY KEY REFERENCES learn_finding(id), reviewer TEXT NOT NULL, outcome TEXT NOT NULL, decided_at INTEGER NOT NULL, receipt TEXT NOT NULL);
         PRAGMA user_version=1; COMMIT;`);
+      if (version < 2) this.#db.exec(`BEGIN IMMEDIATE;
+        ALTER TABLE learn_run ADD COLUMN owner TEXT NOT NULL DEFAULT '';
+        UPDATE learn_run SET owner=json_extract(metadata,'$.target.owner');
+        CREATE INDEX learn_run_owner ON learn_run(owner,window_to DESC);
+        CREATE INDEX learn_run_target ON learn_run(target_hash,window_to DESC);
+        PRAGMA user_version=2; COMMIT;`);
       if (file !== ':memory:') { chmodSync(file, 0o600); secure?.(file); }
     } catch (error) { this.#db.close(); throw error; }
   }
@@ -35,14 +41,21 @@ export class LearnStore {
     const previous = this.#db.prepare('SELECT metadata FROM learn_run WHERE target_hash=? AND window_from=? AND window_to=?').get(hash, window.from, window.to);
     if (previous) return JSON.parse(previous.metadata as string) as LearnRun;
     const run: LearnRun = { id: digest([hash, window.from, window.to, PROMPT_VERSION]), target, window, sessionIds: [], digest: '', startedAt: now, finishedAt: null, outcome: null, reason: null, tokens: 0, findings: 0 };
-    this.#db.prepare('INSERT INTO learn_run VALUES(?,?,?,?,?)').run(run.id, hash, window.from, window.to, JSON.stringify(run)); return run;
+    this.#db.prepare('INSERT INTO learn_run(id,target_hash,window_from,window_to,metadata,owner) VALUES(?,?,?,?,?,?)').run(run.id, hash, window.from, window.to, JSON.stringify(run), target.owner); return run;
   }
   get(id: string): LearnRun | null { const row = this.#db.prepare('SELECT metadata FROM learn_run WHERE id=?').get(id); return row ? JSON.parse(row.metadata as string) as LearnRun : null; }
   save(run: LearnRun): void { this.#db.prepare('UPDATE learn_run SET metadata=? WHERE id=?').run(JSON.stringify(run), run.id); }
-  runs(owner: string): LearnRun[] { return this.#db.prepare('SELECT metadata FROM learn_run ORDER BY window_to DESC LIMIT 1000').all().map(r => JSON.parse(r.metadata as string) as LearnRun).filter(r => r.target.owner === owner); }
+  runs(owner: string, target?: Target): LearnRun[] {
+    const rows = target
+      ? this.#db.prepare('SELECT metadata FROM learn_run WHERE owner=? AND target_hash=? ORDER BY window_to DESC LIMIT 1000').all(owner, targetHash(target))
+      : this.#db.prepare('SELECT metadata FROM learn_run WHERE owner=? ORDER BY window_to DESC LIMIT 1000').all(owner);
+    return rows.map(r => JSON.parse(r.metadata as string) as LearnRun);
+  }
   breakerOpen(target: Target, now: number): boolean {
     const start = Math.floor(now / 86_400_000) * 86_400_000;
-    return this.runs(target.owner).filter(r => r.startedAt >= start && r.outcome === 'failed' && targetHash(r.target) === targetHash(target)).length >= 3;
+    const row = this.#db.prepare(`SELECT count(*) AS n FROM learn_run WHERE owner=? AND target_hash=?
+      AND json_extract(metadata,'$.startedAt')>=? AND json_extract(metadata,'$.outcome')='failed'`).get(target.owner, targetHash(target), start);
+    return Number(row!.n) >= 3;
   }
   step(runId: string, step: string, state: 'started' | 'completed'): void { this.#db.prepare('INSERT INTO learn_step VALUES(?,?,?) ON CONFLICT(run_id,step) DO UPDATE SET state=excluded.state').run(runId, step, state); }
   payload<T>(runId: string, key: string): T | null { const row = this.#db.prepare('SELECT payload FROM learn_payload WHERE run_id=? AND key=?').get(runId, key); return row ? JSON.parse(row.payload as string) as T : null; }
@@ -72,6 +85,14 @@ export class LearnStore {
       if (Number(changed.changes) !== 1) throw Error('finding-not-pending');
       this.#db.prepare('INSERT INTO learn_decision VALUES(?,?,?,?,?)').run(id, reviewer, outcome, now, JSON.stringify(receipt));
     });
+  }
+  /** Precision is based directly on decisions, never a truncated list of recent runs. */
+  decidedFindings(owner: string): { finding: Finding; outcome: string }[] {
+    return this.#db.prepare(`SELECT p.payload,d.outcome FROM learn_decision d
+      JOIN learn_finding f ON f.id=d.finding_id JOIN learn_run r ON r.id=f.run_id
+      JOIN learn_payload p ON p.run_id=f.run_id AND p.key='finding:'||f.id
+      WHERE r.owner=? AND json_extract(r.metadata,'$.outcome')='completed'`)
+      .all(owner).map(r => ({ finding: JSON.parse(r.payload as string) as Finding, outcome: r.outcome as string }));
   }
   decisions(runId: string): { findingId: string; outcome: string; receipt: Record<string, string | number> }[] {
     return this.#db.prepare('SELECT d.* FROM learn_decision d JOIN learn_finding f ON f.id=d.finding_id WHERE f.run_id=?').all(runId).map(r => ({ findingId: r.finding_id as string, outcome: r.outcome as string, receipt: JSON.parse(r.receipt as string) as Record<string, string | number> }));

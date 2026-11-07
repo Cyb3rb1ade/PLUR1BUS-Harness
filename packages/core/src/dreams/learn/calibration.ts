@@ -41,12 +41,9 @@ export function calibration(store: LearnStore, target: Target, models: readonly 
   const modelIds = [...new Set(models)].sort();
   const revision = digest([PROMPT_VERSION, modelIds, CALIBRATION_POLICY]);
   const counts = { A: { accepted: 0, decided: 0 }, B: { accepted: 0, decided: 0 } };
-  for (const run of store.runs(target.owner).filter(r => targetHash(r.target) === targetHash(target) && r.outcome === 'completed')) {
-    for (const decision of store.decisions(run.id)) {
-      const finding = store.finding(decision.findingId);
-      if (!finding || finding.kind !== 'knowledge' || finding.desiredTier === 'C' || finding.promptVersion !== PROMPT_VERSION || JSON.stringify([...finding.models].sort()) !== JSON.stringify(modelIds)) continue;
-      const count = counts[finding.desiredTier]; count.decided++; if (decision.outcome === 'accepted') count.accepted++;
-    }
+  for (const { finding, outcome } of store.decidedFindings(target.owner)) {
+    if (targetHash(finding.target) !== targetHash(target) || finding.kind !== 'knowledge' || finding.desiredTier === 'C' || finding.promptVersion !== PROMPT_VERSION || JSON.stringify([...finding.models].sort()) !== JSON.stringify(modelIds)) continue;
+    const count = counts[finding.desiredTier]; count.decided++; if (outcome === 'accepted') count.accepted++;
   }
   return { version: 1, revision, promptVersion: PROMPT_VERSION, models: modelIds, thresholds: CALIBRATION_POLICY,
     A: precisionGate(counts.A.accepted, counts.A.decided), B: precisionGate(counts.B.accepted, counts.B.decided) };

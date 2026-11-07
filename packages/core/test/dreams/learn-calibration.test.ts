@@ -60,3 +60,18 @@ test('H1: only a substantive verified literal in the claim can establish trust',
   // Weak matches still contribute to a score supported by independent person evidence.
   assert.ok(scoreFinding({ ...finding(), verify: 'supported', checks: [{ path: 'README.md', contains: 'the' }] }, safe).score >= scoreFinding(finding(), safe).score);
 });
+
+test('M4: unrelated owners and newer runs cannot hide decisions or breaker failures', () => {
+  const store = new LearnStore(':memory:');
+  try {
+    const first = store.begin(target, { from: 1, to: 2 }, 1);
+    store.publish(first, [{ ...scoreFinding(finding(), safe), id: 'old-finding', runId: first.id, models: ['fixture/small'] }], 2);
+    store.decide('old-finding', target.owner, 'accepted', 3, {});
+    for (let i = 2; i < 5; i++) store.finish(store.begin(target, { from: i, to: i + 1 }, 10), 'failed', 'provider-failed', 11);
+    for (let i = 0; i < 1001; i++) store.begin({ ...target, owner: 'other' }, { from: 100 + i, to: 101 + i }, 100);
+    assert.equal(store.runs(target.owner).length, 4);
+    for (let i = 0; i < 1001; i++) store.begin(target, { from: 2000 + i, to: 2001 + i }, 100);
+    assert.equal(store.breakerOpen(target, 100), true);
+    assert.equal(calibration(store, target, ['fixture/small']).A.decided, 1);
+  } finally { store.close(); }
+});
