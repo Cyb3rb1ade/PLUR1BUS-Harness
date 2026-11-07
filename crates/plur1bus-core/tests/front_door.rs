@@ -83,6 +83,10 @@ fn main() {
             a_legacy_core_that_dies_ends_the_front_door,
         ),
         (
+            "a_client_whose_link_cannot_open_sees_the_core_go_away",
+            a_client_whose_link_cannot_open_sees_the_core_go_away,
+        ),
+        (
             "a_second_front_door_is_locked_out",
             a_second_front_door_is_locked_out,
         ),
@@ -830,6 +834,24 @@ fn a_legacy_core_that_dies_ends_the_front_door() {
     assert!(c.closed(), "its link died with it");
     assert_eq!(d.wait(Duration::from_secs(10)), Some(1));
     assert!(!d.path("run/core.token").exists() && !d.path("run/core.sock").exists());
+}
+
+fn a_client_whose_link_cannot_open_sees_the_core_go_away() {
+    let d = door(Opts {
+        mode: "one-link",
+        ..Opts::default()
+    });
+    // No reply, the connection just ends: what a client of a TypeScript core that goes away sees (module-api's
+    // `closed`, the CLI's unavailable core), which the CLI and the API treat like an unreachable core (a capture is
+    // journaled, a recall degrades, the import maintenance fallback is admitted), never a refusal of their own.
+    let mut c = d.client();
+    assert_eq!(
+        c.try_call("core.auth", json!({"token": d.token("core.token")})),
+        None,
+        "{:?}",
+        c.notes
+    );
+    assert!(c.notes.is_empty(), "{:?}", c.notes);
 }
 
 fn a_second_front_door_is_locked_out() {

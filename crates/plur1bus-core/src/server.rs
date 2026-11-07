@@ -499,6 +499,17 @@ impl Conn {
         self.send(&e.frame(id));
     }
 
+    /// The legacy core cannot be reached for this connection (it is stopping or gone): the connection ends without a
+    /// reply, which is what a client of a TypeScript core that goes away sees (module-api's `closed`, the CLI's
+    /// unavailable core). Callers treat that like an unreachable core (a capture is journaled, a recall degrades, the
+    /// API admits its import maintenance fallback); a refusal from the front door would read as an answer instead.
+    fn legacy_gone(&self) {
+        if relock(&self.state).closing {
+            return;
+        }
+        self.end(Duration::from_secs(1));
+    }
+
     /// `replyAndClose`: the error, then the connection ends (destroyed after a second if the peer does not close).
     fn reply_and_close(&self, id: &Value, e: RpcErr) {
         if relock(&self.state).closing {
@@ -820,7 +831,7 @@ fn handle_auth(
         }}));
     }
     let Some(link) = link_of(front, conn) else {
-        return conn.reply_and_close(&id, legacy_unavailable());
+        return conn.legacy_gone();
     };
     let link_id = link.next_id();
     let mut forwarded = p.clone();
@@ -846,21 +857,13 @@ fn handle_auth(
         },
     );
     if link.send(&frame::encode(&Value::Object(request))).is_err() {
-        return conn.reply_and_close(&id, legacy_unavailable());
+        return conn.legacy_gone();
     }
     // The next request of this client waits for the handshake, as the TypeScript server serves a pipelined request
     // after an owner's synchronous handshake.
     if finished.recv_timeout(LINK_AUTH_TIMEOUT).is_err() {
-        conn.reply_and_close(&id, legacy_unavailable());
+        conn.legacy_gone();
     }
-}
-
-fn legacy_unavailable() -> RpcErr {
-    RpcErr::new(
-        "E_CORE_UNAVAILABLE",
-        "the legacy core is unavailable",
-        Some("legacy-unavailable"),
-    )
 }
 
 fn bridge_principal() -> RpcErr {
@@ -992,14 +995,14 @@ fn post_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, bytes: Vec<u8>, msg: Valu
     };
     let link = relock(&conn.state).link.clone();
     let Some(link) = link else {
-        return conn.reply_and_close(&id, legacy_unavailable());
+        return conn.legacy_gone();
     };
     let link_id = link.next_id();
     let mut rewritten = msg;
     rewritten["id"] = Value::from(link_id.clone());
     relock(&conn.state).intercepts.insert(link_id, intercept);
     if link.send(&frame::encode(&rewritten)).is_err() {
-        conn.reply_and_close(&id, legacy_unavailable());
+        conn.legacy_gone();
     }
 }
 
@@ -1010,10 +1013,10 @@ fn relay_raw(conn: &Arc<Conn>, mut bytes: Vec<u8>) {
         Some(link) => {
             bytes.push(b'\n');
             if link.send(&bytes).is_err() {
-                conn.reply_and_close(&Value::Null, legacy_unavailable());
+                conn.legacy_gone();
             }
         }
-        None => conn.reply_and_close(&Value::Null, legacy_unavailable()),
+        None => conn.legacy_gone(),
     }
 }
 

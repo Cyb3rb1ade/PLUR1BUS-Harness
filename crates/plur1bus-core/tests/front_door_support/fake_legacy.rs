@@ -6,7 +6,7 @@
 //! Started by the front door as `<this test binary> fake-legacy --home <h> --behind-front-door <mode> --lifeline stdin
 //! --instance <uuid>` (the tests set `PLUR1BUS_NODE` to this binary and `PLUR1BUS_CORE_JS` to `fake-legacy`).
 //! `FAKE_LEGACY_MODE`: `exit:<n>` exits at once with `n`; `bad-ready` prints a ready line naming another pid; `slow-stop`
-//! takes 300 ms to stop after `core.shutdown`.
+//! takes 300 ms to stop after `core.shutdown`; `one-link` takes the control link and then no connection.
 use plur1bus_rpc::server_transport::{Accepted, Listener};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -131,11 +131,25 @@ pub fn run(args: &[String]) -> ! {
         let _ = std::io::copy(&mut std::io::stdin().lock(), &mut std::io::sink());
         std::process::exit(0);
     });
+    let mut listener = Some(listener);
+    let mut accepted = 0_u32;
     loop {
-        if let Ok(Some(conn)) = listener.accept_timeout(Duration::from_millis(50)) {
+        let Some(l) = &listener else {
+            std::thread::sleep(Duration::from_millis(50));
+            continue;
+        };
+        if let Ok(Some(conn)) = l.accept_timeout(Duration::from_millis(50)) {
             let l = legacy.clone();
-            let mode = mode.clone();
-            std::thread::spawn(move || serve(&l, conn, &mode));
+            let conn_mode = mode.clone();
+            std::thread::spawn(move || serve(&l, conn, &conn_mode));
+            accepted += 1;
+            // `one-link`: after the front door's control link the legacy core takes no connection (it is going away).
+            if mode == "one-link" && accepted == 1 {
+                listener = None;
+                if !cfg!(windows) {
+                    let _ = std::fs::remove_file(&address);
+                }
+            }
         }
     }
 }
