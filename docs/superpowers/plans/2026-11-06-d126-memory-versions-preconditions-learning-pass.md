@@ -167,6 +167,13 @@ A new dream job, `learn`. The harness owns it, because the transcripts live in t
    - Its own breaker and idempotency key, as in ADR-009.
    - The model route is the one rem/deep use (the configured role or a local model). Never Jev (D125): transcripts are full content.
    - The metadata-only pass makes no model call with content.
+8. **Refutation and predictions (owner, D128, 2026-11-07).** See the [D128 plan](2026-11-07-d128-loop-mode-refutation-predictions.md) §2.2–§2.3, tasks N5 and N6.
+   - Before scoring, a skeptic subagent tries to disprove every tier-A/B candidate, seeing the evidence only.
+     - `refuted`: the finding is dropped.
+     - `insufficient`: the finding goes to tier C.
+     - `holds`: the finding goes on to scoring.
+   - Extraction runs on the small or medium class; the skeptic and the wording run on the large class (D105).
+   - Every automatically applied change stores a prediction: signal, direction and window. If later runs do not confirm it, a tier-A change is reverted through V2 and a tier-B change gets a retire proposal.
 
 ## 4. Tasks
 
