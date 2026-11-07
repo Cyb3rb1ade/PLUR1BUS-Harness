@@ -136,3 +136,8 @@ suites, docs generation/check and Rust fmt/clippy/CLI tests precede the single r
   the turn. Historical messages without that proof, ambiguous accounts and group messages stay
   untrusted. This prevents sender inference from content or chat ownership; the cost is that old
   channel turns cannot retrospectively become trusted learning evidence.
+- Ruling M1: Use an explicit bounded claim-key vocabulary carried between isolated session
+  extractions, not an embedding dependency. Existing-card changes cluster by kind, action and
+  memory ID; additions cluster by the selected content key. Code deduplicates evidence, counts
+  sessions/days and ranks clusters. The cost of a wrong key assignment is a visibly wrong cluster
+  for human review, never additional authority or automatic adoption. Prompt revision is learn-2.

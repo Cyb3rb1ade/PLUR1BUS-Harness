@@ -10,8 +10,9 @@ export function parseExtraction(text: string, transcript: Transcript): RawFindin
   return value.map((input: unknown): RawFinding => {
     if (!input || typeof input !== 'object' || Array.isArray(input)) throw new LearnError('invalid-output');
     const f = input as Record<string, unknown>;
-    if (Object.keys(f).some(k => !['kind', 'change', 'text', 'memoryId', 'evidence', 'checks'].includes(k)) ||
+    if (Object.keys(f).some(k => !['kind', 'change', 'text', 'memoryId', 'evidence', 'checks', 'contentKey'].includes(k)) ||
       !['knowledge', 'procedural'].includes(String(f.kind)) || !['add', 'correct', 'duplicate', 'stale', 'retire'].includes(String(f.change)) ||
+      (f.change === 'add' && (typeof f.contentKey !== 'string' || !f.contentKey.trim() || f.contentKey.length > 120 || /[\x00-\x1f]/.test(f.contentKey))) ||
       typeof f.text !== 'string' || !f.text.trim() || f.text.length > LIMITS.text ||
       (f.memoryId !== undefined && (typeof f.memoryId !== 'string' || !/^[a-zA-Z0-9_-]{1,128}$/.test(f.memoryId))) ||
       !Array.isArray(f.evidence) || !f.evidence.length || f.evidence.length > LIMITS.evidence) throw new LearnError('invalid-output');
@@ -29,13 +30,20 @@ export function parseExtraction(text: string, transcript: Transcript): RawFindin
         day: new Date(message?.createdAt ?? event!.at).toISOString().slice(0, 10), agentId: transcript.session.agentId, owner: transcript.session.owner };
     });
     if (f.checks !== undefined && (!Array.isArray(f.checks) || f.checks.length > 8 || f.checks.some(c => !c || typeof c !== 'object' || Object.keys(c).some(k => !['path', 'contains'].includes(k)) || typeof c.path !== 'string' || c.path.length > 256 || typeof c.contains !== 'string' || !c.contains || c.contains.length > 1000))) throw new LearnError('invalid-output');
-    return { kind: f.kind as RawFinding['kind'], change: f.change as RawFinding['change'], text: f.text.trim(), ...(typeof f.memoryId === 'string' ? { memoryId: f.memoryId } : {}), evidence, ...(f.checks ? { checks: f.checks as NonNullable<RawFinding['checks']> } : {}) };
+    return { kind: f.kind as RawFinding['kind'], change: f.change as RawFinding['change'], text: f.text.trim(), ...(typeof f.contentKey === 'string' ? { contentKey: normalized(f.contentKey) } : {}), ...(typeof f.memoryId === 'string' ? { memoryId: f.memoryId } : {}), evidence, ...(f.checks ? { checks: f.checks as NonNullable<RawFinding['checks']> } : {}) };
   });
 }
-/** Exact normalized-key clustering: deterministic and inspectable; no model confidence or fuzzy judge. */
+/** The model assigns vocabulary keys, never counts, prevalence, trust or ranking. */
+export const contentKey = (f: RawFinding): string => JSON.stringify([f.kind, f.change,
+  f.change !== 'add' && f.memoryId ? ['memory', f.memoryId] : ['claim', normalized(f.contentKey ?? f.text)]]);
+export function vocabulary(raw: readonly RawFinding[]): { key: string; text: string }[] {
+  return [...new Map([...raw].filter(f => f.change === 'add').sort((a, b) => a.text.localeCompare(b.text))
+    .map(f => [normalized(f.contentKey ?? f.text), { key: normalized(f.contentKey ?? f.text), text: f.text }])).values()]
+    .sort((a, b) => a.key.localeCompare(b.key));
+}
 export function aggregate(raw: readonly RawFinding[], target: Target, runId: string, total: number): Finding[] {
   const groups = new Map<string, RawFinding[]>();
-  for (const f of raw) { const key = JSON.stringify([f.kind, f.change, f.memoryId ?? null, normalized(f.text)]); const group = groups.get(key) ?? []; group.push(f); groups.set(key, group); }
+  for (const f of raw) { const key = contentKey(f); const group = groups.get(key) ?? []; group.push(f); groups.set(key, group); }
   if (groups.size > LIMITS.findings) throw new LearnError('invalid-output');
   return [...groups].sort(([a], [b]) => a.localeCompare(b)).map(([key, group]) => {
     const first = [...group].sort((a, b) => a.text.localeCompare(b.text))[0]!;

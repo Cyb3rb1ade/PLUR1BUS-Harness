@@ -76,7 +76,7 @@ test('H3: only an owner direct chat with a still-valid pre-existing identity lin
         channelOrigin: { channel: 'telegram', accountId: 'bot', chatId: label, senderId, humanId: human.id, chatKind },
       } : {});
       store.completeTurn(turn.id, { text: 'reply', tokens: 1 });
-      const extract = () => parseExtraction(JSON.stringify([{ kind: 'knowledge', change: 'add', text: 'Uses Go', evidence: [{ source: 'message', id: message.id }] }]), source.transcript(session, { from: 1, to: 20 }))[0]!.evidence[0]!.trust;
+      const extract = () => parseExtraction(JSON.stringify([{ kind: 'knowledge', change: 'add', contentKey: 'project-language', text: 'Uses Go', evidence: [{ source: 'message', id: message.id }] }]), source.transcript(session, { from: 1, to: 20 }))[0]!.evidence[0]!.trust;
       assert.equal(extract(), label === 'direct' ? 'person' : 'untrusted', label);
       if (label === 'direct') {
         identity.unlink({ linkId: link.id }, actor);

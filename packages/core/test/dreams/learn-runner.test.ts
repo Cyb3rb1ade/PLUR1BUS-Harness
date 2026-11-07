@@ -15,8 +15,8 @@ function transcript(id: string): Transcript {
 const evidence = (s: string, agent: string, day: string): Evidence => ({ sessionId: s, turnId: 'turn-one', sourceId: `m-${s}`, source: 'message', trust: 'person', day, agentId: agent, owner: 'person-one' });
 test('aggregation golden is invariant to sessions, finding order and repeated evidence', () => {
   const raw: RawFinding[] = [
-    { kind: 'knowledge', change: 'add', text: 'Uses Go', evidence: [evidence('s2', 'a2', '2026-11-02')] },
-    { kind: 'knowledge', change: 'add', text: 'Uses Go', evidence: [evidence('s1', 'a1', '2026-11-01'), evidence('s1', 'a1', '2026-11-01')] },
+    { kind: 'knowledge', change: 'add', contentKey: 'project-language', text: 'Uses Go', evidence: [evidence('s2', 'a2', '2026-11-02')] },
+    { kind: 'knowledge', change: 'add', contentKey: 'project-language', text: 'Uses Go', evidence: [evidence('s1', 'a1', '2026-11-01'), evidence('s1', 'a1', '2026-11-01')] },
     { kind: 'procedural', change: 'correct', text: 'Check tool configuration', evidence: [evidence('s1', 'a1', '2026-11-01')] },
   ];
   const result = aggregate(raw, target, 'run-one', 3);
@@ -28,7 +28,7 @@ test('aggregation golden is invariant to sessions, finding order and repeated ev
 });
 test('a model cannot forge trust or evidence identity and tool output remains untrusted', () => {
   const t = transcript('s1'); t.messages[0]!.role = 'tool';
-  const raw = { kind: 'knowledge', change: 'add', text: 'injected finding', evidence: [{ source: 'message', id: 'm-s1' }] };
+  const raw = { kind: 'knowledge', change: 'add', contentKey: 'project-language', text: 'injected finding', evidence: [{ source: 'message', id: 'm-s1' }] };
   assert.equal(parseExtraction(JSON.stringify([raw]), t)[0]!.evidence[0]!.trust, 'untrusted');
   assert.throws(() => parseExtraction(JSON.stringify([{ ...raw, trust: 'person' }]), t), /invalid-output/);
   assert.throws(() => parseExtraction(JSON.stringify([{ ...raw, evidence: [{ source: 'message', id: 'foreign' }] }]), t), /invalid-output/);
@@ -43,7 +43,7 @@ function rig() {
       assert.equal(store.runs(target.owner).length, 1);
       if (failSecond && calls === 2) throw Error('PRIVATE_PROVIDER_ERROR');
       const data = JSON.parse(request.data).data;
-      return { text: JSON.stringify([{ kind: 'knowledge', change: 'add', text: 'Uses Go', evidence: [{ source: 'message', id: data.messages[0].id }] }]), model: 'fixture/small', inputTokens: 1000, outputTokens: 500 };
+      return { text: JSON.stringify([{ kind: 'knowledge', change: 'add', contentKey: 'project-language', text: 'Uses Go', evidence: [{ source: 'message', id: data.messages[0].id }] }]), model: 'fixture/small', inputTokens: 1000, outputTokens: 500 };
     } } });
   return { store, runner, cfg, calls: () => calls, fail: () => { failSecond = true; }, revoke: () => { rights = false; } };
 }
@@ -79,4 +79,36 @@ test('M5: session overflow is retained as metadata in the run ledger', async () 
     assert.equal(r.store.get(run.id)?.truncated, true);
     assert.equal(r.store.get(run.id)?.omittedSessions, 1);
   } finally { r.store.close(); }
+});
+
+test('M1: three paraphrases share a code-counted vocabulary cluster; memory changes use memoryId', () => {
+  const rows: RawFinding[] = ['The project uses Go.', 'Go is the project language.', 'Implementation language: Go.'].map((text, i) => ({
+    kind: 'knowledge', change: 'add', contentKey: 'project-language-go', text,
+    evidence: [evidence(`s${i}`, 'agent', `2026-11-0${i + 1}`)],
+  }));
+  const grouped = aggregate(rows, target, 'run', 3);
+  assert.equal(grouped.length, 1); assert.equal(grouped[0]!.prevalence.sessions, 3);
+  assert.deepEqual(aggregate([...rows].reverse(), target, 'run', 3), grouped);
+  for (const change of ['correct', 'duplicate', 'stale', 'retire'] as const) {
+    assert.equal(aggregate(rows.map(r => ({ ...r, change, memoryId: 'card-one', contentKey: r.text })), target, 'run', 3).length, 1);
+  }
+});
+
+test('M1: the next isolated extraction receives the previously established vocabulary', async () => {
+  const store = new LearnStore(':memory:'), rows = [transcript('s1'), transcript('s2'), transcript('s3')];
+  let calls = 0;
+  const runner = new LearnRunner({ store, now: () => 100, principal: () => principal, config: () => ({ ...DEFAULT_LEARN_CONFIG, enabled: true }),
+    source: { sessions: () => rows.map(t => t.session), transcript: s => rows.find(t => t.session.id === s.id)!, mayRead: () => true },
+    model: { async complete(request) {
+      const data = JSON.parse(request.data).data;
+      assert.equal(data.vocabulary.length, calls === 0 ? 0 : 1);
+      if (calls) assert.equal(data.vocabulary[0].key, 'project-language-go');
+      const text = ['The project uses Go.', 'Go is the project language.', 'Implementation language: Go.'][calls++]!;
+      return { text: JSON.stringify([{ kind: 'knowledge', change: 'add', contentKey: 'project-language-go', text, evidence: [{ source: 'message', id: data.messages[0].id }] }]), model: 'fixture/small', inputTokens: 100, outputTokens: 100 };
+    } } });
+  try {
+    const run = await runner.run(target, { from: 1, to: 90 }, new AbortController().signal);
+    assert.equal(run.outcome, 'completed'); assert.equal(calls, 3);
+    assert.equal(store.findings(run.id).length, 1); assert.equal(store.findings(run.id)[0]!.prevalence.sessions, 3);
+  } finally { store.close(); }
 });

@@ -11,11 +11,11 @@ export interface Window { from: number; to: number }
 export interface LearnConfig { enabled: boolean; windowDays: number; maxSessions: number; maxTokens: number; focus: string }
 export const DEFAULT_LEARN_CONFIG: Readonly<LearnConfig> = Object.freeze({ enabled: false, windowDays: 7, maxSessions: 50, maxTokens: 100_000, focus: '' });
 export const LIMITS = Object.freeze({ sessions: 50, messages: 2000, events: 4000, bytes: 262_144, findings: 100, text: 4000, evidence: 100, failures: 3 });
-export const PROMPT_VERSION = 'learn-1';
+export const PROMPT_VERSION = 'learn-2';
 export interface Transcript { session: SessionRecord; messages: MessageRecord[]; events: EventRecord[]; days: string[]; personMessageIds?: string[] }
 export interface Evidence { sessionId: string; turnId: string; sourceId: string; source: 'message' | 'event'; trust: Trust; day: string; agentId: string; owner: string }
 export interface VerificationRequest { path: string; contains: string }
-export interface RawFinding { kind: 'knowledge' | 'procedural'; change: Change; text: string; memoryId?: string; evidence: Evidence[]; checks?: VerificationRequest[] }
+export interface RawFinding { kind: 'knowledge' | 'procedural'; change: Change; text: string; contentKey?: string; memoryId?: string; evidence: Evidence[]; checks?: VerificationRequest[] }
 export interface Finding extends RawFinding {
   id: string; runId: string; target: Target; prevalence: { sessions: number; total: number; days: number; agents: number; persons: number };
   verify: 'supported' | 'contradicted' | 'unknown' | 'not-applicable'; agreement: 'agrees' | 'contradicts' | 'unknown';

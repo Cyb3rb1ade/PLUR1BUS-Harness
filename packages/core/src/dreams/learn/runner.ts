@@ -1,5 +1,5 @@
 import type { Principal } from '../../rbac/types.ts';
-import { aggregate, parseExtraction } from './aggregation.ts';
+import { aggregate, parseExtraction, vocabulary } from './aggregation.ts';
 import { prompt, usage, type LearnModel, type LearnModelResult, type Stage } from './model.ts';
 import { digest, targetHash, selectTranscriptsWithCounts, selectionDigest } from './selection.ts';
 import { LearnStore } from './store.ts';
@@ -59,7 +59,7 @@ export class LearnRunner {
       };
       const raw: RawFinding[] = [], models = new Set<string>();
       for (const transcript of selected) {
-        const result = await call('extract', transcript.session.id, { focus: cfg.focus, messages: transcript.messages, events: transcript.events });
+        const result = await call('extract', transcript.session.id, { focus: cfg.focus, vocabulary: vocabulary(raw), messages: transcript.messages, events: transcript.events });
         raw.push(...parseExtraction(result.text, transcript)); models.add(result.model);
       }
       o.store.step(run.id, 'aggregate', 'started');
