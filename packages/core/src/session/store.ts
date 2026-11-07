@@ -372,6 +372,15 @@ export class SessionStore {
     return s;
   }
 
+  /** LP: bounded metadata selection, with the time/owner/project predicates before LIMIT. No transcript text. */
+  learningSessions(f: { owner: string; agentId?: string; projectId?: string; from: number; to: number; limit: number }): SessionRecord[] {
+    const where = ["s.owner=?", "s.memory_mode='remember'", "EXISTS (SELECT 1 FROM turns t WHERE t.session_id=s.id AND t.state='completed' AND t.incognito=0 AND t.ended_at>=? AND t.ended_at<?)"];
+    const args: (string | number)[] = [f.owner, f.from, f.to];
+    if (f.agentId) { where.push('s.agent_id=?'); args.push(f.agentId); }
+    if (f.projectId) { where.push('s.scope=?'); args.push(f.projectId); }
+    return this.#all(`SELECT s.* FROM sessions s WHERE ${where.join(' AND ')} ORDER BY s.id LIMIT ?`, ...args, Math.max(1, Math.min(51, f.limit))).map(toSession);
+  }
+
   listSessions(f: ListFilter): { sessions: SessionRecord[]; truncated: boolean } {
     const limit = Math.min(Math.max(f.limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT);
     const where = ["s.owner = ?"]; const args: (string | number | null)[] = [f.owner];

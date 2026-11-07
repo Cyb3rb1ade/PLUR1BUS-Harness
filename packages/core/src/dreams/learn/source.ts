@@ -1,0 +1,33 @@
+import type { HarnessConfig } from '@plur1bus/config-schema';
+import type { SessionStore } from '../../session/store.ts';
+import type { Project } from '../../collab/types.ts';
+import { deriveUserPrincipal } from '../../identity/principals.ts';
+import { readRights, resolveExposure } from '../../memory-exposure/index.ts';
+import { activePath } from '../../session/rewind-path.ts';
+import { LIMITS, type SelectionSource } from './types.ts';
+
+/** All scope inputs come from the configured target and live registries, never model output. */
+export function learningSource(store: SessionStore, o: { config(): HarnessConfig; hasAgent(id: string): boolean; project(id: string): Project | null }): SelectionSource {
+  return {
+    sessions: (t, w, limit) => store.learningSessions({ owner: deriveUserPrincipal(t.owner), ...(t.scope === 'agent' ? { agentId: t.agentId } : {}), ...(t.projectId ? { projectId: t.projectId } : {}), ...w, limit }),
+    mayRead(target, session, principal) {
+      if (!o.hasAgent(session.agentId) || !o.hasAgent(target.agentId) || principal.userId !== target.owner) return false;
+      const source = readRights(principal, session.agentId), destination = readRights(principal, target.agentId);
+      if (!source.agentPrivate || !(target.scope === 'project' ? destination.workspace : destination.agentPrivate)) return false;
+      if (target.projectId) {
+        const project = o.project(target.projectId);
+        if (!project || project.archivedAt !== null || project.owner !== target.owner || !project.agents.includes(session.agentId) || !project.agents.includes(target.agentId)) return false;
+      } else if (session.agentId !== target.agentId) return false;
+      // External and project exposure can only narrow the already granted rights.
+      const channel = session.origin === 'mcp' ? 'mcp' : session.origin === 'a2a' ? 'a2a' : 'collab';
+      const exposure = resolveExposure({ channel, agentId: session.agentId, principal, config: o.config() });
+      return target.scope === 'project' ? exposure.recall.workspace && exposure.recall.agentPrivate : exposure.recall.agentPrivate;
+    },
+    transcript(session, window) {
+      const turns = new Set(store.listTurns(session.id).filter(t => t.state === 'completed' && !t.incognito && t.endedAt !== null && t.endedAt >= window.from && t.endedAt < window.to).map(t => t.id));
+      const messages = activePath(store.listMessages(session.id, { limit: LIMITS.messages + 1, keep: 'oldest' }), store.rewinds(session.id)).filter(m => m.turnId !== null && turns.has(m.turnId));
+      const events = store.listEvents(session.id, 0, LIMITS.events + 1).filter(e => e.turnId !== null && turns.has(e.turnId));
+      return { session, messages, events, days: [...new Set(messages.map(m => new Date(m.createdAt).toISOString().slice(0, 10)))].sort() };
+    },
+  };
+}
