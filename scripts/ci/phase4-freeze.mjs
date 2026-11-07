@@ -63,6 +63,8 @@ export function checkCommits(commits, { packages, generated = GENERATED, activat
     else {
       const bad = values.filter(v => !validateTrailer(v));
       if (bad.length) findings.push({ sha: c.sha, files, reason: `malformed Phase4 trailer: ${bad.map(v => JSON.stringify(v)).join(', ')}`, expected: EXPECTED });
+      // `generated` alone is no bypass: the generated files are already filtered out, so any frozen file left is hand-written.
+      else if (values.every(v => v === 'generated')) findings.push({ sha: c.sha, files, reason: 'generated trailer, but these frozen files are not generator outputs', expected: EXPECTED });
     }
   }
   return findings;

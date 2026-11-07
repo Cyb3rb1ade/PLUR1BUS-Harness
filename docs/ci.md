@@ -272,7 +272,11 @@ change. A missing or malformed trailer fails the check and the output lists comm
 Exempt: commits authored before `2026-11-08T00:00:00Z` (the author date survives a rebase, so already open PRs keep
 passing), the `pnpm gen` outputs named in `GENERATED` in the script (today none lives under a frozen `src/`), and
 everything outside `packages/*/src/`. The guard runs on pull requests only: the merge queue does not re-check it, because
-a squash would drop the per-commit trailers. Tests: `node --test scripts/ci/phase4-freeze.test.mjs`.
+a squash would drop the per-commit trailers. The workflow does have `merge_group` triggers (see "Merge queue: owner
+activation" above), but queue activation is still an owner decision and no queue is in use; if one is enabled, this
+guard does not run in it, for that reason. `running-work` covers the packages TK, LP, RX and RY that were assigned before
+or alongside Phase 4. `generated` alone is valid only when every changed frozen file is a generator output named in
+`GENERATED`; next to another valid value it adds nothing. Tests: `node --test scripts/ci/phase4-freeze.test.mjs`.
 
 ## Using it
 

@@ -45,7 +45,10 @@ test('every allowed trailer form passes', () => {
     'running-work TK', 'running-work LP', 'running-work RX', 'running-work RY', 'generated'];
   for (const form of forms) {
     const message = `fix: x\n\nbody text\n\nPhase4: ${form}\nCo-Authored-By: someone <a@example.test>\n`;
-    assert.deepEqual(check([commit({ message })]), [], form);
+    // `generated` alone is only valid for generator outputs (next test), so it is paired with a frozen file that is one.
+    const generated = form === 'generated';
+    const files = generated ? ['packages/core/src/gen.ts', 'packages/core/src/core.ts'] : undefined;
+    assert.deepEqual(check([commit({ message, ...(files && { files: [files[0]] }) })], generated ? { generated: [files[0]] } : {}), [], form);
   }
 });
 
@@ -73,6 +76,20 @@ test('generated files are exempt, but a frozen file next to them still needs the
   assert.equal(check([commit({ files: [...list, 'packages/core/src/core.ts'] })], { generated: list }).length, 1);
   const findings = check([commit({ files: [...list, 'packages/core/src/core.ts'] })], { generated: list });
   assert.deepEqual(findings[0].files, ['packages/core/src/core.ts'], 'only the non-generated file is listed');
+});
+
+test('the generated trailer is no bypass: it is valid only when every frozen file is a generator output', () => {
+  const only = commit({ message: 'regen\n\nPhase4: generated\n', files: ['packages/core/src/x.ts'] });
+  const fail = check([only]);
+  assert.equal(fail.length, 1);
+  assert.match(fail[0].reason, /generated trailer, but these frozen files are not generator outputs/);
+  assert.deepEqual(fail[0].files, ['packages/core/src/x.ts']);
+  const list = ['packages/core/src/gen.ts', 'packages/rpc-schema/src/gen/'];
+  const mixed = commit({ message: 'regen\n\nPhase4: generated\n', files: ['packages/core/src/gen.ts', 'packages/rpc-schema/src/gen/a.ts', 'packages/core/src/x.ts'] });
+  assert.deepEqual(check([mixed], { generated: list })[0].files, ['packages/core/src/x.ts']);
+  assert.deepEqual(check([{ ...mixed, files: mixed.files.slice(0, 2) }], { generated: list }), [], 'only generator outputs');
+  assert.deepEqual(check([commit({ message: 'x\n\nPhase4: generated\nPhase4: seam P4-10\n', files: ['packages/core/src/x.ts'] })]), [], 'another valid value justifies the commit');
+  assert.deepEqual(check([commit({ message: 'x\n\nPhase4: running-work RY\nPhase4: generated\n', files: ['packages/core/src/x.ts'] })]), []);
 });
 
 test('malformed trailers fail', () => {
