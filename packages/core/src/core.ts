@@ -1,3 +1,4 @@
+import { learningLifecycle } from './dreams/learn/lifecycle.ts';
 import { learnMethods } from './dreams/learn/methods.ts';
 import { createAppleFmRuntime, type AppleFmRuntime } from "./composition/apple-fm.ts";
 import { ToolsClient } from "./tools-service/client.ts";
@@ -1226,7 +1227,7 @@ export function createCore(o: CoreOptions): Core {
         const principal = await resolvePrincipal(ctx, "core.status", params);
         return projectAuditStatus(result, principal, () => auditHealth.status());
       };
-      const guardedMethods = guardMethods(apiAdmission(lifecycleAdmission(rawMethods, lifecycle, id => sessions?.forSession(id).store.getSession(id)?.agentId), resolvePrincipal), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: { ...AGENT_CREATION_RULES, ...LICENCE_RULES } });
+      const guardedMethods = guardMethods(apiAdmission(lifecycleAdmission(learningLifecycle(rawMethods, () => turnComposition?.learn ?? null, id => { try { return identity?.getLink(id).humanId; } catch { return undefined; } }), lifecycle, id => sessions?.forSession(id).store.getSession(id)?.agentId), resolvePrincipal), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: { ...AGENT_CREATION_RULES, ...LICENCE_RULES } });
       registerHostMethods(guardedMethods, { host, egress, secrets: secretStore, agents: executionRegistry,
         canCompleteFor: id => selectedEngine instanceof EngineClient && selectedEngine.canCompleteFor(id),
         complete: (agentId, params) => {

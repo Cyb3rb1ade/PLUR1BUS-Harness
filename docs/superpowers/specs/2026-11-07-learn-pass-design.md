@@ -170,3 +170,10 @@ bleiben unberücksichtigt, weil sich Host-Provenienz nicht aus deren Text rekons
 lässt. Kosten: Die installationsweite Beobachtungsbasis wächst erst ab dieser Revision.
 H3 bleibt ein unverdrahteter öffentlicher Capability-Port am heutigen Pin; erst ein
 vorhandener Engine-Vertrag darf den Adapter liefern, keine Engine-Internals oder Ersatzqueue.
+
+LQ1-Ruling: Auch der Verlust nur eines Belegs zieht den gesamten abgeleiteten Befund
+zurück, weil sich sein Text nicht sicher einem einzelnen verbliebenen Beleg zuordnen
+lässt. Kosten: Ein weiterhin zutreffender Befund benötigt erneute Extraktion und Prüfung.
+Wiederaufnehmbare Budget-/Providerstopps sind keine endgültigen Abbrüche und behalten
+Checkpoints innerhalb der maximal siebentägigen Frist. Backups enthalten learn.db;
+Support-Bundles niemals. Entscheidungen bleiben ohne Befundtext erhalten.

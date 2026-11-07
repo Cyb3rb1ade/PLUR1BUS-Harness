@@ -17,6 +17,7 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "dreams", type: "object", tier: "advanced" },
   { key: "dreams.learn", type: "object", tier: "advanced" },
   { key: "dreams.learn.windowDays", type: "integer", tier: "advanced" },
+  { key: "dreams.learn.checkpointDays", type: "integer", tier: "advanced", help: "Maximum retention of unfinished learning extraction checkpoints in days." },
   { key: "dreams.learn.maxSessions", type: "integer", tier: "advanced" },
   { key: "dreams.learn.maxTokens", type: "integer", tier: "advanced" },
   { key: "dreams.learn.agents", type: "object", tier: "advanced" },
@@ -622,6 +623,9 @@ export const CONFIG_POLICY_SCHEMA: ConfigSchemaNode = {
           "type": "object",
           "properties": {
             "windowDays": {
+              "type": "integer"
+            },
+            "checkpointDays": {
               "type": "integer"
             },
             "maxSessions": {

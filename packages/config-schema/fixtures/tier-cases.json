@@ -4056,6 +4056,15 @@
                   "x-restart": "core",
                   "x-tier": "advanced"
                 },
+                "checkpointDays": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 7,
+                  "default": 7,
+                  "x-restart": "core",
+                  "x-tier": "advanced",
+                  "description": "Maximum retention of unfinished learning extraction checkpoints in days."
+                },
                 "maxSessions": {
                   "type": "integer",
                   "minimum": 1,

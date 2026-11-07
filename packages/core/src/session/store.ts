@@ -530,9 +530,11 @@ export class SessionStore {
 
   /** Explicit transcript erasure requires an archived session and leaves a content-free audit tombstone.
    *  Private checkpoint cleanup intents survive until their native refs have actually been released. */
+  readonly #eraseListeners = new Set<() => void>();
+  onErasure(listener: () => void): () => void { this.#eraseListeners.add(listener); return () => this.#eraseListeners.delete(listener); }
   eraseSession(id: string, o: { actor: string; reason: string }): { tombstoneId: string; messages: number } {
     if (!o.actor || !o.reason) throw new SessionError("invalid", "an erasure needs an actor and a reason", "erasure-audit");
-    return this.#tx(() => {
+    const result = this.#tx(() => {
       const s = this.getSession(id);
       if (!s) throw new SessionError("not-found", `session ${id} not found`, "session");
       if (s.archivedAt === null) throw new SessionError("conflict", "erasure requires the session to be archived first (archive-first)", "not-archived");
@@ -544,6 +546,8 @@ export class SessionStore {
       this.#run("DELETE FROM sessions WHERE id = ?", id);
       return { tombstoneId, messages };
     });
+    for (const listener of this.#eraseListeners) listener();
+    return result;
   }
 
   erasures(): { id: string; sessionId: string; owner: string; messageCount: number; actor: string; reason: string }[] {

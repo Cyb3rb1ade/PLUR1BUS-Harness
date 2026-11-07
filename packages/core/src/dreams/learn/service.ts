@@ -21,6 +21,8 @@ export interface LearnServiceOptions {
   readPort(target: Target): Promise<LearnReadPort | null>;
   card(finding: Finding): Promise<LearnCard | null>;
   inbox?: InboxPort;
+  erasures?(): { sessionId: string }[];
+  onErasure?(listener: () => void): () => void;
   signal: AbortSignal;
   /** Future public H3 adapter; absent at the pinned Engine. Must honor the supplied idempotency key. */
   h3?: { available(): boolean; submit(input: { finding: Finding; idempotencyKey: string }): Promise<{ receiptId: string }> };
@@ -35,9 +37,12 @@ export class LearnService {
   readonly #o: LearnServiceOptions;
   readonly runner: LearnRunner;
   #admit: <T>(work: () => Promise<T>) => Promise<T> = work => work();
+  #offErasure: (() => void) | undefined;
   readonly #deciding = new Set<string>();
   constructor(o: LearnServiceOptions) {
     this.#o = o;
+    this.reconcile();
+    this.#offErasure = o.onErasure?.(() => this.reconcile());
     this.runner = new LearnRunner({ ...o, config: t => learnConfig(o.config(), t),
       review: async (finding, _selected, call, signal) => {
         const person = this.person(finding.target.owner); this.authorize(finding.target, person);
@@ -63,6 +68,12 @@ export class LearnService {
         ref: { route: '/memories/dreams', objectId: run.id }, dedupeKey: `system:learn:${run.id}` }),
     });
   }
+  reconcile(invalidate?: { agentId?: string; owner?: string }): void {
+    const validTarget = (t: Target): boolean => { try { return t.owner !== invalidate?.owner && t.agentId !== invalidate?.agentId && this.#o.mayReadTarget(t, this.person(t.owner)); } catch { return false; } };
+    this.store.reconcile({ now: this.#o.now(), checkpointDays: this.#o.config().dreams?.learn?.checkpointDays ?? 7,
+      erased: new Set(this.#o.erasures?.().map(e => e.sessionId) ?? []), validTarget,
+      validEvidence: (e, t) => { const s = this.#o.source.session?.(e.sessionId); try { return e.agentId !== invalidate?.agentId && validTarget(t) && !!s && this.#o.source.mayRead(t, s, this.person(t.owner)); } catch { return false; } } });
+  }
   setAdmission(admit: <T>(work: () => Promise<T>) => Promise<T>): void { this.#admit = admit; }
   get store(): LearnStore { return this.#o.store; }
   person(owner: string): Principal { const p = this.#o.principal(owner); if (!p || p.kind !== 'person' || p.userId !== owner) throw denied(); return p; }
@@ -76,7 +87,7 @@ export class LearnService {
     return { from: Math.max(0, to - learnConfig(this.#o.config(), target).windowDays * DAY), to };
   }
   run(target: Target, person: Principal, signal: AbortSignal): Promise<import('./types.ts').LearnRun> {
-    this.authorize(target, person);
+    this.reconcile(); this.authorize(target, person);
     return this.#admit(() => this.runner.run(target, this.window(target), AbortSignal.any([signal, this.#o.signal])));
   }
   status(target: Target, person: Principal) {
@@ -87,7 +98,7 @@ export class LearnService {
       breakerOpen: this.store.breakerOpen(target, this.#o.now()) };
   }
   async due(signal: AbortSignal): Promise<void> {
-    await this.handoff();
+    this.reconcile(); await this.handoff();
     // Same scheduler lifecycle, sequential targets; no additional cron or unbounded fanout.
     for (const target of learnTargets(this.#o.config())) {
       if (signal.aborted || this.#o.signal.aborted) return;
@@ -126,13 +137,14 @@ export class LearnService {
     return result;
   }
   get(id: string, person: Principal) {
+    this.reconcile();
     const finding = this.store.finding(id); if (!finding) throw unavailable('finding-not-found');
     const transcripts = this.transcripts(finding, person);
     const evidence = finding.toolPattern ? [] : evidenceView(finding, transcripts);
     return { finding, evidence, contentHash: digest(finding), action: this.store.action(id, finding.revision ?? 1) };
   }
   list(target: Target, person: Principal) {
-    this.authorize(target, person);
+    this.reconcile(); this.authorize(target, person);
     return this.store.targetFindings(target).flatMap(f => {
       try { this.transcripts(f, person); } catch { return []; }
       return [{ id: f.id, kind: f.kind, change: f.change, status: f.status, score: f.score, desiredTier: f.desiredTier,
@@ -190,5 +202,5 @@ export class LearnService {
     if (action?.state !== 'completed' || action.receipt.operation !== 'memory.importText.apply' || typeof action.receipt.runId !== 'string') throw unavailable('rollback-unavailable');
     return call('memory.importText.rollback', { runId: action.receipt.runId });
   }
-  async close(): Promise<void> { await this.runner.idle(); this.store.close(); }
+  async close(): Promise<void> { await this.runner.idle(); this.#offErasure?.(); this.store.close(); }
 }

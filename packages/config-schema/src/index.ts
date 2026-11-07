@@ -62,7 +62,7 @@ export interface CollaborationTeamsConfig {
 }
 
 export interface LearnTargetConfig { enabled?: boolean; owner?: string; agentId?: string; focus?: string }
-export interface LearnSettings { windowDays?: number; maxSessions?: number; maxTokens?: number;
+export interface LearnSettings { checkpointDays?: number; windowDays?: number; maxSessions?: number; maxTokens?: number;
   agents?: Record<string, LearnTargetConfig>; projects?: Record<string, LearnTargetConfig>; installation?: LearnTargetConfig }
 export interface HarnessConfig {
   dreams?: { learn?: LearnSettings };

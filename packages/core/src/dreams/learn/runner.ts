@@ -35,6 +35,7 @@ export class LearnRunner {
     run.outcome = null; run.reason = null; run.finishedAt = null; o.store.save(run);
     try {
       // Ledger exists before disabled, rights, breaker, selection or provider work.
+      if (o.store.invalidated(run.id)) throw new LearnError('rights-changed');
       if (!cfg.enabled) throw new LearnError('disabled');
       if (o.store.breakerOpen(target, o.now())) throw new LearnError('breaker-open');
       signal.throwIfAborted();
@@ -43,7 +44,7 @@ export class LearnRunner {
       if (target.scope === 'installation') {
         const selected = installationFindings(o.source, target, principal, window, run.id, cfg.maxSessions);
         run.sessionIds = selected.sessionIds; run.digest = selected.digest; run.truncated = selected.truncated; run.omittedSessions = selected.omittedSessions;
-        o.store.save(run); signal.throwIfAborted(); o.store.publish(run, selected.findings, o.now());
+        o.store.save(run); signal.throwIfAborted(); o.store.publish(run, selected.findings, o.now()); o.store.compact();
         try { o.notice?.(run, { pending: 0, waitingH3: selected.findings.length }); } catch { /* Count-only notice is best effort. */ }
         return run;
       }
@@ -74,7 +75,7 @@ export class LearnRunner {
         const session = selected.find(t => t.session.id === e.sessionId)?.session ?? o.source.session?.(e.sessionId);
         return !!session && session.owner === e.owner && o.source.mayRead(target, session, principal);
       });
-      const prior = o.store.targetFindings(target).filter(authorized);
+      const prior = o.store.targetFindings(target).filter(f => f.status !== 'withdrawn' && f.text && authorized(f));
       const currentSeed = vocabulary(prior);
       const savedSeed = o.store.payload<ReturnType<typeof vocabulary>>(run.id, 'vocabulary');
       if (savedSeed?.some(entry => !currentSeed.some(now => now.key === entry.key && now.text === entry.text))) throw new LearnError('rights-changed');
@@ -102,6 +103,7 @@ export class LearnRunner {
       const reason = signal.aborted ? 'interrupted' : error instanceof LearnError ? error.reason : 'provider-failed';
       o.store.finish(run, reason === 'transcript-cap' ? 'deferred' : ['invalid-output', 'provider-failed', 'source-unavailable'].includes(reason) ? 'failed' : 'skipped', reason, o.now());
     }
+    o.store.compact();
     return run;
   }
 }

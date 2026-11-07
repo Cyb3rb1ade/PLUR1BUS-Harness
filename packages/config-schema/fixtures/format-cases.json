@@ -7,6 +7,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},
@@ -656,6 +657,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},
@@ -1305,6 +1307,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},
@@ -1954,6 +1957,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},
@@ -2603,6 +2607,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},
@@ -3252,6 +3257,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},
@@ -3901,6 +3907,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},
@@ -4550,6 +4557,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},
@@ -5199,6 +5207,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},
@@ -5848,6 +5857,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},
@@ -6497,6 +6507,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},
@@ -7146,6 +7157,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},
@@ -7795,6 +7807,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},
@@ -8444,6 +8457,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},
@@ -9093,6 +9107,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},
@@ -9742,6 +9757,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},
@@ -10391,6 +10407,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},
@@ -11040,6 +11057,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},
@@ -11689,6 +11707,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},
@@ -12338,6 +12357,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},
@@ -12987,6 +13007,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},
@@ -13636,6 +13657,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},
@@ -14285,6 +14307,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},
@@ -14934,6 +14957,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},
@@ -15583,6 +15607,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},
@@ -16232,6 +16257,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},
@@ -16881,6 +16907,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},
@@ -17530,6 +17557,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},
@@ -18179,6 +18207,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},
@@ -18828,6 +18857,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},
@@ -19474,6 +19504,7 @@
       "dreams": {
         "learn": {
           "windowDays": 7,
+          "checkpointDays": 7,
           "maxSessions": 50,
           "maxTokens": 100000,
           "agents": {},

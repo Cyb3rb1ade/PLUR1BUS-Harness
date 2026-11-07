@@ -14,6 +14,7 @@ export function learningSource(store: SessionStore, o: { config(): HarnessConfig
     session: id => store.getSession(id),
     sessions: (t, w, limit, offset = 0) => store.learningSessions({ owner: deriveUserPrincipal(t.owner), ...(t.scope === 'agent' ? { agentId: t.agentId } : {}), ...(t.projectId ? { projectId: t.projectId } : {}), ...w, limit, offset }),
     mayRead(target, session, principal) {
+      if (!store.getSession(session.id)) return false;
       if (session.owner !== deriveUserPrincipal(target.owner) || session.memoryMode !== 'remember' || (target.projectId && session.scope !== target.projectId)) return false;
       if (!o.hasAgent(session.agentId) || !o.hasAgent(target.agentId) || principal.userId !== target.owner) return false;
       const source = readRights(principal, session.agentId), destination = readRights(principal, target.agentId);

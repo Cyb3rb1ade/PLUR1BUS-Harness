@@ -15,20 +15,20 @@ import type { CallContext, Handler } from '../../src/rpc/server.ts';
 const target = { scope: 'agent' as const, owner: 'person', agentId: 'agent' };
 const person: Principal = { userId: 'person', kind: 'person', role: 'owner' };
 const DAY = 86400000;
-function rig(h3?: import('../../src/dreams/learn/service.ts').LearnServiceOptions['h3']) {
+function rig(h3?: import('../../src/dreams/learn/service.ts').LearnServiceOptions['h3'], suffix = '') {
   let now = 10 * DAY, mayRead = true;
   const sessions = new SessionStore({ path: ':memory:', clock: () => now }), store = new LearnStore(':memory:');
   const config = defaults(); config.dreams = { learn: { agents: { agent: { enabled: true, owner: 'person' } } } };
   for (let i = 0; i < 3; i++) {
     now = (10 + i) * DAY;
     const session = sessions.createSession({ kind: 'direct', agentId: 'agent', owner: deriveUserPrincipal('person') });
-    const { turn } = sessions.beginTurn(session.id, 'The project uses Go.', 5); sessions.completeTurn(turn.id, { text: 'Acknowledged.', tokens: 2 });
+    const { turn } = sessions.beginTurn(session.id, 'The project uses Go.' + suffix, 5); sessions.completeTurn(turn.id, { text: 'Acknowledged.', tokens: 2 });
   }
   now = 14 * DAY;
   const source = learningSource(sessions, { config: () => config, hasAgent: () => true, project: () => null });
   const read = source.mayRead; source.mayRead = (...args) => mayRead && read(...args);
   const notices: unknown[] = [];
-  const service = new LearnService({ ...(h3 ? { h3 } : {}), store, source, config: () => config, now: () => now, principal: () => person,
+  const service = new LearnService({ erasures: () => sessions.erasures(), onErasure: fn => sessions.onErasure(fn), ...(h3 ? { h3 } : {}), store, source, config: () => config, now: () => now, principal: () => person,
     mayReadTarget: (_t, p) => mayRead && p.userId === person.userId, readPort: async () => null, card: async () => null,
     signal: new AbortController().signal, inbox: { publish: n => { notices.push(n); }, settle: () => {} },
     model: { async complete(req) {
@@ -140,5 +140,29 @@ test('LP7: a future public H3 adapter receives pending findings once and only wi
     await r.service.handoff(); assert.equal(calls, 0);
     available = true; await r.service.handoff(); await r.service.handoff(); assert.equal(calls, 1);
     assert.equal(r.store.finding(f.id)!.status, 'waiting-h3'); assert.equal(r.store.decidedFindings('person').length, 0);
+  } finally { await r.close(); }
+});
+
+test('LQ1: actual SessionStore erasure immediately withdraws derived review, without waiting for RPC or scheduler', async () => {
+  const r = rig();
+  try {
+    const run = await r.service.run(target, person, new AbortController().signal), f = r.store.findings(run.id)[0]!;
+    const sessionId = f.evidence[0]!.sessionId;
+    r.sessions.archiveSession(sessionId);
+    r.sessions.eraseSession(sessionId, { actor: 'person', reason: 'owner-request' });
+    assert.equal(r.store.finding(f.id)!.status, 'withdrawn'); assert.equal(r.store.finding(f.id)!.text, '');
+    assert.ok(r.store.finding(f.id)!.evidence.every(e => e.sessionId !== sessionId));
+  } finally { await r.close(); }
+});
+
+test('LQ1: evidence excerpts are fetched live and never copied into the learning payload', async () => {
+  const marker = ' SYNTHETIC PRIVATE EXCERPT';
+  const r = rig(undefined, marker);
+  try {
+    const run = await r.service.run(target, person, new AbortController().signal), f = r.store.findings(run.id)[0]!;
+    assert.ok(r.service.get(f.id, person).evidence.some(e => e.excerpt.includes(marker)));
+    assert.equal(JSON.stringify(r.store.payload(run.id, `finding:${f.id}`)).includes(marker), false);
+    assert.equal(JSON.stringify({ run, notices: r.notices, decisions: r.store.decisions(run.id) }).includes(marker), false);
+    r.revoke(); assert.throws(() => r.service.get(f.id, person));
   } finally { await r.close(); }
 });
