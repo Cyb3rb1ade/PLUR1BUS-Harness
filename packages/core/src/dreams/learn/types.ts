@@ -14,7 +14,8 @@ export const LIMITS = Object.freeze({ sessions: 50, messages: 2000, events: 4000
 export const PROMPT_VERSION = 'learn-1';
 export interface Transcript { session: SessionRecord; messages: MessageRecord[]; events: EventRecord[]; days: string[] }
 export interface Evidence { sessionId: string; turnId: string; sourceId: string; source: 'message' | 'event'; trust: Trust; day: string; agentId: string; owner: string }
-export interface RawFinding { kind: 'knowledge' | 'procedural'; change: Change; text: string; memoryId?: string; evidence: Evidence[] }
+export interface VerificationRequest { path: string; contains: string }
+export interface RawFinding { kind: 'knowledge' | 'procedural'; change: Change; text: string; memoryId?: string; evidence: Evidence[]; checks?: VerificationRequest[] }
 export interface Finding extends RawFinding {
   id: string; runId: string; target: Target; prevalence: { sessions: number; total: number; days: number; agents: number; persons: number };
   verify: 'supported' | 'contradicted' | 'unknown' | 'not-applicable'; agreement: 'agrees' | 'contradicts' | 'unknown';
