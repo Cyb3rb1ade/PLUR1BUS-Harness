@@ -120,6 +120,7 @@ export interface CompositionOptions {
   tools?: Partial<Pick<ToolCompositionOptions, 'roots' | 'deny' | 'exec' | 'host' | 'extra' | 'mcp' | 'media' | 'documents'>>;
 }
 export interface CompositionDeps {
+  learningMetrics?: Pick<import('../metrics/metrics.ts').Metrics, 'learnRun' | 'learnFinding'>;
   securePath?: (path: string, options?: { mode?: number }) => unknown;
   appleFm?: AppleFmRuntime;
   /** Background startup waits for the authenticated maintenance release. */

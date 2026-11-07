@@ -21,7 +21,7 @@ export function composeLearning(d: CompositionDeps, options: TurnProviderOptions
   toolsForTurn: (request: ChatRequest) => Promise<ToolRegistry>, create: typeof createTurnProvider): LearnService {
   const project = (id: string) => collab?.boardProject(id) ?? null;
   const source = learningSource(sessions.store, { config: d.config, hasAgent: id => d.agents.has(id), project, identity: () => d.identity });
-  return new LearnService({ erasures: () => sessions.store.erasures(), onErasure: fn => sessions.store.onErasure(fn), store: new LearnStore(join(d.home, 'state', 'dreams', 'learn.db'), d.securePath), source,
+  return new LearnService({ ...(d.learningMetrics ? { metrics: d.learningMetrics } : {}), erasures: () => sessions.store.erasures(), onErasure: fn => sessions.store.onErasure(fn), store: new LearnStore(join(d.home, 'state', 'dreams', 'learn.db'), d.securePath), source,
     model: learningModel(options, () => localOnlyShared(d.config()), create), config: d.config, now: d.clock,
     principal: owner => d.resolveCollaborationPerson?.(owner) ?? null, signal: d.signal,
     ...(d.inbox ? { inbox: d.inbox } : {}),

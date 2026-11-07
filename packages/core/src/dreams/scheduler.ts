@@ -164,9 +164,12 @@ export class DreamScheduler {
     await Promise.allSettled(catchups);
   }
 
-  async runJob<T>(work: () => Promise<T>): Promise<T> {
-    await this.#sem.acquire();
-    try { this.#stop.signal.throwIfAborted(); return await work(); } finally { this.#sem.release(); }
+  runJob<T>(work: () => Promise<T>): Promise<T> {
+    const task = (async () => {
+      await this.#sem.acquire();
+      try { this.#stop.signal.throwIfAborted(); return await work(); } finally { this.#sem.release(); }
+    })().finally(() => this.#inflight.delete(task));
+    this.#inflight.add(task); return task;
   }
 
   #learn(): Promise<void> {

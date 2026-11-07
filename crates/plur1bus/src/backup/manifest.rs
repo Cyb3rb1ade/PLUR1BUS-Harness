@@ -543,8 +543,14 @@ mod tests {
 
     #[test]
     fn learning_review_database_is_a_portable_sqlite_unit() {
-        assert_eq!(target_kind("state/dreams/learn.db", "state/lancedb"), Some(Kind::File));
-        assert_eq!(archive_prefix("state/dreams/learn.db", "state/lancedb"), "sqlite/dreams/learn.db");
+        assert_eq!(
+            target_kind("state/dreams/learn.db", "state/lancedb"),
+            Some(Kind::File)
+        );
+        assert_eq!(
+            archive_prefix("state/dreams/learn.db", "state/lancedb"),
+            "sqlite/dreams/learn.db"
+        );
         assert!(is_sqlite_sidecar("state/dreams/learn.db-wal"));
         assert!(is_sqlite_sidecar("state/dreams/learn.db-shm"));
     }

@@ -212,6 +212,7 @@ describe("budget.set human-only RPC boundary",()=>{
   it("keeps the exact explicit human-only method inventory, including budget mutation",()=>{
     assert.deepEqual(Object.entries(RPC_RULES).filter(([,r])=>r.humanOnly).map(([m])=>m).sort(),[
       "chat.rewind","session.rewind",
+      "dreams.learn.run","dreams.learn.status","dreams.learn.list","dreams.learn.get","dreams.learn.decide","dreams.learn.rollback","dreams.learn.calibration",
       "ext.list","ext.show","ext.watch","ext.inspection.get","ext.inspect","ext.install","ext.uninstall","ext.restore","ext.enable","ext.disable",
       "admin.extensions.setup.get","admin.extensions.setup.set","admin.extensions.runtime.status","admin.extensions.runtime.hold","admin.extensions.runtime.release","admin.extensions.auth.start","admin.extensions.auth.status","admin.extensions.auth.submit","admin.extensions.auth.cancel",
       "a2a.peer.add","a2a.peer.list","a2a.peer.remove","a2a.peer.trust",

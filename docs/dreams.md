@@ -309,3 +309,30 @@ Retire-Vorschlag und den Weg zur manuellen Kuration; eine vorhandene Importquitt
 bietet zusätzlich einen bestätigten Rollback. Es gibt keine automatische Speicheränderung.
 Die Bestätigungsrate steht neben der Präzision im Kalibrier-Record. Erasure einer
 Beobachtung invalidiert deren Bestätigung; fehlende Daten gelten nicht als Erfolg.
+
+### Betrieb und Bedienung (LQ4)
+
+Im Dreams-Tab stehen pro Agent und Projekt Aktivierung, letzter und nächster Lauf,
+„Jetzt ausführen“ und die Kalibrierung für Tier A/B. Die Aktivierung schreibt die
+revisionierte Konfiguration über `config.set` des Supervisors. Nur der Owner darf
+`dreams.learn` ändern, auch bei Ersetzen eines übergeordneten Konfigurationsobjekts.
+Der Hinweis vor der Aktivierung erklärt gelesene Quellen und gespeicherte Daten.
+Konfigurationsänderungen haben die Restart-Klasse `core`; die Oberfläche zeigt das an.
+Installationsweite Tool-Muster sind im eigenen Abschnitt sichtbar. Prüflisten sind
+in Seiten zu 50 Befunden unterteilt; Belege werden bei jeder Anzeige erneut geprüft.
+
+`plur1bus 1staid check` hängt drei IDs an die bestehende Tabelle an:
+`dreams.learn.store` prüft Schema, SQLite-Integrität und private Dateirechte;
+`dreams.learn.breaker` meldet offene Breaker, `dreams.learn.backlog` zählt offene
+und auf H3 wartende Befunde. Ohne laufenden Core bleiben Integrität und Datenbankzähler
+explizit ungeprüft; Dateirechte werden nativ gelesen. Eine noch nicht angelegte
+Lern-Datenbank wird als `skip` ausgewiesen. Die Core-Statusprojektion mit den Zählern
+ist nur für den Owner sichtbar und enthält weder Namen noch Texte.
+
+Prometheus exportiert `plur1bus_learn_runs_total` nach Ergebnis und festem Grund,
+`plur1bus_learn_findings_total` nach Wunsch-Tier und Statusübergang sowie
+`plur1bus_learn_tokens_total` für tatsächlich gemessene Input-/Output-Tokens.
+Labels sind geschlossene Aufzählungen: keine Agenten-, Personen-, Session-, Modell-
+oder Befund-IDs. Ein Inbox-Hinweis pro Lauf enthält nur Zähler und den Review-Link,
+auch bei Verweigerungen. Retries verwenden denselben Deduplizierungsschlüssel.
+Manuelle Lernläufe teilen Semaphore und Shutdown-Abschluss mit dem Dreams-Scheduler.

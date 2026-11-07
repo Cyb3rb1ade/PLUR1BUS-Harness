@@ -12,6 +12,7 @@ export interface LearnRunnerOptions {
   config(target: Target): LearnConfig;
   /** Host-owned stages; they receive only this already scoped selection. */
   review?(finding: Finding, transcripts: readonly Transcript[], call: (stage: Stage, key: string, data: unknown) => Promise<LearnModelResult>, signal: AbortSignal): Promise<Finding>;
+  observe?(run: LearnRun, findings: Finding[], tokens: number): void;
   notice?(run: LearnRun, counts: { pending: number; waitingH3: number }): void;
 }
 export class LearnRunner {
@@ -31,7 +32,7 @@ export class LearnRunner {
   async #run(target: Target, window: Window, signal: AbortSignal): Promise<LearnRun> {
     const o = this.#o, run = o.store.begin(target, window, o.now());
     if (run.outcome === 'completed') return run;
-    const cfg = o.config(target);
+    const cfg = o.config(target); let measuredTokens = 0;
     run.outcome = null; run.reason = null; run.finishedAt = null; o.store.save(run);
     try {
       // Ledger exists before disabled, rights, breaker, selection or provider work.
@@ -45,7 +46,7 @@ export class LearnRunner {
         const selected = installationFindings(o.source, target, principal, window, run.id, cfg.maxSessions);
         run.sessionIds = selected.sessionIds; run.digest = selected.digest; run.truncated = selected.truncated; run.omittedSessions = selected.omittedSessions;
         o.store.save(run); signal.throwIfAborted(); o.store.publish(run, selected.findings, o.now()); o.store.compact();
-        try { o.notice?.(run, { pending: 0, waitingH3: selected.findings.length }); } catch { /* Count-only notice is best effort. */ }
+
         return run;
       }
       o.store.step(run.id, 'selection', 'started');
@@ -67,7 +68,7 @@ export class LearnRunner {
         // Reserve the conservative byte bound before calling; a crash never frees already-started work.
         run.tokens += reserved; o.store.save(run); o.store.step(run.id, checkpointKey, 'started');
         const result = await o.model.complete({ target, stage, modelClass: stage === 'extract' ? 'small' : 'large', instructions, data: envelope, maxOutputTokens, signal });
-        const actual = usage(result); run.tokens += actual - reserved; o.store.save(run);
+        const actual = usage(result); measuredTokens += actual; run.tokens += actual - reserved; o.store.save(run);
         if (run.tokens > cfg.maxTokens) throw new LearnError('budget');
         o.store.checkpoint(run.id, checkpointKey, result); return result;
       };
@@ -101,10 +102,14 @@ export class LearnRunner {
         signals: findings.flatMap(f => f.evidence.filter(e => e.sessionId === t.session.id).map(e => ({ findingId: f.id,
           at: e.source === 'message' ? t.messages.find(m => m.id === e.sourceId)?.createdAt ?? 0 : t.events.find(v => String(v.seq) === e.sourceId)?.at ?? 0 }))) }));
       o.store.step(run.id, 'publish', 'started'); o.store.publish(run, reviewed, o.now(), observations); o.store.step(run.id, 'publish', 'completed');
-      try { o.notice?.(run, { pending: reviewed.filter(f => f.status === 'pending').length, waitingH3: reviewed.filter(f => f.status === 'waiting-h3').length }); } catch { /* A best-effort notice cannot invalidate committed findings. */ }
+
     } catch (error) {
       const reason = signal.aborted ? 'interrupted' : error instanceof LearnError ? error.reason : 'provider-failed';
       o.store.finish(run, reason === 'transcript-cap' ? 'deferred' : ['invalid-output', 'provider-failed', 'source-unavailable'].includes(reason) ? 'failed' : 'skipped', reason, o.now());
+    } finally {
+      const findings = run.outcome === 'completed' ? o.store.findings(run.id) : [];
+      try { o.observe?.(run, findings, measuredTokens); } catch { /* Metrics never change committed outcomes. */ }
+      try { o.notice?.(run, { pending: findings.filter(f => f.status === 'pending').length, waitingH3: findings.filter(f => f.status === 'waiting-h3').length }); } catch { /* Deduplicated count-only notice is best effort. */ }
     }
     o.store.compact();
     return run;

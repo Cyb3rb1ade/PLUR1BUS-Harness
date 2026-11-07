@@ -46,11 +46,12 @@ test('LQ1 restart reconciliation, seven-day unfinished retention and thirty-day 
 });
 test('LQ1 successful lifecycle mutations reconcile after commit; refused mutations never invalidate', async () => {
   const events: unknown[] = [], ctx = { requestId: 'r', connectionId: 'c', signal: new AbortController().signal };
-  const methods: Record<string, Handler> = { 'agent.close': async () => { events.push('closed'); return {}; }, 'identity.link.remove': async () => { events.push('unlinked'); return {}; }, 'project.archive': async () => { throw Error('denied'); } };
+  const methods: Record<string, Handler> = { 'agent.close': async () => { events.push('closed'); return {}; }, 'identity.link.remove': async () => { events.push('unlinked'); return {}; }, 'identity.unlink': async () => { events.push('unlinked-public'); return {}; }, 'project.archive': async () => { throw Error('denied'); } };
   const wrapped = learningLifecycle(methods, () => ({ reconcile: (x: unknown) => events.push(x) }) as never, () => 'person');
   await wrapped['agent.close']!({ agentId: 'agent' }, ctx); await wrapped['identity.link.remove']!({ linkId: 'link' }, ctx);
+  await wrapped['identity.unlink']!({ linkId: 'link' }, ctx);
   await assert.rejects(() => wrapped['project.archive']!({}, ctx));
-  assert.deepEqual(events, ['closed', { agentId: 'agent' }, 'unlinked', { owner: 'person' }]);
+  assert.deepEqual(events, ['closed', { agentId: 'agent' }, 'unlinked', { owner: 'person' }, 'unlinked-public', { owner: 'person' }]);
 });
 
 test('LQ1 erased in-flight runs cannot recreate payloads or publish after an awaited provider returns', () => {
@@ -61,5 +62,15 @@ test('LQ1 erased in-flight runs cannot recreate payloads or publish after an awa
     assert.throws(() => store.checkpoint(run.id, 'extract:session', { text: 'late reply' }), /rights-changed/);
     assert.throws(() => store.publish(run, [f], 5), /rights-changed/);
     run.sessionIds = ['session']; store.save(run); assert.deepEqual(store.get(run.id)!.sessionIds, []);
+  } finally { store.close(); }
+});
+
+test('LQ1 source closure invalidates in-flight work even when its destination still exists', () => {
+  const store = new LearnStore(':memory:');
+  try {
+    const { run, f } = seed(store);
+    store.reconcile({ now: 4, checkpointDays: 7, validTarget: () => true, validSession: () => false, validEvidence: () => false });
+    assert.equal(store.invalidated(run.id), true);
+    assert.throws(() => store.publish(run, [f], 5), /rights-changed/);
   } finally { store.close(); }
 });

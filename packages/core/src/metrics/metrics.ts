@@ -40,6 +40,8 @@ export interface MetricsOptions {
 }
 
 export interface Metrics {
+  learnRun(run: { outcome: string | null; reason: string | null }, findings: { desiredTier: string; status: string }[], tokens: number): void;
+  learnFinding(tier: string, status: string): void;
   /** One finished RPC call: `result` is `ok` or the RPC error code; both are folded into enumerations. */
   rpcCall(method: string, result: string): void;
   /** One inbox entry created; `kind` is the closed InboxKind set and the only label. */
@@ -57,6 +59,9 @@ export interface Metrics {
 
 export function createMetrics(o: MetricsOptions): Metrics {
   const r = createRegistry();
+  const learningRuns = r.counter('plur1bus_learn_runs_total', 'Learning attempts by outcome and fixed reason.', { outcome: ['completed','skipped','failed','deferred'], reason: ['none','transcript-cap','disabled','no-sessions','budget','breaker-open','no-model','local-only','source-unavailable','invalid-output','provider-failed','rights-changed','interrupted'] });
+  const learningFindings = r.counter('plur1bus_learn_findings_total', 'Published learning findings and human decision transitions.', { tier: ['A','B','C'], status: ['pending','accepted','rejected','waiting-h3','withdrawn'] });
+  const learningTokens = r.counter('plur1bus_learn_tokens_total', 'Measured learning input and output tokens; no estimates.', {});
   const mem = o.memoryUsage ?? (() => process.memoryUsage());
   const health = o.health ?? (() => ({ ready: false, journalBacklog: 0, agents: 0, uptimeSeconds: 0 }));
 
@@ -103,6 +108,8 @@ export function createMetrics(o: MetricsOptions): Metrics {
   r.gaugeFn("plur1bus_core_uptime_seconds", "Seconds since the core started.", () => health().uptimeSeconds);
 
   return {
+    learnRun(run, findings, tokens) { learningRuns.inc({ outcome: run.outcome ?? 'other', reason: run.reason ?? 'none' }); for (const f of findings) learningFindings.inc({ tier: f.desiredTier, status: f.status }); learningTokens.inc({}, tokens); },
+    learnFinding(tier, status) { learningFindings.inc({ tier, status }); },
     inboxPublished(kind) { if ((INBOX_KINDS as readonly string[]).includes(kind)) inbox.inc({ kind }); },
     rpcCall(method, result) { rpc.inc({ method, result: RESULT_BY_CODE[result] ?? "other" }); },
     turn(seconds, outcome) { turns.observe({ outcome: (TURN_OUTCOMES as readonly string[]).includes(outcome) ? outcome : "error" }, seconds); },

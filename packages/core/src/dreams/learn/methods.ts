@@ -10,13 +10,13 @@ export function learnMethods(service: () => LearnService | null, dispatch: (meth
     const s = service(); if (!s) throw new RpcError('E_NOT_AVAILABLE', 'Learning store unavailable', { reason: 'learn-store-unavailable' });
     const person = authenticatedPrincipal(ctx);
     if (person.kind !== 'person') throw new RpcError('E_DENIED', 'Human review required', { reason: 'human-only' });
-    const p = params as { scope: Target['scope']; agentId: string; projectId?: string; id: string; contentHash: string; outcome: 'accepted' | 'rejected'; staleAction?: 'correct' | 'forget' };
+    const p = params as { offset?: number; scope: Target['scope']; agentId: string; projectId?: string; id: string; contentHash: string; outcome: 'accepted' | 'rejected'; staleAction?: 'correct' | 'forget' };
     const target: Target = { scope: p.scope, owner: person.userId, agentId: p.agentId, ...(p.projectId ? { projectId: p.projectId } : {}) };
     const call = async (name: string, input: Record<string, unknown>) => dispatch(name)(input, ctx);
     switch (method) {
       case 'dreams.learn.run': return { run: await s.run(target, person, ctx.signal) };
       case 'dreams.learn.status': return { status: s.status(target, person) };
-      case 'dreams.learn.list': return { items: s.list(target, person) };
+      case 'dreams.learn.list': return s.list(target, person, p.offset);
       case 'dreams.learn.get': return s.get(p.id, person);
       case 'dreams.learn.decide': return s.decide(p, person, call);
       case 'dreams.learn.rollback': return { result: await s.rollback(p.id, person, call) };

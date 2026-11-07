@@ -1,3 +1,4 @@
+import { LearnControls } from './learn-controls.ts';
 import { h } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { t } from '../../i18n.ts';
@@ -6,6 +7,10 @@ import { Facts, FailureState, Panel } from './common.ts';
 import { failureOf, getApi, useLoad, type Failure } from './data.ts';
 import type { LearnRow, LearnTarget } from './learn-types.ts';
 import type { View } from '../../view.ts';
+
+const verdictKey = { holds: 'holds', refuted: 'refuted', insufficient: 'insufficient', 'not-required': 'notRequired' } as const;
+const predictionKey = { confirmed: 'confirmed', 'not-confirmed': 'notConfirmed', 'insufficient-data': 'insufficientData' } as const;
+const statusKey = { pending: 'pending', accepted: 'accepted', rejected: 'rejected', withdrawn: 'withdrawn', 'waiting-h3': 'waitingH3' } as const;
 
 function ReviewDetail({ id, refresh }: { id: string; refresh(): void }): View {
   const { state, reload } = useLoad(signal => getApi().rpc('dreams.learn.get', { id }, { write: false, signal }), [id]);
@@ -33,8 +38,8 @@ function ReviewDetail({ id, refresh }: { id: string; refresh(): void }): View {
     f.toolPattern ? h('pre', { class: 'm-pre' }, JSON.stringify(f.toolPattern, null, 2)) : null,
     h(Facts, { rows: [[t('memory.learn.score'), String(f.score)], [t('memory.learn.tier'), f.desiredTier],
       [t('memory.learn.prevalence'), `${f.prevalence.sessions}/${f.prevalence.total} · ${f.prevalence.days}`],
-      [t('memory.learn.skeptic'), t(`memory.learn.verdict.${f.skeptic}`)], [t('memory.learn.verify'), f.verify]] }),
-    data.prediction ? h('p', { role: 'status' }, t(`memory.learn.prediction.${data.prediction.status}`), ` (${data.prediction.sessions}/10)`) : null,
+      [t('memory.learn.skeptic'), t(`memory.learn.verdict.${verdictKey[f.skeptic]}`)], [t('memory.learn.verify'), f.verify]] }),
+    data.prediction ? h('p', { role: 'status' }, t(`memory.learn.prediction.${predictionKey[data.prediction.status]}`), ` (${data.prediction.sessions}/10)`) : null,
     data.prediction?.retireProposed ? h('p', {}, t('memory.learn.retireProposal'), ' ', h('a', { href: '#/memories/curation' }, t('memory.learn.forget'))) : null,
     f.previousDecision ? h('p', {}, t('memory.learn.previous')) : null,
     h('details', {}, h('summary', {}, t('memory.learn.evidence')), data.evidence.map(e => h('section', { key: `${e.ref.sessionId}:${e.ref.sourceId}` },
@@ -56,15 +61,19 @@ function ReviewDetail({ id, refresh }: { id: string; refresh(): void }): View {
 function Finding({ row, refresh }: { row: LearnRow; refresh(): void }): View {
   const [open, setOpen] = useState(false);
   return h('details', { class: 'm-item', open, onToggle: (e: Event) => setOpen((e.target as HTMLDetailsElement).open) },
-    h('summary', {}, `${t(`memory.learn.status.${row.status}`)} · ${row.desiredTier} · ${t(`memory.learn.verdict.${row.skeptic}`)} · ${row.id.slice(0, 12)}`),
+    h('summary', {}, `${t(`memory.learn.status.${statusKey[row.status]}`)} · ${row.desiredTier} · ${t(`memory.learn.verdict.${verdictKey[row.skeptic]}`)} · ${row.id.slice(0, 12)}`),
     open ? h(ReviewDetail, { id: row.id, refresh }) : null);
 }
 export function LearnReview({ target, tick = 0 }: { target: LearnTarget; tick?: number }): View {
-  const [refresh, setRefresh] = useState(0);
-  const { state, reload } = useLoad(signal => getApi().rpc('dreams.learn.list', target, { write: false, signal }), [target.scope, target.agentId, target.projectId], tick + refresh);
+  const [refresh, setRefresh] = useState(0), [offset, setOffset] = useState(0);
+  useEffect(() => setOffset(0), [target.scope, target.agentId, target.projectId]);
+  const { state, reload } = useLoad(signal => getApi().rpc('dreams.learn.list', { ...target, offset }, { write: false, signal }), [target.scope, target.agentId, target.projectId, offset], tick + refresh);
   return h(Panel, { title: t('memory.learn.title') },
     h('p', {}, t('memory.learn.shadow')),
+    h(LearnControls, { target, refresh: () => setRefresh(n => n + 1) }),
     state.status === 'loading' ? h(PageState, { state: 'loading' }) : state.status === 'fail'
       ? h(FailureState, { failure: state.failure, unavailable: t('memory.learn.unavailable'), onRetry: reload })
-      : state.data.items.length ? state.data.items.map(row => h(Finding, { key: row.id, row, refresh: () => setRefresh(n => n + 1) })) : h('p', { role: 'status' }, t('memory.learn.empty')));
+      : state.data.items.length ? state.data.items.map(row => h(Finding, { key: row.id, row, refresh: () => setRefresh(n => n + 1) })) : h('p', { role: 'status' }, t('memory.learn.empty')),
+    h('div', { class: 'm-row' }, offset > 0 ? h('button', { class: 'btn', onClick: () => setOffset(n => Math.max(0, n - 50)) }, t('memory.learn.previousPage')) : null,
+      state.status === 'ok' && state.data.nextOffset != null ? h('button', { class: 'btn', onClick: () => { if (state.data.nextOffset != null) setOffset(state.data.nextOffset); } }, t('memory.learn.nextPage')) : null));
 }

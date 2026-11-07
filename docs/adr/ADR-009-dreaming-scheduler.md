@@ -370,3 +370,14 @@ no skill queue, Engine pin change or automatic A/B executor. Stable findings ret
 calibration pools by owner/tier/class/prompt/policy and always keeps activation closed until V2.
 The operational UI and experimental RPC 1.23.0 expose review and counters without granting agents a
 human surface; all dreams.learn methods are forbidden over WebMCP.
+
+### Lern-Pass Betrieb, LQ1–LQ4 (2026-11-07)
+
+Der private Lern-Prüfspeicher erhält Erasure-/Lebenszyklusabgleich, begrenzte
+Payload-Aufbewahrung und inhaltsfreie Vorhersagen. Wiederaufnehmbare Läufe teilen
+weiterhin die bestehende Scheduler-Semaphore; auch manuelle Aufträge werden beim
+Shutdown abgewartet. Keine zweite Uhr, kein automatischer Ausführer.
+Die append-only Diagnose-IDs `dreams.learn.store`, `dreams.learn.breaker` und
+`dreams.learn.backlog` ergänzen die bisherigen Checks. Ein synthetischer Offline-Eval
+gehört zur Core-Suite; ein Live-Workflow erfordert einen manuellen Dispatch mit
+expliziter Kostenfreigabe. Die Implementierung hat keinen Live-Lauf ausgeführt.

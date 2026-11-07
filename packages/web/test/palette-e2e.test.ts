@@ -173,7 +173,7 @@ describe("palette: keyboard operation", opts, () => {
       await open(page);
       await combo(page).fill("dreams");
       const groups = await page.locator("dialog.palette [role=group]").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label") ?? document.getElementById(e.getAttribute("aria-labelledby") ?? "")?.textContent));
-      assert.deepEqual(groups, ["Navigation", "Logs"]); // Logs: the Owner's "Search logs for ..." fallback, always last
+      assert.deepEqual(groups, ["Navigation", "Settings", "Logs"]); // Learning settings are indexed; the Owner's log fallback remains last.
       assert.equal((await dlg(page).getByRole("option").first().textContent())?.startsWith("Dreams"), true);
       await page.keyboard.press("Enter");
       await page.locator("dialog.palette").waitFor({ state: "detached" });

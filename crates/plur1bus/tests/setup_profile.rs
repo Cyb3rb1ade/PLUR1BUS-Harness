@@ -252,7 +252,7 @@ fn firstaid_check_passes_on_a_host_profile() {
     assert_eq!(v["check"]["fail"], 0, "{v:#}");
     // Every row that is not `ok` is one a full `--no-service` install shows as well: a module or skill row reporting
     // drift as a warning would not pass.
-    const EXPECTED: [(&str, &str); 8] = [
+    const EXPECTED: [(&str, &str); 11] = [
         ("service.registration", "warn"),
         ("models.cache", "warn"),
         // FFmpeg is optional for a host profile; its absence leaves photos available.
@@ -261,6 +261,9 @@ fn firstaid_check_passes_on_a_host_profile() {
         ("windows.pipe-acl", "skip"),
         ("models.roles", "skip"),
         ("dreams.last-runs", "skip"),
+        ("dreams.learn.store", "skip"),
+        ("dreams.learn.breaker", "skip"),
+        ("dreams.learn.backlog", "skip"),
         // Setup asks no model question; the row informs about the rule triage (never a warning).
         ("models.decision", "info"),
     ];

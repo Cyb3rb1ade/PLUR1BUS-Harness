@@ -15,6 +15,7 @@ import type { LearnModel } from './model.ts';
 
 export interface LearnCard { text: string; scope: string; origin: string | null; sharedBy?: string | undefined }
 export interface LearnServiceOptions {
+  metrics?: Pick<import('../../metrics/metrics.ts').Metrics, 'learnRun' | 'learnFinding'>;
   store: LearnStore; source: SelectionSource; model: LearnModel; config(): HarnessConfig; now(): number;
   principal(owner: string): Principal | null;
   mayReadTarget(target: Target, principal: Principal): boolean;
@@ -43,7 +44,7 @@ export class LearnService {
     this.#o = o;
     this.reconcile();
     this.#offErasure = o.onErasure?.(() => this.reconcile());
-    this.runner = new LearnRunner({ ...o, config: t => learnConfig(o.config(), t),
+    this.runner = new LearnRunner({ ...o, observe: (run, findings, tokens) => o.metrics?.learnRun(run, findings, tokens), config: t => learnConfig(o.config(), t),
       review: async (finding, _selected, call, signal) => {
         const person = this.person(finding.target.owner); this.authorize(finding.target, person);
         const transcripts = this.transcripts(finding, person);
@@ -111,16 +112,23 @@ export class LearnService {
   }
   async handoff(): Promise<void> {
     const port = this.#o.h3; if (!port?.available()) return;
-    for (const target of learnTargets(this.#o.config())) for (const finding of this.store.targetFindings(target)) {
-      if (finding.status !== 'waiting-h3') continue;
-      try {
-        this.transcripts(finding, this.person(target.owner));
-        const hash = digest(finding); if (this.store.handoff(finding.id, hash)) continue;
-        const result = await port.submit({ finding, idempotencyKey: `learn:${finding.id}:${hash}` });
-        this.store.handedOff(finding.id, hash, result.receiptId);
-      } catch { /* Missing capability/rights stays read-only; retry uses the same idempotency key. */ }
+    for (const target of learnTargets(this.#o.config())) {
+      for (let offset = 0; ; offset += 100) {
+        const page = this.store.targetFindings(target, 100, offset);
+        for (const finding of page) {
+          if (finding.status !== 'waiting-h3') continue;
+          try {
+            this.transcripts(finding, this.person(target.owner));
+            const hash = digest(finding); if (this.store.handoff(finding.id, hash)) continue;
+            const result = await port.submit({ finding, idempotencyKey: `learn:${finding.id}:${hash}` });
+            this.store.handedOff(finding.id, hash, result.receiptId);
+          } catch { /* Missing capability/rights stays read-only; retry uses the same idempotency key. */ }
+        }
+        if (page.length < 100) break;
+      }
     }
   }
+
   nextRunAt(): number | null { return learnTargets(this.#o.config()).some(t => learnConfig(this.#o.config(), t).enabled) ? (Math.floor(this.#o.now() / DAY) + 1) * DAY : null; }
   transcripts(finding: Finding, person: Principal): Transcript[] {
     this.authorize(finding.target, person);
@@ -144,13 +152,15 @@ export class LearnService {
     const evidence = finding.toolPattern ? [] : evidenceView(finding, transcripts);
     return { finding, evidence, prediction: this.store.prediction(id), contentHash: digest(finding), action: this.store.action(id, finding.revision ?? 1) };
   }
-  list(target: Target, person: Principal) {
+  list(target: Target, person: Principal, offset = 0) {
     this.reconcile(); this.authorize(target, person);
-    return this.store.targetFindings(target).flatMap(f => {
+    const rows = this.store.targetFindings(target, 51, offset);
+    const items = rows.slice(0, 50).flatMap(f => {
       try { this.transcripts(f, person); } catch { return []; }
       return [{ id: f.id, kind: f.kind, change: f.change, status: f.status, score: f.score, desiredTier: f.desiredTier,
         skeptic: f.skeptic, prevalence: f.prevalence, revision: f.revision ?? 1 }];
     });
+    return { items, nextOffset: rows.length > 50 ? offset + 50 : null };
   }
   calibration(target: Target, person: Principal) { this.authorize(target, person); return calibration(this.store, target, ['small', 'large']); }
   async decide(input: { id: string; contentHash: string; outcome: 'accepted' | 'rejected'; staleAction?: 'correct' | 'forget' }, person: Principal, call: PublicMemoryCall) {
@@ -162,7 +172,7 @@ export class LearnService {
       if (f.status !== 'pending' || f.kind !== 'knowledge') throw unavailable(f.kind === 'procedural' ? 'waiting-h3' : 'finding-not-pending');
       const inProgress = this.store.action(f.id, f.revision ?? 1);
       if (inProgress && inProgress.state !== 'refused') throw unavailable('action-awaits-reconciliation');
-      if (input.outcome === 'rejected') { this.store.decide(f.id, person.userId, 'rejected', this.#o.now(), {}); return { status: 'rejected' }; }
+      if (input.outcome === 'rejected') { this.store.decide(f.id, person.userId, 'rejected', this.#o.now(), {}); this.#o.metrics?.learnFinding(f.desiredTier, 'rejected'); return { status: 'rejected' }; }
       const caller = { channel: 'cli', accountId: 'learn-review', userId: person.userId };
       let method: string, params: Record<string, unknown>;
       if (f.change === 'add') {
@@ -193,7 +203,7 @@ export class LearnService {
       const receipt: Record<string, string | number> = { operation: method };
       for (const key of ['runId', 'proposalId', 'id', 'tombstoneId']) if (typeof result[key] === 'string') receipt[key] = result[key];
       if (method === 'memory.importText.apply' && (typeof result.runId !== 'string' || !(Number(result.imported) + Number(result.linked) >= 1))) throw unavailable('import-not-applied');
-      this.store.decide(f.id, person.userId, 'accepted', this.#o.now(), receipt);
+      this.store.decide(f.id, person.userId, 'accepted', this.#o.now(), receipt); this.#o.metrics?.learnFinding(f.desiredTier, 'accepted');
       this.store.finishAction(f, 'completed', receipt);
       return { status: 'accepted', receipt };
     } finally { this.#deciding.delete(input.id); }

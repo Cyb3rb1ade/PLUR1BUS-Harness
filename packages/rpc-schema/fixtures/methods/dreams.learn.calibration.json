@@ -1,0 +1,41 @@
+{
+  "params": {
+    "scope": "agent",
+    "agentId": "bernd"
+  },
+  "result": {
+    "record": {
+      "version": 2,
+      "owner": "fixture-owner",
+      "promptVersion": "learn-2",
+      "modelClasses": [
+        "small",
+        "large"
+      ],
+      "models": [
+        "fixture/small",
+        "fixture/large"
+      ],
+      "A": {
+        "accepted": 0,
+        "decided": 0,
+        "precision": null,
+        "allowed": false,
+        "reason": "shadow-incomplete"
+      },
+      "B": {
+        "accepted": 0,
+        "decided": 0,
+        "precision": null,
+        "allowed": false,
+        "reason": "shadow-incomplete"
+      },
+      "predictions": {
+        "confirmed": 0,
+        "notConfirmed": 0,
+        "insufficientData": 0,
+        "confirmationRate": null
+      }
+    }
+  }
+}

@@ -21,6 +21,7 @@ pub mod firstaid;
 pub(crate) mod firstaid_bundle;
 pub(crate) mod firstaid_ext;
 pub(crate) mod firstaid_install;
+mod firstaid_learn;
 pub(crate) mod firstaid_media;
 pub mod grant;
 pub(crate) mod help_examples;

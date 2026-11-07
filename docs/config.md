@@ -28,7 +28,7 @@ value-free warning. Invalid reference syntax also warns, including short values.
 
 | Key | Type | Default | Restart | Description |
 |---|---|---|---|---|
-| `dreams` | object | `{}` | core |  |
+| `dreams` | object | `{}` | core | Harness-owned dreaming and learning configuration. |
 | `import.ssh` | object | `{}` | live | Owner-managed SSH source identity and endpoint configuration. |
 | `collaboration.fanoutEnabled` | boolean | `false` | live | Enable collaboration fan-out only after owner review of the equal-token-budget evaluation. |
 | `collaboration.teams` | object | `{}` | live | D124 capacity facts; team scheduling remains disabled until its scheduler, reviews and merge queue land. |

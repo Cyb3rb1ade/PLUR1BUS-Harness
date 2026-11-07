@@ -33,7 +33,7 @@ pub(crate) const GATHER_BUDGET: Duration = Duration::from_secs(3);
 
 /// Every check id, in the fixed table order (ruling H3-R5) — used to fill in the checks a budget-exhausted `gather`
 /// never got to.
-const CHECK_IDS: [&str; 33] = [
+const CHECK_IDS: [&str; 36] = [
     "config.valid",
     "config.store-path",
     "host_mode_coexistence",
@@ -67,6 +67,9 @@ const CHECK_IDS: [&str; 33] = [
     "tools.service",
     "media.ffmpeg",
     "media.uploads",
+    "dreams.learn.store",
+    "dreams.learn.breaker",
+    "dreams.learn.backlog",
 ];
 
 /// The summary of a row [`gather`] never got to before its deadline (`1staid repair` plans nothing for it).
@@ -415,6 +418,13 @@ pub fn gather(layout: &Layout, env: &Env, deadline: Instant) -> Vec<Check> {
         return checks;
     }
     checks.push(super::firstaid_media::check_uploads(layout, deadline));
+    if out_of_budget(deadline, &mut checks) {
+        return checks;
+    }
+    checks.extend(super::firstaid_learn::checks(
+        layout,
+        core_status.as_ref().and_then(|s| s.get("learning")),
+    ));
     checks
 }
 
@@ -823,7 +833,7 @@ fn check_run_permissions(layout: &Layout) -> Check {
 /// `NT AUTHORITY\SYSTEM` and so failed on every normal install; the SID comparison this delegates to is
 /// platform-neutral and unit-tested on Linux in `crates/plur1bus-rpc/src/acl.rs`.
 #[cfg(windows)]
-fn windows_restricted_to_user_and_system(path: &Path) -> io::Result<bool> {
+pub(super) fn windows_restricted_to_user_and_system(path: &Path) -> io::Result<bool> {
     let user_sid = plur1bus_rpc::win::user_sid()?;
     let entries = plur1bus_rpc::win::file_dacl_report(path)?;
     Ok(plur1bus_rpc::acl::run_writable_by_others(&entries, &user_sid).is_empty())

@@ -1,0 +1,29 @@
+{
+  "params": {
+    "scope": "agent",
+    "agentId": "bernd",
+    "offset": 0
+  },
+  "result": {
+    "items": [
+      {
+        "id": "learn-finding-fixture",
+        "kind": "knowledge",
+        "change": "add",
+        "status": "pending",
+        "score": 0.9,
+        "desiredTier": "A",
+        "skeptic": "holds",
+        "revision": 1,
+        "prevalence": {
+          "sessions": 3,
+          "total": 3,
+          "days": 2,
+          "agents": 1,
+          "persons": 1
+        }
+      }
+    ],
+    "nextOffset": null
+  }
+}

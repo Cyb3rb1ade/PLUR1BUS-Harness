@@ -1,3 +1,4 @@
+import { platformCapabilities } from '../../platform.ts';
 import { observePredictions, prediction, startPrediction, type LearningObservation } from './predictions.ts';
 import { mergeEvidence } from './aggregation.ts';
 import { DatabaseSync } from 'node:sqlite';
@@ -14,8 +15,8 @@ const decisionSummary = (f: Finding): DecisionSummary => ({ id: f.id, target: f.
 /** Content is exclusively in learn_payload. Generic ledger projections never select that column. */
 export class LearnStore {
   readonly #db: DatabaseSync;
-  constructor(file: string, secure?: (path: string, options?: { mode?: number }) => unknown) {
-    if (file !== ':memory:') { mkdirSync(dirname(file), { recursive: true, mode: 0o700 }); secure?.(dirname(file), { mode: 0o700 }); }
+  constructor(file: string, secure: (path: string, options?: { mode?: number }) => unknown = platformCapabilities.securePath) {
+    if (file !== ':memory:') { mkdirSync(dirname(file), { recursive: true, mode: 0o700 }); chmodSync(dirname(file), 0o700); const secured = secure?.(dirname(file), { mode: 0o700 }) as { applied?: boolean } | undefined; if (process.platform === 'win32' && !secured?.applied) throw Error('learning-directory-permissions'); }
     this.#db = new DatabaseSync(file);
     try {
       this.#db.exec('PRAGMA secure_delete=ON; PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON;');
@@ -65,8 +66,16 @@ export class LearnStore {
           const f = this.finding(String(row.finding_id)); if (f) startPrediction(this.#db, f, Number(row.decided_at));
         }
       });
-      if (file !== ':memory:') { chmodSync(file, 0o600); secure?.(file); }
+      if (file !== ':memory:') { chmodSync(file, 0o600); const secured = secure?.(file) as { applied?: boolean } | undefined; if (process.platform === 'win32' && !secured?.applied) throw Error('learning-file-permissions'); }
     } catch (error) { this.#db.close(); throw error; }
+  }
+  health(now: number) {
+    const schema = Number(this.#db.prepare('PRAGMA user_version').get()!.user_version);
+    const integrity = this.#db.prepare('PRAGMA quick_check').all().every(r => Object.values(r)[0] === 'ok');
+    const counts = this.#db.prepare("SELECT sum(state='pending') AS pending,sum(state='waiting-h3') AS waiting FROM learn_finding").get()!;
+    const breakers = this.#db.prepare(`SELECT count(*) AS n FROM (SELECT r.target_hash FROM learn_failure f JOIN learn_run r ON r.id=f.run_id
+      WHERE f.at>=? GROUP BY r.target_hash HAVING count(*)>=3)`).get(Math.floor(now / 86400000) * 86400000)!;
+    return { schema, integrity, pending: Number(counts.pending ?? 0), waitingH3: Number(counts.waiting ?? 0), breakers: Number(breakers.n) };
   }
   compact(): void { this.#db.exec('PRAGMA wal_checkpoint(TRUNCATE);'); }
   close(): void { this.compact(); this.#db.close(); }
@@ -145,10 +154,10 @@ export class LearnStore {
       WHERE r.owner=? AND f.state<>'withdrawn' AND d.revision>f.invalid_before AND d.revision=(SELECT max(n.revision) FROM learn_decision n WHERE n.finding_id=d.finding_id)`)
       .all(owner).map(r => ({ finding: JSON.parse(r.summary as string) as DecisionSummary, outcome: r.outcome as string }));
   }
-  targetFindings(target: Target): Finding[] {
+  targetFindings(target: Target, limit = 100, offset = 0): Finding[] {
     return this.#db.prepare(`SELECT f.id FROM learn_finding f JOIN learn_run r ON r.id=f.run_id
-      WHERE r.owner=? AND r.target_hash=? ORDER BY r.window_to DESC,f.id LIMIT 100`)
-      .all(target.owner, targetHash(target)).map(r => this.finding(r.id as string)!);
+      WHERE r.owner=? AND r.target_hash=? ORDER BY r.window_to DESC,f.id LIMIT ? OFFSET ?`)
+      .all(target.owner, targetHash(target), limit, offset).map(r => this.finding(r.id as string)!);
   }
   prepareCandidate(next: Finding): Finding | null {
     const old = this.finding(next.id);
@@ -187,12 +196,12 @@ export class LearnStore {
     this.transaction(() => {
       for (const row of this.#db.prepare('SELECT metadata FROM learn_run').all()) {
         const run = JSON.parse(String(row.metadata)) as LearnRun, valid = o.validTarget(run.target);
-        const affected = !valid || run.sessionIds.some(id => o.erased?.has(id));
+        const affected = !valid || run.sessionIds.some(id => o.erased?.has(id) || (o.validSession && !o.validSession(id, run.target)));
         if (affected) this.#db.prepare('UPDATE learn_run SET invalidated=1 WHERE id=?').run(run.id);
         if (affected || run.startedAt <= o.now - o.checkpointDays * 86400000 || terminal(run)) {
           dirty = Number(this.#db.prepare("DELETE FROM learn_payload WHERE run_id=? AND key NOT LIKE 'finding:%'").run(run.id).changes) > 0 || dirty;
         }
-        const ids = valid ? run.sessionIds.filter(id => !o.erased?.has(id)) : [];
+        const ids = valid ? run.sessionIds.filter(id => !o.erased?.has(id) && (!o.validSession || o.validSession(id, run.target))) : [];
         if (ids.length !== run.sessionIds.length) { run.sessionIds = ids; this.save(run); dirty = true; }
       }
       for (const row of this.#db.prepare(`SELECT s.finding_id,s.session_id,r.metadata FROM learn_prediction_session s
@@ -210,7 +219,7 @@ export class LearnStore {
         const withdraw = !o.validTarget(f.target) || remaining.length !== f.evidence.length || !remaining.length;
         const last = this.#db.prepare('SELECT max(decided_at) AS at FROM learn_decision WHERE finding_id=?').get(f.id);
         const expired = typeof last?.at === 'number' && last.at <= o.now - 30 * 86400000;
-        if (withdraw || expired) {
+        if ((withdraw && (f.status !== 'withdrawn' || remaining.length !== f.evidence.length || !!f.text || !!f.checks)) || (expired && (!!f.text || !!f.checks))) {
           const { checks: _checks, previousDecision: _previous, toolPattern, ...kept } = f;
           const clean: Finding = { ...kept, text: '', evidence: withdraw ? remaining : f.evidence, ...(withdraw ? { status: 'withdrawn', contentKey: digest(f.contentKey ?? '') } : toolPattern ? { toolPattern } : {}) };
           if (withdraw) {

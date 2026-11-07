@@ -406,6 +406,26 @@ mod tests {
         }
     }
     #[test]
+    fn learning_configuration_is_owner_only_including_parent_replacements() {
+        let before = json!({});
+        let after =
+            json!({"dreams":{"learn":{"agents":{"agent":{"owner":"person","enabled":true}}}}});
+        for role in ["admin", "operator", "member", "viewer"] {
+            assert_eq!(
+                changes(schema(), &before, &after, role),
+                Err("config-write-role")
+            );
+            assert_eq!(
+                changes(schema(), &after, &before, role),
+                Err("config-write-role")
+            );
+        }
+        assert!(!changes(schema(), &before, &after, "owner")
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
     fn sandbox_task_cap_is_owner_only() {
         let before = json!({"tools":{"sandbox":{"maxTasks":512}}});
         let after = json!({"tools":{"sandbox":{"maxTasks":0}}});

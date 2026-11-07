@@ -190,3 +190,10 @@ LQ3-Ruling: Extraktionsmetriken vergleichen kanonische Inhaltsschlüssel exakt;
 kein zusätzlicher Modellrichter und keine versteckten API-Kosten. Kosten: Eine
 semantisch richtige Live-Paraphrase mit anderem Schlüssel wird konservativ als
 Fehler gezählt. Nur Dry-Run und Fixture-Modell wurden zur Implementierung ausgeführt.
+
+LQ4-Ruling: Native Dateirechte plus die SQLite-Prüfung des bereits laufenden Cores
+bilden die Diagnose. Ohne Core wird Integrität nicht behauptet; Kosten: Offline-
+Diagnosen zeigen dafür eine Warnung statt einer neuen SQLite-Abhängigkeit im CLI.
+Die Lern-Konfiguration ist über die bestehende Schema-Schreibrollenregel owner-only,
+auch für Parent-Replacements. Konfigurationsänderungen folgen der bestehenden
+Core-Restart-Klasse. Tokenmetriken enthalten nur gemessene Tokens, keine Budgetreservierungen.

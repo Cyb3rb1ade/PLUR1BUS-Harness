@@ -14496,6 +14496,11 @@ Human-only shadow learning list. Owner-scoped evidence and existing public Memor
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
     "scope": {
       "enum": [
         "agent",
@@ -14526,6 +14531,13 @@ Human-only shadow learning list. Owner-scoped evidence and existing public Memor
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "nextOffset": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
     "items": {
       "type": "array",
       "items": {
@@ -14535,6 +14547,7 @@ Human-only shadow learning list. Owner-scoped evidence and existing public Memor
     }
   },
   "required": [
+    "nextOffset",
     "items"
   ]
 }
@@ -14585,6 +14598,13 @@ Human-only shadow learning get. Owner-scoped evidence and existing public Memory
         "additionalProperties": true
       }
     },
+    "prediction": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": true
+    },
     "contentHash": {
       "type": "string"
     },
@@ -14601,6 +14621,7 @@ Human-only shadow learning get. Owner-scoped evidence and existing public Memory
     }
   },
   "required": [
+    "prediction",
     "finding",
     "evidence",
     "contentHash",
@@ -34030,6 +34051,41 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "agents"
   ],
   "properties": {
+    "learning": {
+      "description": "Owner-only, content-free learning store health; null when composition failed.",
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "type": "integer"
+        },
+        "integrity": {
+          "type": "boolean"
+        },
+        "pending": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "waitingH3": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "breakers": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "schema",
+        "integrity",
+        "pending",
+        "waitingH3",
+        "breakers"
+      ]
+    },
     "process": {
       "$ref": "#/$defs/ProcessState"
     },

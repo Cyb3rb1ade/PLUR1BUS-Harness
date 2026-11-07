@@ -5441,6 +5441,9 @@
         "agents"
       ],
       "properties": {
+        "learning": { "description": "Owner-only, content-free learning store health; null when composition failed.", "type": ["object", "null"], "additionalProperties": false,
+          "properties": { "schema": { "type": "integer" }, "integrity": { "type": "boolean" }, "pending": { "type": "integer", "minimum": 0 }, "waitingH3": { "type": "integer", "minimum": 0 }, "breakers": { "type": "integer", "minimum": 0 } },
+          "required": ["schema", "integrity", "pending", "waitingH3", "breakers"] },
         "process": {
           "$ref": "#/$defs/ProcessState"
         },
@@ -19634,6 +19637,7 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
+            "offset": { "type": "integer", "minimum": 0, "maximum": 1000000 },
             "scope": {
               "enum": [
                 "agent",
@@ -19659,6 +19663,7 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
+            "nextOffset": { "type": ["integer", "null"], "minimum": 0 },
             "items": {
               "type": "array",
               "items": {
@@ -19668,6 +19673,7 @@
             }
           },
           "required": [
+            "nextOffset",
             "items"
           ]
         }
@@ -19723,6 +19729,7 @@
             }
           },
           "required": [
+            "prediction",
             "finding",
             "evidence",
             "contentHash",

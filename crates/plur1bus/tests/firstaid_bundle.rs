@@ -150,7 +150,11 @@ fn the_bundle_has_the_expected_parts_and_a_matching_manifest() {
     ] {
         assert!(names.contains(&want), "{want} missing from {names:?}");
     }
-    for never in ["logs/audit.log", "logs/payload.log", "state/dreams/learn.db"] {
+    for never in [
+        "logs/audit.log",
+        "logs/payload.log",
+        "state/dreams/learn.db",
+    ] {
         assert!(!names.contains(&never), "{never} must not be bundled");
     }
     assert!(

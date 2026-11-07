@@ -139,6 +139,8 @@ test('LP7: a future public H3 adapter receives pending findings once and only wi
     r.store.publish(run, [{ ...f, kind: 'procedural', status: 'waiting-h3' }], 14 * DAY);
     await r.service.handoff(); assert.equal(calls, 0);
     available = true; await r.service.handoff(); await r.service.handoff(); assert.equal(calls, 1);
+    r.store.publish(run, Array.from({ length: 110 }, (_, i) => ({ ...f, id: `waiting-${i}`, kind: 'procedural' as const, status: 'waiting-h3' as const })), 14 * DAY);
+    await r.service.handoff(); await r.service.handoff(); assert.equal(calls, 111);
     assert.equal(r.store.finding(f.id)!.status, 'waiting-h3'); assert.equal(r.store.decidedFindings('person').length, 0);
   } finally { await r.close(); }
 });
@@ -181,5 +183,20 @@ test('LQ2: later full fake runs measure accepted repeats although they create no
     assert.equal(later.outcome, 'completed'); assert.equal(later.findings, 0);
     assert.equal(r.store.prediction(f.id)!.status, 'not-confirmed'); assert.equal(r.store.prediction(f.id)!.sessions, 10);
     assert.equal(r.service.get(f.id, person).prediction!.retireProposed, true);
+  } finally { await r.close(); }
+});
+
+test('LQ4 review pagination exposes later findings and disabled attempts still publish count-only notices', async () => {
+  const r = rig();
+  try {
+    const run = await r.service.run(target, person, new AbortController().signal), f = r.store.findings(run.id)[0]!;
+    r.store.publish(run, Array.from({ length: 110 }, (_, i) => ({ ...f, id: `finding-${String(i).padStart(3, '0')}` })), 14 * DAY);
+    const first = r.service.list(target, person), second = r.service.list(target, person, first.nextOffset!);
+    assert.equal(first.items.length, 50); assert.equal(second.items.length, 50);
+    assert.ok(first.items.every(a => second.items.every(b => a.id !== b.id)));
+    assert.equal(r.service.list(target, person, second.nextOffset!).items.length, 11);
+    r.setNow(15 * DAY); r.config.dreams!.learn!.agents!.agent!.enabled = false;
+    assert.equal((await r.service.run(target, person, new AbortController().signal)).reason, 'disabled');
+    assert.equal(r.notices.length, 2); assert.doesNotMatch(JSON.stringify(r.notices), /project uses Go/);
   } finally { await r.close(); }
 });

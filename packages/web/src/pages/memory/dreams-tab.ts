@@ -211,6 +211,7 @@ export function DreamsTab({ runId, tick }: DreamsTabProps): View {
     : h("div", { class: "m-stack" },
       h(Summary, { agents: state.data.agents }),
       state.data.agents.map((a) => h(AgentSection, { key: a.agentId, agent: a, tick: all, onAction: setDialog })),
+      currentRole() === 'owner' && state.data.agents[0] ? h(Panel, { title: t('memory.learn.installation') }, h(LearnReview, { target: { scope: 'installation', agentId: state.data.agents[0].agentId }, tick: all })) : null,
       h(Counters, { c: state.data.counters }));
 
   return h("div", { class: "m-stack" },

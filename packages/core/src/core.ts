@@ -902,7 +902,7 @@ export function createCore(o: CoreOptions): Core {
           return t;
         },
       });
-      try { turnComposition = await openTurnComposition({ securePath: platform.securePath, home: l.home, appleFm, systemJobs, mediaHostFetchReady: typeof host.fetch === "function", supervised: o.supervisorConfig !== undefined, config: cfg, configChanges: listener => cs.onChange(() => listener()), engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
+      try { turnComposition = await openTurnComposition({ learningMetrics: metrics, securePath: platform.securePath, home: l.home, appleFm, systemJobs, mediaHostFetchReady: typeof host.fetch === "function", supervised: o.supervisorConfig !== undefined, config: cfg, configChanges: listener => cs.onChange(() => listener()), engine: eng, agents: executionRegistry, memoryAgents: registry, logger: log,
         maintenance: { held: () => importHold.held, onRelease: callback => importHold.onRelease(callback) },
         voiceConfigSource: changes => cs.set(changes), importConfigSource: changes => cs.set(changes), inbox: inboxPort, resolvePrincipal,
         surfaceOf: (principal, ctx) => connectionSurface({ principal, now: clock(), attestation: o.rbac?.attest?.(ctx) }),
@@ -1225,7 +1225,9 @@ export function createCore(o: CoreOptions): Core {
       rawMethods["core.status"] = async (params, ctx) => {
         const result = await publicStatus(params, ctx) as object;
         const principal = await resolvePrincipal(ctx, "core.status", params);
-        return projectAuditStatus(result, principal, () => auditHealth.status());
+        const projected = projectAuditStatus(result, principal, () => auditHealth.status());
+        return principal?.kind === 'person' && principal.role === 'owner'
+          ? { ...projected, learning: turnComposition?.learn?.store.health(clock()) ?? null } : projected;
       };
       const guardedMethods = guardMethods(apiAdmission(lifecycleAdmission(learningLifecycle(rawMethods, () => turnComposition?.learn ?? null, id => { try { return identity?.getLink(id).humanId; } catch { return undefined; } }), lifecycle, id => sessions?.forSession(id).store.getSession(id)?.agentId), resolvePrincipal), { resolve: resolvePrincipal, audit: rbacAudit, now: clock, rules: { ...AGENT_CREATION_RULES, ...LICENCE_RULES } });
       registerHostMethods(guardedMethods, { host, egress, secrets: secretStore, agents: executionRegistry,

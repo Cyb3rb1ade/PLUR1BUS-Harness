@@ -1,0 +1,28 @@
+{
+  "params": {
+    "scope": "agent",
+    "agentId": "bernd"
+  },
+  "result": {
+    "run": {
+      "id": "learn-run-fixture",
+      "target": {
+        "scope": "agent",
+        "agentId": "bernd",
+        "owner": "fixture-owner"
+      },
+      "window": {
+        "from": 0,
+        "to": 86400000
+      },
+      "sessionIds": [],
+      "digest": "",
+      "startedAt": 86400000,
+      "finishedAt": 86400001,
+      "outcome": "skipped",
+      "reason": "no-sessions",
+      "tokens": 0,
+      "findings": 0
+    }
+  }
+}

@@ -55,6 +55,7 @@ export function configNodes(schema: SchemaNode): ConfigNode[] {
 
 /** Public heuristic matches require an exact key and a maintained justification. */
 export const PUBLIC_EXCEPTIONS: Readonly<Record<string, string>> = {
+  "dreams.learn.maxTokens": "Integer learning-run token budget; contains no credential material.",
   "providers.*.profile.auth_header_scheme": "Header template with a required {token} substitution; the credential is supplied separately.",
   "engine.embedding.routes[].identity.tokenCap": "Numeric embedding-space input cap, not an access token.",
   "engine.embedding.local.maxTokens": "Numeric embedding input-token cap.",

@@ -103,7 +103,11 @@ export function installMemoryMocks(server: MockHarnessServer, fx: Fixture = defa
   }, read);
   r.handle("memory.proposals.list", () => ({ agentId: "main", items: fx.proposals, truncated: false, unreadable: 0 }), read);
 
-  r.handle("dreams.learn.list", () => ({ items: [] }));
+  r.handle("dreams.learn.status", () => ({ status: { enabled: false, lastRun: null, nextRunAt: null, breakerOpen: false } }));
+  r.handle("dreams.learn.calibration", () => ({ record: { A: { accepted: 0, decided: 0, precision: null, allowed: false, reason: 'shadow-incomplete' }, B: { accepted: 0, decided: 0, precision: null, allowed: false, reason: 'shadow-incomplete' } } }));
+  r.handle("config.get", () => ({ value: {}, revision: 'learn-config-revision' }));
+  r.handle("project.list", () => ({ projects: [] }));
+  r.handle("dreams.learn.list", () => ({ items: [], nextOffset: null }));
   r.handle("dreams.status", () => ({
     agents: [{ agentId: "main", phases: fx.phases, diary: { path: "/home/x/diary/main.md", exists: true, bytes: 2048 } }],
     counters: { runs: { light: 4, rem: 1, deep: 1 }, skips: { min_corpus: 1 }, triggers: { cron: 4, importance: 1, manual: 1 }, breakerTrips: 0, reconciled: 0 }, schemaVersion: 1,
