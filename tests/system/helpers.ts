@@ -231,6 +231,15 @@ export function corePid(h: string): number | null {
   return coreChild(h)?.pid ?? null;
 }
 
+/** P4-10: on the `rust` leg the core is two processes, the front door (the supervisor's core child) and the TypeScript
+ *  core behind it, which records itself in run/core-legacy.pid. Its pid there; null on the `ts` leg. */
+export function coreLegacyPid(h: string): number | null {
+  if (selectCoreImpl() !== "rust") return null;
+  const pid = Number(readFileSync(join(h, "run", "core-legacy.pid"), "utf8").trim().split(/\s+/)[0]);
+  if (!Number.isSafeInteger(pid) || pid <= 0) throw new Error("run/core-legacy.pid names no process");
+  return pid;
+}
+
 /** Whether `pid` names a live process. A zombie (exited, not yet reaped by its parent) counts as gone. */
 export function alive(pid: number): boolean {
   try { process.kill(pid, 0); } catch (e: any) { return e.code === "EPERM"; }

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync, readlinkSync, realpathSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import {
-  REAL, cli, coreChild, corePid, daemonStatus, home, homePids, killPid, reapHome, restartSupervisor, sleep, startDaemon, stopDaemon, supervisorPid, waitFor,
+  REAL, cli, coreChild, coreLegacyPid, corePid, daemonStatus, home, homePids, killPid, reapHome, restartSupervisor, sleep, startDaemon, stopDaemon, supervisorPid, waitFor,
 } from "./helpers.ts";
 
 /** S16: 200 turns in the PR system job, 1 000 in the nightly (same file). */
@@ -360,14 +360,17 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
       assert.ok(others.length <= 2 && new Set(others.map((c: any) => c.role)).size === others.length &&
         others.every((c: any) => ["tools", "api"].includes(c.role) && c.process?.state === "ready"),
         `only healthy fixed companions may run next to Core: ${JSON.stringify(status)}`);
+      // P4-10, rust leg: the core is the front door and the one TypeScript core behind it (run/core-legacy.pid).
+      const legacy = coreLegacyPid(h);
+      const core = [ready.pid, ...(legacy === null ? [] : [legacy])];
       const pids = homePids(h).sort();
-      assert.deepEqual(pids, [status.supervisor.pid, ready.pid, ...others.map((c: any) => c.pid)].sort(), `pgrep -f -- "--home ${h}"`);
+      assert.deepEqual(pids, [status.supervisor.pid, ...core, ...others.map((c: any) => c.pid)].sort(), `pgrep -f -- "--home ${h}"`);
       if (process.platform === "linux") {
         const lancedb = `${realpathSync(h)}/state/lancedb`;
         const owners = pids.filter((pid) => readdirSync(`/proc/${pid}/fd`).some((fd) => {
           try { return readlinkSync(`/proc/${pid}/fd/${fd}`).startsWith(lancedb); } catch { return false; }
         }));
-        assert.ok(owners.every((pid) => pid === ready.pid), `LanceDB fds held by ${owners.join(", ")}; core is ${ready.pid}`);
+        assert.ok(owners.every((pid) => core.includes(pid)), `LanceDB fds held by ${owners.join(", ")}; core is ${core.join(", ")}`);
       }
 
       stopDaemon(h);
