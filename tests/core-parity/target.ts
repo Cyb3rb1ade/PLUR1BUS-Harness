@@ -3,7 +3,7 @@
 // with the TypeScript core behind it (the built packages/core/dist/core.js, flat embedder, no dream scheduler), in child
 // processes; without the binary it fails loudly and never falls back to `ts`.
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { defaults } from "@plur1bus/config-schema";
 import { createCore } from "../../packages/core/src/core.ts";
@@ -64,9 +64,11 @@ export async function startTarget(impl: CoreImpl = coreImplFromEnv(), opts: { en
   } catch (e) { restore(); throw e; }
 }
 
-/** A fresh home with the parity configuration (agent `bernd`, the engine's background features off). */
-function parityHome(): string {
-  const home = tempDir("p1b-parity-");
+/** A fresh home with the parity configuration (agent `bernd`, the engine's background features off). With `at`, that
+ *  path is emptied and reused, so two legs run one after the other see the same home path in their results. */
+export function parityHome(at?: string): string {
+  const home = at ?? tempDir("p1b-parity-");
+  if (at !== undefined) { rmSync(at, { recursive: true, force: true }); mkdirSync(at, { recursive: true, mode: 0o700 }); }
   const cfg = defaults(); cfg.agents.bernd = {};
   cfg.engine = { neo: { enabled: false }, gc: { enabled: false }, obsidianBridge: { enabled: false }, merging: { enabled: false }, dreaming: { enabled: false }, skillMiner: { enabled: false }, temporalContext: { enabled: false }, conversationReactivationRecall: { enabled: false }, reranker: { enabled: false }, runtime: { recallTimeoutMs: 10_000 } };
   writeFileSync(layout(home).configPath, JSON.stringify(cfg));
@@ -75,19 +77,30 @@ function parityHome(): string {
 
 /** The front door with the legacy core behind it, as `plur1bus core run` starts it with `core.impl: "rust"`. The legacy
  *  core cannot take the in-process fake clock and instance id; the comparison masks times, pids and uuids anyway. */
-async function startRustTarget(opts: { env?: Record<string, string | undefined> }): Promise<ParityTarget> {
+function startRustTarget(opts: { env?: Record<string, string | undefined>; home?: string }): Promise<ParityTarget> {
+  return startProcessTarget("rust", opts);
+}
+
+/** A core in child processes, started the way `plur1bus core run` starts it: `ts` is the stock TypeScript core
+ *  (`node packages/core/dist/core.js --home <home> --test-internals flat-embedder`, `core.impl: "ts"`), `rust` the
+ *  front door with that same core behind it (`core.impl: "rust"`). Both run on the real clock, so P4-10 compares the
+ *  two with nothing but the front door between them; `home` reuses one home path for both legs (see `parityHome`). */
+export async function startProcessTarget(impl: CoreImpl, opts: { env?: Record<string, string | undefined>; home?: string } = {}): Promise<ParityTarget> {
   const bin = rustCoreBin();
-  if (!existsSync(bin)) throw new RustCoreNotBuilt(bin);
+  if (impl === "rust" && !existsSync(bin)) throw new RustCoreNotBuilt(bin);
   const coreJs = resolve(process.env.PLUR1BUS_CORE_JS ?? "packages/core/dist/core.js");
-  const home = parityHome();
+  const home = parityHome(opts.home);
   const env: NodeJS.ProcessEnv = { ...process.env, PLUR1BUS_NODE: process.execPath, PLUR1BUS_CORE_JS: coreJs,
     PLUR1BUS_ALLOW_TEST_INTERNALS: "1", PLUR1BUS_TEST_INTERNALS: "flat-embedder" };
   for (const [k, v] of Object.entries(opts.env ?? {})) { if (v === undefined) delete env[k]; else env[k] = v; }
-  const child = spawn(bin, ["serve", "--home", home], { env, stdio: ["ignore", "pipe", "inherit"] });
+  const [program, args] = impl === "rust" ? [bin, ["serve", "--home", home]]
+    : [process.execPath, [coreJs, "--home", home, ...(env.PLUR1BUS_TEST_INTERNALS ? ["--test-internals", env.PLUR1BUS_TEST_INTERNALS] : [])]];
+  const child = spawn(program, args, { env, stdio: ["ignore", "pipe", "inherit"] });
   const exited = new Promise<void>((res) => child.once("exit", () => res()));
   const ready = await new Promise<{ address: string }>((res, rej) => {
     let buf = "";
-    const timer = setTimeout(() => rej(new Error("plur1bus-core not ready within 60 s")), 60_000);
+    const name = impl === "rust" ? "plur1bus-core" : "the TypeScript core";
+    const timer = setTimeout(() => rej(new Error(`${name} not ready within 60 s`)), 60_000);
     child.stdout!.on("data", (d: Buffer) => {
       buf += String(d);
       const nl = buf.indexOf("\n");
@@ -95,11 +108,11 @@ async function startRustTarget(opts: { env?: Record<string, string | undefined> 
       clearTimeout(timer);
       try { res(JSON.parse(buf.slice(0, nl))); } catch (e) { rej(e as Error); }
     });
-    child.once("exit", (code) => { clearTimeout(timer); rej(new Error(`plur1bus-core exited before ready (${code})`)); });
+    child.once("exit", (code) => { clearTimeout(timer); rej(new Error(`${name} exited before ready (${code})`)); });
   }).catch(async (e) => { child.kill("SIGKILL"); await exited; throw e; });
   child.stdout!.resume();
   return {
-    impl: "rust", address: ready.address, token: readFileSync(layout(home).coreToken, "utf8").trim(),
+    impl, address: ready.address, token: readFileSync(layout(home).coreToken, "utf8").trim(),
     stop: async () => {
       if (child.exitCode !== null || child.signalCode !== null) return;
       child.kill("SIGTERM");

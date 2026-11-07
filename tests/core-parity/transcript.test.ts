@@ -33,9 +33,19 @@ describe("normalisation", () => {
     assert.deepEqual((mixed[1]!.msg as any).params, { subscriptionId: "<id#2>" });
   });
 
+  it("numbers a uuid behind an underscore prefix too (`prj_<uuid>`, P4-10), but not one glued to a longer word", () => {
+    const [l] = normaliseTranscript([res(1, 0, 1, { id: `prj_${U1}`, same: U1, glued: `x${U2}` })]);
+    assert.deepEqual((l!.msg as any).result, { id: "prj_<id#1>", same: "<id#1>", glued: `x${U2}` });
+  });
+
   it("masks times and pids by key, keeps null, and masks ISO strings", () => {
     const [l] = normaliseTranscript([res(1, 0, 1, { pid: 4242, uptimeMs: 59, since: 1, checkedAt: null, observedAt: 7, stamp: "2026-01-01T00:00:00.000Z", count: 3 })]);
     assert.deepEqual((l!.msg as any).result, { pid: "<pid>", uptimeMs: "<time>", since: "<time>", checkedAt: null, observedAt: "<time>", stamp: "<iso>", count: 3 });
+  });
+
+  it("masks the wall-clock acceptance time and measured durations by name (P4-10), never a configured limit", () => {
+    const [l] = normaliseTranscript([res(1, 0, 1, { acceptedAt: 1767225600061, expiresAt: 1794165200112, durationMs: 4, timing: { totalMs: 22, phases: { elapsedMs: 22, completed: [{ phase: "embed", ms: 3 }] } }, recallTimeoutMs: 10000, budgetMs: 600 })]);
+    assert.deepEqual((l!.msg as any).result, { acceptedAt: "<time>", expiresAt: "<time>", durationMs: "<time>", timing: { totalMs: "<time>", phases: { elapsedMs: "<time>", completed: [{ phase: "embed", ms: "<time>" }] } }, recallTimeoutMs: 10000, budgetMs: 600 });
   });
 });
 

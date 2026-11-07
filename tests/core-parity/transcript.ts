@@ -16,10 +16,15 @@ export interface TranscriptLine { seq: number; conn: number; dir: "in" | "out"; 
 export interface CompareOptions { strictOrder?: boolean }
 export interface CompareResult { ok: boolean; diffs: string[] }
 
-const UUID = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+/** A uuid not glued to a longer word; `_` separates (a prefixed id such as `prj_<uuid>`, P4-10). */
+const UUID = /(?<![0-9a-z])[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?![0-9a-z])/gi;
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
-/** Keys whose number is a wall-clock or elapsed time. Listed by name, never by suffix: a configured `...Ms` limit is a contract value. */
-export const TIME_KEYS: ReadonlySet<string> = new Set(["since", "at", "ts", "timestamp", "createdAt", "updatedAt", "checkedAt", "observedAt", "startedAt", "finishedAt", "lastVerifiedAt", "lastAnchorAdvanced", "uptimeMs"]);
+/** Keys whose number is a wall-clock or elapsed time. Listed by name, never by suffix: a configured `...Ms` limit is a contract value.
+ *  P4-10 added the capture's `acceptedAt`, an invite's or pairing's `expiresAt` (now plus a fixed lifetime), and the
+ *  measured durations of a recall (`timing.totalMs`, `phases.elapsedMs`, the per-phase `ms`) and of a job run
+ *  (`durationMs`): two runs of the same core never see the same milliseconds. */
+export const TIME_KEYS: ReadonlySet<string> = new Set(["since", "at", "ts", "timestamp", "createdAt", "updatedAt", "checkedAt", "observedAt", "startedAt", "finishedAt", "lastVerifiedAt", "lastAnchorAdvanced", "uptimeMs",
+  "acceptedAt", "expiresAt", "durationMs", "elapsedMs", "totalMs", "ms"]);
 export const PID_KEYS: ReadonlySet<string> = new Set(["pid"]);
 
 export function parseTranscript(text: string): TranscriptLine[] {

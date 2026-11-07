@@ -60,12 +60,27 @@ exactly. The free-text `message` and the `detail` of `E_INVALID_PARAMS` are not 
 **The `rust` target (P4-10).** `--impl rust` starts `plur1bus-core serve` (`PLUR1BUS_CORE_BIN`, else
 `target/release/plur1bus-core`, else `target/debug/plur1bus-core`) with the built `packages/core/dist/core.js` behind it,
 the flat embedder and no dream scheduler. The legacy core cannot take the in-process fake clock and instance id, so a
-recording made from `ts` is compared with times, pids and uuids masked as always. `p4-10-parity.ts` replays a transcript
-against both targets and compares the two replays (the front door must add nothing), and drives the contract fixtures
-through both (gate G1).
+recording made from `ts` is compared with times, pids and uuids masked as always.
+
+**P4-10 acceptance (`p4-10-parity.ts`).** The front door must add nothing, so each transcript is replayed on two legs that
+differ only by it: the stock TypeScript core in a child process (`node packages/core/dist/core.js --home <home>
+--test-internals flat-embedder`, as `plur1bus core run` starts it with `core.impl: "ts"`) and the front door with that same
+core behind it (`startProcessTarget`). Both run on the real clock, one after the other in the same home path (so a result
+that names a path under the home is equal), and each replay starts once the engine's recall warm-up has answered
+(`settled`: the front door is ready later than a bare core, which otherwise races the warm-up differently). The two
+replays are compared; the recording is compared too, for information only. `--g1` sends every contract method fixture
+(`packages/rpc-schema/fixtures/methods`, except `core.shutdown`) in one owner session on both legs; `bridge.hello` answers
+differently by design (`G1_EXPECTED`: only the front door serves it, to the legacy core only) and is reported apart.
+`--control` replays on two stock TypeScript cores instead: the noise floor of the real clock and of random values (the
+mood line of a recall's style block and the checkpoint digest over it move with the clock; generated keys, codes, file
+names and backup ids differ on every run). `--floor` runs that control for every transcript (and G1) that differs and
+counts only the differences at places where the two stock cores agree (`beyondFloor`). P4-10 added to `TIME_KEYS` the
+capture's `acceptedAt`, `expiresAt`, and the durations of a recall (`totalMs`, `elapsedMs`, per-phase `ms`) and a job run
+(`durationMs`); a uuid behind an underscore prefix (`prj_<uuid>`, `ses_<uuid>`) is numbered like any other.
 
 ```text
 node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning tests/core-parity/run.ts [--impl ts|rust] [--strict-order] [file.ndjson ...]
+node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning tests/core-parity/p4-10-parity.ts [--g1] [--control | --floor] [--json out.json] [file.ndjson ...]
 node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning tests/core-parity/record.ts [flow ...]
 node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test tests/core-parity/*.test.ts
 ```
