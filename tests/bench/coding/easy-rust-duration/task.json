@@ -1,0 +1,21 @@
+{
+  "schema": "plur1bus.coding-task/1",
+  "id": "easy-rust-duration",
+  "tier": "easy",
+  "language": "rust",
+  "kind": "terminal",
+  "license": "MIT",
+  "origin": "self-authored",
+  "entry": "src/main.rs",
+  "signature": "duration CLI",
+  "instruction": "Repair the CLI in {{entry}}. It accepts exactly one nonempty duration argument composed of unsigned decimal groups with h, m and s suffixes, in descending order, with no duplicate units (for example 2h03m4s). Print the total seconds and one newline. Leading zeroes are valid. Reject missing digits, whitespace, missing units, extra arguments and u64 overflow with exit 2 and no stdout. Do not use a network dependency.",
+  "network": false,
+  "budgets": {
+    "tokens": 60000,
+    "rounds": 16,
+    "wallMs": 60000
+  },
+  "generator": "generate.mjs",
+  "checker": "checker.mjs",
+  "introduced": "2026-Q4"
+}

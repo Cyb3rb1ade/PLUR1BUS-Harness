@@ -20,6 +20,19 @@ const jobBlocks = yaml => Object.fromEntries(yaml.slice(yaml.indexOf('\njobs:\n'
 // A job's block also carries the comment lines written above the next job; they are not steps.
 const stepsOf = block => block.slice(block.indexOf('\n    steps:\n')).replace(/(?:^  #.*\n)+$/m, '');
 
+test('B1 fixture selftests prepare the pinned Go and Python toolchains before execution', () => {
+  for (const name of ['unit', 'unit-os']) {
+    const block = jobBlocks(workflow())[name];
+    const fixture = block.indexOf('      - name: B1 coding checker selftest');
+    const go = block.indexOf('uses: actions/setup-go@');
+    const python = block.indexOf('uses: actions/setup-python@');
+    assert.ok(fixture >= 0 && go >= 0 && go < fixture, `${name}: prepare Go before B1`);
+    assert.ok(python >= 0 && python < fixture, `${name}: prepare Python before B1`);
+    assert.match(block.slice(go, fixture), /go-version: "1\.27\.1"/);
+    assert.match(block.slice(python, fixture), /python-version: "3\.13"/);
+  }
+});
+
 test('media capability acceptance runs in a required browser shard behind the web merge gate', () => {
   const jobs = jobBlocks(workflow()), shard = jobs['web-browser-shard'];
   assert.match(shard, /^      PLUR1BUS_WEB_E2E_REQUIRED: "1"$/m);

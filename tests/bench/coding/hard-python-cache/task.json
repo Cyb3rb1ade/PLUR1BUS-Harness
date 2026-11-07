@@ -1,0 +1,21 @@
+{
+  "schema": "plur1bus.coding-task/1",
+  "id": "hard-python-cache",
+  "tier": "hard",
+  "language": "python",
+  "kind": "repository",
+  "license": "MIT",
+  "origin": "self-authored",
+  "entry": "solution.py",
+  "signature": "def BENCH_FN(path, now, ttl, compute):",
+  "instruction": "Repair {{symbol}} in {{entry}} using the standard library. Cache JSON {savedAt:number,value:JSON} at path. Return a cached value only when savedAt is finite, 0 <= now-savedAt < ttl and ttl is positive; otherwise compute exactly once. Compute/serialization failures leave the old bytes and permissions intact. On refresh write a same-directory private temporary file, flush/fsync, atomically replace, preserve an existing regular file's permission bits (new files are 0600), and clean temporary files after any failure. Invalid/missing cache content is a miss. Reject symlink cache targets. Do not swallow compute/replace failures.",
+  "network": false,
+  "budgets": {
+    "tokens": 240000,
+    "rounds": 40,
+    "wallMs": 180000
+  },
+  "generator": "generate.mjs",
+  "checker": "checker.mjs",
+  "introduced": "2026-Q4"
+}

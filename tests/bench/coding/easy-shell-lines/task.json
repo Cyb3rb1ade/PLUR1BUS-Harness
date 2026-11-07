@@ -1,0 +1,21 @@
+{
+  "schema": "plur1bus.coding-task/1",
+  "id": "easy-shell-lines",
+  "tier": "easy",
+  "language": "shell",
+  "kind": "terminal",
+  "license": "MIT",
+  "origin": "self-authored",
+  "entry": "task.sh",
+  "signature": "POSIX sh file-summary CLI",
+  "instruction": "Repair {{entry}}, a POSIX sh script accepting exactly one directory argument. For each regular non-symlink .txt file directly in that directory, emit basename, a tab and its logical line count, in LC_ALL=C basename order. An empty file has zero lines; a nonempty final line without newline counts as one. Handle directory/file names containing spaces and leading dashes. Ignore other files/subdirectories. Invalid arguments exit 2 without stdout. Paths and filenames do not contain tabs or newlines.",
+  "network": false,
+  "budgets": {
+    "tokens": 60000,
+    "rounds": 16,
+    "wallMs": 60000
+  },
+  "generator": "generate.mjs",
+  "checker": "checker.mjs",
+  "introduced": "2026-Q4"
+}

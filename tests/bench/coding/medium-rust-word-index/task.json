@@ -1,0 +1,21 @@
+{
+  "schema": "plur1bus.coding-task/1",
+  "id": "medium-rust-word-index",
+  "tier": "medium",
+  "language": "rust",
+  "kind": "terminal",
+  "license": "MIT",
+  "origin": "self-authored",
+  "entry": "src/main.rs",
+  "signature": "Unicode word-index CLI",
+  "instruction": "Repair the CLI in {{entry}}. Read UTF-8 stdin. Split words on Unicode whitespace, preserve punctuation, normalize each word using Rust to_lowercase, and output one TSV row per normalized word sorted by Rust String order: word, count, first byte offset in the original UTF-8 input. End every row with newline; empty input produces no stdout. First offsets refer to the original spelling, even when normalization changes byte length. No external dependencies.",
+  "network": false,
+  "budgets": {
+    "tokens": 120000,
+    "rounds": 24,
+    "wallMs": 120000
+  },
+  "generator": "generate.mjs",
+  "checker": "checker.mjs",
+  "introduced": "2026-Q4"
+}

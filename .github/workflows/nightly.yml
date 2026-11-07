@@ -7,6 +7,11 @@ on:
   schedule:
     - cron: "17 3 * * *"
   workflow_dispatch:
+    inputs:
+      coding-baseline-capture:
+        description: "Owner: capture B1 without an existing baseline (requires approved models and containment)"
+        type: boolean
+        default: false
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -207,6 +212,211 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with: { name: turn-eval-live, path: artifacts/turn-eval/ }
+
+  coding-bench-plan:
+    # The owner enables this only after a real B1 baseline and usable containment are available.
+    if: ${{ (vars.PLUR1BUS_CODING_BENCH_ENABLED == 'true' || (github.event_name == 'workflow_dispatch' && inputs.coding-baseline-capture)) && vars.PLUR1BUS_TURN_EVAL_MODELS != '' }}
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24.21.0 }
+      - id: matrix
+        env:
+          PLUR1BUS_TURN_EVAL_MODELS: ${{ vars.PLUR1BUS_TURN_EVAL_MODELS }}
+        # Only numeric indexes reach outputs. The run step applies the full approved model parser.
+        run: |
+          node --input-type=module <<'NODE'
+          import { appendFileSync } from 'node:fs';
+          try {
+            const models = JSON.parse(process.env.PLUR1BUS_TURN_EVAL_MODELS);
+            if (!Array.isArray(models) || !models.length || models.length > 32) process.exit(1);
+            const matrix = { model: models.map((_, index) => index) };
+            appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${JSON.stringify(matrix)}\n`);
+          } catch { process.exit(1); }
+          NODE
+
+  coding-bench-smoke:
+    needs: coding-bench-plan
+    if: ${{ needs.coding-bench-plan.result == 'success' && github.event_name == 'workflow_dispatch' && inputs.coding-baseline-capture }}
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix: ${{ fromJSON(needs.coding-bench-plan.outputs.matrix || '{"model":[0]}') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24.21.0, cache: pnpm }
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)
+        with: { toolchain: "1.95" }
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with: { go-version: "1.27.1", cache: false }
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+        with: { save-if: "${{ github.ref == 'refs/heads/main' }}" }
+      - name: frozen dependencies (engine credential scoped to this step)
+        shell: bash
+        env:
+          GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+        run: |
+          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"; else base="https://github.com/"; fi
+          n=0
+          for from in $([ -n "${GH_ENGINE_READ_TOKEN}" ] && echo "https://github.com/") "git@github.com:" "ssh://git@github.com/"; do
+            export "GIT_CONFIG_KEY_$n=url.${base}.insteadOf" "GIT_CONFIG_VALUE_$n=$from"
+            n=$((n + 1))
+          done
+          export GIT_CONFIG_COUNT=$n
+          unset GH_ENGINE_READ_TOKEN base
+          pnpm install --frozen-lockfile
+      - name: install the existing verifier backend
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q bubblewrap
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: generate types and build the native preflight binaries
+        run: |
+          pnpm gen
+          cargo build --locked -p plur1bus-tools --bin plur1bus-tools
+          cargo build --locked -p plur1bus --bin plur1bus-sandbox-limits
+      - name: store provider keys and a runtime canary in the disposable eval store
+        env:
+          PLUR1BUS_TURN_EVAL_MODELS: ${{ vars.PLUR1BUS_TURN_EVAL_MODELS }}
+          PLUR1BUS_CODING_BENCH_MODEL_INDEX: ${{ matrix.model }}
+          PLUR1BUS_CODING_BENCH_HOME: ${{ runner.temp }}/coding-smoke-home
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        run: node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/eval/coding-bench.ts --setup
+      - name: one real case before the complete model matrix
+        env:
+          PLUR1BUS_TURN_EVAL_MODELS: ${{ vars.PLUR1BUS_TURN_EVAL_MODELS }}
+          PLUR1BUS_CODING_BENCH_MODEL_INDEX: ${{ matrix.model }}
+          PLUR1BUS_CODING_BENCH_HOME: ${{ runner.temp }}/coding-smoke-home
+          PLUR1BUS_TOOLS_BIN: ${{ github.workspace }}/target/debug/plur1bus-tools
+          PLUR1BUS_SANDBOX_LIMITS_BIN: ${{ github.workspace }}/target/debug/plur1bus-sandbox-limits
+        # Captured output reaches the job log only after the canary scan succeeds.
+        run: |
+          mkdir -p artifacts/coding-smoke
+          node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/eval/coding-bench.ts --smoke --out artifacts/coding-smoke/report.json > artifacts/coding-smoke/run.log 2>&1
+      - name: scan report and evaluator log before publishing either
+        id: coding-canary
+        if: always()
+        env:
+          PLUR1BUS_TURN_EVAL_MODELS: ${{ vars.PLUR1BUS_TURN_EVAL_MODELS }}
+          PLUR1BUS_CODING_BENCH_MODEL_INDEX: ${{ matrix.model }}
+          PLUR1BUS_CODING_BENCH_HOME: ${{ runner.temp }}/coding-smoke-home
+        run: |
+          report=()
+          if [ -f artifacts/coding-smoke/report.json ]; then report=(--report artifacts/coding-smoke/report.json); fi
+          node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/eval/coding-bench.ts --scan "${report[@]}" --log artifacts/coding-smoke/run.log
+          cat artifacts/coding-smoke/run.log
+      - name: remove the eval home
+        if: always()
+        run: rm -rf "${{ runner.temp }}/coding-smoke-home"
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        if: ${{ always() && steps.coding-canary.outcome == 'success' && hashFiles('artifacts/coding-smoke/report.json') != '' }}
+        with:
+          name: coding-bench-smoke-${{ matrix.model }}
+          path: artifacts/coding-smoke/report.json
+          if-no-files-found: error
+
+  coding-bench-live:
+    needs: [coding-bench-plan, coding-bench-smoke]
+    if: >-
+      ${{ !cancelled() && needs.coding-bench-plan.result == 'success' &&
+          (needs.coding-bench-smoke.result == 'success' ||
+           (needs.coding-bench-smoke.result == 'skipped' &&
+            !(github.event_name == 'workflow_dispatch' && inputs.coding-baseline-capture))) }}
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix: ${{ fromJSON(needs.coding-bench-plan.outputs.matrix || '{"model":[0]}') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 320
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24.21.0, cache: pnpm }
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)
+        with: { toolchain: "1.95" }
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with: { go-version: "1.27.1", cache: false }
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+        with: { save-if: "${{ github.ref == 'refs/heads/main' }}" }
+      - name: frozen dependencies (engine credential scoped to this step)
+        shell: bash
+        env:
+          GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+        run: |
+          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"; else base="https://github.com/"; fi
+          n=0
+          for from in $([ -n "${GH_ENGINE_READ_TOKEN}" ] && echo "https://github.com/") "git@github.com:" "ssh://git@github.com/"; do
+            export "GIT_CONFIG_KEY_$n=url.${base}.insteadOf" "GIT_CONFIG_VALUE_$n=$from"
+            n=$((n + 1))
+          done
+          export GIT_CONFIG_COUNT=$n
+          unset GH_ENGINE_READ_TOKEN base
+          pnpm install --frozen-lockfile
+      - name: install the existing verifier backend
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q bubblewrap
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: generate types and build the native preflight binaries
+        run: |
+          pnpm gen
+          cargo build --locked -p plur1bus-tools --bin plur1bus-tools
+          cargo build --locked -p plur1bus --bin plur1bus-sandbox-limits
+      - name: store provider keys and a runtime canary in the disposable eval store
+        env:
+          PLUR1BUS_TURN_EVAL_MODELS: ${{ vars.PLUR1BUS_TURN_EVAL_MODELS }}
+          PLUR1BUS_CODING_BENCH_MODEL_INDEX: ${{ matrix.model }}
+          PLUR1BUS_CODING_BENCH_HOME: ${{ runner.temp }}/coding-bench-home
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        run: node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/eval/coding-bench.ts --setup
+      - name: real coding profile, 72 cases, paired against the owner's committed baseline
+        env:
+          PLUR1BUS_TURN_EVAL_MODELS: ${{ vars.PLUR1BUS_TURN_EVAL_MODELS }}
+          PLUR1BUS_CODING_BENCH_MODEL_INDEX: ${{ matrix.model }}
+          PLUR1BUS_CODING_BENCH_HOME: ${{ runner.temp }}/coding-bench-home
+          PLUR1BUS_TOOLS_BIN: ${{ github.workspace }}/target/debug/plur1bus-tools
+          PLUR1BUS_SANDBOX_LIMITS_BIN: ${{ github.workspace }}/target/debug/plur1bus-sandbox-limits
+          PLUR1BUS_CODING_BASELINE_CAPTURE: ${{ github.event_name == 'workflow_dispatch' && inputs.coding-baseline-capture }}
+        # Captured output reaches the job log only after the canary scan succeeds.
+        run: |
+          mkdir -p artifacts/coding-bench
+          if [ "$PLUR1BUS_CODING_BASELINE_CAPTURE" = true ]; then
+            node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/eval/coding-bench.ts --live --out artifacts/coding-bench/report.json
+          else
+            node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/eval/coding-bench.ts --live --baseline docs/evals/2026-10-baseline-coding-bench.json --out artifacts/coding-bench/report.json
+          fi > artifacts/coding-bench/run.log 2>&1
+      - name: scan report and evaluator log before publishing either
+        id: coding-canary
+        if: always()
+        env:
+          PLUR1BUS_TURN_EVAL_MODELS: ${{ vars.PLUR1BUS_TURN_EVAL_MODELS }}
+          PLUR1BUS_CODING_BENCH_MODEL_INDEX: ${{ matrix.model }}
+          PLUR1BUS_CODING_BENCH_HOME: ${{ runner.temp }}/coding-bench-home
+        run: |
+          report=()
+          if [ -f artifacts/coding-bench/report.json ]; then report=(--report artifacts/coding-bench/report.json); fi
+          node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/eval/coding-bench.ts --scan "${report[@]}" --log artifacts/coding-bench/run.log
+          cat artifacts/coding-bench/run.log
+      - name: remove the eval home
+        if: always()
+        run: rm -rf "${{ runner.temp }}/coding-bench-home"
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        if: ${{ always() && steps.coding-canary.outcome == 'success' && hashFiles('artifacts/coding-bench/report.json') != '' }}
+        with:
+          name: coding-bench-live-${{ matrix.model }}
+          path: artifacts/coding-bench/report.json
+          if-no-files-found: error
 
   m2-live-proof:
     # Independent, non-gating acceptance: never called from the pull-request workflow.

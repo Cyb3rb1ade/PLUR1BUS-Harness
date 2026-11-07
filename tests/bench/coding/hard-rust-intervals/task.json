@@ -1,0 +1,21 @@
+{
+  "schema": "plur1bus.coding-task/1",
+  "id": "hard-rust-intervals",
+  "tier": "hard",
+  "language": "rust",
+  "kind": "repository",
+  "license": "MIT",
+  "origin": "self-authored",
+  "entry": "src/solution.rs",
+  "signature": "pub fn BENCH_FN(input: &[(i64, i64)]) -> Vec<(i64, i64)>",
+  "instruction": "Repair {{symbol}} in {{entry}}. Each pair denotes an inclusive integer interval; normalize reversed endpoints, sort by start/end, and merge overlapping or adjacent intervals. Handle i64::MIN and i64::MAX without overflow. Return the canonical sorted, disjoint, non-adjacent intervals without mutating input. Empty input returns an empty vector.",
+  "network": false,
+  "budgets": {
+    "tokens": 240000,
+    "rounds": 40,
+    "wallMs": 180000
+  },
+  "generator": "generate.mjs",
+  "checker": "checker.mjs",
+  "introduced": "2026-Q4"
+}

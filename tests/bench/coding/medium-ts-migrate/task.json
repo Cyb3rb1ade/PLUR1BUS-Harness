@@ -1,0 +1,21 @@
+{
+  "schema": "plur1bus.coding-task/1",
+  "id": "medium-ts-migrate",
+  "tier": "medium",
+  "language": "typescript",
+  "kind": "terminal",
+  "license": "MIT",
+  "origin": "self-authored",
+  "entry": "src/main.ts",
+  "signature": "JSON migration CLI",
+  "instruction": "Repair {{entry}}, run directly with Node's TypeScript stripping. Read one JSON document from stdin: a closed object {version:1, entries:[{key:string,value:string}, ...]}. Produce {version:2, values:{...}} as one JSON line. Trim keys, reject empty or duplicate normalized keys, preserve string values, and treat __proto__ and constructor as ordinary data keys. Validate the entire input before printing anything. Unknown keys, wrong types, trailing data and malformed JSON exit 2 without stdout.",
+  "network": false,
+  "budgets": {
+    "tokens": 120000,
+    "rounds": 24,
+    "wallMs": 120000
+  },
+  "generator": "generate.mjs",
+  "checker": "checker.mjs",
+  "introduced": "2026-Q4"
+}

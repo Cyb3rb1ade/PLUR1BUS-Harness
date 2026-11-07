@@ -1,0 +1,21 @@
+{
+  "schema": "plur1bus.coding-task/1",
+  "id": "easy-go-unique",
+  "tier": "easy",
+  "language": "go",
+  "kind": "repository",
+  "license": "MIT",
+  "origin": "self-authored",
+  "entry": "solution.go",
+  "signature": "func BENCH_FN(values []string) []string",
+  "instruction": "Repair {{symbol}} in {{entry}}. Remove duplicate strings stably, comparing exact UTF-8 strings without normalization. Return a non-nil empty slice for nil or empty input. Do not mutate the input slice or its backing array. Keep package benchmark and the existing signature.",
+  "network": false,
+  "budgets": {
+    "tokens": 60000,
+    "rounds": 16,
+    "wallMs": 60000
+  },
+  "generator": "generate.mjs",
+  "checker": "checker.mjs",
+  "introduced": "2026-Q4"
+}

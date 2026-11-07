@@ -1,0 +1,21 @@
+{
+  "schema": "plur1bus.coding-task/1",
+  "id": "medium-shell-retain",
+  "tier": "medium",
+  "language": "shell",
+  "kind": "terminal",
+  "license": "MIT",
+  "origin": "self-authored",
+  "entry": "task.sh",
+  "signature": "Snapshot retention CLI",
+  "instruction": "Repair {{entry}}, a POSIX sh script taking directory and keep-count arguments. Only regular non-symlink files named snap-<unsigned decimal timestamp>.dat directly inside the directory are snapshots. Keep the numerically newest keep-count snapshots and delete older ones; ties are broken by LC_ALL=C filename order, retaining earlier names first. Zero keeps none. Ignore unrelated names, directories and symlinks. Validate arguments before deleting anything. Filenames contain no tabs/newlines; timestamps fit nine decimal digits. Success prints nothing.",
+  "network": false,
+  "budgets": {
+    "tokens": 120000,
+    "rounds": 24,
+    "wallMs": 120000
+  },
+  "generator": "generate.mjs",
+  "checker": "checker.mjs",
+  "introduced": "2026-Q4"
+}

@@ -1,0 +1,21 @@
+{
+  "schema": "plur1bus.coding-task/1",
+  "id": "easy-python-normalize",
+  "tier": "easy",
+  "language": "python",
+  "kind": "terminal",
+  "license": "MIT",
+  "origin": "self-authored",
+  "entry": "normalize.py",
+  "signature": "Unicode normalization CLI",
+  "instruction": "Repair {{entry}}. Read all UTF-8 stdin, normalize every run of Unicode whitespace to a single ASCII space, strip leading/trailing whitespace, and apply Unicode casefold. Print exactly the normalized string followed by one newline. Empty or all-whitespace input produces a single newline. No external packages.",
+  "network": false,
+  "budgets": {
+    "tokens": 60000,
+    "rounds": 16,
+    "wallMs": 60000
+  },
+  "generator": "generate.mjs",
+  "checker": "checker.mjs",
+  "introduced": "2026-Q4"
+}

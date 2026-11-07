@@ -449,6 +449,8 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
     const summaryMessages = req.summaries.map((content): ChatMessage => ({ role: 'user', content }));
     let messages: ChatMessage[] = [
       ...summaryMessages,
+      ...(req.peerResults?.length && !summaryMessages.length
+        ? [{ role: 'user' as const, content: 'Results from prior work follow.' }] : []),
       ...(req.peerResults ?? []).flatMap((p): ChatMessage[] => [
         { role: 'assistant', content: null, toolCalls: [{ id: p.id, name: p.name, arguments: '{}' }] },
         { role: 'tool', toolCallId: p.id, content: p.text },
@@ -491,7 +493,7 @@ export function createTurnProvider(o: TurnProviderOptions): ChatProvider & { tel
         const directive = req.reasoning !== undefined && req.role !== 'summarize' && o.reasoningFor ? directiveFor(req.reasoning, o.reasoningFor(c.provider, c.model)) : undefined;
         const effectiveReasoning = directive ?? request.reasoning;
         const choice = toolChoiceForTurn({ mode: req.role ? 'auto' : mode, need, round: modelRound,
-          hasToolCall: hasModelToolCall, tools: selected.map(tool => tool.name), family: dialect,
+          hasToolCall: hasModelToolCall, tools: selected.map(tool => tool.name), family: dialect, model: c.model,
           local: isLocal(c.provider, c.model), thinking: effectiveReasoning?.adaptiveThinking === true
             || (effectiveReasoning?.vendorParam === 'thinking.budget_tokens' && Number(effectiveReasoning.value) > 0) });
         const toolChoice = typeof choice.choice === 'object'

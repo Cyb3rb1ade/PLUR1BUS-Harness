@@ -33,6 +33,16 @@ The implemented path passes 20/20 scenarios, executes 20/20 required tools and l
 exercise forbidden calls and verify zero executed effects; their evidence is not
 retroactively attributed to the original baseline.
 
+### November 6 input corrections
+
+The current corpus clarifies two bilingual task pairs. `web-needed` now names
+Node.js releases as its research topic. `discovery` explicitly asks to fetch
+`https://example.com/report`, matching its existing `web.fetch` gold requirement.
+That pair measures fetch selection and does not establish capability discovery
+coverage. Required tools, denominators and live gate thresholds are unchanged.
+These inputs form a new evaluation revision. Results must be recorded separately
+from earlier runs and must not be attributed to the historical baseline above.
+
 ## Real-model nightly
 
 The separate `turn-eval-live` job in `nightly.yml` runs when repository variable
@@ -48,7 +58,7 @@ credentials:
   {
     "provider": "anthropic",
     "model": "configured-default-model",
-    "baseUrl": "https://api.anthropic.com",
+    "baseUrl": "https://api.anthropic.com/v1",
     "wireFormat": "anthropic_messages"
   }
 ]
@@ -115,3 +125,199 @@ also keeps each harness check, so a model-quality rate cannot hide a specific
 contract failure. Supplemental denied-tool scenarios count actual model
 attempts and actual fixture effects; no expected transcript supplies live counts.
 Artifacts are uploaded even when a configured model misses the targets.
+
+## B1 coding benchmark
+
+D120 §6.6 / Q21 adds 24 original MIT tasks under [`tests/bench/coding`](../tests/bench/coding/README.md): eight per tier,
+five languages, twelve repository and twelve terminal tasks. Three task seeds yield 72 cases per model and arm. The initial
+arm is `single`, using the real `composeTools` and `createTurnProvider` coding profile, its dispatcher/policy, task grants and
+call budget. `CodingArmFactory` is the explicit PT-2 extension point; team and best-of-n are not implemented. The
+`hostCodingArm` hook consumes the existing `HostEvalModel` / `HostEvalHarness` registry and dispatcher. A host session must
+bind its provider's token budget and abort signal and close every owned request/process; missing usage remains null.
+
+The reserved `tests/bench/coding/team/` subtree belongs to TM2. B1 excludes it from discovery, file limits and its corpus
+fingerprint; adding team fixtures does not change the 24-task B1 matrix or invalidate its paired baseline.
+
+**Preparation gate:** #820 (the shared provisioner and narrow Linux writable-worktree opt-in) and K2a (normal native-turn
+mount pass-through) must be merged before owner live acceptance or enabling `coding-bench-live`. K2 changes neither sandbox
+validation nor its backend. Its runtime dependency check fails closed until those APIs exist. After each dependency merges,
+merge approved `main`, verify actual provisioned card-turn integration, and obtain the separate Claude review of K2a. No RPC
+change is needed by B1. K3–K8 remain blocked until the owner live baseline is committed (D120 Gate 2); K1 has the owner's
+explicit H1-1 exception. Do not create a placeholder baseline or relabel fixture evidence as live.
+
+K2a is a separate ready PR based on main after #820 merges. Its [implementation and acceptance plan](superpowers/plans/2026-11-01-k2a-native-card-worktrees.md)
+includes H-1, H-2, M-1, M-2, M-4 and L-5 from the owner's #820 review. In particular, native binding requires a live card
+assignment to the actual agent; neither a model-selected card nor the root checkout is a writable grant. The planned mount
+API receives `agentId` as well as project/card identity. K2 does not implement that security boundary or treat its absence
+as a model loss.
+
+### Per-PR fixture validity
+
+Use the repository Node 24.21 and Rust toolchain. Python 3, Go >=1.22 and POSIX shell must be installed; the runner never
+bootstraps a toolchain or downloads task dependencies. The selected Linux unit job runs:
+
+```sh
+node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/eval/coding-bench.ts --fixture
+```
+
+All 72 starting instances must fail and all 72 reference instances must pass the same hidden assertions. This is trusted
+original-fixture execution, without a model, credential setup, Git worktree or live writable mount. The optional `--out`
+file is explicitly `plur1bus.coding-fixture/1`, `fixture-selftest`; it cannot be parsed as a live report. Missing runtimes or
+unsupported execution fail instead of producing successful skips. Core unit tests exercise the unavailable Windows port;
+trusted fixture commands support Linux/macOS. Live captures support Linux only, matching Nightly.
+
+### Owner capture after #820 and K2a
+
+For an explicit `coding-baseline-capture` dispatch, `coding-bench-smoke` runs exactly one task/seed for each owner-selected
+model. Every model's smoke job must succeed before any full capture starts. Regular scheduled comparisons execute their
+72-case matrix directly. The smoke uses the existing setup and scan commands with its own disposable home. Its command is
+
+```sh
+node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/eval/coding-bench.ts \
+  --smoke --out artifacts/coding-smoke/report.json
+```
+
+Select one model with `PLUR1BUS_CODING_BENCH_MODEL_INDEX`. A `plur1bus.coding-smoke/1` report records the first case after
+cleanup. Readiness requires a completed, resolved case with authoritative usage. Failure, cancellation, missing usage or
+failed cleanup stops the full capture. Review an unresolved smoke before scheduling a complete capture.
+
+Use the same versioned provider endpoints, disposable credential setup, assigned-card provisioner, native dispatcher and
+network-isolated verifier as the full capture. Record provider/tool startup, bounded completion, authoritative usage and
+cleanup for each model. Keep these smoke results in a separate preflight record. Complete baseline reports retain the full
+72-case denominator per model and arm. Start the complete capture after all model smoke checks have usable infrastructure
+and the owner has supplied the model variable and provider secrets. The owner reviews the complete live results before
+baseline publication.
+
+Use the same approved `PLUR1BUS_TURN_EVAL_MODELS` list as `turn-eval-live`, with no credential fields. Its existing D110
+OpenAI restrictions remain in force. The only scheduled vendor credentials are `ANTHROPIC_API_KEY` and `GOOGLE_API_KEY`.
+They reach setup alone, which writes an encrypted disposable store with OS keyring disabled and creates a runtime canary.
+An existing home refuses setup; cleanup requires the private marker, so the owner's real runtime home cannot be adopted.
+
+The owner may manually dispatch `nightly` with `coding-baseline-capture=true` after reviewing the prerequisites. Each model
+gets its own Linux job, 72 cases, at most two model jobs simultaneously. This explicit capture does not require a previous
+baseline. A normal nightly requires `PLUR1BUS_CODING_BENCH_ENABLED=true`, configured models and the committed live JSON
+baseline. This preparation neither sets those variables nor dispatches a live job.
+
+For a manual Linux capture, first build the existing binaries:
+
+```sh
+cargo build --locked -p plur1bus-tools --bin plur1bus-tools
+cargo build --locked -p plur1bus --bin plur1bus-sandbox-limits
+```
+
+With the approved model configuration and setup-only credentials already in the owner's environment:
+
+```sh
+set -e
+coding_parent=$(mktemp -d)
+export PLUR1BUS_CODING_BENCH_HOME="$coding_parent/eval"
+export PLUR1BUS_CODING_BENCH_REVISION=$(git rev-parse HEAD)
+export PLUR1BUS_TOOLS_BIN="$PWD/target/debug/plur1bus-tools"
+export PLUR1BUS_SANDBOX_LIMITS_BIN="$PWD/target/debug/plur1bus-sandbox-limits"
+coding_eval() {
+  env -u ANTHROPIC_API_KEY -u GOOGLE_API_KEY node --experimental-strip-types --conditions=source \
+    --no-warnings=ExperimentalWarning scripts/eval/coding-bench.ts "$@"
+}
+coding_cleanup() {
+  if [ -d "$PLUR1BUS_CODING_BENCH_HOME" ]; then coding_eval --cleanup; fi
+  rmdir "$coding_parent"
+}
+trap coding_cleanup EXIT
+node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/eval/coding-bench.ts --setup
+mkdir -p artifacts/coding-bench
+coding_eval --live --out artifacts/coding-bench/capture.json > artifacts/coding-bench/capture.log 2>&1
+coding_eval --scan --report artifacts/coding-bench/capture.json --log artifacts/coding-bench/capture.log
+cat artifacts/coding-bench/capture.log
+```
+
+Choose new output paths for another capture: the report path is reserved exclusively before any model work. A missing,
+already reserved or existing output refuses before paid cases; failed captures remove their own uncommitted reservation. An
+optional `PLUR1BUS_CODING_BENCH_MODEL_INDEX` selects exactly one zero-based entry for setup and capture. A partial model
+selection is explicit; the nightly's baseline scope is the same selected configuration and refuses a missing one.
+
+The runner creates fresh project/card worktrees through `GitWorktreeProvisioner`, under each private home's `state/worktrees`.
+Only the card worktree is granted. Its trusted `codingWorktree` request binding selects that root and its DB-pinned opaque
+mount goes through the normal native turn after K2a; no raw path or
+extra writable runtime directory substitutes for it. Runtime copies/caches live in the card's ignored `.build` directory.
+Every worktree has its own whole seed/home and database; cleanup removes that owned tree without running host Git against
+post-agent metadata. Hidden checkers/reference solutions never enter the agent's seed or readable files. Verification uses
+a separate provisioned private worktree and the existing network-disabled verifier with its namespace process-count cap;
+a missing cap mechanism fails preflight. Provisioning, verifier and cleanup failures invalidate capture rather than becoming
+measured model losses. Expected values remain in the parent.
+
+### Reports, baseline and comparisons
+
+The November 6 snapshot correction skips symlinks and nonregular fixture entries without following or copying them.
+Each new case records `ignoredEntries`, including skipped names that cannot safely be restored on all supported hosts.
+The snapshot excludes ordinary Git/build/cache directories separately; a symlink or special file with one of those
+names is counted before that exclusion. A count on an `invalid-image` row covers entries observed before the limit or
+entry check stopped capture and may be partial. Skipped entries still consume the 2,048-entry
+limit. Depth (32), total bytes (16 MiB), and the requirement for a regular task entry remain enforced. Those violations
+produce `invalid-image`; an invalid provisioned root and unexpected filesystem I/O failures propagate as infrastructure errors. The checker runs against
+the remaining regular source files. A reference solution with symlink fixtures now reaches the hidden checker.
+
+Historical reports omit `ignoredEntries`; their missing count remains unknown. The parser retains these reports for
+audit, refuses mixed old/new case shapes, and leaves cases with old/new snapshot rules unpaired and incomparable. The initial November 6
+Sonnet/Haiku captures at `25d5be27fc8a16cdd545be605f07289ebf26a403` retain their original results in
+[run 42289344197](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/actions/runs/42289344197).
+The owner's corrected baseline requires complete new captures of both models on the same revision and day, with the
+existing task budgets. The follow-up Haiku-only run at that old revision was cancelled before completion.
+
+The closed live format is `plur1bus.coding-bench/1`, `evidence: live`. It records corpus hash, harness revision, runtime and
+RPC versions, model/configuration identities and capture dates, arms and the full task/seed matrix. Endpoints, credentials,
+source, model responses and tool transcripts are excluded. Publication applies the full Core redactor, validates the result
+again, and scans raw/encoded secret forms. Nightly captures evaluator stdout/stderr privately, scans report and log, then
+prints the scanned log and uploads only `report.json`. A failed scan blocks both publication paths. The eval home is always
+deleted, including after failed setup/run/scan. Never upload the home or an unscanned log.
+
+K2 owns this report format and `plur1bus.coding-comparison/1`; TM2 consumes the same contract. The shared environment
+allowlist is exactly `platform`, `node`, `rust`, `go`, `python`, `rpc` (`CODING_ENVIRONMENT_KEYS` and
+`parseCodingEnvironment` in `coding-bench-report.ts`). Platform is `linux`; versions have three numeric components.
+Extra environment fields refuse publication. Normalization makes object-key insertion order irrelevant to capture merging.
+
+Report `arms` are closed `{ id, family, params }` definitions; each case's `arm` references one canonical ID. Producers use
+`defineCodingArm` / `canonicalArmId` from `coding-bench-arms.ts`, and `CodingArmFactory` supplies `{ family, params, create }`.
+The single control is `{ id: "single", family: "single", params: {} }`. Parameterized IDs retain TM2's existing encoding:
+the family prefix (`+` rendered as `-`) and 32 hexadecimal SHA-256 characters over the canonical family/parameter JSON.
+Object keys sort recursively, array order remains significant, and changing parameters changes identity. Params are public
+configuration data, never credentials, endpoints, private paths or model output. Only plain finite JSON data is allowed,
+bounded to depth 32, 4,096 nodes and 16 KiB of parameter JSON. Accessors, custom serialization, cycles and sparse arrays
+are refused. Publication recomputes IDs, rejects duplicates and retains normalized parameter copies. Declaring an arm does
+not enable it; execution still requires an explicitly supplied factory whose returned arm has the same identity.
+
+`wallMs` measures the solve turn including tool/provider work and cleanup; trusted workspace/runtime provisioning is outside
+that interval. `verificationMs` is separate. Usage aggregates authoritative per-request uncached input, cache-read, cache-create
+and output buckets, including retries; cumulative turn usage is not added again. Cache-read share is total cache reads divided
+by total input, including cache reads/writes. A provider's estimated/partial usage is null and invalidates baseline completeness.
+Syntax refusals, offloads, steers and rewinds are null until those features expose measurements. Budget exhaustion is a valid
+unresolved result; provider, provisioning or isolation failures do not become a successful measurement.
+
+Download the scanned owner captures. Independent model captures can be combined only with identical corpus, revision,
+runtimes, task matrix and arms; duplicate configurations refuse. Their individual capture dates remain intact:
+
+```sh
+node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/eval/coding-bench.ts \
+  --merge --reports '["capture-model-0.json","capture-model-1.json"]' --out artifacts/coding-bench/baseline.json
+node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/eval/coding-bench.ts \
+  --render-baseline --report artifacts/coding-bench/baseline.json --out docs/evals/2026-10-baseline-coding-bench.md
+```
+
+For one capture, render that file directly. Only after owner review of real, complete Linux evidence, commit its JSON as
+`docs/evals/2026-10-baseline-coding-bench.json` beside the generated Markdown above. Neither file is created by K2 preparation.
+Both are needed: Markdown gives counts by model/tier/language and metrics; JSON preserves the exact pairing identities.
+
+Normal nightly passes `--baseline` to `--live`, embedding the paired comparison. The standalone comparison is:
+
+```sh
+node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/eval/coding-bench.ts \
+  --compare --baseline docs/evals/2026-10-baseline-coding-bench.json --candidate candidate.json --out comparison.json
+```
+
+Pair identities include corpus, credential-free model configuration, task and seed; arm selection is explicit. Every model
+reports both-resolved, both-unresolved, improved, regressed, unmatched-baseline and unmatched-candidate counts, delta and the
+exact two-sided sign probability. Changed runtimes, missing/duplicate pairs or incomplete measurements cannot pass. Harness
+revision and RPC version are recorded but may change across an ACI delta. A lower overall resolved rate for any paired model
+blocks the delta gate regardless of its p-value. Tier/language denominators stay visible; models are never averaged to hide
+a regression. Seed variants within a task are related observations; the sign probability is descriptive evidence, not an
+independence claim or permission to override the owner's no-regression rule. Quarterly corpus rotation requires a fresh owner
+baseline; old and new hashes are never silently paired.

@@ -66,6 +66,7 @@ export interface ToolChoiceInput {
   hasToolCall?: boolean;
   tools: readonly string[];
   family: ProviderFamily;
+  model?: string;
   local?: boolean;
   modelFamily?: string;
   thinking?: boolean;
@@ -76,7 +77,7 @@ export interface ToolChoiceInput {
 export interface TurnToolChoice {
   choice: ToolChoice;
   forced: boolean;
-  suppressed?: "anthropic-thinking" | "local-unverified" | "no-tools";
+  suppressed?: "anthropic-thinking" | "model-unsupported" | "local-unverified" | "no-tools";
 }
 
 /** Evaluate per provider attempt, after reasoning selection; canonical names are aliased by the wire wrapper. */
@@ -88,6 +89,9 @@ export function toolChoiceForTurn(input: ToolChoiceInput): TurnToolChoice {
     return automatic;
   }
   if (!input.tools.length) return { ...automatic, suppressed: "no-tools" };
+  if (!lookupQuirks(input.family, input.model).supportsForcedToolChoice) {
+    return { ...automatic, suppressed: "model-unsupported" };
+  }
   if (input.family === "anthropic" && input.thinking) return { ...automatic, suppressed: "anthropic-thinking" };
   // Local compatibility is an evidenced model-family quirk, never inferred from a server's OpenAI-shaped wire.
   const quirks = lookupQuirks(input.modelFamily ?? "local-small");

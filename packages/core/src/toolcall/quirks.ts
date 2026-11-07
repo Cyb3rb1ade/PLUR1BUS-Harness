@@ -44,6 +44,9 @@ export const QUIRKS: Readonly<Record<string, Readonly<ModelQuirks>>> = Object.fr
   }),
 });
 const FALLBACK: Readonly<ModelQuirks> = Object.freeze({ ...QUIRKS["local-small"]! });
-export function lookupQuirks(modelFamily: string): Readonly<ModelQuirks> {
+// Anthropic's Sonnet 5.5 API rejects both forced-choice variants, including with thinking disabled.
+const SONNET_55: Readonly<ModelQuirks> = Object.freeze({ ...QUIRKS.anthropic!, supportsForcedToolChoice: false });
+export function lookupQuirks(modelFamily: string, model?: string): Readonly<ModelQuirks> {
+  if (modelFamily === "anthropic" && model === "claude-sonnet-5-5") return SONNET_55;
   return Object.hasOwn(QUIRKS, modelFamily) ? QUIRKS[modelFamily]! : FALLBACK;
 }
