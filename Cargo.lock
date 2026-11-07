@@ -5586,6 +5586,7 @@ dependencies = [
  "libc",
  "minisign",
  "minisign-verify",
+ "plur1bus-audit",
  "plur1bus-config",
  "plur1bus-containers",
  "plur1bus-ext",
@@ -5627,6 +5628,19 @@ dependencies = [
  "serde_json",
  "windows",
  "windows-future",
+]
+
+[[package]]
+name = "plur1bus-audit"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "plur1bus-rpc",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "uuid",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
