@@ -75,7 +75,7 @@ export function validApiPrincipal(v: unknown): v is ApiPrincipal {
   const p = v as Record<string, unknown>;
   if (Object.keys(p).some(k => !["userId", "kind", "role", "agentRights", "projectRights", "tokenScopes", "tokenId", "binding"].includes(k))) return false;
   if (typeof p.userId !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,255}$/.test(p.userId) || !roles.has(String(p.role)) || !["person", "agent"].includes(String(p.kind))) return false;
-  for (const [key, values] of [["agentRights", ["use", "manage"]], ["projectRights", ["member", "lead"]]] as const) {
+  for (const [key, values] of [["agentRights", ["use", "manage"]], ["projectRights", ["member", "lead", "worker", "reviewer"]]] as const) {
     const rights = p[key];
     if (rights !== undefined && (!rights || typeof rights !== "object" || Array.isArray(rights) || Object.entries(rights).some(([k, x]) => !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,255}$/.test(k) || !(values as readonly unknown[]).includes(x)))) return false;
   }

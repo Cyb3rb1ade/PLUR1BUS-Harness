@@ -35,3 +35,17 @@ test('TK1 hashes ignore object insertion order but retain array order and conten
   assert.equal(teamHash({ a: 1, b: [2, 3] }), teamHash({ b: [2, 3], a: 1 }));
   assert.notEqual(teamHash({ a: [2, 3] }), teamHash({ a: [3, 2] }));
 });
+
+test('TK1 applies the D104 byte bound to the complete brief and refuses aggregate budget overflow', () => {
+  const plan = structuredClone(fixture);
+  plan.packages[0]!.objective = '';
+  const overhead = Buffer.byteLength(JSON.stringify(plan.packages[0]), 'utf8');
+  plan.packages[0]!.objective = 'x'.repeat(2000 - overhead);
+  assertTeamPlan(plan);
+  plan.packages[0]!.objective += 'ü';
+  assert.throws(() => assertTeamPlan(plan));
+  const budgets = structuredClone(fixture);
+  budgets.sections[0]!.budget.tokens = Number.MAX_SAFE_INTEGER;
+  budgets.sections.push({ ...budgets.sections[0]!, key: 'later', budget: { tokens: 1, wallTimeMs: 1 }, mergeOrder: [] });
+  assert.throws(() => assertTeamPlan(budgets));
+});

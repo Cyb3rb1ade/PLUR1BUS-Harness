@@ -85,7 +85,63 @@ fn workflow_deploys(workflow: &Value, branch: &str) -> bool {
     if !root.contains_key("on") || !root.contains_key("jobs") {
         return true;
     }
+    let known_events = [
+        "push",
+        "pull_request",
+        "pull_request_target",
+        "workflow_dispatch",
+        "workflow_call",
+        "workflow_run",
+        "schedule",
+        "release",
+        "create",
+        "delete",
+        "issues",
+        "issue_comment",
+        "merge_group",
+        "repository_dispatch",
+        "check_run",
+        "check_suite",
+        "deployment",
+        "deployment_status",
+        "discussion",
+        "discussion_comment",
+        "fork",
+        "gollum",
+        "label",
+        "milestone",
+        "page_build",
+        "public",
+        "registry_package",
+        "status",
+        "watch",
+    ];
+    if root.keys().any(|k| {
+        ![
+            "name",
+            "run-name",
+            "on",
+            "jobs",
+            "permissions",
+            "env",
+            "defaults",
+            "concurrency",
+        ]
+        .contains(&k.as_str())
+    }) || !value["jobs"].is_object()
+    {
+        return true;
+    }
     let on = &value["on"];
+    let names: Vec<&str> = match on {
+        Value::String(name) => vec![name],
+        Value::Array(names) => names.iter().map(|n| n.as_str().unwrap_or("")).collect(),
+        Value::Object(names) => names.keys().map(String::as_str).collect(),
+        _ => return true,
+    };
+    if names.is_empty() || names.iter().any(|name| !known_events.contains(name)) {
+        return true;
+    }
     let push = match on {
         Value::String(s) => s == "push",
         Value::Array(events) => {
@@ -161,6 +217,13 @@ fn closed_pattern(pattern: &str) -> bool {
         "**/publish/**",
         "**/permissions/**",
         "**/rbac/**",
+        "**/auth/**",
+        "**/authorization/**",
+        "**/acl/**",
+        "**/.env",
+        "**/kubernetes/**",
+        "**/k8s/**",
+        "**/helm/**",
         "**/secrets/**",
         "**/config/**",
         "**/config.schema.json",
@@ -173,10 +236,13 @@ fn closed_pattern(pattern: &str) -> bool {
         "**/branch-protection/**",
     ];
     !glob::valid(pattern)
-        || CLOSED.iter().any(|p| glob::intersects(p, pattern))
+        || CLOSED
+            .iter()
+            .any(|p| glob::intersects(&p.to_ascii_lowercase(), &pattern.to_ascii_lowercase()))
         || pattern.split('/').any(|s| {
             let s = s.to_ascii_lowercase();
-            s.contains("secret")
+            s.starts_with(".env")
+                || s.contains("secret")
                 || s.contains("deploy")
                 || s.contains("migration")
                 || s.contains("permission")

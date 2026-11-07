@@ -173,3 +173,25 @@ fn diff_and_impact_keep_interface_shared_and_unrelated_separate() {
     assert_eq!(r["affected"][2]["lane"], "wide");
     assert_eq!(r["affected"][1]["interfaceFiles"], json!(["src/api"]));
 }
+#[test]
+fn ambiguous_workflow_events_and_case_variants_fail_closed() {
+    for content in [
+        r#"{"on":"unknown-event","jobs":{}}"#,
+        r#"{"on":{"unknown":{}},"jobs":{}}"#,
+        r#"{"on":"pull_request","jobs":[]}"#,
+    ] {
+        let mut v = input();
+        v["workflows"] = json!([{"path":"workflow.json","content":content}]);
+        assert_eq!(run(&v)["lanes"][0]["lane"], "closed");
+    }
+    for path in [
+        "src/RBAC/rules.ts",
+        ".env.production",
+        "k8s/service.yml",
+        "src/auth/rights.ts",
+    ] {
+        let mut v = input();
+        v["plan"]["packages"][0]["owns"][0]["glob"] = json!(path);
+        assert_eq!(run(&v)["lanes"][0]["lane"], "closed");
+    }
+}

@@ -60,3 +60,12 @@ test("M6A-S9: validApiPrincipal accepts aligned token bindings with groups and f
     },
   }), false);
 });
+
+test('D124 worker and reviewer project rights survive API delegation without becoming lead', () => {
+  for (const right of ['worker', 'reviewer']) {
+    const principal = { userId: 'person', kind: 'person', role: 'member', projectRights: { project: right } };
+    assert.equal(validApiPrincipal(principal), true);
+    assert.equal(principal.projectRights.project, right);
+  }
+  assert.equal(validApiPrincipal({ userId: 'person', kind: 'person', role: 'member', projectRights: { project: 'scheduler' } }), false);
+});
