@@ -91,8 +91,8 @@ export const SRC_RULES = [
   [rx(`${C}rpc/(?:media-search-surface|memory-models-surface)\\.ts$`), "P4-51", "port", "media-search; memory models and admin.embedding.check use embedding-migrate/"],
   [rx(`${C}rpc/(?:media-surface)\\.ts$`), "P4-53", "port", "plan P4-53 source"],
   [rx(`${C}rpc/(?:voice-session-surface)\\.ts$`), "P4-52", "port", "voice sessions"],
-  [rx(`${C}(?:capabilities)\\.ts$`), "P4-10", "fold", "5 lines; crates/plur1bus-rpc/src/capabilities.rs builds the feature list"],
-  [rx(`${C}(?:lock)\\.ts$`), "P4-10", "fold", "14 lines; the core lock is the SQLite byte-range lock of crates/plur1bus/src/audit_chain.rs (plur1bus-audit)"],
+  [rx(`${C}(?:capabilities)\\.ts$`), "P4-10", "fold", "crates/plur1bus-rpc/src/capabilities.rs builds the feature list"],
+  [rx(`${C}(?:lock)\\.ts$`), "P4-10", "fold", "the core lock is the SQLite byte-range lock of crates/plur1bus/src/audit_chain.rs (plur1bus-audit)"],
   [rx(`${C}(?:core|bin|warmup|platform|logger|paths|events-map|engine-host-ports|activity|activity-rpc|host|join|principal)\\.ts$`), "P4-10", "port", "plan §1.2 process and RPC front door"],
   [rx(`${C}engine/`), "P4-10", "port", "EngineClient, select.ts, host methods; the node branch of select.ts goes with RE-11"],
   [rx(`${C}engine(?:-shim)?\\.(?:d\\.)?ts$`), "RE-11", "engine", "in-process loader and contract assertion of the Node engine; retired with engine.implementation=node"],
@@ -170,13 +170,21 @@ export const SRC_RULES = [
   [rx("^packages/api/src/(?:desktop-[^/]*|remote-[^/]*|transport-routes|net-bridge)\\.ts$"), "P4-80c", "stays-TS", "plan track I"],
   [rx("^packages/api/src/(?:import-[^/]*|extension-[^/]*|chat-routes|channel-handoff-routes|protocol-routes)\\.ts$"), "P4-80d", "stays-TS", "plan track I"],
   [rx("^packages/api/src/(?:mcp|a2a)/"), "P4-80d", "stays-TS", "plan track I"],
-  [rx("^packages/api/src/(?:bin|index)\\.ts$"), "P4-80a", "stays-TS", "assigned by content: process entry and package exports of the API server; the plan names neither"],
+  [rx("^packages/api/src/(?:bin|index)\\.ts$"), "P4-80a", "stays-TS", "assigned by content: process entry and package exports of the API server; the plan names neither"],  // assigned by content after the P4-02 review (the plan names none of these files)
+  [rx("^packages/api/src/(?:clock|redact)\\.ts$"), "P4-80a", "stays-TS", "assigned by content: clock port and logger secret-key net of the API server; redact.ts could fold into P4-11/P4-20 if the API ever goes Rust"],
+  [rx("^packages/api/src/(?:ports|principal|memory-stores)\\.ts$"), "P4-80b", "stays-TS", "assigned by content: the API's own account ports (UserRecord, TokenStore, TotpStore), the session-principal mapping and the in-memory test stores"],
+  [rx("^packages/api/src/notices\\.ts$"), "P4-80b", "stays-TS", "PROVISIONAL: local pull list of break-glass notices for hosts that embed the API; the real list is the core's breakglass.notices (P4-12); a candidate for drop if no embedder exists, owner to say", true],
+  [rx("^packages/api/src/rbac-bridge\\.ts$"), "P4-80a", "stays-TS", "assigned by content: relative re-export of packages/core/src/rbac and audit/chain.ts; breaks when P4-12 and P4-21 port those modules, so P4-80a depends on them (or on a Rust-served authorize call)"],
+  [rx("^packages/core/src/rpc/admin-surface\\.ts$"), "P4-12", "port", "assigned by content: the admin.* surface (people, invites, break-glass, pairing links, sessions of an agent); the identity side decides, it also touches P4-40 and P4-43"],
+  [rx("^packages/core/src/rpc/engine-test-surface\\.ts$"), "P4-51", "port", "PROVISIONAL: test calls for embedder, reranker and captioner (engine.* test RPCs); its neighbours memory-models-surface and admin.embedding.check are P4-51, but P4-44 or P4-10 is possible", true],
+  [rx("^packages/core/src/setup/model\\.ts$"), "P4-52", "port", "PROVISIONAL: SETUP_STEPS and the voice-language step; its only importer is voice/v3.ts (P4-52); P4-10/P4-11 if the wizard model is shared with the web UI", true],
 ];
 
 /** [path pattern, owner, modes, reason]. `modes` is a string of mode letters or "" with a reason. First match wins. */
 const T = "^packages/core/test/";
 export const TEST_RULES = [
   // ---- support files (not tests) ------------------------------------------------------------------------------------------
+  [rx(`${T}fixtures/openai/server\\.ts$`), "P4-41", "W", "the TypeScript fake OpenAI HTTP server; P4-03 builds the Rust equivalent (mode W)"],
   [rx(`${T}(?:helpers|fixtures)/`), "—", "", "test support, moves with the suites that use it"],
   [rx(`${T}integration/wire-fixture\\.ts$`), "P4-43", "", "test support (recorded provider wire fixture)"],
   [rx(`${T}composition/(?:helpers|native-card-fixture)\\.ts$`), "P4-43", "", "test support"],
@@ -245,9 +253,14 @@ export const TEST_RULES = [
   [rx(`${T}a2a/`), "P4-72", "W", "peer exchanges against the fixture peer"],
   [rx(`${T}import/`), "P4-85", "V", "mapper and plan outputs over the committed fixtures; the import may stay TypeScript for 0.1 (Q1)"],
   [rx(`${T}live/`), "—", "", "live tests that need a real service (nightly); not a parity input"],
-  [rx(`${T}admin/`), "unassigned", "T", "admin.* RPC tests; they span identity, agent creation, invites and usage, so no single package is named in the plan"],
-  [rx(`${T}protocols/`), "unassigned", "T", "exposure matrix across MCP, ACP and A2A; the plan names no owner"],
-  [rx(`${T}setup/`), "unassigned", "T", "setup wizard model and voice steps; the plan names no owner"],
+  // admin/*, protocols/* and setup/* were assigned after the P4-02 review; admin/* and setup/* are provisional
+  [rx(`${T}admin/(?:admin-bounds|admin-scope|rights|single-owner|admission|invites|person-status|notices|transcript)\\.test\\.ts$`), "P4-12", "T", "PROVISIONAL: admin.* people, rights, invites, break-glass limits and notices (identity and RBAC are P4-12); admission also calls session.submit and memory.capture, transcript could be P4-51", true],
+  [rx(`${T}admin/(?:agent-create-core|agent-create-import|backend|core)\\.test\\.ts$`), "P4-43", "T", "PROVISIONAL: agent creation and lifecycle (agent-create-surface and agents/ are P4-43); agent-create-import also touches P4-85 and runs against a real engine", true],
+  [rx(`${T}admin/usage\\.test\\.ts$`), "P4-24", "T", "PROVISIONAL: usage and budgets (session-usage surface is P4-24)", true],
+  [rx(`${T}admin/(?:agent-config|export-config-canaries)\\.test\\.ts$`), "P4-11", "T", "PROVISIONAL: config.set compare-and-set and exported-file redaction by known config values; the canaries could be P4-20", true],
+  [rx(`${T}protocols/`), "P4-12", "T", "exposure matrix across MCP, ACP and A2A is a memory-exposure property (memory-exposure/ is P4-12); P4-70..72 reuse it as a gate"],
+  [rx(`${T}setup/memory-models\\.test\\.ts$`), "P4-51", "T", "PROVISIONAL: first-run wizard step that writes memory models; follows setup/model.ts", true],
+  [rx(`${T}setup/voice\\.test\\.ts$`), "P4-52", "T", "PROVISIONAL: first-run wizard voice-language step; follows setup/model.ts", true],
 
   // ---- the other non-UI packages ------------------------------------------------------------------------------------------
   [rx("^packages/module-api/test/parity-recorder\\.test\\.ts$"), "P4-02", "", "self-test of the transcript recorder (the harness itself)"],
@@ -313,15 +326,15 @@ const ownerOf = (owner, path) => owner === "P4-6x" ? ({ telegram: "P4-60", disco
 export function classifySrc(path) {
   const i = SRC_RULES.findIndex(([re]) => re.test(path));
   if (i < 0) return { owner: "unassigned", disp: "unassigned", note: "no rule matches", rule: -1 };
-  const [, owner, disp, note] = SRC_RULES[i];
-  return { owner, disp, note, rule: i };
+  const [, owner, disp, note, provisional] = SRC_RULES[i];
+  return { owner, disp, note, provisional: provisional === true, rule: i };
 }
 
 export function classifyTest(path) {
   const i = TEST_RULES.findIndex(([re]) => re.test(path));
   if (i < 0) return { owner: "unassigned", modes: "", reason: "no rule matches", rule: -1 };
-  const [, owner, modes, reason] = TEST_RULES[i];
-  return { owner: ownerOf(owner, path), modes, reason, rule: i };
+  const [, owner, modes, reason, provisional] = TEST_RULES[i];
+  return { owner: ownerOf(owner, path), modes, reason, provisional: provisional === true, rule: i };
 }
 
 const count = (text) => { let n = 0; for (let i = text.indexOf("\n"); i >= 0; i = text.indexOf("\n", i + 1)) n++; return n; };
@@ -335,7 +348,7 @@ export function build(root = ROOT, files = listFiles(root)) {
   const src = [], tests = [], other = [];
   for (const path of files) {
     const kind = classifyKind(path);
-    if (kind === "src") src.push({ path, lines: count(readFileSync(`${root}${path}`, "utf8")), ...classifySrc(path) });
+    if (kind === "src") src.push({ path, ...classifySrc(path) });
     else if (kind === "test") tests.push({ path, ...classifyTest(path) });
     else other.push({ path, reason: TOOLING_RULES.find(([re]) => re.test(path))?.[1] });
   }
@@ -346,32 +359,32 @@ export function render({ src, tests, other }, systemFiles = []) {
   const L = [];
   const owners = [...new Set([...src.map((r) => r.owner), ...tests.map((r) => r.owner)])].sort(byOwner);
   L.push("# Module map of the TypeScript core (Phase 4) → Rust packages", "");
-  L.push("Generated by `scripts/parity/module-map.mjs`; do not edit. Regenerate with `node scripts/parity/module-map.mjs`; `--check` (run by `pnpm docs:check` and by the `core-parity` job) fails when this file is not what the rules produce, so a new, moved or removed file without a rule change is caught.", "");
-  L.push("Scope: every `src` file of every non-UI TypeScript package (`packages/*` except `web`, which stays TypeScript, D129) and every test file of those packages, listed from `git ls-files`. Plan: `docs/superpowers/plans/2026-11-07-phase4-ts-core-to-rust.md` (PR #902; named, not linked, because it is not on `main` yet) §1 and §3 (package scopes). Line counts are raw lines (comments and blank lines included), as in the plan. **The mapping rules are the tables at the top of `scripts/parity/module-map.mjs`** (ordered, first match wins, each with the plan section or the evidence); a file no rule matches is `unassigned`, never guessed.", "");
+  L.push("Generated by `scripts/parity/module-map.mjs`; do not edit. Regenerate with `node scripts/parity/module-map.mjs`; `--check` (run by the advisory `core-parity` job only, not by `pnpm docs:check`) fails when this file is not what the rules produce, so a new, moved or removed file without a rule change is caught.", "");
+  L.push("Scope: every `src` file of every non-UI TypeScript package (`packages/*` except `web`, which stays TypeScript, D129) and every test file of those packages, listed from `git ls-files`. Plan: `docs/superpowers/plans/2026-11-07-phase4-ts-core-to-rust.md` (PR #902; named, not linked, because it is not on `main` yet) §1 and §3 (package scopes). The file carries assignments only, no line counts, so it changes only when a file is added, removed or renamed or a rule changes; `node scripts/parity/module-map.mjs --stats` prints line counts on demand. **The mapping rules are the tables at the top of `scripts/parity/module-map.mjs`** (ordered, first match wins, each with the plan section or the evidence); a file no rule matches is `unassigned`, never guessed.", "");
   L.push("## Dispositions and modes", "", "| Disposition | Meaning |", "|---|---|", ...pad(Object.entries(DISPOSITIONS).map(([k, v]) => [`\`${k}\``, v])), "");
   L.push("| Mode | Meaning |", "|---|---|", ...pad(Object.entries(MODES).map(([k, v]) => [`\`${k}\``, v])), "");
   L.push("A test file with no mode carries a reason instead (test support, a package that stays TypeScript, a test of a retired mechanism). `V,T` means both modes apply.", "");
 
   // totals
   const disps = Object.keys(DISPOSITIONS);
-  L.push("## Source files by owner and disposition", "", `| Owner | Files | Lines | ${disps.map((d) => `\`${d}\``).join(" | ")} |`, `|---|---:|---:|${disps.map(() => "---:").join("|")}|`);
+  L.push("## Source files by owner and disposition", "", `| Owner | Files | ${disps.map((d) => `\`${d}\``).join(" | ")} |`, `|---|---:|${disps.map(() => "---:").join("|")}|`);
   const tot = Object.fromEntries(disps.map((d) => [d, 0]));
-  let totFiles = 0, totLines = 0;
+  let totFiles = 0;
   for (const o of owners) {
     const rows = src.filter((r) => r.owner === o);
     if (!rows.length) continue;
     const per = Object.fromEntries(disps.map((d) => [d, rows.filter((r) => r.disp === d).length]));
     for (const d of disps) tot[d] += per[d];
-    totFiles += rows.length; totLines += rows.reduce((s, r) => s + r.lines, 0);
-    L.push(`| ${o}${OWNERS[o] ? ` ${OWNERS[o]}` : ""} | ${rows.length} | ${fmt(rows.reduce((s, r) => s + r.lines, 0))} | ${disps.map((d) => per[d] || 0).join(" | ")} |`);
+    totFiles += rows.length;
+    L.push(`| ${o}${OWNERS[o] ? ` ${OWNERS[o]}` : ""} | ${rows.length} | ${disps.map((d) => per[d] || 0).join(" | ")} |`);
   }
-  L.push(`| **all** | **${totFiles}** | **${fmt(totLines)}** | ${disps.map((d) => `**${tot[d]}**`).join(" | ")} |`, "");
+  L.push(`| **all** | **${totFiles}** | ${disps.map((d) => `**${tot[d]}**`).join(" | ")} |`, "");
 
   const pkgs = [...new Set([...src, ...tests, ...other].map((r) => pkgOf(r.path)))].sort();
-  L.push("## Files by TypeScript package", "", `| Package | src files | src lines | test files | other files | ${disps.map((d) => `src \`${d}\``).join(" | ")} |`, `|---|---:|---:|---:|---:|${disps.map(() => "---:").join("|")}|`);
+  L.push("## Files by TypeScript package", "", `| Package | src files | test files | other files | ${disps.map((d) => `src \`${d}\``).join(" | ")} |`, `|---|---:|---:|---:|${disps.map(() => "---:").join("|")}|`);
   for (const p of pkgs) {
     const s = src.filter((r) => pkgOf(r.path) === p);
-    L.push(`| \`packages/${p}\` | ${s.length} | ${fmt(s.reduce((a, r) => a + r.lines, 0))} | ${tests.filter((r) => pkgOf(r.path) === p).length} | ${other.filter((r) => pkgOf(r.path) === p).length} | ${disps.map((d) => s.filter((r) => r.disp === d).length).join(" | ")} |`);
+    L.push(`| \`packages/${p}\` | ${s.length} | ${tests.filter((r) => pkgOf(r.path) === p).length} | ${other.filter((r) => pkgOf(r.path) === p).length} | ${disps.map((d) => s.filter((r) => r.disp === d).length).join(" | ")} |`);
   }
   L.push("");
 
@@ -384,18 +397,23 @@ export function render({ src, tests, other }, systemFiles = []) {
   // unassigned
   const un = src.filter((r) => r.disp === "unassigned"), ut = tests.filter((r) => r.owner === "unassigned"), uo = other.filter((r) => !r.reason);
   L.push("## Unassigned", "", `${un.length} source files, ${ut.length} test files (owner unknown; mode known where listed) and ${uo.length} other files have no rule. They are visible on purpose; the first PR that touches the subsystem, or an owner answer, adds the rule.`, "");
-  if (un.length) L.push("| Source file | Lines |", "|---|---:|", ...pad(un.map((r) => [`\`${r.path}\``, r.lines])), "");
+  if (un.length) L.push("| Source file |", "|---|", ...pad(un.map((r) => [`\`${r.path}\``])), "");
   if (ut.length) L.push("| Test file | Mode | Why |", "|---|---|---|", ...pad(ut.map((r) => [`\`${r.path}\``, r.modes || "—", r.reason])), "");
   if (uo.length) L.push("| Other file |", "|---|", ...pad(uo.map((r) => [`\`${r.path}\``])), "");
 
+  // provisional
+  const pv = [...src.filter((r) => r.provisional).map((r) => [`\`${r.path}\``, "source", r.owner]), ...tests.filter((r) => r.provisional).map((r) => [`\`${r.path}\``, "test", r.owner])];
+  L.push("## Provisional assignments", "", `${pv.length} files are assigned with low confidence (the evidence is in their note or reason) and wait for an owner answer.`, "");
+  if (pv.length) L.push("| File | Kind | Proposed owner |", "|---|---|---|", ...pad(pv), "");
+
   // rows
-  L.push("## Source rows", "", "Columns: file · lines · disposition · note.", "");
+  L.push("## Source rows", "", "Columns: file · disposition · note. A note starting with `PROVISIONAL` is a low-confidence assignment that needs the owner's confirmation.", "");
   for (const o of owners) {
     const rows = src.filter((r) => r.owner === o);
     if (!rows.length) continue;
-    L.push(`### ${o}${OWNERS[o] ? ` — ${OWNERS[o]}` : ""}`, "", "| File | Lines | Disposition | Note |", "|---|---:|---|---|", ...pad(rows.map((r) => [`\`${r.path}\``, r.lines, r.disp, r.note])), "");
+    L.push(`### ${o}${OWNERS[o] ? ` — ${OWNERS[o]}` : ""}`, "", "| File | Disposition | Note |", "|---|---|---|", ...pad(rows.map((r) => [`\`${r.path}\``, r.disp, r.note])), "");
   }
-  L.push("## Test rows", "", "Columns: file · mode · reason (the reason names why a test has no mode, or what the mode covers).", "");
+  L.push("## Test rows", "", "Columns: file · mode · reason (the reason names why a test has no mode, or what the mode covers). A reason starting with `PROVISIONAL` is a low-confidence assignment that needs the owner's confirmation.", "");
   for (const o of owners) {
     const rows = tests.filter((r) => r.owner === o);
     if (!rows.length) continue;
@@ -411,12 +429,26 @@ export function systemSuites(root = ROOT) {
   return files.map((name) => { const hit = SYSTEM_SUITES.find(([n]) => n === name); return hit ? { name, owner: hit[1], note: hit[2] } : name === "helpers.test.ts" ? { name, owner: "P4-02", note: "tests of the harness helpers" } : { name, owner: "unassigned", note: "no entry in SYSTEM_SUITES" }; });
 }
 
+/** Line counts (raw lines, comments and blank lines included) per owner and in total, printed on demand and never written. */
+export function stats(root = ROOT) {
+  const { src } = build(root);
+  const per = new Map();
+  for (const r of src) { const e = per.get(r.owner) ?? { files: 0, lines: 0 }; e.files++; e.lines += count(readFileSync(`${root}${r.path}`, "utf8")); per.set(r.owner, e); }
+  const rows = [...per.entries()].sort(([a], [b]) => byOwner(a, b));
+  const total = rows.reduce((t, [, e]) => ({ files: t.files + e.files, lines: t.lines + e.lines }), { files: 0, lines: 0 });
+  return { rows, total };
+}
+
 export function generate(root = ROOT) { return render(build(root), systemSuites(root)); }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const text = generate();
   const path = `${ROOT}${OUTPUT}`;
-  if (process.argv.includes("--check")) {
+  if (process.argv.includes("--stats")) {
+    const { rows, total } = stats();
+    for (const [o, e] of rows) console.log(`${o.padEnd(12)} ${String(e.files).padStart(5)} files ${fmt(e.lines).padStart(9)} lines`);
+    console.log(`${"all".padEnd(12)} ${String(total.files).padStart(5)} files ${fmt(total.lines).padStart(9)} lines`);
+  } else if (process.argv.includes("--check")) {
     let current = "";
     try { current = readFileSync(path, "utf8"); } catch { /* missing */ }
     if (current !== text) { console.error(`${OUTPUT} is out of date; run: node scripts/parity/module-map.mjs`); process.exit(1); }

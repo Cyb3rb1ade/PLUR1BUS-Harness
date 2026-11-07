@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
 import { DISPOSITIONS, MODES, OUTPUT, OWNERS, SRC_RULES, SYSTEM_SUITES, TEST_RULES, build, classifyKind, classifySrc, classifyTest, generate, listFiles, render, systemSuites } from "./module-map.mjs";
 
 const ROOT = fileURLToPath(new URL("../../", import.meta.url));
@@ -58,9 +59,9 @@ test("the first matching rule wins", () => {
 test("a file no rule matches is listed as unassigned, never guessed", () => {
   assert.deepEqual(pick("packages/core/src/brand-new-module.ts"), ["unassigned", "unassigned"]);
   assert.equal(classifyTest("packages/core/test/brand-new.test.ts").owner, "unassigned");
-  const text = render({ src: [{ path: "packages/core/src/brand-new-module.ts", lines: 3, ...classifySrc("packages/core/src/brand-new-module.ts") }], tests: [], other: [] }, []);
+  const text = render({ src: [{ path: "packages/core/src/brand-new-module.ts", ...classifySrc("packages/core/src/brand-new-module.ts") }], tests: [], other: [] }, []);
   assert.match(text, /## Unassigned\n\n1 source files/);
-  assert.match(text, /\| `packages\/core\/src\/brand-new-module\.ts` \| 3 \|/);
+  assert.match(text, /\| `packages\/core\/src\/brand-new-module\.ts` \|/);
 });
 
 test("file kinds", () => {
@@ -78,3 +79,36 @@ test("every tests/system suite has an owner entry", () => {
 });
 
 function pick(path) { const r = classifySrc(path); return [r.owner, r.disp]; }
+
+test("the committed map carries assignments only: no line counts, so it does not churn when a file grows", () => {
+  const text = readFileSync(`${ROOT}${OUTPUT}`, "utf8");
+  assert.doesNotMatch(text, /\| *(?:src )?lines *\|/i);
+  assert.doesNotMatch(text, /\d[\d,]* lines\b/);
+  assert.match(text, /--stats/);
+  // growing a file changes nothing the map shows
+  const map = build(ROOT);
+  assert.equal(map.src.every((r) => !("lines" in r)), true);
+});
+
+test("--stats prints line counts on demand and writes nothing", () => {
+  const before = readFileSync(`${ROOT}${OUTPUT}`, "utf8");
+  const out = execFileSync("node", ["scripts/parity/module-map.mjs", "--stats"], { cwd: ROOT, encoding: "utf8" });
+  assert.match(out, /^all\s+\d+ files\s+[\d,]+ lines$/m);
+  assert.equal(readFileSync(`${ROOT}${OUTPUT}`, "utf8"), before);
+});
+
+test("nothing is unassigned, and low-confidence rules are marked provisional in the table and in the map", () => {
+  const map = build(ROOT);
+  assert.deepEqual(map.src.filter((r) => r.disp === "unassigned").map((r) => r.path), []);
+  assert.deepEqual(map.tests.filter((r) => r.owner === "unassigned").map((r) => r.path), []);
+  const prov = (re) => [...map.src, ...map.tests].find((r) => re.test(r.path));
+  for (const re of [/api\/src\/notices\.ts$/, /engine-test-surface\.ts$/, /setup\/model\.ts$/, /test\/admin\/usage\.test\.ts$/, /test\/admin\/invites\.test\.ts$/]) assert.equal(prov(re).provisional, true, String(re));
+  assert.equal(classifyTest("packages/core/test/fixtures/openai/server.ts").modes, "W");
+  const text = readFileSync(`${ROOT}${OUTPUT}`, "utf8");
+  assert.match(text, /## Provisional assignments/);
+  assert.match(text, /PROVISIONAL/);
+});
+
+test("--check compares assignments: a stale file fails it, a fresh one passes", () => {
+  assert.match(execFileSync("node", ["scripts/parity/module-map.mjs", "--check"], { cwd: ROOT, encoding: "utf8" }), /up to date/);
+});
