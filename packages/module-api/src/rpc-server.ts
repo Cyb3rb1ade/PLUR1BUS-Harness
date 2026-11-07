@@ -117,7 +117,7 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
   const authIdleMs = o.authIdleMs ?? 30_000;
   const tokenBuf = Buffer.from(o.token, "utf8");
   const conns = new Map<string, Conn>();
-  const rec = parityRecorder(); // P4-02: null unless PLUR1BUS_ALLOW_TEST_INTERNALS=1 and PLUR1BUS_PARITY_RECORD are both set
+  const rec = parityRecorder(process.env, role); // P4-02: null unless PLUR1BUS_ALLOW_TEST_INTERNALS=1 and PLUR1BUS_PARITY_RECORD are both set
   const dispatches = new Set<Dispatch>(); // handler calls whose reply is not written yet (drain() waits on these)
   let server: Server | null = null;
   let closing: Promise<void> | null = null;

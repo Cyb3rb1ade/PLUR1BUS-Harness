@@ -16,7 +16,25 @@ Which TypeScript file maps to which mode: `docs/superpowers/plans/phase4/MODULE-
 
 **Recorder.** The TypeScript `RpcServer` (`packages/module-api/src/parity-recorder.ts`) writes one NDJSON line per frame
 (`{"seq","conn","dir":"in"|"out","msg"}`), but only with `PLUR1BUS_ALLOW_TEST_INTERNALS=1` **and** an explicit
-`PLUR1BUS_PARITY_RECORD=<file>`. The credential of the handshake is replaced by `<token>`.
+`PLUR1BUS_PARITY_RECORD=<file>`. The recorder is a test seam in the repo's established pattern (an environment gate behind
+`PLUR1BUS_ALLOW_TEST_INTERNALS=1`), never a product feature; no config key, flag or UI enables it.
+
+**Redaction (transcripts are committed).** The handshake token becomes `<token>` (the replayer puts the live one back). Every
+value under a key matching `/token|secret|password|passphrase|api[-_]?key|authorization|cookie|ticket|credential|private[-_]?key|pin$/i`,
+at any depth, in params, results and notifications, becomes `[REDACTED:secret]`; so does the `value` of a `{key|name, value}`
+pair whose name matches (a `config.set` change of `providers.x.apiKey`) and the `value` of any `secret.*` call. A dotted key
+holding an object (a method name in the capabilities map) is not treated as a credential. The core's own string redactor
+(`packages/core/src/logs/redact.ts`) is not reachable from `module-api` without a new dependency, so strings are not scanned:
+a flow must not call a method that returns a credential under a neutral key name.
+
+**Concurrent recorders.** The recorder never truncates. The first server to open `<file>` gets exactly that name; any other
+server (a second `createRpcServer`, the control server, another process, a leftover file) writes a sibling
+`<stem>.<server>-<pid>-<n>.ndjson`. Each file is a complete transcript with its own `seq` and `conn` numbering, and the replayer
+treats each as a separate transcript. `record.ts` removes the target file first.
+
+**Not represented.** Lines that do not parse and over-long frames are not recorded (only the error replies to them are), so a
+transcript cannot represent them; the framing tests (`packages/module-api/test/framing*.test.ts`) cover them instead.
+After an RPC schema change the `core.auth` result changes: re-run `record.ts`.
 
 **Determinism.** A `ts` target (`target.ts`) is the real `createCore` with the existing seams: a fixed clock
 (`FAKE_CLOCK_START_MS`, counting up by one per read), a fixed `instanceId`, the flat embedder and no dream scheduler. Other

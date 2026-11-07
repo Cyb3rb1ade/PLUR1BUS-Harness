@@ -1,7 +1,7 @@
 // Records the flows of flows.ts against the TypeScript core into tests/core-parity/transcripts/<flow>.ndjson.
 //   node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning tests/core-parity/record.ts [flow ...]
 // Transcripts are produced by this script and never edited by hand.
-import { mkdirSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { FLOWS, runFlow } from "./flows.ts";
@@ -13,6 +13,7 @@ export const TRANSCRIPT_DIR = join(dirname(fileURLToPath(import.meta.url)), "tra
 export async function recordFlow(name: string, file: string): Promise<void> {
   const flow = FLOWS.find((f) => f.name === name);
   if (!flow) throw new Error(`unknown flow ${name}; known: ${FLOWS.map((f) => f.name).join(", ")}`);
+  rmSync(file, { force: true }); // the recorder never truncates an existing file (it would write a sibling instead)
   const target = await startTarget("ts", { env: { PLUR1BUS_PARITY_RECORD: file } });
   try { await runFlow(flow, target); } finally { await target.stop(); }
 }
