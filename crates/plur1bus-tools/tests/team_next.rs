@@ -60,6 +60,46 @@ fn checked(mut s: Value, status: &str) -> Value {
     e["checks"] = json!([{"checkIndex":0,"criterion":0,"status":status}]);
     step(&s, e)["state"].clone()
 }
+#[test]
+fn obsolete_check_completion_restarts_checks_for_current_snapshot() {
+    for changed in ["head", "tree"] {
+        let s = writing("contained", "plan");
+        let mut e = pkg("worker.returned", &s);
+        e["treeHash"] = json!("d".repeat(64));
+        e["met"] = json!([true]);
+        e["committedClean"] = json!(true);
+        let mut s = step(&s, e)["state"].clone();
+        let mut finished = pkg("checks.finished", &s);
+        finished["treeHash"] = s["packages"][0]["treeHash"].clone();
+        finished["sectionHead"] = s["sections"][0]["head"].clone();
+        finished["checks"] = json!([{"checkIndex":0,"criterion":0,"status":"passed"}]);
+        if changed == "head" {
+            s["sections"][0]["head"] = json!("f".repeat(64));
+        } else {
+            s["packages"][0]["treeHash"] = json!("e".repeat(64));
+        }
+        let r = step(&s, finished.clone());
+        assert!(
+            has(&r, "run-checks"),
+            "obsolete {changed} must not strand checking"
+        );
+        assert!(!has(&r, "start-review"));
+        assert_eq!(r["state"]["packages"][0]["status"], "checking");
+        assert_eq!(r["state"]["packages"][0]["checks"], json!([]));
+        assert_eq!(r["state"]["packages"][0]["checksHead"], Value::Null);
+        assert_eq!(r["state"]["packages"][0]["checksTree"], Value::Null);
+        assert_eq!(r["state"]["sections"][0]["head"], s["sections"][0]["head"]);
+        assert_eq!(
+            r["state"]["packages"][0]["treeHash"],
+            s["packages"][0]["treeHash"]
+        );
+        // The executor binds the new action to its atomically persisted snapshot.
+        let s = &r["state"];
+        finished["treeHash"] = s["packages"][0]["treeHash"].clone();
+        finished["sectionHead"] = s["sections"][0]["head"].clone();
+        assert!(has(&step(s, finished), "start-review"));
+    }
+}
 fn review(s: &Value) -> Value {
     let mut e = pkg("review.verdict", s);
     e["treeHash"] = s["packages"][0]["treeHash"].clone();
@@ -225,9 +265,12 @@ fn generated_sequences_preserve_safety_idempotency_and_determinism() {
     for seed in 0..32_u64 {
         let mut s = writing(if seed % 2 == 0 { "closed" } else { "wide" }, "auto");
         let mut random = seed + 1;
+        // Model the executor's pending outbox across transitions, including completions
+        // whose facts became stale while a check was running.
+        let mut outstanding: Vec<(String, Value, Value)> = Vec::new();
         for _ in 0..80 {
             random = random.wrapping_mul(6364136223846793005).wrapping_add(1);
-            let choice = (random >> 32) % 10;
+            let choice = (random >> 32) % 12;
             let mut e = match choice {
                 0 => json!({"kind":"timer"}),
                 1 => {
@@ -240,11 +283,21 @@ fn generated_sequences_preserve_safety_idempotency_and_determinism() {
                     e["committedClean"] = json!(true);
                     e
                 }
-                3 | 4 => {
+                3 | 4 | 10 | 11 => {
                     let mut e = pkg("checks.finished", &s);
-                    e["treeHash"] = json!("d".repeat(64));
+                    e["treeHash"] = s["packages"][0]["treeHash"]
+                        .as_str()
+                        .map_or_else(|| json!("d".repeat(64)), |v| json!(v));
                     e["sectionHead"] = s["sections"][0]["head"].clone();
                     e["checks"] = json!([{"checkIndex":0,"criterion":0,"status":if choice==3{"unavailable"}else{"passed"}}]);
+                    if s["packages"][0]["status"] == "checking" {
+                        if choice == 10 {
+                            s["sections"][0]["head"] = json!(format!("{random:064x}"));
+                        }
+                        if choice == 11 {
+                            s["packages"][0]["treeHash"] = json!(format!("{random:064x}"));
+                        }
+                    }
                     e
                 }
                 5 => {
@@ -272,6 +325,49 @@ fn generated_sequences_preserve_safety_idempotency_and_determinism() {
             e["at"] = json!(s["run"]["now"].as_u64().unwrap() + 1000);
             let input = json!({"state":s,"event":e});
             let r = dispatch("tools.team.next", &input).unwrap();
+            let completion = match e["kind"].as_str().unwrap() {
+                "checks.finished" if s["packages"][0]["status"] == "checking" => Some("run-checks"),
+                "review.verdict"
+                    if s["packages"][0]["status"] == "reviewing"
+                        && outstanding.iter().any(|(kind, tree, _)| {
+                            kind == "start-review" && *tree == e["treeHash"]
+                        }) =>
+                {
+                    Some("start-review")
+                }
+                "worktree.ready" if s["packages"][0]["status"] == "ready" => {
+                    Some("create-worktree")
+                }
+                _ => None,
+            };
+            outstanding.retain(|(kind, _, _)| Some(kind.as_str()) != completion);
+            for a in r["actions"].as_array().unwrap() {
+                if a["package"] == "duration" {
+                    outstanding.push((
+                        a["kind"].as_str().unwrap().into(),
+                        r["state"]["packages"][0]["treeHash"].clone(),
+                        r["state"]["sections"][0]["head"].clone(),
+                    ));
+                }
+            }
+            let expected = match r["state"]["packages"][0]["status"].as_str().unwrap() {
+                "ready" => Some("create-worktree"),
+                "checking" => Some("run-checks"),
+                "reviewing" => Some("start-review"),
+                "syncing" => Some("sync-worktree"),
+                "merging" => Some("merge-into-section"),
+                _ => None,
+            };
+            if let Some(expected) = expected {
+                assert!(
+                    outstanding.iter().any(|(kind, tree, head)| kind == expected
+                        && (expected != "run-checks"
+                            || (*tree == r["state"]["packages"][0]["treeHash"]
+                                && *head == r["state"]["sections"][0]["head"]))),
+                    "seed {seed}: {} has no current outstanding {expected}",
+                    r["state"]["packages"][0]["status"]
+                );
+            }
             assert_eq!(r, dispatch("tools.team.next", &input).unwrap());
             assert!(!has(&r, "merge-into-section"));
             assert!(!has(&r, "merge-section"));

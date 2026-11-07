@@ -274,6 +274,8 @@ fn package_event(m: &mut Machine, e: &Value, i: usize) -> Result<(), ToolError> 
         "checks.finished" if status == "checking" => {
             let j = state::section(&m.s, i).ok_or_else(invalid)?;
             if p["treeHash"] != e["treeHash"] || m.s["sections"][j]["head"] != e["sectionHead"] {
+                m.invalidate(i);
+                m.package_action("run-checks", i);
                 return Ok(());
             }
             m.s["packages"][i]["checks"] = e["checks"].clone();
