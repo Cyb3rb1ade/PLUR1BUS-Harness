@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { before, after, test } from 'node:test';
-import { setup, teardown, withApp, openRoute } from './harness.ts';
+import { setup, teardown, withApp, openRoute, browserSkip } from './harness.ts';
 import { defaultFixture, installMemoryMocks } from './memory-fixtures.ts';
 import { expectAxeClean } from './axe.ts';
 before(setup); after(teardown);
 for (const lang of ['en', 'de'] as const) {
-  test(`learning review keeps refuted evidence folded and confirms a person decision (${lang})`, async () => {
+  test(`learning review keeps refuted evidence folded and confirms a person decision (${lang})`, { skip: browserSkip }, async () => {
     await withApp({ locale: lang === 'de' ? 'de-DE' : 'en-US' }, async app => {
       installMemoryMocks(app.server, defaultFixture());
       const row = { id: 'finding-one', kind: 'knowledge', change: 'add', status: 'pending', score: 0.9, desiredTier: 'A', skeptic: 'refuted', revision: 1,
@@ -33,7 +33,7 @@ for (const lang of ['en', 'de'] as const) {
 }
 
 for (const role of ['owner', 'admin', 'member'] as const) {
-  test(`LQ4 learning settings only write for owner (${role})`, async () => {
+  test(`LQ4 learning settings only write for owner (${role})`, { skip: browserSkip }, async () => {
     await withApp({ server: { role } }, async app => {
       installMemoryMocks(app.server, defaultFixture());
       app.server.rpc.handle('config.set', () => ({ applied: true }));
