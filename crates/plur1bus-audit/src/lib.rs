@@ -5,12 +5,16 @@
 //! byte-range lock that conflicts with the TypeScript core's `BEGIN EXCLUSIVE`, and every refusal are unchanged; see
 //! `docs/audit-chain.md`.
 //!
+//! [`lock::CoreLock`] (P4-10) takes the core's single-instance lock on `state/core.lock` with the same byte-range primitive, so
+//! the Rust front door and a TypeScript core exclude each other.
+//!
 //! This crate is not `forbid(unsafe_code)`: the byte-range lock is `fcntl(F_SETLK)` on Unix and `LockFileEx` on Windows.
 #![warn(missing_docs)]
 #![warn(clippy::print_stdout, clippy::print_stderr)]
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
 
 pub mod chain;
+pub mod lock;
 
 use std::fs;
 use std::io;

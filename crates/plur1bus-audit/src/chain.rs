@@ -345,8 +345,9 @@ impl OsLock {
         }
     }
 }
+/// Exclusive, non-blocking: `Ok(false)` when another process holds any part of the range.
 #[cfg(unix)]
-fn try_lock(file: &File) -> io::Result<bool> {
+pub(crate) fn try_lock(file: &File) -> io::Result<bool> {
     use std::os::fd::AsRawFd;
     // SAFETY: zero is a valid starting representation of flock; all relevant fields
     // are set below, and the pointer remains valid for this synchronous fcntl call.
@@ -365,8 +366,9 @@ fn try_lock(file: &File) -> io::Result<bool> {
         Err(e)
     }
 }
+/// Exclusive, non-blocking: `Ok(false)` when another handle holds any part of the range.
 #[cfg(windows)]
-fn try_lock(file: &File) -> io::Result<bool> {
+pub(crate) fn try_lock(file: &File) -> io::Result<bool> {
     use std::os::windows::io::AsRawHandle;
     use windows_sys::Win32::Storage::FileSystem::{
         LockFileEx, LOCKFILE_EXCLUSIVE_LOCK, LOCKFILE_FAIL_IMMEDIATELY,
