@@ -1,4 +1,4 @@
-use crate::cli::{DreamsCmd, DreamsScheduleCmd};
+use crate::cli::{DreamsCmd, DreamsLearnCmd, DreamsLearnTarget, DreamsScheduleCmd};
 use crate::output::Out;
 use crate::paths::{core_address, Layout};
 use plur1bus_config as cfg;
@@ -121,6 +121,7 @@ pub fn run(out: &Out, layout: &Layout, cmd: DreamsCmd) {
         }
     };
     match cmd {
+        DreamsCmd::Learn { sub } => learn(out, layout, sub),
         DreamsCmd::Status { agent } => {
             if let Some(a) = &agent {
                 require(a);
@@ -647,5 +648,72 @@ mod tests {
         // Should not panic, should return 0
         let count = llm_sessions_today(&job_defs, &job_runs, midnight_ms);
         assert_eq!(count, 0);
+    }
+}
+
+fn learn_request(sub: DreamsLearnCmd) -> (&'static str, Value) {
+    fn target(t: DreamsLearnTarget) -> Value {
+        let mut params = json!({"scope": if t.installation { "installation" } else if t.project.is_some() { "project" } else { "agent" }, "agentId": t.agent});
+        if let Some(project) = t.project {
+            params["projectId"] = json!(project);
+        }
+        params
+    }
+    match sub {
+        DreamsLearnCmd::Run(t) => ("dreams.learn.run", target(t)),
+        DreamsLearnCmd::Status(t) => ("dreams.learn.status", target(t)),
+        DreamsLearnCmd::List(t) => ("dreams.learn.list", target(t)),
+        DreamsLearnCmd::Calibration(t) => ("dreams.learn.calibration", target(t)),
+        DreamsLearnCmd::Show { id } => ("dreams.learn.get", json!({"id":id})),
+        DreamsLearnCmd::Rollback { id } => ("dreams.learn.rollback", json!({"id":id})),
+        DreamsLearnCmd::Reject { id, hash } => (
+            "dreams.learn.decide",
+            json!({"id":id,"contentHash":hash,"outcome":"rejected"}),
+        ),
+        DreamsLearnCmd::Accept {
+            id,
+            hash,
+            stale_action,
+        } => {
+            let mut params = json!({"id":id,"contentHash":hash,"outcome":"accepted"});
+            if let Some(action) = stale_action {
+                params["staleAction"] = json!(action);
+            }
+            ("dreams.learn.decide", params)
+        }
+    }
+}
+fn learn(out: &Out, layout: &Layout, sub: DreamsLearnCmd) {
+    let (method, params) = learn_request(sub);
+    let value = connect(out, layout)
+        .call(method, params)
+        .unwrap_or_else(|e| out.from_rpc_error(&e));
+    out.ok(&format!("{method}/1"), &value, || {
+        serde_json::to_string_pretty(&value).unwrap_or_default()
+    });
+}
+#[cfg(test)]
+mod learn_tests {
+    use super::*;
+    #[test]
+    fn learning_commands_preserve_target_and_explicit_review_hash() {
+        let (method, params) = learn_request(DreamsLearnCmd::Run(DreamsLearnTarget {
+            agent: "agent".into(),
+            project: Some("project".into()),
+            installation: false,
+        }));
+        assert_eq!(method, "dreams.learn.run");
+        assert_eq!(
+            params,
+            json!({"scope":"project","agentId":"agent","projectId":"project"})
+        );
+        let (_, params) = learn_request(DreamsLearnCmd::Accept {
+            id: "finding".into(),
+            hash: "review-hash".into(),
+            stale_action: Some("forget".into()),
+        });
+        assert_eq!(params["contentHash"], "review-hash");
+        assert_eq!(params["staleAction"], "forget");
+        assert!(params.get("owner").is_none());
     }
 }

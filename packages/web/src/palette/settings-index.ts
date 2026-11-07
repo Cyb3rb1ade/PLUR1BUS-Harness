@@ -14,6 +14,18 @@ import type { ConfigSchemaNode } from "@plur1bus/config-schema/policy";
 export type SettingSpec = { readonly key: string; readonly type: string; readonly tier: "basic" | "advanced"; readonly sensitive?: boolean; readonly urlCredentials?: boolean; readonly help?: string };
 
 export const SETTINGS: readonly SettingSpec[] = [
+  { key: "dreams", type: "object", tier: "advanced" },
+  { key: "dreams.learn", type: "object", tier: "advanced" },
+  { key: "dreams.learn.windowDays", type: "integer", tier: "advanced" },
+  { key: "dreams.learn.maxSessions", type: "integer", tier: "advanced" },
+  { key: "dreams.learn.maxTokens", type: "integer", tier: "advanced" },
+  { key: "dreams.learn.agents", type: "object", tier: "advanced" },
+  { key: "dreams.learn.projects", type: "object", tier: "advanced" },
+  { key: "dreams.learn.installation", type: "object", tier: "advanced" },
+  { key: "dreams.learn.installation.enabled", type: "boolean", tier: "advanced" },
+  { key: "dreams.learn.installation.owner", type: "string", tier: "advanced" },
+  { key: "dreams.learn.installation.agentId", type: "string", tier: "advanced" },
+  { key: "dreams.learn.installation.focus", type: "string", tier: "advanced" },
   { key: "import.ssh", type: "object", tier: "advanced", help: "Owner-managed SSH source identity and endpoint configuration." },
   { key: "import.ssh.connections", type: "object", tier: "advanced", help: "Owner-managed named SSH source connections." },
   { key: "collaboration.fanoutEnabled", type: "boolean", tier: "advanced", help: "Enable collaboration fan-out only after owner review of the equal-token-budget evaluation." },
@@ -603,6 +615,96 @@ export const CONFIG_POLICY_SCHEMA: ConfigSchemaNode = {
   },
   "x-unknown-members": "sensitive",
   "properties": {
+    "dreams": {
+      "type": "object",
+      "properties": {
+        "learn": {
+          "type": "object",
+          "properties": {
+            "windowDays": {
+              "type": "integer"
+            },
+            "maxSessions": {
+              "type": "integer"
+            },
+            "maxTokens": {
+              "type": "integer"
+            },
+            "agents": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "owner": {
+                    "type": "string",
+                    "maxLength": 128
+                  },
+                  "agentId": {
+                    "type": "string",
+                    "maxLength": 128
+                  },
+                  "focus": {
+                    "type": "string",
+                    "maxLength": 4000
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "projects": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "owner": {
+                    "type": "string",
+                    "maxLength": 128
+                  },
+                  "agentId": {
+                    "type": "string",
+                    "maxLength": 128
+                  },
+                  "focus": {
+                    "type": "string",
+                    "maxLength": 4000
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "installation": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "owner": {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                "agentId": {
+                  "type": "string",
+                  "maxLength": 128
+                },
+                "focus": {
+                  "type": "string",
+                  "maxLength": 4000
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
     "import": {
       "type": "object",
       "required": [],

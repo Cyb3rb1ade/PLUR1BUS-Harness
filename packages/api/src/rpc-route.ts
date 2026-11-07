@@ -6,6 +6,7 @@ import type { CoreRpc } from "./core-rpc.ts";
 /** Explicit exposure, not a prefix match: additions require review and a test. Unsafe unguarded memory/caller paths,
  * lifecycle internals, subscriptions, admin backup/import and secret reveal are deliberately absent. */
 export const WEB_CORE_METHODS = new Set([
+  "dreams.learn.run", "dreams.learn.status", "dreams.learn.list", "dreams.learn.get", "dreams.learn.decide", "dreams.learn.rollback", "dreams.learn.calibration",
   "admin.import.detect", "admin.import.wsl.list", "admin.import.plan", "admin.import.preflight", "admin.import.skills",
   "admin.import.ssh.key.status", "admin.import.ssh.key.generate", "admin.import.ssh.key.rotate", "admin.import.ssh.key.delete",
   "admin.import.ssh.connections.list", "admin.import.ssh.connections.set", "admin.import.ssh.connections.delete", "admin.import.ssh.hostKey.probe", "admin.import.ssh.hostKey.trust",

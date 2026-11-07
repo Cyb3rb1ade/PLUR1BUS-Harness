@@ -229,3 +229,49 @@ core; the browser receives no filesystem access.
 
 The integration regression runs the real pinned engine with a flat embedder and a stub LLM, generates a light dream
 through capture, then reads the actual engine-written diary through `dreams.diary`. No live provider is called.
+
+## Shadow learning (`learn`, LP)
+
+Learning is a Harness job in the existing Dreams scheduler. Agent, project and installation targets
+are off by default. It selects completed, remembered turns in the last seven days, newest sessions
+first, up to 50 authorized sessions and 100,000 tokens per run. Session overflow is recorded as
+`truncated` with `omittedSessions`; an oversized individual transcript defers the run. The current
+window ends at UTC midnight. Repeating it resumes checkpoints or returns the completed run.
+
+Configure `dreams.learn.agents.<agentId>` with `owner` (the Harness person ID), `enabled` and optional
+`focus`; projects use `dreams.learn.projects.<projectId>` with `owner` and `agentId`. Global
+`windowDays`, `maxSessions` and `maxTokens` are bounded configuration values. These keys require a
+Core restart. `dreams.learn.installation` is reserved for the metadata-only pass. No target is
+implicitly enabled by model configuration.
+
+Extraction uses the configured D105 `small` profile, skeptic and wording use `large`. All calls go
+through the ProviderRouter and existing user/agent/project token admission. No Jev or triage route
+is involved. Missing class profiles produce `skipped:no-model`; local-only policy is enforced before
+provider access, and budget refusal produces `skipped:budget` without publishing a partial batch.
+Three failed attempts in a UTC day open the target's breaker, including retries of the same window.
+
+Use `plur1bus dreams learn run --agent <id>`, `status`, `list` and `calibration`. For project targets,
+add `--project <id>`. `show <finding-id>` returns the current review hash and authorized live evidence.
+`accept <finding-id> --hash <hash>` or `reject <finding-id> --hash <hash>` records an explicit person
+choice; a changed finding requires another review. Stale findings additionally require
+`--stale-action correct` or `--stale-action forget`. The web review is in Memories > Dreams.
+
+Every finding remains tier C. The desired A/B tier, evidence score, prevalence and skeptic verdict
+remain visible; refuted findings are folded, not discarded. Stable content keys deduplicate repeated
+observations across runs. Rejected findings reopen only for new evidence from a later day, linked to
+the prior decision. Calibration counts one latest person decision per stable knowledge finding,
+pooled by owner, desired tier and model-class/prompt/policy revision. Actual model IDs remain in the
+record. With fewer than 50 decisions the gate reports `shadow-incomplete`, below 95% it reports
+`precision-below-gate`, and otherwise `revert-unavailable`. No state enables automatic adoption.
+
+Manual acceptance dispatches existing guarded public MemoryOps with the reviewing person's rights:
+new agent facts use `memory.importText.apply`, corrections use `memory.correct`, duplicate/retire
+use `memory.forget`, and shared-card changes use `memory.propose`. Import receipts permit
+`plur1bus dreams learn rollback <finding-id>`. New project facts remain pending with
+`unsupported-target`: public importText v1 does not accept workspace targets. No scope is substituted.
+An uncertain interrupted write is held for reconciliation instead of being repeated automatically.
+
+Procedural findings are read-only `waiting-h3` entries in the learn review store, excluded from A/B
+precision. They create no skill proposal queue, skill file, installation or enablement. The existing
+unavailable H3 backend remains unchanged. Logs, generic run rows and Inbox notices contain only IDs,
+counts, hashes and classes. Evidence text is loaded for authorized review directly from SessionStore.

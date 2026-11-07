@@ -90,6 +90,168 @@
   "additionalProperties": false,
   "required": ["schemaVersion"],
   "properties": {
+    "dreams": {
+      "type": "object",
+      "additionalProperties": false,
+      "default": {},
+      "properties": {
+        "learn": {
+          "type": "object",
+          "additionalProperties": false,
+          "default": {},
+          "properties": {
+            "windowDays": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30,
+              "default": 7,
+              "x-restart": "core",
+              "x-tier": "advanced"
+            },
+            "maxSessions": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 50,
+              "x-restart": "core",
+              "x-tier": "advanced"
+            },
+            "maxTokens": {
+              "type": "integer",
+              "minimum": 4096,
+              "maximum": 1000000,
+              "default": 100000,
+              "x-restart": "core",
+              "x-tier": "advanced"
+            },
+            "agents": {
+              "type": "object",
+              "default": {},
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "default": {},
+                "properties": {
+                  "enabled": {
+                    "type": "boolean",
+                    "default": false,
+                    "x-restart": "core",
+                    "x-tier": "advanced"
+                  },
+                  "owner": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "default": "",
+                    "x-restart": "core",
+                    "x-tier": "advanced"
+                  },
+                  "agentId": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "default": "",
+                    "x-restart": "core",
+                    "x-tier": "advanced"
+                  },
+                  "focus": {
+                    "type": "string",
+                    "maxLength": 4000,
+                    "default": "",
+                    "x-restart": "core",
+                    "x-tier": "advanced"
+                  }
+                },
+                "x-restart": "core",
+                "x-tier": "advanced"
+              },
+              "x-restart": "core",
+              "x-tier": "advanced"
+            },
+            "projects": {
+              "type": "object",
+              "default": {},
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "default": {},
+                "properties": {
+                  "enabled": {
+                    "type": "boolean",
+                    "default": false,
+                    "x-restart": "core",
+                    "x-tier": "advanced"
+                  },
+                  "owner": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "default": "",
+                    "x-restart": "core",
+                    "x-tier": "advanced"
+                  },
+                  "agentId": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "default": "",
+                    "x-restart": "core",
+                    "x-tier": "advanced"
+                  },
+                  "focus": {
+                    "type": "string",
+                    "maxLength": 4000,
+                    "default": "",
+                    "x-restart": "core",
+                    "x-tier": "advanced"
+                  }
+                },
+                "x-restart": "core",
+                "x-tier": "advanced"
+              },
+              "x-restart": "core",
+              "x-tier": "advanced"
+            },
+            "installation": {
+              "type": "object",
+              "additionalProperties": false,
+              "default": {},
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "default": false,
+                  "x-restart": "core",
+                  "x-tier": "advanced"
+                },
+                "owner": {
+                  "type": "string",
+                  "maxLength": 128,
+                  "default": "",
+                  "x-restart": "core",
+                  "x-tier": "advanced"
+                },
+                "agentId": {
+                  "type": "string",
+                  "maxLength": 128,
+                  "default": "",
+                  "x-restart": "core",
+                  "x-tier": "advanced"
+                },
+                "focus": {
+                  "type": "string",
+                  "maxLength": 4000,
+                  "default": "",
+                  "x-restart": "core",
+                  "x-tier": "advanced"
+                }
+              },
+              "x-restart": "core",
+              "x-tier": "advanced"
+            }
+          },
+          "x-restart": "core",
+          "x-tier": "advanced"
+        }
+      },
+      "x-restart": "core",
+      "x-tier": "advanced"
+    },
     "import": {
       "type": "object",
       "additionalProperties": false,

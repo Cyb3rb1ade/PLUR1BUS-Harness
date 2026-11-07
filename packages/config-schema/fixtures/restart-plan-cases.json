@@ -4,6 +4,21 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "dreams": {
+        "learn": {
+          "windowDays": 7,
+          "maxSessions": 50,
+          "maxTokens": 100000,
+          "agents": {},
+          "projects": {},
+          "installation": {
+            "enabled": false,
+            "owner": "",
+            "agentId": "",
+            "focus": ""
+          }
+        }
+      },
       "import": {
         "ssh": {
           "connections": {}
@@ -630,6 +645,21 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "dreams": {
+        "learn": {
+          "windowDays": 7,
+          "maxSessions": 50,
+          "maxTokens": 100000,
+          "agents": {},
+          "projects": {},
+          "installation": {
+            "enabled": false,
+            "owner": "",
+            "agentId": "",
+            "focus": ""
+          }
+        }
+      },
       "import": {
         "ssh": {
           "connections": {}
@@ -1269,6 +1299,21 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "dreams": {
+        "learn": {
+          "windowDays": 7,
+          "maxSessions": 50,
+          "maxTokens": 100000,
+          "agents": {},
+          "projects": {},
+          "installation": {
+            "enabled": false,
+            "owner": "",
+            "agentId": "",
+            "focus": ""
+          }
+        }
+      },
       "import": {
         "ssh": {
           "connections": {}
@@ -1895,6 +1940,21 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "dreams": {
+        "learn": {
+          "windowDays": 7,
+          "maxSessions": 50,
+          "maxTokens": 100000,
+          "agents": {},
+          "projects": {},
+          "installation": {
+            "enabled": false,
+            "owner": "",
+            "agentId": "",
+            "focus": ""
+          }
+        }
+      },
       "import": {
         "ssh": {
           "connections": {}
@@ -2535,6 +2595,21 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "dreams": {
+        "learn": {
+          "windowDays": 7,
+          "maxSessions": 50,
+          "maxTokens": 100000,
+          "agents": {},
+          "projects": {},
+          "installation": {
+            "enabled": false,
+            "owner": "",
+            "agentId": "",
+            "focus": ""
+          }
+        }
+      },
       "import": {
         "ssh": {
           "connections": {}
@@ -3161,6 +3236,21 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "dreams": {
+        "learn": {
+          "windowDays": 7,
+          "maxSessions": 50,
+          "maxTokens": 100000,
+          "agents": {},
+          "projects": {},
+          "installation": {
+            "enabled": false,
+            "owner": "",
+            "agentId": "",
+            "focus": ""
+          }
+        }
+      },
       "import": {
         "ssh": {
           "connections": {}
@@ -3806,6 +3896,21 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "dreams": {
+        "learn": {
+          "windowDays": 7,
+          "maxSessions": 50,
+          "maxTokens": 100000,
+          "agents": {},
+          "projects": {},
+          "installation": {
+            "enabled": false,
+            "owner": "",
+            "agentId": "",
+            "focus": ""
+          }
+        }
+      },
       "import": {
         "ssh": {
           "connections": {}
@@ -4436,6 +4541,21 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "dreams": {
+        "learn": {
+          "windowDays": 7,
+          "maxSessions": 50,
+          "maxTokens": 100000,
+          "agents": {},
+          "projects": {},
+          "installation": {
+            "enabled": false,
+            "owner": "",
+            "agentId": "",
+            "focus": ""
+          }
+        }
+      },
       "import": {
         "ssh": {
           "connections": {}
@@ -5077,6 +5197,21 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "dreams": {
+        "learn": {
+          "windowDays": 7,
+          "maxSessions": 50,
+          "maxTokens": 100000,
+          "agents": {},
+          "projects": {},
+          "installation": {
+            "enabled": false,
+            "owner": "",
+            "agentId": "",
+            "focus": ""
+          }
+        }
+      },
       "import": {
         "ssh": {
           "connections": {}
@@ -5707,6 +5842,21 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "dreams": {
+        "learn": {
+          "windowDays": 7,
+          "maxSessions": 50,
+          "maxTokens": 100000,
+          "agents": {},
+          "projects": {},
+          "installation": {
+            "enabled": false,
+            "owner": "",
+            "agentId": "",
+            "focus": ""
+          }
+        }
+      },
       "import": {
         "ssh": {
           "connections": {}
@@ -6354,6 +6504,21 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "dreams": {
+        "learn": {
+          "windowDays": 7,
+          "maxSessions": 50,
+          "maxTokens": 100000,
+          "agents": {},
+          "projects": {},
+          "installation": {
+            "enabled": false,
+            "owner": "",
+            "agentId": "",
+            "focus": ""
+          }
+        }
+      },
       "import": {
         "ssh": {
           "connections": {}
@@ -6980,6 +7145,21 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "dreams": {
+        "learn": {
+          "windowDays": 7,
+          "maxSessions": 50,
+          "maxTokens": 100000,
+          "agents": {},
+          "projects": {},
+          "installation": {
+            "enabled": false,
+            "owner": "",
+            "agentId": "",
+            "focus": ""
+          }
+        }
+      },
       "import": {
         "ssh": {
           "connections": {}
@@ -7625,6 +7805,21 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "dreams": {
+        "learn": {
+          "windowDays": 7,
+          "maxSessions": 50,
+          "maxTokens": 100000,
+          "agents": {},
+          "projects": {},
+          "installation": {
+            "enabled": false,
+            "owner": "",
+            "agentId": "",
+            "focus": ""
+          }
+        }
+      },
       "import": {
         "ssh": {
           "connections": {}
@@ -8251,6 +8446,21 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "dreams": {
+        "learn": {
+          "windowDays": 7,
+          "maxSessions": 50,
+          "maxTokens": 100000,
+          "agents": {},
+          "projects": {},
+          "installation": {
+            "enabled": false,
+            "owner": "",
+            "agentId": "",
+            "focus": ""
+          }
+        }
+      },
       "import": {
         "ssh": {
           "connections": {}
@@ -8893,6 +9103,21 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "dreams": {
+        "learn": {
+          "windowDays": 7,
+          "maxSessions": 50,
+          "maxTokens": 100000,
+          "agents": {},
+          "projects": {},
+          "installation": {
+            "enabled": false,
+            "owner": "",
+            "agentId": "",
+            "focus": ""
+          }
+        }
+      },
       "import": {
         "ssh": {
           "connections": {}
@@ -9524,6 +9749,21 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "dreams": {
+        "learn": {
+          "windowDays": 7,
+          "maxSessions": 50,
+          "maxTokens": 100000,
+          "agents": {},
+          "projects": {},
+          "installation": {
+            "enabled": false,
+            "owner": "",
+            "agentId": "",
+            "focus": ""
+          }
+        }
+      },
       "import": {
         "ssh": {
           "connections": {}
@@ -10170,6 +10410,21 @@
     "before": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "dreams": {
+        "learn": {
+          "windowDays": 7,
+          "maxSessions": 50,
+          "maxTokens": 100000,
+          "agents": {},
+          "projects": {},
+          "installation": {
+            "enabled": false,
+            "owner": "",
+            "agentId": "",
+            "focus": ""
+          }
+        }
+      },
       "import": {
         "ssh": {
           "connections": {}
@@ -10796,6 +11051,21 @@
     "after": {
       "$schema": "https://plur1bus.dev/schema/config/1/config.schema.json",
       "schemaVersion": 1,
+      "dreams": {
+        "learn": {
+          "windowDays": 7,
+          "maxSessions": 50,
+          "maxTokens": 100000,
+          "agents": {},
+          "projects": {},
+          "installation": {
+            "enabled": false,
+            "owner": "",
+            "agentId": "",
+            "focus": ""
+          }
+        }
+      },
       "import": {
         "ssh": {
           "connections": {}

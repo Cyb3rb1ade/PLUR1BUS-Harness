@@ -1,3 +1,5 @@
+import { composeLearning } from '../dreams/learn/compose.ts';
+import type { LearnService } from '../dreams/learn/service.ts';
 import { createAppleFmRuntime, type AppleFmRuntime, type AppleFmOptions } from "./apple-fm.ts";
 import { pinnedGit } from "../external-agents/git.ts";
 import { gitText } from "../collab/verifier.ts";
@@ -118,6 +120,7 @@ export interface CompositionOptions {
   tools?: Partial<Pick<ToolCompositionOptions, 'roots' | 'deny' | 'exec' | 'host' | 'extra' | 'mcp' | 'media' | 'documents'>>;
 }
 export interface CompositionDeps {
+  securePath?: (path: string, options?: { mode?: number }) => unknown;
   appleFm?: AppleFmRuntime;
   /** Background startup waits for the authenticated maintenance release. */
   maintenance?: CompositionMaintenance;
@@ -155,7 +158,7 @@ export interface CompositionDeps {
   /** Per-chat model choice (D112 catalog): reasoning per model before the wire fit, catalog facts and provider endpoints. */
   chatModels?: Pick<ChatModelSources, 'catalog' | 'endpoint'> & { reasoning(provider: string, model: string): ReasoningDescriptor };
 }
-export interface TurnComposition { /** Trusted channel ingress; stores bytes and enqueues background indexing only. */ ingestChannelAttachments: ReturnType<typeof createChannelUploadService>; codeSessions?: CodingSessions; a2a?: import("../a2a/peer-client.ts").A2aPeerClient | undefined;  importSsh: SshImportService; /** The turn provider's prompt-cache telemetry (process-local; null when no turn provider is composed). */ cacheTelemetry: CacheTelemetry | null; engineComplete: (agentId: string, params: import("@cyb3rb1ade/plur1bus-memory/types/engine.js").LlmParams) => Promise<import("@cyb3rb1ade/plur1bus-memory/types/engine.js").LlmResult>;  /** The turn call budget (L8), shared with the re-embedding run; null when its store could not be opened. */ budget: CallBudget | null; skillReview: SkillReview; mining: SkillMining; capabilities: LiveCapabilityIndex; /** Provider definitions refused at composition (`E_CONFIG_INVALID`); they serve no turn. Empty when all were composed. */ refusedProviders: readonly RefusedProvider[]; discoveryCredentials: (definition: ProviderDefinition) => import("../auth/credentials.ts").CredentialsProvider | undefined; voice: VoiceRuntime; openai: OpenAIRuntime; sessions: SessionService; collab: Collab | null; surfaceMethods: Record<string, Handler>; chatModels: ChatModelSources; close(): Promise<void> }
+export interface TurnComposition { learn: LearnService | null; /** Trusted channel ingress; stores bytes and enqueues background indexing only. */ ingestChannelAttachments: ReturnType<typeof createChannelUploadService>; codeSessions?: CodingSessions; a2a?: import("../a2a/peer-client.ts").A2aPeerClient | undefined;  importSsh: SshImportService; /** The turn provider's prompt-cache telemetry (process-local; null when no turn provider is composed). */ cacheTelemetry: CacheTelemetry | null; engineComplete: (agentId: string, params: import("@cyb3rb1ade/plur1bus-memory/types/engine.js").LlmParams) => Promise<import("@cyb3rb1ade/plur1bus-memory/types/engine.js").LlmResult>;  /** The turn call budget (L8), shared with the re-embedding run; null when its store could not be opened. */ budget: CallBudget | null; skillReview: SkillReview; mining: SkillMining; capabilities: LiveCapabilityIndex; /** Provider definitions refused at composition (`E_CONFIG_INVALID`); they serve no turn. Empty when all were composed. */ refusedProviders: readonly RefusedProvider[]; discoveryCredentials: (definition: ProviderDefinition) => import("../auth/credentials.ts").CredentialsProvider | undefined; voice: VoiceRuntime; openai: OpenAIRuntime; sessions: SessionService; collab: Collab | null; surfaceMethods: Record<string, Handler>; chatModels: ChatModelSources; close(): Promise<void> }
 /** secret_names backend: the agent's configured secret references, with presence from the store's metadata (never a value). */
 export function secretNamesPort(d: Pick<CompositionDeps, 'config' | 'secrets'>): SecretNamesPort {
   return {
@@ -614,6 +617,11 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
       verifier: codeVerifier, redact: text => createRedactor({ secrets: [...registered, ...(d.secrets.redaction?.values() ?? [])] }).text(text) });
     const codeMethods = buildCodeSurface({ coding: codeSessions, actions: codeActions,
       surfaceOf: ctx => d.surfaceOf?.(authenticatedPrincipal(ctx), ctx) ?? 0, openPermissions: () => d.permissions.open() });
+    let learn: LearnService | null = null;
+    try {
+      learn = composeLearning(d, turnProviderOptions, sessions, collab, toolsForTurn, options.createTurnProvider ?? createTurnProvider);
+      const openedLearn = learn; disposers.push(() => openedLearn.close());
+    } catch { d.logger.warn('dreams learning store unavailable'); }
     const skillProposals = new UnavailableSkillProposals();
     const skillReview = new SkillReview(skillProposals, { request: async ask => (await d.permissions.open()).service.request(ask), begin: (answer, ask) => d.permissions.current()?.service.begin(answer, ask) ?? false });
     const mining = new SkillMining(sessions.store, async scope => {
@@ -644,7 +652,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     disposers.push(() => extTurns.idle());
     let closed = false;
     const opened = sessions;
-    return { ingestChannelAttachments, codeSessions, a2a: a2a?.client, importSsh, cacheTelemetry: provider?.telemetry ?? null, budget, engineComplete, skillReview, mining, capabilities, refusedProviders: auth?.refused ?? [], discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, chatModels, surfaceMethods: { ...codeMethods, ...a2a?.methods, ...extensions.methods, ...sshMethods, ...extTurns.methods, 'decision.status': async () => decisions.status(), 'decision.test': async (p: { agentId: string }, ctx) => {
+    return { learn, ingestChannelAttachments, codeSessions, a2a: a2a?.client, importSsh, cacheTelemetry: provider?.telemetry ?? null, budget, engineComplete, skillReview, mining, capabilities, refusedProviders: auth?.refused ?? [], discoveryCredentials: definition => auth?.credentialsForDiscovery(definition), voice, openai, sessions: opened, collab, chatModels, surfaceMethods: { ...codeMethods, ...a2a?.methods, ...extensions.methods, ...sshMethods, ...extTurns.methods, 'decision.status': async () => decisions.status(), 'decision.test': async (p: { agentId: string }, ctx) => {
       if (!d.agents.has(p.agentId)) throw new RpcError('E_AGENT_UNKNOWN', 'Unknown agent');
       const principal = deriveUserPrincipal(authenticatedPrincipal(ctx).userId);
       const result = await decisions.choice({ useCase: 'routing', state: '2', question: 'Is this integer even or odd?', options: [{ id: 'even', description: 'Divisible by two' }, { id: 'odd', description: 'Not divisible by two' }] }, { agentId: p.agentId, principal, cloudEligible: true, signal: AbortSignal.any([ctx.signal, d.signal]) });

@@ -13,7 +13,7 @@ const failure = () => new RpcError("E_NOT_AVAILABLE", "Engine completion failed;
 
 /** A non-person, tool-free background role through the same router and per-attempt controls as foreground turns.
  * The caller must additionally check registry membership and the authenticated engine's agent scope before invoking it. */
-export function createEngineCompletion(create: typeof createTurnProvider, options: TurnProviderOptions): (agentId: string, params: LlmParams) => Promise<LlmResult> {
+export function createEngineCompletion(create: typeof createTurnProvider, options: TurnProviderOptions): (agentId: string, params: LlmParams, attribution?: { principal: string; projectId?: string }) => Promise<LlmResult> {
   const active = new AsyncLocalStorage<{ served?: string }>();
   const providers = new Map<string, ReturnType<typeof createTurnProvider>>();
   const {
@@ -22,7 +22,7 @@ export function createEngineCompletion(create: typeof createTurnProvider, option
     onDecision: _onDecision, onExecution: _onExecution, onPrompt: _onPrompt, beforeTools: _beforeTools,
     ...routerOptions
   } = options;
-  return async (agentId, params) => {
+  return async (agentId, params, attribution) => {
     if (typeof agentId !== "string" || !AGENT_ID.test(agentId))
       throw new RpcError("E_DENIED", "Engine agent attribution is invalid", { reason: "engine-agent-invalid" });
     const signal = params.signal ?? new AbortController().signal;
@@ -80,7 +80,8 @@ export function createEngineCompletion(create: typeof createTurnProvider, option
       let text = "";
       let usage: LlmResult["usage"];
       const stream = provider.stream({
-        role: "engine", agentId, principal: `engine:v1:${agentId}`,
+        role: "engine", agentId, principal: attribution?.principal ?? `engine:v1:${agentId}`,
+        ...(attribution?.projectId ? { projectId: attribution.projectId } : {}),
         sessionId: `engine-${randomUUID()}`, turnId: `engine-${randomUUID()}`,
         approver: { person: null, surface: 0 }, originSurface: 0, incognito: true,
         toolView: [], tools: [], summaries: [], memory: "",

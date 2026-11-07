@@ -90,7 +90,7 @@ const FORBIDDEN_EXACT = new Set([
   // seven writes stays open (owner decision pending).
   "model.memory.status", "model.licence.confirm", "model.licence.list", "model.licence.check",
 ]);
-const FORBIDDEN_PREFIX = ["tools.",
+const FORBIDDEN_PREFIX = ["dreams.learn.", "tools.",
   "decision.", "inbox.", "project.column.","supervisor.", "daemon.", "events.", "config.", "module.", "admin.", "engine.", "host.", "service.", "identity.", "update.", "secret.", "secrets.", "login.", "auth.", "grant.", "approval.", "user.", "breakglass.", "device."];
 const FORBIDDEN_SUFFIX = [".auth", ".adopt", ".shutdown"];
 

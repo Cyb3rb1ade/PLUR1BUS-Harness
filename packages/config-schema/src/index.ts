@@ -61,7 +61,11 @@ export interface CollaborationTeamsConfig {
   disk: { minFreeBytes: number };
 }
 
+export interface LearnTargetConfig { enabled?: boolean; owner?: string; agentId?: string; focus?: string }
+export interface LearnSettings { windowDays?: number; maxSessions?: number; maxTokens?: number;
+  agents?: Record<string, LearnTargetConfig>; projects?: Record<string, LearnTargetConfig>; installation?: LearnTargetConfig }
 export interface HarnessConfig {
+  dreams?: { learn?: LearnSettings };
   appleFm: { enabled: boolean };
   a2aClient?: { enabled: boolean; timeoutMs: number; maxCardBytes: number; maxRequestBytes: number; maxReplyBytes: number; maxPeers: number; peerCalls: number; turnCalls: number; peerTokens: number; turnTokens: number };
   import?: { ssh?: { connections?: Record<string, {

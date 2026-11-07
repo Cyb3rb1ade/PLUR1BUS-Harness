@@ -67,7 +67,10 @@ export class LearnRunner {
         return !!session && session.owner === e.owner && o.source.mayRead(target, session, principal);
       });
       const prior = o.store.targetFindings(target).filter(authorized);
-      const seed = o.store.payload<ReturnType<typeof vocabulary>>(run.id, 'vocabulary') ?? vocabulary(prior);
+      const currentSeed = vocabulary(prior);
+      const savedSeed = o.store.payload<ReturnType<typeof vocabulary>>(run.id, 'vocabulary');
+      if (savedSeed?.some(entry => !currentSeed.some(now => now.key === entry.key && now.text === entry.text))) throw new LearnError('rights-changed');
+      const seed = savedSeed ?? currentSeed;
       if (!o.store.payload(run.id, 'vocabulary')) o.store.checkpoint(run.id, 'vocabulary', seed);
       const raw: RawFinding[] = [], models = new Set<string>();
       for (const transcript of selected) {
@@ -86,7 +89,7 @@ export class LearnRunner {
       const freshPrincipal = o.principal(target.owner);
       if (!freshPrincipal || selected.some(t => !o.source.mayRead(target, t.session, freshPrincipal))) throw new LearnError('rights-changed');
       o.store.step(run.id, 'publish', 'started'); o.store.publish(run, reviewed, o.now()); o.store.step(run.id, 'publish', 'completed');
-      o.notice?.(run, { pending: reviewed.filter(f => f.status === 'pending').length, waitingH3: reviewed.filter(f => f.status === 'waiting-h3').length });
+      try { o.notice?.(run, { pending: reviewed.filter(f => f.status === 'pending').length, waitingH3: reviewed.filter(f => f.status === 'waiting-h3').length }); } catch { /* A best-effort notice cannot invalidate committed findings. */ }
     } catch (error) {
       const reason = signal.aborted ? 'interrupted' : error instanceof LearnError ? error.reason : 'provider-failed';
       o.store.finish(run, reason === 'transcript-cap' ? 'deferred' : ['invalid-output', 'provider-failed', 'source-unavailable'].includes(reason) ? 'failed' : 'skipped', reason, o.now());

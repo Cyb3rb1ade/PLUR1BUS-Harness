@@ -112,3 +112,15 @@ test('M1: the next isolated extraction receives the previously established vocab
     assert.equal(store.findings(run.id).length, 1); assert.equal(store.findings(run.id)[0]!.prevalence.sessions, 3);
   } finally { store.close(); }
 });
+
+test('LP6: same-window failures count toward the persistent breaker, even across retries', async () => {
+  const store = new LearnStore(':memory:'), t = transcript('s'); let calls = 0;
+  const runner = new LearnRunner({ store, now: () => 100, principal: () => principal, config: () => ({ ...DEFAULT_LEARN_CONFIG, enabled: true }),
+    source: { sessions: () => [t.session], transcript: () => t, mayRead: () => true },
+    model: { async complete() { calls++; throw Error('fixture failure'); } } });
+  try {
+    for (let i = 0; i < 3; i++) assert.equal((await runner.run(target, { from: 1, to: 90 }, new AbortController().signal)).outcome, 'failed');
+    assert.equal((await runner.run(target, { from: 1, to: 90 }, new AbortController().signal)).reason, 'breaker-open');
+    assert.equal(calls, 3);
+  } finally { store.close(); }
+});

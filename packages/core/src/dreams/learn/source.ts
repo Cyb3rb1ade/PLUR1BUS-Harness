@@ -5,14 +5,15 @@ import type { SessionStore } from '../../session/store.ts';
 import type { Project } from '../../collab/types.ts';
 import { deriveUserPrincipal } from '../../identity/principals.ts';
 import { readRights, resolveExposure } from '../../memory-exposure/index.ts';
-import { LIMITS, type SelectionSource } from './types.ts';
+import { LIMITS, type Evidence, type SelectionSource } from './types.ts';
 
 /** All scope inputs come from the configured target and live registries, never model output. */
 export function learningSource(store: SessionStore, o: { config(): HarnessConfig; hasAgent(id: string): boolean; project(id: string): Project | null; identity?(): Pick<IdentityService, 'resolve' | 'getLink'> | null }): SelectionSource {
-  return {
+  const source: SelectionSource = {
     session: id => store.getSession(id),
     sessions: (t, w, limit, offset = 0) => store.learningSessions({ owner: deriveUserPrincipal(t.owner), ...(t.scope === 'agent' ? { agentId: t.agentId } : {}), ...(t.projectId ? { projectId: t.projectId } : {}), ...w, limit, offset }),
     mayRead(target, session, principal) {
+      if (session.owner !== deriveUserPrincipal(target.owner) || session.memoryMode !== 'remember' || (target.projectId && session.scope !== target.projectId)) return false;
       if (!o.hasAgent(session.agentId) || !o.hasAgent(target.agentId) || principal.userId !== target.owner) return false;
       const source = readRights(principal, session.agentId), destination = readRights(principal, target.agentId);
       if (!source.agentPrivate || !(target.scope === 'project' ? destination.workspace : destination.agentPrivate)) return false;
@@ -25,8 +26,11 @@ export function learningSource(store: SessionStore, o: { config(): HarnessConfig
       const exposure = resolveExposure({ channel, agentId: session.agentId, principal, config: o.config() });
       return target.scope === 'project' ? exposure.recall.workspace && exposure.recall.agentPrivate : exposure.recall.agentPrivate;
     },
-    transcript(session, window) {
-      const { messages, events } = store.learningTranscript(session.id, window, LIMITS);
+    transcript(session, window) { return read(session, window); },
+    evidence(session, refs) { return read(session, { from: 0, to: Number.MAX_SAFE_INTEGER }, refs); },
+  };
+  function read(session: Parameters<SelectionSource['transcript']>[0], window: Parameters<SelectionSource['transcript']>[1], refs?: readonly Evidence[]) {
+      const { messages, events } = store.learningTranscript(session.id, window, LIMITS, refs ? [...new Set(refs.map(e => e.turnId))] : undefined);
       const personMessageIds = messages.filter(message => {
         if (session.kind !== 'channel' || message.role !== 'user') return false;
         const event = events.find(e => e.type === 'turn.started' && e.turnId === message.turnId);
@@ -43,6 +47,6 @@ export function learningSource(store: SessionStore, o: { config(): HarnessConfig
         } catch { return false; }
       }).map(m => m.id);
       return { session, messages, events, personMessageIds, days: [...new Set(messages.map(m => new Date(m.createdAt).toISOString().slice(0, 10)))].sort() };
-    },
-  };
+  }
+  return source;
 }

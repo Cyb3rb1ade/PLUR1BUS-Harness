@@ -1,3 +1,5 @@
+import { join } from 'node:path';
+import { tempDir } from '../helpers/temp-dir.ts';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { deriveUserPrincipal } from '../../src/identity/principals.ts';
@@ -6,7 +8,7 @@ import { learningSource } from '../../src/dreams/learn/source.ts';
 import { LearnRunner } from '../../src/dreams/learn/runner.ts';
 import { LearnStore } from '../../src/dreams/learn/store.ts';
 import { DEFAULT_LEARN_CONFIG } from '../../src/dreams/learn/types.ts';
-import type { HarnessConfig } from '@plur1bus/config-schema';
+import { defaults, type HarnessConfig } from '@plur1bus/config-schema';
 const target = { scope: 'agent' as const, owner: 'alice', agentId: 'agent' };
 const principal = { userId: 'alice', kind: 'person' as const, role: 'owner' as const };
 function rig() {
@@ -60,7 +62,7 @@ test('learningSessions includes only completed non-incognito turns in the half-o
 test('H3: only an owner direct chat with a still-valid pre-existing identity link supplies person evidence', async () => {
   const { createIdentityService } = await import('../../src/identity/service.ts');
   const { parseExtraction } = await import('../../src/dreams/learn/aggregation.ts');
-  const identity = createIdentityService({ dbPath: ':memory:', clock: () => 1, audit: () => {} });
+  const identity = createIdentityService({ dbPath: join(tempDir('learn-identity-'), 'identity.db'), clock: () => 1, audit: () => {} });
   const actor = { user: 'owner', host: 'fixture', role: 'owner' as const, kind: 'person' as const };
   const human = identity.createHuman({ displayName: 'Owner fixture' }, actor);
   const link = identity.link({ humanId: human.id, identity: { channel: 'telegram', accountId: 'bot', userId: 'sender' } }, actor);
@@ -119,7 +121,7 @@ test('L4: live exposure, project membership and archival narrow learning reads',
     project = { ...project, archivedAt: null, agents: [] }; assert.equal(source.mayRead(t, s, principal), false);
     project = { ...project, agents: ['agent'], owner: 'other' }; assert.equal(source.mayRead(t, s, principal), false);
     project = { ...project, owner: 'alice' };
-    config = { agents: { agent: { memoryExposure: { collab: { recall: { agentPrivate: false } } } } } } as HarnessConfig;
+    config = defaults(); config.agents.agent = { ...config.agents.default!, memoryExposure: { collab: { recall: { agentPrivate: false } } } };
     assert.equal(source.mayRead(t, s, principal), false);
     config = { agents: {} } as HarnessConfig;
     assert.equal(source.mayRead(t, s, { ...principal, role: 'member' }), false);

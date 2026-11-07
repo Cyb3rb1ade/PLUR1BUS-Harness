@@ -250,6 +250,9 @@ export const RPC_RULES: Readonly<Record<string, RpcRule>> = Object.freeze({
   "admin.reembed.status": rule("admin.reembed.status", system),
   "admin.reembed.abort": rule("admin.reembed.abort", system),
   // M1b-3 dreaming, classified by the nearest existing pattern: run-now like `jobs.run`, schedule edits like `settings.write`; the reads (status, log, schedule.get) stay open like `jobs.list|history`.
+  ...Object.fromEntries(['dreams.learn.run', 'dreams.learn.status', 'dreams.learn.list', 'dreams.learn.get',
+    'dreams.learn.decide', 'dreams.learn.rollback', 'dreams.learn.calibration'].map(method =>
+    [method, { ...rule(method === 'dreams.learn.run' ? 'jobs.run' : 'agent.list', system), humanOnly: true }])),
   "dreams.run": rule("jobs.run", system),
   "dreams.schedule.set": rule("settings.write", system),
   "dreams.enable": rule("settings.write", system),

@@ -638,6 +638,17 @@ fn method_fixture(name: &str, f: &Value) {
         "dreams.schedule.set" => pair::<DreamsScheduleSetParams, DreamsScheduleSetResult>(name, f),
         "dreams.enable" => pair::<DreamsEnableParams, DreamsEnableResult>(name, f),
         "dreams.disable" => pair::<DreamsDisableParams, DreamsDisableResult>(name, f),
+        "dreams.learn.run" => pair::<DreamsLearnRunParams, DreamsLearnRunResult>(name, f),
+        "dreams.learn.status" => pair::<DreamsLearnStatusParams, DreamsLearnStatusResult>(name, f),
+        "dreams.learn.list" => pair::<DreamsLearnListParams, DreamsLearnListResult>(name, f),
+        "dreams.learn.get" => pair::<DreamsLearnGetParams, DreamsLearnGetResult>(name, f),
+        "dreams.learn.decide" => pair::<DreamsLearnDecideParams, DreamsLearnDecideResult>(name, f),
+        "dreams.learn.rollback" => {
+            pair::<DreamsLearnRollbackParams, DreamsLearnRollbackResult>(name, f)
+        }
+        "dreams.learn.calibration" => {
+            pair::<DreamsLearnCalibrationParams, DreamsLearnCalibrationResult>(name, f)
+        }
         "dreams.diary" => pair::<DreamsDiaryParams, DreamsDiaryResult>(name, f),
         "admin.reembed.plan" => pair::<AdminReembedPlanParams, AdminReembedPlanResult>(name, f),
         "admin.reembed.run" => pair::<AdminReembedRunParams, AdminReembedRunResult>(name, f),

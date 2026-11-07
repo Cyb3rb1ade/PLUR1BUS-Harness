@@ -27,6 +27,7 @@ export interface LearnRun { id: string; target: Target; window: Window; sessionI
 export interface SelectionSource {
   session?(id: string): SessionRecord | null;
   sessions(target: Target, window: Window, limit: number, offset?: number): SessionRecord[];
+  evidence?(session: SessionRecord, refs: readonly Evidence[]): Transcript;
   transcript(session: SessionRecord, window: Window): Transcript;
   mayRead(target: Target, session: SessionRecord, principal: Principal): boolean;
 }

@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://plur1bus.dev/schema/rpc/1.22.0/rpc.schema.json",
-  "title": "PLUR1BUS harness RPC 1.22.0",
+  "$id": "https://plur1bus.dev/schema/rpc/1.23.0/rpc.schema.json",
+  "title": "PLUR1BUS harness RPC 1.23.0",
   "description": "JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor, module (methods only), or engine (since 1.7.0). host.* is served by core and requires the engine principal at dispatch. D120: tools methods are served by plur1bus-tools and require the Core principal.",
-  "x-rpc-version": "1.22.0",
+  "x-rpc-version": "1.23.0",
   "$defs": {
     "EngineContractEngineCapabilitiesData": {
       "title": "EngineContractEngineCapabilitiesData",
@@ -19535,6 +19535,332 @@
               "$ref": "#/$defs/DreamSchedule"
             }
           }
+        }
+      },
+      "dreams.learn.run": {
+        "x-stability": "experimental",
+        "x-since": "1.23.0",
+        "x-server": "core",
+        "description": "Human-only shadow learning run. Owner-scoped evidence and existing public MemoryOps authorization; no automatic adoption.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "scope": {
+              "enum": [
+                "agent",
+                "project",
+                "installation"
+              ]
+            },
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "projectId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "scope",
+            "agentId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "run": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "required": [
+            "run"
+          ]
+        }
+      },
+      "dreams.learn.status": {
+        "x-stability": "experimental",
+        "x-since": "1.23.0",
+        "x-server": "core",
+        "description": "Human-only shadow learning status. Owner-scoped evidence and existing public MemoryOps authorization; no automatic adoption.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "scope": {
+              "enum": [
+                "agent",
+                "project",
+                "installation"
+              ]
+            },
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "projectId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "scope",
+            "agentId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "required": [
+            "status"
+          ]
+        }
+      },
+      "dreams.learn.list": {
+        "x-stability": "experimental",
+        "x-since": "1.23.0",
+        "x-server": "core",
+        "description": "Human-only shadow learning list. Owner-scoped evidence and existing public MemoryOps authorization; no automatic adoption.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "scope": {
+              "enum": [
+                "agent",
+                "project",
+                "installation"
+              ]
+            },
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "projectId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "scope",
+            "agentId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          },
+          "required": [
+            "items"
+          ]
+        }
+      },
+      "dreams.learn.get": {
+        "x-stability": "experimental",
+        "x-since": "1.23.0",
+        "x-server": "core",
+        "description": "Human-only shadow learning get. Owner-scoped evidence and existing public MemoryOps authorization; no automatic adoption.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "id"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "finding": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "contentHash": {
+              "type": "string"
+            },
+            "action": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "finding",
+            "evidence",
+            "contentHash",
+            "action"
+          ]
+        }
+      },
+      "dreams.learn.decide": {
+        "x-stability": "experimental",
+        "x-since": "1.23.0",
+        "x-server": "core",
+        "description": "Human-only shadow learning decide. Owner-scoped evidence and existing public MemoryOps authorization; no automatic adoption.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "contentHash": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "outcome": {
+              "enum": [
+                "accepted",
+                "rejected"
+              ]
+            },
+            "staleAction": {
+              "enum": [
+                "correct",
+                "forget"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "contentHash",
+            "outcome"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "accepted",
+                "rejected"
+              ]
+            },
+            "receipt": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "required": [
+            "status"
+          ]
+        }
+      },
+      "dreams.learn.rollback": {
+        "x-stability": "experimental",
+        "x-since": "1.23.0",
+        "x-server": "core",
+        "description": "Human-only shadow learning rollback. Owner-scoped evidence and existing public MemoryOps authorization; no automatic adoption.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "id"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "result": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "required": [
+            "result"
+          ]
+        }
+      },
+      "dreams.learn.calibration": {
+        "x-stability": "experimental",
+        "x-since": "1.23.0",
+        "x-server": "core",
+        "description": "Human-only shadow learning calibration. Owner-scoped evidence and existing public MemoryOps authorization; no automatic adoption.",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "scope": {
+              "enum": [
+                "agent",
+                "project",
+                "installation"
+              ]
+            },
+            "agentId": {
+              "$ref": "#/$defs/AgentId"
+            },
+            "projectId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "scope",
+            "agentId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "record": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "required": [
+            "record"
+          ]
         }
       },
       "dreams.diary": {

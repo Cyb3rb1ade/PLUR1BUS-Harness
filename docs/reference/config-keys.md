@@ -12,6 +12,28 @@ TypeScript validation returns optional, value-free `warnings` for endpoint useri
 
 | Key | Type | Default | Restart | Tier | x-sensitive | x-url-credentials | Reference form | Description |
 |---|---|---|---|---|---|---|---|---|
+| `dreams` | object | `{}` | core | advanced | false | false |  |  |
+| `dreams.learn` | object | `{}` | core | advanced | false | false |  |  |
+| `dreams.learn.windowDays` | integer | `7` | core | advanced | false | false |  |  |
+| `dreams.learn.maxSessions` | integer | `50` | core | advanced | false | false |  |  |
+| `dreams.learn.maxTokens` | integer | `100000` | core | advanced | false | false |  |  |
+| `dreams.learn.agents` | object | `{}` | core | advanced | false | false |  |  |
+| `dreams.learn.agents.*` | object | `{}` | core | advanced | false | false |  |  |
+| `dreams.learn.agents.*.enabled` | boolean | `false` | core | advanced | false | false |  |  |
+| `dreams.learn.agents.*.owner` | string | `""` | core | advanced | false | false |  |  |
+| `dreams.learn.agents.*.agentId` | string | `""` | core | advanced | false | false |  |  |
+| `dreams.learn.agents.*.focus` | string | `""` | core | advanced | false | false |  |  |
+| `dreams.learn.projects` | object | `{}` | core | advanced | false | false |  |  |
+| `dreams.learn.projects.*` | object | `{}` | core | advanced | false | false |  |  |
+| `dreams.learn.projects.*.enabled` | boolean | `false` | core | advanced | false | false |  |  |
+| `dreams.learn.projects.*.owner` | string | `""` | core | advanced | false | false |  |  |
+| `dreams.learn.projects.*.agentId` | string | `""` | core | advanced | false | false |  |  |
+| `dreams.learn.projects.*.focus` | string | `""` | core | advanced | false | false |  |  |
+| `dreams.learn.installation` | object | `{}` | core | advanced | false | false |  |  |
+| `dreams.learn.installation.enabled` | boolean | `false` | core | advanced | false | false |  |  |
+| `dreams.learn.installation.owner` | string | `""` | core | advanced | false | false |  |  |
+| `dreams.learn.installation.agentId` | string | `""` | core | advanced | false | false |  |  |
+| `dreams.learn.installation.focus` | string | `""` | core | advanced | false | false |  |  |
 | `import` | object | `{}` |  | advanced | false | false |  | Read-only import source configuration. |
 | `import.ssh` | object | `{}` | live | advanced | false | false |  | Owner-managed SSH source identity and endpoint configuration. |
 | `import.ssh.connections` | object | `{}` | live | advanced | false | false |  | Owner-managed named SSH source connections. |

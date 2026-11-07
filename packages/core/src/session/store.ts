@@ -620,9 +620,13 @@ export class SessionStore {
   listTurns(sessionId: string): TurnRecord[] { return this.#all("SELECT * FROM turns WHERE session_id = ? ORDER BY seq", sessionId).map(toTurn); }
 
   /** Learning reads the completed-turn window before imposing content caps. One extra row exposes overflow. */
-  learningTranscript(sessionId: string, window: { from: number; to: number }, caps: { messages: number; events: number }): { messages: MessageRecord[]; events: EventRecord[] } {
-    const predicate = "t.session_id=? AND t.state='completed' AND t.incognito=0 AND t.ended_at>=? AND t.ended_at<?";
-    const args = [sessionId, window.from, window.to];
+  learningTranscript(sessionId: string, window: { from: number; to: number }, caps: { messages: number; events: number }, turnIds?: readonly string[]): { messages: MessageRecord[]; events: EventRecord[] } {
+    let predicate = "t.session_id=? AND t.state='completed' AND t.incognito=0 AND t.ended_at>=? AND t.ended_at<?";
+    const args: (string | number)[] = [sessionId, window.from, window.to];
+    if (turnIds) {
+      if (!turnIds.length || turnIds.length > 100) return { messages: [], events: [] };
+      predicate += ` AND t.id IN (${turnIds.map(() => '?').join(',')})`; args.push(...turnIds);
+    }
     const messages = this.#all(`SELECT m.* FROM messages m JOIN turns t ON t.id=m.turn_id
       WHERE ${predicate} AND m.session_id=t.session_id AND NOT EXISTS
       (SELECT 1 FROM path_rewinds r WHERE r.session_id=m.session_id AND

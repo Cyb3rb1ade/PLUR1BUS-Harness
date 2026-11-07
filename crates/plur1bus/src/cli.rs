@@ -954,8 +954,51 @@ pub enum CurationCmd {
         id: String,
     },
 }
+#[derive(clap::Args, Debug)]
+pub struct DreamsLearnTarget {
+    #[arg(long)]
+    pub agent: String,
+    #[arg(long, conflicts_with = "installation")]
+    pub project: Option<String>,
+    #[arg(long)]
+    pub installation: bool,
+}
+#[derive(Subcommand, Debug)]
+pub enum DreamsLearnCmd {
+    /// [experimental] Run the current learning window
+    Run(DreamsLearnTarget),
+    /// [experimental] Last run, next run and breaker
+    Status(DreamsLearnTarget),
+    /// [experimental] List review findings
+    List(DreamsLearnTarget),
+    /// [experimental] Inspect a finding and authorized live evidence
+    Show { id: String },
+    /// [experimental] Apply a reviewed finding through public MemoryOps
+    Accept {
+        id: String,
+        #[arg(long)]
+        hash: String,
+        #[arg(long, value_parser = ["correct", "forget"])]
+        stale_action: Option<String>,
+    },
+    /// [experimental] Reject the reviewed finding
+    Reject {
+        id: String,
+        #[arg(long)]
+        hash: String,
+    },
+    /// [experimental] Roll back an imported finding
+    Rollback { id: String },
+    /// [experimental] Show measured shadow precision and closed gates
+    Calibration(DreamsLearnTarget),
+}
 #[derive(Subcommand, Debug)]
 pub enum DreamsCmd {
+    /// [experimental] Shadow learning runs and human review
+    Learn {
+        #[command(subcommand)]
+        sub: DreamsLearnCmd,
+    },
     /// [experimental] Dreaming status: the three phase schedules, last runs, breaker and importance, plus the engine jobs
     Status {
         #[arg(long)]

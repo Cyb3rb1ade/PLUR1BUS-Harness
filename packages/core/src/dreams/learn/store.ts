@@ -18,7 +18,7 @@ export class LearnStore {
     try {
       this.#db.exec('PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON;');
       const version = Number(this.#db.prepare('PRAGMA user_version').get()!.user_version);
-      if (version > 3) throw Error('newer learn schema');
+      if (version > 4) throw Error('newer learn schema');
       if (!version) this.#db.exec(`BEGIN IMMEDIATE;
         CREATE TABLE learn_run(id TEXT PRIMARY KEY, target_hash TEXT NOT NULL, window_from INTEGER NOT NULL, window_to INTEGER NOT NULL, metadata TEXT NOT NULL, UNIQUE(target_hash,window_from,window_to));
         CREATE TABLE learn_step(run_id TEXT NOT NULL REFERENCES learn_run(id), step TEXT NOT NULL, state TEXT NOT NULL, PRIMARY KEY(run_id,step));
@@ -47,6 +47,12 @@ export class LearnStore {
         }
         this.#db.exec('DROP TABLE old_decision; PRAGMA user_version=3;');
       });
+      if (version < 4) this.#db.exec(`BEGIN IMMEDIATE;
+        CREATE TABLE learn_failure(run_id TEXT NOT NULL REFERENCES learn_run(id), at INTEGER NOT NULL);
+        INSERT INTO learn_failure SELECT id,json_extract(metadata,'$.finishedAt') FROM learn_run WHERE json_extract(metadata,'$.outcome')='failed';
+        CREATE TABLE learn_action(finding_id TEXT NOT NULL REFERENCES learn_finding(id), revision INTEGER NOT NULL,
+          state TEXT NOT NULL, receipt TEXT NOT NULL, PRIMARY KEY(finding_id,revision));
+        PRAGMA user_version=4; COMMIT;`);
       if (file !== ':memory:') { chmodSync(file, 0o600); secure?.(file); }
     } catch (error) { this.#db.close(); throw error; }
   }
@@ -73,8 +79,7 @@ export class LearnStore {
   }
   breakerOpen(target: Target, now: number): boolean {
     const start = Math.floor(now / 86_400_000) * 86_400_000;
-    const row = this.#db.prepare(`SELECT count(*) AS n FROM learn_run WHERE owner=? AND target_hash=?
-      AND json_extract(metadata,'$.startedAt')>=? AND json_extract(metadata,'$.outcome')='failed'`).get(target.owner, targetHash(target), start);
+    const row = this.#db.prepare(`SELECT count(*) AS n FROM learn_failure f JOIN learn_run r ON r.id=f.run_id WHERE r.owner=? AND r.target_hash=? AND f.at>=?`).get(target.owner, targetHash(target), start);
     return Number(row!.n) >= 3;
   }
   step(runId: string, step: string, state: 'started' | 'completed'): void { this.#db.prepare('INSERT INTO learn_step VALUES(?,?,?) ON CONFLICT(run_id,step) DO UPDATE SET state=excluded.state').run(runId, step, state); }
@@ -82,7 +87,7 @@ export class LearnStore {
   checkpoint(runId: string, key: string, value: unknown): void {
     this.transaction(() => { this.#db.prepare('INSERT INTO learn_payload VALUES(?,?,?) ON CONFLICT(run_id,key) DO UPDATE SET payload=excluded.payload').run(runId, key, JSON.stringify(value)); this.step(runId, key, 'completed'); });
   }
-  finish(run: LearnRun, outcome: NonNullable<LearnRun['outcome']>, reason: Reason | null, now: number): void { run.outcome = outcome; run.reason = reason; run.finishedAt = now; this.save(run); }
+  finish(run: LearnRun, outcome: NonNullable<LearnRun['outcome']>, reason: Reason | null, now: number): void { run.outcome = outcome; run.reason = reason; run.finishedAt = now; this.save(run); if (outcome === 'failed') this.#db.prepare('INSERT INTO learn_failure VALUES(?,?)').run(run.id, now); }
   publish(run: LearnRun, findings: Finding[], now: number): void {
     this.transaction(() => {
       let published = 0;
@@ -113,6 +118,7 @@ export class LearnStore {
       const changed = this.#db.prepare("UPDATE learn_finding SET state=? WHERE id=? AND state='pending'").run(outcome, id);
       if (Number(changed.changes) !== 1) throw Error('finding-not-pending');
       this.#db.prepare('INSERT INTO learn_decision VALUES(?,?,?,?,?,?,?)').run(id, f.revision ?? 1, reviewer, outcome, now, JSON.stringify(receipt), JSON.stringify(decisionSummary(f)));
+      if (outcome === 'accepted') this.finishAction(f, 'completed', receipt);
     });
   }
   /** One most recent human decision per stable finding; earlier revisions remain auditable. */
@@ -131,7 +137,7 @@ export class LearnStore {
     const old = this.finding(next.id);
     if (!old) return next;
     if (targetHash(old.target) !== targetHash(next.target)) throw Error('finding-target-mismatch');
-    if (old.status === 'accepted') return null;
+    if (old.status === 'accepted' || this.action(old.id, old.revision ?? 1)?.state === 'started') return null;
     if (old.status === 'rejected') {
       const latestDay = old.evidence.map(e => e.day).sort().at(-1) ?? '';
       const oldRefs = new Set(old.evidence.map(e => digest([e.sessionId, e.source, e.sourceId])));
@@ -143,6 +149,18 @@ export class LearnStore {
       } };
     }
     return { ...mergeEvidence(old, next), revision: old.revision ?? 1, ...(old.previousDecision ? { previousDecision: old.previousDecision } : {}) };
+  }
+  startAction(f: Finding): void {
+    const old = this.action(f.id, f.revision ?? 1);
+    if (old && old.state !== 'refused') throw Error('action-awaits-reconciliation');
+    this.#db.prepare('INSERT OR REPLACE INTO learn_action VALUES(?,?,?,?)').run(f.id, f.revision ?? 1, 'started', '{}');
+  }
+  finishAction(f: Finding, state: 'completed' | 'refused', receipt: Record<string, string | number>): void {
+    this.#db.prepare('UPDATE learn_action SET state=?,receipt=? WHERE finding_id=? AND revision=?').run(state, JSON.stringify(receipt), f.id, f.revision ?? 1);
+  }
+  action(id: string, revision: number): { state: string; receipt: Record<string, string | number> } | null {
+    const row = this.#db.prepare('SELECT state,receipt FROM learn_action WHERE finding_id=? AND revision=?').get(id, revision);
+    return row ? { state: String(row.state), receipt: JSON.parse(String(row.receipt)) as Record<string, string | number> } : null;
   }
   decisions(runId: string): { findingId: string; outcome: string; receipt: Record<string, string | number> }[] {
     return this.#db.prepare('SELECT d.* FROM learn_decision d JOIN learn_finding f ON f.id=d.finding_id WHERE f.run_id=?').all(runId).map(r => ({ findingId: r.finding_id as string, outcome: r.outcome as string, receipt: JSON.parse(r.receipt as string) as Record<string, string | number> }));

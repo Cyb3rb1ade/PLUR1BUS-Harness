@@ -75,7 +75,7 @@ outputs are untrusted unless independently verified. Instruction-like findings a
 
 Aggregation is code: normalize keys, sort, exact-key cluster, deduplicate evidence IDs, count prevalence
 and rank with deterministic tie-breaks. The same records in any session order yield identical output.
-No semantic model clustering, model confidence score or invented golden data. Existing-memory agreement
+The extractor selects a claim vocabulary key; it supplies no counts, confidence score or ranking. Existing-memory agreement
 is read-only and scoped; lack of evidence is unknown, never agreement.
 
 ## 5. Verify, skeptic, route and budgets
@@ -107,11 +107,11 @@ on two days. B: project knowledge, score >= .9, at least two agents/persons. Per
 changes, relationship/private content, instruction-like changes, skills and non-duplicate deletion
 remain desired C. The source/target properties are host verified, never accepted from a model.
 
-Calibration is versioned by actual model identity and prompt revision, with thresholds A=.8/B=.9,
+Calibration is pooled per owner and versioned by model classes, prompt revision and score policy; actual model IDs remain metadata, with thresholds A=.8/B=.9,
 minimum 50 decisions per desired tier and precision >= .95. Precision is accepted/decided from actual
 human decisions; pending, failed, procedural and metadata findings are excluded. Gate order is
 `shadow-incomplete`, `precision-below-gate`, then `revert-unavailable`. LP never enables A/B even when
-precision passes: V2 preconditions/revert, the objection window, revert breaker and N6 are future work.
+precision passes: V2 preconditions/revert, the objection window and revert breaker are future work. LQ2 adds shadow predictions without automatic changes.
 
 ## 7. Surfaces and tests
 
@@ -153,3 +153,13 @@ suites, docs generation/check and Rust fmt/clippy/CLI tests precede the single r
   a class can be masked by the pool, which must be assessed before V2 enables any automatic tier.
 - Known limit L2: conservative instruction-word matching can keep harmless statements in C.
   This is intentional during shadow evaluation; precision does not imply recall of eligible facts.
+
+- Ruling LP6: Existing public MemoryOps remain authoritative, including refusal of a new project
+  fact because importText v1 has no workspace target. Such findings remain pending with
+  unsupported-target; they are never silently redirected to agent/user memory. Existing shared
+  card corrections use memory.propose. The cost is delayed project-add acceptance until the
+  public operation supports that scope; LP introduces no Engine or RBAC exception.
+- Ruling LP6 scheduling: enabled learning targets use one daily UTC window ending at midnight,
+  with the existing Dreams timer and global concurrency semaphore. Manual execution uses that
+  same window and guards. This makes retries idempotent; data from the current partial day is
+  evaluated in the next window rather than generating overlapping manual runs.
