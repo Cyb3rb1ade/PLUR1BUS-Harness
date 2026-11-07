@@ -701,7 +701,10 @@ fn rebuild_requests_are_debounced_to_the_latest() {
 fn a_paired_connection_that_cannot_be_reached_is_not_connected_not_stopped() {
     // Owner decision 2026-11-04 (#740): two axes, pairing and connection.
     assert_eq!(HarnessState::Disconnected.words(), "Not connected");
-    assert_eq!(Language::De.harness(HarnessState::Disconnected), "Nicht verbunden");
+    assert_eq!(
+        Language::De.harness(HarnessState::Disconnected),
+        "Nicht verbunden"
+    );
     assert_eq!(HarnessState::Unpaired.words(), "Not paired");
     // A lost event stream of a remote or local connection reads *Not connected* …
     assert_eq!(
@@ -709,10 +712,20 @@ fn a_paired_connection_that_cannot_be_reached_is_not_connected_not_stopped() {
         HarnessState::Disconnected
     );
     // … a bundled connection keeps `Down`, because its controller knows whether the harness is stopped …
-    assert_eq!(connection_state(HarnessState::Down, false, true), HarnessState::Down);
+    assert_eq!(
+        connection_state(HarnessState::Down, false, true),
+        HarnessState::Down
+    );
     // … and a harness that itself reports `down` over a live stream is *Stopped*.
-    assert_eq!(connection_state(HarnessState::Down, true, false), HarnessState::Down);
-    for state in [HarnessState::Ready, HarnessState::Unpaired, HarnessState::Crashed] {
+    assert_eq!(
+        connection_state(HarnessState::Down, true, false),
+        HarnessState::Down
+    );
+    for state in [
+        HarnessState::Ready,
+        HarnessState::Unpaired,
+        HarnessState::Crashed,
+    ] {
         assert_eq!(connection_state(state, false, false), state);
     }
     let view = TrayState {
@@ -735,9 +748,16 @@ fn a_waiting_approval_raises_attention_and_keeps_the_harness_word() {
         ..Default::default()
     };
     assert_eq!(view.badge(), Badge::Attention);
-    assert_eq!(Language::En.status(&view, "Home"), "PLUR1BUS — Home — Running");
+    assert_eq!(
+        Language::En.status(&view, "Home"),
+        "PLUR1BUS — Home — Running"
+    );
     view.update_available = true;
-    assert_eq!(view.badge(), Badge::Attention, "a waiting request outranks an update");
+    assert_eq!(
+        view.badge(),
+        Badge::Attention,
+        "a waiting request outranks an update"
+    );
     view.approvals_pending = false;
     assert_eq!(view.badge(), Badge::Update);
     view.approvals_pending = true;

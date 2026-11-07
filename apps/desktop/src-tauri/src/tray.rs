@@ -157,7 +157,9 @@ impl TrayState {
         }
         match self.harness {
             HarnessState::Starting | HarnessState::Updating => Badge::Busy,
-            HarnessState::Ready if self.secrets_locked || self.approvals_pending => Badge::Attention,
+            HarnessState::Ready if self.secrets_locked || self.approvals_pending => {
+                Badge::Attention
+            }
             HarnessState::Ready if self.update_available => Badge::Update,
             HarnessState::Ready => Badge::Running,
             _ => Badge::Attention,

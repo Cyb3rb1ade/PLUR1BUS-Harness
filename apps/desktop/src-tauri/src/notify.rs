@@ -272,7 +272,8 @@ pub mod portal {
             {
                 return Err(NotifyFailure);
             }
-            let options = HashMap::from([("message", Value::from(language.harness(state.harness)))]);
+            let options =
+                HashMap::from([("message", Value::from(language.harness(state.harness)))]);
             portal
                 .call::<_, _, ()>("SetStatus", &(options))
                 .await
