@@ -44,8 +44,8 @@ recommendation. If a decision changes, the briefs named in the last column chang
 | RE-D5 jobs | staged: deterministic core first, go/no-go before RE-06 | RE-06 |
 | RE-D6 contract | the pin's 1.17.0 (1.16.0 + `admin.reembedding.validate`) at parity; A1 curated memory and the memory-tree members are additive, under the numbers the engine assigns them on merge | RE-01, RE-07 |
 | RE-D7 engine repository | stays for the OpenClaw plugin line; the harness stops depending on it in Phase 3 | RE-11 |
-| RE-D8 forward-port | CP-5 and CP-7 go to the Node engine's `main` now | RE-12 |
-| RE-D9 TypeScript core | not part of this programme | — |
+| RE-D8 forward-port | superseded 2026-11-07: the Node engine is frozen (D129, D131 Q10); RE-12 is not done | RE-12 |
+| RE-D9 TypeScript core | superseded by [ADR-019](../../../adr/ADR-019-rust-new-components-and-core-strangler.md): the core moves to Rust before 0.1 in its own programme, [`2026-11-07-phase4-ts-core-to-rust.md`](../2026-11-07-phase4-ts-core-to-rust.md) | — |
 | RE-D10 distribution | the engine binary joins the release payload, the container image and the desktop bundle | RE-08 |
 | RE-D11 recall score | decided 2026-10-24: at parity in Phase 1; cosine score and calibrated thresholds in RE-10 T7 | RE-02 (metric default), RE-04, RE-10 |
 | RE-D12 hybrid retrieval | decided 2026-10-24: at parity in Phase 1; full-text index and rank fusion in RE-10 T8 | RE-02, RE-04, RE-10 |
@@ -127,6 +127,6 @@ Kept by the controller. A row changes when a task's PR opens or merges.
 | RE-09 | not started | — |
 | RE-10 | not started | — |
 | RE-11 | not started | — |
-| RE-12 | not started | — |
+| RE-12 | superseded 2026-11-07 (D129, D131 Q10); not done | — |
 | RE-13 | not started (Phase 2; decided 2026-10-24) | — |
 | RE-14 | P1–P4 and T1 merged 2026-10-26 (#781, #783, #784, #785, #786), T2a and T3 2026-10-27 (#788, #790); P5 (RE-D29 setting, default 1.0) merged 2026-10-28 (#800), its RPC/CLI surface and the split view in `budget.status` follow after RE-08's schema change; T2b (exact Gemma 4, DeepSeek V4, Qwen 3.8, GLM counts) waits for the original files and their licences, and may add the Kimi K3, Grok-2 and Gemma 3 files RE-D25 approved; T4 with RE-08, T5 with RE-10 | — |

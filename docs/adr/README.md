@@ -67,8 +67,10 @@ The recommendation, stated in one paragraph, then the details.
 | 014 | MCP host adapter and trust-routing provenance (D17, D19) | `ADR-014-mcp-host-adapter.md` | Proposed | Proposes an MCP host adapter with provenance-aware trust routing. |
 | 015 | Decision service | `ADR-015-decision-service.md` | Proposed | Defines three primitives, Core client/module boundary, backend eligibility, deadlines, calibration, trace and privacy (D18/D70). |
 | 016 | API stability and versioning | `ADR-016-api-stability-and-versioning.md` | Accepted | Defines API stability levels, compatibility expectations, and versioning policy. |
+| 017 | Media generation and editing | `ADR-017-media.md` | Accepted | Image generation and editing for v0.1, video for v0.2, provider-neutral library, RPC and CLI. |
+| 019 | Rust for new components, and the core's strangler path to Rust | `ADR-019-rust-new-components-and-core-strangler.md` | Accepted | New components in Rust; the TypeScript core moves to Rust before 0.1 (Phase 4); no TypeScript fixes (D129). |
 
-ADR-017 is a draft on media generation; it has not yet been added to this repository.
+ADR-018 is reserved for the Rust engine (RE-11 T5).
 
 ## Open-question numbering
 
