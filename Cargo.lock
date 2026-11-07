@@ -5688,6 +5688,7 @@ dependencies = [
  "plur1bus-config",
  "plur1bus-log-schema",
  "plur1bus-rpc",
+ "plur1bus-tokens",
  "prettyplease 0.2.37",
  "regex",
  "regress 0.10.5",
@@ -5766,6 +5767,20 @@ dependencies = [
  "tempfile",
  "typify",
  "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "plur1bus-tokens"
+version = "0.1.0"
+dependencies = [
+ "jsonschema",
+ "regex",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "tokenizers",
+ "url",
 ]
 
 [[package]]

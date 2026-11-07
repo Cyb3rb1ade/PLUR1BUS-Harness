@@ -9,7 +9,7 @@ unpublished Gemini/Grok models, or a provider's complete chat request.
 
 ## Pinned source and license
 
-The admitted artifact is listed in `crates/plur1bus-engine/src/tokens/artifacts.json`. No tokenizer JSON or vocabulary is
+The admitted artifact is listed in `crates/plur1bus-tokens/src/artifacts.json`. No tokenizer JSON or vocabulary is
 committed or bundled. The external cache holds `<artifact-id>/tokenizer.json`.
 The complete original MIT license texts and the Apache-2.0 conversion-reference attribution are retained in
 [`scripts/tokens/NOTICE`](../../../../scripts/tokens/NOTICE), with immutable source links and license-file hashes.

@@ -1,7 +1,14 @@
 //! RE-14/T2: one library token counter, with explicit artifact provenance and estimator bounds.
 //! Construction may read installed tokenizer files; counting performs no I/O. No Phase 1 runtime uses this service.
+//!
+//! Phase 4 (P4-03, D120 §12.3): moved out of `plur1bus-engine` (`src/tokens/` and `src/cache_profiles.rs`) unchanged, so
+//! the Rust core and the engine share one counter. The engine re-exports this crate as `plur1bus_engine::tokens` and
+//! [`cache_profiles`] as `plur1bus_engine::cache_profiles`, so every existing path keeps compiling.
+#![warn(missing_docs)]
+#![warn(clippy::print_stdout, clippy::print_stderr)]
 
 mod artifacts;
+pub mod cache_profiles;
 mod calibration;
 mod calibration_fit;
 mod calibration_store;
