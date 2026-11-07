@@ -13,5 +13,5 @@ test('prompt import/export additions use their allocated Harness RPC 1.22 minor'
     assert.equal(schema.$defs[name]['x-since'], '1.22.0', name);
     assert.match(schema.$defs[name].description, /^1\.22\.0:/, name);
   }
-  assert.equal(schema['x-rpc-version'], '1.23.0');
+  assert.equal(schema['x-rpc-version'], '1.24.0');
 });

@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.23.0)
+# RPC reference (rpc 1.24.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -399,6 +399,19 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `memory.importText.apply`: experimental, since 1.22.0
 - `memory.importText.rollback`: experimental, since 1.22.0
 - `memory.exportText`: experimental, since 1.22.0
+- `team.get`: experimental, since 1.24.0
+- `team.list`: experimental, since 1.24.0
+- `team.create`: experimental, since 1.24.0
+- `team.composition.confirm`: experimental, since 1.24.0
+- `team.plan.approve`: experimental, since 1.24.0
+- `team.scope.extend`: experimental, since 1.24.0
+- `team.pause`: experimental, since 1.24.0
+- `team.resume`: experimental, since 1.24.0
+- `team.cancel`: experimental, since 1.24.0
+- `team.package.reassign`: experimental, since 1.24.0
+- `team.package.budget.set`: experimental, since 1.24.0
+- `team.budget.set`: experimental, since 1.24.0
+- `team.package.sync.set`: experimental, since 1.24.0
 
 ### supervisor server
 
@@ -10521,7 +10534,9 @@ Authenticated project member.add using ADR-007 object rights.
     "role": {
       "enum": [
         "member",
-        "lead"
+        "lead",
+        "worker",
+        "reviewer"
       ]
     }
   },
@@ -10612,7 +10627,9 @@ Authenticated project member.role using ADR-007 object rights.
     "role": {
       "enum": [
         "member",
-        "lead"
+        "lead",
+        "worker",
+        "reviewer"
       ]
     }
   },
@@ -26342,6 +26359,727 @@ Export stored memories formatted for portable text import.
 }
 ```
 
+### `team.get`
+
+**Stability:** experimental · since 1.24.0
+
+**Served by:** core
+
+D124 team data and decisions. Execution is deferred to PT-4b.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "runId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    }
+  },
+  "required": [
+    "runId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "run": {
+      "$ref": "#/$defs/TeamRun"
+    }
+  },
+  "required": [
+    "run"
+  ]
+}
+```
+
+### `team.list`
+
+**Stability:** experimental · since 1.24.0
+
+**Served by:** core
+
+D124 team data and decisions. Execution is deferred to PT-4b.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    },
+    "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  },
+  "required": [
+    "projectId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "runs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamRun"
+      },
+      "maxItems": 100,
+      "minItems": 0
+    },
+    "nextOffset": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "runs",
+    "nextOffset"
+  ]
+}
+```
+
+### `team.create`
+
+**Stability:** experimental · since 1.24.0
+
+**Served by:** core
+
+D124 team data and decisions. Execution is deferred to PT-4b.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "objective": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "leadAgent": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "team",
+        "best-of-n"
+      ]
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "projectId",
+    "objective",
+    "leadAgent"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "run": {
+      "$ref": "#/$defs/TeamRun"
+    }
+  },
+  "required": [
+    "run"
+  ]
+}
+```
+
+### `team.composition.confirm`
+
+**Stability:** experimental · since 1.24.0
+
+**Served by:** core
+
+D124 team data and decisions. Execution is deferred to PT-4b.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "runId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "compositionHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "members": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamMember"
+      },
+      "maxItems": 64,
+      "minItems": 1
+    }
+  },
+  "required": [
+    "runId",
+    "compositionHash",
+    "members"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "run": {
+      "$ref": "#/$defs/TeamRun"
+    }
+  },
+  "required": [
+    "run"
+  ]
+}
+```
+
+### `team.plan.approve`
+
+**Stability:** experimental · since 1.24.0
+
+**Served by:** core
+
+D124 team data and decisions. Execution is deferred to PT-4b.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "runId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "planHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "checkHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "compositionHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "scope": {
+      "$ref": "#/$defs/TeamScope"
+    }
+  },
+  "required": [
+    "runId",
+    "planHash",
+    "checkHash",
+    "compositionHash",
+    "scope"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "run": {
+      "$ref": "#/$defs/TeamRun"
+    }
+  },
+  "required": [
+    "run"
+  ]
+}
+```
+
+### `team.scope.extend`
+
+**Stability:** experimental · since 1.24.0
+
+**Served by:** core
+
+D124 team data and decisions. Execution is deferred to PT-4b.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "runId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "planHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "checkHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "compositionHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "scope": {
+      "$ref": "#/$defs/TeamScope"
+    }
+  },
+  "required": [
+    "runId",
+    "planHash",
+    "checkHash",
+    "compositionHash",
+    "scope"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "run": {
+      "$ref": "#/$defs/TeamRun"
+    }
+  },
+  "required": [
+    "run"
+  ]
+}
+```
+
+### `team.pause`
+
+**Stability:** experimental · since 1.24.0
+
+**Served by:** core
+
+D124 team data and decisions. Execution is deferred to PT-4b.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "runId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    }
+  },
+  "required": [
+    "runId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "run": {
+      "$ref": "#/$defs/TeamRun"
+    }
+  },
+  "required": [
+    "run"
+  ]
+}
+```
+
+### `team.resume`
+
+**Stability:** experimental · since 1.24.0
+
+**Served by:** core
+
+D124 team data and decisions. Execution is deferred to PT-4b.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "runId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    }
+  },
+  "required": [
+    "runId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "run": {
+      "$ref": "#/$defs/TeamRun"
+    }
+  },
+  "required": [
+    "run"
+  ]
+}
+```
+
+### `team.cancel`
+
+**Stability:** experimental · since 1.24.0
+
+**Served by:** core
+
+D124 team data and decisions. Execution is deferred to PT-4b.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "runId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    }
+  },
+  "required": [
+    "runId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "run": {
+      "$ref": "#/$defs/TeamRun"
+    }
+  },
+  "required": [
+    "run"
+  ]
+}
+```
+
+### `team.package.reassign`
+
+**Stability:** experimental · since 1.24.0
+
+**Served by:** core
+
+D124 team data and decisions. Execution is deferred to PT-4b.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "runId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "packageId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "memberId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    }
+  },
+  "required": [
+    "runId",
+    "packageId",
+    "memberId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "run": {
+      "$ref": "#/$defs/TeamRun"
+    }
+  },
+  "required": [
+    "run"
+  ]
+}
+```
+
+### `team.package.budget.set`
+
+**Stability:** experimental · since 1.24.0
+
+**Served by:** core
+
+D124 team data and decisions. Execution is deferred to PT-4b.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "runId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "packageId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "tokenBudget": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "wallBudgetMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  },
+  "required": [
+    "runId",
+    "packageId",
+    "tokenBudget",
+    "wallBudgetMs"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "run": {
+      "$ref": "#/$defs/TeamRun"
+    }
+  },
+  "required": [
+    "run"
+  ]
+}
+```
+
+### `team.budget.set`
+
+**Stability:** experimental · since 1.24.0
+
+**Served by:** core
+
+D124 team data and decisions. Execution is deferred to PT-4b.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "runId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "sectionId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "tokenBudget": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "wallBudgetMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  },
+  "required": [
+    "runId",
+    "tokenBudget",
+    "wallBudgetMs"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "run": {
+      "$ref": "#/$defs/TeamRun"
+    }
+  },
+  "required": [
+    "run"
+  ]
+}
+```
+
+### `team.package.sync.set`
+
+**Stability:** experimental · since 1.24.0
+
+**Served by:** core
+
+D124 team data and decisions. Execution is deferred to PT-4b.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "runId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "packageId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "notify-only",
+        "at-review"
+      ]
+    }
+  },
+  "required": [
+    "runId",
+    "packageId",
+    "mode"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "run": {
+      "$ref": "#/$defs/TeamRun"
+    }
+  },
+  "required": [
+    "run"
+  ]
+}
+```
+
 ## Notifications
 
 Core notifications are delivered on the same connection to clients that called `events.subscribe`. Engine transport notifications are delivered on authenticated engine connections.
@@ -33157,7 +33895,9 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "additionalProperties": {
         "enum": [
           "member",
-          "lead"
+          "lead",
+          "worker",
+          "reviewer"
         ]
       }
     },
@@ -41528,5 +42268,1071 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "maxLength": 500
     }
   }
+}
+```
+
+### `TeamGlob`
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 256,
+  "pattern": "^(?:[A-Za-z0-9_.@+\\-]+|\\*|\\*\\*)(?:/(?:[A-Za-z0-9_.@+\\-]+|\\*|\\*\\*))*$"
+}
+```
+
+### `TeamScope`
+
+```json
+{
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "package"
+          ]
+        },
+        "package": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+        }
+      },
+      "required": [
+        "kind",
+        "package"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "section"
+          ]
+        },
+        "through": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+        }
+      },
+      "required": [
+        "kind",
+        "through"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "plan",
+            "auto"
+          ]
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    }
+  ]
+}
+```
+
+### `TeamBudget`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "tokens": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "wallTimeMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  },
+  "required": [
+    "tokens",
+    "wallTimeMs"
+  ]
+}
+```
+
+### `TeamCheck`
+
+```json
+{
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "command"
+          ]
+        },
+        "criterion": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "argv": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "maxItems": 32,
+          "minItems": 1
+        },
+        "timeoutMs": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 120000
+        }
+      },
+      "required": [
+        "kind",
+        "criterion",
+        "argv",
+        "timeoutMs"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "tests"
+          ]
+        },
+        "criterion": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "tests": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "maxItems": 64,
+          "minItems": 1
+        }
+      },
+      "required": [
+        "kind",
+        "criterion",
+        "tests"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "paths"
+          ]
+        },
+        "criterion": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "paths": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TeamGlob"
+          },
+          "maxItems": 64,
+          "minItems": 1
+        }
+      },
+      "required": [
+        "kind",
+        "criterion",
+        "paths"
+      ]
+    }
+  ]
+}
+```
+
+### `TeamOwnership`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "glob": {
+      "$ref": "#/$defs/TeamGlob"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "own",
+        "interface",
+        "shared"
+      ]
+    },
+    "personReview": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "glob",
+    "mode"
+  ]
+}
+```
+
+### `TeamDependency`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "package": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "code",
+        "order"
+      ]
+    },
+    "carries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "file",
+              "symbol"
+            ]
+          },
+          "value": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "required": [
+          "kind",
+          "value"
+        ]
+      },
+      "maxItems": 32,
+      "minItems": 0
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  },
+  "required": [
+    "package",
+    "kind"
+  ]
+}
+```
+
+### `TeamMember`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "native",
+        "acp",
+        "a2a"
+      ]
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "writer",
+        "reviewer",
+        "helper",
+        "judge",
+        "lead"
+      ]
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "agentId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "peerId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "disclosure": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "maxItems": 16,
+      "minItems": 0
+    }
+  },
+  "required": [
+    "id",
+    "kind",
+    "role",
+    "model",
+    "disclosure"
+  ]
+}
+```
+
+### `TeamPackagePlan`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "key": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "section": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "objective": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "doneWhen": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      },
+      "maxItems": 32,
+      "minItems": 1
+    },
+    "taskClass": {
+      "type": "string",
+      "enum": [
+        "consult",
+        "research",
+        "review",
+        "code-small",
+        "code-large"
+      ]
+    },
+    "owns": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamOwnership"
+      },
+      "maxItems": 64,
+      "minItems": 1
+    },
+    "interfaces": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "provides": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "maxItems": 64,
+          "minItems": 0
+        },
+        "consumes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "maxItems": 64,
+          "minItems": 0
+        }
+      },
+      "required": [
+        "provides",
+        "consumes"
+      ]
+    },
+    "dependsOn": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamDependency"
+      },
+      "maxItems": 32,
+      "minItems": 0
+    },
+    "worker": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "native",
+            "acp",
+            "a2a"
+          ]
+        },
+        "member": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+        }
+      },
+      "required": [
+        "kind",
+        "member"
+      ]
+    },
+    "sync": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "notify-only",
+        "at-review"
+      ]
+    },
+    "estimate": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "changedLines": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "tokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "wallTimeMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "changedLines",
+        "tokens",
+        "wallTimeMs"
+      ]
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamCheck"
+      },
+      "maxItems": 64,
+      "minItems": 0
+    },
+    "dataDeletion": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "key",
+    "section",
+    "title",
+    "objective",
+    "doneWhen",
+    "taskClass",
+    "owns",
+    "interfaces",
+    "dependsOn",
+    "worker",
+    "sync",
+    "estimate",
+    "checks",
+    "dataDeletion"
+  ]
+}
+```
+
+### `TeamSectionPlan`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "key": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "goals": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      },
+      "maxItems": 32,
+      "minItems": 1
+    },
+    "budget": {
+      "$ref": "#/$defs/TeamBudget"
+    },
+    "mergeOrder": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+      },
+      "maxItems": 32,
+      "minItems": 1
+    }
+  },
+  "required": [
+    "key",
+    "title",
+    "goals",
+    "budget",
+    "mergeOrder"
+  ]
+}
+```
+
+### `TeamPlan`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "type": "string",
+      "enum": [
+        "plur1bus.teamplan/1"
+      ]
+    },
+    "goals": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      },
+      "maxItems": 32,
+      "minItems": 1
+    },
+    "targetBranch": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamSectionPlan"
+      },
+      "maxItems": 8,
+      "minItems": 1
+    },
+    "packages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamPackagePlan"
+      },
+      "maxItems": 32,
+      "minItems": 1
+    }
+  },
+  "required": [
+    "schema",
+    "goals",
+    "targetBranch",
+    "sections",
+    "packages"
+  ]
+}
+```
+
+### `TeamLane`
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "contained",
+    "wide",
+    "closed"
+  ]
+}
+```
+
+### `TeamFinding`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": [
+        "cycle",
+        "later-section",
+        "own-overlap",
+        "merge-order",
+        "missing-check",
+        "false-edge",
+        "invalid-plan"
+      ]
+    },
+    "package": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "other": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "detail": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "blocking": {
+      "type": "boolean"
+    },
+    "savedWallTimeMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  },
+  "required": [
+    "kind",
+    "package",
+    "detail",
+    "blocking"
+  ]
+}
+```
+
+### `TeamLaneResult`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "package": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "lane": {
+      "$ref": "#/$defs/TeamLane"
+    },
+    "reasons": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "maxItems": 64,
+      "minItems": 0
+    }
+  },
+  "required": [
+    "package",
+    "lane",
+    "reasons"
+  ]
+}
+```
+
+### `TeamPlanReport`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "planHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamFinding"
+      },
+      "maxItems": 2048,
+      "minItems": 0
+    },
+    "lanes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamLaneResult"
+      },
+      "maxItems": 32,
+      "minItems": 0
+    },
+    "overlapScore": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "criticalPathMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "policyHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "required": [
+    "planHash",
+    "findings",
+    "lanes",
+    "overlapScore",
+    "criticalPathMs",
+    "policyHash"
+  ]
+}
+```
+
+### `TeamPolicy`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "auto": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "auto"
+      ]
+    },
+    "closedPaths": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamGlob"
+      },
+      "maxItems": 128,
+      "minItems": 0
+    },
+    "deployBranches": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "maxItems": 128,
+      "minItems": 0
+    }
+  },
+  "required": [
+    "approval",
+    "closedPaths",
+    "deployBranches"
+  ]
+}
+```
+
+### `TeamApproval`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "planHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "checkHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "compositionHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "policyHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "scope": {
+      "$ref": "#/$defs/TeamScope"
+    },
+    "approvedBy": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "at": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  },
+  "required": [
+    "planHash",
+    "checkHash",
+    "compositionHash",
+    "policyHash",
+    "scope",
+    "approvedBy",
+    "at"
+  ]
+}
+```
+
+### `TeamRun`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "leadAgent": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "objective": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "team",
+        "best-of-n"
+      ]
+    },
+    "cardId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "proposing",
+        "awaiting-team",
+        "planning",
+        "awaiting-approval",
+        "running",
+        "paused",
+        "done",
+        "cancelled",
+        "failed"
+      ]
+    },
+    "stateVersion": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "plan": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TeamPlan"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "planHash": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "compositionHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "members": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamMember"
+      },
+      "maxItems": 64,
+      "minItems": 0
+    },
+    "checkHash": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "report": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TeamPlanReport"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "policy": {
+      "$ref": "#/$defs/TeamPolicy"
+    },
+    "approval": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TeamApproval"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "targetBranch": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "budget": {
+      "$ref": "#/$defs/TeamBudget"
+    },
+    "writersMax": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 128
+    },
+    "createdAt": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "updatedAt": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  },
+  "required": [
+    "id",
+    "projectId",
+    "leadAgent",
+    "objective",
+    "mode",
+    "cardId",
+    "state",
+    "stateVersion",
+    "plan",
+    "planHash",
+    "compositionHash",
+    "members",
+    "checkHash",
+    "report",
+    "policy",
+    "approval",
+    "targetBranch",
+    "budget",
+    "writersMax",
+    "createdAt",
+    "updatedAt"
+  ]
 }
 ```

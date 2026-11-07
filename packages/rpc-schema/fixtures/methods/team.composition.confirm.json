@@ -1,0 +1,59 @@
+{
+  "params": {
+    "runId": "team_example2",
+    "compositionHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "members": [
+      {
+        "id": "writer",
+        "kind": "native",
+        "role": "writer",
+        "model": "fixture",
+        "agentId": "writer",
+        "disclosure": []
+      }
+    ]
+  },
+  "result": {
+    "run": {
+      "id": "team_example2",
+      "projectId": "prj_example1",
+      "leadAgent": "writer",
+      "objective": "Calendar duration",
+      "mode": "team",
+      "cardId": null,
+      "state": "planning",
+      "stateVersion": 2,
+      "plan": null,
+      "planHash": null,
+      "compositionHash": "4be6f0c84cd2b31fa781d51294e7250634d6ea13a455412e1c28807a1a476477",
+      "members": [
+        {
+          "id": "writer",
+          "kind": "native",
+          "role": "writer",
+          "model": "fixture",
+          "disclosure": [],
+          "agentId": "writer"
+        }
+      ],
+      "checkHash": null,
+      "report": null,
+      "policy": {
+        "approval": {
+          "auto": false
+        },
+        "closedPaths": [],
+        "deployBranches": []
+      },
+      "approval": null,
+      "targetBranch": "integration",
+      "budget": {
+        "tokens": 0,
+        "wallTimeMs": 0
+      },
+      "writersMax": 4,
+      "createdAt": 1000,
+      "updatedAt": 1000
+    }
+  }
+}

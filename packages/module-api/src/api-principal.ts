@@ -25,7 +25,7 @@ export interface ApiTokenBinding {
 export interface ApiPrincipal {
   userId: string; kind: "person" | "agent"; role: "owner" | "admin" | "operator" | "member" | "viewer";
   agentRights?: Readonly<Record<string, "use" | "manage">>;
-  projectRights?: Readonly<Record<string, "member" | "lead">>;
+  projectRights?: Readonly<Record<string, "member" | "lead" | "worker" | "reviewer">>;
   tokenScopes?: readonly string[];
   tokenId?: string;
   binding?: ApiTokenBinding;

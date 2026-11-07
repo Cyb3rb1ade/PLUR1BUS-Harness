@@ -7,7 +7,7 @@ const deny = (reason: DenyReason): Decision => ({ effect: "deny", reason });
 const ROLE_SET: ReadonlySet<string> = new Set(ROLES);
 const KIND_SET: ReadonlySet<string> = new Set(PRINCIPAL_KINDS);
 const AGENT_RANK: Readonly<Record<string, number>> = { use: 1, manage: 2 };
-const PROJECT_RANK: Readonly<Record<string, number>> = { member: 1, lead: 2 };
+const PROJECT_RANK: Readonly<Record<string, number>> = { member: 1, worker: 1, reviewer: 1, lead: 2 };
 
 /** Own-property lookup only: ids come from callers and `__proto__`/`constructor` must never resolve to a right. */
 function right<R extends string>(table: Readonly<Record<string, R>> | undefined, id: string): R | undefined {

@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://plur1bus.dev/schema/rpc/1.23.0/rpc.schema.json",
-  "title": "PLUR1BUS harness RPC 1.23.0",
+  "$id": "https://plur1bus.dev/schema/rpc/1.24.0/rpc.schema.json",
+  "title": "PLUR1BUS harness RPC 1.24.0",
   "description": "JSON-RPC 2.0 over NDJSON. Methods are $defs/methods/<name>; notifications are $defs/notifications/<name>. x-server names the process that serves each one: core, supervisor, module (methods only), or engine (since 1.7.0). host.* is served by core and requires the engine principal at dispatch. D120: tools methods are served by plur1bus-tools and require the Core principal.",
-  "x-rpc-version": "1.23.0",
+  "x-rpc-version": "1.24.0",
   "$defs": {
     "EngineContractEngineCapabilitiesData": {
       "title": "EngineContractEngineCapabilitiesData",
@@ -68,7 +68,7 @@
               "type": "null"
             }
           ],
-          "description": "1.8.0: derived from models — embedder failed → {reason:\"model-failed\",capability:\"embedding\"}; embedder loading → {reason:\"models-warming\",capability:\"embedding\"}; reranker failed → model-failed/\"reranker\"; reranker loading → models-warming/\"reranker\"; first match wins; otherwise null."
+          "description": "1.8.0: derived from models \u2014 embedder failed \u2192 {reason:\"model-failed\",capability:\"embedding\"}; embedder loading \u2192 {reason:\"models-warming\",capability:\"embedding\"}; reranker failed \u2192 model-failed/\"reranker\"; reranker loading \u2192 models-warming/\"reranker\"; first match wins; otherwise null."
         },
         "agents": {
           "type": "number"
@@ -183,7 +183,7 @@
       "enum": [
         "1.17.0"
       ],
-      "description": "types/engine.d.ts — the frozen PLUR1BUS engine contract. Contract version 1.17.0 (frozen at 1.0.0 on 2026-09-22, owner decision B8; amended seventeen times under the policy below — see the changelog at the end of this header). This file reconciles the four places Phase 0 sketched the same API differently (review-report finding S4). Where ADR-002 and engine-extraction.md §b.2 disagreed, B8 chose: - `Principal.trust: \"proved\" | \"inferred\"`   (not `proof: \"transport\"`) - `TurnOrigin` as a string union plus a separate `AgentContext` (not one `TurnOrigin` object) - `capture()` returns a non-blocking `CaptureHandle` (not `Promise<CaptureResult>`) - `RecallResult.degraded` is a structured object or null (not a boolean) `createEngine` (engine/create-engine.js) implements it from M1b-1 on. It is the shape both the plugin host adapter and the harness are written against, and it is checked by `npm run typecheck`. Amendment policy: \"frozen\" means 1.0.0 is never edited in place. Any change to an exported member's shape that an existing adapter could observe — a new required property, a removed or renamed member, a narrowed or widened union, a changed parameter or return type — forces a `ContractVersion` bump; only additions no adapter can observe (a comment, a new optional property on a type the engine alone constructs) may land without one. `ContractVersion`, the assertions in `types/engine.conformance.ts` and both adapters move together in a single PR, so the contract, its gate and its two consumers are never in disagreement at any commit. Changelog: 1.1.0 — SecurePathResult.reason gains \"acl-tool-unavailable\" (Task 5). 1.2.0 — HostServices.workspaceDir becomes async (Task 6). 1.3.0 — HostServices.configPath(), HostServices.routing?, HostServices.pathOverrides? (G1 closure, M1b-1 Task 11). 1.4.0 — Engine surface of createEngine (M1b-1): ContextBlock.chars; RecallResult.timing (replaces timings) and .deferrals; RecallQuery.budget optional; JobRun/JobRegistry/JobSpec per spec 3.3 (outcome gains \"abandoned\"); CheckpointReason gains \"session-end\"; Engine.close({ budgetMs }); Engine.channels; HostServices.capabilities?; EngineEventName gains recall.block-clipped/-dropped, recall.completed; createEngine testOptions. 1.4.1 — JobTrigger gains \"unknown\" (a crash row recovered from a corrupt, unreadable start marker; M1b-1 final review m2). 1.5.0 — MemoryOps types, Engine.memory (E1 Task 2); runCommand deprecated; MemoryState.tombstones number | null (E1-R11); HostCapabilities.memoryArchiveDir? (E1 Task 8). 1.6.0 — AdminOps.share/forget alias Engine.memory (deprecated); ObsidianOps with explicit paths; migrate over a store schema marker; MemoryOps.propose/proposals (D31); MemoryCard.sharedBy/sourceId; MemoryOpError.detail; \"memory.proposal\" event; EngineStatus.storeSchema (E2). 1.7.0 — EmbeddingService.probe(opts?) → EmbeddingProbeResult (identity, readiness, memoized); serve(address?: IpcAddress | null) → EmbeddingServeResult (real scoped IPC, in-process owner, no claim listener); HostCapabilities.pushCriticalButtons? typed (E3). 1.8.0 — EngineStatus.jobs/models/journal/sharedMemory, degraded derived from model readiness; Engine.models (status, warm); HostCapabilities.journalBacklog?; MemoryOpErrorCode \"unsupported\"; CaptureResult.reason \"duplicate-turn\" (E4). 1.9.0 — engine-config.schema.json with readAt/x-tier/x-sensitive and its types (EngineConfigSchema, EngineConfigKey, EngineConfigReadAt); RecallQuery.warmOnly; RecallTiming.totalMs covers queue wait and prelude (E5). 1.10.0 — additive engine-config keys from the 7.18.5–7.18.20 port (runtime.deferPostTurnLlm, diaryFromUserChats, captureChunkingJev, recall.fullTextTopRecords/fullTextMaxChars) and JobName \"post-turn-refine\"; adapter-only keys stay on the plugin host manifest; no breaking change to existing callers. 1.11.0 — MemoryOps.import (finished-card ingest with deterministic ids) and Engine.stores.adopt (copy-never-move store take-over with a sample cosine probe for legacy stores); MemoryCard.provenance/sourceRef optional; no breaking change to existing callers. 1.12.0 — MemoryOps.rebind / MemoryOps.unbind (manual N:1 channel-identity link; user-scope owner metadata only) and ADOPT_PROBE_MIN_ROWS = min(8, available); UserPrincipal accepts user:v1 and user:v2; MemoryOpErrorCode \"identity-already-bound\" | \"ledger-corrupt\" | \"lock-lost\"; no breaking change to existing callers. 1.13.0 — MemoryOps.unimport (roll back the cards one import run created; archive-first soft delete without a registry tombstone, key freed for re-import); MemoryImportRequest.importRunId optional; MemoryOpErrorCode \"lock-busy\"; no breaking change to existing callers. 1.14.0 — additive complete vector-space identities, routes and degraded notes. 1.15.0 — HostServices.fetch? (HostFetch: every outbound engine HTTP request goes through it when set); SecretStore becomes resolve(ref, purpose) (lease() kept optional and deprecated; it was never called) for provider `apiKeyRef`; ProviderCredentialConfig, RemoteRerankerConfig and the reranker providers jina | voyage | remote with baseUrl/protocol; no breaking change to existing callers (the engine called no SecretStore member before 1.15.0). Also: MemoryImportRequest without importRunId attributes each card to the run its sourceRef names (`;run=<id>`); MemoryUnimportRequest.importRunId also selects such lines; MemoryUnimportResult.derived.graphEdgesRemoved? / mirrorsArchived? / cleanupErrors? (unimport drops the undone cards' graph edges and archives their Obsidian mirrors). 1.17.0 — AdminOps.reembedding.validate({ id }) (the coordinator's validating → ready_to_switch step: target generation check and semantic recall probe, so a host that owns its switch can finish a migration); a failed validation rejects and leaves the record in validating; no breaking change to existing callers. 1.16.0 — MemoryOps.link(id, req, p, a) (owner decision 2026-10-19: attach an imported duplicate to an existing card as an additional source instead of storing a duplicate; sidecar `_links/`, the card row is never written; idempotent per sourceRef); MemoryCard.links? (show/list); MemoryUnimportResult.links? (unimport of a run unlinks that run's links, the card stays); Engine.capabilities (EngineCapabilities, `memoryLink: true`); no breaking change to existing callers."
+      "description": "types/engine.d.ts \u2014 the frozen PLUR1BUS engine contract. Contract version 1.17.0 (frozen at 1.0.0 on 2026-09-22, owner decision B8; amended seventeen times under the policy below \u2014 see the changelog at the end of this header). This file reconciles the four places Phase 0 sketched the same API differently (review-report finding S4). Where ADR-002 and engine-extraction.md \u00a7b.2 disagreed, B8 chose: - `Principal.trust: \"proved\" | \"inferred\"`   (not `proof: \"transport\"`) - `TurnOrigin` as a string union plus a separate `AgentContext` (not one `TurnOrigin` object) - `capture()` returns a non-blocking `CaptureHandle` (not `Promise<CaptureResult>`) - `RecallResult.degraded` is a structured object or null (not a boolean) `createEngine` (engine/create-engine.js) implements it from M1b-1 on. It is the shape both the plugin host adapter and the harness are written against, and it is checked by `npm run typecheck`. Amendment policy: \"frozen\" means 1.0.0 is never edited in place. Any change to an exported member's shape that an existing adapter could observe \u2014 a new required property, a removed or renamed member, a narrowed or widened union, a changed parameter or return type \u2014 forces a `ContractVersion` bump; only additions no adapter can observe (a comment, a new optional property on a type the engine alone constructs) may land without one. `ContractVersion`, the assertions in `types/engine.conformance.ts` and both adapters move together in a single PR, so the contract, its gate and its two consumers are never in disagreement at any commit. Changelog: 1.1.0 \u2014 SecurePathResult.reason gains \"acl-tool-unavailable\" (Task 5). 1.2.0 \u2014 HostServices.workspaceDir becomes async (Task 6). 1.3.0 \u2014 HostServices.configPath(), HostServices.routing?, HostServices.pathOverrides? (G1 closure, M1b-1 Task 11). 1.4.0 \u2014 Engine surface of createEngine (M1b-1): ContextBlock.chars; RecallResult.timing (replaces timings) and .deferrals; RecallQuery.budget optional; JobRun/JobRegistry/JobSpec per spec 3.3 (outcome gains \"abandoned\"); CheckpointReason gains \"session-end\"; Engine.close({ budgetMs }); Engine.channels; HostServices.capabilities?; EngineEventName gains recall.block-clipped/-dropped, recall.completed; createEngine testOptions. 1.4.1 \u2014 JobTrigger gains \"unknown\" (a crash row recovered from a corrupt, unreadable start marker; M1b-1 final review m2). 1.5.0 \u2014 MemoryOps types, Engine.memory (E1 Task 2); runCommand deprecated; MemoryState.tombstones number | null (E1-R11); HostCapabilities.memoryArchiveDir? (E1 Task 8). 1.6.0 \u2014 AdminOps.share/forget alias Engine.memory (deprecated); ObsidianOps with explicit paths; migrate over a store schema marker; MemoryOps.propose/proposals (D31); MemoryCard.sharedBy/sourceId; MemoryOpError.detail; \"memory.proposal\" event; EngineStatus.storeSchema (E2). 1.7.0 \u2014 EmbeddingService.probe(opts?) \u2192 EmbeddingProbeResult (identity, readiness, memoized); serve(address?: IpcAddress | null) \u2192 EmbeddingServeResult (real scoped IPC, in-process owner, no claim listener); HostCapabilities.pushCriticalButtons? typed (E3). 1.8.0 \u2014 EngineStatus.jobs/models/journal/sharedMemory, degraded derived from model readiness; Engine.models (status, warm); HostCapabilities.journalBacklog?; MemoryOpErrorCode \"unsupported\"; CaptureResult.reason \"duplicate-turn\" (E4). 1.9.0 \u2014 engine-config.schema.json with readAt/x-tier/x-sensitive and its types (EngineConfigSchema, EngineConfigKey, EngineConfigReadAt); RecallQuery.warmOnly; RecallTiming.totalMs covers queue wait and prelude (E5). 1.10.0 \u2014 additive engine-config keys from the 7.18.5\u20137.18.20 port (runtime.deferPostTurnLlm, diaryFromUserChats, captureChunkingJev, recall.fullTextTopRecords/fullTextMaxChars) and JobName \"post-turn-refine\"; adapter-only keys stay on the plugin host manifest; no breaking change to existing callers. 1.11.0 \u2014 MemoryOps.import (finished-card ingest with deterministic ids) and Engine.stores.adopt (copy-never-move store take-over with a sample cosine probe for legacy stores); MemoryCard.provenance/sourceRef optional; no breaking change to existing callers. 1.12.0 \u2014 MemoryOps.rebind / MemoryOps.unbind (manual N:1 channel-identity link; user-scope owner metadata only) and ADOPT_PROBE_MIN_ROWS = min(8, available); UserPrincipal accepts user:v1 and user:v2; MemoryOpErrorCode \"identity-already-bound\" | \"ledger-corrupt\" | \"lock-lost\"; no breaking change to existing callers. 1.13.0 \u2014 MemoryOps.unimport (roll back the cards one import run created; archive-first soft delete without a registry tombstone, key freed for re-import); MemoryImportRequest.importRunId optional; MemoryOpErrorCode \"lock-busy\"; no breaking change to existing callers. 1.14.0 \u2014 additive complete vector-space identities, routes and degraded notes. 1.15.0 \u2014 HostServices.fetch? (HostFetch: every outbound engine HTTP request goes through it when set); SecretStore becomes resolve(ref, purpose) (lease() kept optional and deprecated; it was never called) for provider `apiKeyRef`; ProviderCredentialConfig, RemoteRerankerConfig and the reranker providers jina | voyage | remote with baseUrl/protocol; no breaking change to existing callers (the engine called no SecretStore member before 1.15.0). Also: MemoryImportRequest without importRunId attributes each card to the run its sourceRef names (`;run=<id>`); MemoryUnimportRequest.importRunId also selects such lines; MemoryUnimportResult.derived.graphEdgesRemoved? / mirrorsArchived? / cleanupErrors? (unimport drops the undone cards' graph edges and archives their Obsidian mirrors). 1.17.0 \u2014 AdminOps.reembedding.validate({ id }) (the coordinator's validating \u2192 ready_to_switch step: target generation check and semantic recall probe, so a host that owns its switch can finish a migration); a failed validation rejects and leaves the record in validating; no breaking change to existing callers. 1.16.0 \u2014 MemoryOps.link(id, req, p, a) (owner decision 2026-10-19: attach an imported duplicate to an existing card as an additional source instead of storing a duplicate; sidecar `_links/`, the card row is never written; idempotent per sourceRef); MemoryCard.links? (show/list); MemoryUnimportResult.links? (unimport of a run unlinks that run's links, the card stays); Engine.capabilities (EngineCapabilities, `memoryLink: true`); no breaking change to existing callers."
     },
     "EngineContractSchemaVersionData": {
       "title": "EngineContractSchemaVersionData",
@@ -1897,7 +1897,7 @@
         },
         "sourceRef": {
           "type": "string",
-          "description": "1.11.0: import source reference, truncated to ≤ 500 characters before store."
+          "description": "1.11.0: import source reference, truncated to \u2264 500 characters before store."
         },
         "links": {
           "type": "array",
@@ -2029,7 +2029,7 @@
         "archived"
       ],
       "additionalProperties": false,
-      "description": "`id` is the id of the corrected (new, live) version — `correct` supersedes the old row, and the caller's old id is no longer live (fix round 1, E1-R8)."
+      "description": "`id` is the id of the corrected (new, live) version \u2014 `correct` supersedes the old row, and the caller's old id is no longer live (fix round 1, E1-R8)."
     },
     "EngineContractMemoryShareResultData": {
       "title": "EngineContractMemoryShareResultData",
@@ -2397,7 +2397,7 @@
         },
         "kind": {
           "type": "string",
-          "description": "Mapped onto `MemoryCard` category; omitted → auto-categorise."
+          "description": "Mapped onto `MemoryCard` category; omitted \u2192 auto-categorise."
         },
         "createdAt": {
           "type": "number"
@@ -2407,7 +2407,7 @@
         },
         "sourceRef": {
           "type": "string",
-          "description": "Truncated to ≤ 500 characters before store."
+          "description": "Truncated to \u2264 500 characters before store."
         },
         "scope": {
           "$ref": "#/$defs/EngineContractMemoryScopeData"
@@ -2566,7 +2566,7 @@
         },
         "accountId": {
           "type": "string",
-          "description": "Bot account id; omitted → `\"default\"`, matching live capture."
+          "description": "Bot account id; omitted \u2192 `\"default\"`, matching live capture."
         }
       },
       "required": [
@@ -2673,7 +2673,7 @@
           "items": {
             "type": "string"
           },
-          "description": "Optional narrowing filter (≤ 500); never widens the selection."
+          "description": "Optional narrowing filter (\u2264 500); never widens the selection."
         },
         "dryRun": {
           "type": "boolean",
@@ -2921,7 +2921,7 @@
       "properties": {
         "sourceRef": {
           "type": "string",
-          "description": "1–500 characters after trim (longer is `invalid-input`, never truncated: it is the idempotency key)."
+          "description": "1\u2013500 characters after trim (longer is `invalid-input`, never truncated: it is the idempotency key)."
         },
         "provenance": {
           "$ref": "#/$defs/EngineContractMemoryImportProvenanceData"
@@ -2932,7 +2932,7 @@
         },
         "idempotencyKey": {
           "type": "string",
-          "description": "The importer's key for the duplicate card (1–256); `unimport`'s `idempotencyKeys` filter matches it."
+          "description": "The importer's key for the duplicate card (1\u2013256); `unimport`'s `idempotencyKeys` filter matches it."
         },
         "dryRun": {
           "type": "boolean",
@@ -3042,7 +3042,7 @@
       "properties": {
         "path": {
           "type": "string",
-          "description": "Absolute, normalised path. Input may be `~/…` or home-relative; the engine expands it."
+          "description": "Absolute, normalised path. Input may be `~/\u2026` or home-relative; the engine expands it."
         },
         "isVault": {
           "type": "boolean",
@@ -4647,7 +4647,9 @@
           "additionalProperties": {
             "enum": [
               "member",
-              "lead"
+              "lead",
+              "worker",
+              "reviewer"
             ]
           }
         },
@@ -5441,9 +5443,41 @@
         "agents"
       ],
       "properties": {
-        "learning": { "description": "Owner-only, content-free learning store health; null when composition failed.", "type": ["object", "null"], "additionalProperties": false,
-          "properties": { "schema": { "type": "integer" }, "integrity": { "type": "boolean" }, "pending": { "type": "integer", "minimum": 0 }, "waitingH3": { "type": "integer", "minimum": 0 }, "breakers": { "type": "integer", "minimum": 0 } },
-          "required": ["schema", "integrity", "pending", "waitingH3", "breakers"] },
+        "learning": {
+          "description": "Owner-only, content-free learning store health; null when composition failed.",
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "schema": {
+              "type": "integer"
+            },
+            "integrity": {
+              "type": "boolean"
+            },
+            "pending": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "waitingH3": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "breakers": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "schema",
+            "integrity",
+            "pending",
+            "waitingH3",
+            "breakers"
+          ]
+        },
         "process": {
           "$ref": "#/$defs/ProcessState"
         },
@@ -5490,7 +5524,7 @@
                 "embedder",
                 "reranker"
               ],
-              "description": "Per-model readiness (E4, spec §6.3); absent before the engine reports it.",
+              "description": "Per-model readiness (E4, spec \u00a76.3); absent before the engine reports it.",
               "properties": {
                 "embedder": {
                   "$ref": "#/$defs/ModelStatus"
@@ -5571,7 +5605,7 @@
           "items": {
             "type": "string"
           },
-          "description": "Deprecated methods/notifications used at least once since start, as `method:<name>`/`notification:<name>`, sorted (ADR-016 §5, S13)."
+          "description": "Deprecated methods/notifications used at least once since start, as `method:<name>`/`notification:<name>`, sorted (ADR-016 \u00a75, S13)."
         },
         "providers": {
           "description": "Optional managed-provider transport counters; never paths, credentials or request content.",
@@ -5920,7 +5954,7 @@
       }
     },
     "CrashReason": {
-      "description": "Experimental (1.3.0). The supervisor's crash-reason vocabulary (ADR-012 §10): `ChildStatus.process.reason` of a crashed child and `ChildStatus.lastExit.reason` take these values. `gave-up`: the child exited five times inside the give-up window and is not restarted on its own (its last exit is in `lastExit`); `manifest-invalid` and `api-version-unsupported` are module-only (B12). Documentation: the fields stay plain strings.",
+      "description": "Experimental (1.3.0). The supervisor's crash-reason vocabulary (ADR-012 \u00a710): `ChildStatus.process.reason` of a crashed child and `ChildStatus.lastExit.reason` take these values. `gave-up`: the child exited five times inside the give-up window and is not restarted on its own (its last exit is in `lastExit`); `manifest-invalid` and `api-version-unsupported` are module-only (B12). Documentation: the fields stay plain strings.",
       "x-stability": "experimental",
       "x-since": "1.3.0",
       "enum": [
@@ -6238,7 +6272,7 @@
       }
     },
     "ModuleGraph": {
-      "description": "Experimental (1.3.0). The module dependency graph (module.graph, spec §6.6): the core node first, then every installed module (valid: false with null fields for an invalid manifest); needs-edges and consumes-edges (with the capability); the needs-cycles (members sorted); and what does not resolve (a needs naming a missing or invalid module, a consumes without a provider).",
+      "description": "Experimental (1.3.0). The module dependency graph (module.graph, spec \u00a76.6): the core node first, then every installed module (valid: false with null fields for an invalid manifest); needs-edges and consumes-edges (with the capability); the needs-cycles (members sorted); and what does not resolve (a needs naming a missing or invalid module, a consumes without a provider).",
       "x-stability": "experimental",
       "x-since": "1.3.0",
       "type": "object",
@@ -10426,7 +10460,7 @@
         "x-server": "engine",
         "x-stability": "experimental",
         "x-since": "1.7.0",
-        "description": "1.11.0: inspect a copied store (copy-never-move). Does not migrate, does not re-embed, and does not take `state/core.lock` — the host holds that lock before `createEngine`. `incompatible` is a result, not a throw.",
+        "description": "1.11.0: inspect a copied store (copy-never-move). Does not migrate, does not re-embed, and does not take `state/core.lock` \u2014 the host holds that lock before `createEngine`. `incompatible` is a result, not a throw.",
         "params": {
           "type": "object",
           "additionalProperties": false,
@@ -13481,7 +13515,7 @@
         "x-stability": "experimental",
         "x-since": "1.7.0",
         "x-server": "core",
-        "description": "Sets the model profile and reasoning choice of the authenticated person's own idle direct chat (durable or incognito; incognito keeps it in memory only). Applies from the next turn. expectedRevision is the revision chat.model.get returned (compare-and-swap; stale is E_CONFLICT stale-model-preview, a running turn E_CONFLICT session-busy). A profile locked by “Only local models” is E_DENIED local-only, an unknown one E_NOT_AVAILABLE model-profile-unavailable. reasoning absent keeps the stored choice; default clears it (the provider decides). effectiveReasoning is the level the primary model will use; adjusted marks a substitution by the nearest supported level. People only (chat:write scope, agent use right).",
+        "description": "Sets the model profile and reasoning choice of the authenticated person's own idle direct chat (durable or incognito; incognito keeps it in memory only). Applies from the next turn. expectedRevision is the revision chat.model.get returned (compare-and-swap; stale is E_CONFLICT stale-model-preview, a running turn E_CONFLICT session-busy). A profile locked by \u201cOnly local models\u201d is E_DENIED local-only, an unknown one E_NOT_AVAILABLE model-profile-unavailable. reasoning absent keeps the stored choice; default clears it (the provider decides). effectiveReasoning is the level the primary model will use; adjusted marks a substitution by the nearest supported level. People only (chat:write scope, agent use right).",
         "params": {
           "type": "object",
           "additionalProperties": false,
@@ -16412,7 +16446,9 @@
             "role": {
               "enum": [
                 "member",
-                "lead"
+                "lead",
+                "worker",
+                "reviewer"
               ]
             }
           },
@@ -16479,7 +16515,9 @@
             "role": {
               "enum": [
                 "member",
-                "lead"
+                "lead",
+                "worker",
+                "reviewer"
               ]
             }
           },
@@ -19637,7 +19675,11 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "offset": { "type": "integer", "minimum": 0, "maximum": 1000000 },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000
+            },
             "scope": {
               "enum": [
                 "agent",
@@ -19663,7 +19705,13 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "nextOffset": { "type": ["integer", "null"], "minimum": 0 },
+            "nextOffset": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
             "items": {
               "type": "array",
               "items": {
@@ -19712,7 +19760,13 @@
                 "additionalProperties": true
               }
             },
-            "prediction": { "type": ["object", "null"], "additionalProperties": true },
+            "prediction": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "additionalProperties": true
+            },
             "contentHash": {
               "type": "string"
             },
@@ -21512,7 +21566,7 @@
         "x-stability": "experimental",
         "x-since": "1.3.0",
         "x-server": "supervisor",
-        "description": "The running configuration (spec §6.1, B5): the whole value, one key (dotted path) or one tier (key and tier are exclusive). `restartClass` is `live`, `core` or `module:<name>` for a key, else null; `restart` is the same class without the module name (the CLI's `config.get/1` field). `revision` identifies the running configuration (config.set's ifRevision). E_NOT_AVAILABLE reason=config-unavailable when no valid configuration runs.",
+        "description": "The running configuration (spec \u00a76.1, B5): the whole value, one key (dotted path) or one tier (key and tier are exclusive). `restartClass` is `live`, `core` or `module:<name>` for a key, else null; `restart` is the same class without the module name (the CLI's `config.get/1` field). `revision` identifies the running configuration (config.set's ifRevision). E_NOT_AVAILABLE reason=config-unavailable when no valid configuration runs.",
         "params": {
           "type": "object",
           "additionalProperties": false,
@@ -21913,7 +21967,7 @@
         "x-stability": "experimental",
         "x-since": "1.3.0",
         "x-server": "supervisor",
-        "description": "The module dependency graph (spec §6.6).",
+        "description": "The module dependency graph (spec \u00a76.6).",
         "params": {
           "type": "object",
           "additionalProperties": false,
@@ -23343,7 +23397,7 @@
         "x-stability": "experimental",
         "x-since": "1.5.0",
         "x-server": "core",
-        "description": "Usage per period (the current local day and month in the configured time zone) and per agent and model, plus every budget limit with its use and state (M2 L8, ADR-010 §4). Counts and ids only; never prompt content. Since 1.11.0, returns the active cacheReadWeight and additive freshInputTokens/countedTokens per period, agent and model. Raw inputTokens still includes cache reads and writes; countedTokens applies the active weight and rounds once per aggregate.",
+        "description": "Usage per period (the current local day and month in the configured time zone) and per agent and model, plus every budget limit with its use and state (M2 L8, ADR-010 \u00a74). Counts and ids only; never prompt content. Since 1.11.0, returns the active cacheReadWeight and additive freshInputTokens/countedTokens per period, agent and model. Raw inputTokens still includes cache reads and writes; countedTokens applies the active weight and rounds once per aggregate.",
         "params": {
           "type": "object",
           "additionalProperties": false,
@@ -26344,7 +26398,7 @@
         "x-stability": "experimental",
         "x-since": "1.5.0",
         "x-server": "core",
-        "description": "Searches the media index (image, video, audio) with text or by a medium it already knows: give exactly one of `text` and `likeMediaId`. A text query is embedded by the TEXT encoder of the MEDIA model (vectors of different spaces are never compared). `kinds` narrows the result, `limit` defaults to 20. With `fuseCaptions` the ranks are fused with the caption hits of the text index (reciprocal rank fusion over ranks, never over vectors). Results are filtered to the media the caller may read; an agent sees its own scope. Reasons: `text-or-like-required` / `text-and-like-exclusive` (E_INVALID_PARAMS). E_MEDIA_* codes: the media index refused or cannot run (capability, licence, “Only local models”, availability, dimension, unsupported kind). Every principal with read access; agents within their own scope.",
+        "description": "Searches the media index (image, video, audio) with text or by a medium it already knows: give exactly one of `text` and `likeMediaId`. A text query is embedded by the TEXT encoder of the MEDIA model (vectors of different spaces are never compared). `kinds` narrows the result, `limit` defaults to 20. With `fuseCaptions` the ranks are fused with the caption hits of the text index (reciprocal rank fusion over ranks, never over vectors). Results are filtered to the media the caller may read; an agent sees its own scope. Reasons: `text-or-like-required` / `text-and-like-exclusive` (E_INVALID_PARAMS). E_MEDIA_* codes: the media index refused or cannot run (capability, licence, \u201cOnly local models\u201d, availability, dimension, unsupported kind). Every principal with read access; agents within their own scope.",
         "params": {
           "type": "object",
           "additionalProperties": false,
@@ -27671,7 +27725,7 @@
         "x-stability": "experimental",
         "x-since": "1.5.0",
         "x-server": "core",
-        "description": "D109 §4: the grants in the approval store, newest first, optionally filtered. Owner/Admin only (RBAC action grant.read); refused for every agent principal (RBAC humanOnly), and never a tool in an agent catalogue, the D103 index, WebMCP (the admin.* rule, B15) or the harness MCP server. limit defaults to 100; cursor comes from a previous result with the same filters (E_INVALID_PARAMS reason=bad-cursor). A broken approval chain lists the affected grants as suspended; it is not an error here.",
+        "description": "D109 \u00a74: the grants in the approval store, newest first, optionally filtered. Owner/Admin only (RBAC action grant.read); refused for every agent principal (RBAC humanOnly), and never a tool in an agent catalogue, the D103 index, WebMCP (the admin.* rule, B15) or the harness MCP server. limit defaults to 100; cursor comes from a previous result with the same filters (E_INVALID_PARAMS reason=bad-cursor). A broken approval chain lists the affected grants as suspended; it is not an error here.",
         "params": {
           "type": "object",
           "additionalProperties": false,
@@ -27724,7 +27778,7 @@
         "x-stability": "experimental",
         "x-since": "1.5.0",
         "x-server": "core",
-        "description": "D109 §4: one grant of the calling person. Owner/Admin only (RBAC action grant.read); refused for every agent principal. E_NOT_FOUND for an unknown id or another person's grant. A broken approval chain returns the grant as suspended.",
+        "description": "D109 \u00a74: one grant of the calling person. Owner/Admin only (RBAC action grant.read); refused for every agent principal. E_NOT_FOUND for an unknown id or another person's grant. A broken approval chain returns the grant as suspended.",
         "params": {
           "type": "object",
           "additionalProperties": false,
@@ -27745,7 +27799,7 @@
         "x-stability": "experimental",
         "x-since": "1.5.0",
         "x-server": "core",
-        "description": "D109 §4: a person gives an agent a standing permission (scope task, session or always; once grants are made only by approval.decide). The grant belongs to the calling person; the surface level is derived by the core from the connection and never accepted as a parameter. Owner/Admin only (RBAC action grant.write), refused for every agent principal. Audited. E_DENIED reason=policy-never (the capability is never grantable: credential.entry, harness.admin, policy.bypass ...) | surface-untrusted (the connection's surface is below what the capability and scope need). E_INVALID_PARAMS reason=ceiling-exceeded (the scope is wider than the capability allows) | invalid-grant | duplicate-id. E_AGENT_UNKNOWN.",
+        "description": "D109 \u00a74: a person gives an agent a standing permission (scope task, session or always; once grants are made only by approval.decide). The grant belongs to the calling person; the surface level is derived by the core from the connection and never accepted as a parameter. Owner/Admin only (RBAC action grant.write), refused for every agent principal. Audited. E_DENIED reason=policy-never (the capability is never grantable: credential.entry, harness.admin, policy.bypass ...) | surface-untrusted (the connection's surface is below what the capability and scope need). E_INVALID_PARAMS reason=ceiling-exceeded (the scope is wider than the capability allows) | invalid-grant | duplicate-id. E_AGENT_UNKNOWN.",
         "params": {
           "type": "object",
           "additionalProperties": false,
@@ -27815,7 +27869,7 @@
         "x-stability": "experimental",
         "x-since": "1.5.0",
         "x-server": "core",
-        "description": "D109 §4: revokes a grant. Immediate: pending requests it covered return to asking and the next call of a running task is re-decided. Idempotent: revoking a revoked grant returns it unchanged. Owner/Admin only (RBAC action grant.write), refused for every agent principal. Audited. E_NOT_FOUND for an unknown id.",
+        "description": "D109 \u00a74: revokes a grant. Immediate: pending requests it covered return to asking and the next call of a running task is re-decided. Idempotent: revoking a revoked grant returns it unchanged. Owner/Admin only (RBAC action grant.write), refused for every agent principal. Audited. E_NOT_FOUND for an unknown id.",
         "params": {
           "type": "object",
           "additionalProperties": false,
@@ -27836,7 +27890,7 @@
         "x-stability": "experimental",
         "x-since": "1.5.0",
         "x-server": "core",
-        "description": "D109 §5: approval requests, newest first. The pending queue is status=pending (there is no separate approval.pending method). Owner/Admin/Operator (RBAC action approval.read); refused for every agent principal. limit defaults to 100; cursor as in grant.list. Records never carry the nonce.",
+        "description": "D109 \u00a75: approval requests, newest first. The pending queue is status=pending (there is no separate approval.pending method). Owner/Admin/Operator (RBAC action approval.read); refused for every agent principal. limit defaults to 100; cursor as in grant.list. Records never carry the nonce.",
         "params": {
           "type": "object",
           "additionalProperties": false,
@@ -27884,7 +27938,7 @@
         "x-stability": "experimental",
         "x-since": "1.5.0",
         "x-server": "core",
-        "description": "D109 §5: one approval request with everything a person needs to decide it. Owner/Admin/Operator (RBAC action approval.read); refused for every agent principal. E_NOT_FOUND for an unknown id.",
+        "description": "D109 \u00a75: one approval request with everything a person needs to decide it. Owner/Admin/Operator (RBAC action approval.read); refused for every agent principal. E_NOT_FOUND for an unknown id.",
         "params": {
           "type": "object",
           "additionalProperties": false,
@@ -27905,7 +27959,7 @@
         "x-stability": "experimental",
         "x-since": "1.5.0",
         "x-server": "core",
-        "description": "D109 §5: a person approves or denies a pending request; the first valid answer wins and the other surfaces close. approve may pick one of the request's grantOptions as `scope`; the narrowest is the default. The surface level is derived by the core from the connection and checked against the request's requiredSurface; nothing is ever approved by a timeout or a surface default. nonce is the request's one-time nonce, required where the answer is relayed by a channel. Owner/Admin only (RBAC action approval.decide), refused for every agent principal. Audited. E_NOT_FOUND for an unknown id. E_DENIED reason=surface-untrusted (the connection's surface is below requiredSurface) | approval-expired | approval-used (already decided or consumed) | approval-mismatch (nonce or binding differs). OS attestation (issue #192): a request that needs T2 and is decided on an unattested local connection (T1) can be lifted to T2 by ONE confirmation of the operating system (Touch ID, Windows Hello, UAC consent, polkit), valid for this approval only (bound to the request, scope and agent, used once, at most 60 s). Without `attest` such a call is E_APPROVAL_REQUIRED reason=attestation-required (detail = the method that will be asked, e.g. touch-id) and nothing is shown; with `attest: true` the core opens the OS dialog itself and decides at T2 when the person confirms. E_DENIED reason=attestation-failed (detail = cancelled | timeout | failed | replay | mismatch; the request stays pending); E_NOT_AVAILABLE reason=attestation-unavailable (no helper, container mode, no graphical session: the T1 limits stand); E_CONFLICT reason=attestation-in-progress (another decision of the same request is waiting for its dialog). Never for a nonce-relayed decision, an agent principal or a request that needs T3.",
+        "description": "D109 \u00a75: a person approves or denies a pending request; the first valid answer wins and the other surfaces close. approve may pick one of the request's grantOptions as `scope`; the narrowest is the default. The surface level is derived by the core from the connection and checked against the request's requiredSurface; nothing is ever approved by a timeout or a surface default. nonce is the request's one-time nonce, required where the answer is relayed by a channel. Owner/Admin only (RBAC action approval.decide), refused for every agent principal. Audited. E_NOT_FOUND for an unknown id. E_DENIED reason=surface-untrusted (the connection's surface is below requiredSurface) | approval-expired | approval-used (already decided or consumed) | approval-mismatch (nonce or binding differs). OS attestation (issue #192): a request that needs T2 and is decided on an unattested local connection (T1) can be lifted to T2 by ONE confirmation of the operating system (Touch ID, Windows Hello, UAC consent, polkit), valid for this approval only (bound to the request, scope and agent, used once, at most 60 s). Without `attest` such a call is E_APPROVAL_REQUIRED reason=attestation-required (detail = the method that will be asked, e.g. touch-id) and nothing is shown; with `attest: true` the core opens the OS dialog itself and decides at T2 when the person confirms. E_DENIED reason=attestation-failed (detail = cancelled | timeout | failed | replay | mismatch; the request stays pending); E_NOT_AVAILABLE reason=attestation-unavailable (no helper, container mode, no graphical session: the T1 limits stand); E_CONFLICT reason=attestation-in-progress (another decision of the same request is waiting for its dialog). Never for a nonce-relayed decision, an agent principal or a request that needs T3.",
         "params": {
           "type": "object",
           "additionalProperties": false,
@@ -27968,7 +28022,7 @@
         "x-stability": "experimental",
         "x-since": "1.5.0",
         "x-server": "core",
-        "description": "D109 §5: withdraws a pending request (status cancelled); the waiting call receives a typed denial with a userAction sentence. Owner/Admin only (RBAC action approval.decide), refused for every agent principal. Audited. E_NOT_FOUND for an unknown id; E_CONFLICT when the request is no longer pending.",
+        "description": "D109 \u00a75: withdraws a pending request (status cancelled); the waiting call receives a typed denial with a userAction sentence. Owner/Admin only (RBAC action approval.decide), refused for every agent principal. Audited. E_NOT_FOUND for an unknown id; E_CONFLICT when the request is no longer pending.",
         "params": {
           "type": "object",
           "additionalProperties": false,
@@ -27989,7 +28043,7 @@
         "x-stability": "experimental",
         "x-since": "1.5.0",
         "x-server": "core",
-        "description": "D109 §6/§9.7: verifies the HMAC-SHA256 chain of the approval store and additive Ed25519 signatures on decisions (the `1staid check approvals.integrity` check, on demand). Read-only. A broken chain is a finding (ok false, brokenAt, reason), never an RPC error; a broken chain suspends every grant after the break. Unsigned legacy entries remain valid. Owner/Admin/Operator (RBAC action approval.read); refused for every agent principal.",
+        "description": "D109 \u00a76/\u00a79.7: verifies the HMAC-SHA256 chain of the approval store and additive Ed25519 signatures on decisions (the `1staid check approvals.integrity` check, on demand). Read-only. A broken chain is a finding (ok false, brokenAt, reason), never an RPC error; a broken chain suspends every grant after the break. Unsigned legacy entries remain valid. Owner/Admin/Operator (RBAC action approval.read); refused for every agent principal.",
         "params": {
           "type": "object",
           "additionalProperties": false,
@@ -28096,7 +28150,7 @@
         "x-stability": "experimental",
         "x-since": "1.5.0",
         "x-server": "core",
-        "description": "D109 §9.10: approval-related HMAC-chain entries of the calling person, newest first, redacted (no nonce, no raw payload). Owner/Admin/Operator (RBAC action approval.read); refused for every agent principal. limit defaults to 100. This is a view of the existing approval chain, not a second audit log.",
+        "description": "D109 \u00a79.10: approval-related HMAC-chain entries of the calling person, newest first, redacted (no nonce, no raw payload). Owner/Admin/Operator (RBAC action approval.read); refused for every agent principal. limit defaults to 100. This is a view of the existing approval chain, not a second audit log.",
         "params": {
           "type": "object",
           "additionalProperties": false,
@@ -29052,7 +29106,7 @@
         "x-stability": "experimental",
         "x-since": "1.15.0",
         "x-server": "tools",
-        "description": "First call on a Core tools connection. The dedicated credential and recorded Core PID/instance establish the principal; where available the kernel peer PID must match run/core.pid. The first hello installs a process-wide 32-byte hex HMAC ticketKey for that Core start (D120 §11.2); further connections must present the same key. A new Core identity replaces the key and closes old Core connections. Neither credential is returned or logged. Supervisor lifecycle uses a separate control token.",
+        "description": "First call on a Core tools connection. The dedicated credential and recorded Core PID/instance establish the principal; where available the kernel peer PID must match run/core.pid. The first hello installs a process-wide 32-byte hex HMAC ticketKey for that Core start (D120 \u00a711.2); further connections must present the same key. A new Core identity replaces the key and closes old Core connections. Neither credential is returned or logged. Supervisor lifecycle uses a separate control token.",
         "params": {
           "type": "object",
           "additionalProperties": false,
@@ -29338,6 +29392,571 @@
               "minimum": 0
             }
           }
+        }
+      },
+      "team.get": {
+        "description": "D124 team data and decisions. Execution is deferred to PT-4b.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.24.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "runId": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+            }
+          },
+          "required": [
+            "runId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "run": {
+              "$ref": "#/$defs/TeamRun"
+            }
+          },
+          "required": [
+            "run"
+          ]
+        }
+      },
+      "team.list": {
+        "description": "D124 team data and decisions. Execution is deferred to PT-4b.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.24.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "projectId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "projectId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "runs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/TeamRun"
+              },
+              "maxItems": 100,
+              "minItems": 0
+            },
+            "nextOffset": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "runs",
+            "nextOffset"
+          ]
+        }
+      },
+      "team.create": {
+        "description": "D124 team data and decisions. Execution is deferred to PT-4b.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.24.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "projectId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "objective": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "leadAgent": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "team",
+                "best-of-n"
+              ]
+            },
+            "cardId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "projectId",
+            "objective",
+            "leadAgent"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "run": {
+              "$ref": "#/$defs/TeamRun"
+            }
+          },
+          "required": [
+            "run"
+          ]
+        }
+      },
+      "team.composition.confirm": {
+        "description": "D124 team data and decisions. Execution is deferred to PT-4b.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.24.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "runId": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+            },
+            "compositionHash": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "members": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/TeamMember"
+              },
+              "maxItems": 64,
+              "minItems": 1
+            }
+          },
+          "required": [
+            "runId",
+            "compositionHash",
+            "members"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "run": {
+              "$ref": "#/$defs/TeamRun"
+            }
+          },
+          "required": [
+            "run"
+          ]
+        }
+      },
+      "team.plan.approve": {
+        "description": "D124 team data and decisions. Execution is deferred to PT-4b.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.24.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "runId": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+            },
+            "planHash": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "checkHash": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "compositionHash": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "scope": {
+              "$ref": "#/$defs/TeamScope"
+            }
+          },
+          "required": [
+            "runId",
+            "planHash",
+            "checkHash",
+            "compositionHash",
+            "scope"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "run": {
+              "$ref": "#/$defs/TeamRun"
+            }
+          },
+          "required": [
+            "run"
+          ]
+        }
+      },
+      "team.scope.extend": {
+        "description": "D124 team data and decisions. Execution is deferred to PT-4b.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.24.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "runId": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+            },
+            "planHash": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "checkHash": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "compositionHash": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "scope": {
+              "$ref": "#/$defs/TeamScope"
+            }
+          },
+          "required": [
+            "runId",
+            "planHash",
+            "checkHash",
+            "compositionHash",
+            "scope"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "run": {
+              "$ref": "#/$defs/TeamRun"
+            }
+          },
+          "required": [
+            "run"
+          ]
+        }
+      },
+      "team.pause": {
+        "description": "D124 team data and decisions. Execution is deferred to PT-4b.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.24.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "runId": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+            }
+          },
+          "required": [
+            "runId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "run": {
+              "$ref": "#/$defs/TeamRun"
+            }
+          },
+          "required": [
+            "run"
+          ]
+        }
+      },
+      "team.resume": {
+        "description": "D124 team data and decisions. Execution is deferred to PT-4b.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.24.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "runId": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+            }
+          },
+          "required": [
+            "runId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "run": {
+              "$ref": "#/$defs/TeamRun"
+            }
+          },
+          "required": [
+            "run"
+          ]
+        }
+      },
+      "team.cancel": {
+        "description": "D124 team data and decisions. Execution is deferred to PT-4b.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.24.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "runId": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+            }
+          },
+          "required": [
+            "runId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "run": {
+              "$ref": "#/$defs/TeamRun"
+            }
+          },
+          "required": [
+            "run"
+          ]
+        }
+      },
+      "team.package.reassign": {
+        "description": "D124 team data and decisions. Execution is deferred to PT-4b.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.24.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "runId": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+            },
+            "packageId": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+            },
+            "memberId": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+            }
+          },
+          "required": [
+            "runId",
+            "packageId",
+            "memberId"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "run": {
+              "$ref": "#/$defs/TeamRun"
+            }
+          },
+          "required": [
+            "run"
+          ]
+        }
+      },
+      "team.package.budget.set": {
+        "description": "D124 team data and decisions. Execution is deferred to PT-4b.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.24.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "runId": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+            },
+            "packageId": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+            },
+            "tokenBudget": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "wallBudgetMs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "runId",
+            "packageId",
+            "tokenBudget",
+            "wallBudgetMs"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "run": {
+              "$ref": "#/$defs/TeamRun"
+            }
+          },
+          "required": [
+            "run"
+          ]
+        }
+      },
+      "team.budget.set": {
+        "description": "D124 team data and decisions. Execution is deferred to PT-4b.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.24.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "runId": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+            },
+            "sectionId": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+            },
+            "tokenBudget": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "wallBudgetMs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "runId",
+            "tokenBudget",
+            "wallBudgetMs"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "run": {
+              "$ref": "#/$defs/TeamRun"
+            }
+          },
+          "required": [
+            "run"
+          ]
+        }
+      },
+      "team.package.sync.set": {
+        "description": "D124 team data and decisions. Execution is deferred to PT-4b.",
+        "x-server": "core",
+        "x-stability": "experimental",
+        "x-since": "1.24.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "runId": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+            },
+            "packageId": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "auto",
+                "notify-only",
+                "at-review"
+              ]
+            }
+          },
+          "required": [
+            "runId",
+            "packageId",
+            "mode"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "run": {
+              "$ref": "#/$defs/TeamRun"
+            }
+          },
+          "required": [
+            "run"
+          ]
         }
       }
     },
@@ -29807,7 +30426,7 @@
       ]
     },
     "ChatModelOption": {
-      "description": "One configured model profile a chat may pick, described by its primary model. A locked profile stays listed with selectable false and the reason (local-only: “Only local models” is on and a candidate is not local; unavailable: the catalog no longer lists the model).",
+      "description": "One configured model profile a chat may pick, described by its primary model. A locked profile stays listed with selectable false and the reason (local-only: \u201cOnly local models\u201d is on and a candidate is not local; unavailable: the catalog no longer lists the model).",
       "x-stability": "experimental",
       "x-since": "1.7.0",
       "type": "object",
@@ -29945,7 +30564,7 @@
       }
     },
     "SessionRecord": {
-      "description": "One session (M1b-2c, D92 §2.1). kind, agentId, owner scope and chatKey are immutable (I1). The overview adds owner, model/provider and usage metadata. Transcript access stays owner-scoped or explicitly audited through break-glass.",
+      "description": "One session (M1b-2c, D92 \u00a72.1). kind, agentId, owner scope and chatKey are immutable (I1). The overview adds owner, model/provider and usage metadata. Transcript access stays owner-scoped or explicitly audited through break-glass.",
       "x-stability": "experimental",
       "x-since": "1.5.0",
       "type": "object",
@@ -30155,7 +30774,7 @@
       }
     },
     "RestartPlan": {
-      "description": "Experimental (1.3.0). A restart plan (ADR-013 §3): the changed live keys, whether the core restarts, and the modules that restart.",
+      "description": "Experimental (1.3.0). A restart plan (ADR-013 \u00a73): the changed live keys, whether the core restarts, and the modules that restart.",
       "x-stability": "experimental",
       "x-since": "1.3.0",
       "type": "object",
@@ -31867,7 +32486,7 @@
         "expired",
         "cancelled"
       ],
-      "description": "Experimental (1.5.0, D109 §5/§6). pending: waiting for a person; approved/denied: decided; used: an approved once-decision was consumed by its call; expired: nobody answered within 24 h (= denied, E_DENIED reason=approval-expired); cancelled: withdrawn through approval.cancel."
+      "description": "Experimental (1.5.0, D109 \u00a75/\u00a76). pending: waiting for a person; approved/denied: decided; used: an approved once-decision was consumed by its call; expired: nobody answered within 24 h (= denied, E_DENIED reason=approval-expired); cancelled: withdrawn through approval.cancel."
     },
     "GrantState": {
       "enum": [
@@ -31876,7 +32495,7 @@
         "consumed",
         "suspended"
       ],
-      "description": "Experimental (1.5.0, D109 §4/§6). suspended: set aside by a broken approval chain (fail closed) or the §8 taint rule; ends by time (expiresAt, scope bound) are derived by the reader."
+      "description": "Experimental (1.5.0, D109 \u00a74/\u00a76). suspended: set aside by a broken approval chain (fail closed) or the \u00a78 taint rule; ends by time (expiresAt, scope bound) are derived by the reader."
     },
     "GrantScopeName": {
       "enum": [
@@ -31885,7 +32504,7 @@
         "session",
         "always"
       ],
-      "description": "Experimental (1.5.0, D109 §4). How long a grant lasts: one call (action hash), the task, the session, or until revoked (auto-expires after 90 days unused)."
+      "description": "Experimental (1.5.0, D109 \u00a74). How long a grant lasts: one call (action hash), the task, the session, or until revoked (auto-expires after 90 days unused)."
     },
     "ApprovalRisk": {
       "enum": [
@@ -31899,10 +32518,10 @@
       "type": "integer",
       "minimum": 0,
       "maximum": 3,
-      "description": "Experimental (1.5.0, D109 §5). T0 nothing, T1 inbound ACP editor (low only), T2 web session without step-up or a private linked channel chat, T3 desktop app, CLI on a TTY of the owning OS user, web with step-up. Derived by the core from the connection, never supplied by a client."
+      "description": "Experimental (1.5.0, D109 \u00a75). T0 nothing, T1 inbound ACP editor (low only), T2 web session without step-up or a private linked channel chat, T3 desktop app, CLI on a TTY of the owning OS user, web with step-up. Derived by the core from the connection, never supplied by a client."
     },
     "ApprovalSubject": {
-      "description": "Experimental (1.5.0, D109 §6). Who the call runs for: the agent (or helper, peer, client) and its id.",
+      "description": "Experimental (1.5.0, D109 \u00a76). Who the call runs for: the agent (or helper, peer, client) and its id.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -31945,7 +32564,7 @@
       }
     },
     "GrantMatch": {
-      "description": "Experimental (1.5.0, D109 §3/§4). action: one call (the action hash); capability: the whole capability inside roots; path: a canonical path, read or write (write implies read), recursive or the direct children only.",
+      "description": "Experimental (1.5.0, D109 \u00a73/\u00a74). action: one call (the action hash); capability: the whole capability inside roots; path: a canonical path, read or write (write implies read), recursive or the direct children only.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -31976,7 +32595,7 @@
       }
     },
     "GrantRecord": {
-      "description": "Experimental (1.5.0, D109 §4/§6). A grant as the store holds it. Timestamps are RFC 3339 UTC.",
+      "description": "Experimental (1.5.0, D109 \u00a74/\u00a76). A grant as the store holds it. Timestamps are RFC 3339 UTC.",
       "x-stability": "experimental",
       "x-since": "1.5.0",
       "type": "object",
@@ -32076,7 +32695,7 @@
       }
     },
     "ApprovalRecord": {
-      "description": "Experimental (1.5.0, D109 §5/§6). An approval request as the store holds it. The one-time nonce is never part of it. Timestamps are RFC 3339 UTC.",
+      "description": "Experimental (1.5.0, D109 \u00a75/\u00a76). An approval request as the store holds it. The one-time nonce is never part of it. Timestamps are RFC 3339 UTC.",
       "x-stability": "experimental",
       "x-since": "1.5.0",
       "type": "object",
@@ -32842,7 +33461,7 @@
         "x-deprecated": {
           "since": "1.1.0",
           "removeAfter": "2027-03-26",
-          "replacement": "harness event notifications: recall.completed, recall.degraded, recall.block-clipped, recall.block-dropped, job.run, memory.proposal (ADR-016 §6)"
+          "replacement": "harness event notifications: recall.completed, recall.degraded, recall.block-clipped, recall.block-dropped, job.run, memory.proposal (ADR-016 \u00a76)"
         },
         "description": "Every engine event forwarded verbatim: name is the EngineEventName, payload as emitted, agentId when the payload carries one. Delivered only to subscriptions that name engine.event in names (opt-in).",
         "type": "object",
@@ -33332,7 +33951,7 @@
         "x-server": "core",
         "type": "object",
         "additionalProperties": false,
-        "description": "D109 §5: a new approval request is pending. Opt-in (a subscription must name approval.requested in names) and delivered only to subscriptions of person principals with approval.read; never to an agent. The record carries no nonce.",
+        "description": "D109 \u00a75: a new approval request is pending. Opt-in (a subscription must name approval.requested in names) and delivered only to subscriptions of person principals with approval.read; never to an agent. The record carries no nonce.",
         "required": [
           "approval"
         ],
@@ -33348,7 +33967,7 @@
         "x-server": "core",
         "type": "object",
         "additionalProperties": false,
-        "description": "D109 §5: a request left pending (approved, denied, expired or cancelled). The first valid answer closes it on every surface. Opt-in (a subscription must name approval.resolved in names) and delivered only to subscriptions of person principals with approval.read; never to an agent.",
+        "description": "D109 \u00a75: a request left pending (approved, denied, expired or cancelled). The first valid answer closes it on every surface. Opt-in (a subscription must name approval.resolved in names) and delivered only to subscriptions of person principals with approval.read; never to an agent.",
         "required": [
           "approval"
         ],
@@ -33364,7 +33983,7 @@
         "x-server": "core",
         "type": "object",
         "additionalProperties": false,
-        "description": "D109 §5: the foreground wait ended and the request stays open until TTL. Opt-in (a subscription must name approval.parked in names) and delivered only to subscriptions of person principals with approval.read; never to an agent. The record carries no nonce.",
+        "description": "D109 \u00a75: the foreground wait ended and the request stays open until TTL. Opt-in (a subscription must name approval.parked in names) and delivered only to subscriptions of person principals with approval.read; never to an agent. The record carries no nonce.",
         "required": [
           "approval"
         ],
@@ -33380,7 +33999,7 @@
         "x-server": "core",
         "type": "object",
         "additionalProperties": false,
-        "description": "D109 §4: a grant was created, used, revoked, expired or suspended. Opt-in (a subscription must name grant.changed in names) and delivered only to subscriptions of person principals with grant.read; never to an agent.",
+        "description": "D109 \u00a74: a grant was created, used, revoked, expired or suspended. Opt-in (a subscription must name grant.changed in names) and delivered only to subscriptions of person principals with grant.read; never to an agent.",
         "required": [
           "change",
           "grant"
@@ -33989,6 +34608,987 @@
           "maxLength": 500
         }
       }
+    },
+    "TeamGlob": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^(?:[A-Za-z0-9_.@+\\-]+|\\*|\\*\\*)(?:/(?:[A-Za-z0-9_.@+\\-]+|\\*|\\*\\*))*$"
+    },
+    "TeamScope": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "package"
+              ]
+            },
+            "package": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+            }
+          },
+          "required": [
+            "kind",
+            "package"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "section"
+              ]
+            },
+            "through": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+            }
+          },
+          "required": [
+            "kind",
+            "through"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "plan",
+                "auto"
+              ]
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    "TeamBudget": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "wallTimeMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "tokens",
+        "wallTimeMs"
+      ]
+    },
+    "TeamCheck": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "command"
+              ]
+            },
+            "criterion": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "argv": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "maxItems": 32,
+              "minItems": 1
+            },
+            "timeoutMs": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 120000
+            }
+          },
+          "required": [
+            "kind",
+            "criterion",
+            "argv",
+            "timeoutMs"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "tests"
+              ]
+            },
+            "criterion": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "tests": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "maxItems": 64,
+              "minItems": 1
+            }
+          },
+          "required": [
+            "kind",
+            "criterion",
+            "tests"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "paths"
+              ]
+            },
+            "criterion": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "paths": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/TeamGlob"
+              },
+              "maxItems": 64,
+              "minItems": 1
+            }
+          },
+          "required": [
+            "kind",
+            "criterion",
+            "paths"
+          ]
+        }
+      ]
+    },
+    "TeamOwnership": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "glob": {
+          "$ref": "#/$defs/TeamGlob"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "own",
+            "interface",
+            "shared"
+          ]
+        },
+        "personReview": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "glob",
+        "mode"
+      ]
+    },
+    "TeamDependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "package": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "code",
+            "order"
+          ]
+        },
+        "carries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "file",
+                  "symbol"
+                ]
+              },
+              "value": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ]
+          },
+          "maxItems": 32,
+          "minItems": 0
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      },
+      "required": [
+        "package",
+        "kind"
+      ]
+    },
+    "TeamMember": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "native",
+            "acp",
+            "a2a"
+          ]
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "writer",
+            "reviewer",
+            "helper",
+            "judge",
+            "lead"
+          ]
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "agentId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+        },
+        "peerId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+        },
+        "disclosure": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "maxItems": 16,
+          "minItems": 0
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "role",
+        "model",
+        "disclosure"
+      ]
+    },
+    "TeamPackagePlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+        },
+        "section": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "objective": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "doneWhen": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "maxItems": 32,
+          "minItems": 1
+        },
+        "taskClass": {
+          "type": "string",
+          "enum": [
+            "consult",
+            "research",
+            "review",
+            "code-small",
+            "code-large"
+          ]
+        },
+        "owns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TeamOwnership"
+          },
+          "maxItems": 64,
+          "minItems": 1
+        },
+        "interfaces": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "provides": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "maxItems": 64,
+              "minItems": 0
+            },
+            "consumes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "maxItems": 64,
+              "minItems": 0
+            }
+          },
+          "required": [
+            "provides",
+            "consumes"
+          ]
+        },
+        "dependsOn": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TeamDependency"
+          },
+          "maxItems": 32,
+          "minItems": 0
+        },
+        "worker": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "native",
+                "acp",
+                "a2a"
+              ]
+            },
+            "member": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+            }
+          },
+          "required": [
+            "kind",
+            "member"
+          ]
+        },
+        "sync": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "notify-only",
+            "at-review"
+          ]
+        },
+        "estimate": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "changedLines": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "tokens": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "wallTimeMs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "changedLines",
+            "tokens",
+            "wallTimeMs"
+          ]
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TeamCheck"
+          },
+          "maxItems": 64,
+          "minItems": 0
+        },
+        "dataDeletion": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "key",
+        "section",
+        "title",
+        "objective",
+        "doneWhen",
+        "taskClass",
+        "owns",
+        "interfaces",
+        "dependsOn",
+        "worker",
+        "sync",
+        "estimate",
+        "checks",
+        "dataDeletion"
+      ]
+    },
+    "TeamSectionPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "goals": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "maxItems": 32,
+          "minItems": 1
+        },
+        "budget": {
+          "$ref": "#/$defs/TeamBudget"
+        },
+        "mergeOrder": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+          },
+          "maxItems": 32,
+          "minItems": 1
+        }
+      },
+      "required": [
+        "key",
+        "title",
+        "goals",
+        "budget",
+        "mergeOrder"
+      ]
+    },
+    "TeamPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "type": "string",
+          "enum": [
+            "plur1bus.teamplan/1"
+          ]
+        },
+        "goals": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "maxItems": 32,
+          "minItems": 1
+        },
+        "targetBranch": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "sections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TeamSectionPlan"
+          },
+          "maxItems": 8,
+          "minItems": 1
+        },
+        "packages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TeamPackagePlan"
+          },
+          "maxItems": 32,
+          "minItems": 1
+        }
+      },
+      "required": [
+        "schema",
+        "goals",
+        "targetBranch",
+        "sections",
+        "packages"
+      ]
+    },
+    "TeamLane": {
+      "type": "string",
+      "enum": [
+        "contained",
+        "wide",
+        "closed"
+      ]
+    },
+    "TeamFinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "cycle",
+            "later-section",
+            "own-overlap",
+            "merge-order",
+            "missing-check",
+            "false-edge",
+            "invalid-plan"
+          ]
+        },
+        "package": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+        },
+        "other": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+        },
+        "detail": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "blocking": {
+          "type": "boolean"
+        },
+        "savedWallTimeMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "kind",
+        "package",
+        "detail",
+        "blocking"
+      ]
+    },
+    "TeamLaneResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "package": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+        },
+        "lane": {
+          "$ref": "#/$defs/TeamLane"
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "maxItems": 64,
+          "minItems": 0
+        }
+      },
+      "required": [
+        "package",
+        "lane",
+        "reasons"
+      ]
+    },
+    "TeamPlanReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "planHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TeamFinding"
+          },
+          "maxItems": 2048,
+          "minItems": 0
+        },
+        "lanes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TeamLaneResult"
+          },
+          "maxItems": 32,
+          "minItems": 0
+        },
+        "overlapScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "criticalPathMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "policyHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "planHash",
+        "findings",
+        "lanes",
+        "overlapScore",
+        "criticalPathMs",
+        "policyHash"
+      ]
+    },
+    "TeamPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "approval": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "auto": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "auto"
+          ]
+        },
+        "closedPaths": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TeamGlob"
+          },
+          "maxItems": 128,
+          "minItems": 0
+        },
+        "deployBranches": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "maxItems": 128,
+          "minItems": 0
+        }
+      },
+      "required": [
+        "approval",
+        "closedPaths",
+        "deployBranches"
+      ]
+    },
+    "TeamApproval": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "planHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "checkHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "compositionHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "policyHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "scope": {
+          "$ref": "#/$defs/TeamScope"
+        },
+        "approvedBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "planHash",
+        "checkHash",
+        "compositionHash",
+        "policyHash",
+        "scope",
+        "approvedBy",
+        "at"
+      ]
+    },
+    "TeamRun": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+        },
+        "projectId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "leadAgent": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+        },
+        "objective": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "team",
+            "best-of-n"
+          ]
+        },
+        "cardId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "proposing",
+            "awaiting-team",
+            "planning",
+            "awaiting-approval",
+            "running",
+            "paused",
+            "done",
+            "cancelled",
+            "failed"
+          ]
+        },
+        "stateVersion": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "plan": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TeamPlan"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "planHash": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "compositionHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TeamMember"
+          },
+          "maxItems": 64,
+          "minItems": 0
+        },
+        "checkHash": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "report": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TeamPlanReport"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "policy": {
+          "$ref": "#/$defs/TeamPolicy"
+        },
+        "approval": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TeamApproval"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "targetBranch": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "budget": {
+          "$ref": "#/$defs/TeamBudget"
+        },
+        "writersMax": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 128
+        },
+        "createdAt": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "updatedAt": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "id",
+        "projectId",
+        "leadAgent",
+        "objective",
+        "mode",
+        "cardId",
+        "state",
+        "stateVersion",
+        "plan",
+        "planHash",
+        "compositionHash",
+        "members",
+        "checkHash",
+        "report",
+        "policy",
+        "approval",
+        "targetBranch",
+        "budget",
+        "writersMax",
+        "createdAt",
+        "updatedAt"
+      ]
     }
   }
 }
