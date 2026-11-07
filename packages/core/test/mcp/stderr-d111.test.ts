@@ -43,7 +43,10 @@ describe("mcp stdio stderr uses the D111 output envelope", { timeout: 60_000 }, 
       reg.register({ name: d.name, transport: d.transport, timeouts: d.timeouts });
       const r = await reg.callTool("fixture", "leak_env", { name: "MCP_TEST_SECRET" }, caller);
       assert.equal(r.content[0]!.type, "text", "the protocol channel still carries the tool result");
-      assert.ok(await until(() => lines(t.records()).some((x) => String(x.attrs.text).includes("leaking"))), "the stderr line reached the writer");
+      // With a declared secret the framer keeps a window of the latest bytes (the longest secret form) until more output
+      // follows or the stream closes, so a secret split across chunks is still masked (#750). The close releases it.
+      await reg.shutdown();
+      assert.ok(lines(t.records()).some((x) => String(x.attrs.text).includes("leaking")), "the stderr line reached the writer");
       const stderr = lines(t.records());
       const leaking = stderr.find((x) => String(x.attrs.text).includes("leaking"))!;
       assert.equal(leaking.attrs.text, "leaking [REDACTED:secret]", "the D111 framer masks the declared secret with its own tag");
@@ -52,7 +55,6 @@ describe("mcp stdio stderr uses the D111 output envelope", { timeout: 60_000 }, 
       assert.deepEqual({ kind: leaking.source.kind, id: leaking.source.id }, { kind: "harness", id: "mcp" });
       assert.deepEqual(lines(t.records(), "stdout"), [], "stdout is protocol only: no output-line record for it");
       assert.ok(!logger.lines.some((l) => l.msg === "mcp.server.stderr"), "with the writer wired, stderr is not also logged on the legacy path");
-      await reg.shutdown();
       assert.ok(!readFileSync(join(t.dir, "core.out.log"), "utf8").includes(MARK), "the secret reached the log file");
     } finally { await reg.shutdown(); t.cleanup(); }
   });
@@ -132,11 +134,14 @@ describe("mcp stdio stderr uses the D111 output envelope", { timeout: 60_000 }, 
     const c = await McpConnection.open({ def: stdioDef(), clock, logger: capturingLogger(), redactor: createRedactor([secret]), hostEnv: {}, output: t.output, onToolsChanged: () => {}, onRemoteClose: () => {}, transportFactory: () => f.client });
     try {
       const long = `${"x".repeat(65_530)}${secret}${"y".repeat(9_000)}`;
-      f.client.stderr.write(`${long}\nafter\n`);
-      await until(() => c.stderrLines === 2);
+      // The bytes right after a discarded line are quarantined for one secret window as well, so a secret that straddles
+      // the boundary cannot leak its suffix; a filler line longer than that window comes first.
+      f.client.stderr.write(`${long}\n${"z".repeat(400)}\nafter\n`);
+      await until(() => c.stderrLines === 3);
       await c.close("graceful");
       const out = lines(t.records());
-      assert.deepEqual(out.map((x) => x.attrs.text), ["[TRUNCATED:oversized-line]", "after"]);
+      assert.equal(out[0]!.attrs.text, "[TRUNCATED:oversized-line]");
+      assert.equal(out.at(-1)!.attrs.text, "after", "the framer recovers after the quarantine window");
       assert.equal(out[0]!.attrs.truncated, true);
       assert.equal(out[0]!.attrs.bytes, Buffer.byteLength(long));
       assert.ok(!readFileSync(join(t.dir, "core.out.log"), "utf8").includes(secret.slice(0, 12)), "no part of the secret reached the log file");
