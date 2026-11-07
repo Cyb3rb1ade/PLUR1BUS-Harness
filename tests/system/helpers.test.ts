@@ -5,7 +5,7 @@ import { once } from 'node:events';
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { alive, killCore, killPid, windowsHomePids } from './helpers.ts';
+import { alive, coreEnv, killCore, killPid, selectCoreImpl, windowsHomePids } from './helpers.ts';
 import { modelCacheSnapshot } from './model-cache-diagnostics.ts';
 
 test('model-cache diagnostics count partial bytes without exposing names or following nested aliases', () => {
@@ -104,5 +104,35 @@ test('killCore reaps a directly started runtime with the same pid', { timeout: 2
       child.kill('SIGKILL');
       await exited;
     }
+  }
+});
+
+// P4-02, mode S: PLUR1BUS_CORE_IMPL=ts|rust. `ts` is the current behaviour and the default. `rust` must fail with a clear
+// error until the front door exists; it must never fall back to `ts`.
+test('PLUR1BUS_CORE_IMPL defaults to ts and accepts ts explicitly', () => {
+  assert.equal(selectCoreImpl({}), 'ts');
+  assert.equal(selectCoreImpl({ PLUR1BUS_CORE_IMPL: '' }), 'ts');
+  assert.equal(selectCoreImpl({ PLUR1BUS_CORE_IMPL: 'ts' }), 'ts');
+});
+
+test('PLUR1BUS_CORE_IMPL rejects unknown values', () => {
+  assert.throws(() => selectCoreImpl({ PLUR1BUS_CORE_IMPL: 'node' }), /PLUR1BUS_CORE_IMPL must be "ts" or "rust"/);
+});
+
+test('PLUR1BUS_CORE_IMPL=rust fails clearly when plur1bus-core is not built, and never falls back to ts', () => {
+  assert.throws(() => selectCoreImpl({ PLUR1BUS_CORE_IMPL: 'rust' }, () => false), /plur1bus-core not built \(P4-03\/P4-10\)/);
+  // Even with a binary present, the supervisor does not start it before P4-10: still an error, not the ts core.
+  assert.throws(() => selectCoreImpl({ PLUR1BUS_CORE_IMPL: 'rust' }, () => true), /front door is not wired into the supervisor yet \(P4-10\)/);
+});
+
+test('every core start goes through the selection', () => {
+  const saved = process.env.PLUR1BUS_CORE_IMPL;
+  try {
+    process.env.PLUR1BUS_CORE_IMPL = 'rust';
+    assert.throws(() => coreEnv(), /plur1bus-core/);
+    process.env.PLUR1BUS_CORE_IMPL = 'ts';
+    assert.equal(coreEnv().PLUR1BUS_ALLOW_TEST_INTERNALS, '1');
+  } finally {
+    if (saved === undefined) delete process.env.PLUR1BUS_CORE_IMPL; else process.env.PLUR1BUS_CORE_IMPL = saved;
   }
 });
