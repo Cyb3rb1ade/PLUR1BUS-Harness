@@ -1,0 +1,56 @@
+// P4-10 seam: the TypeScript core running behind the Rust front door (core-legacy). It takes the front door's credentials
+// from run/, serves on its own address, holds its own lock, never touches the front door's run files, and accepts a
+// handshake only as a front-door link.
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { PassThrough } from "node:stream";
+import { join } from "node:path";
+import { defaults } from "@plur1bus/config-schema";
+import { connect, unitAddress } from "@plur1bus/module-api";
+import { createCore } from "../src/core.ts";
+import { layout } from "../src/paths.ts";
+import { flatTestInternals } from "./helpers/flat-embedder.ts";
+import { tempDir } from "./helpers/temp-dir.ts";
+
+const hex = () => randomBytes(32).toString("hex");
+
+describe("core behind the front door (P4-10 seam)", () => {
+  it("uses the front door's run files, its own address, lock and pid file, and refuses a direct owner", async () => {
+    const home = tempDir("p1b-front-door-");
+    const l = layout(home);
+    mkdirSync(l.run, { recursive: true, mode: 0o700 });
+    const cfg = defaults(); cfg.agents.bernd = {};
+    writeFileSync(l.configPath, JSON.stringify(cfg));
+    // What the front door writes before it spawns the legacy core.
+    const owner = hex(), api = hex(), link = hex();
+    writeFileSync(l.coreToken, owner, { mode: 0o600 });
+    writeFileSync(join(l.run, "api-delegation.token"), api, { mode: 0o600 });
+    writeFileSync(join(l.run, "core-legacy.token"), link, { mode: 0o600 });
+    writeFileSync(l.corePid, "4242 7a3a4b2c-0d1e-4f50-9a6b-1c2d3e4f5a6b\n", { mode: 0o600 });
+    const lifeline = new PassThrough();
+    const core = createCore({ home, testInternals: flatTestInternals(), dreams: { scheduler: false }, lifeline, behindFrontDoor: "standalone", onOrphanGraceExpired: () => {} });
+    await core.start();
+    try {
+      assert.equal(core.address, unitAddress(home, "core-legacy"));
+      assert.equal(core.token, owner, "the owner token is the front door's");
+      assert.equal(readFileSync(l.coreToken, "utf8"), owner, "run/core.token is left as the front door wrote it");
+      assert.equal(readFileSync(join(l.run, "api-delegation.token"), "utf8"), api);
+      assert.equal(readFileSync(l.corePid, "utf8"), "4242 7a3a4b2c-0d1e-4f50-9a6b-1c2d3e4f5a6b\n");
+      assert.match(readFileSync(join(l.run, "core-legacy.pid"), "utf8"), new RegExp(`^${process.pid} [0-9a-f-]{36}\\n$`));
+      const models = JSON.parse(readFileSync(join(l.run, "engine-models.json"), "utf8"));
+      assert.deepEqual([models.pid, models.instanceId], [4242, "7a3a4b2c-0d1e-4f50-9a6b-1c2d3e4f5a6b"], "stamped with the front door's identity");
+      assert.ok(existsSync(join(l.state, "core-legacy.lock")));
+      assert.ok(!existsSync(l.coreLock), "state/core.lock is the front door's");
+      // A direct client holding the owner token is refused: the legacy core answers only front-door links.
+      await assert.rejects(connect({ address: core.address, token: owner, expectedServerPid: process.pid }),
+        (e: any) => e.error === "E_UNAUTHORIZED" && e.reason === "front-door-link");
+    } finally {
+      await core.stop({ budgetMs: 5000 });
+    }
+    assert.equal(readFileSync(l.coreToken, "utf8"), owner, "stop leaves the front door's token");
+    assert.ok(existsSync(l.corePid), "stop leaves the front door's pid file");
+    assert.ok(!existsSync(join(l.run, "core-legacy.pid")), "stop removes its own pid file");
+  });
+});

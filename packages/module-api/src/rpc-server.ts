@@ -94,6 +94,11 @@ export interface RpcServerOptions {
   /** Current RBAC visibility, resolved by the owner of the agent registry; absent denies API agent events. */
   canReadAgent?: (ctx: CallContext, agentId: string) => boolean | Promise<boolean>;
   address: string; token: string;
+  /** Phase 4 seam (P4-10): this core runs behind the Rust front door as core-legacy. Every `core.auth` must carry
+   *  `frontDoor { token, caller }` with this token (run/core-legacy.token, compared in constant time) and the caller kind
+   *  the rest of the params prove here; anything else is refused with `front-door-link` and the connection closed.
+   *  Without this option a `core.auth` that carries `frontDoor` is refused the same way. */
+  frontDoorToken?: string;
   /** The handshake's result. */
   hello: () => object;
   /** Implementations for methods served by this process; each method is schema-checked. */
@@ -116,6 +121,15 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
   const served = new Set(METHODS_BY_SERVER[role]);
   const authIdleMs = o.authIdleMs ?? 30_000;
   const tokenBuf = Buffer.from(o.token, "utf8");
+  const frontDoorBuf = o.frontDoorToken === undefined ? undefined : Buffer.from(o.frontDoorToken, "utf8");
+  /** P4-10: the front door's link credential matches this server's (only a server behind the front door has one). */
+  function linkMatches(link: unknown): link is { token: string; caller: string } {
+    if (frontDoorBuf === undefined || !link || typeof link !== "object") return false;
+    const t = (link as { token?: unknown }).token;
+    if (typeof t !== "string") return false;
+    const b = Buffer.from(t, "utf8");
+    return b.length === frontDoorBuf.length && timingSafeEqual(b, frontDoorBuf);
+  }
   const conns = new Map<string, Conn>();
   const rec = parityRecorder(process.env, role); // P4-02: null unless PLUR1BUS_ALLOW_TEST_INTERNALS=1 and PLUR1BUS_PARITY_RECORD are both set
   const dispatches = new Set<Dispatch>(); // handler calls whose reply is not written yet (drain() waits on these)
@@ -170,6 +184,9 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
       if (c.clientToken !== undefined) { replyAndClose(c, id, new RpcError("E_DENIED", "scoped identity cannot change")); return; }
       const v = validateParams(method, params);
       if (!v.ok) { replyAndClose(c, id, new RpcError("E_INVALID_PARAMS", "invalid params", { detail: v.errors.join("; ") })); return; }
+      // P4-10 seam: behind the front door every handshake is a link carrying its credential; anywhere else a link is refused.
+      const link: unknown = Object.hasOwn(params, "frontDoor") ? params.frontDoor : undefined;
+      if (frontDoorBuf === undefined ? link !== undefined : !linkMatches(link)) { replyAndClose(c, id, new RpcError("E_UNAUTHORIZED", "front door link refused", { reason: "front-door-link" })); return; }
       const hasEngine = role === "core" && Object.hasOwn(params, "engine");
       if (c.authed && c.engine !== hasEngine) { replyAndClose(c, id, new RpcError("E_DENIED", "connection identity cannot change", { reason: "engine-identity-change" })); return; }
       if (hasEngine) {
@@ -184,6 +201,11 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
         try { await o.authorizeClient(params.token, method, params); c.clientToken = params.token; }
         catch { replyAndClose(c, id, new RpcError("E_UNAUTHORIZED", "client not approved", { reason: "client-token" })); return; }
       } else if (c.clientToken !== undefined) { replyAndClose(c, id, new RpcError("E_DENIED", "scoped identity cannot change")); return; }
+      // P4-10 seam: the caller kind the front door authenticated must be the one these credentials prove here too.
+      if (frontDoorBuf !== undefined) {
+        const proved = hasEngine ? "engine" : c.clientToken !== undefined ? "client" : hasApi ? "api" : "owner";
+        if ((link as { caller?: unknown }).caller !== proved) { replyAndClose(c, id, new RpcError("E_UNAUTHORIZED", "front door link refused", { reason: "front-door-link" })); return; }
+      }
       c.authed = true;
       c.engine = hasEngine;
       if (hasEngine) c.engineToken = params.engine.token;
