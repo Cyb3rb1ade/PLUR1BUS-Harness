@@ -24,7 +24,9 @@ use super::state::{
     RestartDecision, RestartPolicy, Role, RoleKind, Slot,
 };
 use super::{broadcast_module_state, now_ms, spawn_guarded, Lifeline, Shared, SupervisorState};
-use crate::commands::core::{locate_core_js, locate_node};
+use crate::commands::core::{
+    core_env, core_impl, locate_core_bin, locate_core_js, locate_node, CoreImpl,
+};
 use crate::modules::Installed;
 use crate::paths::Layout;
 use plur1bus_rpc::{Client, ConnectOptions};
@@ -49,9 +51,16 @@ pub struct ChildSpec {
 }
 
 /// The core in supervised mode: `node <core.js> --home <home> --lifeline stdin --instance <id>`, plus
-/// `--test-internals <v>` when `PLUR1BUS_TEST_INTERNALS` is set (exactly like `core run`). Fails when core.js is
+/// `--test-internals <v>` when `PLUR1BUS_TEST_INTERNALS` is set (exactly like `core run`). With `core.impl: "rust"` (or
+/// `PLUR1BUS_CORE_IMPL=rust`, P4-10) the slot runs the front door instead, `plur1bus-core serve --home <home> --lifeline
+/// stdin --instance <id>`, which starts the TypeScript core behind it from the located Node and core.js. Read afresh at
+/// every spawn, so a changed `core.impl` takes effect at the core's restart. Fails when core.js (or plur1bus-core) is
 /// missing.
 pub fn core_spec(layout: &Layout, instance_id: &str) -> Result<ChildSpec, String> {
+    core_spec_for(layout, instance_id, core_impl(layout)?)
+}
+
+fn core_spec_for(layout: &Layout, instance_id: &str, imp: CoreImpl) -> Result<ChildSpec, String> {
     let core_js = locate_core_js(layout);
     if !core_js.exists() {
         return Err(format!(
@@ -59,8 +68,7 @@ pub fn core_spec(layout: &Layout, instance_id: &str) -> Result<ChildSpec, String
             core_js.display()
         ));
     }
-    let mut args: Vec<OsString> = vec![
-        core_js.into(),
+    let lifeline: [OsString; 6] = [
         "--home".into(),
         layout.home.clone().into(),
         "--lifeline".into(),
@@ -68,22 +76,34 @@ pub fn core_spec(layout: &Layout, instance_id: &str) -> Result<ChildSpec, String
         "--instance".into(),
         instance_id.into(),
     ];
-    if let Some(ti) = std::env::var_os("PLUR1BUS_TEST_INTERNALS") {
-        args.push("--test-internals".into());
-        args.push(ti);
-    }
+    let (program, args) = match imp {
+        CoreImpl::Ts => {
+            let mut args: Vec<OsString> = vec![core_js.into()];
+            args.extend(lifeline);
+            if let Some(ti) = std::env::var_os("PLUR1BUS_TEST_INTERNALS") {
+                args.push("--test-internals".into());
+                args.push(ti);
+            }
+            (locate_node(layout), args)
+        }
+        CoreImpl::Rust => {
+            let bin = locate_core_bin(layout);
+            if !bin.is_file() {
+                return Err(format!(
+                    "plur1bus-core not found at {} (set PLUR1BUS_CORE_BIN, or core.impl \"ts\")",
+                    bin.display()
+                ));
+            }
+            let mut args: Vec<OsString> = vec!["serve".into()];
+            args.extend(lifeline);
+            (bin, args)
+        }
+    };
     Ok(ChildSpec {
         role: "core".into(),
-        program: locate_node(layout),
+        program,
         args,
-        env: crate::commands::core::attest_env()
-            .into_iter()
-            .chain(crate::commands::core::native_worker_env())
-            .chain([(
-                "PLUR1BUS_TOOLS_BIN".into(),
-                crate::commands::core::locate_tools_bin(layout).into_os_string(),
-            )])
-            .collect(),
+        env: core_env(layout, imp),
         cwd: None,
     })
 }
@@ -702,7 +722,8 @@ impl Monitor {
                 }
                 Err(e) => return mark_unspawnable(&self.shared, &name, &e),
             }
-        } else if self.spec.is_none() {
+        } else if self.spec.is_none() || self.ctx.role.kind == RoleKind::Core {
+            // The core's spec is read afresh too: `core.impl` (P4-10) takes effect at its next spawn.
             match spec_for(
                 &self.ctx.layout,
                 &self.ctx.role,
@@ -2080,6 +2101,58 @@ mod tests {
         let (reason, err) = spec_for(&layout, &Role::module("fixture"), id).unwrap_err();
         assert_eq!(reason, CrashReason::ManifestInvalid);
         assert!(err.contains("not installed"), "{err}");
+    }
+
+    #[test]
+    fn the_rust_core_spec_runs_the_front_door_with_the_lifeline_and_instance() {
+        if std::env::var_os("PLUR1BUS_CORE_JS").is_some()
+            || std::env::var_os("PLUR1BUS_CORE_BIN").is_some()
+        {
+            return; // the environment overrides the lookup; nothing to check here
+        }
+        let dir = std::env::temp_dir().join(format!("p1b rust spec {}", std::process::id()));
+        let core_js = dir.join("runtime").join("core").join("core.js");
+        let bin = dir.join("runtime").join("bin").join(if cfg!(windows) {
+            "plur1bus-core.exe"
+        } else {
+            "plur1bus-core"
+        });
+        std::fs::create_dir_all(core_js.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(bin.parent().unwrap()).unwrap();
+        std::fs::write(&core_js, "").unwrap();
+        let layout = Layout::new(dir.clone());
+        let id = "0b7a6a6e-2f1d-4c1e-9a55-6d7e8f901234";
+        let missing = core_spec_for(&layout, id, CoreImpl::Rust).unwrap_err();
+        assert!(missing.contains("plur1bus-core not found"), "{missing}");
+        std::fs::write(&bin, "").unwrap();
+        let spec = core_spec_for(&layout, id, CoreImpl::Rust);
+        let _ = std::fs::remove_dir_all(&dir);
+        let spec = spec.unwrap();
+        assert_eq!(spec.program, bin);
+        let args: Vec<String> = spec
+            .args
+            .iter()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(
+            args,
+            [
+                "serve",
+                "--home",
+                &dir.to_string_lossy(),
+                "--lifeline",
+                "stdin",
+                "--instance",
+                id
+            ]
+        );
+        assert_eq!(instance_of(&spec).as_deref(), Some(id));
+        let env: Vec<String> = spec
+            .env
+            .iter()
+            .map(|(k, _)| k.to_string_lossy().into_owned())
+            .collect();
+        assert!(env.contains(&"PLUR1BUS_NODE".into()) && env.contains(&"PLUR1BUS_CORE_JS".into()));
     }
 
     #[test]

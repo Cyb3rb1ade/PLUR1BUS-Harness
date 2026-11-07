@@ -39,8 +39,18 @@ export function serialiseTranscript(lines: readonly TranscriptLine[]): string {
   return lines.map((l) => `${JSON.stringify({ seq: l.seq, conn: l.conn, dir: l.dir, msg: l.msg })}\n`).join("");
 }
 
+/** Controller ruling (P4-03, applied by P4-10): an `E_INVALID_PARAMS` error's free-text `message` and `detail` are not
+ *  contract (ADR-016; ajv and the Rust validator word their findings differently). Codes and `reason` are compared. */
+function withoutInvalidParamsText(v: Record<string, unknown>): Record<string, unknown> {
+  const data = v.data as Record<string, unknown> | undefined;
+  if (typeof v.code !== "number" || data?.error !== "E_INVALID_PARAMS") return v;
+  const { detail: _detail, ...rest } = data;
+  return { ...v, message: "<text>", data: { ...rest, ...(data.detail !== undefined ? { detail: "<text>" } : {}) } };
+}
+
 function normaliseValue(v: unknown, key: string | undefined, id: (s: string) => string): unknown {
   if (Array.isArray(v)) return v.map((x) => normaliseValue(x, undefined, id));
+  if (v && typeof v === "object" && key === "error") v = withoutInvalidParamsText(v as Record<string, unknown>);
   if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, normaliseValue(x, k, id)]));
   if (typeof v === "number" && key !== undefined) {
     if (PID_KEYS.has(key)) return "<pid>";

@@ -78,3 +78,22 @@ describe("comparison", () => {
     assert.deepEqual(r.diffs, ["conn 0, request #1 a.b: $.params.q: expected 1, got 2"]);
   });
 });
+
+describe("error texts (controller ruling P4-03, applied by P4-10)", () => {
+  const invalid = (seq: number, message: string, data: Record<string, unknown>): TranscriptLine =>
+    ({ seq, conn: 0, dir: "out", msg: { jsonrpc: "2.0", id: 1, error: { code: -32602, message, data: { error: "E_INVALID_PARAMS", ...data } } } });
+  const base = [req(1, 0, 1, "memory.list", { x: 1 })];
+  it("the message and detail of E_INVALID_PARAMS are not compared", () => {
+    const ajv = [...base, invalid(2, "invalid params", { detail: "/ must NOT have additional properties" })];
+    const rust = [...base, invalid(2, "invalid params", { detail: "/ Additional properties are not allowed ('x' was unexpected)" })];
+    assert.deepEqual(compareTranscripts(ajv, rust), { ok: true, diffs: [] });
+    assert.deepEqual(compareTranscripts(ajv, [...base, invalid(2, "params refused", { detail: "other" })]).ok, true);
+  });
+  it("the code, the reason and the presence of a detail still are, and other errors keep their text", () => {
+    const want = [...base, invalid(2, "invalid request", { reason: "invalid-request", detail: "a" })];
+    assert.equal(compareTranscripts(want, [...base, invalid(2, "invalid request", { reason: "parse-error", detail: "a" })]).ok, false);
+    assert.equal(compareTranscripts(want, [...base, invalid(2, "invalid request", { reason: "invalid-request" })]).ok, false);
+    const denied = (m: string) => [...base, err(2, 0, 1, -32000, { error: "E_DENIED", reason: "r" })].map((l) => l.dir === "out" ? { ...l, msg: { ...(l.msg as object), error: { code: -32000, message: m, data: { error: "E_DENIED", reason: "r" } } } } : l);
+    assert.equal(compareTranscripts(denied("a"), denied("b")).ok, false);
+  });
+});

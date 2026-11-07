@@ -59,7 +59,11 @@ describe("PLUR1BUS_CORE_IMPL", () => {
     assert.throws(() => coreImplFromEnv({ PLUR1BUS_CORE_IMPL: "node" }), /must be "ts" or "rust"/);
   });
 
-  it("rust fails with a clear error and never falls back to ts", async () => {
-    await assert.rejects(startTarget("rust"), (e: Error) => e instanceof RustCoreNotBuilt && /plur1bus-core not built \(P4-03\/P4-10\)/.test(e.message));
+  it("rust fails with a clear error without the binary and never falls back to ts", async () => {
+    const saved = process.env.PLUR1BUS_CORE_BIN;
+    process.env.PLUR1BUS_CORE_BIN = "/nonexistent/plur1bus-core";
+    try {
+      await assert.rejects(startTarget("rust"), (e: Error) => e instanceof RustCoreNotBuilt && /plur1bus-core not built \(P4-03\/P4-10\)/.test(e.message));
+    } finally { if (saved === undefined) delete process.env.PLUR1BUS_CORE_BIN; else process.env.PLUR1BUS_CORE_BIN = saved; }
   });
 });

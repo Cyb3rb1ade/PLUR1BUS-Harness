@@ -1,24 +1,28 @@
 import { spawn, execFileSync, type ChildProcess } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { modelCacheSnapshot } from "./model-cache-diagnostics.ts";
 
 export const BIN = resolve(process.env.PLUR1BUS_BIN ?? "target/release/plur1bus");
 export const CORE_JS = resolve(process.env.PLUR1BUS_CORE_JS ?? "packages/core/dist/core.js");
 /** P4-02, parity mode S. Which core implementation the system suites run against. `ts` (default) is the TypeScript
- *  core behind `plur1bus core run`. `rust` is `plur1bus-core` with the legacy TypeScript core behind it (P4-10). That
- *  binary and its supervisor slot do not exist yet, so `rust` throws a clear error: it must never fall back to `ts`,
- *  which would let a green rust leg mean nothing. P4-10 replaces the throw with the real start. */
+ *  core behind `plur1bus core run` and the supervisor's core slot. `rust` (P4-10) is the front door `plur1bus-core` with the
+ *  legacy TypeScript core behind it: the CLI and the supervisor read `PLUR1BUS_CORE_IMPL` from the environment
+ *  `coreEnv` passes them. Without the binary `rust` throws: it must never fall back to `ts`, which would let a green rust
+ *  leg mean nothing. */
 export type CoreImpl = "ts" | "rust";
 export function selectCoreImpl(env: NodeJS.ProcessEnv = process.env, exists: (path: string) => boolean = existsSync): CoreImpl {
   const v = env.PLUR1BUS_CORE_IMPL;
   if (v === undefined || v === "" || v === "ts") return "ts";
   if (v !== "rust") throw new Error(`PLUR1BUS_CORE_IMPL must be "ts" or "rust", got ${JSON.stringify(v)}`);
-  const bin = resolve(env.PLUR1BUS_CORE_BIN ?? "target/release/plur1bus-core");
-  throw new Error(exists(bin)
-    ? `PLUR1BUS_CORE_IMPL=rust: ${bin} exists, but the front door is not wired into the supervisor yet (P4-10); refusing to run the ts core instead`
-    : `PLUR1BUS_CORE_IMPL=rust: plur1bus-core not built (P4-03/P4-10): no binary at ${bin}; refusing to run the ts core instead`);
+  const bin = coreBin(env);
+  if (!exists(bin)) throw new Error(`PLUR1BUS_CORE_IMPL=rust: plur1bus-core not built (P4-03/P4-10): no binary at ${bin}; refusing to run the ts core instead`);
+  return "rust";
+}
+/** The front door binary of the `rust` leg: `PLUR1BUS_CORE_BIN`, else beside the CLI under test. */
+export function coreBin(env: NodeJS.ProcessEnv = process.env): string {
+  return resolve(env.PLUR1BUS_CORE_BIN ?? join(dirname(BIN), process.platform === "win32" ? "plur1bus-core.exe" : "plur1bus-core"));
 }
 
 /** PLUR1BUS_REAL_MODELS=1: real embedder + reranker (downloads the models); otherwise the R17 flat-embedder seam. */
@@ -85,9 +89,10 @@ const STARTUP_TIMEOUT_MS = REAL ? 120_000 : 30_000;
  *  seam unless real models run. `extra` adds to it (e.g. `PLUR1BUS_SUPERVISOR_TIME_SCALE`, honoured only with
  *  `PLUR1BUS_ALLOW_TEST_INTERNALS=1`). A supervisor passes its environment on to the cores it spawns. */
 export function coreEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
-  selectCoreImpl(); // every core start goes through here (startCore, startDaemon, restartSupervisor): `rust` stops it
+  const impl = selectCoreImpl(); // every core start goes through here (startCore, startDaemon, restartSupervisor)
   return {
     ...process.env, PLUR1BUS_CORE_JS: CORE_JS, PLUR1BUS_NODE: process.execPath,
+    ...(impl === "rust" ? { PLUR1BUS_CORE_IMPL: "rust", PLUR1BUS_CORE_BIN: coreBin() } : {}),
     ...(REAL ? {} : { PLUR1BUS_ALLOW_TEST_INTERNALS: "1", PLUR1BUS_TEST_INTERNALS: FLAT_INTERNALS }),
     ...extra,
   };

@@ -54,7 +54,15 @@ frame sequence. A difference prints as `conn 0, response to #3 media.preferences
 
 **Error texts (controller ruling, P4-03).** Error codes (`error.code`, `error.data.error`) and `reason` strings must match
 exactly. The free-text `message` and the `detail` of `E_INVALID_PARAMS` are not contract (ADR-016): the Rust validator
-(`jsonschema`) words its findings differently from ajv, so the replay normalises both (P4-10).
+(`jsonschema`) words its findings differently from ajv, so the comparison replaces both with `<text>` for an
+`E_INVALID_PARAMS` error only (`transcript.ts`, P4-10); every other error's message is still compared.
+
+**The `rust` target (P4-10).** `--impl rust` starts `plur1bus-core serve` (`PLUR1BUS_CORE_BIN`, else
+`target/release/plur1bus-core`, else `target/debug/plur1bus-core`) with the built `packages/core/dist/core.js` behind it,
+the flat embedder and no dream scheduler. The legacy core cannot take the in-process fake clock and instance id, so a
+recording made from `ts` is compared with times, pids and uuids masked as always. `p4-10-parity.ts` replays a transcript
+against both targets and compares the two replays (the front door must add nothing), and drives the contract fixtures
+through both (gate G1).
 
 ```text
 node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning tests/core-parity/run.ts [--impl ts|rust] [--strict-order] [file.ndjson ...]
@@ -62,14 +70,16 @@ node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWa
 node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test tests/core-parity/*.test.ts
 ```
 
-`--impl rust` (or `PLUR1BUS_CORE_IMPL=rust`) fails with `plur1bus-core not built (P4-03/P4-10)` until the binary exists; it never
-falls back to `ts`. The self-test (`selftest.test.ts`) records every flow against the TypeScript core, replays it against the
+`--impl rust` (or `PLUR1BUS_CORE_IMPL=rust`) fails with `plur1bus-core not built (P4-03/P4-10)` when the binary is missing; it
+never falls back to `ts`. The self-test (`selftest.test.ts`) records every flow against the TypeScript core, replays it against the
 TypeScript core, and checks that the committed transcripts are still what a fresh recording produces.
 
 ## S, system
 
-`PLUR1BUS_CORE_IMPL=ts` (default) is today's behaviour. `rust` starts `plur1bus-core` with the legacy core behind it (P4-10) and
-until then fails with a clear error. Every core start in `tests/system/helpers.ts` goes through `selectCoreImpl()`.
+`PLUR1BUS_CORE_IMPL=ts` (default) is today's behaviour. `rust` (P4-10) passes `PLUR1BUS_CORE_IMPL=rust` and `PLUR1BUS_CORE_BIN`
+(beside the CLI under test unless set) to the CLI and the supervisor, which then run `plur1bus-core` with the legacy core
+behind it; without the binary it fails with a clear error. Every core start in `tests/system/helpers.ts` goes through
+`selectCoreImpl()`.
 
 ## B, stores
 
