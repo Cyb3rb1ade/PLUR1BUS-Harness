@@ -20,7 +20,7 @@ export interface Finding extends RawFinding {
   id: string; runId: string; target: Target; revision?: number; previousDecision?: { revision: number; outcome: string; at: number; hash: string }; prevalence: { sessions: number; total: number; days: number; agents: number; persons: number };
   verify: 'supported' | 'contradicted' | 'unknown' | 'not-applicable'; agreement: 'agrees' | 'contradicts' | 'unknown';
   score: number; desiredTier: Tier; effectiveTier: 'C'; skeptic: Verdict;
-  models: string[]; promptVersion: string; status: 'pending' | 'accepted' | 'rejected' | 'waiting-h3';
+  models: string[]; modelClasses?: ('small' | 'medium' | 'large')[]; promptVersion: string; status: 'pending' | 'accepted' | 'rejected' | 'waiting-h3';
 }
 export type Reason = 'transcript-cap' | 'disabled' | 'no-sessions' | 'budget' | 'breaker-open' | 'no-model' | 'local-only' | 'source-unavailable' | 'invalid-output' | 'provider-failed' | 'rights-changed' | 'interrupted';
 export interface LearnRun { id: string; target: Target; window: Window; sessionIds: string[]; digest: string; startedAt: number; finishedAt: number | null; outcome: 'completed' | 'skipped' | 'failed' | 'deferred' | null; reason: Reason | null; tokens: number; findings: number; truncated?: boolean; omittedSessions?: number }

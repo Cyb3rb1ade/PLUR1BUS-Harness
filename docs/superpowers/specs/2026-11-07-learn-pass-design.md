@@ -146,3 +146,10 @@ suites, docs generation/check and Rust fmt/clippy/CLI tests precede the single r
   a later evidence day, with a new review revision linked to the previous content-free decision.
   Precision counts only the latest decision per stable finding, so repeated weekly observations
   cannot inflate the sample. This sacrifices independent-event sampling in favor of deduplication.
+- Ruling L1: Calibration pools by owner, desired tier and revision of model classes plus prompt
+  and score policy. It does not reset for each agent or actual model ID. Actual serving models
+  remain listed in the record for inspection. Different owners and class/prompt revisions are
+  never pooled. This makes the 50-decision minimum useful; the cost is that a weaker model within
+  a class can be masked by the pool, which must be assessed before V2 enables any automatic tier.
+- Known limit L2: conservative instruction-word matching can keep harmless statements in C.
+  This is intentional during shadow evaluation; precision does not imply recall of eligible facts.

@@ -5,9 +5,9 @@ import { dirname } from 'node:path';
 import { digest, targetHash, validateTarget } from './selection.ts';
 import { PROMPT_VERSION, type Finding, type LearnRun, type Reason, type Target, type Window } from './types.ts';
 
-export type DecisionSummary = Pick<Finding, 'id' | 'target' | 'kind' | 'desiredTier' | 'promptVersion' | 'models'> & { hash: string };
+export type DecisionSummary = Pick<Finding, 'id' | 'target' | 'kind' | 'desiredTier' | 'promptVersion' | 'models' | 'modelClasses'> & { hash: string };
 const decisionSummary = (f: Finding): DecisionSummary => ({ id: f.id, target: f.target, kind: f.kind,
-  desiredTier: f.desiredTier, promptVersion: f.promptVersion, models: f.models, hash: digest(f) });
+  desiredTier: f.desiredTier, promptVersion: f.promptVersion, models: f.models, modelClasses: f.modelClasses ?? [], hash: digest(f) });
 
 /** Content is exclusively in learn_payload. Generic ledger projections never select that column. */
 export class LearnStore {

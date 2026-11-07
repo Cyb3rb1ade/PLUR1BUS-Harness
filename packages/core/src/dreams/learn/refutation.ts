@@ -27,11 +27,11 @@ export async function refuteFinding(finding: Finding, transcripts: readonly Tran
   const value = object(result.text);
   if (Object.keys(value).length !== 1 || !['holds', 'refuted', 'insufficient'].includes(String(value.verdict))) throw new LearnError('invalid-output');
   // Shadow ruling: preserve even refuted findings; the UI folds them. Nothing is automatically applied.
-  return { ...finding, skeptic: value.verdict as Verdict, effectiveTier: 'C', models: [...new Set([...finding.models, result.model])].sort() };
+  return { ...finding, skeptic: value.verdict as Verdict, effectiveTier: 'C', modelClasses: [...new Set([...(finding.modelClasses ?? []), 'large' as const])].sort(), models: [...new Set([...finding.models, result.model])].sort() };
 }
 export async function wordFinding(finding: Finding, call: ReviewCall): Promise<Finding> {
   const result = await call('wording', finding.id, { text: finding.text, change: finding.change, verify: finding.verify, skeptic: finding.skeptic });
   const value = object(result.text);
   if (Object.keys(value).length !== 1 || typeof value.text !== 'string' || !value.text.trim() || value.text.length > LIMITS.text) throw new LearnError('invalid-output');
-  return { ...finding, text: value.text.trim(), models: [...new Set([...finding.models, result.model])].sort() };
+  return { ...finding, text: value.text.trim(), modelClasses: [...new Set([...(finding.modelClasses ?? []), 'large' as const])].sort(), models: [...new Set([...finding.models, result.model])].sort() };
 }

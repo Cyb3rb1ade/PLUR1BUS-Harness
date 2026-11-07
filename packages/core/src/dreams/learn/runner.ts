@@ -80,7 +80,7 @@ export class LearnRunner {
       for (const next of findings) {
         const f = o.store.prepareCandidate(next); if (!f) continue;
         if (!authorized(f)) throw new LearnError('rights-changed');
-        f.models = [...models].sort(); reviewed.push(o.review ? await o.review(f, selected, call, signal) : f);
+        f.models = [...models].sort(); f.modelClasses = ['small']; reviewed.push(o.review ? await o.review(f, selected, call, signal) : f);
       }
       signal.throwIfAborted();
       const freshPrincipal = o.principal(target.owner);

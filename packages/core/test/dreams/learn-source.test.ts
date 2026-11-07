@@ -103,3 +103,26 @@ test('M5: learningSessions pages newest activity first with a stable tie breaker
     assert.deepEqual(store.learningSessions({ ...f, offset: 2 }).map(s => s.id), [ids[0]]);
   } finally { store.close(); }
 });
+
+test('L4: live exposure, project membership and archival narrow learning reads', async () => {
+  const { DEFAULT_COLLAB_SETTINGS } = await import('../../src/collab/defaults.ts');
+  const r = rig();
+  let config = { agents: {} } as HarnessConfig;
+  let project = { id: 'project', name: 'Fixture', owner: 'alice', members: [], agents: ['agent'],
+    settings: DEFAULT_COLLAB_SETTINGS, createdAt: 1, updatedAt: 1, archivedAt: null as number | null };
+  const source = learningSource(r.store, { config: () => config, hasAgent: () => true, project: () => project });
+  const t = { ...target, scope: 'project' as const, projectId: 'project' };
+  const s = { ...r.session, scope: 'project' };
+  try {
+    assert.equal(source.mayRead(t, s, principal), true);
+    project = { ...project, archivedAt: 10 }; assert.equal(source.mayRead(t, s, principal), false);
+    project = { ...project, archivedAt: null, agents: [] }; assert.equal(source.mayRead(t, s, principal), false);
+    project = { ...project, agents: ['agent'], owner: 'other' }; assert.equal(source.mayRead(t, s, principal), false);
+    project = { ...project, owner: 'alice' };
+    config = { agents: { agent: { memoryExposure: { collab: { recall: { agentPrivate: false } } } } } } as HarnessConfig;
+    assert.equal(source.mayRead(t, s, principal), false);
+    config = { agents: {} } as HarnessConfig;
+    assert.equal(source.mayRead(t, s, { ...principal, role: 'member' }), false);
+    assert.equal(source.mayRead(t, s, { ...principal, userId: 'other' }), false);
+  } finally { r.store.close(); }
+});

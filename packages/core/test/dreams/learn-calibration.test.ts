@@ -34,16 +34,16 @@ test('precision counts durable human decisions per model/prompt and excludes pen
   const store = new LearnStore(':memory:');
   try {
     const run = store.begin(target, { from: 1, to: 100 }, 1);
-    const rows = Array.from({ length: 52 }, (_, i) => ({ ...scoreFinding(finding(), safe), id: `f${i}`, runId: run.id, models: ['fixture/small', 'fixture/large'].sort() }));
+    const rows = Array.from({ length: 52 }, (_, i) => ({ ...scoreFinding(finding(), safe), id: `f${i}`, runId: run.id, models: ['fixture/small', 'fixture/large'].sort(), modelClasses: ['small', 'large'] as ('small' | 'large')[] }));
     rows[51]!.kind = 'procedural';
     store.publish(run, rows, 2);
     for (let i = 0; i < 50; i++) store.decide(`f${i}`, 'person', i < 48 ? 'accepted' : 'rejected', 3, { operation: 'fixture' });
     store.decide('f51', 'person', 'rejected', 3, {});
-    const record = calibration(store, target, ['fixture/large', 'fixture/small']);
+    const record = calibration(store, target, ['large', 'small']);
     assert.deepEqual(record.A, { accepted: 48, decided: 50, precision: 0.96, allowed: false, reason: 'revert-unavailable' });
     assert.equal(record.B.decided, 0);
-    assert.deepEqual(calibration(store, { agentId: target.agentId, owner: target.owner, scope: target.scope }, ['fixture/large', 'fixture/small']), record);
-    const changed = calibration(store, target, ['fixture/other']); assert.equal(changed.A.decided, 0); assert.notEqual(changed.revision, record.revision);
+    assert.deepEqual(calibration(store, { agentId: target.agentId, owner: target.owner, scope: target.scope }, ['large', 'small']), record);
+    const changed = calibration(store, target, ['medium', 'large']); assert.equal(changed.A.decided, 0); assert.notEqual(changed.revision, record.revision);
   } finally { store.close(); }
 });
 
@@ -65,13 +65,29 @@ test('M4: unrelated owners and newer runs cannot hide decisions or breaker failu
   const store = new LearnStore(':memory:');
   try {
     const first = store.begin(target, { from: 1, to: 2 }, 1);
-    store.publish(first, [{ ...scoreFinding(finding(), safe), id: 'old-finding', runId: first.id, models: ['fixture/small'] }], 2);
+    store.publish(first, [{ ...scoreFinding(finding(), safe), id: 'old-finding', runId: first.id, models: ['fixture/small'], modelClasses: ['small'] }], 2);
     store.decide('old-finding', target.owner, 'accepted', 3, {});
     for (let i = 2; i < 5; i++) store.finish(store.begin(target, { from: i, to: i + 1 }, 10), 'failed', 'provider-failed', 11);
     for (let i = 0; i < 1001; i++) store.begin({ ...target, owner: 'other' }, { from: 100 + i, to: 101 + i }, 100);
     assert.equal(store.runs(target.owner).length, 4);
     for (let i = 0; i < 1001; i++) store.begin(target, { from: 2000 + i, to: 2001 + i }, 100);
     assert.equal(store.breakerOpen(target, 100), true);
-    assert.equal(calibration(store, target, ['fixture/small']).A.decided, 1);
+    assert.equal(calibration(store, target, ['small']).A.decided, 1);
+  } finally { store.close(); }
+});
+
+test('L1: calibration pools the same owner, tier and class/prompt revision across agents and actual models', () => {
+  const store = new LearnStore(':memory:');
+  try {
+    for (const [i, owner, agentId, model] of [[1, target.owner, 'one', 'fixture/alpha'], [2, target.owner, 'two', 'fixture/beta'], [3, 'other', 'three', 'fixture/alpha']] as const) {
+      const t: Target = { ...target, owner, agentId }, run = store.begin(t, { from: i, to: i + 1 }, i);
+      const f: Finding = { ...scoreFinding(finding(), safe), target: t, id: `pool-${i}`, runId: run.id, models: [model], modelClasses: ['small', 'large'] };
+      store.publish(run, [f], i); store.decide(f.id, owner, 'accepted', i + 1, {});
+    }
+    const record = calibration(store, target, ['small', 'large']);
+    assert.equal(record.A.decided, 2); assert.equal(record.B.decided, 0);
+    assert.deepEqual(record.models, ['fixture/alpha', 'fixture/beta']);
+    assert.deepEqual(calibration(store, { ...target, agentId: 'another' }, ['large', 'small']), record);
+    assert.equal(calibration(store, target, ['medium', 'large']).A.decided, 0);
   } finally { store.close(); }
 });

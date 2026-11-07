@@ -10,7 +10,7 @@ function candidate(run: LearnRun, day: number, sourceId = `message-${day}`) {
     sessionId: `session-${day}`, turnId: `turn-${day}`, sourceId, source: 'message', trust: 'person',
     day: `2026-11-${String(day).padStart(2, '0')}`, agentId: 'agent', owner: 'owner',
   }] }], target, run.id, 1)[0]!;
-  f.models = ['fixture/small']; f.desiredTier = 'A'; return f;
+  f.models = ['fixture/small']; f.modelClasses = ['small']; f.desiredTier = 'A'; return f;
 }
 test('M2: stable target/content identity absorbs new evidence into one pending finding', () => {
   const store = new LearnStore(':memory:');
@@ -42,7 +42,7 @@ test('M2: rejection reopens only for new later-day evidence, links history and c
     assert.equal(reopened.previousDecision?.outcome, 'rejected'); assert.equal(reopened.previousDecision?.revision, 1);
     store.decide(a.id, 'owner', 'accepted', 5, { operation: 'fixture' });
     assert.equal(store.decisions(later.id).length, 2);
-    assert.equal(calibration(store, target, ['fixture/small']).A.decided, 1);
+    assert.equal(calibration(store, target, ['small']).A.decided, 1);
     const repeat = store.begin(target, { from: 5, to: 6 }, 5);
     store.publish(repeat, [candidate(repeat, 3)], 5);
     assert.equal(repeat.findings, 0); assert.equal(store.finding(a.id)?.status, 'accepted');

@@ -1,9 +1,9 @@
 import { SensitivityScanner } from '../../memory-sensitivity/scanner.ts';
-import { digest, targetHash } from './selection.ts';
+import { digest } from './selection.ts';
 import type { LearnStore } from './store.ts';
 import { PROMPT_VERSION, type Finding, type Target, type Tier } from './types.ts';
 
-export const CALIBRATION_POLICY = Object.freeze({ version: 1, minimumDecisions: 50, precisionGate: 0.95, scoreA: 0.8, scoreB: 0.9 });
+export const CALIBRATION_POLICY = Object.freeze({ version: 2, minimumDecisions: 50, precisionGate: 0.95, scoreA: 0.8, scoreB: 0.9 });
 const scanner = new SensitivityScanner();
 export function instructionLike(text: string): boolean {
   return /\b(always|never|must|ignore|remember|instructions?|system prompt|immer|niemals|nie|musst|muss|ignoriere|speichere|anweisungen?|merke)\b/iu.test(text);
@@ -37,14 +37,15 @@ export function precisionGate(accepted: number, decided: number): Precision {
   const precision = decided ? accepted / decided : null;
   return { accepted, decided, precision, allowed: false, reason: decided < CALIBRATION_POLICY.minimumDecisions ? 'shadow-incomplete' : precision! < CALIBRATION_POLICY.precisionGate ? 'precision-below-gate' : 'revert-unavailable' };
 }
-export function calibration(store: LearnStore, target: Target, models: readonly string[]) {
-  const modelIds = [...new Set(models)].sort();
-  const revision = digest([PROMPT_VERSION, modelIds, CALIBRATION_POLICY]);
+export function calibration(store: LearnStore, target: Target, modelClasses: readonly string[]) {
+  const classes = [...new Set(modelClasses)].sort(), modelIds = new Set<string>();
+  const revision = digest([target.owner, PROMPT_VERSION, classes, CALIBRATION_POLICY]);
   const counts = { A: { accepted: 0, decided: 0 }, B: { accepted: 0, decided: 0 } };
   for (const { finding, outcome } of store.decidedFindings(target.owner)) {
-    if (targetHash(finding.target) !== targetHash(target) || finding.kind !== 'knowledge' || finding.desiredTier === 'C' || finding.promptVersion !== PROMPT_VERSION || JSON.stringify([...finding.models].sort()) !== JSON.stringify(modelIds)) continue;
+    if (finding.kind !== 'knowledge' || finding.desiredTier === 'C' || finding.promptVersion !== PROMPT_VERSION || JSON.stringify([...(finding.modelClasses ?? [])].sort()) !== JSON.stringify(classes)) continue;
+    finding.models.forEach(model => modelIds.add(model));
     const count = counts[finding.desiredTier]; count.decided++; if (outcome === 'accepted') count.accepted++;
   }
-  return { version: 1, revision, promptVersion: PROMPT_VERSION, models: modelIds, thresholds: CALIBRATION_POLICY,
+  return { version: 2, revision, owner: target.owner, promptVersion: PROMPT_VERSION, modelClasses: classes, models: [...modelIds].sort(), thresholds: CALIBRATION_POLICY,
     A: precisionGate(counts.A.accepted, counts.A.decided), B: precisionGate(counts.B.accepted, counts.B.decided) };
 }
