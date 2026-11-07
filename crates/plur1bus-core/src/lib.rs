@@ -1,28 +1,35 @@
 //! `plur1bus-core`: the PLUR1BUS core in Rust (Phase 4, ADR-019, owner decisions D129/D131).
 //!
-//! Today this is the skeleton of P4-03: argument parsing, path resolution and the module layout the front door (P4-10)
-//! fills. `plur1bus-core serve` resolves its run files and then refuses with [`ServeError::FrontDoorPending`]; nothing
-//! is bound, written or locked. The TypeScript core stays the default until P4-10's flip PR.
+//! P4-10 makes it the **front door**: `plur1bus-core serve` takes the core lock and the run files, starts the TypeScript core
+//! behind it as `core-legacy`, listens on `run/core.sock` (or the per-home pipe), authenticates every client itself, and
+//! relays every call it does not serve to the legacy core over a link that carries the client's own credentials (plan
+//! §2.4). It is opt-in: `core.impl: "rust"` in `config.json`, or `PLUR1BUS_CORE_IMPL=rust`; the TypeScript core alone stays
+//! the default until the flip PR.
 //!
-//! Where things go (plan §2.1, §2.4):
-//! - [`server`]: the listener on `run/core.sock` or the per-home pipe, framing, and the generated
-//!   `plur1bus_rpc::server::CoreMethods` dispatch;
-//! - [`relay`]: forwarding unserved methods to `core-legacy` with the caller context;
-//! - [`auth`]: `run/core.token` and `core.auth`;
+//! Modules (plan §2.1):
+//! - [`server`]: the listener, framing, back-pressure and the route table;
+//! - [`relay`]: the per-client links to `core-legacy`;
+//! - [`auth`]: the credentials, constant-time compares and the `core.auth` checks;
 //! - [`lock`]: the single-instance core lock (`state/core.lock`);
-//! - [`run_files`]: the paths of the run files (implemented here);
-//! - [`events`]: `events.subscribe`/`unsubscribe` and the fan-out by audience;
-//! - [`lifecycle`]: the lifeline, drain order and shutdown.
+//! - [`run_files`]: the run files and their modes;
+//! - [`events`]: subscriptions and the front door's own `core.state`;
+//! - [`lifecycle`]: process state, lifeline, drain order, timings;
+//! - [`legacy`]: spawning the legacy core and its ready line;
+//! - [`frame`]: NDJSON lines and error frames.
 //!
 //! Shared crates: `plur1bus-canon` (canonical JSON, action hash), `plur1bus-store` (SQLite conventions),
-//! `plur1bus-tokens` (token counter), `plur1bus-audit` (audit chain), `plur1bus-rpc` (types, client, server half).
+//! `plur1bus-tokens` (token counter), `plur1bus-audit` (audit chain and the core lock), `plur1bus-rpc` (types, client,
+//! server half).
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 #![warn(clippy::print_stdout, clippy::print_stderr)]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
 
 pub mod auth;
 pub mod cli;
 pub mod events;
+pub mod frame;
+pub mod legacy;
 pub mod lifecycle;
 pub mod lock;
 pub mod relay;
@@ -32,7 +39,16 @@ pub mod server;
 pub use cli::{Cli, Command, ServeArgs};
 pub use run_files::RunFiles;
 
+use auth::Secret;
+use lifecycle::{relock, Event, ProcessState, Timings};
+use plur1bus_rpc::server_transport::Listener;
+use serde_json::{json, Value};
 use std::fmt;
+use std::io::{self, BufReader, Write};
+use std::process::{Child, ExitStatus};
+use std::sync::mpsc;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 /// What `serve` was asked to do, resolved from the arguments.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -49,22 +65,44 @@ pub struct ServePlan {
 #[derive(Debug)]
 pub enum ServeError {
     /// The home could not be made absolute.
-    Home(std::io::Error),
-    /// The front door is not implemented yet: it lands in P4-10.
-    FrontDoorPending {
-        /// The address P4-10 will listen on.
-        address: String,
-    },
+    Home(io::Error),
+    /// Another core holds `state/core.lock` (`E_LOCKED`, exit 3).
+    Locked,
+    /// Something answers on the core's address already.
+    AddressInUse(String),
+    /// The legacy core exited before it was ready, with this status.
+    LegacyExited(ExitStatus),
+    /// The legacy core could not be started or did not say it was ready properly.
+    Legacy(String),
+    /// Anything else that stopped the start (run files, schema, the listener).
+    Start(String),
+    /// A stop was requested while starting (exit with this code).
+    Stopped(i32),
+}
+
+impl ServeError {
+    /// The process exit code, `bin.ts`'s: 3 for a held lock; the legacy core's own 2 (configuration), 3 and 4 (engine
+    /// contract); the stop's code for a stop while starting; else 1.
+    pub fn exit_code(&self) -> i32 {
+        match self {
+            ServeError::Locked => 3,
+            ServeError::LegacyExited(s) => s.code().filter(|c| (2..=4).contains(c)).unwrap_or(1),
+            ServeError::Stopped(code) => *code,
+            _ => 1,
+        }
+    }
 }
 
 impl fmt::Display for ServeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Home(e) => write!(f, "cannot resolve --home: {e}"),
-            Self::FrontDoorPending { address } => write!(
-                f,
-                "the Rust front door lands in P4-10; nothing listens on {address} yet (the TypeScript core stays the default)"
-            ),
+            Self::Locked => write!(f, "another core holds the lock (database is locked)"),
+            Self::AddressInUse(a) => write!(f, "address in use: {a}"),
+            Self::LegacyExited(s) => write!(f, "the legacy core exited before it was ready ({s})"),
+            Self::Legacy(e) => write!(f, "the legacy core did not start: {e}"),
+            Self::Start(e) => write!(f, "start failed: {e}"),
+            Self::Stopped(_) => write!(f, "stopped while starting"),
         }
     }
 }
@@ -81,9 +119,345 @@ pub fn plan(args: &ServeArgs) -> Result<ServePlan, ServeError> {
     })
 }
 
-/// Serves the core. Until P4-10 this always returns [`ServeError::FrontDoorPending`] and touches nothing.
-pub fn serve(plan: &ServePlan) -> Result<(), ServeError> {
-    Err(ServeError::FrontDoorPending {
-        address: plan.run_files.address.clone(),
-    })
+/// How long a legacy core that exits 3 (a previous legacy core still holds `state/core-legacy.lock` while it stops) is
+/// retried, on top of the stop budget.
+const LEGACY_LOCK_RETRY_MARGIN: Duration = Duration::from_secs(10);
+/// The margin `bin.ts` gives itself beyond the stop budget before it exits on its own.
+const LEGACY_STOP_MARGIN: Duration = Duration::from_secs(5);
+/// How long the control link's handshake may take.
+const CONTROL_AUTH_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Serves the core until it is stopped; returns the process exit code. See [`lifecycle`] for the drain order.
+pub fn serve(plan: &ServePlan) -> Result<i32, ServeError> {
+    let files = plan.run_files.clone();
+    let checks = server::Checks::new().map_err(ServeError::Start)?;
+    run_files::prepare(&files).map_err(|e| ServeError::Start(e.to_string()))?;
+    let lock = match lock::acquire(&files.lock) {
+        Ok(lock) => lock,
+        Err(lock::LockError::Held) => return Err(ServeError::Locked),
+        Err(lock::LockError::Io(e)) => return Err(ServeError::Start(format!("core lock: {e}"))),
+    };
+    let timings = Timings::read(&files.config);
+    let (events_tx, events) = mpsc::channel::<Event>();
+    lifecycle::watch_signals(events_tx.clone(), timings.shutdown_budget)
+        .map_err(|e| ServeError::Start(format!("signal handlers: {e}")))?;
+    let (front, listener, legacy, control) =
+        match start(plan, &files, checks, timings, &events_tx, &events) {
+            Ok(parts) => parts,
+            Err(e) => {
+                // A refused or failed start leaves no run file behind; the lock goes last.
+                run_files::remove_owned(&files);
+                drop(lock);
+                return Err(e);
+            }
+        };
+    let legacy::Legacy {
+        child,
+        pid: legacy_pid,
+        lifeline,
+        ..
+    } = legacy;
+    // Ready: the state, the ready line (the TypeScript core's shape), then connections and the lifeline.
+    front.set_state(ProcessState::now("ready"));
+    let ready = json!({"ready": true, "address": files.address, "pid": front.pid});
+    {
+        let mut out = io::stdout().lock();
+        let _ = writeln!(out, "{ready}").and_then(|()| out.flush());
+    }
+    server::log(
+        "info",
+        "core ready",
+        json!({"instanceId": front.instance, "address": files.address, "supervised": plan.lifeline, "legacyPid": legacy_pid}),
+    );
+    {
+        let f = front.clone();
+        std::thread::Builder::new()
+            .name("core-accept".into())
+            .spawn(move || server::accept_loop(&f, &listener))
+            .map_err(|e| ServeError::Start(e.to_string()))?;
+    }
+    if plan.lifeline {
+        let f = front.clone();
+        lifecycle::watch_stdin(move || f.stdin_lost());
+    }
+    let child = Arc::new(Mutex::new(child));
+    {
+        let (c, tx) = (child.clone(), events_tx.clone());
+        std::thread::Builder::new()
+            .name("core-legacy-wait".into())
+            .spawn(move || loop {
+                if let Ok(Some(_)) = relock(&c).try_wait() {
+                    let _ = tx.send(Event::LegacyExited);
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            })
+            .map_err(|e| ServeError::Start(e.to_string()))?;
+    }
+    // The main loop: the first stop request, the legacy core's exit, or the end of an orphan grace.
+    let request = loop {
+        match events.recv() {
+            Ok(Event::Stop {
+                budget,
+                why,
+                ok_code,
+            }) => break Some((budget, why, ok_code)),
+            Ok(Event::GraceExpired(generation)) => {
+                if front.grace_applies(generation) {
+                    server::log("warn", "orphan grace expired, stopping", Value::Null);
+                    break Some((timings.shutdown_budget, "lifeline grace expired", 0));
+                }
+            }
+            Ok(Event::LegacyExited) | Err(_) => break None,
+        }
+    };
+    let code = stop(&front, &child, &control, lifeline, request);
+    run_files::remove_owned(&files);
+    drop(lock);
+    Ok(code)
+}
+
+type Started = (
+    Arc<server::FrontDoor>,
+    Listener,
+    legacy::Legacy,
+    relay::Link,
+);
+
+/// Everything between the lock and `ready`: run files, the legacy core, the control link, the listener.
+fn start(
+    plan: &ServePlan,
+    files: &RunFiles,
+    checks: server::Checks,
+    timings: Timings,
+    events_tx: &mpsc::Sender<Event>,
+    events: &mpsc::Receiver<Event>,
+) -> Result<Started, ServeError> {
+    probe_address(&files.address)?;
+    let fresh = || Secret::fresh().map_err(|e| ServeError::Start(e.to_string()));
+    let credentials = server::Credentials {
+        core: fresh()?,
+        api: fresh()?,
+        link: fresh()?,
+    };
+    let instance = plan
+        .instance
+        .clone()
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    let write = |path: &std::path::Path, text: &str| {
+        run_files::write_private(path, text)
+            .map_err(|e| ServeError::Start(format!("{}: {e}", path.display())))
+    };
+    write(&files.token, credentials.core.expose())?;
+    write(&files.api_token, credentials.api.expose())?;
+    write(&files.legacy_token, credentials.link.expose())?;
+    write(&files.pid, &format!("{} {instance}\n", std::process::id()))?;
+
+    let spec = legacy::LegacySpec::from_env(&files.home, plan.lifeline);
+    let retry_until = Instant::now() + timings.shutdown_budget + LEGACY_LOCK_RETRY_MARGIN;
+    let mut stop_code = None;
+    let mut legacy = loop {
+        let mut stop_requested = || match events.try_recv() {
+            Ok(Event::Stop { ok_code, .. }) => {
+                stop_code = Some(ok_code);
+                true
+            }
+            _ => false,
+        };
+        match legacy::start(&spec, &files.legacy_address, &mut stop_requested) {
+            Ok(legacy) => break legacy,
+            Err(legacy::StartError::Exited(status))
+                if status.code() == Some(3) && Instant::now() < retry_until =>
+            {
+                // A legacy core of the previous front door is still stopping and holds its lock: wait for it.
+                std::thread::sleep(Duration::from_millis(500));
+            }
+            Err(legacy::StartError::Exited(status)) => {
+                return Err(ServeError::LegacyExited(status))
+            }
+            Err(legacy::StartError::Stopped) => {
+                return Err(ServeError::Stopped(stop_code.unwrap_or(0)))
+            }
+            Err(legacy::StartError::Spawn(e)) => {
+                return Err(ServeError::Legacy(format!(
+                    "cannot start {}: {e}",
+                    spec.node.display()
+                )))
+            }
+            Err(legacy::StartError::BadReady(e)) => return Err(ServeError::Legacy(e)),
+        }
+    };
+    let control = match control_link(files, &credentials, legacy.pid) {
+        Ok(pair) => pair,
+        Err(e) => {
+            legacy.kill();
+            return Err(ServeError::Legacy(e));
+        }
+    };
+    let listener = match Listener::bind(&files.address) {
+        Ok(l) => l,
+        Err(e) => {
+            legacy.kill();
+            return Err(ServeError::Start(format!(
+                "listen on {}: {e}",
+                files.address
+            )));
+        }
+    };
+    let front = Arc::new(server::FrontDoor::new(
+        files.clone(),
+        instance,
+        credentials,
+        legacy.pid,
+        control.1,
+        checks,
+        events_tx.clone(),
+        timings,
+        plan.lifeline,
+    ));
+    Ok((front, listener, legacy, control.0))
+}
+
+/// The stale-socket probe (POSIX): a socket file nobody answers on is removed; one that answers refuses the start, as
+/// the TypeScript server's `listen()` does. On Windows the first pipe instance flag refuses a taken name at bind.
+fn probe_address(address: &str) -> Result<(), ServeError> {
+    #[cfg(unix)]
+    {
+        let path = std::path::Path::new(address);
+        if path.symlink_metadata().is_ok() {
+            if std::os::unix::net::UnixStream::connect(path).is_ok() {
+                return Err(ServeError::AddressInUse(address.to_owned()));
+            }
+            std::fs::remove_file(path)
+                .map_err(|e| ServeError::Start(format!("stale socket {address}: {e}")))?;
+        }
+    }
+    let _ = address;
+    Ok(())
+}
+
+/// The front door's own owner link to the legacy core: its handshake gives the engine `contract` the front door
+/// reports, and `core.shutdown` goes over it at stop. Everything else arriving on it is read and dropped.
+fn control_link(
+    files: &RunFiles,
+    credentials: &server::Credentials,
+    legacy_pid: u32,
+) -> Result<(relay::Link, String), String> {
+    let (link, reader) = relay::Link::connect(&files.legacy_address, legacy_pid)
+        .map_err(|e| format!("cannot connect to the legacy core: {e}"))?;
+    let id = link.next_id();
+    let hello = json!({"jsonrpc":"2.0","id": id,"method":"core.auth","params":{
+        "token": credentials.core.expose(),
+        "frontDoor": {"token": credentials.link.expose(), "caller": "owner"},
+    }});
+    reader
+        .set_read_timeout(Some(CONTROL_AUTH_TIMEOUT))
+        .map_err(|e| e.to_string())?;
+    link.send(&frame::encode(&hello))
+        .map_err(|e| e.to_string())?;
+    let mut reader = BufReader::new(reader);
+    let reply = match frame::read_line(&mut reader) {
+        Ok(frame::Line::Data(bytes)) => {
+            serde_json::from_slice::<Value>(&bytes).map_err(|e| e.to_string())?
+        }
+        _ => return Err("the legacy core closed the control link".into()),
+    };
+    let contract = reply
+        .pointer("/result/contract")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            let reason = reply
+                .pointer("/error/data/reason")
+                .and_then(Value::as_str)
+                .unwrap_or("no result");
+            format!("the legacy core refused the control link ({reason})")
+        })?
+        .to_owned();
+    reader
+        .get_ref()
+        .set_read_timeout(None)
+        .map_err(|e| e.to_string())?;
+    std::thread::Builder::new()
+        .name("core-control".into())
+        .spawn(move || while let Ok(frame::Line::Data(_)) = frame::read_line(&mut reader) {})
+        .map_err(|e| e.to_string())?;
+    Ok((link, contract))
+}
+
+/// The stop (ADR-012 §3, see [`lifecycle`]). `request` is `None` when the legacy core exited on its own.
+fn stop(
+    front: &Arc<server::FrontDoor>,
+    child: &Arc<Mutex<Child>>,
+    control: &relay::Link,
+    lifeline: Option<std::process::ChildStdin>,
+    request: Option<(Duration, &'static str, i32)>,
+) -> i32 {
+    front.begin_stop();
+    let (budget, why, ok_code) = request.unwrap_or((Duration::ZERO, "the legacy core exited", 1));
+    server::log(
+        "info",
+        "core stopping",
+        json!({"why": why, "budgetMs": u64::try_from(budget.as_millis()).unwrap_or(u64::MAX)}),
+    );
+    front.set_state(ProcessState::now("stopping"));
+    let mut failed = request.is_none();
+    if request.is_some() {
+        let budget_ms = u64::try_from(budget.as_millis())
+            .unwrap_or(u64::MAX)
+            .min(120_000);
+        let shutdown = json!({"jsonrpc":"2.0","id": control.next_id(),"method":"core.shutdown","params":{"budgetMs": budget_ms}});
+        if control.send(&frame::encode(&shutdown)).is_err() {
+            server::log(
+                "warn",
+                "the control link is gone; the legacy core stops on its lifeline",
+                Value::Null,
+            );
+        }
+    }
+    let deadline = Instant::now() + budget + LEGACY_STOP_MARGIN;
+    let mut status = None;
+    while status.is_none() {
+        status = relock(child).try_wait().ok().flatten();
+        if status.is_some() || Instant::now() >= deadline {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    let code = match status {
+        Some(s) => {
+            server::log("info", "the legacy core exited", json!({"code": s.code()}));
+            match s.code() {
+                Some(0 | 130) if request.is_some() => None,
+                Some(c @ (2 | 4)) if request.is_none() => Some(c),
+                _ => Some(1),
+            }
+        }
+        None => {
+            server::log(
+                "warn",
+                "the legacy core did not stop in time, killing it",
+                Value::Null,
+            );
+            let mut c = relock(child);
+            let _ = c.kill();
+            let _ = c.wait();
+            Some(1)
+        }
+    };
+    if code.is_some() {
+        failed = true;
+    }
+    drop(lifeline);
+    control.close();
+    front.close_connections(Duration::from_secs(1));
+    // The writers flush what is queued; a peer that never reads is destroyed after the grace.
+    let flushed = Instant::now() + Duration::from_millis(1200);
+    while front.open_connections() > 0 && Instant::now() < flushed {
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    server::log("info", "core stopped", json!({"failed": failed}));
+    match code {
+        Some(c) => c,
+        None => ok_code,
+    }
 }

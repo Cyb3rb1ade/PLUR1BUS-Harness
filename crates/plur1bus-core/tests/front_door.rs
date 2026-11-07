@@ -1,0 +1,964 @@
+//! The front door (P4-10) as a process, against a fake legacy core that is this test binary itself (see
+//! `front_door_support/fake_legacy.rs`): run files and their modes, authentication of every caller kind, the relay, the
+//! native and completed methods, notifications, back-pressure, adoption and the lifeline, the stop paths, and that no
+//! credential ever shows up in the front door's output or in an error.
+//!
+//! `harness = false`: `main` runs the fake when it is started as `fake-legacy`, else every test below in turn (a test name
+//! argument filters them).
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::print_stdout,
+    clippy::needless_pass_by_value
+)]
+
+#[path = "front_door_support/fake_legacy.rs"]
+mod fake_legacy;
+
+use plur1bus_core::auth::Secret;
+use plur1bus_rpc::transport::{self, Stream};
+use serde_json::{json, Value};
+use std::io::{BufRead, BufReader, Read, Write};
+use std::path::{Path, PathBuf};
+use std::process::{Child, ChildStdin, Command, Stdio};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
+
+fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    if args.get(1).map(String::as_str) == Some("fake-legacy") {
+        fake_legacy::run(&args);
+    }
+    let filter: Vec<&String> = args
+        .iter()
+        .skip(1)
+        .filter(|a| !a.starts_with('-'))
+        .collect();
+    let tests: &[(&str, fn())] = &[
+        (
+            "ready_line_run_files_and_modes",
+            ready_line_run_files_and_modes,
+        ),
+        (
+            "owner_handshake_and_a_byte_exact_relay",
+            owner_handshake_and_a_byte_exact_relay,
+        ),
+        (
+            "before_the_handshake_the_front_door_answers",
+            before_the_handshake_the_front_door_answers,
+        ),
+        (
+            "an_over_long_line_closes_the_connection",
+            an_over_long_line_closes_the_connection,
+        ),
+        ("status_names_the_front_door", status_names_the_front_door),
+        (
+            "subscriptions_get_the_front_doors_core_state_and_a_shutdown_stops_cleanly",
+            subscriptions_get_the_front_doors_core_state_and_a_shutdown_stops_cleanly,
+        ),
+        (
+            "api_delegations_are_checked_here_and_forwarded",
+            api_delegations_are_checked_here_and_forwarded,
+        ),
+        (
+            "the_engine_authenticates_with_its_own_token",
+            the_engine_authenticates_with_its_own_token,
+        ),
+        (
+            "a_scoped_client_cannot_gain_identity_through_the_relay",
+            a_scoped_client_cannot_gain_identity_through_the_relay,
+        ),
+        (
+            "the_bridge_is_for_the_legacy_core_only",
+            the_bridge_is_for_the_legacy_core_only,
+        ),
+        ("adoption_and_the_lifeline", adoption_and_the_lifeline),
+        (
+            "a_legacy_core_that_fails_to_start_decides_the_exit_code",
+            a_legacy_core_that_fails_to_start_decides_the_exit_code,
+        ),
+        (
+            "a_legacy_core_that_dies_ends_the_front_door",
+            a_legacy_core_that_dies_ends_the_front_door,
+        ),
+        (
+            "a_second_front_door_is_locked_out",
+            a_second_front_door_is_locked_out,
+        ),
+        (
+            "a_slow_client_is_disconnected_and_the_core_stays_up",
+            a_slow_client_is_disconnected_and_the_core_stays_up,
+        ),
+        ("stale_and_live_sockets", stale_and_live_sockets),
+        ("sigterm_stops_the_pair", sigterm_stops_the_pair),
+        ("credentials_never_leak", credentials_never_leak),
+    ];
+    let mut failed = Vec::new();
+    for (name, test) in tests {
+        if !filter.is_empty() && !filter.iter().any(|f| name.contains(f.as_str())) {
+            continue;
+        }
+        let started = Instant::now();
+        let outcome = std::panic::catch_unwind(test);
+        let verdict = if outcome.is_ok() { "ok" } else { "FAILED" };
+        println!("test {name} ... {verdict} ({:?})", started.elapsed());
+        if outcome.is_err() {
+            failed.push(*name);
+        }
+    }
+    println!(
+        "\ntest result: {}. {} failed: {failed:?}",
+        if failed.is_empty() { "ok" } else { "FAILED" },
+        failed.len()
+    );
+    std::process::exit(i32::from(!failed.is_empty()));
+}
+
+/// A front door under test.
+struct Door {
+    child: Child,
+    stdin: Option<ChildStdin>,
+    home: tempfile::TempDir,
+    ready: Value,
+    stderr: Arc<Mutex<String>>,
+}
+
+#[derive(Default)]
+struct Opts<'a> {
+    mode: &'a str,
+    lifeline: bool,
+    instance: Option<&'a str>,
+    prepare: Option<&'a dyn Fn(&Path)>,
+}
+
+fn spawn_door(home: &Path, o: &Opts<'_>) -> Child {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_plur1bus-core"));
+    cmd.args(["serve", "--home"]).arg(home);
+    if o.lifeline {
+        cmd.args([
+            "--lifeline",
+            "stdin",
+            "--instance",
+            o.instance.unwrap_or("123E4567-E89B-12D3-A456-426614174000"),
+        ]);
+    } else if let Some(instance) = o.instance {
+        cmd.args(["--instance", instance]);
+    }
+    cmd.env("PLUR1BUS_NODE", std::env::current_exe().unwrap())
+        .env("PLUR1BUS_CORE_JS", "fake-legacy")
+        .env("FAKE_LEGACY_MODE", o.mode)
+        .env_remove("PLUR1BUS_TEST_INTERNALS")
+        .env_remove("PLUR1BUS_RUN_ACL")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap()
+}
+
+fn door(o: Opts<'_>) -> Door {
+    let home = tempfile::tempdir().unwrap();
+    if let Some(prepare) = o.prepare {
+        prepare(home.path());
+    }
+    let mut child = spawn_door(home.path(), &o);
+    let stderr = Arc::new(Mutex::new(String::new()));
+    let mut err = child.stderr.take().unwrap();
+    let sink = stderr.clone();
+    std::thread::spawn(move || {
+        let mut buf = [0u8; 4096];
+        while let Ok(n) = err.read(&mut buf) {
+            if n == 0 {
+                break;
+            }
+            sink.lock()
+                .unwrap()
+                .push_str(&String::from_utf8_lossy(&buf[..n]));
+        }
+    });
+    let stdout = child.stdout.take().unwrap();
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let mut lines = BufReader::new(stdout);
+        let mut first = String::new();
+        let _ = lines.read_line(&mut first);
+        let _ = tx.send(first);
+        let mut rest = String::new();
+        while lines.read_line(&mut rest).unwrap_or(0) > 0 {
+            rest.clear();
+        }
+    });
+    let line = rx.recv_timeout(Duration::from_secs(20)).unwrap_or_default();
+    let ready = serde_json::from_str(&line).unwrap_or_else(|_| {
+        let _ = child.kill();
+        panic!(
+            "no ready line: {line:?}; stderr: {}",
+            stderr.lock().unwrap()
+        )
+    });
+    let stdin = child.stdin.take();
+    Door {
+        child,
+        stdin,
+        home,
+        ready,
+        stderr,
+    }
+}
+
+impl Door {
+    fn path(&self, rel: &str) -> PathBuf {
+        self.home.path().join(rel)
+    }
+    fn token(&self, name: &str) -> String {
+        std::fs::read_to_string(self.path(&format!("run/{name}"))).unwrap()
+    }
+    fn address(&self) -> String {
+        self.ready["address"].as_str().unwrap().to_owned()
+    }
+    fn pid(&self) -> u64 {
+        self.ready["pid"].as_u64().unwrap()
+    }
+    fn client(&self) -> Client {
+        Client::connect(&self.address())
+    }
+    fn owner(&self) -> Client {
+        let mut c = self.client();
+        let r = c.call("core.auth", json!({"token": self.token("core.token")}));
+        assert!(r.get("result").is_some(), "{r}");
+        c
+    }
+    fn wait(&mut self, within: Duration) -> Option<i32> {
+        let until = Instant::now() + within;
+        loop {
+            if let Some(status) = self.child.try_wait().unwrap() {
+                return status.code();
+            }
+            if Instant::now() > until {
+                let _ = self.child.kill();
+                panic!("the front door did not exit; stderr: {}", self.stderr());
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+    }
+    fn stderr(&self) -> String {
+        self.stderr.lock().unwrap().clone()
+    }
+}
+
+impl Drop for Door {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+        if let Ok(pid) = std::fs::read_to_string(self.home.path().join("run/core-legacy.pid")) {
+            if let Some(pid) = pid.split_whitespace().next() {
+                kill(pid, "-KILL");
+            }
+        }
+    }
+}
+
+fn kill(pid: &str, signal: &str) {
+    if cfg!(windows) {
+        let _ = Command::new("taskkill").args(["/F", "/PID", pid]).output();
+    } else {
+        let _ = Command::new("kill").args([signal, pid]).output();
+    }
+}
+
+/// A raw NDJSON client.
+struct Client {
+    writer: Box<dyn Stream>,
+    reader: BufReader<Box<dyn Stream>>,
+    notes: Vec<Value>,
+    next: u64,
+}
+
+impl Client {
+    fn connect(address: &str) -> Client {
+        let stream = transport::connect(address, Duration::from_secs(2)).unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(10)))
+            .unwrap();
+        let reader = BufReader::new(stream.try_clone_stream().unwrap());
+        Client {
+            writer: stream,
+            reader,
+            notes: Vec::new(),
+            next: 1,
+        }
+    }
+    fn send_line(&mut self, line: &str) {
+        self.writer
+            .write_all(format!("{line}\n").as_bytes())
+            .unwrap();
+        self.writer.flush().unwrap();
+    }
+    /// The next line, or `None` at EOF (the server closed the connection).
+    fn read(&mut self) -> Option<Value> {
+        let mut line = String::new();
+        match self.reader.read_line(&mut line) {
+            Ok(0) | Err(_) => None,
+            Ok(_) => Some(serde_json::from_str(&line).unwrap()),
+        }
+    }
+    /// Sends a request and returns its response; notifications on the way are kept in `notes`.
+    fn call(&mut self, method: &str, params: Value) -> Value {
+        let id = self.next;
+        self.next += 1;
+        self.send_line(
+            &json!({"jsonrpc":"2.0","id":id,"method":method,"params":params}).to_string(),
+        );
+        self.response(&json!(id))
+    }
+    /// Like [`Client::call`], `None` when the connection is closed (by a refusal) before the response.
+    fn try_call(&mut self, method: &str, params: Value) -> Option<Value> {
+        let id = self.next;
+        self.next += 1;
+        let line = json!({"jsonrpc":"2.0","id":id,"method":method,"params":params}).to_string();
+        self.writer.write_all(format!("{line}\n").as_bytes()).ok()?;
+        self.writer.flush().ok()?;
+        loop {
+            let msg = self.read()?;
+            if msg.get("id") == Some(&json!(id)) && msg.get("method").is_none() {
+                return Some(msg);
+            }
+            self.notes.push(msg);
+        }
+    }
+    fn response(&mut self, id: &Value) -> Value {
+        loop {
+            let msg = self
+                .read()
+                .unwrap_or_else(|| panic!("connection closed before the response to {id}"));
+            if msg.get("id") == Some(id) && msg.get("method").is_none() {
+                return msg;
+            }
+            self.notes.push(msg);
+        }
+    }
+    fn closed(&mut self) -> bool {
+        loop {
+            match self.read() {
+                None => return true,
+                Some(v) => self.notes.push(v),
+            }
+        }
+    }
+}
+
+fn reason(v: &Value) -> &str {
+    v.pointer("/error/data/reason")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+}
+fn code(v: &Value) -> &str {
+    v.pointer("/error/data/error")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+}
+
+#[cfg(unix)]
+fn mode(p: &Path) -> u32 {
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::metadata(p).unwrap().permissions().mode() & 0o777
+}
+
+fn ready_line_run_files_and_modes() {
+    let d = door(Opts {
+        lifeline: true,
+        ..Opts::default()
+    });
+    assert_eq!(d.pid(), u64::from(d.child.id()));
+    assert_eq!(d.ready["ready"], true);
+    assert_eq!(
+        d.address(),
+        plur1bus_core::run_files::address(d.home.path(), cfg!(windows))
+    );
+    let tokens: Vec<String> = ["core.token", "api-delegation.token", "core-legacy.token"]
+        .iter()
+        .map(|n| d.token(n))
+        .collect();
+    for t in &tokens {
+        assert!(plur1bus_core::auth::is_hex64(t), "64 hex");
+    }
+    assert!(tokens[0] != tokens[1] && tokens[1] != tokens[2] && tokens[0] != tokens[2]);
+    assert_eq!(
+        d.token("core.pid"),
+        format!("{} 123e4567-e89b-12d3-a456-426614174000\n", d.pid())
+    );
+    assert_eq!(
+        d.token("core-legacy.mode"),
+        "supervised",
+        "--lifeline stdin: the legacy core reads the supervisor's config"
+    );
+    #[cfg(unix)]
+    {
+        assert_eq!(mode(&d.path("run")), 0o700);
+        for f in [
+            "run/core.token",
+            "run/api-delegation.token",
+            "run/core-legacy.token",
+            "run/core.pid",
+            "run/core.sock",
+            "state/core.lock",
+        ] {
+            assert_eq!(mode(&d.path(f)), 0o600, "{f}");
+        }
+        use std::os::unix::fs::FileTypeExt;
+        assert!(std::fs::metadata(d.path("run/core.sock"))
+            .unwrap()
+            .file_type()
+            .is_socket());
+    }
+    let standalone = door(Opts::default());
+    assert_eq!(standalone.token("core-legacy.mode"), "standalone");
+}
+
+fn owner_handshake_and_a_byte_exact_relay() {
+    let d = door(Opts::default());
+    let mut c = d.client();
+    let hello = c.call("core.auth", json!({"token": d.token("core.token")}));
+    let r = &hello["result"];
+    assert_eq!(
+        r["pid"].as_u64(),
+        Some(d.pid()),
+        "the front door's pid, not the legacy core's"
+    );
+    assert_eq!(
+        r["instanceId"].as_str(),
+        d.token("core.pid").split_whitespace().nth(1)
+    );
+    assert_eq!(
+        r["contract"], "9.9.9",
+        "the engine contract the legacy core reports"
+    );
+    assert_eq!(r["rpc"], plur1bus_rpc::RPC_VERSION);
+    assert_eq!(
+        r["capabilities"],
+        plur1bus_rpc::capabilities("core", &["events.harness"]),
+        "native plus relayed: every core method"
+    );
+    // A relayed request reaches the legacy core as written: its id, `_meta`, number spellings and key order.
+    let line = r#"{"jsonrpc":"2.0","id":"client-7","method":"memory.list","params":{"agentId":"bernd","n":1.0,"big":123456789012345680000,"_meta":{"traceparent":"00-x"}}}"#;
+    c.send_line(line);
+    let echo = c.response(&json!("client-7"));
+    assert_eq!(echo["result"]["line"], line, "byte for byte");
+    assert_eq!(echo["result"]["caller"], "owner");
+}
+
+fn before_the_handshake_the_front_door_answers() {
+    let d = door(Opts::default());
+    let mut c = d.client();
+    let r = c.call("memory.list", json!({}));
+    assert_eq!((code(&r), reason(&r)), ("E_UNAUTHORIZED", "auth-required"));
+    c.send_line("{not json");
+    let r = c.read().unwrap();
+    assert_eq!(
+        (code(&r), reason(&r), r["id"].clone()),
+        ("E_INVALID_PARAMS", "parse-error", Value::Null)
+    );
+    assert_eq!(r["error"]["code"], -32700);
+    c.send_line(r#"{"id":3,"method":"core.status"}"#);
+    let r = c.read().unwrap();
+    assert_eq!(
+        (reason(&r), r["error"]["code"].as_i64()),
+        ("invalid-request", Some(-32600))
+    );
+    // A bad API delegation is refused without closing (module-api errorReply), then an owner handshake works.
+    let r = c.call("core.auth", json!({"token": d.token("core.token"), "api": {"clientId":"harness-api","token": Secret::fresh().unwrap().expose()}}));
+    assert_eq!((code(&r), reason(&r)), ("E_UNAUTHORIZED", "api-delegation"));
+    assert!(c
+        .call("core.auth", json!({"token": d.token("core.token")}))
+        .get("result")
+        .is_some());
+    // A link credential from a client is refused and closes the connection.
+    let mut c = d.client();
+    let r = c.call("core.auth", json!({"token": d.token("core.token"), "frontDoor": {"token": d.token("core-legacy.token"), "caller": "owner"}}));
+    assert_eq!(
+        (code(&r), reason(&r)),
+        ("E_UNAUTHORIZED", "front-door-link")
+    );
+    assert!(c.closed());
+    // An unknown token is a scoped client's: the legacy core refuses it and the connection closes.
+    let mut c = d.client();
+    let r = c.call(
+        "core.auth",
+        json!({"token": Secret::fresh().unwrap().expose()}),
+    );
+    assert_eq!((code(&r), reason(&r)), ("E_UNAUTHORIZED", "client-token"));
+    assert!(c.closed());
+    let mut c = d.client();
+    let r = c.call("core.auth", json!({"token": "short"}));
+    assert_eq!(code(&r), "E_INVALID_PARAMS");
+    assert!(c.closed(), "invalid handshake params close the connection");
+}
+
+fn an_over_long_line_closes_the_connection() {
+    let d = door(Opts::default());
+    let mut c = d.owner();
+    let big = vec![b'x'; plur1bus_core::frame::MAX_LINE + 10];
+    let _ = c.writer.write_all(&big);
+    let _ = c.writer.flush();
+    let r = c.read().unwrap();
+    assert_eq!(
+        (code(&r), reason(&r)),
+        ("E_INVALID_PARAMS", "line-too-long")
+    );
+    assert!(c.closed());
+}
+
+fn status_names_the_front_door() {
+    let d = door(Opts::default());
+    let mut c = d.owner();
+    let s = c.call("core.status", json!({}));
+    let r = &s["result"];
+    assert_eq!(r["pid"].as_u64(), Some(d.pid()));
+    assert_eq!(
+        r["instanceId"].as_str(),
+        d.token("core.pid").split_whitespace().nth(1)
+    );
+    assert_eq!(r["process"]["state"], "ready");
+    assert_eq!(r["contract"], "9.9.9");
+    assert!(r["uptimeMs"].is_u64());
+    assert_eq!(
+        r["agents"][0]["agentId"], "bernd",
+        "the rest is the legacy core's"
+    );
+}
+
+fn subscriptions_get_the_front_doors_core_state_and_a_shutdown_stops_cleanly() {
+    let mut d = door(Opts::default());
+    let mut c = d.owner();
+    let s = c.call("events.subscribe", json!({}));
+    assert!(s["result"]["subscriptionId"].is_string(), "{s}");
+    let mut named = d.owner();
+    named.call("events.subscribe", json!({"names": ["agent.activity"]}));
+    let mut agent = d.owner();
+    agent.call("events.subscribe", json!({"agentId": "bernd"}));
+    c.call("agent.list", json!({}));
+    let _ = c.call("core.status", json!({})); // the notifications were sent before this reply
+    let methods: Vec<&str> = c
+        .notes
+        .iter()
+        .filter_map(|n| n["method"].as_str())
+        .collect();
+    assert!(methods.contains(&"agent.activity"), "{methods:?}");
+    assert!(
+        !c.notes.iter().any(|n| n["method"] == "core.state"),
+        "the legacy core's own core.state never reaches a client"
+    );
+    let r = c.call("core.shutdown", json!({"budgetMs": 2000}));
+    assert_eq!(r["result"]["accepted"], true);
+    assert!(c.closed());
+    let states: Vec<&str> = c
+        .notes
+        .iter()
+        .filter(|n| n["method"] == "core.state")
+        .filter_map(|n| n["params"]["process"]["state"].as_str())
+        .collect();
+    assert_eq!(states, ["stopping"], "the front door's own core.state");
+    assert!(named.closed() && agent.closed());
+    assert!(
+        !named
+            .notes
+            .iter()
+            .chain(&agent.notes)
+            .any(|n| n["method"] == "core.state"),
+        "names and agent filters exclude it"
+    );
+    assert_eq!(d.wait(Duration::from_secs(10)), Some(0));
+    for f in [
+        "run/core.token",
+        "run/api-delegation.token",
+        "run/core-legacy.token",
+        "run/core.pid",
+        "run/core.sock",
+    ] {
+        assert!(!d.path(f).exists(), "{f} removed");
+    }
+    assert!(
+        plur1bus_audit::lock::CoreLock::try_acquire(&d.path("state/core.lock"))
+            .unwrap()
+            .is_some(),
+        "the lock is free"
+    );
+}
+
+fn api_delegations_are_checked_here_and_forwarded() {
+    let d = door(Opts::default());
+    let mut c = d.client();
+    let api = d.token("api-delegation.token");
+    let principal = json!({"userId":"alice","kind":"person","role":"member"});
+    let r = c.call("core.auth", json!({"token": d.token("core.token"), "api": {"clientId":"harness-api","token": api, "principal": principal}}));
+    assert_eq!(r["result"]["apiPrincipal"], principal);
+    let id = json!(77);
+    c.send_line(&json!({"jsonrpc":"2.0","id":id,"method":"inbox.count","params":{},"api":{"clientId":"harness-api","token":api,"principal":principal}}).to_string());
+    let echo = c.response(&id);
+    assert_eq!(echo["result"]["caller"], "api");
+    let r = c.call("inbox.count", json!({}));
+    assert_eq!(
+        r["result"]["caller"], "api",
+        "the link's identity, whatever the request says"
+    );
+    // A request whose delegation does not carry the API's token is refused here, before the legacy core sees it.
+    c.send_line(&json!({"jsonrpc":"2.0","id":78,"method":"inbox.count","params":{},"api":{"clientId":"harness-api","token":Secret::fresh().unwrap().expose()}}).to_string());
+    let r = c.response(&json!(78));
+    assert_eq!((code(&r), reason(&r)), ("E_UNAUTHORIZED", "api-delegation"));
+    assert!(
+        c.call("inbox.count", json!({})).get("result").is_some(),
+        "and the connection stays"
+    );
+    // The API's token is no core token: a delegation without the core token is a bad token.
+    let mut c = d.client();
+    let r = c.call("core.auth", json!({"token": Secret::fresh().unwrap().expose(), "api": {"clientId":"harness-api","token": api}}));
+    assert_eq!(reason(&r), "bad-token");
+    assert!(c.closed());
+}
+
+fn the_engine_authenticates_with_its_own_token() {
+    let engine = Secret::fresh().unwrap();
+    let e = engine.expose().to_owned();
+    let prepare = move |home: &Path| {
+        std::fs::create_dir_all(home.join("run")).unwrap();
+        std::fs::write(home.join("run/engine.token"), &e).unwrap();
+    };
+    let d = door(Opts {
+        prepare: Some(&prepare),
+        ..Opts::default()
+    });
+    let mut c = d.client();
+    let r = c.call("core.auth", json!({"token": engine.expose(), "engine": {"clientId":"plur1bus-engine","token": engine.expose()}}));
+    assert!(
+        r["result"]["capabilities"]["features"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("engine")),
+        "{r}"
+    );
+    assert_eq!(
+        c.call("host.workspaceDir", json!({"agentId":"bernd"}))["result"]["caller"],
+        "engine"
+    );
+    let mut c = d.client();
+    let r = c.call("core.auth", json!({"token": d.token("core.token"), "engine": {"clientId":"plur1bus-engine","token": engine.expose()}}));
+    assert_eq!(
+        (code(&r), reason(&r)),
+        ("E_UNAUTHORIZED", "engine-delegation"),
+        "token and engine.token must agree"
+    );
+    assert!(c.closed());
+    let mut c = d.client();
+    let other = Secret::fresh().unwrap();
+    let r = c.call("core.auth", json!({"token": other.expose(), "engine": {"clientId":"plur1bus-engine","token": other.expose()}}));
+    assert_eq!(reason(&r), "engine-delegation");
+}
+
+fn a_scoped_client_cannot_gain_identity_through_the_relay() {
+    let d = door(Opts::default());
+    let mut c = d.client();
+    let r = c.call("core.auth", json!({"token": "c".repeat(64)}));
+    assert!(
+        r.get("result").is_some(),
+        "the legacy core verified the scoped token: {r}"
+    );
+    // Fields a client adds never change who the link is: the legacy core bound the identity at the handshake.
+    let owner_api = json!({"clientId":"harness-api","token": d.token("api-delegation.token"),"principal":{"userId":"local-owner","kind":"person","role":"owner"}});
+    c.send_line(
+        &json!({"jsonrpc":"2.0","id":5,"method":"memory.list","params":{},"api": owner_api})
+            .to_string(),
+    );
+    assert_eq!(c.response(&json!(5))["result"]["caller"], "client");
+    c.send_line(r#"{"jsonrpc":"2.0","id":6,"method":"memory.list","params":{"caller":{"channel":"cli"}},"principal":"owner"}"#);
+    assert_eq!(c.response(&json!(6))["result"]["caller"], "client");
+    // A scoped client cannot re-authenticate as the owner on the same connection.
+    let r = c.call("core.auth", json!({"token": d.token("core.token")}));
+    assert_eq!(code(&r), "E_DENIED");
+    assert!(c.closed());
+}
+
+fn the_bridge_is_for_the_legacy_core_only() {
+    let d = door(Opts::default());
+    let mut owner = d.owner();
+    let r = owner.call("bridge.hello", json!({}));
+    assert_eq!((code(&r), reason(&r)), ("E_DENIED", "bridge-principal"));
+    let mut bridge = d.client();
+    let r = bridge.call("core.auth", json!({"token": d.token("core-legacy.token")}));
+    assert_eq!(r["result"]["pid"].as_u64(), Some(d.pid()));
+    assert_eq!(
+        r["result"]["capabilities"],
+        plur1bus_rpc::capabilities("bridge", &[])
+    );
+    let hello = bridge.call("bridge.hello", json!({}));
+    assert_eq!(
+        hello["result"],
+        json!({"rpc": plur1bus_rpc::RPC_VERSION, "instanceId": r["result"]["instanceId"], "pid": d.pid()})
+    );
+    assert_eq!(
+        code(&bridge.call("bridge.hello", json!({"x": 1}))),
+        "E_INVALID_PARAMS"
+    );
+    let r = bridge.call("memory.list", json!({}));
+    assert_eq!((code(&r), reason(&r)), ("E_DENIED", "bridge-principal"));
+    let r = bridge.call("core.auth", json!({"token": d.token("core.token")}));
+    assert_eq!(
+        reason(&r),
+        "bridge-principal",
+        "the bridge connection cannot become the owner"
+    );
+}
+
+fn adoption_and_the_lifeline() {
+    let supervisor = Secret::fresh().unwrap();
+    let s = supervisor.expose().to_owned();
+    let prepare = move |home: &Path| {
+        std::fs::create_dir_all(home.join("run")).unwrap();
+        std::fs::write(home.join("run/supervisor.token"), &s).unwrap();
+        std::fs::write(
+            home.join("config.json"),
+            r#"{"supervisor":{"graceMs":1500}}"#,
+        )
+        .unwrap();
+    };
+    let mut d = door(Opts {
+        lifeline: true,
+        prepare: Some(&prepare),
+        ..Opts::default()
+    });
+    let mut c = d.owner();
+    let r = c.call(
+        "core.adopt",
+        json!({"nonce": Secret::fresh().unwrap().expose()}),
+    );
+    assert_eq!(reason(&r), "adopt-nonce");
+    drop(d.stdin.take()); // the supervisor is gone
+    let state = |c: &mut Client| {
+        c.call("core.status", json!({}))["result"]["process"]["state"]
+            .as_str()
+            .unwrap()
+            .to_owned()
+    };
+    let until = Instant::now() + Duration::from_secs(5);
+    while state(&mut c) != "orphaned" {
+        assert!(Instant::now() < until, "never orphaned");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    let mut adopter = d.owner();
+    let r = adopter.call(
+        "core.adopt",
+        json!({"nonce": supervisor.expose().to_uppercase()}),
+    );
+    assert_eq!(r["result"]["status"]["process"]["state"], "ready", "{r}");
+    assert_eq!(r["result"]["status"]["pid"].as_u64(), Some(d.pid()));
+    std::thread::sleep(Duration::from_millis(1700));
+    assert_eq!(state(&mut c), "ready", "an adoption cancelled the grace");
+    drop(adopter); // the adopting connection is the lifeline now
+    assert_eq!(
+        d.wait(Duration::from_secs(10)),
+        Some(0),
+        "the grace ran out: a clean stop"
+    );
+}
+
+fn a_legacy_core_that_fails_to_start_decides_the_exit_code() {
+    for (mode, expected) in [
+        ("exit:2", 2),
+        ("exit:4", 4),
+        ("exit:1", 1),
+        ("bad-ready", 1),
+    ] {
+        let home = tempfile::tempdir().unwrap();
+        let out = spawn_door(
+            home.path(),
+            &Opts {
+                mode,
+                ..Opts::default()
+            },
+        )
+        .wait_with_output()
+        .unwrap();
+        assert_eq!(
+            out.status.code(),
+            Some(expected),
+            "{mode}: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        assert!(out.stdout.is_empty(), "no ready line");
+        for f in [
+            "core.token",
+            "api-delegation.token",
+            "core-legacy.token",
+            "core.pid",
+            "core.sock",
+        ] {
+            assert!(
+                !home.path().join("run").join(f).exists(),
+                "{mode}: {f} left behind"
+            );
+        }
+        if mode == "bad-ready" {
+            if let Ok(pid) = std::fs::read_to_string(home.path().join("run/core-legacy.pid")) {
+                kill(pid.split_whitespace().next().unwrap(), "-KILL");
+            }
+        }
+    }
+}
+
+fn a_legacy_core_that_dies_ends_the_front_door() {
+    let mut d = door(Opts::default());
+    let mut c = d.owner();
+    let pid = d.token("core-legacy.pid");
+    kill(pid.split_whitespace().next().unwrap(), "-KILL");
+    assert!(c.closed(), "its link died with it");
+    assert_eq!(d.wait(Duration::from_secs(10)), Some(1));
+    assert!(!d.path("run/core.token").exists() && !d.path("run/core.sock").exists());
+}
+
+fn a_second_front_door_is_locked_out() {
+    let d = door(Opts::default());
+    let token = d.token("core.token");
+    let out = spawn_door(d.home.path(), &Opts::default())
+        .wait_with_output()
+        .unwrap();
+    assert_eq!(
+        out.status.code(),
+        Some(3),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(String::from_utf8_lossy(&out.stderr).contains("another core holds the lock"));
+    assert_eq!(
+        d.token("core.token"),
+        token,
+        "the running core's token is untouched"
+    );
+    assert!(d
+        .owner()
+        .call("core.status", json!({}))
+        .get("result")
+        .is_some());
+}
+
+fn a_slow_client_is_disconnected_and_the_core_stays_up() {
+    let d = door(Opts::default());
+    let mut slow = d.owner();
+    slow.send_line(r#"{"jsonrpc":"2.0","id":1,"method":"fake.flood","params":{}}"#);
+    let until = Instant::now() + Duration::from_secs(20);
+    while !d.stderr().contains("client not reading") {
+        assert!(Instant::now() < until, "not disconnected: {}", d.stderr());
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    assert!(
+        d.owner()
+            .call("core.status", json!({}))
+            .get("result")
+            .is_some(),
+        "others are served"
+    );
+}
+
+fn stale_and_live_sockets() {
+    #[cfg(unix)]
+    {
+        let home = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(home.path().join("run")).unwrap();
+        let sock = home.path().join("run/core.sock");
+        drop(std::os::unix::net::UnixListener::bind(&sock).unwrap()); // a stale socket file stays behind
+        let live =
+            std::os::unix::net::UnixListener::bind(home.path().join("run/other.sock")).unwrap();
+        drop(live);
+        let mut child = spawn_door(home.path(), &Opts::default());
+        let mut line = String::new();
+        BufReader::new(child.stdout.take().unwrap())
+            .read_line(&mut line)
+            .unwrap();
+        assert!(
+            line.contains("\"ready\":true"),
+            "a stale socket is replaced: {line}"
+        );
+        let _ = child.kill();
+        let _ = child.wait();
+        if let Ok(pid) = std::fs::read_to_string(home.path().join("run/core-legacy.pid")) {
+            kill(pid.split_whitespace().next().unwrap(), "-KILL");
+        }
+        let home = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(home.path().join("run")).unwrap();
+        let _live =
+            std::os::unix::net::UnixListener::bind(home.path().join("run/core.sock")).unwrap();
+        let out = spawn_door(home.path(), &Opts::default())
+            .wait_with_output()
+            .unwrap();
+        assert_eq!(out.status.code(), Some(1));
+        assert!(String::from_utf8_lossy(&out.stderr).contains("address in use"));
+    }
+}
+
+fn sigterm_stops_the_pair() {
+    #[cfg(unix)]
+    {
+        let mut d = door(Opts {
+            mode: "slow-stop",
+            ..Opts::default()
+        });
+        let legacy = d.token("core-legacy.pid");
+        let legacy = legacy.split_whitespace().next().unwrap().to_owned();
+        kill(&d.pid().to_string(), "-TERM");
+        assert_eq!(d.wait(Duration::from_secs(10)), Some(0), "{}", d.stderr());
+        let alive = Command::new("kill")
+            .args(["-0", &legacy])
+            .output()
+            .unwrap()
+            .status
+            .success();
+        assert!(!alive, "the legacy core stopped first");
+        assert!(!d.path("run/core.token").exists());
+        assert!(d.stderr().contains("core stopping"), "{}", d.stderr());
+    }
+}
+
+/// No credential appears in the front door's own output or in any reply it makes, on every refusal path and a clean
+/// stop (the token is compared, never echoed or logged).
+fn credentials_never_leak() {
+    let mut d = door(Opts {
+        lifeline: true,
+        ..Opts::default()
+    });
+    let secrets: Vec<String> = ["core.token", "api-delegation.token", "core-legacy.token"]
+        .iter()
+        .map(|n| d.token(n))
+        .collect();
+    let mut replies = Vec::new();
+    let fresh = || Secret::fresh().unwrap().expose().to_owned();
+    for params in [
+        json!({"token": fresh()}),
+        json!({"token": secrets[0], "frontDoor": {"token": secrets[2], "caller": "owner"}}),
+        json!({"token": secrets[0], "api": {"clientId": "harness-api", "token": fresh()}}),
+        json!({"token": fresh(), "api": {"clientId": "harness-api", "token": secrets[1]}}),
+        json!({"token": secrets[0], "engine": {"clientId": "plur1bus-engine", "token": fresh()}}),
+        json!({"token": secrets[0]}),
+        json!({"token": secrets[2]}),
+    ] {
+        let mut c = d.client();
+        for (method, p) in [
+            ("core.auth", params),
+            ("core.status", json!({})),
+            ("bridge.hello", json!({})),
+        ] {
+            replies.extend(c.try_call(method, p));
+        }
+        replies.append(&mut c.notes);
+    }
+    let mut c = d.owner();
+    replies.push(c.call("core.adopt", json!({"nonce": secrets[0]})));
+    replies.push(c.call("core.shutdown", json!({})));
+    assert_eq!(d.wait(Duration::from_secs(10)), Some(0));
+    let all = format!("{} {}", d.stderr(), Value::Array(replies));
+    for (i, secret) in secrets.iter().enumerate() {
+        assert!(!all.contains(secret.as_str()), "credential {i} leaked");
+        assert!(
+            !all.contains(&secret[..16]),
+            "a prefix of credential {i} leaked"
+        );
+    }
+}

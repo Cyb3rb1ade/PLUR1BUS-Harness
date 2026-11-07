@@ -16,8 +16,10 @@ fn stderr(output: &Output) -> String {
     String::from_utf8_lossy(&output.stderr).into_owned()
 }
 
+/// Without a legacy core to start (no Node at `PLUR1BUS_NODE`), `serve` exits 1 after taking the lock and leaves no run file
+/// behind: the token, the pid file and the socket exist only while a core serves.
 #[test]
-fn serve_resolves_the_run_files_then_refuses_until_the_front_door_lands_and_touches_nothing() {
+fn serve_without_a_legacy_core_exits_1_and_leaves_no_run_file() {
     let dir = tempfile::tempdir().unwrap();
     let home = dir.path().join("home");
     std::fs::create_dir(&home).unwrap();
@@ -33,36 +35,41 @@ fn serve_resolves_the_run_files_then_refuses_until_the_front_door_lands_and_touc
             "123E4567-E89B-12D3-A456-426614174000",
         ],
     ] {
-        let output = core(&args, dir.path());
+        let output = core_without_node(&args, dir.path());
         assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
         let message = stderr(&output);
         assert!(message.starts_with("core: "), "{message}");
-        assert!(message.contains("lands in P4-10"), "{message}");
-        if cfg!(unix) {
-            let address = format!("{}/run/core.sock", home.display());
-            assert!(message.contains(&address), "{message}");
-        }
-        assert_eq!(
-            std::fs::read_dir(&home).unwrap().count(),
-            0,
-            "nothing written"
+        assert!(
+            message.contains("the legacy core did not start"),
+            "{message}"
         );
+        let run: Vec<String> = std::fs::read_dir(home.join("run"))
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        assert!(run.is_empty(), "run files left behind: {run:?}");
     }
+}
+
+fn core_without_node(args: &[&str], cwd: &Path) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_plur1bus-core"))
+        .args(args)
+        .current_dir(cwd)
+        .env("PLUR1BUS_NODE", cwd.join("no-such-node"))
+        .output()
+        .unwrap()
 }
 
 #[cfg(unix)]
 #[test]
 fn a_relative_home_is_made_absolute_against_the_working_directory() {
     let dir = tempfile::tempdir().unwrap();
-    let output = core(&["serve", "--home", "rel"], dir.path());
-    assert_eq!(output.status.code(), Some(1));
-    let message = stderr(&output);
-    let address = message
-        .split_whitespace()
-        .find(|word| word.ends_with("core.sock"))
-        .unwrap_or_else(|| panic!("{message}"));
-    assert!(Path::new(address).is_absolute(), "{address}");
-    assert!(address.ends_with("/rel/run/core.sock"), "{address}");
+    let output = core_without_node(&["serve", "--home", "rel"], dir.path());
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert!(
+        dir.path().join("rel/state/core.lock").is_file(),
+        "the lock was taken under <cwd>/rel"
+    );
 }
 
 #[test]
