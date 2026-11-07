@@ -1,0 +1,27 @@
+[package]
+name = "plur1bus-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "The PLUR1BUS core in Rust (Phase 4, ADR-019): the skeleton the front door (P4-10) and every later Phase 4 package build on."
+
+[lints]
+workspace = true
+
+[lib]
+name = "plur1bus_core"
+path = "src/lib.rs"
+
+[[bin]]
+name = "plur1bus-core"
+path = "src/main.rs"
+
+[dependencies]
+# `server`: the generated `CoreMethods` trait, its dispatcher and the pruned validators (P4-03).
+plur1bus-rpc = { path = "../plur1bus-rpc", features = ["server"] }
+clap.workspace = true
+sha2 = "0.10"
+
+[dev-dependencies]
+serde_json.workspace = true
+tempfile.workspace = true
