@@ -43,16 +43,18 @@ describe("mcp stdio stderr uses the D111 output envelope", { timeout: 60_000 }, 
       reg.register({ name: d.name, transport: d.transport, timeouts: d.timeouts });
       const r = await reg.callTool("fixture", "leak_env", { name: "MCP_TEST_SECRET" }, caller);
       assert.equal(r.content[0]!.type, "text", "the protocol channel still carries the tool result");
-      assert.ok(await until(() => lines(t.records()).some((x) => String(x.attrs.text).includes("leaking"))), "the stderr line reached the writer");
+      // With a declared secret the framer keeps a window of the latest bytes (the longest secret form) until more output
+      // follows or the stream closes, so a secret split across chunks is still masked (#750). The close releases it.
+      await reg.shutdown();
+      assert.ok(lines(t.records()).some((x) => String(x.attrs.text).includes("leaking")), "the stderr line reached the writer");
       const stderr = lines(t.records());
       const leaking = stderr.find((x) => String(x.attrs.text).includes("leaking"))!;
-      assert.equal(leaking.attrs.text, "leaking [REDACTED]");
+      assert.equal(leaking.attrs.text, "leaking [REDACTED:secret]", "the D111 framer masks the declared secret with its own tag");
       assert.equal(leaking.attrs.untrusted, true);
       assert.equal(leaking.level, "info", "the level never comes from the text");
       assert.deepEqual({ kind: leaking.source.kind, id: leaking.source.id }, { kind: "harness", id: "mcp" });
       assert.deepEqual(lines(t.records(), "stdout"), [], "stdout is protocol only: no output-line record for it");
       assert.ok(!logger.lines.some((l) => l.msg === "mcp.server.stderr"), "with the writer wired, stderr is not also logged on the legacy path");
-      await reg.shutdown();
       assert.ok(!readFileSync(join(t.dir, "core.out.log"), "utf8").includes(MARK), "the secret reached the log file");
     } finally { await reg.shutdown(); t.cleanup(); }
   });
@@ -105,6 +107,59 @@ describe("mcp stdio stderr uses the D111 output envelope", { timeout: 60_000 }, 
       assert.equal(suppressed[0]!.attrs.dropped, 200);
       assert.equal(suppressed[0]!.stream, "stderr");
       assert.equal(c.stderrLines, total, "the status counter still counts every line");
+    } finally { await f.close(); t.cleanup(); }
+  });
+
+  it("#750: a half line is flushed after a second without output while the server keeps running", async () => {
+    const t = setup(); const f = await pipedModern();
+    let now = 1_000_000; const clock = { ...systemClock, now: () => now };
+    const c = await McpConnection.open({ def: stdioDef(), clock, logger: capturingLogger(), redactor: createRedactor(), hostEnv: {}, output: t.output, onToolsChanged: () => {}, onRemoteClose: () => {}, transportFactory: () => f.client });
+    try {
+      f.client.stderr.write("waiting for input");
+      await new Promise((r) => setTimeout(r, 50));
+      assert.deepEqual(lines(t.records()), [], "a half line is held while more of it may follow");
+      now += 1_500;
+      assert.ok(await until(() => lines(t.records()).some((x) => x.attrs.text === "waiting for input"), 4000), "the idle half line is written before the connection closes");
+      f.client.stderr.write(" and done\nnext\n");
+      await until(() => c.stderrLines === 2);
+      await c.close("graceful");
+      assert.deepEqual(lines(t.records()).map((x) => x.attrs.text), ["waiting for input", " and done", "next"]);
+    } finally { await f.close(); t.cleanup(); }
+  });
+
+  it("#750: a line over 64 KiB is replaced whole by the framer and a secret in it never leaves; the next line is intact", async () => {
+    const t = setup(); const f = await pipedModern();
+    const secret = `oversized-secret-${process.pid}-a91c`;
+    const clock = { ...systemClock, now: () => 1_000_000 };
+    const c = await McpConnection.open({ def: stdioDef(), clock, logger: capturingLogger(), redactor: createRedactor([secret]), hostEnv: {}, output: t.output, onToolsChanged: () => {}, onRemoteClose: () => {}, transportFactory: () => f.client });
+    try {
+      const long = `${"x".repeat(65_530)}${secret}${"y".repeat(9_000)}`;
+      // The bytes right after a discarded line are quarantined for one secret window as well, so a secret that straddles
+      // the boundary cannot leak its suffix; a filler line longer than that window comes first.
+      f.client.stderr.write(`${long}\n${"z".repeat(400)}\nafter\n`);
+      await until(() => c.stderrLines === 3);
+      await c.close("graceful");
+      const out = lines(t.records());
+      assert.equal(out[0]!.attrs.text, "[TRUNCATED:oversized-line]");
+      assert.equal(out.at(-1)!.attrs.text, "after", "the framer recovers after the quarantine window");
+      assert.equal(out[0]!.attrs.truncated, true);
+      assert.equal(out[0]!.attrs.bytes, Buffer.byteLength(long));
+      assert.ok(!readFileSync(join(t.dir, "core.out.log"), "utf8").includes(secret.slice(0, 12)), "no part of the secret reached the log file");
+    } finally { await f.close(); t.cleanup(); }
+  });
+
+  it("#750: a declared secret split across two stderr chunks is still masked", async () => {
+    const t = setup(); const f = await pipedModern();
+    const secret = `split-secret-${process.pid}-77e0`;
+    const c = await McpConnection.open({ def: stdioDef(), clock: systemClock, logger: capturingLogger(), redactor: createRedactor([secret]), hostEnv: {}, output: t.output, onToolsChanged: () => {}, onRemoteClose: () => {}, transportFactory: () => f.client });
+    try {
+      f.client.stderr.write(`leaking ${secret.slice(0, 9)}`);
+      await new Promise((r) => setTimeout(r, 20));
+      f.client.stderr.write(`${secret.slice(9)} done\n`);
+      await until(() => c.stderrLines === 1);
+      await c.close("graceful");
+      assert.deepEqual(lines(t.records()).map((x) => x.attrs.text), ["leaking [REDACTED:secret] done"]);
+      assert.ok(!readFileSync(join(t.dir, "core.out.log"), "utf8").includes(secret));
     } finally { await f.close(); t.cleanup(); }
   });
 

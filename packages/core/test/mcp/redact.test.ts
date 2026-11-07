@@ -30,3 +30,12 @@ it("redacts individual lines of a declared multiline secret before stderr line l
   assert.equal(r.redact("value=fake-secret-line-one"), "value=[REDACTED]");
   assert.equal(r.redact("value=fake-secret-line-two"), "value=[REDACTED]");
 });
+
+it("values() hands the registered forms, longest first, to the D111 stderr framer (#750)", () => {
+  const r = createRedactor(["fake secret value"]); r.add("short-one", true);
+  const values = r.values();
+  assert.ok(values.includes("fake secret value") && values.includes(encodeURIComponent("fake secret value")) && values.includes("short-one"));
+  assert.deepEqual([...values], [...values].sort((a, b) => b.length - a.length));
+  (values as string[]).length = 0;
+  assert.equal(r.values().length, 3, "callers get a copy, not the redactor's own list");
+});

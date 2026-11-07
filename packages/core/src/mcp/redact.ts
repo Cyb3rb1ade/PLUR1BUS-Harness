@@ -14,6 +14,8 @@ export interface Redactor {
   redact(text: string): string;
   /** True when `redact(text)` would change `text`. */
   contains(text: string): boolean;
+  /** The registered values and their forms, longest first: what a D111 output framer must mask for this server. */
+  values(): readonly string[];
   readonly size: number;
 }
 
@@ -37,6 +39,7 @@ export function createRedactor(initial: Iterable<string> = []): Redactor {
       return out;
     },
     contains(text) { return ordered.some((v) => text.includes(v)); },
+    values() { return [...ordered]; },
     get size() { return values.size; },
   };
 }
