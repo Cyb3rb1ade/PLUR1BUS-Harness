@@ -38,7 +38,7 @@ function rig(h3?: import('../../src/dreams/learn/service.ts').LearnServiceOption
         : req.stage === 'skeptic' ? JSON.stringify({ verdict: 'holds' }) : JSON.stringify({ text: data.text });
       return { text, model: `fixture/${req.modelClass}`, inputTokens: 100, outputTokens: 100 };
     } } });
-  return { service, store, sessions, config, notices, revoke: () => { mayRead = false; }, close: async () => { await service.close(); sessions.close(); } };
+  return { service, store, sessions, config, notices, setNow: (at: number) => { now = at; }, revoke: () => { mayRead = false; }, close: async () => { await service.close(); sessions.close(); } };
 }
 test('LP6: full fake pipeline, guarded public acceptance, rollback and measured precision', async () => {
   const r = rig(), ctx: CallContext = { requestId: 'request', connectionId: 'connection', signal: new AbortController().signal };
@@ -164,5 +164,22 @@ test('LQ1: evidence excerpts are fetched live and never copied into the learning
     assert.equal(JSON.stringify(r.store.payload(run.id, `finding:${f.id}`)).includes(marker), false);
     assert.equal(JSON.stringify({ run, notices: r.notices, decisions: r.store.decisions(run.id) }).includes(marker), false);
     r.revoke(); assert.throws(() => r.service.get(f.id, person));
+  } finally { await r.close(); }
+});
+
+test('LQ2: later full fake runs measure accepted repeats although they create no second review', async () => {
+  const r = rig();
+  try {
+    const run = await r.service.run(target, person, new AbortController().signal), f = r.store.findings(run.id)[0]!;
+    await r.service.decide({ id: f.id, contentHash: r.service.get(f.id, person).contentHash, outcome: 'accepted' }, person, async () => ({ runId: 'receipt', imported: 1, linked: 0 }));
+    for (let i = 15; i < 25; i++) {
+      r.setNow(i * DAY); const session = r.sessions.createSession({ kind: 'direct', agentId: 'agent', owner: deriveUserPrincipal('person') });
+      const { turn } = r.sessions.beginTurn(session.id, 'The project uses Go.', 5); r.sessions.completeTurn(turn.id, { text: 'Acknowledged.', tokens: 2 });
+    }
+    r.setNow(30 * DAY); r.config.dreams!.learn!.windowDays = 30;
+    const later = await r.service.run(target, person, new AbortController().signal);
+    assert.equal(later.outcome, 'completed'); assert.equal(later.findings, 0);
+    assert.equal(r.store.prediction(f.id)!.status, 'not-confirmed'); assert.equal(r.store.prediction(f.id)!.sessions, 10);
+    assert.equal(r.service.get(f.id, person).prediction!.retireProposed, true);
   } finally { await r.close(); }
 });

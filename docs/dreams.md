@@ -292,3 +292,20 @@ bereitstehendem Vertrag automatisch liefern; Inhalts-Hash und Idempotenzschlüss
 sichern Wiederholungen, aktuelle Leserechte werden davor erneut geprüft. Der Adapter
 ist heute nicht verdrahtet. `UnavailableSkillProposals` bleibt unverändert; es gibt
 keinen lokalen Skill-Queue-Ersatz und weder Installation noch Enable von Skills.
+
+### Vorhersagen in der Schattenphase (LQ2)
+
+Die Annahme eines Wissensbefunds legt eine inhaltsfreie Vorhersage an: gehashter
+Inhaltsschlüssel, Richtung „seltener“, Annahmezeit und frühestes Ende nach 14 Tagen.
+Spätere vollständige Lernläufe zählen relevante Sessions und erneute Signale im Code,
+auch wenn ein bereits angenommener Befund keinen weiteren Prüfeintrag erzeugt.
+Überlappende Zeitfenster zählen eine Session nur einmal. Mindestens zehn Sessions und
+lückenlose Beobachtungsfenster über mindestens 14 Tage sind nötig; beide Bedingungen
+müssen erfüllt sein. Gekappte Läufe liefern keinen Bestätigungsnachweis.
+
+Kein erneutes Signal ergibt `confirmed`, ein erneutes Signal `not-confirmed`, zu wenig
+Beobachtungsdaten `insufficient-data`. Die Prüfansicht zeigt bei `not-confirmed` einen
+Retire-Vorschlag und den Weg zur manuellen Kuration; eine vorhandene Importquittung
+bietet zusätzlich einen bestätigten Rollback. Es gibt keine automatische Speicheränderung.
+Die Bestätigungsrate steht neben der Präzision im Kalibrier-Record. Erasure einer
+Beobachtung invalidiert deren Bestätigung; fehlende Daten gelten nicht als Erfolg.

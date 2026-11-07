@@ -1,5 +1,9 @@
 // memory area catalogue (Memories & Dreams page): keys `memory.<topic>.<name>`; de has the same keys and {placeholders} (see ./index.ts).
 export const en = {
+  "memory.learn.prediction.confirmed": "Prediction confirmed: the signal did not recur.",
+  "memory.learn.prediction.not-confirmed": "Prediction not confirmed: the signal recurred.",
+  "memory.learn.prediction.insufficient-data": "Prediction: insufficient observation data.",
+  "memory.learn.retireProposal": "Review retiring this memory. Nothing changes automatically; an import can also be rolled back below.",
   "memory.learn.notice": "Learning review: {pending} pending, {waitingH3} waiting for H3.",
   "memory.learn.uncertain": "The previous action may have completed. Check memory before trying again.",
   "memory.learn.title": "Learning review",
@@ -291,6 +295,10 @@ export const en = {
 } as const;
 
 export const de: Record<keyof typeof en, string> = {
+  "memory.learn.prediction.confirmed": "Vorhersage bestätigt: Das Signal blieb aus.",
+  "memory.learn.prediction.not-confirmed": "Vorhersage nicht bestätigt: Das Signal trat erneut auf.",
+  "memory.learn.prediction.insufficient-data": "Vorhersage: noch zu wenig Beobachtungsdaten.",
+  "memory.learn.retireProposal": "Retire-Vorschlag: Diesen Speicher prüfen und gegebenenfalls entfernen. Es wird nichts automatisch geändert; ein Import lässt sich unten zurückrollen.",
   "memory.learn.notice": "Lern-Prüfung: {pending} offen, {waitingH3} warten auf H3.",
   "memory.learn.uncertain": "Die vorherige Handlung könnte bereits abgeschlossen sein. Prüfe den Speicher vor einem erneuten Versuch.",
   "memory.learn.title": "Lern-Befunde prüfen",

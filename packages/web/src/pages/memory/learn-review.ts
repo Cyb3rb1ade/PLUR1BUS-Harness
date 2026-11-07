@@ -34,6 +34,8 @@ function ReviewDetail({ id, refresh }: { id: string; refresh(): void }): View {
     h(Facts, { rows: [[t('memory.learn.score'), String(f.score)], [t('memory.learn.tier'), f.desiredTier],
       [t('memory.learn.prevalence'), `${f.prevalence.sessions}/${f.prevalence.total} · ${f.prevalence.days}`],
       [t('memory.learn.skeptic'), t(`memory.learn.verdict.${f.skeptic}`)], [t('memory.learn.verify'), f.verify]] }),
+    data.prediction ? h('p', { role: 'status' }, t(`memory.learn.prediction.${data.prediction.status}`), ` (${data.prediction.sessions}/10)`) : null,
+    data.prediction?.retireProposed ? h('p', {}, t('memory.learn.retireProposal'), ' ', h('a', { href: '#/memories/curation' }, t('memory.learn.forget'))) : null,
     f.previousDecision ? h('p', {}, t('memory.learn.previous')) : null,
     h('details', {}, h('summary', {}, t('memory.learn.evidence')), data.evidence.map(e => h('section', { key: `${e.ref.sessionId}:${e.ref.sourceId}` },
       h('p', { class: 'm-muted' }, `${e.ref.sessionId} · ${e.ref.day} · ${e.ref.trust}`), h('pre', { class: 'm-pre' }, e.excerpt)))),

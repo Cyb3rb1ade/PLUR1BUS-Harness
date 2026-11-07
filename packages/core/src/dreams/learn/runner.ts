@@ -97,7 +97,10 @@ export class LearnRunner {
       signal.throwIfAborted();
       const freshPrincipal = o.principal(target.owner);
       if (!freshPrincipal || selected.some(t => !o.source.mayRead(target, t.session, freshPrincipal))) throw new LearnError('rights-changed');
-      o.store.step(run.id, 'publish', 'started'); o.store.publish(run, reviewed, o.now()); o.store.step(run.id, 'publish', 'completed');
+      const observations = selected.map(t => ({ sessionId: t.session.id, at: Math.max(...t.messages.map(m => m.createdAt), ...t.events.map(e => e.at)),
+        signals: findings.flatMap(f => f.evidence.filter(e => e.sessionId === t.session.id).map(e => ({ findingId: f.id,
+          at: e.source === 'message' ? t.messages.find(m => m.id === e.sourceId)?.createdAt ?? 0 : t.events.find(v => String(v.seq) === e.sourceId)?.at ?? 0 }))) }));
+      o.store.step(run.id, 'publish', 'started'); o.store.publish(run, reviewed, o.now(), observations); o.store.step(run.id, 'publish', 'completed');
       try { o.notice?.(run, { pending: reviewed.filter(f => f.status === 'pending').length, waitingH3: reviewed.filter(f => f.status === 'waiting-h3').length }); } catch { /* A best-effort notice cannot invalidate committed findings. */ }
     } catch (error) {
       const reason = signal.aborted ? 'interrupted' : error instanceof LearnError ? error.reason : 'provider-failed';

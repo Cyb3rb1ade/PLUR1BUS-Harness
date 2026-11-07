@@ -6,6 +6,7 @@ export interface LearnRow {
   prevalence: { sessions: number; total: number; days: number; agents: number; persons: number };
 }
 export interface LearnDetail { finding: LearnRow & { text: string; verify: string; toolPattern?: { tool: string; errorClass: string; count: number; affectedAgents: string[]; shape: Record<string, number | boolean> }; previousDecision?: { outcome: string; at: number } };
+  prediction?: { status: 'confirmed' | 'not-confirmed' | 'insufficient-data'; sessions: number; recurrences: number; retireProposed: boolean } | null;
   contentHash: string; evidence: { ref: { sessionId: string; turnId: string; sourceId: string; trust: string; day: string }; excerpt: string }[];
   action: { state: string; receipt: Record<string, string | number> } | null }
 export interface LearnPrecision { accepted: number; decided: number; precision: number | null; allowed: false; reason: string }

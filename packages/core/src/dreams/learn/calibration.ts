@@ -47,5 +47,5 @@ export function calibration(store: LearnStore, target: Target, modelClasses: rea
     const count = counts[finding.desiredTier]; count.decided++; if (outcome === 'accepted') count.accepted++;
   }
   return { version: 2, revision, owner: target.owner, promptVersion: PROMPT_VERSION, modelClasses: classes, models: [...modelIds].sort(), thresholds: CALIBRATION_POLICY,
-    A: precisionGate(counts.A.accepted, counts.A.decided), B: precisionGate(counts.B.accepted, counts.B.decided) };
+    predictions: store.predictionSummary(target.owner, classes), A: precisionGate(counts.A.accepted, counts.A.decided), B: precisionGate(counts.B.accepted, counts.B.decided) };
 }

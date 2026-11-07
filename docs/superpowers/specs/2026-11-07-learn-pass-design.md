@@ -177,3 +177,11 @@ lässt. Kosten: Ein weiterhin zutreffender Befund benötigt erneute Extraktion u
 Wiederaufnehmbare Budget-/Providerstopps sind keine endgültigen Abbrüche und behalten
 Checkpoints innerhalb der maximal siebentägigen Frist. Backups enthalten learn.db;
 Support-Bundles niemals. Entscheidungen bleiben ohne Befundtext erhalten.
+
+LQ2-Ruling: „Seltener“ wird in dieser Schattenphase konservativ als kein erneutes
+Signal im vollständig beobachteten Fenster gewertet, passend zu den Abnahmetests.
+Kosten: Auch eine deutliche, aber nicht vollständige Verbesserung bleibt unbestätigt.
+Nur lückenlose, ungekappte Fenster können bestätigen; mindestens zehn verschiedene
+Sessions mit Aktivität nach der Annahme und 14 Tage müssen gemeinsam vorliegen.
+Wiederholte Befunde werden vor der Review-Deduplizierung gezählt. Der Retire-Vorschlag
+führt zur bestehenden manuellen Kuration, nicht zu einer neuen automatischen Mutation.

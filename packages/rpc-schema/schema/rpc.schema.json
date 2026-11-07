@@ -19706,6 +19706,7 @@
                 "additionalProperties": true
               }
             },
+            "prediction": { "type": ["object", "null"], "additionalProperties": true },
             "contentHash": {
               "type": "string"
             },

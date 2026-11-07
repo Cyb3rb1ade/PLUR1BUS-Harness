@@ -72,6 +72,7 @@ export class LearnService {
     const validTarget = (t: Target): boolean => { try { return t.owner !== invalidate?.owner && t.agentId !== invalidate?.agentId && this.#o.mayReadTarget(t, this.person(t.owner)); } catch { return false; } };
     this.store.reconcile({ now: this.#o.now(), checkpointDays: this.#o.config().dreams?.learn?.checkpointDays ?? 7,
       erased: new Set(this.#o.erasures?.().map(e => e.sessionId) ?? []), validTarget,
+      validSession: (id, t) => { const s = this.#o.source.session?.(id); try { return !!s && s.agentId !== invalidate?.agentId && validTarget(t) && this.#o.source.mayRead(t, s, this.person(t.owner)); } catch { return false; } },
       validEvidence: (e, t) => { const s = this.#o.source.session?.(e.sessionId); try { return e.agentId !== invalidate?.agentId && validTarget(t) && !!s && this.#o.source.mayRead(t, s, this.person(t.owner)); } catch { return false; } } });
   }
   setAdmission(admit: <T>(work: () => Promise<T>) => Promise<T>): void { this.#admit = admit; }
@@ -141,7 +142,7 @@ export class LearnService {
     const finding = this.store.finding(id); if (!finding) throw unavailable('finding-not-found');
     const transcripts = this.transcripts(finding, person);
     const evidence = finding.toolPattern ? [] : evidenceView(finding, transcripts);
-    return { finding, evidence, contentHash: digest(finding), action: this.store.action(id, finding.revision ?? 1) };
+    return { finding, evidence, prediction: this.store.prediction(id), contentHash: digest(finding), action: this.store.action(id, finding.revision ?? 1) };
   }
   list(target: Target, person: Principal) {
     this.reconcile(); this.authorize(target, person);

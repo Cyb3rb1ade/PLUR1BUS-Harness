@@ -1,3 +1,4 @@
+import { observePredictions, prediction, startPrediction, type LearningObservation } from './predictions.ts';
 import { mergeEvidence } from './aggregation.ts';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync, chmodSync } from 'node:fs';
@@ -19,7 +20,7 @@ export class LearnStore {
     try {
       this.#db.exec('PRAGMA secure_delete=ON; PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON;');
       const version = Number(this.#db.prepare('PRAGMA user_version').get()!.user_version);
-      if (version > 6) throw Error('newer learn schema');
+      if (version > 7) throw Error('newer learn schema');
       if (!version) this.#db.exec(`BEGIN IMMEDIATE;
         CREATE TABLE learn_run(id TEXT PRIMARY KEY, target_hash TEXT NOT NULL, window_from INTEGER NOT NULL, window_to INTEGER NOT NULL, metadata TEXT NOT NULL, UNIQUE(target_hash,window_from,window_to));
         CREATE TABLE learn_step(run_id TEXT NOT NULL REFERENCES learn_run(id), step TEXT NOT NULL, state TEXT NOT NULL, PRIMARY KEY(run_id,step));
@@ -56,6 +57,14 @@ export class LearnStore {
         PRAGMA user_version=4; COMMIT;`);
       if (version < 5) this.#db.exec(`CREATE TABLE learn_handoff(finding_id TEXT NOT NULL REFERENCES learn_finding(id), hash TEXT NOT NULL, receipt TEXT NOT NULL, PRIMARY KEY(finding_id,hash)); PRAGMA user_version=5;`);
       if (version < 6) this.#db.exec(`ALTER TABLE learn_run ADD COLUMN invalidated INTEGER NOT NULL DEFAULT 0; ALTER TABLE learn_finding ADD COLUMN invalid_before INTEGER NOT NULL DEFAULT 0; PRAGMA user_version=6;`);
+      if (version < 7) this.transaction(() => {
+        this.#db.exec(`CREATE TABLE learn_prediction(finding_id TEXT NOT NULL REFERENCES learn_finding(id),revision INTEGER NOT NULL,accepted_at INTEGER NOT NULL,not_before INTEGER NOT NULL,signal_hash TEXT NOT NULL,status TEXT NOT NULL,closed_at INTEGER,PRIMARY KEY(finding_id,revision));
+          CREATE TABLE learn_prediction_session(finding_id TEXT NOT NULL,revision INTEGER NOT NULL,session_id TEXT NOT NULL,at INTEGER NOT NULL,recurred INTEGER NOT NULL,PRIMARY KEY(finding_id,revision,session_id));
+          CREATE TABLE learn_prediction_coverage(finding_id TEXT NOT NULL,revision INTEGER NOT NULL,start INTEGER NOT NULL,end INTEGER NOT NULL,PRIMARY KEY(finding_id,revision,start,end)); PRAGMA user_version=7;`);
+        for (const row of this.#db.prepare("SELECT d.finding_id,d.decided_at FROM learn_decision d JOIN learn_finding f ON f.id=d.finding_id WHERE f.state='accepted' AND f.revision=d.revision").all()) {
+          const f = this.finding(String(row.finding_id)); if (f) startPrediction(this.#db, f, Number(row.decided_at));
+        }
+      });
       if (file !== ':memory:') { chmodSync(file, 0o600); secure?.(file); }
     } catch (error) { this.#db.close(); throw error; }
   }
@@ -94,7 +103,7 @@ export class LearnStore {
     this.transaction(() => { this.#db.prepare('INSERT INTO learn_payload VALUES(?,?,?) ON CONFLICT(run_id,key) DO UPDATE SET payload=excluded.payload').run(runId, key, JSON.stringify(value)); this.step(runId, key, 'completed'); });
   }
   finish(run: LearnRun, outcome: NonNullable<LearnRun['outcome']>, reason: Reason | null, now: number): void { run.outcome = outcome; run.reason = reason; run.finishedAt = now; this.save(run); if (terminal(run)) this.#db.prepare("DELETE FROM learn_payload WHERE run_id=? AND key NOT LIKE 'finding:%'").run(run.id); if (outcome === 'failed') this.#db.prepare('INSERT INTO learn_failure VALUES(?,?)').run(run.id, now); }
-  publish(run: LearnRun, findings: Finding[], now: number): void {
+  publish(run: LearnRun, findings: Finding[], now: number, observations?: LearningObservation[]): void {
     if (this.invalidated(run.id)) throw new LearnError('rights-changed');
     this.transaction(() => {
       let published = 0;
@@ -110,6 +119,7 @@ export class LearnStore {
         published++;
       }
       run.findings = published; this.finish(run, 'completed', null, now);
+      if (observations) observePredictions(this.#db, run, observations);
     });
   }
   finding(id: string): Finding | null {
@@ -125,7 +135,7 @@ export class LearnStore {
       const changed = this.#db.prepare("UPDATE learn_finding SET state=? WHERE id=? AND state='pending'").run(outcome, id);
       if (Number(changed.changes) !== 1) throw Error('finding-not-pending');
       this.#db.prepare('INSERT INTO learn_decision VALUES(?,?,?,?,?,?,?)').run(id, f.revision ?? 1, reviewer, outcome, now, JSON.stringify(receipt), JSON.stringify(decisionSummary(f)));
-      if (outcome === 'accepted') this.finishAction(f, 'completed', receipt);
+      if (outcome === 'accepted') { this.finishAction(f, 'completed', receipt); startPrediction(this.#db, f, now); }
     });
   }
   /** One most recent human decision per stable finding; earlier revisions remain auditable. */
@@ -172,7 +182,7 @@ export class LearnStore {
   }
   /** Decisions survive as content-free summaries; any partially invalidated claim needs a fresh review. */
   reconcile(o: { now: number; checkpointDays: number; validTarget(target: Target): boolean;
-    validEvidence(evidence: Finding['evidence'][number], target: Target): boolean; erased?: ReadonlySet<string> }): void {
+    validSession?(sessionId: string, target: Target): boolean; validEvidence(evidence: Finding['evidence'][number], target: Target): boolean; erased?: ReadonlySet<string> }): void {
     let dirty = false;
     this.transaction(() => {
       for (const row of this.#db.prepare('SELECT metadata FROM learn_run').all()) {
@@ -185,6 +195,15 @@ export class LearnStore {
         const ids = valid ? run.sessionIds.filter(id => !o.erased?.has(id)) : [];
         if (ids.length !== run.sessionIds.length) { run.sessionIds = ids; this.save(run); dirty = true; }
       }
+      for (const row of this.#db.prepare(`SELECT s.finding_id,s.session_id,r.metadata FROM learn_prediction_session s
+        JOIN learn_finding f ON f.id=s.finding_id JOIN learn_run r ON r.id=f.run_id`).all()) {
+        const target = (JSON.parse(String(row.metadata)) as LearnRun).target;
+        if (o.erased?.has(String(row.session_id)) || (o.validSession && !o.validSession(String(row.session_id), target))) {
+          this.#db.prepare('DELETE FROM learn_prediction_session WHERE finding_id=? AND session_id=?').run(row.finding_id!, row.session_id!);
+          this.#db.prepare('DELETE FROM learn_prediction_coverage WHERE finding_id=?').run(row.finding_id!);
+          this.#db.prepare("UPDATE learn_prediction SET status='insufficient-data',closed_at=NULL WHERE finding_id=?").run(row.finding_id!); dirty = true;
+        }
+      }
       for (const row of this.#db.prepare('SELECT id FROM learn_finding').all()) {
         const f = this.finding(String(row.id)); if (!f) continue;
         const remaining = f.evidence.filter(e => !o.erased?.has(e.sessionId) && o.validEvidence(e, f.target));
@@ -194,6 +213,11 @@ export class LearnStore {
         if (withdraw || expired) {
           const { checks: _checks, previousDecision: _previous, toolPattern, ...kept } = f;
           const clean: Finding = { ...kept, text: '', evidence: withdraw ? remaining : f.evidence, ...(withdraw ? { status: 'withdrawn', contentKey: digest(f.contentKey ?? '') } : toolPattern ? { toolPattern } : {}) };
+          if (withdraw) {
+            this.#db.prepare('DELETE FROM learn_prediction_session WHERE finding_id=?').run(f.id);
+            this.#db.prepare('DELETE FROM learn_prediction_coverage WHERE finding_id=?').run(f.id);
+            this.#db.prepare("UPDATE learn_prediction SET status='insufficient-data',closed_at=NULL WHERE finding_id=?").run(f.id);
+          }
           if (withdraw) this.#db.prepare("UPDATE learn_finding SET state='withdrawn',invalid_before=revision WHERE id=?").run(f.id);
           this.#db.prepare('UPDATE learn_payload SET payload=? WHERE run_id=? AND key=?').run(JSON.stringify(clean), f.runId, `finding:${f.id}`);
           dirty = true;
@@ -201,6 +225,18 @@ export class LearnStore {
       }
     });
     if (dirty) this.#db.exec('PRAGMA wal_checkpoint(TRUNCATE);');
+  }
+  prediction(id: string) { const f = this.finding(id); return f ? prediction(this.#db, id, f.revision ?? 1) : null; }
+  observe(run: LearnRun, observations: LearningObservation[]): void { this.transaction(() => observePredictions(this.#db, run, observations)); }
+  predictionSummary(owner: string, classes: readonly string[]) {
+    const statuses = this.#db.prepare(`SELECT p.status,d.summary FROM learn_prediction p JOIN learn_finding f ON f.id=p.finding_id
+      JOIN learn_decision d ON d.finding_id=p.finding_id AND d.revision=p.revision JOIN learn_run r ON r.id=f.run_id
+      WHERE r.owner=? AND f.state='accepted' AND f.revision=p.revision`).all(owner).filter(row => {
+      const summary = JSON.parse(String(row.summary)) as DecisionSummary;
+      return summary.promptVersion === PROMPT_VERSION && JSON.stringify([...(summary.modelClasses ?? [])].sort()) === JSON.stringify([...classes].sort());
+    });
+    const confirmed = statuses.filter(r => r.status === 'confirmed').length, notConfirmed = statuses.filter(r => r.status === 'not-confirmed').length;
+    return { confirmed, notConfirmed, insufficientData: statuses.length - confirmed - notConfirmed, confirmationRate: confirmed + notConfirmed ? confirmed / (confirmed + notConfirmed) : null };
   }
   handoff(id: string, hash: string): boolean { return !!this.#db.prepare('SELECT 1 FROM learn_handoff WHERE finding_id=? AND hash=?').get(id, hash); }
   handedOff(id: string, hash: string, receipt: string): void { this.#db.prepare('INSERT OR IGNORE INTO learn_handoff VALUES(?,?,?)').run(id, hash, receipt); }
