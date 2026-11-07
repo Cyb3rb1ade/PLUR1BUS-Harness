@@ -52,6 +52,10 @@ numbered by first appearance, times and pids under listed keys are masked, notif
 and their position between responses are free), responses in the order of their requests. `--strict-order` compares the full
 frame sequence. A difference prints as `conn 0, response to #3 media.preferences.get: $.result.global: expected true, got false`.
 
+**Error texts (controller ruling, P4-03).** Error codes (`error.code`, `error.data.error`) and `reason` strings must match
+exactly. The free-text `message` and the `detail` of `E_INVALID_PARAMS` are not contract (ADR-016): the Rust validator
+(`jsonschema`) words its findings differently from ajv, so the replay normalises both (P4-10).
+
 ```text
 node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning tests/core-parity/run.ts [--impl ts|rust] [--strict-order] [file.ndjson ...]
 node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning tests/core-parity/record.ts [flow ...]

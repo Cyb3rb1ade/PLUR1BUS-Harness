@@ -11,6 +11,9 @@ repository = "https://github.com/Cyb3rb1ade/PLUR1BUS-Harness"
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
+# plur1bus-canon enables `float_roundtrip` (P4-03, controller ruling): JSON.parse rounds every decimal exactly, serde_json's
+# default parser can be one ULP off. Feature unification turns it on for every crate built together with plur1bus-canon,
+# which only makes float parsing exact; the Rust core's RPC frame parser needs it for parity.
 serde_json = "1"
 clap = { version = "4.6", features = ["derive"] }
 tempfile = "3"
