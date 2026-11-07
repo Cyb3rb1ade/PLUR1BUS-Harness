@@ -902,6 +902,10 @@ mod panic_boundary_tests {
                 include_str!("../../../packages/rpc-schema/fixtures/methods/tools.team.check.json"),
             ),
             (
+                "tools.team.next",
+                include_str!("../../../packages/rpc-schema/fixtures/methods/tools.team.next.json"),
+            ),
+            (
                 "tools.team.diffcheck",
                 include_str!(
                     "../../../packages/rpc-schema/fixtures/methods/tools.team.diffcheck.json"

@@ -19,6 +19,10 @@
     "tools.team.impact": {
       "stability": "experimental",
       "since": "1.24.0"
+    },
+    "tools.team.next": {
+      "stability": "experimental",
+      "since": "1.24.0"
     }
   },
   "notifications": {},

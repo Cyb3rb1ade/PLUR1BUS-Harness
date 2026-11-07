@@ -1,12 +1,17 @@
 //! D124 pure team decisions. The transport authenticates Core before entering this module.
+mod action;
 mod check;
 mod diffcheck;
 pub mod glob;
 mod impact;
+mod lead;
+mod next;
+mod state;
 use crate::{CoreContext, ToolError, ToolsModule};
 use plur1bus_rpc::types::{
     ErrorCode, ToolsTeamCheckParams, ToolsTeamCheckResult, ToolsTeamDiffcheckParams,
-    ToolsTeamDiffcheckResult, ToolsTeamImpactParams, ToolsTeamImpactResult,
+    ToolsTeamDiffcheckResult, ToolsTeamImpactParams, ToolsTeamImpactResult, ToolsTeamNextParams,
+    ToolsTeamNextResult,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Value};
@@ -70,6 +75,9 @@ fn invoke<P: DeserializeOwned + Serialize, R: DeserializeOwned + Serialize>(
 /// Pure entry point for shared-fixture tests. Production reaches it only through the Core guard.
 pub fn dispatch(method: &str, input: &Value) -> Result<Value, ToolError> {
     match method {
+        "tools.team.next" => {
+            invoke::<ToolsTeamNextParams, ToolsTeamNextResult>(method, input, next::next)
+        }
         "tools.team.check" => {
             invoke::<ToolsTeamCheckParams, ToolsTeamCheckResult>(method, input, check::check)
         }
