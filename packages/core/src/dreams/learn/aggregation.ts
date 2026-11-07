@@ -29,7 +29,7 @@ export function parseExtraction(text: string, transcript: Transcript): RawFindin
         day: new Date(message?.createdAt ?? event!.at).toISOString().slice(0, 10), agentId: transcript.session.agentId, owner: transcript.session.owner };
     });
     if (f.checks !== undefined && (!Array.isArray(f.checks) || f.checks.length > 8 || f.checks.some(c => !c || typeof c !== 'object' || Object.keys(c).some(k => !['path', 'contains'].includes(k)) || typeof c.path !== 'string' || c.path.length > 256 || typeof c.contains !== 'string' || !c.contains || c.contains.length > 1000))) throw new LearnError('invalid-output');
-    return { kind: f.kind as RawFinding['kind'], change: f.change as RawFinding['change'], text: f.text.trim(), ...(typeof f.memoryId === 'string' ? { memoryId: f.memoryId } : {}), evidence, ...(f.checks ? { checks: f.checks as RawFinding['checks'] } : {}) };
+    return { kind: f.kind as RawFinding['kind'], change: f.change as RawFinding['change'], text: f.text.trim(), ...(typeof f.memoryId === 'string' ? { memoryId: f.memoryId } : {}), evidence, ...(f.checks ? { checks: f.checks as NonNullable<RawFinding['checks']> } : {}) };
   });
 }
 /** Exact normalized-key clustering: deterministic and inspectable; no model confidence or fuzzy judge. */

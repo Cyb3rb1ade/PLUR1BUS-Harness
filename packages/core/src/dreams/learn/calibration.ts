@@ -11,7 +11,10 @@ export function instructionLike(text: string): boolean {
 export interface FindingSafety { personAuthored: boolean; sensitive: boolean; targetVerified: boolean }
 /** Counterfactual tier, not permission. The shadow executor always retains effectiveTier C. */
 export function scoreFinding(finding: Finding, safety: FindingSafety): Finding {
-  const p = finding.prevalence, trusted = finding.evidence.some(e => e.trust === 'person' || e.trust === 'verified') || finding.verify === 'supported';
+  // A trivial model-chosen match is not independent evidence for the claim.
+  const verifiedClaim = finding.verify === 'supported' && finding.checks?.some(check =>
+    [...check.contains].length >= 16 && /[\p{L}\p{N}]/u.test(check.contains) && finding.text.includes(check.contains));
+  const p = finding.prevalence, trusted = finding.evidence.some(e => e.trust === 'person' || e.trust === 'verified') || verifiedClaim;
   const person = finding.evidence.some(e => e.trust === 'person');
   let score = trusted ? Math.min(1, (person ? 0.35 : 0.25) + 0.3 * Math.min(p.sessions / 3, 1) + 0.2 * Math.min(p.days / 2, 1) +
     (Math.max(p.agents, p.persons) >= 2 ? 0.05 : 0) + (finding.verify === 'supported' ? 0.05 : 0) + (finding.agreement === 'agrees' ? 0.05 : 0) +

@@ -45,3 +45,17 @@ test('precision counts durable human decisions per model/prompt and excludes pen
     const changed = calibration(store, target, ['fixture/other']); assert.equal(changed.A.decided, 0); assert.notEqual(changed.revision, record.revision);
   } finally { store.close(); }
 });
+
+test('H1: only a substantive verified literal in the claim can establish trust', () => {
+  const f = finding();
+  f.evidence = f.evidence.map(e => ({ ...e, trust: 'untrusted' }));
+  f.verify = 'supported';
+  for (const contains of ['the', '                ', '................', 'A different substantive claim']) {
+    const got = scoreFinding({ ...f, checks: [{ path: 'README.md', contains }] }, safe);
+    assert.equal(got.score, 0, contains);
+    assert.equal(got.desiredTier, 'C');
+  }
+  assert.ok(scoreFinding({ ...f, checks: [{ path: 'README.md', contains: f.text }] }, safe).score > 0);
+  // Weak matches still contribute to a score supported by independent person evidence.
+  assert.ok(scoreFinding({ ...finding(), verify: 'supported', checks: [{ path: 'README.md', contains: 'the' }] }, safe).score >= scoreFinding(finding(), safe).score);
+});
