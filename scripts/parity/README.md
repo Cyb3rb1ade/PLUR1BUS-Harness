@@ -45,9 +45,10 @@ and gets `--check` for free: it writes nothing and exits 1 when a fixture is mis
 
 | Exporter | Area | Source | Consumer |
 | --- | --- | --- | --- |
-| `export-dispatcher.ts` | `dispatcher` | `canonicalJson` and the action hash of `packages/core/src/tools/dispatcher.ts` (the D120 §11.2 T1 vectors) | `crates/plur1bus-core` (P4-03) |
+| `export-dispatcher.ts` | `dispatcher` | `canonicalJson` and the action hash of `packages/core/src/tools/dispatcher.ts` (the D120 §11.2 T1 vectors) | `crates/plur1bus-canon` (P4-03) |
+| `export-wire.ts` | `wire` | mode W: the exchanges of `FakeOpenAI` (`packages/core/test/fixtures/openai/server.ts`) and of `localVoiceSocket` (`packages/core/test/voice/local-socket.ts`, over a loopback WebSocket), redacted like the P4-02 transcripts | `crates/plur1bus-core/tests/support/` (P4-03) |
 
-Run: `node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/parity/export-dispatcher.ts [--check]`
+Run: `node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning scripts/parity/export-<area>.ts [--check]`
 
 ### Known JavaScript/Rust divergences the dispatcher vectors pin down
 

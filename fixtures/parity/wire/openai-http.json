@@ -1,0 +1,121 @@
+{
+  "exchanges": [
+    {
+      "name": "discovery",
+      "request": {
+        "method": "GET",
+        "path": "/.well-known/openid-configuration"
+      },
+      "response": {
+        "body": {
+          "authorization_endpoint": "[REDACTED:secret]",
+          "issuer": "https://auth.openai.com",
+          "jwks_uri": "https://auth.openai.com/jwks",
+          "revocation_endpoint": "https://auth.openai.com/revoke",
+          "token_endpoint": "[REDACTED:secret]"
+        },
+        "status": 200
+      }
+    },
+    {
+      "name": "models",
+      "request": {
+        "method": "GET",
+        "path": "/v1/models"
+      },
+      "response": {
+        "body": {
+          "data": [
+            {
+              "id": "fixture-model"
+            }
+          ]
+        },
+        "status": 200
+      }
+    },
+    {
+      "name": "responses",
+      "request": {
+        "json": {
+          "input": "hello",
+          "model": "fixture-model"
+        },
+        "method": "POST",
+        "path": "/v1/responses"
+      },
+      "response": {
+        "body": {
+          "ok": true
+        },
+        "status": 200
+      }
+    },
+    {
+      "name": "responses-rate-limited",
+      "request": {
+        "json": {
+          "input": "hello",
+          "model": "fixture-model"
+        },
+        "method": "POST",
+        "path": "/v1/responses"
+      },
+      "response": {
+        "body": {
+          "error": {
+            "code": "rate_limit_exceeded",
+            "message": "[REDACTED:secret]"
+          }
+        },
+        "status": 429
+      }
+    },
+    {
+      "name": "refresh-unknown-grant",
+      "request": {
+        "form": {
+          "grant_type": "refresh_token",
+          "refresh_token": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/token"
+      },
+      "response": {
+        "body": {
+          "error": "invalid_grant"
+        },
+        "status": 400
+      }
+    },
+    {
+      "name": "revoke",
+      "request": {
+        "form": {
+          "token_type_hint": "[REDACTED:secret]"
+        },
+        "method": "POST",
+        "path": "/revoke"
+      },
+      "response": {
+        "body": {},
+        "status": 200
+      }
+    },
+    {
+      "name": "unknown-path",
+      "request": {
+        "method": "GET",
+        "path": "/v1/no-such-endpoint"
+      },
+      "response": {
+        "body": {},
+        "status": 404
+      }
+    }
+  ],
+  "exporter": "scripts/parity/export-wire.ts",
+  "schema": "plur1bus.parity-wire/1",
+  "source": "packages/core/test/fixtures/openai/server.ts#FakeOpenAI",
+  "transport": "http"
+}

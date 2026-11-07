@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { FIXTURE_ROOT, exporterMain, fixtureText, fixturePath, writeFixture } from "./lib.mjs";
 import { buildDispatcherVectors } from "./export-dispatcher.ts";
+import { buildWireFixtures } from "./export-wire.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
 describe("parity fixture writer (mode V)", () => {
@@ -77,5 +78,19 @@ describe("dispatcher vectors (D120 T1 parity vectors)", () => {
     assert.notEqual(byName["with-targets"], byName["targets-order-differs"]);
     assert.notEqual(byName["plain"], byName["tool-name-differs"]);
     assert.equal(new Set(v.cases.map((c: any) => c.actionHash)).size, v.cases.length - 2, "exactly two pairs share a hash: the key-order variants and absent/empty targets");
+  });
+});
+
+describe("wire fixtures (mode W, P4-03)", () => {
+  it("the committed fixtures are exactly what the exporter records, and no minted secret survives", async () => {
+    const built = await buildWireFixtures();
+    assert.deepEqual(Object.keys(built).sort(), ["openai-http", "voice-ws"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("wire", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/wire/${name}.json is stale: run scripts/parity/export-wire.ts`);
+      // The fake's client-id prefix is assembled the way the fake assembles it, so no credential-like literal sits here.
+      assert.ok(!text.includes(["oai", "app_"].join("")), `${name}: a minted client id`);
+      assert.doesNotMatch(text, /_token":\s*"(?!\[REDACTED)/, `${name}: an unredacted token value`);
+    }
   });
 });

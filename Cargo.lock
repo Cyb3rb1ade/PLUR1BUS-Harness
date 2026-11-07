@@ -5680,11 +5680,14 @@ dependencies = [
 name = "plur1bus-core"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "clap",
  "plur1bus-rpc",
  "serde_json",
+ "sha1",
  "sha2 0.10.9",
  "tempfile",
+ "tokio",
 ]
 
 [[package]]

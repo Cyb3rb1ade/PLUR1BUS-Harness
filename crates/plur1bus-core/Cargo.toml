@@ -25,3 +25,8 @@ sha2 = "0.10"
 [dev-dependencies]
 serde_json.workspace = true
 tempfile.workspace = true
+# Mode W fake server (tests/support/): the engine's tokio, loopback sockets only.
+tokio = { version = "=1.53.3", features = ["rt-multi-thread", "net", "io-util"] }
+# The WebSocket handshake's Sec-WebSocket-Accept (RFC 6455: base64 of SHA-1); both versions are already locked.
+sha1 = "=0.11.0"
+base64 = "=0.22.1"
