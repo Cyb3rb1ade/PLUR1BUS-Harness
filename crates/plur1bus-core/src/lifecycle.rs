@@ -13,6 +13,8 @@
 //! wrote reaches its client through the front door, which keeps forwarding) → wait for the legacy core to exit within
 //! the budget, then kill it → stop accepting, end every client connection (a queued reply is still flushed; destroyed
 //! after 1 s) → remove the run files → release the lock (after the files, so a successor never loses its fresh ones).
+//! An expired orphan grace ends the legacy core's lifeline in place of `core.shutdown`: the legacy core then takes the
+//! TypeScript core's own grace-expiry stop (the same drain), so `logs/core.log` reads as for a TypeScript core.
 use serde_json::{json, Value};
 use std::path::Path;
 use std::sync::mpsc::Sender;
