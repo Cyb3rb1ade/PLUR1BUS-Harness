@@ -926,10 +926,14 @@ mod panic_boundary_tests {
             .set_read_timeout(Some(Duration::from_secs(2)))
             .unwrap();
         let mut stream = BufReader::new(stream);
-        rpc(&mut stream, "tools.hello", &json!({
-            "token": files::read_private(&service.home.path().join("run/tools-core.token")).unwrap(),
-            "ticketKey": files::fresh_token().unwrap(),
-        }))
+        rpc(
+            &mut stream,
+            "tools.hello",
+            &json!({
+                "token": files::read_private(&service.home.path().join("run/tools-core.token")).unwrap(),
+                "ticketKey": files::fresh_token().unwrap(),
+            }),
+        )
     }
 
     #[test]
@@ -940,17 +944,26 @@ mod panic_boundary_tests {
         let front_door = format!("{} {instance}\n", me.wrapping_add(1).max(1));
         let refused = |v: Value| v["error"]["data"]["reason"] == "tools-core-identity";
         let legacy = Running::start_with(&front_door, Some(&format!("{me} {instance}\n")));
-        assert!(hello(&legacy)["result"].is_object(), "the legacy core of this instance");
+        assert!(
+            hello(&legacy)["result"].is_object(),
+            "the legacy core of this instance"
+        );
         let other_instance = Running::start_with(
             &front_door,
             Some(&format!("{me} {}\n", uuid::Uuid::new_v4())),
         );
-        assert!(refused(hello(&other_instance)), "a legacy record of another instance");
+        assert!(
+            refused(hello(&other_instance)),
+            "a legacy record of another instance"
+        );
         let other_pid = Running::start_with(
             &front_door,
             Some(&format!("{} {instance}\n", me.wrapping_add(2).max(1))),
         );
-        assert!(refused(hello(&other_pid)), "a legacy record of another process");
+        assert!(
+            refused(hello(&other_pid)),
+            "a legacy record of another process"
+        );
         let no_legacy = Running::start_with(&front_door, None);
         assert!(refused(hello(&no_legacy)), "no legacy record");
     }
