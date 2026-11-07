@@ -68,3 +68,14 @@ test('M3: reordered target keys share idempotency and breaker state', () => {
     assert.equal(store.breakerOpen(reordered, 103), true);
   } finally { store.close(); }
 });
+
+test('M5: newest authorized sessions win; denied pages do not consume slots and overflow is counted', async () => {
+  const { selectTranscriptsWithCounts } = await import('../../src/dreams/learn/selection.ts');
+  const rows = Array.from({ length: 60 }, (_, i) => transcript(`denied-${i}`, { lastTurnAt: 1000 - i }));
+  rows.push(transcript('a-old', { lastTurnAt: 2 }), transcript('z-new', { lastTurnAt: 100 }), transcript('middle', { lastTurnAt: 50 }));
+  const input = source(rows, rows.slice(0, 60).map(t => t.session.id));
+  input.sessions = (_t, _w, limit, offset = 0) => rows.slice(offset, offset + limit).map(t => t.session);
+  const result = selectTranscriptsWithCounts(input, target, principal, window, 2);
+  assert.deepEqual(result.transcripts.map(t => t.session.id), ['z-new', 'middle']);
+  assert.equal(result.truncated, true); assert.equal(result.omittedSessions, 1);
+});

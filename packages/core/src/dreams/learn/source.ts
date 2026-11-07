@@ -10,7 +10,7 @@ import { LIMITS, type SelectionSource } from './types.ts';
 /** All scope inputs come from the configured target and live registries, never model output. */
 export function learningSource(store: SessionStore, o: { config(): HarnessConfig; hasAgent(id: string): boolean; project(id: string): Project | null; identity?(): Pick<IdentityService, 'resolve' | 'getLink'> | null }): SelectionSource {
   return {
-    sessions: (t, w, limit) => store.learningSessions({ owner: deriveUserPrincipal(t.owner), ...(t.scope === 'agent' ? { agentId: t.agentId } : {}), ...(t.projectId ? { projectId: t.projectId } : {}), ...w, limit }),
+    sessions: (t, w, limit, offset = 0) => store.learningSessions({ owner: deriveUserPrincipal(t.owner), ...(t.scope === 'agent' ? { agentId: t.agentId } : {}), ...(t.projectId ? { projectId: t.projectId } : {}), ...w, limit, offset }),
     mayRead(target, session, principal) {
       if (!o.hasAgent(session.agentId) || !o.hasAgent(target.agentId) || principal.userId !== target.owner) return false;
       const source = readRights(principal, session.agentId), destination = readRights(principal, target.agentId);

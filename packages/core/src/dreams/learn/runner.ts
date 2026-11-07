@@ -1,7 +1,7 @@
 import type { Principal } from '../../rbac/types.ts';
 import { aggregate, parseExtraction } from './aggregation.ts';
 import { prompt, usage, type LearnModel, type LearnModelResult, type Stage } from './model.ts';
-import { digest, targetHash, selectTranscripts, selectionDigest } from './selection.ts';
+import { digest, targetHash, selectTranscriptsWithCounts, selectionDigest } from './selection.ts';
 import { LearnStore } from './store.ts';
 import { LearnError, type Finding, type LearnConfig, type LearnRun, type RawFinding, type SelectionSource, type Target, type Transcript, type Window } from './types.ts';
 
@@ -35,7 +35,8 @@ export class LearnRunner {
       const principal = o.principal(target.owner);
       if (!principal) throw new LearnError('rights-changed');
       o.store.step(run.id, 'selection', 'started');
-      const selected = selectTranscripts(o.source, target, principal, window, cfg.maxSessions);
+      const selection = selectTranscriptsWithCounts(o.source, target, principal, window, cfg.maxSessions);
+      const selected = selection.transcripts; run.truncated = selection.truncated; run.omittedSessions = selection.omittedSessions;
       const currentDigest = selectionDigest(selected);
       if (run.digest && currentDigest !== run.digest) throw new LearnError('rights-changed');
       run.sessionIds = selected.map(t => t.session.id); run.digest = currentDigest; o.store.save(run); o.store.step(run.id, 'selection', 'completed');

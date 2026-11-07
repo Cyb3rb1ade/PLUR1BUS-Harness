@@ -86,3 +86,20 @@ test('H3: only an owner direct chat with a still-valid pre-existing identity lin
     }
   } finally { store.close(); identity.close(); }
 });
+
+test('M5: learningSessions pages newest activity first with a stable tie breaker', () => {
+  let now = 10;
+  const store = new SessionStore({ path: ':memory:', clock: () => now });
+  try {
+    const ids: string[] = [];
+    for (const at of [10, 30, 20]) {
+      now = at;
+      const s = store.createSession({ kind: 'direct', agentId: 'agent', owner: deriveUserPrincipal('alice') });
+      ids.push(s.id);
+      const { turn } = store.beginTurn(s.id, 'fixture', 1); store.completeTurn(turn.id, { text: 'reply', tokens: 1 });
+    }
+    const f = { owner: deriveUserPrincipal('alice'), from: 1, to: 100, limit: 2 };
+    assert.deepEqual(store.learningSessions(f).map(s => s.id), [ids[1], ids[2]]);
+    assert.deepEqual(store.learningSessions({ ...f, offset: 2 }).map(s => s.id), [ids[0]]);
+  } finally { store.close(); }
+});

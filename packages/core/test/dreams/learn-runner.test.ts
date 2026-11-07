@@ -70,3 +70,13 @@ test('provider failure is a fixed ledger class and retry preserves completed ses
     assert.equal(next.outcome, 'completed'); assert.equal(r.calls(), 3);
   } finally { r.store.close(); }
 });
+
+test('M5: session overflow is retained as metadata in the run ledger', async () => {
+  const r = rig(); r.cfg.maxSessions = 1;
+  try {
+    const run = await r.runner.run(target, { from: 1, to: 90 }, new AbortController().signal);
+    assert.equal(run.outcome, 'completed');
+    assert.equal(r.store.get(run.id)?.truncated, true);
+    assert.equal(r.store.get(run.id)?.omittedSessions, 1);
+  } finally { r.store.close(); }
+});
