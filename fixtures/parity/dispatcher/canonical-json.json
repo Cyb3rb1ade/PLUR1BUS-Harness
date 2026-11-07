@@ -1,0 +1,146 @@
+{
+  "cases": [
+    {
+      "canonical": "null",
+      "inputJson": "null",
+      "name": "null"
+    },
+    {
+      "canonical": "true",
+      "inputJson": "true",
+      "name": "true"
+    },
+    {
+      "canonical": "false",
+      "inputJson": "false",
+      "name": "false"
+    },
+    {
+      "canonical": "{}",
+      "inputJson": "{}",
+      "name": "empty-object"
+    },
+    {
+      "canonical": "[]",
+      "inputJson": "[]",
+      "name": "empty-array"
+    },
+    {
+      "canonical": "\"\"",
+      "inputJson": "\"\"",
+      "name": "empty-string"
+    },
+    {
+      "canonical": "{\"a\":2,\"b\":1,\"c\":3}",
+      "inputJson": "{\"b\":1,\"a\":2,\"c\":3}",
+      "name": "flat-keys-sorted"
+    },
+    {
+      "canonical": "{\"a\":null,\"z\":{\"x\":[{\"a\":2,\"b\":1}],\"y\":1}}",
+      "inputJson": "{\"z\":{\"y\":1,\"x\":[{\"b\":1,\"a\":2}]},\"a\":null}",
+      "name": "nested-keys-sorted"
+    },
+    {
+      "canonical": "[3,1,2]",
+      "inputJson": "[3,1,2]",
+      "name": "array-order-kept"
+    },
+    {
+      "canonical": "[1,\"a\",null,true,{\"k\":[]}]",
+      "inputJson": "[1,\"a\",null,true,{\"k\":[]}]",
+      "name": "mixed-array"
+    },
+    {
+      "canonical": "{\"1\":3,\"10\":1,\"9\":2,\"B\":5,\"b\":4}",
+      "inputJson": "{\"10\":1,\"9\":2,\"1\":3,\"b\":4,\"B\":5}",
+      "name": "key-order-digits",
+      "note": "keys sort as strings, not as numbers; upper case before lower case"
+    },
+    {
+      "canonical": "{\"a\":3,\"z\":1,\"É\":4,\"é\":2}",
+      "inputJson": "{\"z\":1,\"é\":2,\"a\":3,\"É\":4}",
+      "name": "bmp-accents"
+    },
+    {
+      "canonical": "{\"😀\":2,\"～\":1}",
+      "inputJson": "{\"\\uFF5E\":1,\"\\ud83d\\ude00\":2}",
+      "name": "astral-vs-bmp-key-order",
+      "note": "keys sort by UTF-16 code unit: the emoji (D83D..) sorts before U+FF5E; UTF-8 byte order says the opposite"
+    },
+    {
+      "canonical": "{\"s\":\"日本語 😀 é\"}",
+      "inputJson": "{\"s\":\"日本語 \\ud83d\\ude00 é\"}",
+      "name": "unicode-values"
+    },
+    {
+      "canonical": "{\"s\":\"\\u0000\\u0001\\b\\t\\n\\f\\r\\u001f\"}",
+      "inputJson": "{\"s\":\"\\u0000\\u0001\\b\\t\\n\\f\\r\\u001f\\u007f\"}",
+      "name": "control-characters"
+    },
+    {
+      "canonical": "{\"s\":\"a\\\"b\\\\c/d\"}",
+      "inputJson": "{\"s\":\"a\\\"b\\\\c/d\"}",
+      "name": "quotes-and-backslash"
+    },
+    {
+      "canonical": "{\"s\":\"  \"}",
+      "inputJson": "{\"s\":\"\\u2028\\u2029\"}",
+      "name": "line-separators",
+      "note": "emitted raw by JSON.stringify"
+    },
+    {
+      "canonical": "[0,1,-1,42,-42]",
+      "inputJson": "[0,1,-1,42,-42]",
+      "name": "integers"
+    },
+    {
+      "canonical": "[0,0]",
+      "inputJson": "[-0,0]",
+      "name": "negative-zero",
+      "note": "-0 serialises as 0"
+    },
+    {
+      "canonical": "[0.5,1.25,-0.125,0.30000000000000004]",
+      "inputJson": "[0.5,1.25,-0.125,0.30000000000000004]",
+      "name": "fractions"
+    },
+    {
+      "canonical": "[1e+21,1e-7,1.5e+300,5e-324,1000,123456789012345680000]",
+      "inputJson": "[1e21,1e-7,1.5e300,5e-324,1E3,123456789012345680000]",
+      "name": "exponent-forms",
+      "note": "JS number formatting: 1e+21, 1e-7, 1.5e+300, 5e-324, 1000, 123456789012345680000"
+    },
+    {
+      "canonical": "[9007199254740992,18446744073709552000]",
+      "inputJson": "[9007199254740993,18446744073709551616]",
+      "name": "integer-above-2-pow-53",
+      "note": "parsed as a double: 9007199254740992 and 18446744073709552000; a consumer that keeps u64 exactly diverges"
+    },
+    {
+      "canonical": "{\"m\":100,\"n\":1}",
+      "inputJson": "{\"n\":1.0,\"m\":1e2}",
+      "name": "numbers-as-keys-values",
+      "note": "1.0 and 1e2 are the integers 1 and 100"
+    },
+    {
+      "canonical": "{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":[[[[[1]]]]]}}}}}}",
+      "inputJson": "{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":{\"a\":[[[[[1]]]]]}}}}}}",
+      "name": "deep-nesting"
+    },
+    {
+      "canonical": "{\"a\":2}",
+      "inputJson": "{\"a\":1,\"a\":2}",
+      "name": "duplicate-keys-last-wins",
+      "note": "JSON.parse keeps the last value"
+    },
+    {
+      "canonical": "{\"__proto__\":1,\"constructor\":2}",
+      "inputJson": "{\"__proto__\":1,\"constructor\":2}",
+      "name": "proto-like-key",
+      "note": "ordinary own keys"
+    }
+  ],
+  "exporter": "scripts/parity/export-dispatcher.ts",
+  "schema": "plur1bus.parity-vectors/1",
+  "source": "packages/core/src/tools/dispatcher.ts#canonicalJson"
+}
