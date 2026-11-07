@@ -290,9 +290,10 @@ impl Client {
         }
     }
     fn send_line(&mut self, line: &str) {
-        self.writer
-            .write_all(format!("{line}\n").as_bytes())
-            .unwrap();
+        self.send_bytes(format!("{line}\n").as_bytes());
+    }
+    fn send_bytes(&mut self, bytes: &[u8]) {
+        self.writer.write_all(bytes).unwrap();
         self.writer.flush().unwrap();
     }
     /// The next line, or `None` at EOF (the server closed the connection).
@@ -460,6 +461,10 @@ fn before_the_handshake_the_front_door_answers() {
         ("E_INVALID_PARAMS", "parse-error", Value::Null)
     );
     assert_eq!(r["error"]["code"], -32700);
+    // Invalid UTF-8 is replaced before parsing, as the TypeScript server's decoder does (P4D-3 is the lone surrogate only).
+    c.send_bytes(b"{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"memory.list\",\"params\":{\"x\":\"\xff\xfe\"}}\n");
+    let r = c.response(&json!(9));
+    assert_eq!((code(&r), reason(&r)), ("E_UNAUTHORIZED", "auth-required"));
     c.send_line(r#"{"id":3,"method":"core.status"}"#);
     let r = c.read().unwrap();
     assert_eq!(

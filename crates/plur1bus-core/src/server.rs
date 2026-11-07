@@ -644,15 +644,24 @@ fn write_loop(
 }
 
 fn handle_line(front: &Arc<FrontDoor>, conn: &Arc<Conn>, bytes: Vec<u8>) {
-    let parsed: Result<Value, _> = serde_json::from_slice(&bytes);
+    let parsed = parse_line(&bytes);
     let authed = conn.authed();
     match parsed {
         Ok(msg) if authed => post_auth(front, conn, bytes, msg),
         Ok(msg) => pre_auth(front, conn, msg),
-        // After the handshake an unparsable line goes to the legacy core, which answers it as the TypeScript core does
-        // (its decoder replaces invalid UTF-8 before parsing); before it, the front door answers.
+        // After the handshake an unparsable line goes to the legacy core, which answers it as the TypeScript core does;
+        // before it, the front door answers (a lone surrogate escape lands here, P4D-3).
         Err(_) if authed && conn.caller() != Some(Caller::LegacyCore) => relay_raw(conn, bytes),
         Err(_) => conn.error(&Value::Null, frame::parse_error()),
+    }
+}
+
+/// A line as the TypeScript server reads it: invalid UTF-8 is replaced by U+FFFD before `JSON.parse` (its decoder does
+/// the same), so such a line is answered like any other. A relayed line still goes on as the client wrote it.
+fn parse_line(bytes: &[u8]) -> Result<Value, serde_json::Error> {
+    match std::str::from_utf8(bytes) {
+        Ok(text) => serde_json::from_str(text),
+        Err(_) => serde_json::from_str(&String::from_utf8_lossy(bytes)),
     }
 }
 
