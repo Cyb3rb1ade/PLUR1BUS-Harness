@@ -73,6 +73,11 @@ export function validateNotification(name: string, value: unknown, server?: RpcS
   return run(validator(`/$defs/notifications/${name}${suffix}`), value);
 }
 export function validateJournalLine(value: unknown): Validation { return run(validator("/$defs/JournalLine"), value); }
+/** Validate a named data contract with the same schema registry used by RPC. */
+export function validateDefinition(name: string, value: unknown): Validation {
+  if (!/^[A-Za-z][A-Za-z0-9]*$/.test(name) || !Object.hasOwn(schemaJson.$defs, name)) return { ok: false, errors: ['unknown definition'] };
+  return run(validator(`/$defs/${name}`), value);
+}
 export function validateRequest(value: unknown): Validation { return run(validator("/$defs/Request"), value); }
 export function validateErrorObject(value: unknown): Validation { return run(validator("/$defs/ErrorObject"), value); }
 

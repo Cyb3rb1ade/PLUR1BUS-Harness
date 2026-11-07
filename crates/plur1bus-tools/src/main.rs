@@ -36,7 +36,11 @@ fn main() {
         instance,
     } = Cli::parse().command;
     let instance = instance.unwrap_or_else(uuid::Uuid::new_v4).to_string();
-    let service = plur1bus_tools::Service::bind(&home, &instance, Vec::new());
+    let service = plur1bus_tools::Service::bind(
+        &home,
+        &instance,
+        vec![std::sync::Arc::new(plur1bus_tools::team::TeamModule)],
+    );
     match service {
         Ok(service) => {
             println!(

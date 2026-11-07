@@ -58,6 +58,12 @@ TypeScript validation returns optional, value-free `warnings` for endpoint useri
 | `collaboration.teams.capacity.maxWriters` | integer |  | live | advanced | false | false |  | Explicit soft-capacity override. Exceeding measured CPU or memory capacity emits a warning. The numeric bound preserves JSON safe integers, without an operational writer ceiling. |
 | `collaboration.teams.disk` | object | `{}` | live | advanced | false | false |  | Required free disk space before creating an additional worktree. |
 | `collaboration.teams.disk.minFreeBytes` | integer | `21474836480` | live | advanced | false | false |  | Hard floor before creating a worktree. Cannot be disabled; the provisioner-backed team scheduler enforces it. |
+| `collaboration.teams.approval` | object | `{}` | live | advanced | false | false |  | Default team approval policy; a project lead confirms the scope. |
+| `collaboration.teams.approval.auto` | boolean | `false` | live | advanced | false | false |  | Permit automatic section merge only under an approved auto scope and lane gates. |
+| `collaboration.teams.closedPaths` | array | `[]` | live | advanced | false | false |  | Additional closed-lane path globs. Built-in protected path classes always apply. |
+| `collaboration.teams.closedPaths[]` | string |  | live | advanced | false | false |  |  |
+| `collaboration.teams.deployBranches` | array | `[]` | live | advanced | false | false |  | Additional deploying target branches. Workflow-derived deployment rules always apply. |
+| `collaboration.teams.deployBranches[]` | string |  | live | advanced | false | false |  |  |
 | `collaboration.limits` | object | `{}` | live | advanced | false | false |  | D124 collaboration limits. Project settings can only narrow these installation limits. |
 | `collaboration.limits.readHelpers` | object | `{}` | live | advanced | false | false |  | Read-only helper starts and nesting depth. |
 | `collaboration.limits.readHelpers.perTurn` | integer | `8` | live | advanced | false | false |  | Read helper starts per calling turn. |

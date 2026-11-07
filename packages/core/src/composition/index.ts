@@ -515,6 +515,7 @@ export async function openTurnComposition(d: CompositionDeps): Promise<TurnCompo
     wireExternalAgents(d, options, () => sessions, () => { if (!collab) throw new Error("collaboration unavailable"); return collab.worktreeStore; });
     const delegationTargets = [...(options.delegationTargets ?? []), ...(a2a ? [a2a.client.target] : [])];
     collab = budget ? isolated('collaboration', () => createCollab({ home: d.home, provisionWorktrees: true, path: join(d.home, 'state', 'collab.sqlite'), clock: d.clock, limits: () => d.config().collaboration.limits,
+      teamPolicy: () => { const t = d.config().collaboration.teams; return { approval: t.approval, closedPaths: t.closedPaths, deployBranches: t.deployBranches }; },
       capacity: () => { const config = d.config(), cores = availableParallelism(); return { cores: config.supervisor.maxCores > 0 ? Math.min(cores, config.supervisor.maxCores) : cores, availableMemory: freemem(), totalMemory: totalmem(), settings: config.collaboration.teams.capacity }; },
       sessions: () => sessions.store, redact: liveLogsRedactionPort(secretValues, knownSecrets),
       toolView: id => d.agents.has(id) && d.config().agents[id]?.engine?.kind !== 'external' && !delegationTargets.some(target => target.accepts(id)) ? firstPartyToolNames() : [],

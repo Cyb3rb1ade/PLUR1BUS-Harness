@@ -1,12 +1,13 @@
 import type { GuardrailReason } from "./errors.ts";
 
-export type ProjectRole = "member" | "lead";
+export type ProjectRole = "member" | "lead" | "worker" | "reviewer";
 export type CollabKind = "consult" | "delegate";
 export type TaskStatus = "queued" | "running" | "succeeded" | "failed" | "cancelled";
 export type SpanStatus = "partial" | "running" | "succeeded" | "failed" | "cancelled" | "refused";
 export type AgentState = "active" | "paused" | "archived";
 
 export interface CollabSettings {
+  collaboration?: { teams: import('@plur1bus/rpc-schema').TeamPolicy };
   /** D124: read-only hops after the root agent (default 2); writers remain at depth 1. */
   maxDepth: number;
   /** D124 read helper starts per calling turn (default 8, ceiling 32). */
@@ -129,6 +130,11 @@ export const COLLAB_EVENT_TYPES = [
   "consult.started", "consult.finished",
   "delegate.queued", "delegate.started", "delegate.finished", "delegate.cancelled",
   "guardrail.refused", "chain.abandoned",
+  "team.created", "team.composition.confirmed", "team.plan.proposed", "team.plan.approved", "team.scope.extended",
+  "team.state.changed", "team.budget.warning", "team.capacity.warning",
+  "section.state.changed", "section.summary", "section.merged",
+  "package.created", "package.state.changed", "package.needs-decision", "package.round.finished", "package.synced", "package.merged",
+  "message.posted",
 ] as const;
 export type CollabEventType = (typeof COLLAB_EVENT_TYPES)[number];
 

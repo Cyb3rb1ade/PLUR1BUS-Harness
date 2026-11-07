@@ -36,6 +36,10 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "collaboration.teams.capacity.memoryPerWriter", type: "integer", tier: "advanced", help: "Available memory in bytes estimated per local writer." },
   { key: "collaboration.teams.capacity.maxWriters", type: "integer", tier: "advanced", help: "Explicit soft-capacity override. Exceeding measured CPU or memory capacity emits a warning. The numeric bound preserves JSON safe integers, without an operational writer ceiling." },
   { key: "collaboration.teams.disk.minFreeBytes", type: "integer", tier: "advanced", help: "Hard floor before creating a worktree. Cannot be disabled; the provisioner-backed team scheduler enforces it." },
+  { key: "collaboration.teams.approval", type: "object", tier: "advanced", help: "Default team approval policy; a project lead confirms the scope." },
+  { key: "collaboration.teams.approval.auto", type: "boolean", tier: "advanced", help: "Permit automatic section merge only under an approved auto scope and lane gates." },
+  { key: "collaboration.teams.closedPaths", type: "array", tier: "advanced", help: "Additional closed-lane path globs. Built-in protected path classes always apply." },
+  { key: "collaboration.teams.deployBranches", type: "array", tier: "advanced", help: "Additional deploying target branches. Workflow-derived deployment rules always apply." },
   { key: "collaboration.limits", type: "object", tier: "advanced", help: "D124 collaboration limits. Project settings can only narrow these installation limits." },
   { key: "collaboration.limits.readHelpers.perTurn", type: "integer", tier: "advanced", help: "Read helper starts per calling turn." },
   { key: "collaboration.limits.readHelpers.depth", type: "integer", tier: "advanced", help: "Maximum read-only delegation depth." },
@@ -818,6 +822,33 @@ export const CONFIG_POLICY_SCHEMA: ConfigSchemaNode = {
                 }
               },
               "additionalProperties": false
+            },
+            "approval": {
+              "type": "object",
+              "required": [],
+              "properties": {
+                "auto": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "closedPaths": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "^(?:[A-Za-z0-9_.@+\\-]+|\\*|\\*\\*)(?:/(?:[A-Za-z0-9_.@+\\-]+|\\*|\\*\\*))*$"
+              }
+            },
+            "deployBranches": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
             }
           },
           "additionalProperties": false

@@ -95,6 +95,8 @@ export const POLICY: readonly ActionSpec[] = Object.freeze([
   spec("media.index.read", "system", { owner: A, admin: A, operator: A, member: A, viewer: A }),
   humanOnly(spec("media.index.operate", "system", OA)),
   humanOnly(spec("media.caption.write", "system", { owner: A, admin: A, operator: A, member: A })),
+  humanOnly(spec("team.surface.read", "system", { owner: A, admin: A, operator: A, member: A })),
+  humanOnly(spec("team.surface.write", "system", { owner: A, admin: A, operator: A, member: A })),
   humanOnly(spec("project.surface.read", "system", { owner: A, admin: A, operator: A, member: A, viewer: A })),
   humanOnly(spec("project.surface.write", "system", { owner: A, admin: A, operator: A, member: A })),
   humanOnly(spec("project.create", "system", OA)),

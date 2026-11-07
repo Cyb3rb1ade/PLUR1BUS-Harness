@@ -4,6 +4,7 @@
 
 mod files;
 mod server;
+pub mod team;
 pub use server::{CoreContext, Service, ToolError, ToolsModule};
 
 use sha2::{Digest, Sha256};

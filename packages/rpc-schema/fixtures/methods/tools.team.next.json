@@ -1,0 +1,421 @@
+{
+  "params": {
+    "state": {
+      "schema": "plur1bus.teamstate/1",
+      "lead": {
+        "member": "lead",
+        "epoch": 0,
+        "status": "active",
+        "stopPending": false,
+        "handoverTo": null,
+        "handoverPhase": "none",
+        "hold": null,
+        "retryAt": 0,
+        "retrying": false,
+        "retries": 0,
+        "crashRetries": 0,
+        "personPending": false
+      },
+      "run": {
+        "id": "team_fixture",
+        "status": "awaiting-approval",
+        "planHash": "1f67dfae02b8237686daa2682163bf2d71cb1c31782596a31094d5ab65aff4ae",
+        "checkHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "compositionHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "policyHash": "5c3114396b176eb6568caf3c1909446790fc2e6443993629fa38117eda51791c",
+        "approved": false,
+        "manualPaused": false,
+        "autoAllowed": false,
+        "budgetAvailable": true,
+        "scope": null,
+        "lastEventSeq": 0,
+        "now": 0
+      },
+      "plan": {
+        "schema": "plur1bus.teamplan/1",
+        "goals": [
+          "Implement calendar duration"
+        ],
+        "targetBranch": "integration",
+        "sections": [
+          {
+            "key": "first",
+            "title": "Calendar",
+            "goals": [
+              "Duration"
+            ],
+            "budget": {
+              "tokens": 6000,
+              "wallTimeMs": 60000
+            },
+            "mergeOrder": [
+              "duration"
+            ]
+          }
+        ],
+        "packages": [
+          {
+            "key": "duration",
+            "section": "first",
+            "title": "Duration",
+            "objective": "Implement duration",
+            "doneWhen": [
+              "Duration tests pass"
+            ],
+            "taskClass": "code-small",
+            "owns": [
+              {
+                "glob": "src/duration.ts",
+                "mode": "own"
+              }
+            ],
+            "interfaces": {
+              "provides": [
+                "duration"
+              ],
+              "consumes": []
+            },
+            "dependsOn": [],
+            "worker": {
+              "kind": "native",
+              "member": "writer"
+            },
+            "sync": "auto",
+            "estimate": {
+              "changedLines": 20,
+              "tokens": 1000,
+              "wallTimeMs": 10000
+            },
+            "checks": [
+              {
+                "kind": "tests",
+                "criterion": 0,
+                "tests": [
+                  "duration"
+                ]
+              }
+            ],
+            "dataDeletion": false
+          }
+        ]
+      },
+      "members": [
+        {
+          "id": "writer",
+          "roles": [
+            "writer"
+          ],
+          "available": true,
+          "eligiblePackages": [
+            "duration"
+          ]
+        },
+        {
+          "id": "reviewer",
+          "roles": [
+            "reviewer"
+          ],
+          "available": true,
+          "eligiblePackages": [
+            "duration"
+          ]
+        },
+        {
+          "id": "lead",
+          "roles": [
+            "lead"
+          ],
+          "available": true,
+          "eligiblePackages": []
+        }
+      ],
+      "sections": [
+        {
+          "key": "first",
+          "status": "open",
+          "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "targetHead": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "summaryTree": null,
+          "confirmation": null,
+          "budgetAvailable": true,
+          "personPending": false
+        }
+      ],
+      "packages": [
+        {
+          "key": "duration",
+          "status": "planned",
+          "writer": "writer",
+          "reviewer": null,
+          "activeRole": "writer",
+          "acceptedFindings": [],
+          "writerEpoch": 0,
+          "lane": "contained",
+          "budgetAvailable": true,
+          "worktreeReady": false,
+          "stopPending": false,
+          "retryAt": 0,
+          "resumeAfterChecks": false,
+          "treeHash": null,
+          "checksTree": null,
+          "checksHead": null,
+          "reviewTree": null,
+          "checks": [],
+          "workerMet": [],
+          "fixRounds": 0,
+          "reviewRounds": 0,
+          "disputes": 0,
+          "lastFinding": null,
+          "sameFindingRounds": 0,
+          "hadNeedsDecision": false,
+          "hasDispute": false,
+          "personPending": false,
+          "mergeConfirmation": null,
+          "syncMode": "auto",
+          "syncPending": false,
+          "syncReturnStatus": "writing",
+          "syncConflicts": 0,
+          "retries": 0,
+          "rateLimitExhaustions": 0,
+          "crashRetries": 0,
+          "hold": null,
+          "handoverTo": null,
+          "handoverPhase": "none",
+          "revertRate": null
+        }
+      ],
+      "mergeQueue": [],
+      "capacity": {
+        "maxWriters": 4,
+        "computedWriters": 4
+      },
+      "disk": {
+        "freeBytes": 40000000000,
+        "minFreeBytes": 20000000000
+      },
+      "timers": {
+        "pollIntervalMs": 600000,
+        "handoverAfterMs": 3600000,
+        "retryLimit": 2
+      },
+      "counters": {
+        "actions": 0,
+        "transitions": 0,
+        "personPending": 0
+      }
+    },
+    "event": {
+      "seq": 1,
+      "at": 1000,
+      "kind": "disk.measured",
+      "freeBytes": 40000000000
+    }
+  },
+  "result": {
+    "state": {
+      "schema": "plur1bus.teamstate/1",
+      "lead": {
+        "member": "lead",
+        "epoch": 0,
+        "status": "active",
+        "stopPending": false,
+        "handoverTo": null,
+        "handoverPhase": "none",
+        "hold": null,
+        "retryAt": 0,
+        "retrying": false,
+        "retries": 0,
+        "crashRetries": 0,
+        "personPending": false
+      },
+      "run": {
+        "id": "team_fixture",
+        "status": "awaiting-approval",
+        "planHash": "1f67dfae02b8237686daa2682163bf2d71cb1c31782596a31094d5ab65aff4ae",
+        "checkHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "compositionHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "policyHash": "5c3114396b176eb6568caf3c1909446790fc2e6443993629fa38117eda51791c",
+        "approved": false,
+        "manualPaused": false,
+        "autoAllowed": false,
+        "budgetAvailable": true,
+        "scope": null,
+        "lastEventSeq": 1,
+        "now": 1000
+      },
+      "plan": {
+        "schema": "plur1bus.teamplan/1",
+        "goals": [
+          "Implement calendar duration"
+        ],
+        "targetBranch": "integration",
+        "sections": [
+          {
+            "key": "first",
+            "title": "Calendar",
+            "goals": [
+              "Duration"
+            ],
+            "budget": {
+              "tokens": 6000,
+              "wallTimeMs": 60000
+            },
+            "mergeOrder": [
+              "duration"
+            ]
+          }
+        ],
+        "packages": [
+          {
+            "key": "duration",
+            "section": "first",
+            "title": "Duration",
+            "objective": "Implement duration",
+            "doneWhen": [
+              "Duration tests pass"
+            ],
+            "taskClass": "code-small",
+            "owns": [
+              {
+                "glob": "src/duration.ts",
+                "mode": "own"
+              }
+            ],
+            "interfaces": {
+              "provides": [
+                "duration"
+              ],
+              "consumes": []
+            },
+            "dependsOn": [],
+            "worker": {
+              "kind": "native",
+              "member": "writer"
+            },
+            "sync": "auto",
+            "estimate": {
+              "changedLines": 20,
+              "tokens": 1000,
+              "wallTimeMs": 10000
+            },
+            "checks": [
+              {
+                "kind": "tests",
+                "criterion": 0,
+                "tests": [
+                  "duration"
+                ]
+              }
+            ],
+            "dataDeletion": false
+          }
+        ]
+      },
+      "members": [
+        {
+          "id": "writer",
+          "roles": [
+            "writer"
+          ],
+          "available": true,
+          "eligiblePackages": [
+            "duration"
+          ]
+        },
+        {
+          "id": "reviewer",
+          "roles": [
+            "reviewer"
+          ],
+          "available": true,
+          "eligiblePackages": [
+            "duration"
+          ]
+        },
+        {
+          "id": "lead",
+          "roles": [
+            "lead"
+          ],
+          "available": true,
+          "eligiblePackages": []
+        }
+      ],
+      "sections": [
+        {
+          "key": "first",
+          "status": "open",
+          "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "targetHead": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "summaryTree": null,
+          "confirmation": null,
+          "budgetAvailable": true,
+          "personPending": false
+        }
+      ],
+      "packages": [
+        {
+          "key": "duration",
+          "status": "planned",
+          "writer": "writer",
+          "reviewer": null,
+          "activeRole": "writer",
+          "acceptedFindings": [],
+          "writerEpoch": 0,
+          "lane": "contained",
+          "budgetAvailable": true,
+          "worktreeReady": false,
+          "stopPending": false,
+          "retryAt": 0,
+          "resumeAfterChecks": false,
+          "treeHash": null,
+          "checksTree": null,
+          "checksHead": null,
+          "reviewTree": null,
+          "checks": [],
+          "workerMet": [],
+          "fixRounds": 0,
+          "reviewRounds": 0,
+          "disputes": 0,
+          "lastFinding": null,
+          "sameFindingRounds": 0,
+          "hadNeedsDecision": false,
+          "hasDispute": false,
+          "personPending": false,
+          "mergeConfirmation": null,
+          "syncMode": "auto",
+          "syncPending": false,
+          "syncReturnStatus": "writing",
+          "syncConflicts": 0,
+          "retries": 0,
+          "rateLimitExhaustions": 0,
+          "crashRetries": 0,
+          "hold": null,
+          "handoverTo": null,
+          "handoverPhase": "none",
+          "revertRate": null
+        }
+      ],
+      "mergeQueue": [],
+      "capacity": {
+        "maxWriters": 4,
+        "computedWriters": 4
+      },
+      "disk": {
+        "freeBytes": 40000000000,
+        "minFreeBytes": 20000000000
+      },
+      "timers": {
+        "pollIntervalMs": 600000,
+        "handoverAfterMs": 3600000,
+        "retryLimit": 2
+      },
+      "counters": {
+        "actions": 0,
+        "transitions": 1,
+        "personPending": 0
+      }
+    },
+    "actions": []
+  }
+}

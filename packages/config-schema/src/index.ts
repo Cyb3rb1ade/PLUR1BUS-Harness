@@ -56,6 +56,9 @@ export interface CollaborationLimitsConfig {
   taskClasses: Record<CollaborationTaskClass, { rounds: number; wallTimeMs: number; stallTimeMs: number }>;
 }
 export interface CollaborationTeamsConfig {
+  approval: { auto: boolean };
+  closedPaths: string[];
+  deployBranches: string[];
   enabled: boolean;
   capacity: { coresPerWriter: number; memoryPerWriter: number; maxWriters?: number };
   disk: { minFreeBytes: number };

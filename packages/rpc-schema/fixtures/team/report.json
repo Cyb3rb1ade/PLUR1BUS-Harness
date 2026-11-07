@@ -1,0 +1,14 @@
+{
+  "policyHash": "5c3114396b176eb6568caf3c1909446790fc2e6443993629fa38117eda51791c",
+  "planHash": "1f67dfae02b8237686daa2682163bf2d71cb1c31782596a31094d5ab65aff4ae",
+  "findings": [],
+  "lanes": [
+    {
+      "package": "duration",
+      "lane": "contained",
+      "reasons": []
+    }
+  ],
+  "overlapScore": 0.0,
+  "criticalPathMs": 10000
+}

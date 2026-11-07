@@ -9,7 +9,7 @@
         "since": 1758700000000
       },
       "contract": "1.7.0",
-      "rpc": "1.23.0",
+      "rpc": "1.24.0",
       "instanceId": "inst-fixture",
       "pid": 4242,
       "uptimeMs": 1500,

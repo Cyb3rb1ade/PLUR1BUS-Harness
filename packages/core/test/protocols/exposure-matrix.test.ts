@@ -14,6 +14,16 @@ const methods = (SCHEMA as any).$defs.methods as Record<string, { "x-server": st
 const allRpcMethods = Object.keys(methods).sort();
 
 describe("M6A-A1.7: Protocol Exposure Matrix Test", () => {
+  it("TK1 team controls stay human-only and outside every agent tool view", () => {
+    for (const name of ["team.get", "team.list", "team.create", "team.composition.confirm", "team.plan.approve", "team.scope.extend", "team.pause", "team.resume", "team.cancel", "team.package.reassign", "team.package.budget.set", "team.budget.set", "team.package.sync.set"]) {
+      assert.ok(allRpcMethods.includes(name), name);
+      assert.equal(isForbiddenMethod(name), true, name);
+      assert.equal(RPC_RULES[name]?.humanOnly, true, name);
+      for (const principal of [{ userId: 'viewer', kind: 'person', role: 'viewer' }, { userId: 'agent', kind: 'agent', role: 'owner' }] as Principal[]) {
+        assert.equal(authorize(principal, RPC_RULES[name]!.action, { kind: 'system' }).effect, 'deny', name);
+      }
+    }
+  });
   it("CLI-1 human coding operations are never exposed to an external agent", () => {
     for (const name of ["code.session.open", "code.session.diff", "code.session.check", "code.session.mode"]) {
       assert.ok(allRpcMethods.includes(name));
