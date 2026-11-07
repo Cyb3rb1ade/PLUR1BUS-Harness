@@ -69,7 +69,7 @@ Actions concurrency change below it only runs under the full-platform policy), t
 `core-unit-shard-windows` (`core unit shard i/3 (windows-2025)`) and their partition check `core-unit-windows`, which
 follow the same policy,
 `python-host` (including the experimental `windows-11-arm` leg), `system`, `service`, `sandbox`, `release-scripts`,
-`documents-golden`, `host-tool-eval` (the deterministic host tool/policy scenarios of D106 P4, fake OS ports, no live model), the build and shards of the browser suite (their verdict is in `web-browser`) and the advisory
+`documents-golden`, `host-tool-eval` (the deterministic host tool/policy scenarios of D106 P4, fake OS ports, no live model), `core-parity` (P4-02: the TS-core transcript self-test in `tests/core-parity/` and the `scripts/parity/module-map.mjs --check` freshness check; runs when the TS core changes and stays out of the gate until P4-10 flips it), the build and shards of the browser suite (their verdict is in `web-browser`) and the advisory
 `perf-startup` and `perf-budgets` jobs. They still run for their selected suites and show up as checks; a red one is a
 reason to look, not an automatic block. To promote a job, add it to `selections` in `scripts/ci/gate.mjs`, to the gate's
 `needs` and remove it from `UNGATED`; the workflow contract test fails until all three agree. Other workflows
