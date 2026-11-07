@@ -10,6 +10,8 @@ pub mod capabilities;
 pub mod client;
 pub mod error;
 pub mod process;
+#[cfg(feature = "server")]
+pub mod server;
 pub mod server_transport;
 pub mod transport;
 pub mod trust;

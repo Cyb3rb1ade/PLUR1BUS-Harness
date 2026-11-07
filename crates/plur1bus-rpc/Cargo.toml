@@ -5,10 +5,19 @@ edition.workspace = true
 license.workspace = true
 build = "build.rs"
 
+[features]
+# The server half for Rust servers (`plur1bus-core`, P4-03): one generated method trait per `x-server` value, their
+# dispatchers, and params/result validators compiled from pruned schema roots. The client-only builds leave it off.
+server = ["dep:jsonschema", "dep:plur1bus-config"]
+
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
 regress = "0.10"
+# Feature `server` only. The same versions and features the CLI and the engine already lock.
+jsonschema = { version = "0.26", default-features = false, optional = true }
+# `ajv_date_time`: ajv-formats' `date-time` rule, which the CLI already uses for config.json.
+plur1bus-config = { path = "../plur1bus-config", optional = true }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
@@ -25,3 +34,7 @@ prettyplease = "0.2"
 
 [dev-dependencies]
 tempfile.workspace = true
+
+[[test]]
+name = "server_dispatch"
+required-features = ["server"]

@@ -5771,7 +5771,9 @@ dependencies = [
 name = "plur1bus-rpc"
 version = "0.1.0"
 dependencies = [
+ "jsonschema",
  "libc",
+ "plur1bus-config",
  "prettyplease 0.2.37",
  "regress 0.10.5",
  "schemars 0.8.22",

@@ -400,6 +400,21 @@ fn main() {
     let code = prettyplease::unparse(&file);
     let out = PathBuf::from(env::var("OUT_DIR").unwrap());
     fs::write(out.join("types.rs"), code).unwrap();
+    if env::var_os("CARGO_FEATURE_SERVER").is_some() {
+        let defined: BTreeSet<String> = file
+            .items
+            .iter()
+            .filter_map(|item| match item {
+                syn::Item::Struct(s) => Some(s.ident.to_string()),
+                syn::Item::Enum(e) => Some(e.ident.to_string()),
+                syn::Item::Type(t) => Some(t.ident.to_string()),
+                _ => None,
+            })
+            .collect();
+        let server = server_code(methods.as_object().unwrap(), &defined);
+        let server = syn::parse_str::<syn::File>(&server).expect("generated server code parses");
+        fs::write(out.join("server.rs"), prettyplease::unparse(&server)).unwrap();
+    }
     fs::write(
         out.join("rpc_version.rs"),
         format!("pub const RPC_VERSION: &str = \"{rpc_version}\";\n"),
@@ -654,4 +669,108 @@ fn make_explicit(field: &mut syn::Field, nullable: bool) {
         syn::parse_quote!(#[serde(default, deserialize_with = "deserialize_present", skip_serializing_if = "::std::option::Option::is_none")])
     };
     field.attrs.push(attr);
+}
+
+/// The method name as a Rust function name: `a2a.peer.add` → `a2a_peer_add`, `models.setOverride` → `models_set_override`.
+fn snake(name: &str) -> String {
+    let mut out = String::new();
+    for c in name.chars() {
+        match c {
+            '.' | '-' => out.push('_'),
+            c if c.is_ascii_uppercase() => {
+                out.push('_');
+                out.push(c.to_ascii_lowercase());
+            }
+            c => out.push(c),
+        }
+    }
+    out
+}
+
+/// P4-03: the server half (feature `server`). For every `x-server` value one trait with one method per RPC method of that
+/// server, typed with the `<Method>Params`/`<Method>Result` types above, each defaulting to `MethodError::NotServed`; the
+/// sorted method list; and a dispatcher that routes a method name through `server.rs`'s `call` (params checked and
+/// decoded, the method called, the result encoded and checked). `defined` is every type typify emitted, so a method
+/// whose types are missing fails the build here instead of in the generated code.
+fn server_code(methods: &Map<String, Value>, defined: &BTreeSet<String>) -> String {
+    let mut by_server: BTreeMap<String, Vec<(&String, &Value)>> = BTreeMap::new();
+    for (name, definition) in methods {
+        let server = definition["x-server"].as_str().unwrap_or("core");
+        by_server
+            .entry(server.to_owned())
+            .or_default()
+            .push((name, definition));
+    }
+    let mut code = String::new();
+    for (server, mut list) in by_server {
+        list.sort_by(|a, b| a.0.cmp(b.0));
+        let trait_name = format!("{}Methods", pascal(&server));
+        let mut seen = BTreeSet::new();
+        code += &format!(
+            "/// The {n} methods with `x-server: \"{server}\"`. A server implements the ones it serves; every other one keeps its\n\
+             /// default body, [`MethodError::NotServed`].\n\
+             pub trait {trait_name}: Sync {{\n\
+             /// What every method receives besides its params (the authenticated caller, P4-10).\n\
+             type Context: Sync;\n",
+            n = list.len()
+        );
+        for (name, definition) in &list {
+            let function = snake(name);
+            assert!(
+                seen.insert(function.clone()),
+                "two methods map to {function}"
+            );
+            let (params, result) = (
+                format!("{}Params", pascal(name)),
+                format!("{}Result", pascal(name)),
+            );
+            assert!(
+                defined.contains(&params) && defined.contains(&result),
+                "{name}: typify emitted no {params} or {result}"
+            );
+            let mut doc = format!(
+                "`{name}` ({}, since {})",
+                definition["x-stability"].as_str().unwrap_or("unknown"),
+                definition["x-since"].as_str().unwrap_or("unknown")
+            );
+            if definition.get("x-deprecated").is_some() {
+                doc += ", deprecated";
+            }
+            if let Some(description) = definition["description"].as_str() {
+                doc += ": ";
+                doc += description;
+            }
+            code += &format!(
+                "#[doc = {doc:?}]\n\
+                 fn {function}(&self, cx: &Self::Context, params: crate::types::{params}) \
+                 -> impl ::std::future::Future<Output = ::std::result::Result<crate::types::{result}, MethodError>> + Send {{\n\
+                 let _ = (cx, params);\n\
+                 async {{ ::std::result::Result::Err(MethodError::NotServed) }}\n\
+                 }}\n"
+            );
+        }
+        code += "}\n";
+        let names: Vec<String> = list.iter().map(|(name, _)| format!("{name:?}")).collect();
+        code += &format!(
+            "/// The method names of [`{trait_name}`], sorted.\npub const {}_METHODS: &[&str] = &[{}];\n",
+            server.to_uppercase(),
+            names.join(", ")
+        );
+        code += &format!(
+            "/// Routes `method` to [`{trait_name}`]: an unknown method first, then the params against the schema (`_meta`\n\
+             /// removed), the call, and the result against the schema. `validators` must be `Validators::for_server(\"{server}\")`.\n\
+             pub async fn dispatch_{}<S: {trait_name}>(server: &S, cx: &S::Context, validators: &Validators, method: &str, \
+             params: ::serde_json::Value) -> ::std::result::Result<::serde_json::Value, DispatchError> {{\n\
+             match method {{\n",
+            snake(&server)
+        );
+        for (name, _) in &list {
+            code += &format!(
+                "{name:?} => call(validators, method, params, |p| server.{}(cx, p)).await,\n",
+                snake(name)
+            );
+        }
+        code += "_ => ::std::result::Result::Err(DispatchError::UnknownMethod),\n}\n}\n";
+    }
+    code
 }
