@@ -274,36 +274,6 @@ fn apply_steps(
     Ok(target)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// P4-03 review F5: a step another migrator applied after our first read is skipped under the lock, never re-run.
-    #[test]
-    fn a_step_applied_meanwhile_is_skipped_not_run_twice() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("s.sqlite");
-        let other = Connection::open(&path).unwrap();
-        other
-            .execute_batch("PRAGMA journal_mode=WAL; CREATE TABLE a (x); PRAGMA user_version = 1;")
-            .unwrap();
-        let mut conn = connect(&path).unwrap();
-        let steps = ["CREATE TABLE a (x)", "CREATE TABLE b (y)"];
-        // `from` = 0 is what a migrator read before the other one applied step 1.
-        let reached = apply_steps(&mut conn, &StoreSpec::new("s", 2), &steps, 0).unwrap();
-        assert_eq!(reached, 2);
-        assert_eq!(user_version(&conn).unwrap(), 2);
-        let tables: i64 = conn
-            .query_row(
-                "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name IN ('a', 'b')",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap();
-        assert_eq!(tables, 2);
-    }
-}
-
 /// Opens an existing file read-write, never creating it.
 fn connect(path: &Path) -> Result<Connection, StoreError> {
     if !path.is_file() {
@@ -337,4 +307,34 @@ fn configure(conn: &Connection, spec: &StoreSpec) -> Result<(), StoreError> {
         conn.execute_batch(statement)?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// P4-03 review F5: a step another migrator applied after our first read is skipped under the lock, never re-run.
+    #[test]
+    fn a_step_applied_meanwhile_is_skipped_not_run_twice() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("s.sqlite");
+        let other = Connection::open(&path).unwrap();
+        other
+            .execute_batch("PRAGMA journal_mode=WAL; CREATE TABLE a (x); PRAGMA user_version = 1;")
+            .unwrap();
+        let mut conn = connect(&path).unwrap();
+        let steps = ["CREATE TABLE a (x)", "CREATE TABLE b (y)"];
+        // `from` = 0 is what a migrator read before the other one applied step 1.
+        let reached = apply_steps(&mut conn, &StoreSpec::new("s", 2), &steps, 0).unwrap();
+        assert_eq!(reached, 2);
+        assert_eq!(user_version(&conn).unwrap(), 2);
+        let tables: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name IN ('a', 'b')",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(tables, 2);
+    }
 }
