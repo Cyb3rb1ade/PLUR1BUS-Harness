@@ -5630,6 +5630,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "plur1bus-canon"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "sha2 0.10.9",
+]
+
+[[package]]
 name = "plur1bus-config"
 version = "0.1.0"
 dependencies = [
