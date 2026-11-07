@@ -14,7 +14,7 @@ mod fixture {
         },
         time::{Duration, Instant},
     };
-    use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+    use tauri::{Listener, Manager, WebviewUrl, WebviewWindowBuilder};
 
     #[derive(Default, serde::Serialize)]
     struct Report {
@@ -26,6 +26,7 @@ mod fixture {
         colour_image_default: bool,
         decoder_fallback_is_native_template: bool,
         colour_image_restored: bool,
+        retirement_reaches_shell: bool,
     }
     fn gui<T: Send + 'static>(
         app: &tauri::AppHandle,
@@ -238,6 +239,55 @@ mod fixture {
         })
         .map_err(|_| "TRAY_FIXTURE_COLOUR_RESTORE_FAILED")?;
         report.lock().unwrap().colour_image_restored = true;
+        let (sender, receiver) = std::sync::mpsc::sync_channel(1);
+        let listener =
+            app.get_webview_window("shell")
+                .unwrap()
+                .listen("desktop-tray-state", move |event| {
+                    if let Ok(value) = serde_json::from_str::<serde_json::Value>(event.payload()) {
+                        if value["harness"] == "unpaired" {
+                            let _ = sender.try_send(value);
+                        }
+                    }
+                });
+        gui(
+            app,
+            |app| {
+                use plur1bus_desktop::connections::{Connection, Kind, Origin};
+                let row = Connection::new(
+                    "Fixture".into(),
+                    Kind::Remote,
+                    Origin::parse("https://fixture.invalid").unwrap(),
+                    "fixture".into(),
+                    "fixture".into(),
+                    "fixture".into(),
+                );
+                let id = row.id;
+                let state = app.state::<native::NativeState>();
+                *state.connection.lock().unwrap() = Some(row);
+                *state.view.lock().unwrap() = TrayState {
+                    harness: HarnessState::Ready,
+                    approvals_pending: true,
+                    path: Some(plur1bus_desktop::tray::PathLabel::Direct),
+                    ..Default::default()
+                };
+                native::retire_connection(&app, id);
+            },
+            Duration::from_secs(5),
+        )?;
+        let value = receiver
+            .recv_timeout(Duration::from_secs(5))
+            .map_err(|_| "TRAY_FIXTURE_RETIRE_EVENT_MISSING")?;
+        app.get_webview_window("shell").unwrap().unlisten(listener);
+        if value["connectionName"] != serde_json::Value::Null
+            || value["connectionKind"] != serde_json::Value::Null
+            || value["approvalsPending"] != false
+            || value["path"] != serde_json::Value::Null
+            || value["badge"] != "attention"
+        {
+            return Err("TRAY_FIXTURE_RETIRE_EVENT_INVALID");
+        }
+        report.lock().unwrap().retirement_reaches_shell = true;
         Ok(())
     }
     pub fn run() {

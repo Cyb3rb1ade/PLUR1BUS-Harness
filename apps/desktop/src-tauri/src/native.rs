@@ -113,8 +113,10 @@ pub fn retire_connection(app: &tauri::AppHandle, id: uuid::Uuid) {
                 view.harness = crate::tray::HarnessState::Unpaired;
                 view.approvals_pending = false;
                 view.set_transport(None);
-                update_tray(&gui, &view);
+                let value = view.clone();
                 drop(view);
+                update_tray(&gui, &value);
+                emit_tray_state(&gui, &value);
                 navigate_shell(&gui, "#/connections");
             });
         })
