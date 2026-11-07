@@ -92,7 +92,7 @@ export const SRC_RULES = [
   [rx(`${C}rpc/(?:media-surface)\\.ts$`), "P4-53", "port", "plan P4-53 source"],
   [rx(`${C}rpc/(?:voice-session-surface)\\.ts$`), "P4-52", "port", "voice sessions"],
   [rx(`${C}(?:capabilities)\\.ts$`), "P4-10", "fold", "crates/plur1bus-rpc/src/capabilities.rs builds the feature list"],
-  [rx(`${C}(?:lock)\\.ts$`), "P4-10", "fold", "the core lock is the SQLite byte-range lock of crates/plur1bus/src/audit_chain.rs (plur1bus-audit)"],
+  [rx(`${C}(?:lock)\\.ts$`), "P4-10", "fold", "the core lock is the SQLite byte-range lock of crates/plur1bus-audit/src/chain.rs"],
   [rx(`${C}(?:core|bin|warmup|platform|logger|paths|events-map|engine-host-ports|activity|activity-rpc|host|join|principal)\\.ts$`), "P4-10", "port", "plan §1.2 process and RPC front door"],
   [rx(`${C}engine/`), "P4-10", "port", "EngineClient, select.ts, host methods; the node branch of select.ts goes with RE-11"],
   [rx(`${C}engine(?:-shim)?\\.(?:d\\.)?ts$`), "RE-11", "engine", "in-process loader and contract assertion of the Node engine; retired with engine.implementation=node"],

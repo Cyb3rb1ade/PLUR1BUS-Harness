@@ -190,7 +190,7 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/core/src/events-map.ts` | port | plan §1.2 process and RPC front door |
 | `packages/core/src/host.ts` | port | plan §1.2 process and RPC front door |
 | `packages/core/src/join.ts` | port | plan §1.2 process and RPC front door |
-| `packages/core/src/lock.ts` | fold | the core lock is the SQLite byte-range lock of crates/plur1bus/src/audit_chain.rs (plur1bus-audit) |
+| `packages/core/src/lock.ts` | fold | the core lock is the SQLite byte-range lock of crates/plur1bus-audit/src/chain.rs |
 | `packages/core/src/logger.ts` | port | plan §1.2 process and RPC front door |
 | `packages/core/src/paths.ts` | port | plan §1.2 process and RPC front door |
 | `packages/core/src/platform.ts` | port | plan §1.2 process and RPC front door |
