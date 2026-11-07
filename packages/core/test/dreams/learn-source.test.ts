@@ -13,7 +13,7 @@ function rig() {
   let now = 10;
   const store = new SessionStore({ path: ':memory:', clock: () => now });
   const session = store.createSession({ kind: 'direct', agentId: 'agent', owner: deriveUserPrincipal('alice') });
-  const source = learningSource(store, { config: () => ({} as HarnessConfig), hasAgent: () => true, project: () => null });
+  const source = learningSource(store, { config: () => ({ agents: {} } as HarnessConfig), hasAgent: () => true, project: () => null });
   const turn = (at: number) => { now = at; const { turn } = store.beginTurn(session.id, 'fixture', 1); store.completeTurn(turn.id, { text: 'reply', tokens: 1 }); return turn; };
   return { store, session, source, turn };
 }
