@@ -39,6 +39,8 @@ at `0d542df7da` (D123 spec and plan), #845 at `5773ca3857` (D122 spec and plan),
 (`a2a/peer-store.ts`, `a2a/peer-client.ts`, `docs/a2a.md`, and the history of its re-merges). External sources in §3,
 re-checked 2026-11-01 where marked.
 
+**D127 amendment (owner, 2026-11-07).** Every coding package needs at least one executable `checks[]` entry in its hand-off; the harness, not the worker, sets `met` (§6.5, §6.8). A `code` dependency must name the crossing interface (`provides`/`consumes`) or a `carries` artefact; an `order` dependency needs a `reason`; any other edge is reported as `false-edge` (§6.14). Reviewers and the judge read the team channel only after their verdict, and parallel findings are merged by code (§6.8, §6.16, §9). Every package gets a lane (`contained`, `wide`, `closed`). A `closed` package (migrations, data deletion, release or deploy configuration, CI workflows, infrastructure, secret-bearing configuration, or a target branch that deploys on push) always needs `team.merge.confirm`, and its section never merges by itself, even under `auto` (§6.9, §6.14). Confirmed causes return as planning constraints in the lead's plan brief. See the [D127 plan](../plans/2026-11-07-d127-checks-edges-lanes-learning.md).
+
 ## 1. Context and problem
 
 ### 1.1 The workflow the harness must reproduce
