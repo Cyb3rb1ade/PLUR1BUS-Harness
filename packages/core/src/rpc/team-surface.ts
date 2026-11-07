@@ -16,8 +16,8 @@ export function buildTeamSurface(service: () => Collab | null): Record<string, H
   return Object.fromEntries(TEAM_METHODS.map(method => [method, (async (params, ctx) => {
     const person = authenticatedPrincipal(ctx);
     if (person.kind !== 'person' || person.role === 'viewer') throw new RpcError('E_DENIED', 'human team access required');
-    if (!validateParams(method, params).ok) throw new RpcError('E_INVALID_PARAMS', 'invalid team parameters');
     const s = service(); if (!s) throw new RpcError('E_NOT_AVAILABLE', 'collaboration unavailable');
+    if (!validateParams(method, params).ok) throw new RpcError('E_INVALID_PARAMS', 'invalid team parameters');
     const p = params as Record<string, unknown>, teams = s.worktreeStore.team;
     try {
       const projectId = method === 'team.list' || method === 'team.create' ? String(p.projectId) : teams.get(String(p.runId)).projectId;
