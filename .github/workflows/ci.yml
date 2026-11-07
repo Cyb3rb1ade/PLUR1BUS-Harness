@@ -1502,9 +1502,17 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { fetch-depth: 0 } # the Phase 4 freeze guard reads the PR's commits, not just its tree
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0 }
       - name: explicit selections and dependency outcomes
         env:
           NEEDS: ${{ toJSON(needs) }}
         run: node scripts/ci/gate.mjs
+      # D129: pull requests only (a merge-queue squash would drop the per-commit trailers); a failure here fails ci-gate.
+      - name: Phase 4 freeze (D129)
+        if: always() && github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/ci/phase4-freeze.mjs
