@@ -338,11 +338,7 @@ fn publish_view(
                 let value = view.clone();
                 drop(view);
                 update_tray(&handle, &value);
-                let _ = handle.emit_to(
-                    tauri::EventTarget::webview_window("shell"),
-                    "desktop-tray-state",
-                    value,
-                );
+                emit_tray_state(&handle, &value);
             });
         })
         .is_err()
@@ -594,11 +590,7 @@ async fn enqueue_update(app: &tauri::AppHandle, generation: u64, update: EventUp
                 let value = view.clone();
                 drop(view);
                 update_tray(&handle, &value);
-                let _ = handle.emit_to(
-                    tauri::EventTarget::webview_window("shell"),
-                    "desktop-tray-state",
-                    value,
-                );
+                emit_tray_state(&handle, &value);
             });
             let _ = ack.send(
                 applied
@@ -1141,10 +1133,31 @@ pub fn set_approvals_pending(app: &tauri::AppHandle, pending: bool) {
     let value = view.clone();
     drop(view);
     update_tray(app, &value);
+    emit_tray_state(app, &value);
+}
+/// #740 Home chip: the current tray view with its badge and the active connection, for the `status_view` command. `None`
+/// before the native state exists.
+pub fn shell_tray(app: &tauri::AppHandle) -> Option<crate::tray::ShellTray> {
+    let state = app.try_state::<NativeState>()?;
+    let view = state.view.lock().unwrap().clone();
+    Some(shell_view(app, &view))
+}
+fn shell_view(app: &tauri::AppHandle, view: &TrayState) -> crate::tray::ShellTray {
+    let state = app.state::<NativeState>();
+    let connection = state.connection.lock().unwrap();
+    crate::tray::ShellTray::of(
+        view,
+        connection
+            .as_ref()
+            .map(|row| (row.name.as_str(), row.kind.clone())),
+    )
+}
+/// Every tray change reaches the shell window as `desktop-tray-state` (the Home chip). Called without the view lock held.
+fn emit_tray_state(app: &tauri::AppHandle, view: &TrayState) {
     let _ = app.emit_to(
         tauri::EventTarget::webview_window("shell"),
         "desktop-tray-state",
-        value,
+        shell_view(app, view),
     );
 }
 fn update_tray(app: &tauri::AppHandle, view: &TrayState) {
@@ -1244,7 +1257,7 @@ pub(crate) fn publish_controller(app: &tauri::AppHandle, status: crate::controll
         let value = view.clone();
         drop(view);
         update_tray(&handle, &value);
-        let _ = handle.emit_to("shell", "desktop-tray-state", value);
+        emit_tray_state(&handle, &value);
     });
 }
 
@@ -1254,5 +1267,7 @@ pub fn refresh_updates(app: &tauri::AppHandle) {
     let _ = app.run_on_main_thread(move || {
         let view = handle.state::<NativeState>().view.lock().unwrap().clone();
         update_tray(&handle, &view);
+        // An available update changes the badge, which the Home chip shows too.
+        emit_tray_state(&handle, &view);
     });
 }

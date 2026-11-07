@@ -13,7 +13,7 @@ test("all shell routes and dialog pass axe WCAG 2.1 AA in both themes and locale
         if (section === "home") {
           const colors = await page.evaluate(() => {
             const tokens = getComputedStyle(document.documentElement);
-            return [[".eyebrow", "--ink-3"], ["h1", "--ink"], [".lead", "--ink-2"], [".chip-ok", "--ok-ink"]].map(([selector, token]) => {
+            return [[".eyebrow", "--ink-3"], ["h1", "--ink"], [".lead", "--ink-2"], [".connection-chip", "--warn-ink"]].map(([selector, token]) => {
               const node = document.querySelector<HTMLElement>(`.home-hero ${selector}`)!;
               const expected = document.createElement("span");
               expected.style.color = tokens.getPropertyValue(token!);
@@ -57,7 +57,10 @@ function assertAxe(results: { violations: Array<{ id: string; nodes: unknown[] }
       ".eyebrow": "Home hero only: gradient extrema and interpolation verified for tertiary ink by contrast.test.ts.",
       "h1": "Home hero only: gradient extrema and interpolation verified for ink by contrast.test.ts.",
       ".lead": "Home hero only: gradient extrema and interpolation verified for secondary ink by contrast.test.ts.",
-      ".chip-ok": "Home hero only: ok ink/background pair is composited over every gradient interpolation in contrast.test.ts.",
+      ".chip-name": "Home hero only: the connection chip's ok, warn and neutral ink/background pairs are composited over every gradient interpolation in contrast.test.ts.",
+      ".chip-separator": "Home hero only: the connection chip's ok, warn and neutral ink/background pairs are composited over every gradient interpolation in contrast.test.ts.",
+      ".chip-state": "Home hero only: the connection chip's ok, warn and neutral ink/background pairs are composited over every gradient interpolation in contrast.test.ts.",
+      ".chip-path": "Home hero only: the connection chip's ok, warn and neutral ink/background pairs are composited over every gradient interpolation in contrast.test.ts.",
     } : {}),
   };
   const unreviewed = results.incomplete.filter(result => result.id === "color-contrast").flatMap(result => result.nodes)

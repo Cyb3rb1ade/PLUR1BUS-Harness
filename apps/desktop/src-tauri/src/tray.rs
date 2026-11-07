@@ -103,12 +103,34 @@ pub const TAILSCALE_DISCONNECTED: [&str; 4] = [
 /// The hint codes of a Tailscale path that does not work although Tailscale runs (the probe failed, or the connection
 /// left through another interface): the attention badge, without „Tailscale getrennt“.
 pub const TAILSCALE_PATH_BROKEN: [&str; 2] = ["tailscale-unreachable", "tailscale-route-mismatch"];
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Badge {
     Running,
     Busy,
     Attention,
     Update,
+}
+/// The tray view as the shell's Home chip reads it (#740, owner decision 2026-11-07): the view, its badge and the active
+/// connection's name and kind, so the window shows what the tray header shows and never recomputes the badge rule.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShellTray {
+    #[serde(flatten)]
+    pub view: TrayState,
+    pub badge: Badge,
+    pub connection_name: Option<String>,
+    pub connection_kind: Option<crate::connections::Kind>,
+}
+impl ShellTray {
+    pub fn of(view: &TrayState, connection: Option<(&str, crate::connections::Kind)>) -> Self {
+        Self {
+            view: view.clone(),
+            badge: view.badge(),
+            connection_name: connection.as_ref().map(|(name, _)| (*name).to_owned()),
+            connection_kind: connection.map(|(_, kind)| kind),
+        }
+    }
 }
 impl TrayState {
     /// The active connection's path after a check (transport choice spec §7.3): its label, and whether Tailscale is

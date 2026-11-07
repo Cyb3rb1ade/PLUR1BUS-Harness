@@ -764,3 +764,54 @@ fn a_waiting_approval_raises_attention_and_keeps_the_harness_word() {
     view.harness = HarnessState::Starting;
     assert_eq!(view.badge(), Badge::Busy);
 }
+
+#[test]
+fn the_shell_chip_reads_the_tray_view_its_badge_and_the_active_connection() {
+    use plur1bus_desktop::connections::Kind;
+    let fresh = serde_json::to_value(ShellTray::of(&TrayState::default(), None)).unwrap();
+    assert_eq!(fresh["harness"], "unpaired");
+    assert_eq!(fresh["badge"], "attention");
+    assert_eq!(fresh["connectionName"], serde_json::Value::Null);
+    assert_eq!(fresh["connectionKind"], serde_json::Value::Null);
+    let mut view = TrayState {
+        harness: HarnessState::Ready,
+        approvals_pending: true,
+        path: Some(PathLabel::DirectPublic),
+        ..TrayState::default()
+    };
+    let value = serde_json::to_value(ShellTray::of(&view, Some(("Desk", Kind::Remote)))).unwrap();
+    assert_eq!(value["harness"], "ready");
+    assert_eq!(value["badge"], "attention");
+    assert_eq!(value["path"], "direct-public");
+    assert_eq!(value["approvalsPending"], true);
+    assert_eq!(value["connectionName"], "Desk");
+    assert_eq!(value["connectionKind"], "remote");
+    view.approvals_pending = false;
+    view.path = None;
+    let value = serde_json::to_value(ShellTray::of(&view, Some(("Box", Kind::Bundled)))).unwrap();
+    assert_eq!(value["badge"], "running");
+    assert_eq!(value["path"], serde_json::Value::Null);
+    assert_eq!(value["connectionKind"], "bundled");
+    for (badge, word) in [
+        (Badge::Running, "running"),
+        (Badge::Busy, "busy"),
+        (Badge::Attention, "attention"),
+        (Badge::Update, "update"),
+    ] {
+        assert_eq!(serde_json::to_value(badge).unwrap(), word);
+    }
+    // The window translates these keys (`tray.state.*` in the shell catalogues).
+    for (state, word) in [
+        (HarnessState::Starting, "starting"),
+        (HarnessState::Ready, "ready"),
+        (HarnessState::Degraded, "degraded"),
+        (HarnessState::Down, "down"),
+        (HarnessState::Disconnected, "disconnected"),
+        (HarnessState::Unpaired, "unpaired"),
+        (HarnessState::Updating, "updating"),
+        (HarnessState::Rollback, "rollback"),
+        (HarnessState::Crashed, "crashed"),
+    ] {
+        assert_eq!(serde_json::to_value(state).unwrap(), word);
+    }
+}
