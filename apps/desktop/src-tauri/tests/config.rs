@@ -49,6 +49,7 @@ fn shell_capability_is_local_only() {
         c["permissions"],
         serde_json::json!([
             "allow-app-info",
+            "allow-status-view",
             "allow-settings-get",
             "allow-settings-set",
             "allow-connections-list",
@@ -177,6 +178,7 @@ fn every_wp4_command_is_registered_guarded_and_no_pin_or_runtime_path_is_an_ipc_
             "host_file_pick",
             "host_import_snapshot",
             "app_info",
+            "status_view",
             "settings_get",
             "settings_set",
             "connections_list",

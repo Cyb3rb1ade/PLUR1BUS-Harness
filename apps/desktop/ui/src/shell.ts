@@ -9,8 +9,9 @@ import {updatesPage} from "./views/settings-updates.ts";
 import {computerAccess} from "./views/settings-computer-access.ts";
 import { bundledRuntime } from "./views/bundled-runtime.ts";
 import { connectionsView } from "./views/connections.ts";
+import { connectionChip } from "./views/connection-chip.ts";
 import "./theme/base.css";
-import type { DesktopTransport, Platform, Settings, ThemeChoice } from "./ipc.ts";
+import type { DesktopTransport, Platform, Settings, ThemeChoice, TrayView } from "./ipc.ts";
 import { resolveLocale, translate, type Locale, type MessageKey } from "./i18n.ts";
 import { routeFromHash, hashFor, type Route, type Section, type SettingsPage } from "./router.ts";
 import { element, append } from "./components/dom.ts";
@@ -93,6 +94,11 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
   let connectionRefresh: Promise<void> | null = null;
   const renderConnections = connectionsView(transport, t, () => connectionStatus, refreshConnections);
   void transport.stepUpRequired?.(() => { navigate("connections"); });
+  // #740 Home chip: the tray's view. A change that arrives while the first read is in flight wins over that read.
+  let tray: TrayView | null = null;
+  let trayChanged = false;
+  void transport.trayViewEvents?.(view => { trayChanged = true; tray = view; render(); }).catch(() => {});
+  void transport.trayView?.().then(view => { if (!trayChanged) { tray = view; render(); } }).catch(() => {});
   function connectionSummary() {
     if (connectionStatus.status === "loading") return t("connections.loading");
     if (connectionStatus.status === "error") return t(connectionStatus.timedOut ? "connections.loadTimeout" : "connections.loadError");
@@ -194,7 +200,8 @@ export function createShell(root: HTMLElement, transport: DesktopTransport) {
   function home(): HTMLElement {
     const body = element("div", "content home-content");
     const hero = element("section", "home-hero");
-    append(hero, element("p", "eyebrow", t("home.eyebrow")), element("h1", undefined, t("home.title")), element("p", "lead", t("home.lead")), chip(t("status.ready"), "ok"));
+    append(hero, element("p", "eyebrow", t("home.eyebrow")), element("h1", undefined, t("home.title")), element("p", "lead", t("home.lead")),
+      connectionChip(tray, connectionStatus.data?.connections.find(row => row.id === connectionStatus.data?.active) ?? null, t, () => navigate("connections")));
     const cards = element("div", "home-cards");
     append(cards,
       pageCard(t("home.connectionTitle"), connectionStatus.status === "ready" && connectionStatus.data?.connections.length ? `${connectionSummary()}: ${connectionStatus.data.connections.map(row => row.name).join(", ")}` : connectionSummary(), button(t("home.openConnections"), () => navigate("connections"), "primary")),

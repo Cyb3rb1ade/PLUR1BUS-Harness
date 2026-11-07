@@ -32,6 +32,9 @@ test("every semantic ink/background token pair meets 4.5:1 in both themes", () =
       const bg = a.map((v, channel) => v + (b[channel]! - v) * i / 100) as RGB;
       for (const ink of ["ink", "ink-2", "ink-3"]) check(ink, bg, "hero gradient");
       check("ok-ink", color("ok-bg", bg), "ok-bg over hero gradient");
+      // #740 Home chip tones: attention (warn) and neutral (chip) sit on the hero too.
+      check("warn-ink", color("warn-bg", bg), "warn-bg over hero gradient");
+      check("ink-2", color("chip", bg), "chip over hero gradient");
     }
   }
 });

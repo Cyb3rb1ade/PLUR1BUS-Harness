@@ -249,10 +249,11 @@ pub mod portal {
         zvariant::{OwnedObjectPath, OwnedValue, Value},
         Connection, Proxy,
     };
-    /// Only closed product states cross the background-status boundary.
+    /// Only closed product states cross the background-status boundary, in the tray's own words for `language` (#740).
     pub async fn set_status(
         connection: &Connection,
         state: &TrayState,
+        language: crate::tray::Language,
     ) -> Result<(), NotifyFailure> {
         tokio::time::timeout(Duration::from_secs(3), async {
             let portal = Proxy::new(
@@ -271,7 +272,8 @@ pub mod portal {
             {
                 return Err(NotifyFailure);
             }
-            let options = HashMap::from([("message", Value::from(state.harness.words()))]);
+            let options =
+                HashMap::from([("message", Value::from(language.harness(state.harness)))]);
             portal
                 .call::<_, _, ()>("SetStatus", &(options))
                 .await

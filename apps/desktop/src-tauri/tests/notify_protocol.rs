@@ -1,7 +1,7 @@
 #![cfg(unix)]
 use plur1bus_desktop::{
     notify::{dbus, Banner},
-    tray::{HarnessState, TrayState},
+    tray::{HarnessState, Language, TrayState},
 };
 use std::{
     collections::HashMap,
@@ -250,7 +250,12 @@ impl StatusPortal {
 }
 #[tokio::test]
 async fn background_status_sends_only_closed_state_and_requires_portal_v2() {
-    for version in [1, 2] {
+    // #740: the portal message is the tray's word in the chosen language, never English only.
+    for (version, language, word) in [
+        (1, Language::En, "Crashed"),
+        (2, Language::En, "Crashed"),
+        (2, Language::De, "Abgestürzt"),
+    ] {
         let messages = Arc::new(Mutex::new(vec![]));
         let (server, client) = tokio::net::UnixStream::pair().unwrap();
         let server = Builder::unix_stream(server)
@@ -277,12 +282,13 @@ async fn background_status_sends_only_closed_state_and_requires_portal_v2() {
             harness: HarnessState::Crashed,
             ..Default::default()
         };
-        let result = plur1bus_desktop::notify::portal::set_status(&client.unwrap(), &state).await;
+        let result =
+            plur1bus_desktop::notify::portal::set_status(&client.unwrap(), &state, language).await;
         assert_eq!(result.is_ok(), version == 2);
         assert_eq!(
             *messages.lock().unwrap(),
             if version == 2 {
-                vec!["Crashed".to_owned()]
+                vec![word.to_owned()]
             } else {
                 vec![]
             }
