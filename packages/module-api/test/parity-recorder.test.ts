@@ -23,7 +23,7 @@ async function withEnv<T>(env: Record<string, string | undefined>, fn: () => Pro
 async function drive(dir: string, token: string): Promise<void> {
   const address = process.platform === 'win32' ? `\\\\.\\pipe\\p1b-${randomUUID()}` : join(dir, 'rpc.sock');
   const server = createRpcServer({ address, token, hello: () => ({ contract: '1.4.1', rpc: '1.6.0', instanceId: 'recorder-test', pid: process.pid }),
-    logger: createLogger({ file: join(dir, 'server.log'), level: 'error' }),
+    logger: createLogger({ file: join(dir, 'server.log'), level: 'error', role: 'test' }),
     methods: { 'agent.list': async () => ({ agents: [] }) } });
   await server.listen();
   const client = await connect({ address, token, expectedServerPid: process.pid });
