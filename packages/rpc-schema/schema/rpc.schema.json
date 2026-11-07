@@ -29958,6 +29958,145 @@
             "run"
           ]
         }
+      },
+      "tools.team.check": {
+        "description": "D124 pure Core-only team facts; no execution or filesystem access.",
+        "x-server": "tools",
+        "x-stability": "experimental",
+        "x-since": "1.24.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "plan": {
+              "$ref": "#/$defs/TeamPlan"
+            },
+            "files": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/TeamFile"
+              },
+              "maxItems": 4096
+            },
+            "workflows": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/TeamWorkflow"
+              },
+              "maxItems": 256
+            },
+            "config": {
+              "$ref": "#/$defs/TeamPolicy"
+            }
+          },
+          "required": [
+            "plan",
+            "files",
+            "workflows",
+            "config"
+          ]
+        },
+        "result": {
+          "$ref": "#/$defs/TeamPlanReport"
+        }
+      },
+      "tools.team.diffcheck": {
+        "description": "D124 pure Core-only team facts; no execution or filesystem access.",
+        "x-server": "tools",
+        "x-stability": "experimental",
+        "x-since": "1.24.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "owns": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/TeamOwnership"
+              },
+              "maxItems": 64
+            },
+            "interfaces": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/TeamGlob"
+              },
+              "maxItems": 64
+            },
+            "files": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "maxItems": 4096
+            }
+          },
+          "required": [
+            "owns",
+            "interfaces",
+            "files"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "files": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/TeamDiffEntry"
+              },
+              "maxItems": 4096
+            }
+          },
+          "required": [
+            "files"
+          ]
+        }
+      },
+      "tools.team.impact": {
+        "description": "D124 pure Core-only team facts; no execution or filesystem access.",
+        "x-server": "tools",
+        "x-stability": "experimental",
+        "x-since": "1.24.0",
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "merged": {
+              "$ref": "#/$defs/TeamMerged"
+            },
+            "running": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/TeamImpactPackage"
+              },
+              "maxItems": 32
+            }
+          },
+          "required": [
+            "merged",
+            "running"
+          ]
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "affected": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/TeamImpactResult"
+              },
+              "maxItems": 32
+            }
+          },
+          "required": [
+            "affected"
+          ]
+        }
       }
     },
     "BudgetLimit": {
@@ -35588,6 +35727,213 @@
         "writersMax",
         "createdAt",
         "updatedAt"
+      ]
+    },
+    "TeamFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "section": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "path"
+      ]
+    },
+    "TeamWorkflow": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "content": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 262144
+        }
+      },
+      "required": [
+        "path",
+        "content"
+      ]
+    },
+    "TeamDiffEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "classification": {
+          "type": "string",
+          "enum": [
+            "owned",
+            "interface",
+            "shared",
+            "foreign"
+          ]
+        }
+      },
+      "required": [
+        "path",
+        "classification"
+      ]
+    },
+    "TeamImpactPackage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "section": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "owns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TeamOwnership"
+          },
+          "maxItems": 64
+        },
+        "consumes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "maxItems": 64
+        },
+        "dependsOn": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "maxItems": 32
+        },
+        "lane": {
+          "$ref": "#/$defs/TeamLane"
+        },
+        "changedFiles": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "maxItems": 4096
+        }
+      },
+      "required": [
+        "key",
+        "section",
+        "owns",
+        "consumes",
+        "dependsOn",
+        "lane"
+      ]
+    },
+    "TeamMerged": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "section": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "maxItems": 4096
+        },
+        "provides": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "maxItems": 64
+        }
+      },
+      "required": [
+        "key",
+        "section",
+        "files",
+        "provides"
+      ]
+    },
+    "TeamImpactResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "dependency",
+              "interface",
+              "overlap"
+            ]
+          },
+          "maxItems": 3
+        },
+        "interfaceFiles": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "maxItems": 4096
+        },
+        "lane": {
+          "$ref": "#/$defs/TeamLane"
+        }
+      },
+      "required": [
+        "package",
+        "reasons",
+        "interfaceFiles",
+        "lane"
       ]
     }
   }

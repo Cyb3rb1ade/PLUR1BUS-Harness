@@ -7,6 +7,18 @@
     "tools.health": {
       "stability": "experimental",
       "since": "1.15.0"
+    },
+    "tools.team.check": {
+      "stability": "experimental",
+      "since": "1.24.0"
+    },
+    "tools.team.diffcheck": {
+      "stability": "experimental",
+      "since": "1.24.0"
+    },
+    "tools.team.impact": {
+      "stability": "experimental",
+      "since": "1.24.0"
     }
   },
   "notifications": {},

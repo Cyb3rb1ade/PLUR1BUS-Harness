@@ -1,0 +1,34 @@
+{
+  "params": {
+    "owns": [
+      {
+        "glob": "src/**",
+        "mode": "own"
+      }
+    ],
+    "interfaces": [
+      "src/api"
+    ],
+    "files": [
+      "src/code",
+      "src/api",
+      "other"
+    ]
+  },
+  "result": {
+    "files": [
+      {
+        "path": "src/code",
+        "classification": "owned"
+      },
+      {
+        "path": "src/api",
+        "classification": "interface"
+      },
+      {
+        "path": "other",
+        "classification": "foreign"
+      }
+    ]
+  }
+}
