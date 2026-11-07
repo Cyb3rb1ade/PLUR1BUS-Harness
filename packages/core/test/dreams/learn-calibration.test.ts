@@ -42,6 +42,7 @@ test('precision counts durable human decisions per model/prompt and excludes pen
     const record = calibration(store, target, ['fixture/large', 'fixture/small']);
     assert.deepEqual(record.A, { accepted: 48, decided: 50, precision: 0.96, allowed: false, reason: 'revert-unavailable' });
     assert.equal(record.B.decided, 0);
+    assert.deepEqual(calibration(store, { agentId: target.agentId, owner: target.owner, scope: target.scope }, ['fixture/large', 'fixture/small']), record);
     const changed = calibration(store, target, ['fixture/other']); assert.equal(changed.A.decided, 0); assert.notEqual(changed.revision, record.revision);
   } finally { store.close(); }
 });

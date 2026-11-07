@@ -1,5 +1,5 @@
 import { SensitivityScanner } from '../../memory-sensitivity/scanner.ts';
-import { digest } from './selection.ts';
+import { digest, targetHash } from './selection.ts';
 import type { LearnStore } from './store.ts';
 import { PROMPT_VERSION, type Finding, type Target, type Tier } from './types.ts';
 
@@ -41,7 +41,7 @@ export function calibration(store: LearnStore, target: Target, models: readonly 
   const modelIds = [...new Set(models)].sort();
   const revision = digest([PROMPT_VERSION, modelIds, CALIBRATION_POLICY]);
   const counts = { A: { accepted: 0, decided: 0 }, B: { accepted: 0, decided: 0 } };
-  for (const run of store.runs(target.owner).filter(r => digest(r.target) === digest(target) && r.outcome === 'completed')) {
+  for (const run of store.runs(target.owner).filter(r => targetHash(r.target) === targetHash(target) && r.outcome === 'completed')) {
     for (const decision of store.decisions(run.id)) {
       const finding = store.finding(decision.findingId);
       if (!finding || finding.kind !== 'knowledge' || finding.desiredTier === 'C' || finding.promptVersion !== PROMPT_VERSION || JSON.stringify([...finding.models].sort()) !== JSON.stringify(modelIds)) continue;

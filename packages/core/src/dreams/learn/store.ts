@@ -1,7 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync, chmodSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { digest, validateTarget } from './selection.ts';
+import { digest, targetHash, validateTarget } from './selection.ts';
 import { PROMPT_VERSION, type Finding, type LearnRun, type Reason, type Target, type Window } from './types.ts';
 
 /** Content is exclusively in learn_payload. Generic ledger projections never select that column. */
@@ -31,18 +31,18 @@ export class LearnStore {
   }
   begin(target: Target, window: Window, now: number): LearnRun {
     validateTarget(target);
-    const targetHash = digest([target.scope, target.owner, target.agentId, target.projectId ?? null]);
-    const previous = this.#db.prepare('SELECT metadata FROM learn_run WHERE target_hash=? AND window_from=? AND window_to=?').get(targetHash, window.from, window.to);
+    const hash = targetHash(target);
+    const previous = this.#db.prepare('SELECT metadata FROM learn_run WHERE target_hash=? AND window_from=? AND window_to=?').get(hash, window.from, window.to);
     if (previous) return JSON.parse(previous.metadata as string) as LearnRun;
-    const run: LearnRun = { id: digest([targetHash, window.from, window.to, PROMPT_VERSION]), target, window, sessionIds: [], digest: '', startedAt: now, finishedAt: null, outcome: null, reason: null, tokens: 0, findings: 0 };
-    this.#db.prepare('INSERT INTO learn_run VALUES(?,?,?,?,?)').run(run.id, targetHash, window.from, window.to, JSON.stringify(run)); return run;
+    const run: LearnRun = { id: digest([hash, window.from, window.to, PROMPT_VERSION]), target, window, sessionIds: [], digest: '', startedAt: now, finishedAt: null, outcome: null, reason: null, tokens: 0, findings: 0 };
+    this.#db.prepare('INSERT INTO learn_run VALUES(?,?,?,?,?)').run(run.id, hash, window.from, window.to, JSON.stringify(run)); return run;
   }
   get(id: string): LearnRun | null { const row = this.#db.prepare('SELECT metadata FROM learn_run WHERE id=?').get(id); return row ? JSON.parse(row.metadata as string) as LearnRun : null; }
   save(run: LearnRun): void { this.#db.prepare('UPDATE learn_run SET metadata=? WHERE id=?').run(JSON.stringify(run), run.id); }
   runs(owner: string): LearnRun[] { return this.#db.prepare('SELECT metadata FROM learn_run ORDER BY window_to DESC LIMIT 1000').all().map(r => JSON.parse(r.metadata as string) as LearnRun).filter(r => r.target.owner === owner); }
   breakerOpen(target: Target, now: number): boolean {
     const start = Math.floor(now / 86_400_000) * 86_400_000;
-    return this.runs(target.owner).filter(r => r.startedAt >= start && r.outcome === 'failed' && digest(r.target) === digest(target)).length >= 3;
+    return this.runs(target.owner).filter(r => r.startedAt >= start && r.outcome === 'failed' && targetHash(r.target) === targetHash(target)).length >= 3;
   }
   step(runId: string, step: string, state: 'started' | 'completed'): void { this.#db.prepare('INSERT INTO learn_step VALUES(?,?,?) ON CONFLICT(run_id,step) DO UPDATE SET state=excluded.state').run(runId, step, state); }
   payload<T>(runId: string, key: string): T | null { const row = this.#db.prepare('SELECT payload FROM learn_payload WHERE run_id=? AND key=?').get(runId, key); return row ? JSON.parse(row.payload as string) as T : null; }

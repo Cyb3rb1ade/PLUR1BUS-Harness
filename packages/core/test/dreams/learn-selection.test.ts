@@ -55,3 +55,16 @@ test('same target/window has one durable run and resumes completed checkpoints w
     } finally { db.close(); }
   } finally { store.close(); rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('M3: reordered target keys share idempotency and breaker state', () => {
+  const store = new LearnStore(':memory:');
+  const reordered: Target = { agentId: target.agentId, owner: target.owner, scope: target.scope };
+  try {
+    for (let i = 1; i <= 3; i++) {
+      const run = store.begin(target, { from: i, to: i + 1 }, 100);
+      store.finish(run, 'failed', 'provider-failed', 101);
+    }
+    assert.equal(store.begin(reordered, { from: 1, to: 2 }, 102).id, store.begin(target, { from: 1, to: 2 }, 102).id);
+    assert.equal(store.breakerOpen(reordered, 103), true);
+  } finally { store.close(); }
+});

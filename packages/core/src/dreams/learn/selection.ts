@@ -4,6 +4,7 @@ import type { Principal } from '../../rbac/types.ts';
 import { LIMITS, LearnError, type SelectionSource, type Target, type Transcript, type Window } from './types.ts';
 
 export const digest = (value: unknown): string => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+export const targetHash = (target: Target): string => digest([target.scope, target.owner, target.agentId, target.projectId ?? null]);
 export function validateTarget(target: Target): void {
   if (!['agent', 'project', 'installation'].includes(target.scope) || !target.owner || !target.agentId ||
     [target.owner, target.agentId, target.projectId ?? ''].some(x => x.length > 128 || /[\x00-\x1f]/.test(x)) ||

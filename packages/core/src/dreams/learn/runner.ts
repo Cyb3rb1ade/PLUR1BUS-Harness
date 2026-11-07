@@ -1,7 +1,7 @@
 import type { Principal } from '../../rbac/types.ts';
 import { aggregate, parseExtraction } from './aggregation.ts';
 import { prompt, usage, type LearnModel, type LearnModelResult, type Stage } from './model.ts';
-import { digest, selectTranscripts, selectionDigest } from './selection.ts';
+import { digest, targetHash, selectTranscripts, selectionDigest } from './selection.ts';
 import { LearnStore } from './store.ts';
 import { LearnError, type Finding, type LearnConfig, type LearnRun, type RawFinding, type SelectionSource, type Target, type Transcript, type Window } from './types.ts';
 
@@ -18,7 +18,7 @@ export class LearnRunner {
   readonly #active = new Map<string, Promise<LearnRun>>();
   constructor(options: LearnRunnerOptions) { this.#o = options; }
   run(target: Target, window: Window, signal: AbortSignal): Promise<LearnRun> {
-    const key = digest([target, window]); const active = this.#active.get(key); if (active) return active;
+    const key = digest([targetHash(target), window.from, window.to]); const active = this.#active.get(key); if (active) return active;
     const task = this.#run(target, window, signal).finally(() => this.#active.delete(key)); this.#active.set(key, task); return task;
   }
   async idle(): Promise<void> { await Promise.allSettled([...this.#active.values()]); }
