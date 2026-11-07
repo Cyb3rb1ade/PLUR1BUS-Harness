@@ -112,7 +112,7 @@ values use the spec's UTF-8 Base64 sentinel. Invalid, duplicate or unreachable
 
 stdio frames are newline-delimited UTF-8, bounded to **1 MiB** in each direction;
 partial oversized frames, malformed messages and incomplete EOF fail closed.
-stderr is a separate, redacted, length-capped and rate-limited log source: with a log writer wired in (the core does) its lines are D111 `process.output.line` records (`stream: "stderr"`, `untrusted: true`, source `harness`/`mcp`, `docs/logging.md`); stdout carries protocol frames only.
+stderr is a separate, redacted, length-capped and rate-limited log source: with a log writer wired in (the core does) its raw bytes go through the same D111 line framer as every other child output and leave as `process.output.line` records (`stream: "stderr"`, `untrusted: true`, source `harness`/`mcp`, `docs/logging.md`). The framer flushes a half line after one second without output, replaces a line over 64 KiB whole with `[TRUNCATED:oversized-line]` and masks the server's declared secrets (`[REDACTED:secret]`) even when one is split across chunks. stdout carries protocol frames only.
 Unix servers own a detached process group. Windows uses a suspended native launch
 inside a kill-on-close Job Object through the OS PowerShell interop host; script
 and batch commands are refused. The launcher turns PowerShell's progress stream off

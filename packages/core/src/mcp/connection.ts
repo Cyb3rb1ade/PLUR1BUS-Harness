@@ -88,8 +88,9 @@ export class McpConnection {
   private stderrWindowStart = 0;
   private stderrInWindow = 0;
   stderrLines = 0;
-  // One D111 line framer per connection (a fallback transport reuses it); null without a writer, and again once closed.
-  private stderrOut: OutputLines | null = null;
+  // D111 line framers, one per stdio child (a fallback transport's child gets its own), each with whether its stream
+  // ended inside a line. Empty without a writer, and again once closed.
+  private readonly stderrOuts = new Map<OutputLines, { partial: boolean }>();
   private stderrTick: NodeJS.Timeout | null = null;
   private stderrClosed = false;
   private pidValue: number | null = null;
@@ -339,13 +340,7 @@ export class McpConnection {
     const s = t.stderr;
     if (!s || this.stderrAttached.has(t)) return;
     this.stderrAttached.add(t);
-    if (this.d.output && !this.stderrOut && !this.stderrClosed) {
-      const out = new OutputLines(this.d.output, "stderr", { now: () => this.d.clock.now() });
-      this.stderrOut = out;
-      // The framer flushes a half line and reports dropped lines from tick(); the writer has its own flush timer.
-      this.stderrTick = setInterval(() => { try { out.tick(); } catch { /* the writer is gone: nothing to report to */ } }, 1000);
-      this.stderrTick.unref();
-    }
+    if (this.d.output) { this.frameStderr(s); return; }
     const decoder = new StringDecoder("utf8");
     s.on("end", () => { this.stderrBuf += decoder.end(); this.flushStderr(); });
     s.on("data", (chunk: Buffer | string) => {
@@ -356,6 +351,37 @@ export class McpConnection {
     });
   }
 
+  /** #750: with a writer, the raw stderr bytes go through the D111 framer unchanged, as every other child output does. The
+   *  framer owns line splitting, the idle flush of a half line, the 64 KiB frame (an oversized line is replaced whole, never
+   *  cut into pieces that could carry part of a secret) and masking the declared secrets across chunk boundaries. It is
+   *  opened at the child's first stderr byte: by then the spawn has registered every leased value with the redactor, so
+   *  its snapshot of the secrets is complete. This side only counts lines for the status. */
+  private frameStderr(s: BoundedStdioTransport["stderr"]): void {
+    let out: OutputLines | null = null;
+    const state = { partial: false };
+    s.on("data", (chunk: Buffer | string) => {
+      const bytes = typeof chunk === "string" ? Buffer.from(chunk) : chunk;
+      if (!bytes.length) return;
+      for (let at = bytes.indexOf(0x0a); at >= 0; at = bytes.indexOf(0x0a, at + 1)) this.stderrLines++;
+      state.partial = bytes[bytes.length - 1] !== 0x0a;
+      if (this.stderrClosed) return;
+      if (!out) { out = new OutputLines(this.d.output!, "stderr", { now: () => this.d.clock.now(), secrets: this.d.redactor.values() }); this.openStderrOutput(out, state); }
+      // Foreign text goes into the writer as process.output.line only; a chunk after close or a dead writer is dropped, never thrown.
+      try { out.push(bytes); } catch { /* writer closed during shutdown */ }
+    });
+    s.on("end", () => { if (state.partial) { this.stderrLines++; state.partial = false; } });
+  }
+
+  private openStderrOutput(out: OutputLines, state: { partial: boolean }): void {
+    this.stderrOuts.set(out, state);
+    if (this.stderrTick) return;
+    // The framers flush a half line and report dropped lines from tick(); the writer has its own flush timer.
+    this.stderrTick = setInterval(() => {
+      for (const framer of this.stderrOuts.keys()) { try { framer.tick(); } catch { /* the writer is gone: nothing to report to */ } }
+    }, 1000);
+    this.stderrTick.unref();
+  }
+
   private flushStderr(): void {
     if (this.stderrBuf.length) { this.emitLine(this.stderrBuf); this.stderrBuf = ""; }
   }
@@ -363,20 +389,18 @@ export class McpConnection {
   private closeStderrOutput(): void {
     this.stderrClosed = true;
     if (this.stderrTick) { clearInterval(this.stderrTick); this.stderrTick = null; }
-    const out = this.stderrOut; this.stderrOut = null;
-    try { out?.close(); } catch { /* the writer is gone: the remaining lines have nowhere to go */ }
+    const outs = [...this.stderrOuts]; this.stderrOuts.clear();
+    for (const [out, state] of outs) {
+      if (state.partial) { this.stderrLines++; state.partial = false; }
+      try { out.close(); } catch { /* the writer is gone: the remaining lines have nowhere to go */ }
+    }
   }
 
-  /** ADR-014 §7: split into lines first, then redact the declared secrets; the D111 framer (when a writer is wired) then
-   *  strips terminal controls, redacts by pattern, caps and rate-limits; without a writer the legacy path caps and rate-limits here. */
+  /** Without a writer (the legacy path): ADR-014 §7 splits into lines first, then redacts the declared secrets, caps and
+   *  rate-limits here. With a writer the D111 framer does all of it (`frameStderr`). */
   private emitLine(raw: string): void {
     this.stderrLines++;
     const redacted = this.d.redactor.redact(raw.replace(/\r$/, ""));
-    if (this.d.output) {
-      // Foreign text goes into the writer as process.output.line only; a line after close or a dead writer is dropped, never thrown.
-      try { this.stderrOut?.push(Buffer.from(`${redacted}\n`)); } catch { /* writer closed during shutdown */ }
-      return;
-    }
     const now = this.d.clock.now();
     if (now - this.stderrWindowStart >= STDERR_WINDOW_MS) { this.stderrWindowStart = now; this.stderrInWindow = 0; }
     if (++this.stderrInWindow > STDERR_BURST) return; // counted, not logged
