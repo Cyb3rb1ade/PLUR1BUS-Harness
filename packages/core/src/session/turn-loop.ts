@@ -1,3 +1,4 @@
+import { channelOrigin } from "../channels/behaviour-context.ts";
 import { runWithAgentScope, scopeFor } from "../agents/scope.ts";
 // The submit/event turn loop (ADR-010 L2): `submit` records the user's message and a running turn atomically and returns
 // at once; the turn then runs in the background, every step persisted as an ordered per-session event and relayed to
@@ -69,7 +70,8 @@ export class TurnRunner {
     const localCommand = rewind !== null || a.text.trim() === '/compact --explain' || /^\/compact --restore event:\d+$/.test(a.text.trim());
     if ((!provider || provider.modelProfiles?.().length === 0) && !localCommand) throw new NoProviderError();
     if (a.text.length === 0) throw new SessionError("invalid", "message text is empty", "text-empty");
-    const { turn, message, event } = this.#d.store.beginTurn(a.session.id, a.text, estimateTokens(a.text), { harnessCommand: localCommand });
+    const origin = a.session.kind === "channel" ? channelOrigin.getStore() : undefined;
+    const { turn, message, event } = this.#d.store.beginTurn(a.session.id, a.text, estimateTokens(a.text), { harnessCommand: localCommand, ...(origin ? { channelOrigin: { ...origin } } : {}) });
     this.#emit(event, a.session);
     const cancel = new AbortController();
     this.#cancels.set(turn.id, cancel);

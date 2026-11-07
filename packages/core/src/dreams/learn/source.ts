@@ -1,3 +1,5 @@
+import type { IdentityService } from "../../identity/service.ts";
+import type { ChannelOrigin } from "../../channels/behaviour-context.ts";
 import type { HarnessConfig } from '@plur1bus/config-schema';
 import type { SessionStore } from '../../session/store.ts';
 import type { Project } from '../../collab/types.ts';
@@ -6,7 +8,7 @@ import { readRights, resolveExposure } from '../../memory-exposure/index.ts';
 import { LIMITS, type SelectionSource } from './types.ts';
 
 /** All scope inputs come from the configured target and live registries, never model output. */
-export function learningSource(store: SessionStore, o: { config(): HarnessConfig; hasAgent(id: string): boolean; project(id: string): Project | null }): SelectionSource {
+export function learningSource(store: SessionStore, o: { config(): HarnessConfig; hasAgent(id: string): boolean; project(id: string): Project | null; identity?(): Pick<IdentityService, 'resolve' | 'getLink'> | null }): SelectionSource {
   return {
     sessions: (t, w, limit) => store.learningSessions({ owner: deriveUserPrincipal(t.owner), ...(t.scope === 'agent' ? { agentId: t.agentId } : {}), ...(t.projectId ? { projectId: t.projectId } : {}), ...w, limit }),
     mayRead(target, session, principal) {
@@ -24,7 +26,22 @@ export function learningSource(store: SessionStore, o: { config(): HarnessConfig
     },
     transcript(session, window) {
       const { messages, events } = store.learningTranscript(session.id, window, LIMITS);
-      return { session, messages, events, days: [...new Set(messages.map(m => new Date(m.createdAt).toISOString().slice(0, 10)))].sort() };
+      const personMessageIds = messages.filter(message => {
+        if (session.kind !== 'channel' || message.role !== 'user') return false;
+        const event = events.find(e => e.type === 'turn.started' && e.turnId === message.turnId);
+        const origin = event?.data.channelOrigin as ChannelOrigin | undefined;
+        if (!origin || origin.chatKind !== 'direct' || !origin.accountId || !origin.senderId || !origin.humanId ||
+          session.chatKey !== `${origin.channel}:${origin.chatId}` || session.owner !== deriveUserPrincipal(origin.humanId)) return false;
+        const identity = o.identity?.();
+        if (!identity) return false;
+        try {
+          const hit = identity.resolve({ channel: origin.channel, accountId: origin.accountId, userId: origin.senderId });
+          if (!hit || hit.humanId !== origin.humanId) return false;
+          const link = identity.getLink(hit.linkId);
+          return link.revokedAt === null && link.linkedAt <= event!.at;
+        } catch { return false; }
+      }).map(m => m.id);
+      return { session, messages, events, personMessageIds, days: [...new Set(messages.map(m => new Date(m.createdAt).toISOString().slice(0, 10)))].sort() };
     },
   };
 }

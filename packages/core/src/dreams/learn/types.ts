@@ -12,7 +12,7 @@ export interface LearnConfig { enabled: boolean; windowDays: number; maxSessions
 export const DEFAULT_LEARN_CONFIG: Readonly<LearnConfig> = Object.freeze({ enabled: false, windowDays: 7, maxSessions: 50, maxTokens: 100_000, focus: '' });
 export const LIMITS = Object.freeze({ sessions: 50, messages: 2000, events: 4000, bytes: 262_144, findings: 100, text: 4000, evidence: 100, failures: 3 });
 export const PROMPT_VERSION = 'learn-1';
-export interface Transcript { session: SessionRecord; messages: MessageRecord[]; events: EventRecord[]; days: string[] }
+export interface Transcript { session: SessionRecord; messages: MessageRecord[]; events: EventRecord[]; days: string[]; personMessageIds?: string[] }
 export interface Evidence { sessionId: string; turnId: string; sourceId: string; source: 'message' | 'event'; trust: Trust; day: string; agentId: string; owner: string }
 export interface VerificationRequest { path: string; contains: string }
 export interface RawFinding { kind: 'knowledge' | 'procedural'; change: Change; text: string; memoryId?: string; evidence: Evidence[]; checks?: VerificationRequest[] }

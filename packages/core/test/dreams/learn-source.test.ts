@@ -56,3 +56,33 @@ test('learningSessions includes only completed non-incognito turns in the half-o
     assert.equal(r.store.learningSessions({ owner: deriveUserPrincipal('alice'), projectId: 'outside', from: 1, to: 200, limit: 50 }).length, 0);
   } finally { r.store.close(); }
 });
+
+test('H3: only an owner direct chat with a still-valid pre-existing identity link supplies person evidence', async () => {
+  const { createIdentityService } = await import('../../src/identity/service.ts');
+  const { parseExtraction } = await import('../../src/dreams/learn/aggregation.ts');
+  const identity = createIdentityService({ dbPath: ':memory:', clock: () => 1, audit: () => {} });
+  const actor = { user: 'owner', host: 'fixture', role: 'owner' as const, kind: 'person' as const };
+  const human = identity.createHuman({ displayName: 'Owner fixture' }, actor);
+  const link = identity.link({ humanId: human.id, identity: { channel: 'telegram', accountId: 'bot', userId: 'sender' } }, actor);
+  const store = new SessionStore({ path: ':memory:', clock: () => 10 });
+  const source = learningSource(store, { config: () => ({ agents: {} } as HarnessConfig), hasAgent: () => true, project: () => null, identity: () => identity });
+  try {
+    for (const [label, chatKind, senderId, metadata] of [
+      ['direct', 'direct', 'sender', true], ['group', 'group', 'sender', true],
+      ['foreign', 'direct', 'stranger', true], ['legacy', 'direct', 'sender', false],
+    ] as const) {
+      const session = store.createSession({ kind: 'channel', agentId: 'agent', owner: deriveUserPrincipal(human.id), chatKey: `telegram:${label}` });
+      const { turn, message } = store.beginTurn(session.id, 'The project uses Go.', 5, metadata ? {
+        channelOrigin: { channel: 'telegram', accountId: 'bot', chatId: label, senderId, humanId: human.id, chatKind },
+      } : {});
+      store.completeTurn(turn.id, { text: 'reply', tokens: 1 });
+      const extract = () => parseExtraction(JSON.stringify([{ kind: 'knowledge', change: 'add', text: 'Uses Go', evidence: [{ source: 'message', id: message.id }] }]), source.transcript(session, { from: 1, to: 20 }))[0]!.evidence[0]!.trust;
+      assert.equal(extract(), label === 'direct' ? 'person' : 'untrusted', label);
+      if (label === 'direct') {
+        identity.unlink({ linkId: link.id }, actor);
+        assert.equal(extract(), 'untrusted', 'revocation removes trust on reread');
+        identity.link({ humanId: human.id, identity: { channel: 'telegram', accountId: 'bot', userId: 'sender' } }, actor);
+      }
+    }
+  } finally { store.close(); identity.close(); }
+});

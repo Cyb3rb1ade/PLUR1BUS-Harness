@@ -1,5 +1,6 @@
 // The session store (M1b-2c, A7): node:sqlite + FTS5. Synchronous by design (one resident core, one writer), so a
 // "transaction" here is a plain BEGIN IMMEDIATE .. COMMIT with no await inside.
+import type { ChannelOrigin } from "../channels/behaviour-context.ts";
 import { randomUUID } from "node:crypto";
 import { chmodSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
@@ -554,7 +555,7 @@ export class SessionStore {
   // ---- turns, messages, events ----------------------------------------------------------------------------------
 
   /** Atomically records the user's message, the running turn and `turn.started`. One running turn per session. */
-  beginTurn(sessionId: string, text: string, tokens: number, options: { harnessCommand?: boolean } = {}): { turn: TurnRecord; message: MessageRecord; event: EventRecord } {
+  beginTurn(sessionId: string, text: string, tokens: number, options: { harnessCommand?: boolean; channelOrigin?: ChannelOrigin } = {}): { turn: TurnRecord; message: MessageRecord; event: EventRecord } {
     return this.#tx(() => {
       const s = this.getSession(sessionId);
       if (!s) throw new SessionError("not-found", `session ${sessionId} not found`, "session");
@@ -566,7 +567,8 @@ export class SessionStore {
       this.#run("UPDATE sessions SET turn_count = ?, last_turn_at = ?, updated_at = ? WHERE id = ?", seq, now, now, sessionId);
       const message = this.#insertMessage(sessionId, turnId, "user", text, tokens);
       const event = this.#insertEvent(sessionId, turnId, "turn.started", { turnId, turnSeq: seq, messageId: message.id,
-        ...(options.harnessCommand ? { provider: "harness-command" } : {}) });
+        ...(options.harnessCommand ? { provider: "harness-command" } : {}),
+        ...(options.channelOrigin ? { channelOrigin: options.channelOrigin } : {}) });
       return { turn: toTurn(this.#get("SELECT * FROM turns WHERE id = ?", turnId)!), message, event };
     });
   }

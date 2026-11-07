@@ -23,8 +23,8 @@ export function parseExtraction(text: string, transcript: Transcript): RawFindin
       const event = r.source === 'event' ? transcript.events.find(e => String(e.seq) === r.id) : undefined;
       const turnId = message?.turnId ?? event?.turnId;
       if (!turnId || (!message && !event)) throw new LearnError('invalid-output');
-      // Model output never supplies trust. Channel/peer text and all tool output are untrusted.
-      const trust = message?.role === 'user' && !transcript.session.origin && transcript.session.kind !== 'channel' ? 'person' : message?.role === 'assistant' ? 'agent' : 'untrusted';
+      // Model output never supplies trust. Channel users require a host-verified direct identity link.
+      const trust = message?.role === 'user' && !transcript.session.origin && (transcript.session.kind !== 'channel' || transcript.personMessageIds?.includes(message.id)) ? 'person' : message?.role === 'assistant' ? 'agent' : 'untrusted';
       return { sessionId: transcript.session.id, turnId, sourceId: r.id, source: r.source as Evidence['source'], trust,
         day: new Date(message?.createdAt ?? event!.at).toISOString().slice(0, 10), agentId: transcript.session.agentId, owner: transcript.session.owner };
     });

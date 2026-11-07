@@ -128,3 +128,11 @@ skeptic verdicts, local-only/no-Jev routing, budgets without partial publish, id
 real human decision accounting and all gate reasons, metadata/log/ledger/inbox marker exclusion,
 public-operation acceptance/rollback and unchanged H3 backend behavior. Local lint, relevant package
 suites, docs generation/check and Rust fmt/clippy/CLI tests precede the single ready PR. No CI polling.
+
+## Interim review rulings (2026-11-07)
+
+- Ruling H3: Channel person evidence requires persisted host-origin metadata for a direct chat,
+  the session owner's exact identity, and a currently active identity link created no later than
+  the turn. Historical messages without that proof, ambiguous accounts and group messages stay
+  untrusted. This prevents sender inference from content or chat ownership; the cost is that old
+  channel turns cannot retrospectively become trusted learning evidence.
