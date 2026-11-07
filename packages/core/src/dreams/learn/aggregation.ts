@@ -1,4 +1,4 @@
-import { digest } from './selection.ts';
+import { digest, targetHash } from './selection.ts';
 import { LearnError, LIMITS, PROMPT_VERSION, type Evidence, type Finding, type RawFinding, type Target, type Transcript } from './types.ts';
 
 const normalized = (text: string): string => text.normalize('NFKC').trim().replace(/\s+/gu, ' ').toLowerCase();
@@ -49,9 +49,18 @@ export function aggregate(raw: readonly RawFinding[], target: Target, runId: str
     const first = [...group].sort((a, b) => a.text.localeCompare(b.text))[0]!;
     const evidence = [...new Map(group.flatMap(f => f.evidence).sort((a, b) => evidenceKey(a).localeCompare(evidenceKey(b))).map(e => [evidenceKey(e), e])).values()];
     const checks = [...new Map(group.flatMap(f => f.checks ?? []).map(c => [JSON.stringify([c.path, c.contains]), c])).entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, c]) => c);
-    return { ...first, ...(checks.length ? { checks } : {}), evidence, id: digest([runId, key]), runId, target,
+    return { ...first, ...(checks.length ? { checks } : {}), evidence, id: digest([targetHash(target), key]), runId, target, revision: 1,
       prevalence: { sessions: new Set(evidence.map(e => e.sessionId)).size, total, days: new Set(evidence.map(e => e.day)).size, agents: new Set(evidence.map(e => e.agentId)).size, persons: new Set(evidence.map(e => e.owner)).size },
       verify: target.scope === 'project' ? 'unknown' : 'not-applicable', agreement: 'unknown', score: 0, desiredTier: 'C', effectiveTier: 'C', skeptic: 'not-required',
       models: [], promptVersion: PROMPT_VERSION, status: first.kind === 'procedural' ? 'waiting-h3' : 'pending' } satisfies Finding;
   }).sort((a, b) => b.prevalence.sessions - a.prevalence.sessions || a.id.localeCompare(b.id));
+}
+
+/** Stable claim identity accumulates references; the host still owns every trust bit. */
+export function mergeEvidence(previous: Finding, next: Finding): Finding {
+  const evidence = [...new Map([...previous.evidence, ...next.evidence].map(e => [evidenceKey(e), e])).values()]
+    .sort((a, b) => evidenceKey(a).localeCompare(evidenceKey(b)));
+  const sessions = new Set(evidence.map(e => e.sessionId)).size;
+  return { ...next, evidence, prevalence: { sessions, total: Math.max(previous.prevalence.total, next.prevalence.total, sessions),
+    days: new Set(evidence.map(e => e.day)).size, agents: new Set(evidence.map(e => e.agentId)).size, persons: new Set(evidence.map(e => e.owner)).size } };
 }

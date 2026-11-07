@@ -15,11 +15,16 @@ export interface LearnRunnerOptions {
 }
 export class LearnRunner {
   readonly #o: LearnRunnerOptions;
+  readonly #tails = new Map<string, Promise<LearnRun>>();
   readonly #active = new Map<string, Promise<LearnRun>>();
   constructor(options: LearnRunnerOptions) { this.#o = options; }
   run(target: Target, window: Window, signal: AbortSignal): Promise<LearnRun> {
     const key = digest([targetHash(target), window.from, window.to]); const active = this.#active.get(key); if (active) return active;
-    const task = this.#run(target, window, signal).finally(() => this.#active.delete(key)); this.#active.set(key, task); return task;
+    const scope = targetHash(target), before = this.#tails.get(scope);
+    const task = Promise.resolve(before).catch(() => undefined).then(() => this.#run(target, window, signal)).finally(() => {
+      this.#active.delete(key); if (this.#tails.get(scope) === task) this.#tails.delete(scope);
+    });
+    this.#tails.set(scope, task); this.#active.set(key, task); return task;
   }
   async idle(): Promise<void> { await Promise.allSettled([...this.#active.values()]); }
   async #run(target: Target, window: Window, signal: AbortSignal): Promise<LearnRun> {
@@ -57,15 +62,26 @@ export class LearnRunner {
         if (run.tokens > cfg.maxTokens) throw new LearnError('budget');
         o.store.checkpoint(run.id, checkpointKey, result); return result;
       };
+      const authorized = (f: Finding): boolean => f.evidence.every(e => {
+        const session = selected.find(t => t.session.id === e.sessionId)?.session ?? o.source.session?.(e.sessionId);
+        return !!session && session.owner === e.owner && o.source.mayRead(target, session, principal);
+      });
+      const prior = o.store.targetFindings(target).filter(authorized);
+      const seed = o.store.payload<ReturnType<typeof vocabulary>>(run.id, 'vocabulary') ?? vocabulary(prior);
+      if (!o.store.payload(run.id, 'vocabulary')) o.store.checkpoint(run.id, 'vocabulary', seed);
       const raw: RawFinding[] = [], models = new Set<string>();
       for (const transcript of selected) {
-        const result = await call('extract', transcript.session.id, { focus: cfg.focus, vocabulary: vocabulary(raw), messages: transcript.messages, events: transcript.events });
+        const result = await call('extract', transcript.session.id, { focus: cfg.focus, vocabulary: [...seed, ...vocabulary(raw)].slice(0, 100), messages: transcript.messages, events: transcript.events });
         raw.push(...parseExtraction(result.text, transcript)); models.add(result.model);
       }
       o.store.step(run.id, 'aggregate', 'started');
       const findings = aggregate(raw, target, run.id, selected.length); o.store.step(run.id, 'aggregate', 'completed');
       const reviewed: Finding[] = [];
-      for (const f of findings) { f.models = [...models].sort(); reviewed.push(o.review ? await o.review(f, selected, call, signal) : f); }
+      for (const next of findings) {
+        const f = o.store.prepareCandidate(next); if (!f) continue;
+        if (!authorized(f)) throw new LearnError('rights-changed');
+        f.models = [...models].sort(); reviewed.push(o.review ? await o.review(f, selected, call, signal) : f);
+      }
       signal.throwIfAborted();
       const freshPrincipal = o.principal(target.owner);
       if (!freshPrincipal || selected.some(t => !o.source.mayRead(target, t.session, freshPrincipal))) throw new LearnError('rights-changed');

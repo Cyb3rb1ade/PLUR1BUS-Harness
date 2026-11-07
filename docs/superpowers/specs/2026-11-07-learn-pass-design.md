@@ -141,3 +141,8 @@ suites, docs generation/check and Rust fmt/clippy/CLI tests precede the single r
   memory ID; additions cluster by the selected content key. Code deduplicates evidence, counts
   sessions/days and ranks clusters. The cost of a wrong key assignment is a visibly wrong cluster
   for human review, never additional authority or automatic adoption. Prompt revision is learn-2.
+- Ruling M2: Finding identity is target plus normalized content key, independent of run IDs.
+  Pending findings accumulate evidence. Rejected findings reopen only for a new reference from
+  a later evidence day, with a new review revision linked to the previous content-free decision.
+  Precision counts only the latest decision per stable finding, so repeated weekly observations
+  cannot inflate the sample. This sacrifices independent-event sampling in favor of deduplication.
