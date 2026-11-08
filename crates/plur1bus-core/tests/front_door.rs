@@ -173,6 +173,10 @@ fn main() {
             "chatty_unauthenticated_sockets_stay_under_their_cap",
             chatty_unauthenticated_sockets_stay_under_their_cap,
         ),
+        (
+            "a_refused_start_removes_only_what_it_wrote",
+            a_refused_start_removes_only_what_it_wrote,
+        ),
     ];
     let mut failed = Vec::new();
     for (name, test) in tests {
@@ -1980,5 +1984,97 @@ fn chatty_unauthenticated_sockets_stay_under_their_cap() {
         assert!(r.get("result").is_some(), "{r}");
         assert!(owner.call("core.status", json!({})).get("result").is_some());
         drop(chatty);
+    }
+}
+
+/// Final review FR-M1: a start refused before it wrote anything (something answers on `run/core.sock`) leaves every file
+/// of whatever answers there byte for byte, the socket included; a start that fails later removes only what it wrote
+/// itself, not the run files an earlier core left behind.
+fn a_refused_start_removes_only_what_it_wrote() {
+    #[cfg(unix)]
+    {
+        let snapshot = |run: &Path| -> Vec<(String, Vec<u8>)> {
+            let mut all: Vec<_> = std::fs::read_dir(run)
+                .unwrap()
+                .map(|e| e.unwrap())
+                .map(|e| {
+                    let name = e.file_name().to_string_lossy().into_owned();
+                    let bytes = if e.file_type().unwrap().is_file() {
+                        std::fs::read(e.path()).unwrap()
+                    } else {
+                        b"(not a file)".to_vec()
+                    };
+                    (name, bytes)
+                })
+                .collect();
+            all.sort();
+            all
+        };
+        let theirs = [
+            ("core.token", "their core token"),
+            ("api-delegation.token", "their api token"),
+            ("core.pid", "4242 5d0f6c1e-2b3a-4c5d-8e9f-0a1b2c3d4e5f\n"),
+            ("core-legacy.token", "their link token"),
+            ("core-legacy.credentials", "{\"core\":\"theirs\"}"),
+            (
+                "core-legacy.pid",
+                "4243 5d0f6c1e-2b3a-4c5d-8e9f-0a1b2c3d4e5f\n",
+            ),
+        ];
+        // Something answers on run/core.sock (a squatter, or a fixture that takes no lock), with its run files.
+        let home = tempfile::tempdir().unwrap();
+        let run = home.path().join("run");
+        std::fs::create_dir_all(&run).unwrap();
+        let _squatter = std::os::unix::net::UnixListener::bind(run.join("core.sock")).unwrap();
+        for (name, text) in theirs {
+            std::fs::write(run.join(name), text).unwrap();
+        }
+        let before = snapshot(&run);
+        let out = spawn_door(home.path(), &Opts::default())
+            .wait_with_output()
+            .unwrap();
+        assert_eq!(out.status.code(), Some(1));
+        assert!(String::from_utf8_lossy(&out.stderr).contains("address in use"));
+        assert_eq!(
+            snapshot(&run),
+            before,
+            "a refused start touches no run file"
+        );
+        // A start that fails after it wrote (the legacy core exits before it is ready) removes what it wrote, and leaves
+        // what it did not write: the stale tokens of an earlier core.
+        let home = tempfile::tempdir().unwrap();
+        let run = home.path().join("run");
+        std::fs::create_dir_all(&run).unwrap();
+        std::fs::write(run.join("core.token"), "an earlier core's token").unwrap();
+        std::fs::write(run.join("api-delegation.token"), "an earlier api token").unwrap();
+        let out = spawn_door(
+            home.path(),
+            &Opts {
+                mode: "exit:1",
+                ..Opts::default()
+            },
+        )
+        .wait_with_output()
+        .unwrap();
+        assert_eq!(
+            out.status.code(),
+            Some(1),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        let left: Vec<String> = snapshot(&run)
+            .into_iter()
+            .map(|(name, _)| name)
+            .filter(|n| !n.ends_with(".lock"))
+            .collect();
+        assert_eq!(
+            left,
+            ["api-delegation.token", "core.token"],
+            "only what this start wrote is gone"
+        );
+        assert_eq!(
+            std::fs::read_to_string(run.join("core.token")).unwrap(),
+            "an earlier core's token"
+        );
     }
 }

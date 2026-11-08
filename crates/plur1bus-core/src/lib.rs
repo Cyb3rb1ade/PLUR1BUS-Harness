@@ -163,22 +163,36 @@ pub fn serve(plan: &ServePlan) -> Result<i32, ServeError> {
         Err(lock::LockError::Held) => return Err(ServeError::Locked),
         Err(lock::LockError::Io(e)) => return Err(ServeError::Start(format!("core lock: {e}"))),
     };
+    // Something answers on the address (a squatter, a fixture that takes no lock): refused before this start touches a
+    // run file, so whatever answers keeps its files and socket (final review FR-M1; the TypeScript core's `wroteRunFiles`).
+    probe_address(&files.address)?;
     // Under the lock, before anything is written: what a killed front door left behind (security review L6).
     run_files::clear_leftovers(&files);
     let timings = Timings::read(&files.config);
     let (events_tx, events) = mpsc::channel::<Event>();
     lifecycle::watch_signals(events_tx.clone())
         .map_err(|e| ServeError::Start(format!("signal handlers: {e}")))?;
-    let (front, listener, legacy, control) =
-        match start(plan, &files, checks, timings, capacity, &events_tx, &events) {
-            Ok(parts) => parts,
-            Err(e) => {
-                // A refused or failed start leaves no run file behind; the lock goes last.
-                run_files::remove_owned(&files);
-                drop(lock);
-                return Err(e);
+    let mut written = Vec::new();
+    let (front, listener, legacy, control) = match start(
+        plan,
+        &files,
+        checks,
+        timings,
+        capacity,
+        (&events_tx, &events),
+        &mut written,
+    ) {
+        Ok(parts) => parts,
+        Err(e) => {
+            // A failed start removes what it wrote and nothing else (an earlier core's stale tokens stay, as the
+            // TypeScript core leaves them; final review FR-M1); the lock goes last.
+            for path in &written {
+                let _ = std::fs::remove_file(path);
             }
-        };
+            drop(lock);
+            return Err(e);
+        }
+    };
     // `binding` lives until the legacy core is gone: on Windows its drop would end it.
     let legacy::Legacy {
         child,
@@ -277,16 +291,17 @@ struct Control {
 
 /// Everything between the lock and `ready`: run files, the legacy core, the control link, the listener.
 #[allow(clippy::too_many_arguments)]
+/// Starts the legacy core and binds the address; every run file it writes goes into `written` first, so a failed start
+/// removes exactly those (the bound socket never needs it: nothing can fail after the bind).
 fn start(
     plan: &ServePlan,
     files: &RunFiles,
     checks: server::Checks,
     timings: Timings,
     capacity: server::Capacity,
-    events_tx: &mpsc::Sender<Event>,
-    events: &mpsc::Receiver<Event>,
+    (events_tx, events): (&mpsc::Sender<Event>, &mpsc::Receiver<Event>),
+    written: &mut Vec<std::path::PathBuf>,
 ) -> Result<Started, ServeError> {
-    probe_address(&files.address)?;
     let fresh = || Secret::fresh().map_err(|e| ServeError::Start(e.to_string()));
     let credentials = server::Credentials {
         core: fresh()?,
@@ -297,8 +312,10 @@ fn start(
         .instance
         .clone()
         .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-    let write = |path: &std::path::Path, text: &str| {
+    // Recorded once it is in place: a write that failed left the file at that path as it was (its temporary is removed).
+    let mut write = |path: &std::path::Path, text: &str| {
         run_files::write_private(path, text)
+            .map(|()| written.push(path.to_owned()))
             .map_err(|e| ServeError::Start(format!("{}: {e}", path.display())))
     };
     // The legacy core reads its credentials from files only it uses. run/core.token and run/api-delegation.token are
