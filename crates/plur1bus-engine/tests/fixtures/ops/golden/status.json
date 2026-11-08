@@ -1,0 +1,2964 @@
+{
+  "recordedFrom": {
+    "source": {
+      "engineCommit": "1f0daec472b72755d851712968157a89ca3a7687",
+      "treeSha256": "cdfdf8bb4881773d2d492969cd5a5ade44ccb62bd0db019abfedce45202e96ed"
+    },
+    "node": "v24.21.0"
+  },
+  "identity": {
+    "fingerprintId": "fixture-identity",
+    "provider": "local-transformers",
+    "model": "synthetic-model",
+    "dimensions": 4
+  },
+  "cases": [
+    {
+      "models": {
+        "embedder": {
+          "state": "ready",
+          "warming": false,
+          "checkedAt": 1000,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          }
+        },
+        "reranker": {
+          "state": "disabled",
+          "warming": false,
+          "checkedAt": null,
+          "provider": null
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": false,
+        "mode": "unavailable",
+        "reason": "platform"
+      },
+      "current": "1",
+      "agents": 0,
+      "journal": {
+        "entries": 2,
+        "oldestAt": 1000
+      },
+      "name": "models-ready-disabled",
+      "result": {
+        "ready": true,
+        "degraded": null,
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "ready",
+            "warming": false,
+            "checkedAt": 1000,
+            "identity": {
+              "fingerprintId": "fixture-identity",
+              "provider": "local-transformers",
+              "model": "synthetic-model",
+              "dimensions": 4
+            }
+          },
+          "reranker": {
+            "state": "disabled",
+            "warming": false,
+            "checkedAt": null,
+            "provider": null
+          }
+        },
+        "journal": {
+          "entries": 2,
+          "oldestAt": 1000
+        },
+        "sharedMemory": {
+          "supported": false,
+          "mode": "unavailable",
+          "reason": "platform"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 0,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "ready",
+          "warming": false,
+          "checkedAt": 1000,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          }
+        },
+        "reranker": {
+          "state": "ready",
+          "warming": false,
+          "checkedAt": 1000,
+          "provider": "local-transformers"
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": false,
+        "mode": "unavailable",
+        "reason": "platform"
+      },
+      "current": "1",
+      "agents": 0,
+      "journal": {
+        "entries": 2,
+        "oldestAt": 1000
+      },
+      "name": "models-ready-ready",
+      "result": {
+        "ready": true,
+        "degraded": null,
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "ready",
+            "warming": false,
+            "checkedAt": 1000,
+            "identity": {
+              "fingerprintId": "fixture-identity",
+              "provider": "local-transformers",
+              "model": "synthetic-model",
+              "dimensions": 4
+            }
+          },
+          "reranker": {
+            "state": "ready",
+            "warming": false,
+            "checkedAt": 1000,
+            "provider": "local-transformers"
+          }
+        },
+        "journal": {
+          "entries": 2,
+          "oldestAt": 1000
+        },
+        "sharedMemory": {
+          "supported": false,
+          "mode": "unavailable",
+          "reason": "platform"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 0,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "ready",
+          "warming": false,
+          "checkedAt": 1000,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          }
+        },
+        "reranker": {
+          "state": "loading",
+          "warming": true,
+          "checkedAt": null,
+          "provider": "local-transformers"
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": false,
+        "mode": "unavailable",
+        "reason": "platform"
+      },
+      "current": "1",
+      "agents": 0,
+      "journal": {
+        "entries": 2,
+        "oldestAt": 1000
+      },
+      "name": "models-ready-loading",
+      "result": {
+        "ready": true,
+        "degraded": {
+          "reason": "models-warming",
+          "capability": "reranker"
+        },
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "ready",
+            "warming": false,
+            "checkedAt": 1000,
+            "identity": {
+              "fingerprintId": "fixture-identity",
+              "provider": "local-transformers",
+              "model": "synthetic-model",
+              "dimensions": 4
+            }
+          },
+          "reranker": {
+            "state": "loading",
+            "warming": true,
+            "checkedAt": null,
+            "provider": "local-transformers"
+          }
+        },
+        "journal": {
+          "entries": 2,
+          "oldestAt": 1000
+        },
+        "sharedMemory": {
+          "supported": false,
+          "mode": "unavailable",
+          "reason": "platform"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 0,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "ready",
+          "warming": false,
+          "checkedAt": 1000,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          }
+        },
+        "reranker": {
+          "state": "failed",
+          "warming": false,
+          "checkedAt": 1000,
+          "provider": "local-transformers",
+          "error": "provider-failed"
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": false,
+        "mode": "unavailable",
+        "reason": "platform"
+      },
+      "current": "1",
+      "agents": 0,
+      "journal": {
+        "entries": 2,
+        "oldestAt": 1000
+      },
+      "name": "models-ready-failed",
+      "result": {
+        "ready": true,
+        "degraded": {
+          "reason": "model-failed",
+          "capability": "reranker"
+        },
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "ready",
+            "warming": false,
+            "checkedAt": 1000,
+            "identity": {
+              "fingerprintId": "fixture-identity",
+              "provider": "local-transformers",
+              "model": "synthetic-model",
+              "dimensions": 4
+            }
+          },
+          "reranker": {
+            "state": "failed",
+            "warming": false,
+            "checkedAt": 1000,
+            "provider": "local-transformers",
+            "error": "provider-failed"
+          }
+        },
+        "journal": {
+          "entries": 2,
+          "oldestAt": 1000
+        },
+        "sharedMemory": {
+          "supported": false,
+          "mode": "unavailable",
+          "reason": "platform"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 0,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "loading",
+          "warming": true,
+          "checkedAt": null,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          }
+        },
+        "reranker": {
+          "state": "disabled",
+          "warming": false,
+          "checkedAt": null,
+          "provider": null
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": false,
+        "mode": "unavailable",
+        "reason": "platform"
+      },
+      "current": "1",
+      "agents": 0,
+      "journal": {
+        "entries": 2,
+        "oldestAt": 1000
+      },
+      "name": "models-loading-disabled",
+      "result": {
+        "ready": true,
+        "degraded": {
+          "reason": "models-warming",
+          "capability": "embedding"
+        },
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "loading",
+            "warming": true,
+            "checkedAt": null,
+            "identity": {
+              "fingerprintId": "fixture-identity",
+              "provider": "local-transformers",
+              "model": "synthetic-model",
+              "dimensions": 4
+            }
+          },
+          "reranker": {
+            "state": "disabled",
+            "warming": false,
+            "checkedAt": null,
+            "provider": null
+          }
+        },
+        "journal": {
+          "entries": 2,
+          "oldestAt": 1000
+        },
+        "sharedMemory": {
+          "supported": false,
+          "mode": "unavailable",
+          "reason": "platform"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 0,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "loading",
+          "warming": true,
+          "checkedAt": null,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          }
+        },
+        "reranker": {
+          "state": "ready",
+          "warming": false,
+          "checkedAt": 1000,
+          "provider": "local-transformers"
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": false,
+        "mode": "unavailable",
+        "reason": "platform"
+      },
+      "current": "1",
+      "agents": 0,
+      "journal": {
+        "entries": 2,
+        "oldestAt": 1000
+      },
+      "name": "models-loading-ready",
+      "result": {
+        "ready": true,
+        "degraded": {
+          "reason": "models-warming",
+          "capability": "embedding"
+        },
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "loading",
+            "warming": true,
+            "checkedAt": null,
+            "identity": {
+              "fingerprintId": "fixture-identity",
+              "provider": "local-transformers",
+              "model": "synthetic-model",
+              "dimensions": 4
+            }
+          },
+          "reranker": {
+            "state": "ready",
+            "warming": false,
+            "checkedAt": 1000,
+            "provider": "local-transformers"
+          }
+        },
+        "journal": {
+          "entries": 2,
+          "oldestAt": 1000
+        },
+        "sharedMemory": {
+          "supported": false,
+          "mode": "unavailable",
+          "reason": "platform"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 0,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "loading",
+          "warming": true,
+          "checkedAt": null,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          }
+        },
+        "reranker": {
+          "state": "loading",
+          "warming": true,
+          "checkedAt": null,
+          "provider": "local-transformers"
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": false,
+        "mode": "unavailable",
+        "reason": "platform"
+      },
+      "current": "1",
+      "agents": 0,
+      "journal": {
+        "entries": 2,
+        "oldestAt": 1000
+      },
+      "name": "models-loading-loading",
+      "result": {
+        "ready": true,
+        "degraded": {
+          "reason": "models-warming",
+          "capability": "embedding"
+        },
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "loading",
+            "warming": true,
+            "checkedAt": null,
+            "identity": {
+              "fingerprintId": "fixture-identity",
+              "provider": "local-transformers",
+              "model": "synthetic-model",
+              "dimensions": 4
+            }
+          },
+          "reranker": {
+            "state": "loading",
+            "warming": true,
+            "checkedAt": null,
+            "provider": "local-transformers"
+          }
+        },
+        "journal": {
+          "entries": 2,
+          "oldestAt": 1000
+        },
+        "sharedMemory": {
+          "supported": false,
+          "mode": "unavailable",
+          "reason": "platform"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 0,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "loading",
+          "warming": true,
+          "checkedAt": null,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          }
+        },
+        "reranker": {
+          "state": "failed",
+          "warming": false,
+          "checkedAt": 1000,
+          "provider": "local-transformers",
+          "error": "provider-failed"
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": false,
+        "mode": "unavailable",
+        "reason": "platform"
+      },
+      "current": "1",
+      "agents": 0,
+      "journal": {
+        "entries": 2,
+        "oldestAt": 1000
+      },
+      "name": "models-loading-failed",
+      "result": {
+        "ready": true,
+        "degraded": {
+          "reason": "models-warming",
+          "capability": "embedding"
+        },
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "loading",
+            "warming": true,
+            "checkedAt": null,
+            "identity": {
+              "fingerprintId": "fixture-identity",
+              "provider": "local-transformers",
+              "model": "synthetic-model",
+              "dimensions": 4
+            }
+          },
+          "reranker": {
+            "state": "failed",
+            "warming": false,
+            "checkedAt": 1000,
+            "provider": "local-transformers",
+            "error": "provider-failed"
+          }
+        },
+        "journal": {
+          "entries": 2,
+          "oldestAt": 1000
+        },
+        "sharedMemory": {
+          "supported": false,
+          "mode": "unavailable",
+          "reason": "platform"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 0,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "failed",
+          "warming": false,
+          "checkedAt": 1000,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          },
+          "error": "provider-failed"
+        },
+        "reranker": {
+          "state": "disabled",
+          "warming": false,
+          "checkedAt": null,
+          "provider": null
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": false,
+        "mode": "unavailable",
+        "reason": "platform"
+      },
+      "current": "1",
+      "agents": 0,
+      "journal": {
+        "entries": 2,
+        "oldestAt": 1000
+      },
+      "name": "models-failed-disabled",
+      "result": {
+        "ready": true,
+        "degraded": {
+          "reason": "model-failed",
+          "capability": "embedding"
+        },
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "failed",
+            "warming": false,
+            "checkedAt": 1000,
+            "identity": {
+              "fingerprintId": "fixture-identity",
+              "provider": "local-transformers",
+              "model": "synthetic-model",
+              "dimensions": 4
+            },
+            "error": "provider-failed"
+          },
+          "reranker": {
+            "state": "disabled",
+            "warming": false,
+            "checkedAt": null,
+            "provider": null
+          }
+        },
+        "journal": {
+          "entries": 2,
+          "oldestAt": 1000
+        },
+        "sharedMemory": {
+          "supported": false,
+          "mode": "unavailable",
+          "reason": "platform"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 0,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "failed",
+          "warming": false,
+          "checkedAt": 1000,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          },
+          "error": "provider-failed"
+        },
+        "reranker": {
+          "state": "ready",
+          "warming": false,
+          "checkedAt": 1000,
+          "provider": "local-transformers"
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": false,
+        "mode": "unavailable",
+        "reason": "platform"
+      },
+      "current": "1",
+      "agents": 0,
+      "journal": {
+        "entries": 2,
+        "oldestAt": 1000
+      },
+      "name": "models-failed-ready",
+      "result": {
+        "ready": true,
+        "degraded": {
+          "reason": "model-failed",
+          "capability": "embedding"
+        },
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "failed",
+            "warming": false,
+            "checkedAt": 1000,
+            "identity": {
+              "fingerprintId": "fixture-identity",
+              "provider": "local-transformers",
+              "model": "synthetic-model",
+              "dimensions": 4
+            },
+            "error": "provider-failed"
+          },
+          "reranker": {
+            "state": "ready",
+            "warming": false,
+            "checkedAt": 1000,
+            "provider": "local-transformers"
+          }
+        },
+        "journal": {
+          "entries": 2,
+          "oldestAt": 1000
+        },
+        "sharedMemory": {
+          "supported": false,
+          "mode": "unavailable",
+          "reason": "platform"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 0,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "failed",
+          "warming": false,
+          "checkedAt": 1000,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          },
+          "error": "provider-failed"
+        },
+        "reranker": {
+          "state": "loading",
+          "warming": true,
+          "checkedAt": null,
+          "provider": "local-transformers"
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": false,
+        "mode": "unavailable",
+        "reason": "platform"
+      },
+      "current": "1",
+      "agents": 0,
+      "journal": {
+        "entries": 2,
+        "oldestAt": 1000
+      },
+      "name": "models-failed-loading",
+      "result": {
+        "ready": true,
+        "degraded": {
+          "reason": "model-failed",
+          "capability": "embedding"
+        },
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "failed",
+            "warming": false,
+            "checkedAt": 1000,
+            "identity": {
+              "fingerprintId": "fixture-identity",
+              "provider": "local-transformers",
+              "model": "synthetic-model",
+              "dimensions": 4
+            },
+            "error": "provider-failed"
+          },
+          "reranker": {
+            "state": "loading",
+            "warming": true,
+            "checkedAt": null,
+            "provider": "local-transformers"
+          }
+        },
+        "journal": {
+          "entries": 2,
+          "oldestAt": 1000
+        },
+        "sharedMemory": {
+          "supported": false,
+          "mode": "unavailable",
+          "reason": "platform"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 0,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "failed",
+          "warming": false,
+          "checkedAt": 1000,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          },
+          "error": "provider-failed"
+        },
+        "reranker": {
+          "state": "failed",
+          "warming": false,
+          "checkedAt": 1000,
+          "provider": "local-transformers",
+          "error": "provider-failed"
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": false,
+        "mode": "unavailable",
+        "reason": "platform"
+      },
+      "current": "1",
+      "agents": 0,
+      "journal": {
+        "entries": 2,
+        "oldestAt": 1000
+      },
+      "name": "models-failed-failed",
+      "result": {
+        "ready": true,
+        "degraded": {
+          "reason": "model-failed",
+          "capability": "embedding"
+        },
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "failed",
+            "warming": false,
+            "checkedAt": 1000,
+            "identity": {
+              "fingerprintId": "fixture-identity",
+              "provider": "local-transformers",
+              "model": "synthetic-model",
+              "dimensions": 4
+            },
+            "error": "provider-failed"
+          },
+          "reranker": {
+            "state": "failed",
+            "warming": false,
+            "checkedAt": 1000,
+            "provider": "local-transformers",
+            "error": "provider-failed"
+          }
+        },
+        "journal": {
+          "entries": 2,
+          "oldestAt": 1000
+        },
+        "sharedMemory": {
+          "supported": false,
+          "mode": "unavailable",
+          "reason": "platform"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 0,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "ready",
+          "warming": false,
+          "checkedAt": 1000,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          }
+        },
+        "reranker": {
+          "state": "disabled",
+          "warming": false,
+          "checkedAt": null,
+          "provider": null
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": false,
+        "mode": "unavailable",
+        "reason": "platform"
+      },
+      "current": "1",
+      "agents": 0,
+      "journal": {
+        "entries": 2,
+        "oldestAt": 1000
+      },
+      "name": "jobs-failure",
+      "jobsFailure": true,
+      "result": {
+        "ready": true,
+        "degraded": null,
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "unavailable",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "ready",
+            "warming": false,
+            "checkedAt": 1000,
+            "identity": {
+              "fingerprintId": "fixture-identity",
+              "provider": "local-transformers",
+              "model": "synthetic-model",
+              "dimensions": 4
+            }
+          },
+          "reranker": {
+            "state": "disabled",
+            "warming": false,
+            "checkedAt": null,
+            "provider": null
+          }
+        },
+        "journal": {
+          "entries": 2,
+          "oldestAt": 1000
+        },
+        "sharedMemory": {
+          "supported": false,
+          "mode": "unavailable",
+          "reason": "platform"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 0,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "ready",
+          "warming": false,
+          "checkedAt": 1000,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          }
+        },
+        "reranker": {
+          "state": "disabled",
+          "warming": false,
+          "checkedAt": null,
+          "provider": null
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": false,
+        "mode": "unavailable",
+        "reason": "platform"
+      },
+      "current": "1",
+      "agents": 0,
+      "journal": {
+        "entries": 2,
+        "oldestAt": 1000
+      },
+      "name": "models-failure",
+      "modelsFailure": true,
+      "result": {
+        "ready": true,
+        "degraded": {
+          "reason": "models-warming",
+          "capability": "embedding"
+        },
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "loading",
+            "warming": false,
+            "checkedAt": null,
+            "identity": {
+              "fingerprintId": "fixture-identity",
+              "provider": "local-transformers",
+              "model": "synthetic-model",
+              "dimensions": 4
+            }
+          },
+          "reranker": {
+            "state": "loading",
+            "warming": false,
+            "checkedAt": null,
+            "provider": null
+          }
+        },
+        "journal": {
+          "entries": 2,
+          "oldestAt": 1000
+        },
+        "sharedMemory": {
+          "supported": false,
+          "mode": "unavailable",
+          "reason": "platform"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 1,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "ready",
+          "warming": false,
+          "checkedAt": 1000,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          }
+        },
+        "reranker": {
+          "state": "disabled",
+          "warming": false,
+          "checkedAt": null,
+          "provider": null
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": false,
+        "mode": "unavailable",
+        "reason": "platform"
+      },
+      "current": "1",
+      "agents": 0,
+      "journal": {
+        "entries": 2,
+        "oldestAt": 1000
+      },
+      "name": "identity-failure",
+      "modelsFailure": true,
+      "identityFailure": true,
+      "result": {
+        "ready": true,
+        "degraded": {
+          "reason": "models-warming",
+          "capability": "embedding"
+        },
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "loading",
+            "warming": false,
+            "checkedAt": null,
+            "identity": {
+              "fingerprintId": "unknown",
+              "provider": "unknown",
+              "model": "unknown",
+              "dimensions": 0
+            }
+          },
+          "reranker": {
+            "state": "loading",
+            "warming": false,
+            "checkedAt": null,
+            "provider": null
+          }
+        },
+        "journal": {
+          "entries": 2,
+          "oldestAt": 1000
+        },
+        "sharedMemory": {
+          "supported": false,
+          "mode": "unavailable",
+          "reason": "platform"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 1,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "ready",
+          "warming": false,
+          "checkedAt": 1000,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          }
+        },
+        "reranker": {
+          "state": "disabled",
+          "warming": false,
+          "checkedAt": null,
+          "provider": null
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": false,
+        "mode": "unavailable",
+        "reason": "platform"
+      },
+      "current": "1",
+      "agents": 0,
+      "journal": {
+        "entries": 2,
+        "oldestAt": 1000
+      },
+      "name": "identity-missing",
+      "modelsFailure": true,
+      "noIdentity": true,
+      "result": {
+        "ready": true,
+        "degraded": {
+          "reason": "models-warming",
+          "capability": "embedding"
+        },
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "loading",
+            "warming": false,
+            "checkedAt": null,
+            "identity": {
+              "fingerprintId": "unknown",
+              "provider": "unknown",
+              "model": "unknown",
+              "dimensions": 0
+            }
+          },
+          "reranker": {
+            "state": "loading",
+            "warming": false,
+            "checkedAt": null,
+            "provider": null
+          }
+        },
+        "journal": {
+          "entries": 2,
+          "oldestAt": 1000
+        },
+        "sharedMemory": {
+          "supported": false,
+          "mode": "unavailable",
+          "reason": "platform"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 1,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "ready",
+          "warming": false,
+          "checkedAt": 1000,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          }
+        },
+        "reranker": {
+          "state": "disabled",
+          "warming": false,
+          "checkedAt": null,
+          "provider": null
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": false,
+        "mode": "unavailable",
+        "reason": "platform"
+      },
+      "current": "1",
+      "agents": 0,
+      "journal": {
+        "entries": 2,
+        "oldestAt": 1000
+      },
+      "name": "shared-failure",
+      "sharedFailure": true,
+      "result": {
+        "ready": true,
+        "degraded": null,
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "ready",
+            "warming": false,
+            "checkedAt": 1000,
+            "identity": {
+              "fingerprintId": "fixture-identity",
+              "provider": "local-transformers",
+              "model": "synthetic-model",
+              "dimensions": 4
+            }
+          },
+          "reranker": {
+            "state": "disabled",
+            "warming": false,
+            "checkedAt": null,
+            "provider": null
+          }
+        },
+        "journal": {
+          "entries": 2,
+          "oldestAt": 1000
+        },
+        "sharedMemory": {
+          "supported": false,
+          "mode": "unavailable",
+          "reason": "platform"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 0,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "ready",
+          "warming": false,
+          "checkedAt": 1000,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          }
+        },
+        "reranker": {
+          "state": "disabled",
+          "warming": false,
+          "checkedAt": null,
+          "provider": null
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": false,
+        "mode": "unavailable",
+        "reason": "platform"
+      },
+      "current": "7",
+      "agents": 0,
+      "journal": {
+        "entries": 2,
+        "oldestAt": 1000
+      },
+      "name": "unknown-schema",
+      "result": {
+        "ready": true,
+        "degraded": null,
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "7",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "ready",
+            "warming": false,
+            "checkedAt": 1000,
+            "identity": {
+              "fingerprintId": "fixture-identity",
+              "provider": "local-transformers",
+              "model": "synthetic-model",
+              "dimensions": 4
+            }
+          },
+          "reranker": {
+            "state": "disabled",
+            "warming": false,
+            "checkedAt": null,
+            "provider": null
+          }
+        },
+        "journal": {
+          "entries": 2,
+          "oldestAt": 1000
+        },
+        "sharedMemory": {
+          "supported": false,
+          "mode": "unavailable",
+          "reason": "platform"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 0,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "ready",
+          "warming": false,
+          "checkedAt": 1000,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          }
+        },
+        "reranker": {
+          "state": "disabled",
+          "warming": false,
+          "checkedAt": null,
+          "provider": null
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": false,
+        "mode": "unavailable",
+        "reason": "platform"
+      },
+      "current": "0",
+      "agents": 0,
+      "journal": {
+        "entries": 2,
+        "oldestAt": 1000
+      },
+      "name": "legacy-schema",
+      "result": {
+        "ready": true,
+        "degraded": null,
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "0",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "ready",
+            "warming": false,
+            "checkedAt": 1000,
+            "identity": {
+              "fingerprintId": "fixture-identity",
+              "provider": "local-transformers",
+              "model": "synthetic-model",
+              "dimensions": 4
+            }
+          },
+          "reranker": {
+            "state": "disabled",
+            "warming": false,
+            "checkedAt": null,
+            "provider": null
+          }
+        },
+        "journal": {
+          "entries": 2,
+          "oldestAt": 1000
+        },
+        "sharedMemory": {
+          "supported": false,
+          "mode": "unavailable",
+          "reason": "platform"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 0,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "ready",
+          "warming": false,
+          "checkedAt": 1000,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          }
+        },
+        "reranker": {
+          "state": "disabled",
+          "warming": false,
+          "checkedAt": null,
+          "provider": null
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": false,
+        "mode": "unavailable",
+        "reason": "platform"
+      },
+      "current": null,
+      "agents": 0,
+      "journal": {
+        "entries": 2,
+        "oldestAt": 1000
+      },
+      "name": "unreadable-schema",
+      "result": {
+        "ready": true,
+        "degraded": null,
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": null,
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "ready",
+            "warming": false,
+            "checkedAt": 1000,
+            "identity": {
+              "fingerprintId": "fixture-identity",
+              "provider": "local-transformers",
+              "model": "synthetic-model",
+              "dimensions": 4
+            }
+          },
+          "reranker": {
+            "state": "disabled",
+            "warming": false,
+            "checkedAt": null,
+            "provider": null
+          }
+        },
+        "journal": {
+          "entries": 2,
+          "oldestAt": 1000
+        },
+        "sharedMemory": {
+          "supported": false,
+          "mode": "unavailable",
+          "reason": "platform"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 0,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "ready",
+          "warming": false,
+          "checkedAt": 1000,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          }
+        },
+        "reranker": {
+          "state": "disabled",
+          "warming": false,
+          "checkedAt": null,
+          "provider": null
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": false,
+        "mode": "unavailable",
+        "reason": "platform"
+      },
+      "current": "1",
+      "agents": 7,
+      "journal": {
+        "entries": 2,
+        "oldestAt": 1000
+      },
+      "name": "opened-agents",
+      "result": {
+        "ready": true,
+        "degraded": null,
+        "agents": 7,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "ready",
+            "warming": false,
+            "checkedAt": 1000,
+            "identity": {
+              "fingerprintId": "fixture-identity",
+              "provider": "local-transformers",
+              "model": "synthetic-model",
+              "dimensions": 4
+            }
+          },
+          "reranker": {
+            "state": "disabled",
+            "warming": false,
+            "checkedAt": null,
+            "provider": null
+          }
+        },
+        "journal": {
+          "entries": 2,
+          "oldestAt": 1000
+        },
+        "sharedMemory": {
+          "supported": false,
+          "mode": "unavailable",
+          "reason": "platform"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 0,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "ready",
+          "warming": false,
+          "checkedAt": 1000,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          }
+        },
+        "reranker": {
+          "state": "disabled",
+          "warming": false,
+          "checkedAt": null,
+          "provider": null
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": true,
+        "mode": "fd-capability"
+      },
+      "current": "1",
+      "agents": 0,
+      "journal": {
+        "entries": 2,
+        "oldestAt": 1000
+      },
+      "name": "shared-fd-capability",
+      "result": {
+        "ready": true,
+        "degraded": null,
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "ready",
+            "warming": false,
+            "checkedAt": 1000,
+            "identity": {
+              "fingerprintId": "fixture-identity",
+              "provider": "local-transformers",
+              "model": "synthetic-model",
+              "dimensions": 4
+            }
+          },
+          "reranker": {
+            "state": "disabled",
+            "warming": false,
+            "checkedAt": null,
+            "provider": null
+          }
+        },
+        "journal": {
+          "entries": 2,
+          "oldestAt": 1000
+        },
+        "sharedMemory": {
+          "supported": true,
+          "mode": "fd-capability"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 0,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "ready",
+          "warming": false,
+          "checkedAt": 1000,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          }
+        },
+        "reranker": {
+          "state": "disabled",
+          "warming": false,
+          "checkedAt": null,
+          "provider": null
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": true,
+        "mode": "verified-path"
+      },
+      "current": "1",
+      "agents": 0,
+      "journal": {
+        "entries": 2,
+        "oldestAt": 1000
+      },
+      "name": "shared-verified-path",
+      "result": {
+        "ready": true,
+        "degraded": null,
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "ready",
+            "warming": false,
+            "checkedAt": 1000,
+            "identity": {
+              "fingerprintId": "fixture-identity",
+              "provider": "local-transformers",
+              "model": "synthetic-model",
+              "dimensions": 4
+            }
+          },
+          "reranker": {
+            "state": "disabled",
+            "warming": false,
+            "checkedAt": null,
+            "provider": null
+          }
+        },
+        "journal": {
+          "entries": 2,
+          "oldestAt": 1000
+        },
+        "sharedMemory": {
+          "supported": true,
+          "mode": "verified-path"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 0,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "ready",
+          "warming": false,
+          "checkedAt": 1000,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          }
+        },
+        "reranker": {
+          "state": "disabled",
+          "warming": false,
+          "checkedAt": null,
+          "provider": null
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": false,
+        "mode": "unavailable",
+        "reason": "unsafe-root"
+      },
+      "current": "1",
+      "agents": 0,
+      "journal": {
+        "entries": 2,
+        "oldestAt": 1000
+      },
+      "name": "shared-unsafe-root",
+      "result": {
+        "ready": true,
+        "degraded": null,
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "ready",
+            "warming": false,
+            "checkedAt": 1000,
+            "identity": {
+              "fingerprintId": "fixture-identity",
+              "provider": "local-transformers",
+              "model": "synthetic-model",
+              "dimensions": 4
+            }
+          },
+          "reranker": {
+            "state": "disabled",
+            "warming": false,
+            "checkedAt": null,
+            "provider": null
+          }
+        },
+        "journal": {
+          "entries": 2,
+          "oldestAt": 1000
+        },
+        "sharedMemory": {
+          "supported": false,
+          "mode": "unavailable",
+          "reason": "unsafe-root"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 0,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "ready",
+          "warming": false,
+          "checkedAt": 1000,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          }
+        },
+        "reranker": {
+          "state": "disabled",
+          "warming": false,
+          "checkedAt": null,
+          "provider": null
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": false,
+        "mode": "unavailable",
+        "reason": "platform"
+      },
+      "current": "1",
+      "agents": 0,
+      "journal": {
+        "entries": 2,
+        "oldestAt": 1000
+      },
+      "name": "journal-absent",
+      "noJournal": true,
+      "result": {
+        "ready": true,
+        "degraded": null,
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "ready",
+            "warming": false,
+            "checkedAt": 1000,
+            "identity": {
+              "fingerprintId": "fixture-identity",
+              "provider": "local-transformers",
+              "model": "synthetic-model",
+              "dimensions": 4
+            }
+          },
+          "reranker": {
+            "state": "disabled",
+            "warming": false,
+            "checkedAt": null,
+            "provider": null
+          }
+        },
+        "journal": null,
+        "sharedMemory": {
+          "supported": false,
+          "mode": "unavailable",
+          "reason": "platform"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 0,
+        "shared": 1,
+        "current": 1,
+        "journal": 0
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "ready",
+          "warming": false,
+          "checkedAt": 1000,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          }
+        },
+        "reranker": {
+          "state": "disabled",
+          "warming": false,
+          "checkedAt": null,
+          "provider": null
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": false,
+        "mode": "unavailable",
+        "reason": "platform"
+      },
+      "current": "1",
+      "agents": 0,
+      "journal": null,
+      "name": "journal-null",
+      "result": {
+        "ready": true,
+        "degraded": null,
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "ready",
+            "warming": false,
+            "checkedAt": 1000,
+            "identity": {
+              "fingerprintId": "fixture-identity",
+              "provider": "local-transformers",
+              "model": "synthetic-model",
+              "dimensions": 4
+            }
+          },
+          "reranker": {
+            "state": "disabled",
+            "warming": false,
+            "checkedAt": null,
+            "provider": null
+          }
+        },
+        "journal": null,
+        "sharedMemory": {
+          "supported": false,
+          "mode": "unavailable",
+          "reason": "platform"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 0,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "ready",
+          "warming": false,
+          "checkedAt": 1000,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          }
+        },
+        "reranker": {
+          "state": "disabled",
+          "warming": false,
+          "checkedAt": null,
+          "provider": null
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": false,
+        "mode": "unavailable",
+        "reason": "platform"
+      },
+      "current": "1",
+      "agents": 0,
+      "journal": {
+        "entries": 0,
+        "oldestAt": null
+      },
+      "name": "journal-empty",
+      "result": {
+        "ready": true,
+        "degraded": null,
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "ready",
+            "warming": false,
+            "checkedAt": 1000,
+            "identity": {
+              "fingerprintId": "fixture-identity",
+              "provider": "local-transformers",
+              "model": "synthetic-model",
+              "dimensions": 4
+            }
+          },
+          "reranker": {
+            "state": "disabled",
+            "warming": false,
+            "checkedAt": null,
+            "provider": null
+          }
+        },
+        "journal": {
+          "entries": 0,
+          "oldestAt": null
+        },
+        "sharedMemory": {
+          "supported": false,
+          "mode": "unavailable",
+          "reason": "platform"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 0,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "ready",
+          "warming": false,
+          "checkedAt": 1000,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          }
+        },
+        "reranker": {
+          "state": "disabled",
+          "warming": false,
+          "checkedAt": null,
+          "provider": null
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": false,
+        "mode": "unavailable",
+        "reason": "platform"
+      },
+      "current": "1",
+      "agents": 0,
+      "journal": {
+        "entries": 2,
+        "oldestAt": 1000
+      },
+      "name": "journal-pending",
+      "journalNever": true,
+      "result": {
+        "ready": true,
+        "degraded": null,
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "ready",
+            "warming": false,
+            "checkedAt": 1000,
+            "identity": {
+              "fingerprintId": "fixture-identity",
+              "provider": "local-transformers",
+              "model": "synthetic-model",
+              "dimensions": 4
+            }
+          },
+          "reranker": {
+            "state": "disabled",
+            "warming": false,
+            "checkedAt": null,
+            "provider": null
+          }
+        },
+        "journal": null,
+        "sharedMemory": {
+          "supported": false,
+          "mode": "unavailable",
+          "reason": "platform"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 0,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "ready",
+          "warming": false,
+          "checkedAt": 1000,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          }
+        },
+        "reranker": {
+          "state": "disabled",
+          "warming": false,
+          "checkedAt": null,
+          "provider": null
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": false,
+        "mode": "unavailable",
+        "reason": "platform"
+      },
+      "current": "1",
+      "agents": 0,
+      "journal": {
+        "entries": 2,
+        "oldestAt": 1000
+      },
+      "name": "journal-throws",
+      "journalFailure": true,
+      "result": {
+        "ready": true,
+        "degraded": null,
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "ready",
+            "warming": false,
+            "checkedAt": 1000,
+            "identity": {
+              "fingerprintId": "fixture-identity",
+              "provider": "local-transformers",
+              "model": "synthetic-model",
+              "dimensions": 4
+            }
+          },
+          "reranker": {
+            "state": "disabled",
+            "warming": false,
+            "checkedAt": null,
+            "provider": null
+          }
+        },
+        "journal": null,
+        "sharedMemory": {
+          "supported": false,
+          "mode": "unavailable",
+          "reason": "platform"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 0,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "ready",
+          "warming": false,
+          "checkedAt": 1000,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          }
+        },
+        "reranker": {
+          "state": "disabled",
+          "warming": false,
+          "checkedAt": null,
+          "provider": null
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": false,
+        "mode": "unavailable",
+        "reason": "platform"
+      },
+      "current": "1",
+      "agents": 0,
+      "journal": {
+        "entries": -1,
+        "oldestAt": null
+      },
+      "name": "journal-invalid-count",
+      "result": {
+        "ready": true,
+        "degraded": null,
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "ready",
+            "warming": false,
+            "checkedAt": 1000,
+            "identity": {
+              "fingerprintId": "fixture-identity",
+              "provider": "local-transformers",
+              "model": "synthetic-model",
+              "dimensions": 4
+            }
+          },
+          "reranker": {
+            "state": "disabled",
+            "warming": false,
+            "checkedAt": null,
+            "provider": null
+          }
+        },
+        "journal": null,
+        "sharedMemory": {
+          "supported": false,
+          "mode": "unavailable",
+          "reason": "platform"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 0,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "ready",
+          "warming": false,
+          "checkedAt": 1000,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          }
+        },
+        "reranker": {
+          "state": "disabled",
+          "warming": false,
+          "checkedAt": null,
+          "provider": null
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": false,
+        "mode": "unavailable",
+        "reason": "platform"
+      },
+      "current": "1",
+      "agents": 0,
+      "journal": {
+        "entries": 3,
+        "oldestAt": 1,
+        "extra": "discarded"
+      },
+      "name": "journal-extra",
+      "result": {
+        "ready": true,
+        "degraded": null,
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "ready",
+            "warming": false,
+            "checkedAt": 1000,
+            "identity": {
+              "fingerprintId": "fixture-identity",
+              "provider": "local-transformers",
+              "model": "synthetic-model",
+              "dimensions": 4
+            }
+          },
+          "reranker": {
+            "state": "disabled",
+            "warming": false,
+            "checkedAt": null,
+            "provider": null
+          }
+        },
+        "journal": {
+          "entries": 3,
+          "oldestAt": 1
+        },
+        "sharedMemory": {
+          "supported": false,
+          "mode": "unavailable",
+          "reason": "platform"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 0,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    },
+    {
+      "models": {
+        "embedder": {
+          "state": "ready",
+          "warming": false,
+          "checkedAt": 1000,
+          "identity": {
+            "fingerprintId": "fixture-identity",
+            "provider": "local-transformers",
+            "model": "synthetic-model",
+            "dimensions": 4
+          }
+        },
+        "reranker": {
+          "state": "disabled",
+          "warming": false,
+          "checkedAt": null,
+          "provider": null
+        }
+      },
+      "jobs": {
+        "ledger": "ok",
+        "agents": []
+      },
+      "shared": {
+        "supported": false,
+        "mode": "unavailable",
+        "reason": "platform"
+      },
+      "current": "1",
+      "agents": 0,
+      "journal": {
+        "entries": 1,
+        "oldestAt": "1"
+      },
+      "name": "journal-invalid-time",
+      "result": {
+        "ready": true,
+        "degraded": null,
+        "agents": 0,
+        "contract": "1.17.0",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "jobs": {
+          "ledger": "ok",
+          "agents": []
+        },
+        "models": {
+          "embedder": {
+            "state": "ready",
+            "warming": false,
+            "checkedAt": 1000,
+            "identity": {
+              "fingerprintId": "fixture-identity",
+              "provider": "local-transformers",
+              "model": "synthetic-model",
+              "dimensions": 4
+            }
+          },
+          "reranker": {
+            "state": "disabled",
+            "warming": false,
+            "checkedAt": null,
+            "provider": null
+          }
+        },
+        "journal": null,
+        "sharedMemory": {
+          "supported": false,
+          "mode": "unavailable",
+          "reason": "platform"
+        }
+      },
+      "calls": {
+        "jobs": 1,
+        "models": 1,
+        "identity": 0,
+        "shared": 1,
+        "current": 1,
+        "journal": 1
+      }
+    }
+  ],
+  "normalizers": [
+    {
+      "input": null,
+      "result": null
+    },
+    {
+      "input": false,
+      "result": null
+    },
+    {
+      "input": 0,
+      "result": null
+    },
+    {
+      "input": "x",
+      "result": null
+    },
+    {
+      "input": [],
+      "result": null
+    },
+    {
+      "input": {},
+      "result": null
+    },
+    {
+      "input": {
+        "entries": 0,
+        "oldestAt": null
+      },
+      "result": {
+        "entries": 0,
+        "oldestAt": null
+      }
+    },
+    {
+      "input": {
+        "entries": 1,
+        "oldestAt": 0
+      },
+      "result": {
+        "entries": 1,
+        "oldestAt": 0
+      }
+    },
+    {
+      "input": {
+        "entries": 1.5,
+        "oldestAt": null
+      },
+      "result": null
+    },
+    {
+      "input": {
+        "entries": -1,
+        "oldestAt": 0
+      },
+      "result": null
+    },
+    {
+      "input": {
+        "entries": 9007199254740991,
+        "oldestAt": -1
+      },
+      "result": {
+        "entries": 9007199254740991,
+        "oldestAt": -1
+      }
+    },
+    {
+      "input": {
+        "entries": 9007199254740992,
+        "oldestAt": null
+      },
+      "result": null
+    },
+    {
+      "input": {
+        "entries": "1",
+        "oldestAt": null
+      },
+      "result": null
+    },
+    {
+      "input": {
+        "entries": 1
+      },
+      "result": null
+    },
+    {
+      "input": {
+        "entries": 1,
+        "oldestAt": "1"
+      },
+      "result": null
+    },
+    {
+      "input": {
+        "entries": 1,
+        "oldestAt": false
+      },
+      "result": null
+    },
+    {
+      "input": {
+        "entries": 1,
+        "oldestAt": 1.5,
+        "extra": 2
+      },
+      "result": {
+        "entries": 1,
+        "oldestAt": 1.5
+      }
+    }
+  ],
+  "concurrent": {
+    "journalCalls": 4,
+    "journals": [
+      null,
+      null,
+      null,
+      null
+    ]
+  }
+}

@@ -37,6 +37,8 @@ pub mod workspace_policy;
 /// Native caller-bound policy administration; contextless wire remains unavailable.
 pub mod workspace_policy_ops;
 
+/// Read-only status assembly with bounded host backlog and real native sources.
+pub mod status;
 /// Fenced caller-bound import rollback and preview.
 pub mod unimport;
 mod unimport_plan;
