@@ -167,6 +167,9 @@ pub struct FrontDoor {
     live: AtomicUsize,
     accepting: AtomicBool,
     stopping: AtomicBool,
+    /// Held while the stop is entered, so that no caller of [`FrontDoor::enter_stopping`] goes on before `stopping` is
+    /// queued for the owner subscribers.
+    stop_entry: Mutex<()>,
     lifeline: Mutex<Lifeline>,
     events: Mutex<Sender<Event>>,
     /// The timings read at start.
@@ -221,6 +224,7 @@ impl FrontDoor {
             live: AtomicUsize::new(0),
             accepting: AtomicBool::new(true),
             stopping: AtomicBool::new(false),
+            stop_entry: Mutex::new(()),
             lifeline: Mutex::new(Lifeline {
                 connection: None,
                 orphaned_since: None,
@@ -368,8 +372,12 @@ impl FrontDoor {
         !self.stopping.swap(true, Ordering::SeqCst)
     }
 
-    /// Begins the stop and tells the owner subscribers (`stopping`), once; `false` when the stop had begun already.
+    /// Begins the stop and tells the owner subscribers (`stopping`), once; `false` when the stop had begun already. No
+    /// caller returns before `stopping` is queued for every owner subscriber still open: a link thread that reads the
+    /// legacy core's `stopping` and then the end of its link must not end its client's connection while another thread
+    /// that entered the stop first has not reached that connection yet (fix round 1b F7).
     pub fn enter_stopping(&self) -> bool {
+        let _entry = relock(&self.stop_entry);
         let first = self.begin_stop();
         if first {
             self.set_state(ProcessState::now("stopping"));
@@ -1487,8 +1495,9 @@ fn link_loop(front: &Arc<FrontDoor>, conn: &Arc<Conn>, link: &Arc<Link>, reader:
                 }
                 // The front door's own process state is what an owner subscriber sees. The legacy core's `stopping`
                 // puts the front door into `stopping` first (fix round 1b F7): the legacy core sends it on this link
-                // before it ends the link, and this link's lines are handled in order, so the front door's `stopping`
-                // is queued for every owner subscriber whose link has not ended yet, this one included.
+                // before it ends the link, this link's lines are handled in order, and `enter_stopping` returns only
+                // once the front door's `stopping` is queued, so it is queued for this subscriber, and every other one
+                // whose link has not ended yet, before this link's end is read.
                 None => {
                     let legacy_state = id.is_none()
                         && conn.caller() == Some(Caller::Owner)
