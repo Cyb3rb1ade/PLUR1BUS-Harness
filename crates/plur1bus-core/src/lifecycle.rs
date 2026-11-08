@@ -121,6 +121,23 @@ impl Timings {
     }
 }
 
+/// The stop request already queued when the legacy core's exit is read, if any (task review L4). A signal to the
+/// process group (the supervisor's terminate, Ctrl+C on `core run`) reaches the legacy core as well, which stops on it
+/// at the same time; its exit can be read before the front door's own [`Event::Stop`]. A stop already waiting then wins:
+/// the pair was asked to stop, so the front door exits with the stop's code, not as after a legacy core that died.
+pub fn queued_stop(
+    events: &std::sync::mpsc::Receiver<Event>,
+) -> Option<(Option<Duration>, &'static str, i32)> {
+    match events.try_recv() {
+        Ok(Event::Stop {
+            budget,
+            why,
+            ok_code,
+        }) => Some((budget, why, ok_code)),
+        _ => None,
+    }
+}
+
 /// Arms the orphan grace of `generation`: after `grace` an [`Event::GraceExpired`] goes to `events` (the main loop ignores
 /// it when the lifeline came back meanwhile).
 pub fn arm_grace(events: Sender<Event>, generation: u64, grace: Duration) {
@@ -210,6 +227,22 @@ mod tests {
             Duration::from_secs(60),
             "out of range: default"
         );
+    }
+
+    /// Task review L4: a stop request already queued behind the legacy core's exit wins over it; nothing else does.
+    #[test]
+    fn a_stop_queued_behind_the_legacy_cores_exit_wins() {
+        let (tx, rx) = std::sync::mpsc::channel();
+        assert!(queued_stop(&rx).is_none(), "nothing queued");
+        tx.send(Event::GraceExpired(1)).unwrap();
+        assert!(queued_stop(&rx).is_none(), "only a stop request");
+        tx.send(Event::Stop {
+            budget: None,
+            why: "SIGTERM",
+            ok_code: 0,
+        })
+        .unwrap();
+        assert_eq!(queued_stop(&rx), Some((None, "SIGTERM", 0)));
     }
 
     #[test]

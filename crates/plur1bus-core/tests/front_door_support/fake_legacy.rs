@@ -170,6 +170,30 @@ pub fn run(args: &[String]) -> ! {
             let _ = signal_hook::flag::register(signal_hook::consts::SIGINT, Default::default());
         }
     } else {
+        // bin.ts: SIGTERM and SIGINT stop the core (exit 0, 130 for SIGINT), as a signal to the front door's process
+        // group delivers them to the legacy core too (task review L4).
+        #[cfg(unix)]
+        {
+            let stopped = stopped.clone();
+            let mut signals = signal_hook::iterator::Signals::new([
+                signal_hook::consts::SIGTERM,
+                signal_hook::consts::SIGINT,
+            ])
+            .unwrap();
+            std::thread::spawn(move || {
+                if let Some(signal) = signals.forever().next() {
+                    if !stopped.exists() {
+                        let _ = std::fs::write(&stopped, "signal");
+                    }
+                    std::thread::sleep(Duration::from_millis(50));
+                    std::process::exit(if signal == signal_hook::consts::SIGINT {
+                        130
+                    } else {
+                        0
+                    });
+                }
+            });
+        }
         std::thread::spawn(move || {
             let _ = std::io::copy(&mut std::io::stdin().lock(), &mut std::io::sink());
             if !stopped.exists() {

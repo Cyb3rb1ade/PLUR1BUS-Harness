@@ -202,6 +202,9 @@ struct Opts<'a> {
     open_files: Option<u64>,
     /// With `open_files`: this hard limit as well (the front door cannot raise beyond it).
     hard_open_files: Option<u64>,
+    /// Unix: the front door leads a process group of its own (as the supervisor starts it), so a test can signal the
+    /// whole group.
+    own_group: bool,
 }
 
 fn spawn_door(home: &Path, o: &Opts<'_>) -> Child {
@@ -221,6 +224,11 @@ fn spawn_door(home: &Path, o: &Opts<'_>) -> Child {
         }
         None => Command::new(bin),
     };
+    #[cfg(unix)]
+    if o.own_group {
+        use std::os::unix::process::CommandExt;
+        cmd.process_group(0);
+    }
     cmd.args(["serve", "--home"]).arg(home);
     if o.lifeline {
         cmd.args([
@@ -1059,6 +1067,30 @@ fn sigterm_stops_the_pair() {
         );
         assert!(!d.path("run/core.token").exists());
         assert!(d.stderr().contains("core stopping"), "{}", d.stderr());
+
+        // Task review L4: the supervisor's terminate and a terminal's Ctrl+C reach the whole process group, so the legacy
+        // core gets the signal too and may exit before the front door's own stop request is read; the pair still ends as
+        // a requested stop (exit 0), not as a legacy core that died on its own (exit 1).
+        let mut d = door(Opts {
+            own_group: true,
+            ..Opts::default()
+        });
+        let legacy = d.token("core-legacy.pid");
+        let legacy = legacy.split_whitespace().next().unwrap().to_owned();
+        let group = format!("-{}", d.pid());
+        let sent = Command::new("kill")
+            .args(["-TERM", "--", &group])
+            .status()
+            .unwrap();
+        assert!(sent.success());
+        assert_eq!(d.wait(Duration::from_secs(10)), Some(0), "{}", d.stderr());
+        let alive = Command::new("kill")
+            .args(["-0", &legacy])
+            .output()
+            .unwrap()
+            .status
+            .success();
+        assert!(!alive, "the legacy core is gone");
     }
 }
 

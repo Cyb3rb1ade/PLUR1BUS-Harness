@@ -245,7 +245,14 @@ pub fn serve(plan: &ServePlan) -> Result<i32, ServeError> {
                     ));
                 }
             }
-            Ok(Event::LegacyExited) | Err(_) => break None,
+            Ok(Event::LegacyExited) => {
+                break lifecycle::queued_stop(&events).map(|(budget, why, ok_code)| {
+                    let budget =
+                        budget.unwrap_or_else(|| Timings::read(&files.config).shutdown_budget);
+                    (budget, why, ok_code)
+                })
+            }
+            Err(_) => break None,
         }
     };
     let code = stop(&front, &child, &control, lifeline, request);
