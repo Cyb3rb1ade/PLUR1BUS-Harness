@@ -1,6 +1,6 @@
 //! Actual C4 revision writer: locked source authorization, durable audit, then queue publication.
 //! Runtime composition must supply a human-operation policy to CaptureJournal. No wire grant,
-//! confirmation, or startup activation is inferred by constructing this additive native adapter.
+//! confirmation, or ProcessEngine/Core activation is inferred by constructing this native adapter.
 use super::{
     capture_journal::CaptureJournal,
     derived_fields::{bool_field, field, set, str_field, text},
@@ -108,6 +108,34 @@ impl RevisionStore {
             observer: None,
         }
     }
+    /// Open the human-operation component and finish its original callers' prepared revisions.
+    /// The supplied journal must enforce the human-operation policy, not automatic capture's.
+    /// A malformed or currently unauthorized active plan refuses opening without a new grant.
+    pub fn open(
+        journal: Arc<CaptureJournal>,
+        host: Arc<dyn HostServices>,
+    ) -> Result<Self, EngineError> {
+        let store = Self::new(journal, host);
+        store.recover_pending(&Cancel::never())?;
+        Ok(store)
+    }
+    /// Fully preflight a bounded read-only inventory before resuming any original caller.
+    /// Returns the number of pending operations actually completed, with no identifying output.
+    pub fn recover_pending(&self, cancel: &Cancel) -> Result<usize, EngineError> {
+        let cancel =
+            cancel.limited_to(std::time::Instant::now() + std::time::Duration::from_secs(300));
+        let callers = self.journal.revision_callers(&cancel)?;
+        let mut completed = 0;
+        for caller in callers {
+            if self
+                .recover(&caller.principal, &caller.agent, &cancel)?
+                .is_some()
+            {
+                completed += 1;
+            }
+        }
+        Ok(completed)
+    }
     /// Fault injection after durable stages, never a production environment switch.
     #[cfg(feature = "testkit")]
     pub fn with_observer(mut self, observer: Observer) -> Self {
@@ -157,7 +185,7 @@ impl RevisionStore {
         if let Some(request) = request {
             plan::validate_request(request, &ctx)?;
         }
-        self.journal.with_writer(
+        self.journal.with_operation_writer(
             principal,
             agent,
             &ctx,

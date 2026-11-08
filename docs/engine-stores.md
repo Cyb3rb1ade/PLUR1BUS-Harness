@@ -804,8 +804,8 @@ private owner/agent/workspace binding; conflicting nested authority is refused.
 
 Appends are fsynced and bounded to 64 MiB / 50,000 rows per ledger and 1 MiB per new
 record. Torn, malformed, symlinked or hardlinked files refuse without rewriting their
-contents. The existing original-caller capture-plan recovery may finish under the
-shared writer transaction before these effects. There is no new graph-effect WAL or
+contents. The shared operation writer refuses unfinished automatic capture/episode/vector
+plans; it never replays them under a manual correction policy (RE-D72). There is no new graph-effect WAL or
 automatic repair of damaged effect journals. Lance commits and optional Neo effects
 remain separate, best effort steps, as the existing Node safeUpdate port specifies.
 Actual C4 reviseRecord/curation, conflict resolution and full process composition are
@@ -858,8 +858,40 @@ of prepared vector publication; it cannot bypass the audit through an older queu
 Limits: 8 MiB private receipt, 1 MiB new record, 64 MiB / 50,000 rows per journal,
 1,024 UTF-16 units per source ID. No external provider or new dependency is needed.
 Publication spans files and is not atomically visible to readers; no cross-store
-transaction, OS power-loss test or Windows execution is claimed. Explicit recovery
-is implemented; ProcessEngine/Core startup inventory and A1 confirmation/nonce
-composition remain separate RX gates. Actual Node store/curation/audit primitives
+transaction, OS power-loss test or Windows execution is claimed. Explicit recovery and native component Open-recovery are implemented (RE-D72);
+ProcessEngine/Core activation and A1 confirmation/nonce composition remain separate
+RX gates. Actual Node store/curation/audit primitives
 from #274 produce the 24 twice-recorded `neo-revisions.json` scenarios; these
 fixtures do not claim to execute the entire Node command runner.
+
+
+### Original-caller C4 Open-recovery (RX6 / RE-D72)
+
+`RevisionStore::open` calls `recover_pending` before returning the human-operation
+component. The inventory is read only and checks every active original caller,
+current policy, physical root/workspace proof, canonical location, actual source
+and planned append prefixes before the first replay. Saved owner/agent strings do
+not invent a Principal: the exact serialized caller must still be proved by the
+current HostServices. Completed receipts need no recovery grant. The inventory
+bounds directory entries at 50,000, active callers at 512 and actual
+receipt bytes read in a pass, including JSON whitespace at 64 MiB; each receipt retains its 8 MiB limit. A
+300-second recovery deadline does not rewrite original operation times. Corrupt,
+wrongly placed, linked, physically rebound or currently revoked plans refuse.
+
+Each resumed operation revalidates the original caller under its workspace locks,
+so a later caller, a later chat or a changed policy cannot lend authority. Source
+and audit/queue publication remain the same frozen RE-D71 operation. Five real
+SIGKILL boundaries now reopen the component without a new request or explicitly
+supplying the pending caller; two distinct workspace/owner/agent plans are also
+recovered in one pass. This is not a global atomic transaction across workspaces.
+
+Human revision/correction writers and automatic capture/episode/vector writers
+hold the same kernel/Node Neo leases but have different recovery authority. The
+operation writer refuses active automatic plans instead of replaying capture with
+a human-operation policy. Automatic writers refuse a pending human revision and
+cannot append behind its prepared publication. The appropriate original component
+must settle the outstanding work first. Invalid mixed pending states require
+explicit repair; neither policy is silently reused for the other operation type.
+No new wire/brief interface is introduced. Runtime composition must still construct
+the appropriate policy adapters and order component startup; ProcessEngine/Core
+activation and A1 confirmation remain outstanding RX work.

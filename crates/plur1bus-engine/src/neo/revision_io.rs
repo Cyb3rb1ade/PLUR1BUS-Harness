@@ -78,6 +78,19 @@ pub(super) fn current(
     Err(StoreError::InvalidInput.into())
 }
 pub(super) fn state(dir: &TrustedDirectory, cancel: &Cancel) -> Result<Option<Json>, EngineError> {
+    Ok(state_with_size(dir, cancel)?.map(|(value, _)| value))
+}
+pub(super) fn state_with_size(
+    dir: &TrustedDirectory,
+    cancel: &Cancel,
+) -> Result<Option<(Json, usize)>, EngineError> {
+    let Some(file) = optional(dir.open_file(STATE))? else {
+        return Ok(None);
+    };
+    super::vectors::ordinary(&file)?;
+    if file.metadata().map_err(StoreError::from)?.len() > (8 * MAX_RECORD) as u64 {
+        return Err(StoreError::Corrupt.into());
+    }
     let Some(bytes) = journal_io::bytes(dir, STATE, cancel)? else {
         return Ok(None);
     };
@@ -87,7 +100,7 @@ pub(super) fn state(dir: &TrustedDirectory, cancel: &Cancel) -> Result<Option<Js
     let value = parse_json(std::str::from_utf8(&bytes).map_err(|_| StoreError::Corrupt)?)
         .map_err(|_| StoreError::Corrupt)?;
     validate_object(&value)?;
-    Ok(Some(value))
+    Ok(Some((value, bytes.len())))
 }
 /// Follow-up work must not observe a prepared but unaudited human revision as ready.
 pub(super) fn guard_pending(dir: &TrustedDirectory, cancel: &Cancel) -> Result<(), EngineError> {

@@ -105,7 +105,7 @@ impl NativeCorrectionEffects {
     ) -> Result<T, StoreError> {
         self.check(ctx).map_err(storage)?;
         self.journal
-            .with_writer(
+            .with_operation_writer(
                 &self.authority.principal,
                 &self.authority.agent,
                 ctx,

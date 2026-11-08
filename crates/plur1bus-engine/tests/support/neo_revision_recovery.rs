@@ -343,9 +343,15 @@ fn sigkill_at_all_publication_boundaries_keeps_exactly_one_effect() {
         child.kill().unwrap();
         child.wait().unwrap();
         assert!(ready, "missing {phase}");
-        reopen(&f)
-            .recover(&f.principal, &f.agent, &Cancel::never())
-            .unwrap();
+        let journal = Arc::new(
+            CaptureJournal::open(
+                &f._root.path().join("neo"),
+                f.host.clone(),
+                f.policy.clone(),
+            )
+            .unwrap(),
+        );
+        RevisionStore::open(journal, f.host.clone()).unwrap();
         assert_eq!(
             rows(f.directory.join("behavior-cards.jsonl")).len(),
             2,

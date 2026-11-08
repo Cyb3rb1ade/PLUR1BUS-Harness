@@ -33,6 +33,8 @@ use std::{
 
 #[path = "capture_recovery.rs"]
 mod recovery;
+#[path = "capture_revision_recovery.rs"]
+mod revision_recovery;
 #[path = "capture_transaction.rs"]
 mod transaction;
 
@@ -191,6 +193,7 @@ impl CaptureJournal {
                     turn.cancel.check()?;
                     check()
                 };
+                super::revision_io::guard_pending(&directory, cancel)?;
                 self.replay(&binding, &directory, cancel, &check)?;
                 check()?;
                 // Prepared embedding metadata must settle before a new capture can change its
@@ -246,6 +249,7 @@ impl CaptureJournal {
             return Ok(0);
         }
         self.with_locks(&binding, &directory, principal, agent, cancel, |check| {
+            super::revision_io::guard_pending(&directory, cancel)?;
             self.replay(&binding, &directory, cancel, check)
                 .map(|r| r.total())
         })

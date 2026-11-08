@@ -2,6 +2,9 @@
 #![allow(clippy::unwrap_used, clippy::panic, reason = "fixture assertions")]
 #[path = "support/neo_revision_edges.rs"]
 mod edges;
+#[cfg(feature = "testkit")]
+#[path = "support/neo_revision_startup.rs"]
+mod startup;
 #[path = "recall_support.rs"]
 mod support;
 use plur1bus_engine::{

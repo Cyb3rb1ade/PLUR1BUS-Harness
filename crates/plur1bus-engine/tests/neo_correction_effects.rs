@@ -437,3 +437,42 @@ fn event_metadata_cannot_add_conflicting_nested_authority() {
     assert!(f.effects.record(&f.context, &f.original, &event).is_err());
     assert_eq!(rows(&f, "reconsolidation-events.jsonl").len(), 1);
 }
+
+#[test]
+fn correction_effect_policy_cannot_replay_a_refused_automatic_capture() {
+    struct StopOnPlan(PathBuf);
+    impl CapturePolicy for StopOnPlan {
+        fn allowed(&self, _: &RequestContext) -> Result<bool, EngineError> {
+            Ok(!fs::read_dir(&self.0)
+                .unwrap()
+                .filter_map(Result::ok)
+                .any(|entry| {
+                    entry
+                        .file_name()
+                        .to_string_lossy()
+                        .starts_with("native-capture-pending-")
+                }))
+        }
+    }
+    let f = fixture("version");
+    let automatic = CaptureJournal::open(
+        &f._root.path().join("neo"),
+        f.host.clone(),
+        Arc::new(StopOnPlan(f.directory.clone())),
+    )
+    .unwrap();
+    let turn:plur1bus_engine::contract::TurnRecord=serde_json::from_value(json!({
+        "agentId":"agent","principal":f.principal,"agent":f.agent,"runId":"automatic",
+        "sessionKey":"automatic","incognito":false,"messages":[{"role":"user","content":"Synthetic capture pending"}]
+    })).unwrap();
+    assert!(automatic
+        .record(&turn, &f.context, &Cancel::never())
+        .is_err());
+    assert!(!f.directory.join("turn-journal.jsonl").exists());
+    assert!(f
+        .effects
+        .contains(&f.context, "synthetic-effect-key")
+        .is_err());
+    assert!(!f.directory.join("turn-journal.jsonl").exists());
+    assert!(!f.directory.join("reconsolidation-events.jsonl").exists());
+}
