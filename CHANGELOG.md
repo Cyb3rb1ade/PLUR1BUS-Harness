@@ -151,10 +151,11 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Changed
 
-- **The stock core, the import and `backup restore` also take `run/core-legacy.lock` (P4-10).** Besides `state/core.lock`
-  they take the legacy core's lock, without waiting, and refuse while it is held (`E_LOCKED core-lock-held`,
+- **The stock core, the import and `backup restore` also take `run/core-legacy.lock` (P4-10).** The stock core and the import take it
+  after `state/core.lock`; `backup restore` takes it, where the file exists, as its only lock (it takes no
+  `state/core.lock`). They take it without waiting and refuse while it is held (`E_LOCKED core-lock-held`,
   `target-running`, `E_LOCKED core-running`), so none of them starts beside a legacy core that is still stopping after
-  its front door died. A home that never ran `core.impl: "rust"` behaves as before. `backup restore` says to stop the
+  its front door died. A home that never ran `core.impl: "rust"` behaves as before, apart from the new `run/core-legacy.lock` file. `backup restore` says to stop the
   daemon or `core run` first and to start no core until it has finished (`docs/phase4/defects.md` P4D-5).
 
 - **Channel uploads have bounded, private storage.** Generated outputs and uploads share a 1 GiB quota and 30-day
