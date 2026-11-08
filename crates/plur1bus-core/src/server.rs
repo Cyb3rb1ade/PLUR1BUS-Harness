@@ -249,9 +249,11 @@ impl FrontDoor {
         true
     }
 
-    /// The connections that have not sent a single complete frame yet, oldest first: the only ones ended to make room
-    /// (fix round 1b F5). A connection whose handshake is under way, or that is past it, is never among them, so a flood
-    /// of silent sockets cannot end an owner's handshake while the legacy core verifies it. Every accepted connection is
+    /// The connections before their handshake whose `core.auth` has not reached the credential check, oldest first: the
+    /// only ones counted against the unauthenticated cap and ended to make room (fix round 1b F5, narrowed by re-review
+    /// N1). A connection whose handshake is under way, or that is past it, is never among them, so a flood of sockets
+    /// cannot end an owner's handshake while the legacy core verifies it; a socket that only sends other lines (each
+    /// answered `auth-required`) stays among them, so it cannot escape the cap either. Every accepted connection is
     /// registered before its thread starts, so the accept loop sees them all.
     fn waiting(&self) -> Vec<Arc<Conn>> {
         let mut waiting: Vec<Arc<Conn>> = self
@@ -602,7 +604,8 @@ pub struct Conn {
 #[derive(Default)]
 struct ConnState {
     authed: bool,
-    /// A complete frame arrived (fix round 1b F5): from then on the connection is never ended to make room for another.
+    /// A `core.auth` reached the credential check (fix round 1b F5, narrowed by re-review N1): from then on the connection
+    /// is never ended to make room for another. Any other line before the handshake leaves it counted and evictable.
     spoke: bool,
     caller: Option<Caller>,
     link: Option<Arc<Link>>,
@@ -820,10 +823,7 @@ fn serve_connection(front: &Arc<FrontDoor>, conn: &Arc<Conn>, accepted: Accepted
             }
         }
         match frame::read_line(&mut reader) {
-            Ok(Line::Data(bytes)) => {
-                relock(&conn.state).spoke = true;
-                handle_line(front, conn, &bytes);
-            }
+            Ok(Line::Data(bytes)) => handle_line(front, conn, &bytes),
             Ok(Line::TooLong(n)) => {
                 conn.reply_and_close(&RawId::null(), frame::line_too_long(n));
                 break;
@@ -1098,6 +1098,8 @@ fn handle_auth(
             ),
         );
     }
+    // The credential check begins (re-review N1): from here on this connection is never ended to make room.
+    relock(&conn.state).spoke = true;
     let token = p.get("token").and_then(Value::as_str).unwrap_or("");
     let caller = if has_engine {
         if has_api || current == Some(Caller::Api) {

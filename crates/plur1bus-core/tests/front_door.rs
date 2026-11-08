@@ -169,6 +169,10 @@ fn main() {
             "a_home_too_long_for_the_legacy_socket_is_refused_with_a_clear_message",
             a_home_too_long_for_the_legacy_socket_is_refused_with_a_clear_message,
         ),
+        (
+            "chatty_unauthenticated_sockets_stay_under_their_cap",
+            chatty_unauthenticated_sockets_stay_under_their_cap,
+        ),
     ];
     let mut failed = Vec::new();
     for (name, test) in tests {
@@ -1920,5 +1924,46 @@ fn a_home_too_long_for_the_legacy_socket_is_refused_with_a_clear_message() {
             "{stderr}"
         );
         assert!(!home.join("run").exists(), "nothing was written");
+    }
+}
+
+/// Re-review 1b N1: only a `core.auth` that reached the credential check exempts a connection from the unauthenticated
+/// cap and from being ended to make room (F5). A socket that sends any other line before its handshake (it gets
+/// `auth-required` and stays open, as on the TypeScript server) still counts and can be ended: 60 of them under a
+/// descriptor limit of 256 (48 connections) do not keep an owner from its handshake.
+fn chatty_unauthenticated_sockets_stay_under_their_cap() {
+    #[cfg(unix)]
+    {
+        plur1bus_rpc::limits::raise_open_files();
+        let d = door(Opts {
+            open_files: Some(256),
+            hard_open_files: Some(256),
+            ..Opts::default()
+        });
+        let until = Instant::now() + Duration::from_secs(5);
+        while !d.stderr().contains("core ready") {
+            assert!(Instant::now() < until, "{}", d.stderr());
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert!(
+            d.stderr().contains(r#""maxConnections":48"#),
+            "{}",
+            d.stderr()
+        );
+        let chatty: Vec<Client> = (0..60)
+            .map(|_| {
+                let mut c = d.client();
+                c.send_line(r#"{"jsonrpc":"2.0","id":1,"method":"core.status","params":{}}"#);
+                c
+            })
+            .collect();
+        std::thread::sleep(Duration::from_millis(200)); // every one has had its auth-required
+        let mut owner = d.client();
+        let r = owner
+            .try_call("core.auth", json!({"token": d.token("core.token")}))
+            .unwrap_or_else(|| panic!("an owner gets through chatty sockets: {}", d.stderr()));
+        assert!(r.get("result").is_some(), "{r}");
+        assert!(owner.call("core.status", json!({})).get("result").is_some());
+        drop(chatty);
     }
 }
