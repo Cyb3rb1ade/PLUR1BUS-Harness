@@ -177,3 +177,44 @@ fn actual_file_records_are_reauthorized_at_routing_and_newer_hidden_revisions_wi
             .all(|l| l.hits.is_empty())
     );
 }
+
+#[test]
+fn global_dedupe_subset_preserves_opaque_utf16_ids() {
+    use plur1bus_engine::text::js::JsString;
+    let records = [
+        Record {
+            metadata: parse_json(r#"{"id":"\ud800","statement":"same selected memory text"}"#)
+                .unwrap(),
+            embedding: None,
+        },
+        Record {
+            metadata: parse_json(r#"{"id":"�","statement":"same selected memory text"}"#).unwrap(),
+            embedding: None,
+        },
+    ];
+    let mut lanes = [routing::Lane {
+        name: "workspace_facts",
+        hits: vec![
+            routing::Hit {
+                index: 0,
+                score: 1.,
+            },
+            routing::Hit {
+                index: 1,
+                score: 1.,
+            },
+        ],
+    }];
+    assert_eq!(
+        routing::dedupe_lossless(
+            &mut lanes,
+            &records,
+            &["same selected memory text".into()],
+            Some(&[JsString::from_utf16_units(vec![0xd800])]),
+            0.8
+        ),
+        1
+    );
+    assert_eq!(lanes[0].hits.len(), 1);
+    assert_eq!(lanes[0].hits[0].index, 1);
+}

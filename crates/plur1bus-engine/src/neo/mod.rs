@@ -5,6 +5,7 @@ pub mod global;
 mod index;
 pub mod merged;
 mod merged_order;
+pub mod prelude;
 pub mod routing;
 mod tail;
 mod vectors;

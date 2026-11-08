@@ -296,6 +296,21 @@ pub fn dedupe(
     only_ids: Option<&[String]>,
     threshold: f64,
 ) -> usize {
+    let ids = only_ids.map(|ids| {
+        ids.iter()
+            .map(|id| JsString::from_utf8_str(id))
+            .collect::<Vec<_>>()
+    });
+    dedupe_lossless(lanes, records, texts, ids.as_deref(), threshold)
+}
+/// The same dedupe with opaque UTF-16 IDs preserved, including historical surrogate cuts.
+pub fn dedupe_lossless(
+    lanes: &mut [Lane],
+    records: &[Record],
+    texts: &[String],
+    only_ids: Option<&[JsString]>,
+    threshold: f64,
+) -> usize {
     let sets: Vec<_> = texts
         .iter()
         .map(|t| tokens(t))
@@ -314,9 +329,7 @@ pub fn dedupe(
                 return false;
             };
             let id = record_id(&record.metadata).unwrap_or_default();
-            if sets.is_empty()
-                || only_ids.is_some_and(|ids| !ids.iter().any(|s| JsString::from_utf8_str(s) == id))
-            {
+            if sets.is_empty() || only_ids.is_some_and(|ids| !ids.contains(&id)) {
                 return true;
             }
             let own = tokens(&text(&record.metadata));
