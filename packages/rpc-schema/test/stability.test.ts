@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { METHODS, METHODS_BY_SERVER, NOTIFICATIONS, NOTIFICATIONS_BY_SERVER, RPC_VERSION, SCHEMA, buildCapabilities, validateParams, validateResult } from "../src/index.ts";
 
 const SEMVER = /^\d+\.\d+\.\d+$/;
@@ -87,6 +87,30 @@ describe("rpc-schema stability annotations", () => {
     assert.equal(schema["x-rpc-version"], RPC_VERSION);
     assert.equal((SCHEMA as { title?: string }).title, `PLUR1BUS harness RPC ${RPC_VERSION}`);
     assert.equal(schema.$id, `https://plur1bus.dev/schema/rpc/${RPC_VERSION}/rpc.schema.json`);
+  });
+
+  it("every schema file outside this package refers to the RPC schema by its current $id (P4-10 section E)", () => {
+    // A `$ref` to `schema/rpc/<v>/rpc.schema.json` resolves only while <v> is the schema's own `$id` version: a bump that
+    // leaves one behind breaks it silently (teamplan.schema.json pointed at 1.24.0 after the 1.25.0 bump of P4-10).
+    const root = new URL("../../../", import.meta.url);
+    const found: string[] = [];
+    const walk = (dir: URL) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (entry.name === "node_modules" || entry.name === "generated" || entry.name === "dist") continue;
+        const url = new URL(entry.name + (entry.isDirectory() ? "/" : ""), dir);
+        if (entry.isDirectory()) walk(url);
+        else if (entry.name.endsWith(".json")) {
+          for (const m of readFileSync(url, "utf8").matchAll(/plur1bus\.dev\/schema\/rpc\/([^/"]+)\//g)) found.push(`${url.pathname.slice(root.pathname.length)} ${m[1]}`);
+        }
+      }
+    };
+    for (const pkg of readdirSync(new URL("packages/", root), { withFileTypes: true })) {
+      if (!pkg.isDirectory() || pkg.name === "rpc-schema") continue;
+      const src = new URL(`packages/${pkg.name}/src/`, root);
+      if (existsSync(src)) walk(src);
+    }
+    assert.ok(found.some((f) => f.startsWith("packages/core/src/collab/schemas/teamplan.schema.json ")), JSON.stringify(found));
+    assert.deepEqual(found.filter((f) => !f.endsWith(` ${RPC_VERSION}`)), [], `every reference names ${RPC_VERSION}`);
   });
 
   it("core.status journalReplay (1.3.0) is optional, closed and experimental", () => {
