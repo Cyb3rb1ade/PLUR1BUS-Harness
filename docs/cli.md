@@ -2159,7 +2159,7 @@ Serving lasts only as long as this core process: it ends when the core stops or 
 
 * `create` — [experimental] Create a consistent, checksummed archive of this installation (needs a running core)
 * `verify` — [experimental] Check an archive: manifest, every entry against its SHA-256, nothing extra, nothing missing
-* `restore` — [experimental] Restore an archive into this home (the core must be stopped)
+* `restore` — [experimental] Restore an archive into this home (stop the daemon or `core run` first)
 
 
 
@@ -2195,9 +2195,9 @@ Exits 2 (`E_INVALID_PARAMS`) with a `reason` (archive-corrupt, truncated, manife
 
 ## `plur1bus backup restore`
 
-[experimental] Restore an archive into this home (the core must be stopped)
+[experimental] Restore an archive into this home (stop the daemon or `core run` first)
 
-Verifies first, extracts into a staging directory, then swaps each unit in by rename. Whatever is replaced is kept in `<home>/backups/pre-restore-<id>/`; a failure puts the old state back. Asks first on a terminal; a script (or `--json`) needs `--yes`. `--dry-run` prints the plan and changes nothing.
+Verifies first, extracts into a staging directory, then swaps each unit in by rename. Whatever is replaced is kept in `<home>/backups/pre-restore-<id>/`; a failure puts the old state back. Asks first on a terminal; a script (or `--json`) needs `--yes`. `--dry-run` prints the plan and changes nothing. Stop the daemon (`plur1bus daemon stop`) or the `core run` process first and start no core until the restore has finished: it refuses while a supervisor or a core answers or a legacy core still holds `run/core-legacy.lock`, but it holds no lock that keeps a core from starting while it runs.
 
 **Usage:** `plur1bus backup restore [OPTIONS] <FILE>`
 

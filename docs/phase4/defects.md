@@ -145,9 +145,17 @@ Residual cases:
 - The legacy core finishes the start step it is in when its front door dies (an engine open, a migration) and then the
   drain of what was in flight; it holds `run/core-legacy.lock` throughout, so the writers above wait or refuse, and only
   the next front door's start is delayed (its legacy core exits 3 and is retried for the shutdown budget plus 10 s).
-- The import takes `run/core-legacy.lock` only where `run/` exists and a restore only where the lock file exists (a
-  refused restore must leave the home byte for byte as it was): a legacy core creates both before it opens a store, so
-  only the very first legacy core on a home, in the moments between its spawn and its lock, is not excluded.
+- The import takes `run/core-legacy.lock` only where `run/` exists (a fresh home stays without `run/`); it holds
+  `state/core.lock` for its whole run, which every core takes first, so a core that starts during the import is refused.
+- A restore takes `run/core-legacy.lock` only where the file exists (a refused restore must leave the home byte for byte
+  as it was), and it holds no other lock: it checks once that no supervisor and no core answers. On a home without
+  `run/core-legacy.lock` (no core of P4-10 or later has started there yet, the typical restore into a fresh home), a core
+  of either kind, stock or front door, that is started after those checks is not excluded for the restore's whole run
+  and opens the stores while units are swapped in. The same window exists at the base for the stock TypeScript core (a
+  restore never took `state/core.lock`); P4-10 only narrows it (every core of P4-10 or later leaves the file behind,
+  stock cores included). The operator closes it: `plur1bus backup restore`'s help and its refusals say to stop the daemon
+  or the `core run` process first and start no core until the restore has finished. The restore moves to the Rust core
+  with P4-90, which can hold the core's own lock for the swap.
 - A legacy core that hangs keeps the lock, and with it every later start, until it is killed: the process binding of
   P4-10 S-M4 (security review M4) covers that.
 

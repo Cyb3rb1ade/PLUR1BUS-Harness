@@ -99,7 +99,7 @@ pub fn ensure_quiescent(layout: &Layout) -> Result<(), BackupError> {
     if crate::commands::daemon::supervisor_answers(layout) {
         return Err(BackupError::new(
             "core-running",
-            "a supervisor answers for this home; stop it first (plur1bus daemon stop)",
+            "a supervisor answers for this home; stop it first (plur1bus daemon stop) and start no core until the restore has finished",
         ));
     }
     let probe =
@@ -107,7 +107,7 @@ pub fn ensure_quiescent(layout: &Layout) -> Result<(), BackupError> {
     if !matches!(probe, crate::supervisor::adopt::Probe::Absent) {
         return Err(BackupError::new(
             "core-running",
-            "a core answers for this home; stop it first (plur1bus daemon stop, or end the `core run` process)",
+            "a core answers for this home; stop it first (plur1bus daemon stop, or end the `core run` process) and start no core until the restore has finished",
         ));
     }
     drop(hold_legacy_lock(layout)?);
@@ -120,7 +120,9 @@ pub fn ensure_quiescent(layout: &Layout) -> Result<(), BackupError> {
 /// is taken here without waiting and held for the restore (`core-running` while it is held). A legacy core creates the
 /// file before it opens a store and it is never removed, so where it does not exist no legacy core ever got that far:
 /// nothing to take, and a refused restore leaves the home byte for byte as it was. The restore takes no other lock, so
-/// the order every holder follows (`state/core.lock`, then `run/core-legacy.lock`) cannot deadlock with it.
+/// the order every holder follows (`state/core.lock`, then `run/core-legacy.lock`) cannot deadlock with it. It also means
+/// that on a home without the file a core started after these checks is not excluded (docs/phase4/defects.md P4D-5,
+/// re-review M-a): the help and the refusals tell the operator to keep the core stopped until the restore has finished.
 fn hold_legacy_lock(
     layout: &Layout,
 ) -> Result<Option<plur1bus_audit::lock::CoreLock>, BackupError> {
@@ -132,7 +134,7 @@ fn hold_legacy_lock(
         Ok(Some(lock)) => Ok(Some(lock)),
         Ok(None) => Err(BackupError::new(
             "core-running",
-            "a legacy core behind a stopped front door still holds run/core-legacy.lock; wait until it has stopped",
+            "a legacy core behind a stopped front door still holds run/core-legacy.lock; wait until it has stopped, and start no core until the restore has finished",
         )),
         Err(e) => Err(BackupError::new(
             "core-running",
