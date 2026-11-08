@@ -18,6 +18,9 @@ mod hardening;
 #[cfg(test)]
 mod module_policy_tests;
 
+#[cfg(test)]
+mod derived_cache_tests;
+
 use std::fmt;
 
 /// A refusal or failure with a machine-readable `reason` (the `reason` field of the CLI's error document).

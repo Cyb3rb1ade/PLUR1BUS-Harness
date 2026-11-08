@@ -14,7 +14,9 @@
 //! (`packages/core/src/restore-reapply.ts`).
 use super::archive::{verify, visit};
 use super::create::{ensure_backups_dir, Cleanup};
-use super::manifest::{is_sqlite_name, redacted_config_keys, Kind, Manifest, SQLITE_SIDECARS};
+use super::manifest::{
+    is_derived_cache, is_sqlite_name, redacted_config_keys, Kind, Manifest, SQLITE_SIDECARS,
+};
 use super::{now_ms, short_id, utc_stamp, BackupError};
 use crate::paths::Layout;
 use serde::Serialize;
@@ -138,6 +140,11 @@ fn set_mode(_: &Path, _: Option<u32>) -> io::Result<()> {
 fn extract(archive: &Path, staging: &Path, opts: &RestoreOpts) -> Result<Manifest, BackupError> {
     let mut written = 0usize;
     let manifest = visit(archive, &mut |f, r| {
+        if is_derived_cache(&f.path) {
+            // visit drains and hashes even an omitted payload. A damaged legacy cache must
+            // still fail verification, but its database and sidecars never become live state.
+            return Ok(());
+        }
         let dest = live(staging, &f.path);
         if let Some(parent) = dest.parent() {
             fs::create_dir_all(parent)?;
@@ -157,7 +164,9 @@ fn extract(archive: &Path, staging: &Path, opts: &RestoreOpts) -> Result<Manifes
         fs::create_dir_all(live(staging, &u.archive))?;
     }
     for d in &manifest.dirs {
-        fs::create_dir_all(live(staging, d))?;
+        if !is_derived_cache(d) {
+            fs::create_dir_all(live(staging, d))?;
+        }
     }
     private_dirs(staging)?;
     Ok(manifest)

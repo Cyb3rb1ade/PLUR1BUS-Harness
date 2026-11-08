@@ -71,7 +71,8 @@ pub struct CreateOpts {
 }
 
 fn selected_snapshot_path(path: &str, opts: CreateOpts) -> bool {
-    opts.include_api_accounts || !path.eq_ignore_ascii_case("sqlite/api/accounts.db")
+    !is_derived_cache(path)
+        && (opts.include_api_accounts || !path.eq_ignore_ascii_case("sqlite/api/accounts.db"))
 }
 
 /// Removes a directory tree when dropped (staging areas, on every exit path).
@@ -205,6 +206,9 @@ fn walk(root: &Path, prefix: &str, out: &mut Walked) -> io::Result<()> {
     names.sort_by_key(|e| e.file_name());
     for e in names {
         let rel = format!("{prefix}/{}", e.file_name().to_string_lossy());
+        if is_derived_cache(&rel) {
+            continue;
+        }
         let ft = e.file_type()?;
         if ft.is_dir() {
             out.dirs.push(rel.clone());
@@ -559,6 +563,56 @@ mod tests {
             }
         }
         None
+    }
+
+    #[test]
+    fn derived_cache_is_absent_from_new_archive_tree_and_manifest() {
+        for include_api_accounts in [false, true] {
+            let root = tempfile::tempdir().unwrap();
+            let layout = Layout::new(root.path().join("home"));
+            let mut snap = testkit::staged(&layout, b"db", false);
+            for name in [
+                "bernd.db",
+                "bernd.db-wal",
+                "bernd.db-shm",
+                "nested/other.db",
+            ] {
+                add_staged_file(
+                    &mut snap,
+                    &format!("store/llm-result-cache-v1/{name}"),
+                    b"stale derived response",
+                );
+            }
+            // A similarly named source file must survive. The omission belongs to the
+            // engine database root, never arbitrary workspaces or names sharing a prefix.
+            add_staged_file(&mut snap, "store/llm-result-cache-v10/keep", b"keep");
+            let source = layout.home.join("agents/bernd/llm-result-cache-v1/keep");
+            fs::create_dir_all(source.parent().unwrap()).unwrap();
+            fs::write(&source, b"workspace source").unwrap();
+            let out = root.path().join("archive.tar.gz");
+            create_with_opts(
+                &layout,
+                &out,
+                &snap,
+                CreateOpts {
+                    include_api_accounts,
+                },
+            )
+            .unwrap();
+            let manifest = verify(&out).unwrap();
+            assert!(manifest.files.iter().all(|f| !is_derived_cache(&f.path)));
+            assert!(manifest.dirs.iter().all(|d| !is_derived_cache(d)));
+            assert!(archive_entry(&out, "data/store/llm-result-cache-v1/bernd.db").is_none());
+            assert_eq!(
+                archive_entry(&out, "data/store/llm-result-cache-v10/keep").unwrap(),
+                b"keep"
+            );
+            assert_eq!(
+                archive_entry(&out, "data/agents/bernd/llm-result-cache-v1/keep").unwrap(),
+                b"workspace source"
+            );
+            assert_eq!(fs::read(source).unwrap(), b"workspace source");
+        }
     }
 
     fn assert_refused_and_cleaned(
