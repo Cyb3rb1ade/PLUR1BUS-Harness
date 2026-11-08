@@ -1,0 +1,2478 @@
+{
+  "provenance": {
+    "commit": "af73288cf2a268213b6e8d4a8151772aa327e29b",
+    "node": "v24.21.0",
+    "sourceHashes": {
+      "lib/neo-arch.js": "8c6b87d7669d9ae041b4c661bb7d9d24465a75e3ff22333af0c653e6e17e4950",
+      "lib/emotion.js": "4fad4d37803bbee8bf95a8d3db11b5e2fdc3b195d617055a8af63a0d52780c27",
+      "lib/emotion-engine.js": "b8d4e60b785c9d19809b7f2bfe67e6d2871dfb1b4699bd96b6ee666391372557",
+      "lib/emotion-score.js": "4f5aff9b4bb80e9673c2d1d0a748bd69f12979e11241f946e0b43e48a0df3573",
+      "lib/tier1-lexicon.js": "b4f0e03d727355e52806cda8761f4b38c3af3dc064a051f804ed99981b3d09f8",
+      "lib/tier2-transformer.js": "f928294f31e1cf5c69ffff8b3a8c98b42af8ccc4205877036895d35acc13a120",
+      "lib/tier3-llm.js": "7749de629deee9a0cc8cd01dc51cb7bbcc6e5a99256b5eb794abf0fd41ab0dc6",
+      "lib/host-network.js": "360b692df2f2c3dc9761cfe73ca5165da4b5416f8b7778b5ec79b1dd253aaf69",
+      "lib/emotion-blends.js": "653021f8048772dc6a2c1da0e60bfef08250bcd61aacf45ba1a9bf379fa7ca29",
+      "lib/abort.js": "435016008fa477f7ed7d3215505324bb3e7159e123ea553b35fb8a14d5a4055d",
+      "lib/relevant-memory-context.js": "021cb6e3e568915dbd12602f77ba924ac8c6f1cbc43fcb93cd8697156dca4c66",
+      "lib/memory-context-sanitize.js": "476528aa230fcda996245aa22efee376153ea4bc9a6287ce77da62c1a54e2377",
+      "lib/pattern-surface.js": "e65b2ec958b0564f44ae374579ee59f52f2c9b5be50e3a95e9bb33527b276b8b",
+      "lib/continuity-gate.js": "74b57c98d4631c9d6d34ecc2c744b02f2f430584e270671f60b3ecadc2de84b6",
+      "lib/recall-decision-trace.js": "cee6208fa0a91654adae11ccd17c3b44e86c84fdf9b30c1addfa1d299c96711d",
+      "lib/temporal-provenance.js": "b15da5a91b134fddd99a8ff2448999b9b9e8da3f069b05dd73a2c1ae3a89cc60",
+      "lib/prompt-memory-fields.js": "f20716b535734930677a4657ee62c01247679aa2ba2f0f6a3d7a6de62396bbda",
+      "lib/epistemic-status.js": "552a71f9616c8caa2151b54feadd3e6ab19a470218022027425b11ccaf967fec",
+      "lib/inject-budget.js": "5897fe0a629543e60997e4749f4692c841a8f21a66526c618d7ff3fc1f52d945",
+      "lib/safe-logging.js": "4a634fa3c4cce35d5c7cb29c7c2eb72378666ef400e79dc7869a4c50d2e2c0ac",
+      "lib/log-redact.js": "f64f7d2e2fbf13684ad16fe045a1e43a9755c57be00ee7532479286eed0068e3",
+      "lib/registry-lock.js": "718791a188344b396e72db33c908fb2ef3d71a67dc1ac29a3b2b882c7b76a4e9",
+      "lib/curation-resolve.js": "a2fc25180e41ba12ad2ea465fa78bab24f9de7470f32f3140d0f72d4144ff937",
+      "lib/sql-safety.js": "a6b949df02d29d3ed0494964c004d861d718eeb90abd271410e22a489de1bc62"
+    }
+  },
+  "cases": [
+    {
+      "name": "behavior-keep-initial",
+      "origin": "behavior",
+      "action": "keep",
+      "source": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "hint": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "result": {
+        "ok": true,
+        "status": "promoted"
+      },
+      "revision": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "promoted",
+        "confidence": 0.7,
+        "salience": 0.6000000000000001,
+        "embeddingStatus": "stale",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      },
+      "opposite": [],
+      "queue": [],
+      "audit": [
+        {
+          "event": "curation.resolve",
+          "source": "plur1bus_curation",
+          "agentId": "alpha",
+          "recordId": "beh_revision",
+          "action": "keep",
+          "timestamp": "2026-11-08T12:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "name": "behavior-keep-fresh",
+      "origin": "behavior",
+      "action": "keep",
+      "source": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.15,
+        "salience": 0.15,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T11:00:00.000Z"
+      },
+      "hint": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "result": {
+        "ok": true,
+        "status": "promoted"
+      },
+      "revision": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "promoted",
+        "confidence": 0.35,
+        "salience": 0.35,
+        "embeddingStatus": "stale",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      },
+      "opposite": [],
+      "queue": [],
+      "audit": [
+        {
+          "event": "curation.resolve",
+          "source": "plur1bus_curation",
+          "agentId": "alpha",
+          "recordId": "beh_revision",
+          "action": "keep",
+          "timestamp": "2026-11-08T12:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "name": "behavior-drop-initial",
+      "origin": "behavior",
+      "action": "drop",
+      "source": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "hint": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "result": {
+        "ok": true,
+        "status": "demoted"
+      },
+      "revision": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "demoted",
+        "confidence": 0.5,
+        "salience": 0.15000000000000002,
+        "embeddingStatus": "stale",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      },
+      "opposite": [],
+      "queue": [],
+      "audit": [
+        {
+          "event": "curation.resolve",
+          "source": "plur1bus_curation",
+          "agentId": "alpha",
+          "recordId": "beh_revision",
+          "action": "drop",
+          "timestamp": "2026-11-08T12:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "name": "behavior-drop-fresh",
+      "origin": "behavior",
+      "action": "drop",
+      "source": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.15,
+        "salience": 0.15,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T11:00:00.000Z"
+      },
+      "hint": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "result": {
+        "ok": true,
+        "status": "demoted"
+      },
+      "revision": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "demoted",
+        "confidence": 0.15,
+        "salience": 0,
+        "embeddingStatus": "stale",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      },
+      "opposite": [],
+      "queue": [],
+      "audit": [
+        {
+          "event": "curation.resolve",
+          "source": "plur1bus_curation",
+          "agentId": "alpha",
+          "recordId": "beh_revision",
+          "action": "drop",
+          "timestamp": "2026-11-08T12:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "name": "behavior-promote-initial",
+      "origin": "behavior",
+      "action": "promote",
+      "source": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "hint": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "result": {
+        "record": {
+          "id": "beh_revision",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "scope": "agent_private",
+          "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+          "status": "promoted",
+          "confidence": 0.7,
+          "salience": 0.6000000000000001,
+          "embeddingStatus": "stale",
+          "createdAt": "2026-11-08T10:00:00.000Z",
+          "statement": "Synthetic fixture decision",
+          "sourceSignals": [
+            "reaction-one"
+          ],
+          "opaque": {
+            "preserved": "\ud800"
+          },
+          "updatedAt": "2026-11-08T12:00:00.000Z"
+        },
+        "store": "behavior"
+      },
+      "revision": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "promoted",
+        "confidence": 0.7,
+        "salience": 0.6000000000000001,
+        "embeddingStatus": "stale",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      },
+      "opposite": [],
+      "queue": [
+        {
+          "id": "embq_be3563d7e89fdb0e105b",
+          "targetId": "beh_revision",
+          "targetType": "behavior",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "impact": "low",
+          "status": "stale",
+          "queuedAt": "2026-11-08T12:00:00.000Z"
+        }
+      ],
+      "audit": [
+        {
+          "event": "neo.status_transition",
+          "source": "plur1bus_memory",
+          "agentId": "alpha",
+          "recordId": "beh_revision",
+          "action": "promote",
+          "status": "promoted",
+          "store": "behavior",
+          "timestamp": "2026-11-08T12:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "name": "behavior-promote-fresh",
+      "origin": "behavior",
+      "action": "promote",
+      "source": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.15,
+        "salience": 0.15,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T11:00:00.000Z"
+      },
+      "hint": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "result": {
+        "record": {
+          "id": "beh_revision",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "scope": "agent_private",
+          "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+          "status": "promoted",
+          "confidence": 0.35,
+          "salience": 0.35,
+          "embeddingStatus": "stale",
+          "createdAt": "2026-11-08T10:00:00.000Z",
+          "statement": "Synthetic fixture decision",
+          "sourceSignals": [
+            "reaction-one"
+          ],
+          "opaque": {
+            "preserved": "\ud800"
+          },
+          "updatedAt": "2026-11-08T12:00:00.000Z"
+        },
+        "store": "behavior"
+      },
+      "revision": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "promoted",
+        "confidence": 0.35,
+        "salience": 0.35,
+        "embeddingStatus": "stale",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      },
+      "opposite": [],
+      "queue": [
+        {
+          "id": "embq_be3563d7e89fdb0e105b",
+          "targetId": "beh_revision",
+          "targetType": "behavior",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "impact": "low",
+          "status": "stale",
+          "queuedAt": "2026-11-08T12:00:00.000Z"
+        }
+      ],
+      "audit": [
+        {
+          "event": "neo.status_transition",
+          "source": "plur1bus_memory",
+          "agentId": "alpha",
+          "recordId": "beh_revision",
+          "action": "promote",
+          "status": "promoted",
+          "store": "behavior",
+          "timestamp": "2026-11-08T12:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "name": "behavior-demote-initial",
+      "origin": "behavior",
+      "action": "demote",
+      "source": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "hint": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "result": {
+        "record": {
+          "id": "beh_revision",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "scope": "agent_private",
+          "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+          "status": "demoted",
+          "confidence": 0.5,
+          "salience": 0.15000000000000002,
+          "embeddingStatus": "stale",
+          "createdAt": "2026-11-08T10:00:00.000Z",
+          "statement": "Synthetic fixture decision",
+          "sourceSignals": [
+            "reaction-one"
+          ],
+          "opaque": {
+            "preserved": "\ud800"
+          },
+          "updatedAt": "2026-11-08T12:00:00.000Z"
+        },
+        "store": "behavior"
+      },
+      "revision": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "demoted",
+        "confidence": 0.5,
+        "salience": 0.15000000000000002,
+        "embeddingStatus": "stale",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      },
+      "opposite": [],
+      "queue": [
+        {
+          "id": "embq_be3563d7e89fdb0e105b",
+          "targetId": "beh_revision",
+          "targetType": "behavior",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "impact": "low",
+          "status": "stale",
+          "queuedAt": "2026-11-08T12:00:00.000Z"
+        }
+      ],
+      "audit": [
+        {
+          "event": "neo.status_transition",
+          "source": "plur1bus_memory",
+          "agentId": "alpha",
+          "recordId": "beh_revision",
+          "action": "demote",
+          "status": "demoted",
+          "store": "behavior",
+          "timestamp": "2026-11-08T12:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "name": "behavior-demote-fresh",
+      "origin": "behavior",
+      "action": "demote",
+      "source": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.15,
+        "salience": 0.15,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T11:00:00.000Z"
+      },
+      "hint": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "result": {
+        "record": {
+          "id": "beh_revision",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "scope": "agent_private",
+          "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+          "status": "demoted",
+          "confidence": 0.15,
+          "salience": 0,
+          "embeddingStatus": "stale",
+          "createdAt": "2026-11-08T10:00:00.000Z",
+          "statement": "Synthetic fixture decision",
+          "sourceSignals": [
+            "reaction-one"
+          ],
+          "opaque": {
+            "preserved": "\ud800"
+          },
+          "updatedAt": "2026-11-08T12:00:00.000Z"
+        },
+        "store": "behavior"
+      },
+      "revision": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "demoted",
+        "confidence": 0.15,
+        "salience": 0,
+        "embeddingStatus": "stale",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      },
+      "opposite": [],
+      "queue": [
+        {
+          "id": "embq_be3563d7e89fdb0e105b",
+          "targetId": "beh_revision",
+          "targetType": "behavior",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "impact": "low",
+          "status": "stale",
+          "queuedAt": "2026-11-08T12:00:00.000Z"
+        }
+      ],
+      "audit": [
+        {
+          "event": "neo.status_transition",
+          "source": "plur1bus_memory",
+          "agentId": "alpha",
+          "recordId": "beh_revision",
+          "action": "demote",
+          "status": "demoted",
+          "store": "behavior",
+          "timestamp": "2026-11-08T12:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "name": "behavior-prune-initial",
+      "origin": "behavior",
+      "action": "prune",
+      "source": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "hint": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "result": {
+        "record": {
+          "id": "beh_revision",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "scope": "agent_private",
+          "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+          "status": "pruned",
+          "confidence": 0.5,
+          "salience": 0.4,
+          "embeddingStatus": "excluded",
+          "createdAt": "2026-11-08T10:00:00.000Z",
+          "statement": "Synthetic fixture decision",
+          "sourceSignals": [
+            "reaction-one"
+          ],
+          "opaque": {
+            "preserved": "\ud800"
+          },
+          "updatedAt": "2026-11-08T12:00:00.000Z"
+        },
+        "store": "behavior"
+      },
+      "revision": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "pruned",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "excluded",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      },
+      "opposite": [],
+      "queue": [
+        {
+          "id": "embq_be3563d7e89fdb0e105b",
+          "targetId": "beh_revision",
+          "targetType": "behavior",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "impact": "low",
+          "status": "excluded",
+          "queuedAt": "2026-11-08T12:00:00.000Z"
+        }
+      ],
+      "audit": [
+        {
+          "event": "neo.status_transition",
+          "source": "plur1bus_memory",
+          "agentId": "alpha",
+          "recordId": "beh_revision",
+          "action": "prune",
+          "status": "pruned",
+          "store": "behavior",
+          "timestamp": "2026-11-08T12:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "name": "behavior-prune-fresh",
+      "origin": "behavior",
+      "action": "prune",
+      "source": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.15,
+        "salience": 0.15,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T11:00:00.000Z"
+      },
+      "hint": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "result": {
+        "record": {
+          "id": "beh_revision",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "scope": "agent_private",
+          "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+          "status": "pruned",
+          "confidence": 0.15,
+          "salience": 0.15,
+          "embeddingStatus": "excluded",
+          "createdAt": "2026-11-08T10:00:00.000Z",
+          "statement": "Synthetic fixture decision",
+          "sourceSignals": [
+            "reaction-one"
+          ],
+          "opaque": {
+            "preserved": "\ud800"
+          },
+          "updatedAt": "2026-11-08T12:00:00.000Z"
+        },
+        "store": "behavior"
+      },
+      "revision": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "pruned",
+        "confidence": 0.15,
+        "salience": 0.15,
+        "embeddingStatus": "excluded",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      },
+      "opposite": [],
+      "queue": [
+        {
+          "id": "embq_be3563d7e89fdb0e105b",
+          "targetId": "beh_revision",
+          "targetType": "behavior",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "impact": "low",
+          "status": "excluded",
+          "queuedAt": "2026-11-08T12:00:00.000Z"
+        }
+      ],
+      "audit": [
+        {
+          "event": "neo.status_transition",
+          "source": "plur1bus_memory",
+          "agentId": "alpha",
+          "recordId": "beh_revision",
+          "action": "prune",
+          "status": "pruned",
+          "store": "behavior",
+          "timestamp": "2026-11-08T12:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "name": "behavior-tombstone-initial",
+      "origin": "behavior",
+      "action": "tombstone",
+      "source": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "hint": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "result": {
+        "record": {
+          "id": "beh_revision",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "scope": "agent_private",
+          "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+          "status": "tombstoned",
+          "confidence": 0.5,
+          "salience": 0.4,
+          "embeddingStatus": "tombstoned",
+          "createdAt": "2026-11-08T10:00:00.000Z",
+          "statement": "Synthetic fixture decision",
+          "sourceSignals": [
+            "reaction-one"
+          ],
+          "opaque": {
+            "preserved": "\ud800"
+          },
+          "updatedAt": "2026-11-08T12:00:00.000Z"
+        },
+        "store": "behavior"
+      },
+      "revision": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "tombstoned",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "tombstoned",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      },
+      "opposite": [],
+      "queue": [
+        {
+          "id": "embq_be3563d7e89fdb0e105b",
+          "targetId": "beh_revision",
+          "targetType": "behavior",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "impact": "low",
+          "status": "tombstoned",
+          "queuedAt": "2026-11-08T12:00:00.000Z"
+        }
+      ],
+      "audit": [
+        {
+          "event": "neo.status_transition",
+          "source": "plur1bus_memory",
+          "agentId": "alpha",
+          "recordId": "beh_revision",
+          "action": "tombstone",
+          "status": "tombstoned",
+          "store": "behavior",
+          "timestamp": "2026-11-08T12:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "name": "behavior-tombstone-fresh",
+      "origin": "behavior",
+      "action": "tombstone",
+      "source": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.15,
+        "salience": 0.15,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T11:00:00.000Z"
+      },
+      "hint": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "result": {
+        "record": {
+          "id": "beh_revision",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "scope": "agent_private",
+          "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+          "status": "tombstoned",
+          "confidence": 0.15,
+          "salience": 0.15,
+          "embeddingStatus": "tombstoned",
+          "createdAt": "2026-11-08T10:00:00.000Z",
+          "statement": "Synthetic fixture decision",
+          "sourceSignals": [
+            "reaction-one"
+          ],
+          "opaque": {
+            "preserved": "\ud800"
+          },
+          "updatedAt": "2026-11-08T12:00:00.000Z"
+        },
+        "store": "behavior"
+      },
+      "revision": {
+        "id": "beh_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "tombstoned",
+        "confidence": 0.15,
+        "salience": 0.15,
+        "embeddingStatus": "tombstoned",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceSignals": [
+          "reaction-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      },
+      "opposite": [],
+      "queue": [
+        {
+          "id": "embq_be3563d7e89fdb0e105b",
+          "targetId": "beh_revision",
+          "targetType": "behavior",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "impact": "low",
+          "status": "tombstoned",
+          "queuedAt": "2026-11-08T12:00:00.000Z"
+        }
+      ],
+      "audit": [
+        {
+          "event": "neo.status_transition",
+          "source": "plur1bus_memory",
+          "agentId": "alpha",
+          "recordId": "beh_revision",
+          "action": "tombstone",
+          "status": "tombstoned",
+          "store": "behavior",
+          "timestamp": "2026-11-08T12:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "name": "candidates-keep-initial",
+      "origin": "candidates",
+      "action": "keep",
+      "source": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "hint": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "result": {
+        "ok": true,
+        "status": "promoted"
+      },
+      "revision": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "promoted",
+        "confidence": 0.7,
+        "salience": 0.6000000000000001,
+        "embeddingStatus": "stale",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      },
+      "opposite": [],
+      "queue": [],
+      "audit": [
+        {
+          "event": "curation.resolve",
+          "source": "plur1bus_curation",
+          "agentId": "alpha",
+          "recordId": "mem_revision",
+          "action": "keep",
+          "timestamp": "2026-11-08T12:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "name": "candidates-keep-fresh",
+      "origin": "candidates",
+      "action": "keep",
+      "source": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.15,
+        "salience": 0.15,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T11:00:00.000Z"
+      },
+      "hint": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "result": {
+        "ok": true,
+        "status": "promoted"
+      },
+      "revision": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "promoted",
+        "confidence": 0.35,
+        "salience": 0.35,
+        "embeddingStatus": "stale",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      },
+      "opposite": [],
+      "queue": [],
+      "audit": [
+        {
+          "event": "curation.resolve",
+          "source": "plur1bus_curation",
+          "agentId": "alpha",
+          "recordId": "mem_revision",
+          "action": "keep",
+          "timestamp": "2026-11-08T12:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "name": "candidates-drop-initial",
+      "origin": "candidates",
+      "action": "drop",
+      "source": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "hint": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "result": {
+        "ok": true,
+        "status": "demoted"
+      },
+      "revision": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "demoted",
+        "confidence": 0.5,
+        "salience": 0.15000000000000002,
+        "embeddingStatus": "stale",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      },
+      "opposite": [],
+      "queue": [],
+      "audit": [
+        {
+          "event": "curation.resolve",
+          "source": "plur1bus_curation",
+          "agentId": "alpha",
+          "recordId": "mem_revision",
+          "action": "drop",
+          "timestamp": "2026-11-08T12:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "name": "candidates-drop-fresh",
+      "origin": "candidates",
+      "action": "drop",
+      "source": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.15,
+        "salience": 0.15,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T11:00:00.000Z"
+      },
+      "hint": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "result": {
+        "ok": true,
+        "status": "demoted"
+      },
+      "revision": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "demoted",
+        "confidence": 0.15,
+        "salience": 0,
+        "embeddingStatus": "stale",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      },
+      "opposite": [],
+      "queue": [],
+      "audit": [
+        {
+          "event": "curation.resolve",
+          "source": "plur1bus_curation",
+          "agentId": "alpha",
+          "recordId": "mem_revision",
+          "action": "drop",
+          "timestamp": "2026-11-08T12:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "name": "candidates-promote-initial",
+      "origin": "candidates",
+      "action": "promote",
+      "source": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "hint": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "result": {
+        "record": {
+          "id": "mem_revision",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "scope": "agent_private",
+          "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+          "status": "promoted",
+          "confidence": 0.7,
+          "salience": 0.6000000000000001,
+          "embeddingStatus": "stale",
+          "createdAt": "2026-11-08T10:00:00.000Z",
+          "statement": "Synthetic fixture decision",
+          "sourceTurnIds": [
+            "turn-one"
+          ],
+          "opaque": {
+            "preserved": "\ud800"
+          },
+          "updatedAt": "2026-11-08T12:00:00.000Z"
+        },
+        "store": "candidates"
+      },
+      "revision": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "promoted",
+        "confidence": 0.7,
+        "salience": 0.6000000000000001,
+        "embeddingStatus": "stale",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      },
+      "opposite": [],
+      "queue": [
+        {
+          "id": "embq_218063998c39875e3506",
+          "targetId": "mem_revision",
+          "targetType": "memory",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "impact": "low",
+          "status": "stale",
+          "queuedAt": "2026-11-08T12:00:00.000Z"
+        }
+      ],
+      "audit": [
+        {
+          "event": "neo.status_transition",
+          "source": "plur1bus_memory",
+          "agentId": "alpha",
+          "recordId": "mem_revision",
+          "action": "promote",
+          "status": "promoted",
+          "store": "candidates",
+          "timestamp": "2026-11-08T12:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "name": "candidates-promote-fresh",
+      "origin": "candidates",
+      "action": "promote",
+      "source": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.15,
+        "salience": 0.15,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T11:00:00.000Z"
+      },
+      "hint": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "result": {
+        "record": {
+          "id": "mem_revision",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "scope": "agent_private",
+          "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+          "status": "promoted",
+          "confidence": 0.35,
+          "salience": 0.35,
+          "embeddingStatus": "stale",
+          "createdAt": "2026-11-08T10:00:00.000Z",
+          "statement": "Synthetic fixture decision",
+          "sourceTurnIds": [
+            "turn-one"
+          ],
+          "opaque": {
+            "preserved": "\ud800"
+          },
+          "updatedAt": "2026-11-08T12:00:00.000Z"
+        },
+        "store": "candidates"
+      },
+      "revision": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "promoted",
+        "confidence": 0.35,
+        "salience": 0.35,
+        "embeddingStatus": "stale",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      },
+      "opposite": [],
+      "queue": [
+        {
+          "id": "embq_218063998c39875e3506",
+          "targetId": "mem_revision",
+          "targetType": "memory",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "impact": "low",
+          "status": "stale",
+          "queuedAt": "2026-11-08T12:00:00.000Z"
+        }
+      ],
+      "audit": [
+        {
+          "event": "neo.status_transition",
+          "source": "plur1bus_memory",
+          "agentId": "alpha",
+          "recordId": "mem_revision",
+          "action": "promote",
+          "status": "promoted",
+          "store": "candidates",
+          "timestamp": "2026-11-08T12:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "name": "candidates-demote-initial",
+      "origin": "candidates",
+      "action": "demote",
+      "source": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "hint": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "result": {
+        "record": {
+          "id": "mem_revision",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "scope": "agent_private",
+          "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+          "status": "demoted",
+          "confidence": 0.5,
+          "salience": 0.15000000000000002,
+          "embeddingStatus": "stale",
+          "createdAt": "2026-11-08T10:00:00.000Z",
+          "statement": "Synthetic fixture decision",
+          "sourceTurnIds": [
+            "turn-one"
+          ],
+          "opaque": {
+            "preserved": "\ud800"
+          },
+          "updatedAt": "2026-11-08T12:00:00.000Z"
+        },
+        "store": "candidates"
+      },
+      "revision": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "demoted",
+        "confidence": 0.5,
+        "salience": 0.15000000000000002,
+        "embeddingStatus": "stale",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      },
+      "opposite": [],
+      "queue": [
+        {
+          "id": "embq_218063998c39875e3506",
+          "targetId": "mem_revision",
+          "targetType": "memory",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "impact": "low",
+          "status": "stale",
+          "queuedAt": "2026-11-08T12:00:00.000Z"
+        }
+      ],
+      "audit": [
+        {
+          "event": "neo.status_transition",
+          "source": "plur1bus_memory",
+          "agentId": "alpha",
+          "recordId": "mem_revision",
+          "action": "demote",
+          "status": "demoted",
+          "store": "candidates",
+          "timestamp": "2026-11-08T12:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "name": "candidates-demote-fresh",
+      "origin": "candidates",
+      "action": "demote",
+      "source": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.15,
+        "salience": 0.15,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T11:00:00.000Z"
+      },
+      "hint": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "result": {
+        "record": {
+          "id": "mem_revision",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "scope": "agent_private",
+          "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+          "status": "demoted",
+          "confidence": 0.15,
+          "salience": 0,
+          "embeddingStatus": "stale",
+          "createdAt": "2026-11-08T10:00:00.000Z",
+          "statement": "Synthetic fixture decision",
+          "sourceTurnIds": [
+            "turn-one"
+          ],
+          "opaque": {
+            "preserved": "\ud800"
+          },
+          "updatedAt": "2026-11-08T12:00:00.000Z"
+        },
+        "store": "candidates"
+      },
+      "revision": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "demoted",
+        "confidence": 0.15,
+        "salience": 0,
+        "embeddingStatus": "stale",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      },
+      "opposite": [],
+      "queue": [
+        {
+          "id": "embq_218063998c39875e3506",
+          "targetId": "mem_revision",
+          "targetType": "memory",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "impact": "low",
+          "status": "stale",
+          "queuedAt": "2026-11-08T12:00:00.000Z"
+        }
+      ],
+      "audit": [
+        {
+          "event": "neo.status_transition",
+          "source": "plur1bus_memory",
+          "agentId": "alpha",
+          "recordId": "mem_revision",
+          "action": "demote",
+          "status": "demoted",
+          "store": "candidates",
+          "timestamp": "2026-11-08T12:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "name": "candidates-prune-initial",
+      "origin": "candidates",
+      "action": "prune",
+      "source": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "hint": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "result": {
+        "record": {
+          "id": "mem_revision",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "scope": "agent_private",
+          "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+          "status": "pruned",
+          "confidence": 0.5,
+          "salience": 0.4,
+          "embeddingStatus": "excluded",
+          "createdAt": "2026-11-08T10:00:00.000Z",
+          "statement": "Synthetic fixture decision",
+          "sourceTurnIds": [
+            "turn-one"
+          ],
+          "opaque": {
+            "preserved": "\ud800"
+          },
+          "updatedAt": "2026-11-08T12:00:00.000Z"
+        },
+        "store": "candidates"
+      },
+      "revision": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "pruned",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "excluded",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      },
+      "opposite": [],
+      "queue": [
+        {
+          "id": "embq_218063998c39875e3506",
+          "targetId": "mem_revision",
+          "targetType": "memory",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "impact": "low",
+          "status": "excluded",
+          "queuedAt": "2026-11-08T12:00:00.000Z"
+        }
+      ],
+      "audit": [
+        {
+          "event": "neo.status_transition",
+          "source": "plur1bus_memory",
+          "agentId": "alpha",
+          "recordId": "mem_revision",
+          "action": "prune",
+          "status": "pruned",
+          "store": "candidates",
+          "timestamp": "2026-11-08T12:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "name": "candidates-prune-fresh",
+      "origin": "candidates",
+      "action": "prune",
+      "source": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.15,
+        "salience": 0.15,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T11:00:00.000Z"
+      },
+      "hint": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "result": {
+        "record": {
+          "id": "mem_revision",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "scope": "agent_private",
+          "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+          "status": "pruned",
+          "confidence": 0.15,
+          "salience": 0.15,
+          "embeddingStatus": "excluded",
+          "createdAt": "2026-11-08T10:00:00.000Z",
+          "statement": "Synthetic fixture decision",
+          "sourceTurnIds": [
+            "turn-one"
+          ],
+          "opaque": {
+            "preserved": "\ud800"
+          },
+          "updatedAt": "2026-11-08T12:00:00.000Z"
+        },
+        "store": "candidates"
+      },
+      "revision": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "pruned",
+        "confidence": 0.15,
+        "salience": 0.15,
+        "embeddingStatus": "excluded",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      },
+      "opposite": [],
+      "queue": [
+        {
+          "id": "embq_218063998c39875e3506",
+          "targetId": "mem_revision",
+          "targetType": "memory",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "impact": "low",
+          "status": "excluded",
+          "queuedAt": "2026-11-08T12:00:00.000Z"
+        }
+      ],
+      "audit": [
+        {
+          "event": "neo.status_transition",
+          "source": "plur1bus_memory",
+          "agentId": "alpha",
+          "recordId": "mem_revision",
+          "action": "prune",
+          "status": "pruned",
+          "store": "candidates",
+          "timestamp": "2026-11-08T12:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "name": "candidates-tombstone-initial",
+      "origin": "candidates",
+      "action": "tombstone",
+      "source": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "hint": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "result": {
+        "record": {
+          "id": "mem_revision",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "scope": "agent_private",
+          "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+          "status": "tombstoned",
+          "confidence": 0.5,
+          "salience": 0.4,
+          "embeddingStatus": "tombstoned",
+          "createdAt": "2026-11-08T10:00:00.000Z",
+          "statement": "Synthetic fixture decision",
+          "sourceTurnIds": [
+            "turn-one"
+          ],
+          "opaque": {
+            "preserved": "\ud800"
+          },
+          "updatedAt": "2026-11-08T12:00:00.000Z"
+        },
+        "store": "candidates"
+      },
+      "revision": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "tombstoned",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "tombstoned",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      },
+      "opposite": [],
+      "queue": [
+        {
+          "id": "embq_218063998c39875e3506",
+          "targetId": "mem_revision",
+          "targetType": "memory",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "impact": "low",
+          "status": "tombstoned",
+          "queuedAt": "2026-11-08T12:00:00.000Z"
+        }
+      ],
+      "audit": [
+        {
+          "event": "neo.status_transition",
+          "source": "plur1bus_memory",
+          "agentId": "alpha",
+          "recordId": "mem_revision",
+          "action": "tombstone",
+          "status": "tombstoned",
+          "store": "candidates",
+          "timestamp": "2026-11-08T12:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "name": "candidates-tombstone-fresh",
+      "origin": "candidates",
+      "action": "tombstone",
+      "source": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.15,
+        "salience": 0.15,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T11:00:00.000Z"
+      },
+      "hint": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "conflict",
+        "confidence": 0.5,
+        "salience": 0.4,
+        "embeddingStatus": "pending",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "result": {
+        "record": {
+          "id": "mem_revision",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "scope": "agent_private",
+          "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+          "status": "tombstoned",
+          "confidence": 0.15,
+          "salience": 0.15,
+          "embeddingStatus": "tombstoned",
+          "createdAt": "2026-11-08T10:00:00.000Z",
+          "statement": "Synthetic fixture decision",
+          "sourceTurnIds": [
+            "turn-one"
+          ],
+          "opaque": {
+            "preserved": "\ud800"
+          },
+          "updatedAt": "2026-11-08T12:00:00.000Z"
+        },
+        "store": "candidates"
+      },
+      "revision": {
+        "id": "mem_revision",
+        "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+        "agentId": "alpha",
+        "scope": "agent_private",
+        "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+        "status": "tombstoned",
+        "confidence": 0.15,
+        "salience": 0.15,
+        "embeddingStatus": "tombstoned",
+        "createdAt": "2026-11-08T10:00:00.000Z",
+        "statement": "Synthetic fixture decision",
+        "sourceTurnIds": [
+          "turn-one"
+        ],
+        "opaque": {
+          "preserved": "\ud800"
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      },
+      "opposite": [],
+      "queue": [
+        {
+          "id": "embq_218063998c39875e3506",
+          "targetId": "mem_revision",
+          "targetType": "memory",
+          "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+          "agentId": "alpha",
+          "impact": "low",
+          "status": "tombstoned",
+          "queuedAt": "2026-11-08T12:00:00.000Z"
+        }
+      ],
+      "audit": [
+        {
+          "event": "neo.status_transition",
+          "source": "plur1bus_memory",
+          "agentId": "alpha",
+          "recordId": "mem_revision",
+          "action": "tombstone",
+          "status": "tombstoned",
+          "store": "candidates",
+          "timestamp": "2026-11-08T12:00:00.000Z"
+        }
+      ]
+    }
+  ]
+}

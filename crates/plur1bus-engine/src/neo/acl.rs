@@ -89,7 +89,7 @@ fn collect(
     }
     Ok(result)
 }
-fn bindings(record: &Json, ctx: &RequestContext) -> Result<Visibility, StoreError> {
+pub(super) fn bindings(record: &Json, ctx: &RequestContext) -> Result<Visibility, StoreError> {
     let visibility = nested(record, "visibility")?;
     let origin = nested(record, "origin")?;
     let acl = nested(record, "aclBindings")?;

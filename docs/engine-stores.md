@@ -810,3 +810,56 @@ automatic repair of damaged effect journals. Lance commits and optional Neo effe
 remain separate, best effort steps, as the existing Node safeUpdate port specifies.
 Actual C4 reviseRecord/curation, conflict resolution and full process composition are
 not supplied by this increment.
+
+
+### C4 revision publication (RX6 / RE-D71)
+
+`neo::revisions::RevisionStore` implements actual keep/drop and memory
+promote/demote/prune/tombstone publication. It uses CaptureJournal's native
+workspace lease and interoperable Neo lock, with the policy appropriate to the
+human operation supplied by runtime composition. Its native request contains a
+stable UUID and complete expected source revision. That snapshot is compared
+against the actual latest row under lock; it never grants access or creates a
+missing source. Behavior takes precedence over candidates before ACL checking.
+A newer inaccessible behavior row cannot be hidden by falling back to a candidate.
+Safe legacy metadata is read only; revisions stay in the canonical file of the
+original record type.
+
+Source authority must be explicit, consistent, currently accessible and bound to
+the actual workspace. The transition preserves all source fields, including opaque
+UTF-16 values, and does not broaden scope. `global_user` permits another agent of
+exactly the same owner; source agent/scope/owner survive into its derived queue.
+This adapter does not add cross-workspace discovery or broaden the existing
+private-only embedding drain. Stale snapshots, backwards host clocks, changed
+physical workspaces and revoked original callers fail closed. A changed revision
+requires a fresh decision, unlike Node's permissive stale-hint fallback.
+
+One private `native-revision-state.json` per workspace retains the pending or last
+completed operation, original serialized caller and physical ownership proof,
+action/time, and exact pre-append lengths/SHA-256 values. The source revision is
+fsynced first, the mandatory private audit is fsynced next, and only then is the
+embedding queue published. Keep/drop creates no queue entry, matching Node.
+Audit fields follow the actual command source, plus operation ID and explicit
+private actor authority. A preexisting pending queue entry is retained as Node
+specifies, after authorization; the ownerless compatibility index grants nothing.
+Both compatible indices are refreshed before the receipt is marked complete.
+
+An identical retry or explicit same-caller `recover` uses the frozen operation
+without another confidence/salience increase or a new timestamp. A retained last
+receipt makes the immediate retry idempotent; older requests after a later
+operation fail their exact source CAS. There is no unbounded receipt history.
+Only a partial line matching the exact planned bytes after the matching frozen
+prefix may be truncated and replayed. Unrelated appends before the planned one,
+changed sources, corrupt plans, symlinks and hardlinks refuse without overwrite.
+An audit failure leaves the private plan and blocks queue publication. The actual
+EmbeddingDrain also refuses while a revision is pending, including startup replay
+of prepared vector publication; it cannot bypass the audit through an older queue.
+
+Limits: 8 MiB private receipt, 1 MiB new record, 64 MiB / 50,000 rows per journal,
+1,024 UTF-16 units per source ID. No external provider or new dependency is needed.
+Publication spans files and is not atomically visible to readers; no cross-store
+transaction, OS power-loss test or Windows execution is claimed. Explicit recovery
+is implemented; ProcessEngine/Core startup inventory and A1 confirmation/nonce
+composition remain separate RX gates. Actual Node store/curation/audit primitives
+from #274 produce the 24 twice-recorded `neo-revisions.json` scenarios; these
+fixtures do not claim to execute the entire Node command runner.

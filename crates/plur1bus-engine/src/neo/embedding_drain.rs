@@ -103,6 +103,7 @@ impl EmbeddingDrain {
         let cancel = cancel.limited_to(Instant::now() + Duration::from_secs(300));
         self.episodes
             .embedding_transaction(principal, agent, &cancel, |session| {
+                super::revision_io::guard_pending(session.dir, &cancel)?;
                 embedding_publication::resume(&session, &cancel)?;
                 embedding_publication::guard_other_pending(session.dir, &session.name, &cancel)?;
                 let (plan, result) = embedding_plan::build(

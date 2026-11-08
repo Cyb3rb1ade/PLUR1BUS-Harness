@@ -153,6 +153,7 @@ pub(super) fn resume(session: &Session<'_>, cancel: &Cancel) -> Result<usize, En
     let Some(plan) = episode_io::read(session.dir, &session.name, session.proof, cancel)? else {
         return Ok(0);
     };
+    super::revision_io::guard_pending(session.dir, cancel)?;
     guard_other_pending(session.dir, &session.name, cancel)?;
     let caller = super::caller::decode(field(&plan, "caller")?)?;
     let ctx = session
