@@ -15,6 +15,7 @@ reports legacy version `"0"`; an unreadable or unsupported marker is an error.
 | `speaker_mappings` | `store::sqlite` | Verbatim Node DDL including its legacy camelCase columns. |
 | `vectors.<gen>.f32`, `vector-index.json` | `store::neo_files` | Little-endian Float32 vectors; the index names the generation and records byte offsets, lengths and dimensions. The index is the commit point. |
 | `turn-journal.jsonl`, `record-index.json` | `store::neo_files`, `store::ledger_types` | Actual Node turn records retain `content`; the reader does not invent a `statement` field. |
+| `candidate-index.jsonl` | `neo::index`, `neo::candidate_index` | Vector-free latest-candidate metadata. Native projection preserves every D130 binding/contradiction field (RE-D61), including canonical origin bindings and root workspace aliases/aclBindings. Duplicate fields and malformed origins cannot be projected into access grants. Projection alone neither authorizes sources nor publishes an index. |
 | `conflict-log.jsonl`, `conflict-resolved.jsonl`, `memory-candidates.jsonl`, `destructive-ops.jsonl` | `store::ledger`, `store::ledger_types` | Typed records through tolerant JSON; a lone UTF-16 surrogate stays an escaped surrogate when serialized. |
 | `behavior-cards.jsonl`, `retrieval-ledger.jsonl`, `reply-outcomes.jsonl`, `reconsolidation-events.jsonl`, `reaction-ledger.jsonl` | `store::ledger`, `store::ledger_types` | Node JSONL record shapes. |
 | `run-state.json`, `snapshot.json`, `.emotional-state.json`, `semantic-lens-index.json`, `hook-state.json`, re-embedding state | `store::state_file` | Tolerant JSON load and atomic replace. Invalid state remains a distinct failure; only an absent file returns no state. |
@@ -308,6 +309,17 @@ coercion; raw bytes remain authoritative for reverification. Short protocol muta
 threads, matching synchronous Node mutations within one isolate. The mutex is released before retries and waits;
 this does not change the inherited protocol between separate processes. Tests hold the real Node writer's critical
 section and exercise both acquisition directions, dead holders and competing recoverers.
+
+`LockGuard::is_neo_owned()` is the additive mutation check: the retained directory identity and exact own
+owner-record bytes must still match. It reads at most the known owner-record length plus one byte and refuses links,
+changed paths or released guards. It does not renew the Node stale ceiling. Registry `is_owned()` remains separate.
+
+`TrustedDirectory::append_jsonl_durable` gives new Neo writers a bounded ordered-JSON append through a held
+directory, with ordinary single-link file identity checked before and after the write. Unix uses no-follow openat,
+0600 creation and file/directory fsync. Windows rejects reparse leaves and syncs the file under the existing private
+parent policy; native Windows durability acceptance remains required. The caller supplies authorization, a writer
+lease and WAL recovery. An append error after writing does not promise rollback. Existing JsonlLedger behavior is
+unchanged.
 
 The pin already fixes host-contract f.5: `job-lock.js` explicitly records that mtime alone used to be sufficient,
 while the current registry protocol also checks holder liveness/incarnation. Rust deliberately treats EPERM /

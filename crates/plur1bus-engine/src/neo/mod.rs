@@ -1,5 +1,6 @@
 //! Caller-bound working-memory state and derived-source authority.
 pub mod acl;
+pub mod candidate_index;
 pub mod derived;
 mod derived_fields;
 pub mod format;

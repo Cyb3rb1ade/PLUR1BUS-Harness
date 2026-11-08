@@ -1,0 +1,991 @@
+{
+  "provenance": {
+    "commit": "b097045b6f115275baa8b15016321c3ba080c812",
+    "node": "v24.21.0",
+    "sourceHashes": {
+      "lib/neo-arch.js": "8c6b87d7669d9ae041b4c661bb7d9d24465a75e3ff22333af0c653e6e17e4950",
+      "lib/emotion.js": "4fad4d37803bbee8bf95a8d3db11b5e2fdc3b195d617055a8af63a0d52780c27",
+      "lib/emotion-engine.js": "b8d4e60b785c9d19809b7f2bfe67e6d2871dfb1b4699bd96b6ee666391372557",
+      "lib/emotion-score.js": "4f5aff9b4bb80e9673c2d1d0a748bd69f12979e11241f946e0b43e48a0df3573",
+      "lib/tier1-lexicon.js": "b4f0e03d727355e52806cda8761f4b38c3af3dc064a051f804ed99981b3d09f8",
+      "lib/tier2-transformer.js": "f928294f31e1cf5c69ffff8b3a8c98b42af8ccc4205877036895d35acc13a120",
+      "lib/tier3-llm.js": "7749de629deee9a0cc8cd01dc51cb7bbcc6e5a99256b5eb794abf0fd41ab0dc6",
+      "lib/host-network.js": "360b692df2f2c3dc9761cfe73ca5165da4b5416f8b7778b5ec79b1dd253aaf69",
+      "lib/emotion-blends.js": "653021f8048772dc6a2c1da0e60bfef08250bcd61aacf45ba1a9bf379fa7ca29",
+      "lib/abort.js": "435016008fa477f7ed7d3215505324bb3e7159e123ea553b35fb8a14d5a4055d",
+      "lib/relevant-memory-context.js": "021cb6e3e568915dbd12602f77ba924ac8c6f1cbc43fcb93cd8697156dca4c66",
+      "lib/memory-context-sanitize.js": "476528aa230fcda996245aa22efee376153ea4bc9a6287ce77da62c1a54e2377",
+      "lib/pattern-surface.js": "e65b2ec958b0564f44ae374579ee59f52f2c9b5be50e3a95e9bb33527b276b8b",
+      "lib/continuity-gate.js": "74b57c98d4631c9d6d34ecc2c744b02f2f430584e270671f60b3ecadc2de84b6",
+      "lib/recall-decision-trace.js": "cee6208fa0a91654adae11ccd17c3b44e86c84fdf9b30c1addfa1d299c96711d",
+      "lib/temporal-provenance.js": "b15da5a91b134fddd99a8ff2448999b9b9e8da3f069b05dd73a2c1ae3a89cc60",
+      "lib/prompt-memory-fields.js": "f20716b535734930677a4657ee62c01247679aa2ba2f0f6a3d7a6de62396bbda",
+      "lib/epistemic-status.js": "552a71f9616c8caa2151b54feadd3e6ab19a470218022027425b11ccaf967fec",
+      "lib/inject-budget.js": "5897fe0a629543e60997e4749f4692c841a8f21a66526c618d7ff3fc1f52d945",
+      "lib/safe-logging.js": "4a634fa3c4cce35d5c7cb29c7c2eb72378666ef400e79dc7869a4c50d2e2c0ac",
+      "lib/log-redact.js": "f64f7d2e2fbf13684ad16fe045a1e43a9755c57be00ee7532479286eed0068e3",
+      "lib/registry-lock.js": "718791a188344b396e72db33c908fb2ef3d71a67dc1ac29a3b2b882c7b76a4e9"
+    }
+  },
+  "ownerA": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+  "ownerB": "user:v2:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558",
+  "cases": [
+    {
+      "name": "ordinary",
+      "input": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "origin": {
+          "kind": "user_explicit",
+          "role": "user",
+          "trustLevel": "user_asserted",
+          "scope": "agent_private"
+        }
+      },
+      "output": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "origin": {
+          "kind": "user_explicit",
+          "role": "user",
+          "trustLevel": "user_asserted",
+          "scope": "agent_private"
+        }
+      }
+    },
+    {
+      "name": "all-node-fields",
+      "input": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "origin": {
+          "kind": "user_explicit",
+          "role": "user",
+          "trustLevel": "user_asserted",
+          "scope": "agent_private"
+        },
+        "stale": false,
+        "hardDeleted": false,
+        "updatedAt": "later",
+        "startTime": 1,
+        "epistemicStatus": "verified",
+        "ownerId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "sourceTurnIds": [
+          "source"
+        ],
+        "embeddingDims": 3,
+        "emotionalDominant": "joy",
+        "embedding": [
+          1,
+          2,
+          3
+        ],
+        "unknown": "not indexed"
+      },
+      "output": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "stale": false,
+        "hardDeleted": false,
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "updatedAt": "later",
+        "startTime": 1,
+        "epistemicStatus": "verified",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "ownerId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "sourceTurnIds": [
+          "source"
+        ],
+        "embeddingDims": 3,
+        "emotionalDominant": "joy",
+        "origin": {
+          "kind": "user_explicit",
+          "role": "user",
+          "trustLevel": "user_asserted",
+          "scope": "agent_private"
+        }
+      }
+    },
+    {
+      "name": "missing-statement",
+      "input": {
+        "id": "missing",
+        "content": "content fallback"
+      },
+      "output": {
+        "id": "missing",
+        "statement": "content fallback"
+      }
+    },
+    {
+      "name": "text-fallback",
+      "input": {
+        "id": "text",
+        "text": "text fallback"
+      },
+      "output": {
+        "id": "text",
+        "statement": "text fallback"
+      }
+    },
+    {
+      "name": "numeric-statement",
+      "input": {
+        "id": 42,
+        "statement": 12
+      },
+      "output": {
+        "id": "42",
+        "statement": "12"
+      }
+    },
+    {
+      "name": "null-statement",
+      "input": {
+        "id": "null",
+        "statement": null,
+        "content": "fallback"
+      },
+      "output": {
+        "id": "null",
+        "statement": "fallback"
+      }
+    },
+    {
+      "name": "empty-statement",
+      "input": {
+        "id": "empty",
+        "statement": "",
+        "content": "not used"
+      },
+      "output": {
+        "id": "empty",
+        "statement": ""
+      }
+    },
+    {
+      "name": "array-statement",
+      "input": {
+        "id": "array",
+        "statement": [
+          "a",
+          null,
+          "b"
+        ]
+      },
+      "output": {
+        "id": "array",
+        "statement": "a,,b"
+      }
+    },
+    {
+      "name": "object-statement",
+      "input": {
+        "id": "object",
+        "statement": {
+          "fact": true
+        }
+      },
+      "output": {
+        "id": "object",
+        "statement": "[object Object]"
+      }
+    },
+    {
+      "name": "opaque",
+      "input": {
+        "id": "opaque-\ud800",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "units-\udc00",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "origin": {
+          "kind": "user_explicit",
+          "role": "user",
+          "trustLevel": "user_asserted",
+          "scope": "agent_private"
+        }
+      },
+      "output": {
+        "id": "opaque-\ud800",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "units-\udc00",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "origin": {
+          "kind": "user_explicit",
+          "role": "user",
+          "trustLevel": "user_asserted",
+          "scope": "agent_private"
+        }
+      }
+    },
+    {
+      "name": "no-id",
+      "input": {
+        "statement": "missing id"
+      },
+      "output": null
+    },
+    {
+      "name": "empty-id",
+      "input": {
+        "id": ""
+      },
+      "output": null
+    },
+    {
+      "name": "zero-id",
+      "input": {
+        "id": 0
+      },
+      "output": null
+    },
+    {
+      "name": "parse-error",
+      "input": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "origin": {
+          "kind": "user_explicit",
+          "role": "user",
+          "trustLevel": "user_asserted",
+          "scope": "agent_private"
+        },
+        "__parseError": "fixture"
+      },
+      "output": null
+    },
+    {
+      "name": "null",
+      "input": null,
+      "output": null
+    },
+    {
+      "name": "array",
+      "input": [],
+      "output": null
+    },
+    {
+      "name": "origin-owner-conflict",
+      "input": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "origin": {
+          "kind": "user_explicit",
+          "role": "user",
+          "trustLevel": "user_asserted",
+          "scope": "agent_private",
+          "ownerUserId": "user:v2:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558"
+        }
+      },
+      "output": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "origin": {
+          "kind": "user_explicit",
+          "role": "user",
+          "trustLevel": "user_asserted",
+          "scope": "agent_private"
+        }
+      }
+    },
+    {
+      "name": "origin-agent-conflict",
+      "input": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "origin": {
+          "kind": "user_explicit",
+          "role": "user",
+          "trustLevel": "user_asserted",
+          "scope": "agent_private",
+          "agentId": "beta"
+        }
+      },
+      "output": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "origin": {
+          "kind": "user_explicit",
+          "role": "user",
+          "trustLevel": "user_asserted",
+          "scope": "agent_private"
+        }
+      }
+    },
+    {
+      "name": "origin-workspace-conflict",
+      "input": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "origin": {
+          "kind": "user_explicit",
+          "role": "user",
+          "trustLevel": "user_asserted",
+          "scope": "agent_private",
+          "workspaceIdentity": "workspace:v1:other"
+        }
+      },
+      "output": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "origin": {
+          "kind": "user_explicit",
+          "role": "user",
+          "trustLevel": "user_asserted",
+          "scope": "agent_private"
+        }
+      }
+    },
+    {
+      "name": "origin-workspace-key-conflict",
+      "input": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "origin": {
+          "kind": "user_explicit",
+          "role": "user",
+          "trustLevel": "user_asserted",
+          "scope": "agent_private",
+          "workspaceKey": "workspace:v1:other"
+        }
+      },
+      "output": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "origin": {
+          "kind": "user_explicit",
+          "role": "user",
+          "trustLevel": "user_asserted",
+          "scope": "agent_private"
+        }
+      }
+    },
+    {
+      "name": "origin-workspace-id-conflict",
+      "input": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "origin": {
+          "kind": "user_explicit",
+          "role": "user",
+          "trustLevel": "user_asserted",
+          "scope": "agent_private",
+          "workspaceId": "workspace:v1:other"
+        }
+      },
+      "output": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "origin": {
+          "kind": "user_explicit",
+          "role": "user",
+          "trustLevel": "user_asserted",
+          "scope": "agent_private"
+        }
+      }
+    },
+    {
+      "name": "root-scope-conflict",
+      "input": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "origin": {
+          "kind": "user_explicit",
+          "role": "user",
+          "trustLevel": "user_asserted",
+          "scope": "agent_private"
+        },
+        "scope": "global_user"
+      },
+      "output": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "origin": {
+          "kind": "user_explicit",
+          "role": "user",
+          "trustLevel": "user_asserted",
+          "scope": "agent_private"
+        }
+      }
+    },
+    {
+      "name": "root-workspace-conflict",
+      "input": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "origin": {
+          "kind": "user_explicit",
+          "role": "user",
+          "trustLevel": "user_asserted",
+          "scope": "agent_private"
+        },
+        "workspaceIdentity": "workspace:v1:other"
+      },
+      "output": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "origin": {
+          "kind": "user_explicit",
+          "role": "user",
+          "trustLevel": "user_asserted",
+          "scope": "agent_private"
+        }
+      }
+    },
+    {
+      "name": "root-workspace-id-conflict",
+      "input": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "origin": {
+          "kind": "user_explicit",
+          "role": "user",
+          "trustLevel": "user_asserted",
+          "scope": "agent_private"
+        },
+        "workspaceId": "workspace:v1:other"
+      },
+      "output": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "origin": {
+          "kind": "user_explicit",
+          "role": "user",
+          "trustLevel": "user_asserted",
+          "scope": "agent_private"
+        }
+      }
+    },
+    {
+      "name": "acl-binding-conflict",
+      "input": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "origin": {
+          "kind": "user_explicit",
+          "role": "user",
+          "trustLevel": "user_asserted",
+          "scope": "agent_private"
+        },
+        "aclBindings": {
+          "ownerUserId": "user:v2:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558"
+        }
+      },
+      "output": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "origin": {
+          "kind": "user_explicit",
+          "role": "user",
+          "trustLevel": "user_asserted",
+          "scope": "agent_private"
+        }
+      }
+    },
+    {
+      "name": "acl-binding-malformed",
+      "input": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "origin": {
+          "kind": "user_explicit",
+          "role": "user",
+          "trustLevel": "user_asserted",
+          "scope": "agent_private"
+        },
+        "aclBindings": []
+      },
+      "output": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "origin": {
+          "kind": "user_explicit",
+          "role": "user",
+          "trustLevel": "user_asserted",
+          "scope": "agent_private"
+        }
+      }
+    },
+    {
+      "name": "origin-array",
+      "input": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "origin": []
+      },
+      "output": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "origin": {}
+      }
+    },
+    {
+      "name": "origin-boolean",
+      "input": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "origin": true
+      },
+      "output": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      }
+    },
+    {
+      "name": "consistent-extra-authority",
+      "input": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "origin": {
+          "kind": "user_explicit",
+          "role": "user",
+          "trustLevel": "user_asserted",
+          "scope": "agent_private",
+          "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+        },
+        "scope": "agent_private",
+        "workspaceIdentity": "workspace:v1:one",
+        "aclBindings": {
+          "agentId": "alpha",
+          "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+        }
+      },
+      "output": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "origin": {
+          "kind": "user_explicit",
+          "role": "user",
+          "trustLevel": "user_asserted",
+          "scope": "agent_private"
+        }
+      }
+    },
+    {
+      "name": "origin-null",
+      "input": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "origin": null
+      },
+      "output": {
+        "id": "candidate",
+        "workspaceKey": "workspace:v1:one",
+        "agentId": "alpha",
+        "statement": "source fact",
+        "category": "project_fact",
+        "status": "active",
+        "confidence": 0.75,
+        "salience": 0.55,
+        "recency": 1,
+        "createdAt": "2026-11-08T12:00:00.000Z",
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "ownerUserId": "user:v2:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      }
+    }
+  ]
+}
