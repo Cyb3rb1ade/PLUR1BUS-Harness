@@ -58,11 +58,22 @@ impl EpisodeStore {
         context: &RequestContext,
         cancel: &Cancel,
     ) -> Result<usize, EngineError> {
+        self.finish(turn, context, cancel, true)
+    }
+    pub(super) fn finish(
+        &self,
+        turn: &TurnRecord,
+        context: &RequestContext,
+        cancel: &Cancel,
+        episodes: bool,
+    ) -> Result<usize, EngineError> {
         if turn.incognito {
             return Ok(0);
         }
         let cancel = cancel.limited_to(Instant::now() + Duration::from_secs(300));
-        self.record(turn, context, &cancel)?;
+        if episodes {
+            self.record(turn, context, &cancel)?;
+        }
         let session = JsString::from(
             turn.session_key
                 .as_deref()
@@ -103,22 +114,27 @@ impl EpisodeStore {
                             .single()
                             .ok_or(StoreError::InvalidInput)?
                             .to_rfc3339_opts(SecondsFormat::Millis, true);
-                        let mood = self.mood.read(
-                            &turn.principal,
-                            &turn.agent,
-                            &cancel,
-                            |state, time| state.describe(time),
-                        )?;
-                        let input = Build {
-                            turn,
-                            ctx: context,
-                            dir,
-                            session: &session,
-                            now: &JsString::from(now.as_str()),
-                            mood: &mood,
+                        let now = JsString::from(now.as_str());
+                        let plan = if episodes {
+                            let mood = self.mood.read(
+                                &turn.principal,
+                                &turn.agent,
+                                &cancel,
+                                |state, time| state.describe(time),
+                            )?;
+                            let input = Build {
+                                turn,
+                                ctx: context,
+                                dir,
+                                session: &session,
+                                now: &now,
+                                mood: &mood,
+                            };
+                            episode_plan::build(&input, checkpoint.state(), &cancel)?
+                        } else {
+                            episode_plan::checkpoint_only(turn, checkpoint.state(), &session, &now)?
                         };
-                        let Some(plan) = episode_plan::build(&input, checkpoint.state(), &cancel)?
-                        else {
+                        let Some(plan) = plan else {
                             return Ok(recovered);
                         };
                         let next =

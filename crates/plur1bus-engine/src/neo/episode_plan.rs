@@ -281,3 +281,50 @@ pub(super) fn build(
         ("episodes", Json::Array(episodes)),
     ])))
 }
+
+/// Sessions still acknowledge completed capture when optional Neo episodes are disabled or background-only.
+pub(super) fn checkpoint_only(
+    turn: &TurnRecord,
+    state: &Json,
+    session: &JsString,
+    now: &JsString,
+) -> Result<Option<Json>, EngineError> {
+    let current = watermark::read_session(state, session);
+    if current.known && current.count == turn.messages.len() as f64 {
+        return Ok(None);
+    }
+    let patch = watermark::plan_advance(
+        state,
+        session,
+        &Json::Number(current.count.to_string()),
+        &Json::Number(turn.messages.len().to_string()),
+        now,
+    )?
+    .ok_or(StoreError::Corrupt)?;
+    let mut next = state.clone();
+    let Json::Object(patch) = patch else {
+        return Err(StoreError::Corrupt.into());
+    };
+    for (key, value) in patch {
+        set(&mut next, &key.to_utf8_lossy(), value)?;
+    }
+    if let Some(map) = field(state, "episodeSessions") {
+        validate_object(map)?;
+        let Json::Object(mut entries) = map.clone() else {
+            return Err(StoreError::Corrupt.into());
+        };
+        let Some(Json::Object(retained)) = field(&next, "sessionWatermarks") else {
+            return Err(StoreError::Corrupt.into());
+        };
+        entries.retain(|(key, _)| retained.iter().any(|(k, _)| k == key));
+        set(&mut next, "episodeSessions", Json::Object(entries))?;
+    }
+    Ok(Some(object(vec![
+        ("session", Json::String(session.clone())),
+        ("previous", state.clone()),
+        ("next", next),
+        ("sources", Json::Array(vec![])),
+        ("predecessors", Json::Array(vec![])),
+        ("episodes", Json::Array(vec![])),
+    ])))
+}

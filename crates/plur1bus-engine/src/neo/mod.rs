@@ -1,6 +1,7 @@
 //! Caller-bound working-memory state and derived-source authority.
 pub mod acl;
 pub mod candidate_index;
+pub mod capture_hook;
 pub mod capture_journal;
 mod capture_plan;
 pub mod derived;

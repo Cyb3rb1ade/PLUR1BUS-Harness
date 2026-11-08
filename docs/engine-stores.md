@@ -538,3 +538,14 @@ embedding drain/generations, vault publication and process activation remain lat
 `neo_episode_store` and `neo_episode_store_edges` exercise real files, concurrent writers, both
 SIGKILL boundaries, revocation, source/checkpoint changes, links and torn tails. Existing session,
 journal and Node episode parity tests remain unchanged. Native Windows execution is not claimed.
+
+`NativeNeoCaptureHook` now implements the existing CapturePipeline trait with this actual
+EpisodeStore. It freezes the same effective host config as the capture pipeline. Enabled Neo
+records sources at the pre-store boundary; post-store foreground work publishes deterministic
+episodes, while disabled Neo/background capture uses the same pending-safe transaction to
+advance only session state. No new episode source files are created by disabled Neo. Incognito
+remains side-effect free. CaptureRuntime retains its explicit unscheduled inline diagnostic for
+`deferPostTurnLlm`; this hook creates neither a model job nor a scheduler. The integration test
+`neo_capture_hook` runs CaptureRuntime, NativeCaptureClassifier, shared mood and actual Lance
+writes in four offline modes, including the deferred request. ProcessEngine activation and
+startup replay remain separate RX8/T6 gates.
