@@ -953,5 +953,36 @@ existing topic cleaner remains covered by the unchanged episode fixtures. No new
 model, dependency, background job or consumed interface is introduced.
 
 This primitive accepts already-authorized snapshots and an existing host-bound
-provider. Actual EpisodeStore publication, provider-policy composition and
-ProcessEngine activation are subsequent work; it grants no source authority.
+provider. EpisodeStore and the actual capture hook now compose it as described
+below (RE-D75); provider routing and ProcessEngine activation remain host work.
+The primitive itself grants no source authority.
+
+
+### Durable narrative capture composition (RX6 / RE-D75)
+
+`EpisodeStore::with_narrative` and `NativeNeoCaptureHook::open_with_narrative` take
+an existing composition-authorized LlmPort. Default construction remains
+provider-free. The real CaptureRuntime/CapturePipeline path first writes primary
+Lance rows, then enriches eligible ordinary episodes inline. Existing deferred
+fallback diagnostics remain; no detached job, credential or model is constructed.
+Disabled Neo, background captures, incognito and single-turn groups make no calls.
+
+Every model group is selected from actual source IDs under the existing writer
+and session leases. Original current policy and exact latest source revisions
+are checked immediately before and after inference. Foreign/tombstoned/changed
+sources refuse; provider-time revocation cannot publish its output. A continued
+episode uses the original checkpoint's 600-unit snapshots after comparison with
+the full authorized source. Only a proven cut-induced final half-pair is removed
+at the external model boundary; the saved snapshot stays unchanged. Vividness
+is recomputed from the enriched episode, matching Node's ordering.
+
+The complete enriched episode enters the existing original-caller pending plan
+before any episode append; source/predecessor preflight, durable append and
+checkpoint-last publication remain unchanged. Prepared component-open recovery
+needs neither a new provider nor new name-file reads. Concurrent duplicate
+captures serialize and the completed watermark prevents repeated calls.
+
+The inference itself is not exactly-once: interruption before durable preparation
+may repeat a provider call. Recovery after preparation uses the frozen result.
+Host-specific provider routing/authorization and ProcessEngine activation remain
+open; this supplies the genuine capture hook path, not final RX activation.

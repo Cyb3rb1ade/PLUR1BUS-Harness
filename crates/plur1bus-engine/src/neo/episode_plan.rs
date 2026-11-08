@@ -21,6 +21,9 @@ use crate::{
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 
+#[path = "episode_plan_narrative.rs"]
+mod narrative;
+
 pub(super) fn array<'a>(value: &'a Json, name: &str) -> Result<&'a [Json], StoreError> {
     match field(value, name) {
         Some(Json::Array(v)) => Ok(v),
@@ -108,6 +111,8 @@ pub(super) struct Build<'a> {
     pub now: &'a JsString,
     pub mood: &'a Json,
     pub names: &'a dyn Fn() -> Result<super::participant_names::ParticipantNames, EngineError>,
+    pub narrative: Option<&'a dyn crate::contract::LlmPort>,
+    pub check: &'a dyn Fn() -> Result<(), EngineError>,
 }
 pub(super) fn build(
     input: &Build<'_>,
@@ -122,6 +127,7 @@ pub(super) fn build(
         now,
         mood,
         names,
+        ..
     } = *input;
     let watermark = watermark::read_session(state, session);
     if watermark.known && watermark.count == turn.messages.len() as f64 {
@@ -200,6 +206,7 @@ pub(super) fn build(
         .iter()
         .map(|i| episodes[*i].clone())
         .collect();
+    narrative::enrich(input, &mut episodes, open, &rows, &names, cancel)?;
     for episode in &mut episodes {
         capture_plan::stamp(episode, ctx)?;
     }

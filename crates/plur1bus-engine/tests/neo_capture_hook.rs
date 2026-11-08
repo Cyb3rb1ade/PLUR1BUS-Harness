@@ -35,21 +35,27 @@ impl CaptureEmotionRoutes for NoModel {
 }
 #[test]
 fn actual_capture_hook_publishes_private_sources_episodes_and_session_checkpoint() {
-    exercise(&[
-        (true, false, false, false, false),
-        (false, false, false, false, false),
-        (true, true, false, false, false),
-        (true, false, true, false, false),
-    ]);
+    exercise(
+        &[
+            (true, false, false, false, false),
+            (false, false, false, false, false),
+            (true, true, false, false, false),
+            (true, false, true, false, false),
+        ],
+        false,
+    );
 }
 #[test]
 fn configured_auto_drain_runs_after_lance_capture_and_respects_disabled_and_background_modes() {
-    exercise(&[
-        (true, false, false, true, true),
-        (true, false, false, true, false),
-        (false, false, false, true, true),
-        (true, true, false, true, true),
-    ]);
+    exercise(
+        &[
+            (true, false, false, true, true),
+            (true, false, false, true, false),
+            (false, false, false, true, true),
+            (true, true, false, true, true),
+        ],
+        false,
+    );
 }
 struct AfterLance {
     inner: Arc<dyn EmbeddingProvider>,
@@ -85,7 +91,7 @@ impl EmbeddingProvider for AfterLance {
         self.inner.embed(texts, kind, cancel)
     }
 }
-fn exercise(cases: &[(bool, bool, bool, bool, bool)]) {
+fn exercise(cases: &[(bool, bool, bool, bool, bool)], narrative: bool) {
     for &(enabled, background, deferred, bind, auto_enabled) in cases {
         let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
         let workspace = root.path().join("workspace");
@@ -124,7 +130,22 @@ fn exercise(cases: &[(bool, bool, bool, bool, bool)]) {
             calls: Default::default(),
             fail: Default::default(),
         });
-        let hook = NativeNeoCaptureHook::open(&neo, host.clone(), policy.clone(), mood).unwrap();
+        let model = Arc::new(NarrativeAfterLance {
+            stores: stores.clone(),
+            calls: Default::default(),
+        });
+        let hook = if narrative {
+            NativeNeoCaptureHook::open_with_narrative(
+                &neo,
+                host.clone(),
+                policy.clone(),
+                mood,
+                model.clone(),
+            )
+            .unwrap()
+        } else {
+            NativeNeoCaptureHook::open(&neo, host.clone(), policy.clone(), mood).unwrap()
+        };
         let hook = Arc::new(if bind {
             hook.with_embedder(observer.clone()).unwrap()
         } else {
@@ -218,9 +239,20 @@ fn exercise(cases: &[(bool, bool, bool, bool, bool)]) {
             assert_eq!(rows[1]["memoryIds"].as_array().unwrap().len(), 5);
             assert_eq!(rows[1]["ownerUserId"], context.owner_user_id);
             assert_eq!(rows[1]["scope"], "agent_private");
+            if narrative {
+                assert_eq!(rows[1]["title"], "Narrative after capture");
+            }
         } else {
             assert!(!directory.join("episodes.jsonl").exists());
         }
+        assert_eq!(
+            model.calls.load(std::sync::atomic::Ordering::SeqCst),
+            if narrative && enabled && !background {
+                2
+            } else {
+                0
+            }
+        );
         assert_eq!(directory.join("turn-journal.jsonl").exists(), enabled);
         let should_drain = enabled && bind && auto_enabled;
         assert_eq!(directory.join("vector-index.json").exists(), should_drain);
@@ -283,4 +315,45 @@ fn exercise(cases: &[(bool, bool, bool, bool, bool)]) {
             }
         }
     }
+}
+
+struct NarrativeAfterLance {
+    stores: Arc<StorePool>,
+    calls: std::sync::atomic::AtomicUsize,
+}
+impl LlmPort for NarrativeAfterLance {
+    fn complete(
+        &self,
+        _: plur1bus_engine::contract::LlmParams,
+        cancel: &Cancel,
+    ) -> Result<plur1bus_engine::contract::LlmResult, plur1bus_engine::contract::HostError> {
+        assert!(!cancel.is_cancelled());
+        assert!(!self
+            .stores
+            .get("alpha")
+            .unwrap()
+            .scan(&RowFilter::default(), 100)
+            .unwrap()
+            .is_empty());
+        self.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        Ok(plur1bus_engine::contract::LlmResult {
+            text:
+                r#"{"title":"Narrative after capture","emotion":"joy","emotionIntensity":"mittel"}"#
+                    .into(),
+            usage: None,
+            model: None,
+        })
+    }
+}
+#[test]
+fn actual_capture_hook_enriches_inline_after_lance_and_skips_disabled_background() {
+    exercise(
+        &[
+            (true, false, false, false, false),
+            (true, false, true, true, true),
+            (false, false, false, false, false),
+            (true, true, false, false, false),
+        ],
+        true,
+    );
 }

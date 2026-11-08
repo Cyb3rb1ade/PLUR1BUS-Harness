@@ -9,7 +9,7 @@ use super::{
 use crate::{
     capture::{emotion_pool::EmotionalPool, shared_scope::CapturePolicy},
     context::RequestContext,
-    contract::{Cancel, EngineError, HostServices, StoreError, TurnRecord},
+    contract::{Cancel, EngineError, HostServices, LlmPort, StoreError, TurnRecord},
     text::js::JsString,
 };
 use chrono::{SecondsFormat, TimeZone, Utc};
@@ -31,6 +31,7 @@ pub struct EpisodeStore {
     sessions: SessionStore,
     host: Arc<dyn HostServices>,
     mood: Arc<EmotionalPool>,
+    narrative: Option<Arc<dyn LlmPort>>,
 }
 impl EpisodeStore {
     /// Opening holds physical roots but creates no state, episode, lease or provider work.
@@ -45,7 +46,15 @@ impl EpisodeStore {
             sessions: SessionStore::open(root, host.clone())?,
             host,
             mood,
+            narrative: None,
         })
+    }
+    /// Use a composition-authorized provider for synchronous narrative enrichment.
+    /// Routing and credentials must already be bound by the host; this builder grants none.
+    /// Prepared recovery never calls the provider. The default remains deterministic-only.
+    pub fn with_narrative(mut self, port: Arc<dyn LlmPort>) -> Self {
+        self.narrative = Some(port);
+        self
     }
     /// Pre-store capture writes the authenticated source journals idempotently.
     pub fn record(
@@ -56,7 +65,7 @@ impl EpisodeStore {
     ) -> Result<JournalResult, EngineError> {
         self.journal.record(turn, context, cancel)
     }
-    /// Complete ordinary deterministic episodes. No background model job or vault publication.
+    /// Complete ordinary episodes, optionally enriched through the bound provider. No background job or vault publication.
     /// A pending publication is recovered before newer work can advance any session checkpoint.
     pub fn process(
         &self,
@@ -139,6 +148,8 @@ impl EpisodeStore {
                                 now: &now,
                                 mood: &mood,
                                 names: &names,
+                                narrative: self.narrative.as_deref(),
+                                check,
                             };
                             episode_plan::build(&input, checkpoint.state(), &cancel)?
                         } else {

@@ -7,7 +7,9 @@ use crate::embedding::EmbeddingProvider;
 use crate::{
     capture::{emotion_pool::EmotionalPool, pipeline::NeoCaptureHook, shared_scope::CapturePolicy},
     context::RequestContext,
-    contract::{Cancel, CaptureOptions, EngineError, HostServices, StoreError, TurnRecord},
+    contract::{
+        Cancel, CaptureOptions, EngineError, HostServices, LlmPort, StoreError, TurnRecord,
+    },
 };
 use std::{
     path::Path,
@@ -31,6 +33,26 @@ impl NativeNeoCaptureHook {
         host: Arc<dyn HostServices>,
         policy: Arc<dyn CapturePolicy>,
         mood: Arc<EmotionalPool>,
+    ) -> Result<Self, EngineError> {
+        Self::open_bound(root, host, policy, mood, None)
+    }
+    /// Bind an already authorized narrative provider. Prepared startup recovery still performs
+    /// no inference. Disabled Neo and background captures never invoke this optional provider.
+    pub fn open_with_narrative(
+        root: &Path,
+        host: Arc<dyn HostServices>,
+        policy: Arc<dyn CapturePolicy>,
+        mood: Arc<EmotionalPool>,
+        narrative: Arc<dyn LlmPort>,
+    ) -> Result<Self, EngineError> {
+        Self::open_bound(root, host, policy, mood, Some(narrative))
+    }
+    fn open_bound(
+        root: &Path,
+        host: Arc<dyn HostServices>,
+        policy: Arc<dyn CapturePolicy>,
+        mood: Arc<EmotionalPool>,
+        narrative: Option<Arc<dyn LlmPort>>,
     ) -> Result<Self, EngineError> {
         let raw = serde_json::to_value(host.config()).map_err(|_| StoreError::InvalidInput)?;
         let config = crate::config::effective_config(&raw).map_err(|_| StoreError::InvalidInput)?;
@@ -61,7 +83,11 @@ impl NativeNeoCaptureHook {
             "all" => Impact::All,
             _ => return Err(StoreError::InvalidInput.into()),
         };
-        let episodes = Arc::new(EpisodeStore::open(root, host, policy, mood)?);
+        let episodes = EpisodeStore::open(root, host, policy, mood)?;
+        let episodes = Arc::new(match narrative {
+            Some(port) => episodes.with_narrative(port),
+            None => episodes,
+        });
         // Recover prepared native work before exposing the hook to new capture admissions.
         episodes.recover_pending(&Cancel::never())?;
         Ok(Self {
@@ -115,7 +141,7 @@ impl NeoCaptureHook for NativeNeoCaptureHook {
         cancel: &Cancel,
     ) -> Result<(), EngineError> {
         // CaptureRuntime reports the inline fallback when deferred scheduling is unavailable.
-        // This deterministic stage needs no LLM, regardless of the requested scheduling mode.
+        // Optional narrative enrichment uses that same inline path; no job is scheduled here.
         self.episodes
             .finish(turn, context, cancel, self.enabled && !context.background())?;
         Ok(())
