@@ -157,7 +157,7 @@ fn string(value: &Json) -> JsString {
     }
 }
 
-fn number(value: &Json) -> f64 {
+pub(super) fn number(value: &Json) -> f64 {
     match value {
         Json::Null | Json::Bool(false) => 0.,
         Json::Bool(true) => 1.,

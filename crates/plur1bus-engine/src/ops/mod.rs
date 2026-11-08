@@ -25,5 +25,9 @@ mod proposal_store;
 /// Durable shared-copy proposals and resolution.
 pub mod proposals;
 
+/// Foreground system-only identity migration and reversal.
+pub mod rebind;
+/// Engine-wide identity claims and reversible ownership journals.
+pub mod rebind_ledger;
 /// Durable workspace enablement and maintenance guards.
 pub mod workspace_policy;
