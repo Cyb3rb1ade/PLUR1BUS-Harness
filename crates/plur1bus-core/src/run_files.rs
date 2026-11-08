@@ -152,18 +152,38 @@ fn private_dir(dir: &Path) -> io::Result<()> {
     }
 }
 
-/// Writes `text` to `path` as a private file (`0600`; the user-and-SYSTEM DACL on Windows), through `<path>.tmp` and a
-/// rename, so a reader sees the old content or the new one, never a part.
-pub fn write_private(path: &Path, text: &str) -> io::Result<()> {
+/// Removes what a front door that was killed may have left in `run/` (security review L6): the temporary file of every
+/// file it writes (a link there is removed, never followed) and the legacy core's credentials file. Called at start,
+/// under the core lock, before anything is written.
+pub fn clear_leftovers(files: &RunFiles) {
+    for path in files.owned() {
+        let _ = fs::remove_file(temporary(path));
+    }
+    let _ = fs::remove_file(&files.legacy_credentials);
+}
+
+fn temporary(path: &Path) -> PathBuf {
     let mut tmp = path.as_os_str().to_owned();
     tmp.push(".tmp");
-    let tmp = PathBuf::from(tmp);
-    let _ = fs::remove_file(&tmp);
-    let mut file = plur1bus_audit::create_private(&tmp, true)?;
-    file.write_all(text.as_bytes())?;
-    file.sync_all()?;
+    PathBuf::from(tmp)
+}
+
+/// Writes `text` to `path` as a private file (`0600`; the user-and-SYSTEM DACL on Windows), through `<path>.tmp` and a
+/// rename, so a reader sees the old content or the new one, never a part. The temporary file is created new and never
+/// through a link (security review L6): anything already at its name fails the write ([`clear_leftovers`] runs at
+/// start); a failed write removes the temporary file it created.
+pub fn write_private(path: &Path, text: &str) -> io::Result<()> {
+    let tmp = temporary(path);
+    let mut file = plur1bus_audit::create_new_private(&tmp)?;
+    let written = file
+        .write_all(text.as_bytes())
+        .and_then(|()| file.sync_all());
     drop(file);
-    fs::rename(&tmp, path)
+    if let Err(e) = written.and_then(|()| fs::rename(&tmp, path)) {
+        let _ = fs::remove_file(&tmp);
+        return Err(e);
+    }
+    Ok(())
 }
 
 /// Reads a credential file another process wrote into `run/` (`run/engine.token`, `run/supervisor.token`): a regular
@@ -265,6 +285,40 @@ mod tests {
             token.expose()
         );
         assert!(read_token(&files.engine_token).unwrap().is_none());
+    }
+
+    /// Security review L6: the temporary file is created new, never opened through what is already at its name (a link
+    /// planted there, or a leftover); the start clears leftovers first ([`clear_leftovers`]).
+    #[test]
+    fn whatever_is_at_the_temporary_name_makes_the_write_fail_until_the_start_clears_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let files = RunFiles::new(dir.path());
+        prepare(&files).unwrap();
+        let tmp = files.run.join("core.token.tmp");
+        fs::write(&tmp, "left by a crash").unwrap();
+        assert!(write_private(&files.token, "fresh").is_err());
+        assert!(!files.token.exists());
+        #[cfg(unix)]
+        {
+            let elsewhere = dir.path().join("elsewhere");
+            fs::write(&elsewhere, "untouched").unwrap();
+            fs::remove_file(&tmp).unwrap();
+            std::os::unix::fs::symlink(&elsewhere, &tmp).unwrap();
+            assert!(
+                write_private(&files.token, "secret").is_err(),
+                "a link is never followed"
+            );
+            assert_eq!(fs::read_to_string(&elsewhere).unwrap(), "untouched");
+        }
+        fs::write(&files.legacy_credentials, "{}").unwrap();
+        clear_leftovers(&files);
+        assert!(tmp.symlink_metadata().is_err());
+        assert!(
+            !files.legacy_credentials.exists(),
+            "a killed front door's credentials file is gone"
+        );
+        write_private(&files.token, "fresh").unwrap();
+        assert_eq!(fs::read_to_string(&files.token).unwrap(), "fresh");
     }
 
     #[cfg(unix)]

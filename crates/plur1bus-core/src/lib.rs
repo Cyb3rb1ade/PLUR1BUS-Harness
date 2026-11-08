@@ -160,6 +160,8 @@ pub fn serve(plan: &ServePlan) -> Result<i32, ServeError> {
         Err(lock::LockError::Held) => return Err(ServeError::Locked),
         Err(lock::LockError::Io(e)) => return Err(ServeError::Start(format!("core lock: {e}"))),
     };
+    // Under the lock, before anything is written: what a killed front door left behind (security review L6).
+    run_files::clear_leftovers(&files);
     let timings = Timings::read(&files.config);
     let (events_tx, events) = mpsc::channel::<Event>();
     lifecycle::watch_signals(events_tx.clone(), timings.shutdown_budget)

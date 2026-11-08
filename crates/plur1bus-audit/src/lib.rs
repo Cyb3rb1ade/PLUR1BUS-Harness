@@ -53,6 +53,38 @@ pub fn create_private(path: &Path, truncate: bool) -> io::Result<fs::File> {
     Ok(f)
 }
 
+/// [`create_private`] for a file that must not exist yet (P4-10 security review L6): `O_CREAT|O_EXCL` and, on Unix,
+/// `O_NOFOLLOW`, so whatever is already at `path` (a link planted there, a leftover) makes the open fail instead of
+/// being written through. `0600` / the user-and-SYSTEM DACL as [`create_private`].
+pub fn create_new_private(path: &Path) -> io::Result<fs::File> {
+    let mut o = fs::OpenOptions::new();
+    o.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        o.mode(0o600).custom_flags(libc::O_NOFOLLOW);
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        use windows_sys::Win32::Foundation::GENERIC_WRITE;
+        use windows_sys::Win32::Storage::FileSystem::WRITE_DAC;
+        o.access_mode(GENERIC_WRITE | WRITE_DAC);
+    }
+    let f = o.open(path)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        f.set_permissions(fs::Permissions::from_mode(0o600))?;
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::io::AsRawHandle;
+        plur1bus_rpc::win::restrict_to_user(f.as_raw_handle())?;
+    }
+    Ok(f)
+}
+
 /// Milliseconds since the Unix epoch; 0 when the clock is before it.
 pub fn now_ms() -> u64 {
     std::time::SystemTime::now()
