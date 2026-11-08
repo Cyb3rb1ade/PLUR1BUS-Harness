@@ -5,10 +5,10 @@ use crate::{
     contract::{Cancel, EngineError, StoreError},
     text::{js::JsString, json::TolerantJsonValue as Json},
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 /// Explicit options from already validated host configuration; no provider is constructed.
-#[derive(Clone, Copy, Debug, Deserialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct InterferenceOptions {
     /// Disabled effects neither search nor plan changes.

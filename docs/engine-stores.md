@@ -1020,7 +1020,7 @@ Sixteen twice-recorded actual Node cases preserve row fields and document the
 legacy summary behavior. Seven SHA-bound native expectations cover unordered
 timestamp extrema, UTF-8 byte counts, epoch zero, malformed/torn refusal and
 complete counting beyond Node's 1,000-line bootstrap. Existing goldens remain
-unchanged. This is post-store observation: pending candidates, MemoryOps.store
+unchanged. This is post-store observation: pending candidates, normal-store path
 and merge-hook composition, confirmed resolution and ProcessEngine activation
 remain open. Automatic resolver jobs stay in RE-06, outside RX's native primitive.
 
@@ -1041,4 +1041,44 @@ six SHA-bound native refusals and preserve Node's partial-error evidence: a
 second update can fail after the first succeeded, while Node reports affected=0.
 No rollback or durable replay is inferred from a successfully computed plan.
 Actual authorized search, original-caller receipts, revision-checked application
-and MemoryOps.store composition remain separate unfinished work.
+and normal-store path composition remain separate unfinished work.
+
+
+## Durable private interference (RX6 / RE-D78)
+
+`ops::interference::NativeInterference` applies the frozen plan to actual Lance
+rows. Foreground entry uses the shared OperationContext lifecycle/mutation gate,
+original caller policy, physical workspace/base handles and native/Node Neo
+writer leases. The actual committed source and every target must have explicit
+matching private owner/agent/workspace fields and pass current lifecycle and
+tombstone checks. Shared, foreign and core rows are never weakened. Search keeps
+the Node limit/threshold and 1/(1+distance) conversion, with private predicates
+before acquisition and actual row validation after it. No provider is invoked.
+
+Before any patch, a private atomic receipt freezes original Principal/AgentContext,
+physical ownership proof, operation UUID/options, source, and exact declared
+before/after row plus sharing metadata. Only strength and dynamics timestamp
+may differ; receipt validation recomputes every planned effect. Every retry
+requires the same original caller and request. A pending target must equal its
+before or after snapshot, so an already-written patch is skipped. A completed
+receipt refuses a reset or later changed target instead of weakening it again.
+Errors can follow partial durable writes; no cross-row transaction or rollback
+is claimed. Reusing the original operation UUID is required.
+
+`open` inventories saved original callers and preflights all pending requests
+before applying the first. It then rechecks each request under its writer lease,
+without host resubmission or a newly invented principal. Frozen timestamps survive
+clock advancement. Inventory is bounded to 512 receipts, 8 MiB each, 64 MiB total,
+50,000 entries per scan and a 300-second startup deadline; actual bytes are counted
+on each scan, not just the initial inventory. Receipts are retained for idempotency;
+reaching capacity refuses new work instead of deleting history. Corruption, unsafe
+links, changed roots, revoked policy or changed sources prevent recovery.
+
+A new interference operation cannot overtake a pending one. Automatic Neo writers
+also refuse pending interference, while interference refuses automatic pending
+work; the owning component must recover first. Three real SIGKILL boundaries
+(prepared receipt, applied patch, completed receipt) reopen without duplicate
+weakening. This is component recovery; ProcessEngine startup order, shared host
+policy composition, receipt retention and the actual normal-store path hook remain
+unfinished. Native foreground application replaces no Node background scheduling
+until that explicit composition is complete.

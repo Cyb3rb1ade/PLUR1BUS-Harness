@@ -31,6 +31,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[path = "capture_interference_recovery.rs"]
+mod interference_recovery;
 #[path = "capture_recovery.rs"]
 mod recovery;
 #[path = "capture_revision_recovery.rs"]

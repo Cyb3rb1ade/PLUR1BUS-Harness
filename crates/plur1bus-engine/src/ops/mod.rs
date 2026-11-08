@@ -75,3 +75,7 @@ mod conflict_file;
 mod conflict_summary;
 /// Durable original-caller conflict observations over actual memory rows.
 pub mod conflicts;
+
+/// Durable, original-caller application of private interference plans.
+pub mod interference;
+pub(crate) mod interference_state;
