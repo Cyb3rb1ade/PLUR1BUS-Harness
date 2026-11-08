@@ -1392,6 +1392,11 @@ fn reauth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &RawId, msg: &Value) {
 /// re-binds an API connection's principal on every delegated request (`c.api = delegated`); no API call reaches this
 /// path before P4-12, which has to do that when it serves API principals natively (task review I4).
 fn native(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &RawId, method: &str, mut msg: Value) {
+    // The principal comes from the connection, never assumed (re-review 1b N2): a non-owner here is a route-table drift.
+    let principal = match route::native_principal(method, conn.caller()) {
+        Ok(principal) => principal,
+        Err(error) => return conn.send_raw(id.frame("error", &error)),
+    };
     let Delegation {
         present: has_api,
         value: delegation,
@@ -1420,11 +1425,7 @@ fn native(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &RawId, method: &str, mu
         );
     }
     let params = msg.get("params").cloned().unwrap_or_else(|| json!({}));
-    let cx = route::CallContext {
-        principal: route::Principal::LocalOwner {
-            transport: route::Transport::Ipc,
-        },
-    };
+    let cx = route::CallContext { principal };
     match route::serve(&cx, method, params) {
         Ok(result) => conn.send_raw(id.frame("result", &result)),
         Err(error) => conn.send_raw(id.frame("error", &error)),

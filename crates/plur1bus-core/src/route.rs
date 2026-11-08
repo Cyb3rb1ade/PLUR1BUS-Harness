@@ -187,6 +187,26 @@ impl Principal {
     }
 }
 
+/// The principal a native call is served for, derived from the connection's authenticated `caller` (re-review 1b N2):
+/// the local owner, the only principal served natively until P4-12. [`route_for`] relays every other caller's native
+/// call, so one that arrives here is a routing change gone wrong: refused `E_INTERNAL` reason `route-table-drift` (logged),
+/// never served as the owner.
+pub fn native_principal(method: &str, caller: Option<Caller>) -> Result<Principal, Value> {
+    match caller {
+        Some(Caller::Owner) => Ok(Principal::LocalOwner {
+            transport: Transport::Ipc,
+        }),
+        other => {
+            log(
+                "error",
+                "route table drift: a native method reached a principal not served natively",
+                json!({"method": method, "caller": other.map(Caller::as_str)}),
+            );
+            Err(RpcErr::new("E_INTERNAL", "route table drift", Some("route-table-drift")).to_json())
+        }
+    }
+}
+
 /// What a native method receives besides its params.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CallContext {
@@ -539,6 +559,50 @@ mod tests {
             },
         ] {
             assert!(!principal.served_natively(), "{principal:?}");
+        }
+    }
+
+    /// Re-review 1b N2: the second line behind [`route_in`]. The principal a native call is served for comes from the
+    /// connection's caller; any caller but the local owner that reaches a native method (a routing change gone wrong) is
+    /// refused as a route-table drift and never served as the owner, so the test-only native method is never dispatched
+    /// for it.
+    #[test]
+    fn a_native_call_is_served_for_the_owner_only_whatever_the_routing_says() {
+        let validators = Validators::for_server("core").unwrap();
+        let principal = native_principal("logs.query", Some(Caller::Owner)).unwrap();
+        assert_eq!(
+            principal,
+            Principal::LocalOwner {
+                transport: Transport::Ipc
+            }
+        );
+        let served = block_on(dispatch_core(
+            &ServesLogsQuery,
+            &CallContext { principal },
+            &validators,
+            "logs.query",
+            json!({}),
+        ));
+        assert!(
+            matches!(served, Err(DispatchError::Method(_))),
+            "{served:?}"
+        );
+        for caller in [
+            Some(Caller::Client),
+            Some(Caller::Api),
+            Some(Caller::Engine),
+            Some(Caller::LegacyCore),
+            None,
+        ] {
+            let refused = native_principal("logs.query", caller).unwrap_err();
+            assert_eq!(
+                (
+                    refused["data"]["error"].as_str(),
+                    refused["data"]["reason"].as_str()
+                ),
+                (Some("E_INTERNAL"), Some("route-table-drift")),
+                "{caller:?}"
+            );
         }
     }
 
