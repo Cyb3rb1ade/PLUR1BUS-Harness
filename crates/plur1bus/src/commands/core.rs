@@ -228,22 +228,59 @@ fn core_impl_from(
 /// The Rust core binary (P4-10): `$PLUR1BUS_CORE_BIN`, then `plur1bus-core` beside this executable, then
 /// `<home>/runtime/bin/plur1bus-core`. Not checked for existence here.
 pub(crate) fn locate_core_bin(layout: &Layout) -> PathBuf {
+    let mut places = core_bin_places(layout);
+    let last = places.pop().unwrap_or_default();
+    places.into_iter().find(|p| p.is_file()).unwrap_or(last)
+}
+
+/// Where [`locate_core_bin`] looks, in order: `$PLUR1BUS_CORE_BIN` alone when it is set.
+fn core_bin_places(layout: &Layout) -> Vec<PathBuf> {
     if let Some(path) = std::env::var_os("PLUR1BUS_CORE_BIN") {
-        return PathBuf::from(path);
+        return vec![PathBuf::from(path)];
     }
     let name = if cfg!(windows) {
         "plur1bus-core.exe"
     } else {
         "plur1bus-core"
     };
-    if let Some(path) = std::env::current_exe()
+    std::env::current_exe()
         .ok()
         .and_then(|p| p.parent().map(|dir| dir.join(name)))
-        .filter(|p| p.is_file())
-    {
-        return path;
+        .into_iter()
+        .chain([layout.home.join("runtime/bin").join(name)])
+        .collect()
+}
+
+/// Final review FR-I1: `plur1bus-core` is shipped nowhere until the flip, so a `config.set` that switches `core.impl` to
+/// `rust` (from anything else) is refused while no binary is found: the message (reason `core-binary-missing`) says
+/// where it was looked for and that `rust` needs a developer build. `None` when the switch can go ahead.
+pub(crate) fn rust_core_refusal(
+    layout: &Layout,
+    before: &serde_json::Value,
+    after: &serde_json::Value,
+) -> Option<String> {
+    let rust = |c: &serde_json::Value| {
+        c.pointer("/core/impl").and_then(serde_json::Value::as_str) == Some("rust")
+    };
+    if !rust(after) || rust(before) || locate_core_bin(layout).is_file() {
+        return None;
     }
-    layout.home.join("runtime/bin").join(name)
+    let places: Vec<String> = core_bin_places(layout)
+        .iter()
+        .map(|p| p.display().to_string())
+        .collect();
+    Some(format!(
+        "core.impl \"rust\" needs a developer build: no plur1bus-core binary at {} (build it with `cargo build -p plur1bus-core`, or set PLUR1BUS_CORE_BIN); nothing was changed",
+        places.join(", ")
+    ))
+}
+
+/// Why a core with `core.impl: "rust"` cannot start: no binary at `path`, and the way back (final review FR-I1).
+pub(crate) fn core_bin_missing(path: &std::path::Path) -> String {
+    format!(
+        "plur1bus-core not found at {}: core.impl \"rust\" needs a developer build (or PLUR1BUS_CORE_BIN); `plur1bus config set core.impl ts` goes back to the TypeScript core",
+        path.display()
+    )
 }
 
 /// The environment the core process gets from the CLI or the supervisor, whichever implementation runs: the attestation
@@ -293,14 +330,7 @@ pub fn run(out: &Out, layout: &Layout) -> ! {
         CoreImpl::Rust => locate_core_bin(layout),
     };
     if imp == CoreImpl::Rust && !program.is_file() {
-        out.fail(
-            "E_CORE_UNAVAILABLE",
-            &format!(
-                "plur1bus-core not found at {} (set PLUR1BUS_CORE_BIN, or core.impl \"ts\")",
-                program.display()
-            ),
-            json!({}),
-        );
+        out.fail("E_CORE_UNAVAILABLE", &core_bin_missing(&program), json!({}));
     }
     let mut cmd = Command::new(&program);
     match imp {

@@ -5399,7 +5399,7 @@
               "x-tier": "advanced"
             },
             "impl": {
-              "description": "Phase 4 (P4-10), opt-in until the flip: which core serves run/core.sock. `ts` runs the TypeScript core alone (the default). `rust` runs the Rust front door (plur1bus-core), which owns the socket, the token, the run files and the core lock and relays every call it does not serve yet to the TypeScript core running behind it (core-legacy). The environment variable PLUR1BUS_CORE_IMPL overrides this key when it is set (tests). A change restarts the core.",
+              "description": "Phase 4 (P4-10), opt-in until the flip: which core serves run/core.sock. `ts` runs the TypeScript core alone (the default). `rust` runs the Rust front door (plur1bus-core), which owns the socket, the token, the run files and the core lock and relays every call it does not serve yet to the TypeScript core running behind it (core-legacy). The environment variable PLUR1BUS_CORE_IMPL overrides this key when it is set (tests). A change restarts the core. `rust` needs a developer build: plur1bus-core is not shipped yet, so setting it is refused while no plur1bus-core binary is found (reason core-binary-missing), and a core that cannot find it at a restart stays down until `plur1bus config set core.impl ts`.",
               "enum": [
                 "ts",
                 "rust"

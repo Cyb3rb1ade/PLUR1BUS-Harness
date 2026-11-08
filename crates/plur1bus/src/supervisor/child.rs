@@ -25,7 +25,7 @@ use super::state::{
 };
 use super::{broadcast_module_state, now_ms, spawn_guarded, Lifeline, Shared, SupervisorState};
 use crate::commands::core::{
-    core_env, core_impl, locate_core_bin, locate_core_js, locate_node, CoreImpl,
+    core_bin_missing, core_env, core_impl, locate_core_bin, locate_core_js, locate_node, CoreImpl,
 };
 use crate::modules::Installed;
 use crate::paths::Layout;
@@ -105,10 +105,7 @@ fn core_spec_for(layout: &Layout, instance_id: &str, imp: CoreImpl) -> Result<Ch
         CoreImpl::Rust => {
             let bin = locate_core_bin(layout);
             if !bin.is_file() {
-                return Err(format!(
-                    "plur1bus-core not found at {} (set PLUR1BUS_CORE_BIN, or core.impl \"ts\")",
-                    bin.display()
-                ));
+                return Err(core_bin_missing(&bin));
             }
             let mut args: Vec<OsString> = vec!["serve".into()];
             args.extend(lifeline);
@@ -2165,6 +2162,11 @@ mod tests {
         let id = "0b7a6a6e-2f1d-4c1e-9a55-6d7e8f901234";
         let missing = core_spec_for(&layout, id, CoreImpl::Rust).unwrap_err();
         assert!(missing.contains("plur1bus-core not found"), "{missing}");
+        // Final review FR-I1: a hand-set `rust` without a binary says how to go back.
+        assert!(
+            missing.contains("plur1bus config set core.impl ts"),
+            "{missing}"
+        );
         std::fs::write(&bin, "").unwrap();
         let spec = core_spec_for(&layout, id, CoreImpl::Rust);
         let _ = std::fs::remove_dir_all(&dir);
