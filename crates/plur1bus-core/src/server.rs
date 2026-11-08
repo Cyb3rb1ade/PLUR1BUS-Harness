@@ -865,11 +865,19 @@ fn parse_line(bytes: &[u8]) -> Result<Value, serde_json::Error> {
     }
 }
 
-/// module-api's `dispatch` up to the handshake: the API delegation, `validateRequest`, `core.auth`, `auth-required`.
-fn pre_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, mut msg: Value) {
-    let id = RawId::of_value(&frame::id_of(&msg));
+/// The API delegation of a request as module-api's `dispatch` reads it.
+struct Delegation {
+    /// `hasApi`: an `api` member at the top (even `null`), or a `core.auth` with `params.api`.
+    present: bool,
+    /// The top-level `api` member as sent.
+    top: Option<Value>,
+    /// What is verified: `msg.api ?? params.api` (`null` when neither).
+    value: Value,
+}
+
+fn api_delegation(msg: &Value) -> Delegation {
     let is_auth = msg.get("method").and_then(Value::as_str) == Some("core.auth");
-    let auth_delegation = is_auth
+    let in_params = is_auth
         .then(|| {
             msg.get("params")
                 .and_then(Value::as_object)
@@ -877,15 +885,27 @@ fn pre_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, mut msg: Value) {
                 .cloned()
         })
         .flatten();
-    let top_api = msg.get("api").cloned();
-    let has_api = msg.is_object() && (top_api.is_some() || auth_delegation.is_some());
-    if has_api {
-        let delegation = top_api
-            .clone()
-            .filter(|v| !v.is_null())
-            .or(auth_delegation)
-            .unwrap_or(Value::Null);
-        if let Err(r) = auth::verify_api_delegation(&delegation, &front.api_token) {
+    let top = msg.get("api").cloned();
+    let present = msg.is_object() && (top.is_some() || in_params.is_some());
+    let value = top
+        .clone()
+        .filter(|v| !v.is_null())
+        .or(in_params)
+        .unwrap_or(Value::Null);
+    Delegation {
+        present,
+        top,
+        value,
+    }
+}
+
+/// module-api's `dispatch` up to the handshake: the API delegation, `validateRequest`, `core.auth`, `auth-required`.
+fn pre_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, mut msg: Value) {
+    let id = RawId::of_value(&frame::id_of(&msg));
+    let is_auth = msg.get("method").and_then(Value::as_str) == Some("core.auth");
+    let delegation = api_delegation(&msg);
+    if delegation.present {
+        if let Err(r) = auth::verify_api_delegation(&delegation.value, &front.api_token) {
             return conn.error(&id, refusal(r));
         }
         if let Some(map) = msg.as_object_mut() {
@@ -906,7 +926,7 @@ fn pre_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, mut msg: Value) {
         );
     }
     if is_auth {
-        return handle_auth(front, conn, &id, &msg, has_api, top_api);
+        return handle_auth(front, conn, &id, &msg, delegation.present, delegation.top);
     }
     conn.error(
         &id,
@@ -1242,28 +1262,24 @@ fn post_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, bytes: &[u8]) {
 
 /// `core.auth` after the handshake: the delegation checks of `pre_auth`, then the handshake itself.
 fn reauth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &RawId, msg: &Value) {
-    let auth_delegation = msg
-        .get("params")
-        .and_then(Value::as_object)
-        .and_then(|p| p.get("api"))
-        .cloned();
-    let top_api = msg.get("api").cloned();
-    let has_api = top_api.is_some() || auth_delegation.is_some();
+    let delegation = api_delegation(msg);
+    if delegation.present {
+        if let Err(r) = auth::verify_api_delegation(&delegation.value, &front.api_token) {
+            return conn.error(id, refusal(r));
+        }
+    }
     let mut stripped = msg.clone();
     if let Some(map) = stripped.as_object_mut() {
         map.remove("api");
     }
-    if has_api {
-        let delegation = top_api
-            .clone()
-            .filter(|v| !v.is_null())
-            .or(auth_delegation)
-            .unwrap_or(Value::Null);
-        if let Err(r) = auth::verify_api_delegation(&delegation, &front.api_token) {
-            return conn.error(id, refusal(r));
-        }
-    }
-    handle_auth(front, conn, id, &stripped, has_api, top_api);
+    handle_auth(
+        front,
+        conn,
+        id,
+        &stripped,
+        delegation.present,
+        delegation.top,
+    );
 }
 
 /// A method the front door serves itself (`route::NATIVE`), after module-api's admission in its `dispatch` order: a scoped
@@ -1274,7 +1290,11 @@ fn reauth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &RawId, msg: &Value) {
 /// method that answers `NotServed` is a route-table drift (`E_INTERNAL`, reason `route-table-drift`).
 fn native(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &RawId, method: &str, mut msg: Value) {
     let caller = conn.caller().unwrap_or(Caller::Client);
-    let has_api = msg.get("api").is_some();
+    let Delegation {
+        present: has_api,
+        value: delegation,
+        ..
+    } = api_delegation(&msg);
     if caller == Caller::Client && (has_api || msg.pointer("/params/api").is_some()) {
         return conn.error(
             id,
@@ -1283,10 +1303,9 @@ fn native(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &RawId, method: &str, mu
     }
     let mut api_principal = None;
     if has_api {
-        let delegation = msg
-            .as_object_mut()
-            .and_then(|m| m.remove("api"))
-            .unwrap_or(Value::Null);
+        if let Some(map) = msg.as_object_mut() {
+            map.remove("api");
+        }
         let transport = match auth::verify_api_delegation(&delegation, &front.api_token) {
             Ok(transport) => transport,
             Err(r) => return conn.error(id, refusal(r)),
@@ -1687,6 +1706,50 @@ mod tests {
         assert!(!out.push(vec![b'y']), "the byte past 16 MiB disconnects");
         assert!(relock(&out.inner).dead);
         assert!(!out.push(vec![b'z']), "nothing is queued for a dead client");
+    }
+
+    #[test]
+    fn a_request_names_its_delegation_as_module_api_reads_it() {
+        let d = |msg: Value| {
+            let found = api_delegation(&msg);
+            (found.present, found.top, found.value)
+        };
+        let top = json!({"clientId": "harness-api"});
+        let inner = json!({"clientId": "inner"});
+        assert_eq!(
+            d(json!({"method":"memory.list","api": top})),
+            (true, Some(top.clone()), top.clone())
+        );
+        assert_eq!(
+            d(json!({"method":"core.auth","params":{"api": inner}})),
+            (true, None, inner.clone()),
+            "params.api counts for core.auth"
+        );
+        assert_eq!(
+            d(json!({"method":"memory.list","params":{"api": inner}})),
+            (false, None, Value::Null),
+            "and only there"
+        );
+        assert_eq!(
+            d(json!({"method":"core.auth","api": top,"params":{"api": inner}})),
+            (true, Some(top.clone()), top.clone()),
+            "msg.api ?? params.api"
+        );
+        assert_eq!(
+            d(json!({"method":"core.auth","api": null,"params":{"api": inner}})),
+            (true, Some(Value::Null), inner),
+            "a null api falls through to params.api"
+        );
+        assert_eq!(
+            d(json!({"method":"memory.list","api": null})),
+            (true, Some(Value::Null), Value::Null),
+            "present, and refused when verified"
+        );
+        assert_eq!(
+            d(json!([{"api": top}])),
+            (false, None, Value::Null),
+            "not an object"
+        );
     }
 
     #[test]

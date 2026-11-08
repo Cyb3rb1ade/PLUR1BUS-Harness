@@ -443,15 +443,7 @@ fn stop(
             );
         }
     }
-    let deadline = Instant::now() + budget + LEGACY_STOP_MARGIN;
-    let mut status = None;
-    while status.is_none() {
-        status = relock(child).try_wait().ok().flatten();
-        if status.is_some() || Instant::now() >= deadline {
-            break;
-        }
-        std::thread::sleep(Duration::from_millis(20));
-    }
+    let status = legacy::wait_until(child, Instant::now() + budget + LEGACY_STOP_MARGIN);
     let code = match status {
         Some(s) => {
             server::log("info", "the legacy core exited", json!({"code": s.code()}));

@@ -9,11 +9,12 @@
 //! when its lifeline closes, and an unexpected exit of it ends the front door too, so the supervisor restarts the pair
 //! with its existing backoff, adoption and hang handling unchanged. `plur1bus core run` gets the same pair without a
 //! supervisor.
+use crate::lifecycle::relock;
 use std::ffi::OsString;
 use std::io::{self, BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, ExitStatus, Stdio};
-use std::sync::mpsc;
+use std::sync::{mpsc, Mutex};
 use std::time::{Duration, Instant};
 
 /// How to start the legacy core.
@@ -203,10 +204,11 @@ impl Legacy {
     }
 }
 
-/// Waits for `child` to exit until `deadline`; `None` when it is still running then.
-pub fn wait_until(child: &mut Child, deadline: Instant) -> Option<ExitStatus> {
+/// Waits for `child` to exit until `deadline`; `None` when it is still running then. The lock is taken for each look
+/// only, so the thread that watches the legacy core's exit keeps its turn.
+pub fn wait_until(child: &Mutex<Child>, deadline: Instant) -> Option<ExitStatus> {
     loop {
-        if let Ok(Some(status)) = child.try_wait() {
+        if let Ok(Some(status)) = relock(child).try_wait() {
             return Some(status);
         }
         if Instant::now() >= deadline {
@@ -219,6 +221,21 @@ pub fn wait_until(child: &mut Child, deadline: Instant) -> Option<ExitStatus> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn wait_until_returns_the_exit_or_nothing_at_the_deadline() {
+        let quick = Mutex::new(Command::new("sh").args(["-c", "exit 3"]).spawn().unwrap());
+        let status = wait_until(&quick, Instant::now() + Duration::from_secs(10)).unwrap();
+        assert_eq!(status.code(), Some(3));
+        let slow = Mutex::new(Command::new("sleep").arg("10").spawn().unwrap());
+        let started = Instant::now();
+        assert!(wait_until(&slow, Instant::now() + Duration::from_millis(100)).is_none());
+        assert!(started.elapsed() < Duration::from_secs(5));
+        let mut child = slow.lock().unwrap();
+        let _ = child.kill();
+        let _ = child.wait();
+    }
 
     #[test]
     fn the_command_line_is_bin_ts_behind_the_front_door() {
