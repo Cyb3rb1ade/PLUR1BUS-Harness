@@ -759,6 +759,11 @@ mod tests {
             ),
             ("engine.admin.reembedding.status", json!({"id":"test"})),
             ("engine.admin.workspacePolicy.get", json!({})),
+            ("engine.admin.workspacePolicy.list", json!({})),
+            (
+                "engine.admin.workspacePolicy.set",
+                json!({"patch":{"enabled":false,"actorId":"synthetic-operator"}}),
+            ),
             ("engine.embedding.serve", json!({"address":null})),
             ("engine.snapshot.create", json!({"out":"/tmp/snapshot"})),
             ("engine.snapshot.verify", json!({"dir":"/tmp/snapshot"})),

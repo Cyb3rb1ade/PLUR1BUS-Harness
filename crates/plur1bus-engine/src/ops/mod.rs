@@ -31,3 +31,5 @@ pub mod rebind;
 pub mod rebind_ledger;
 /// Durable workspace enablement and maintenance guards.
 pub mod workspace_policy;
+/// Native caller-bound policy administration; contextless wire remains unavailable.
+pub mod workspace_policy_ops;
