@@ -42,6 +42,31 @@ fn send(w: &Writer, v: &Value) {
     let _ = w.flush();
 }
 
+/// Writes a line as it is (for lines `serde_json` cannot produce).
+fn send_line(w: &Writer, line: &str) {
+    let mut w = w.lock().unwrap();
+    let _ = writeln!(w, "{line}");
+    let _ = w.flush();
+}
+
+/// A broadcast `agent.activity` whose text ends in a lone high surrogate, as `JSON.stringify` writes it.
+pub const SURROGATE_NOTE: &str =
+    r#"{"jsonrpc":"2.0","method":"agent.activity","params":{"agentId":"bernd","text":"x\ud83d"}}"#;
+
+/// The answer to `fake.surrogate`: a result text cut inside a surrogate pair.
+pub fn surrogate_reply(id: &Value) -> String {
+    format!(r#"{{"jsonrpc":"2.0","id":{id},"result":{{"text":"cut \ud83d"}}}}"#)
+}
+
+/// The answer to `fake.deep`: an array nested 200 deep (serde_json stops at 128).
+pub fn deep_reply(id: &Value) -> String {
+    format!(
+        r#"{{"jsonrpc":"2.0","id":{id},"result":{{"v":{}0{}}}}}"#,
+        "[".repeat(200),
+        "]".repeat(200)
+    )
+}
+
 fn error(id: &Value, code: &str, reason: &str) -> Value {
     json!({"jsonrpc":"2.0","id":id,"error":{"code":-32000,"message":reason,"data":{"error":code,"reason":reason}}})
 }
@@ -202,7 +227,8 @@ fn serve(l: &Arc<Legacy>, conn: Accepted, mode: &str) {
         if reader.read_line(&mut line).unwrap_or(0) == 0 {
             break;
         }
-        let Ok(msg) = serde_json::from_str::<Value>(&line) else {
+        // JSON.parse takes a lone surrogate escape; this fake reads it as U+FFFD (it only needs to understand the request).
+        let Some(msg) = plur1bus_core::peek::value_lossy(line.trim_end()) else {
             send(
                 &writer,
                 &json!({"jsonrpc":"2.0","id":null,"error":{"code":-32700,"message":"parse error","data":{"error":"E_INVALID_PARAMS","reason":"parse-error"}}}),
@@ -314,6 +340,21 @@ fn serve(l: &Arc<Legacy>, conn: Accepted, mode: &str) {
                         }
                     }
                 }
+            }
+            // What JSON.stringify writes and serde_json cannot read (security review M1): a lone surrogate (an emoji cut
+            // by `slice`) in a result and in a broadcast notification, and a result nested 200 deep.
+            "fake.surrogate" => send_line(&writer, &surrogate_reply(&id)),
+            "fake.deep" => send_line(&writer, &deep_reply(&id)),
+            "fake.notify-surrogate" => {
+                for (w, names) in l.subs.lock().unwrap().values() {
+                    if names
+                        .as_ref()
+                        .is_none_or(|n: &Vec<String>| n.iter().any(|x| x == "agent.activity"))
+                    {
+                        send_line(w, SURROGATE_NOTE);
+                    }
+                }
+                send(&writer, &json!({"jsonrpc":"2.0","id":id,"result":{}}));
             }
             "fake.flood" => {
                 let big = "x".repeat(1024 * 1024);

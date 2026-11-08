@@ -61,6 +61,14 @@ impl Link {
         writer.flush()
     }
 
+    /// Writes `line` and its newline as one line (no other line can come between them).
+    pub fn send_line(&self, line: &[u8]) -> io::Result<()> {
+        let mut writer = self.writer.lock().unwrap_or_else(|p| p.into_inner());
+        writer.write_all(line)?;
+        writer.write_all(b"\n")?;
+        writer.flush()
+    }
+
     /// A request id of the front door's own on this link: `fd-<per-link random>-<n>`, so a client's ids never collide
     /// with it.
     pub fn next_id(&self) -> String {

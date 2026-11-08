@@ -19,12 +19,14 @@ use crate::auth::{self, Caller, Refusal, Secret};
 use crate::events::{self, Sub};
 use crate::frame::{self, Line, RpcErr, MAX_PENDING_BYTES};
 use crate::lifecycle::{self, relock, Event, Lifeline, ProcessState, Timings};
+use crate::peek;
 use crate::relay::Link;
 use crate::route::{self, Kind, Route};
 use crate::run_files::{self, RunFiles};
 use plur1bus_rpc::server::{compile, findings, pruned_root, schema};
 use plur1bus_rpc::server_transport::{Accepted, Listener};
 use plur1bus_rpc::transport::Stream;
+use serde_json::value::RawValue;
 use serde_json::{json, Map, Value};
 use std::collections::{HashMap, VecDeque};
 use std::io::{self, BufReader, Write};
@@ -442,32 +444,84 @@ struct ApiBinding {
     transport: Option<String>,
 }
 
+/// A request id as the client wrote it (its raw JSON text, `null` without one), so an answer carries back exactly what the
+/// client sent, a lone surrogate included.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct RawId(String);
+
+impl RawId {
+    fn null() -> Self {
+        RawId("null".to_owned())
+    }
+
+    /// The member a peek found (`null` when it is absent).
+    fn of(raw: Option<&RawValue>) -> Self {
+        raw.map_or_else(Self::null, |r| RawId(r.get().to_owned()))
+    }
+
+    /// The id of a parsed request (`msg?.id ?? null`, see [`frame::id_of`]).
+    fn of_value(id: &Value) -> Self {
+        RawId(id.to_string())
+    }
+
+    fn is_null(&self) -> bool {
+        self.0 == "null"
+    }
+
+    /// `{"jsonrpc":"2.0","id":<id>,"<member>":<value>}`, module-api's order.
+    fn frame(&self, member: &str, value: &Value) -> Vec<u8> {
+        format!(r#"{{"jsonrpc":"2.0","id":{},"{member}":{value}}}"#, self.0).into_bytes()
+    }
+
+    /// The answer `msg` with this id in place of the one it carries.
+    fn answer(&self, mut msg: Value) -> Vec<u8> {
+        if let Some(map) = msg.as_object_mut() {
+            map.remove("id");
+        }
+        let rest = msg.to_string();
+        match rest.strip_prefix('{') {
+            Some("}") => format!("{{\"id\":{}}}", self.0),
+            Some(tail) => format!("{{\"id\":{},{tail}", self.0),
+            None => rest,
+        }
+        .into_bytes()
+    }
+
+    /// The answer `text` as written, with this id in place of the one it carries.
+    fn splice_into(&self, text: &str) -> Vec<u8> {
+        peek::members(text, ["id"])
+            .and_then(|[id]| id)
+            .and_then(|id| peek::splice(text, id, &self.0))
+            .unwrap_or_else(|| text.as_bytes().to_vec())
+    }
+}
+
 /// A relayed request whose answer the front door completes.
 enum Intercept {
     Auth {
-        id: Value,
+        id: RawId,
         caller: Caller,
         api: Option<ApiBinding>,
         engine_token: Option<Secret>,
         done: Sender<bool>,
     },
     Status {
-        id: Value,
+        id: RawId,
     },
     Adopt {
-        id: Value,
+        id: RawId,
         nonce: String,
     },
     Shutdown {
-        id: Value,
+        id: RawId,
         budget: Option<u64>,
     },
     Subscribe {
-        id: Value,
+        id: RawId,
         params: Value,
     },
     Unsubscribe {
-        id: Value,
+        id: RawId,
         sub: String,
     },
 }
@@ -479,12 +533,6 @@ impl Conn {
 
     fn authed(&self) -> bool {
         relock(&self.state).authed
-    }
-
-    fn send(&self, value: &Value) {
-        if !self.out.push(frame::encode(value)) && relock(&self.out.inner).dead {
-            self.disconnect_slow();
-        }
     }
 
     fn send_raw(&self, mut bytes: Vec<u8>) {
@@ -510,8 +558,8 @@ impl Conn {
     }
 
     #[allow(clippy::needless_pass_by_value)] // every caller builds the error in place
-    fn error(&self, id: &Value, e: RpcErr) {
-        self.send(&e.frame(id));
+    fn error(&self, id: &RawId, e: RpcErr) {
+        self.send_raw(id.frame("error", &e.to_json()));
     }
 
     /// The legacy core cannot be reached for this connection (it is stopping or gone): the connection ends without a
@@ -526,7 +574,7 @@ impl Conn {
     }
 
     /// `replyAndClose`: the error, then the connection ends (destroyed after a second if the peer does not close).
-    fn reply_and_close(&self, id: &Value, e: RpcErr) {
+    fn reply_and_close(&self, id: &RawId, e: RpcErr) {
         if relock(&self.state).closing {
             return;
         }
@@ -608,9 +656,9 @@ fn serve_connection(front: &Arc<FrontDoor>, accepted: Accepted) {
             }
         }
         match frame::read_line(&mut reader) {
-            Ok(Line::Data(bytes)) => handle_line(front, &conn, bytes),
+            Ok(Line::Data(bytes)) => handle_line(front, &conn, &bytes),
             Ok(Line::TooLong(n)) => {
-                conn.reply_and_close(&Value::Null, frame::line_too_long(n));
+                conn.reply_and_close(&RawId::null(), frame::line_too_long(n));
                 break;
             }
             Ok(Line::Eof) | Err(_) => break,
@@ -669,16 +717,27 @@ fn write_loop(
     closer();
 }
 
-fn handle_line(front: &Arc<FrontDoor>, conn: &Arc<Conn>, bytes: Vec<u8>) {
-    let parsed = parse_line(&bytes);
+fn handle_line(front: &Arc<FrontDoor>, conn: &Arc<Conn>, bytes: &[u8]) {
     let authed = conn.authed();
-    match parsed {
-        Ok(msg) if authed => post_auth(front, conn, bytes, msg),
+    // After the handshake the front door reads only what it routes on, so a frame goes where the TypeScript core would
+    // take it whatever serde_json thinks of the rest (security review M1/L3).
+    if authed && conn.caller() != Some(Caller::LegacyCore) {
+        return post_auth(front, conn, bytes);
+    }
+    // Before it, and on the legacy core's bridge connection, the front door answers itself (a lone surrogate escape is a
+    // parse error there, P4-10 P4D-3).
+    match parse_line(bytes) {
+        Ok(msg) if authed => {
+            let id = RawId::of_value(&frame::id_of(&msg));
+            let method = msg
+                .get("method")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_owned();
+            bridge_call(front, conn, &id, &method, &msg);
+        }
         Ok(msg) => pre_auth(front, conn, msg),
-        // After the handshake an unparsable line goes to the legacy core, which answers it as the TypeScript core does;
-        // before it, the front door answers (a lone surrogate escape lands here, P4D-3).
-        Err(_) if authed && conn.caller() != Some(Caller::LegacyCore) => relay_raw(conn, bytes),
-        Err(_) => conn.error(&Value::Null, frame::parse_error()),
+        Err(_) => conn.error(&RawId::null(), frame::parse_error()),
     }
 }
 
@@ -693,7 +752,7 @@ fn parse_line(bytes: &[u8]) -> Result<Value, serde_json::Error> {
 
 /// module-api's `dispatch` up to the handshake: the API delegation, `validateRequest`, `core.auth`, `auth-required`.
 fn pre_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, mut msg: Value) {
-    let id = frame::id_of(&msg);
+    let id = RawId::of_value(&frame::id_of(&msg));
     let is_auth = msg.get("method").and_then(Value::as_str) == Some("core.auth");
     let auth_delegation = is_auth
         .then(|| {
@@ -732,7 +791,7 @@ fn pre_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, mut msg: Value) {
         );
     }
     if is_auth {
-        return handle_auth(front, conn, &msg, has_api, top_api);
+        return handle_auth(front, conn, &id, &msg, has_api, top_api);
     }
     conn.error(
         &id,
@@ -748,11 +807,11 @@ fn pre_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, mut msg: Value) {
 fn handle_auth(
     front: &Arc<FrontDoor>,
     conn: &Arc<Conn>,
+    id: &RawId,
     msg: &Value,
     has_api: bool,
     top_api: Option<Value>,
 ) {
-    let id = frame::id_of(msg);
     let params = msg.get("params").cloned().unwrap_or_else(|| json!({}));
     let (authed, current) = {
         let st = relock(&conn.state);
@@ -760,24 +819,24 @@ fn handle_auth(
     };
     if current == Some(Caller::Client) {
         return conn.reply_and_close(
-            &id,
+            id,
             RpcErr::new("E_DENIED", "scoped identity cannot change", None),
         );
     }
     let found = findings(&front.checks.auth_params, &without_meta(&params));
     if !found.is_empty() {
         return conn.reply_and_close(
-            &id,
+            id,
             RpcErr::new("E_INVALID_PARAMS", "invalid params", None).detail(found.join("; ")),
         );
     }
     let Some(p) = params.as_object() else {
-        return conn.reply_and_close(&id, RpcErr::new("E_INVALID_PARAMS", "invalid params", None));
+        return conn.reply_and_close(id, RpcErr::new("E_INVALID_PARAMS", "invalid params", None));
     };
     // A link credential never comes from a client: only the front door presents one, and only to the legacy core.
     if p.contains_key("frontDoor") {
         return conn.reply_and_close(
-            &id,
+            id,
             RpcErr::new(
                 "E_UNAUTHORIZED",
                 "front door link refused",
@@ -788,7 +847,7 @@ fn handle_auth(
     let has_engine = p.contains_key("engine");
     if authed && (current == Some(Caller::Engine)) != has_engine {
         return conn.reply_and_close(
-            &id,
+            id,
             RpcErr::new(
                 "E_DENIED",
                 "connection identity cannot change",
@@ -800,7 +859,7 @@ fn handle_auth(
     let caller = if has_engine {
         if has_api || current == Some(Caller::Api) {
             return conn.reply_and_close(
-                &id,
+                id,
                 RpcErr::new(
                     "E_DENIED",
                     "engine credentials cannot delegate",
@@ -812,7 +871,7 @@ fn handle_auth(
             .ok()
             .flatten();
         if let Err(r) = auth::verify_engine(p, engine_token.as_ref()) {
-            return conn.reply_and_close(&id, refusal(r));
+            return conn.reply_and_close(id, refusal(r));
         }
         Caller::Engine
     } else if front.core_token.matches(token) {
@@ -825,7 +884,7 @@ fn handle_auth(
         Caller::LegacyCore
     } else if has_api {
         return conn.reply_and_close(
-            &id,
+            id,
             RpcErr::new("E_UNAUTHORIZED", "bad token", Some("bad-token")),
         );
     } else {
@@ -833,17 +892,20 @@ fn handle_auth(
     };
     if caller == Caller::LegacyCore || current == Some(Caller::LegacyCore) {
         if caller != Caller::LegacyCore || (authed && current != Some(Caller::LegacyCore)) {
-            return conn.reply_and_close(&id, bridge_principal());
+            return conn.reply_and_close(id, bridge_principal());
         }
         {
             let mut st = relock(&conn.state);
             st.authed = true;
             st.caller = Some(Caller::LegacyCore);
         }
-        return conn.send(&json!({"jsonrpc":"2.0","id":id,"result":{
-            "contract": front.legacy_contract, "rpc": plur1bus_rpc::RPC_VERSION, "instanceId": front.instance,
-            "pid": front.pid, "capabilities": plur1bus_rpc::capabilities("bridge", &[]),
-        }}));
+        return conn.send_raw(id.frame(
+            "result",
+            &json!({
+                "contract": front.legacy_contract, "rpc": plur1bus_rpc::RPC_VERSION, "instanceId": front.instance,
+                "pid": front.pid, "capabilities": plur1bus_rpc::capabilities("bridge", &[]),
+            }),
+        ));
     }
     let Some(link) = link_of(front, conn) else {
         return conn.legacy_gone();
@@ -941,28 +1003,37 @@ fn link_of(front: &Arc<FrontDoor>, conn: &Arc<Conn>) -> Option<Arc<Link>> {
     Some(link)
 }
 
-/// Everything after the handshake.
-fn post_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, bytes: Vec<u8>, msg: Value) {
-    let id = frame::id_of(&msg);
-    let method = msg
-        .get("method")
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .to_owned();
-    let caller = conn.caller();
-    if caller == Some(Caller::LegacyCore) {
-        return bridge_call(front, conn, &id, &method, &msg);
-    }
+/// Everything after the handshake, except on the bridge connection. The frame is routed on its `id` and `method` alone,
+/// read with the tolerant peek, and goes on as the client wrote it: relayed byte for byte, or, when the front door
+/// completes the answer, with only the id replaced by its own. Only the members the front door acts on are read further.
+fn post_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, bytes: &[u8]) {
+    let text = String::from_utf8_lossy(bytes);
+    let Some([id_raw, method, api, params]) =
+        peek::members(&text, ["id", "method", "api", "params"])
+    else {
+        // Not one JSON object: the legacy core answers it as the TypeScript core does (parse error, invalid request).
+        return relay_raw(conn, bytes);
+    };
+    let id = RawId::of(id_raw);
+    let method = method.and_then(peek::string_lossy).unwrap_or_default();
     let route = route::route(&method);
     match route {
         Route::Bridge => return conn.error(&id, bridge_principal()),
-        Route::Native => return native(front, conn, &id, &method, msg),
+        Route::Native => {
+            let Some(msg) = peek::value_lossy(&text) else {
+                return conn.error(&id, frame::parse_error());
+            };
+            return native(front, conn, &id, &method, msg);
+        }
         Route::Complete(_) | Route::Relay => {}
     }
     // An API connection's every request carries its delegation: the front door checks it before relaying it.
-    if caller == Some(Caller::Api) {
-        if let Some(delegation) = msg.get("api").filter(|v| !v.is_null()) {
-            if let Err(r) = auth::verify_api_delegation(delegation, &front.api_token) {
+    if conn.caller() == Some(Caller::Api) {
+        if let Some(delegation) = api.filter(|d| d.get() != "null") {
+            let checked = peek::value_lossy(delegation.get())
+                .ok_or(auth::API_DELEGATION)
+                .and_then(|d| auth::verify_api_delegation(&d, &front.api_token));
+            if let Err(r) = checked {
                 return conn.error(&id, refusal(r));
             }
         }
@@ -970,33 +1041,16 @@ fn post_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, bytes: Vec<u8>, msg: Valu
     let Route::Complete(kind) = route else {
         return relay_raw(conn, bytes);
     };
-    if kind == Kind::Auth {
-        let auth_delegation = msg
-            .get("params")
-            .and_then(Value::as_object)
-            .and_then(|p| p.get("api"))
-            .cloned();
-        let top_api = msg.get("api").cloned();
-        let has_api = top_api.is_some() || auth_delegation.is_some();
-        let mut stripped = msg.clone();
-        if let Some(map) = stripped.as_object_mut() {
-            map.remove("api");
-        }
-        if has_api {
-            let delegation = top_api
-                .clone()
-                .filter(|v| !v.is_null())
-                .or(auth_delegation)
-                .unwrap_or(Value::Null);
-            if let Err(r) = auth::verify_api_delegation(&delegation, &front.api_token) {
-                return conn.error(&id, refusal(r));
-            }
-        }
-        return handle_auth(front, conn, &stripped, has_api, top_api);
-    }
+    let param = |key: &str| params.and_then(|p| peek::member(p, key));
     let intercept = match kind {
-        Kind::Auth => None, // handled above
-        Kind::Status => Some(Intercept::Status { id: id.clone() }),
+        Kind::Auth => {
+            // A re-authentication: the handshake path, on the whole request.
+            let Some(msg) = peek::value_lossy(&text) else {
+                return conn.reply_and_close(&id, frame::parse_error());
+            };
+            return reauth(front, conn, &id, &msg);
+        }
+        Kind::Status => Intercept::Status { id: id.clone() },
         Kind::Adopt => {
             if front.is_stopping() {
                 return conn.error(
@@ -1004,36 +1058,38 @@ fn post_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, bytes: Vec<u8>, msg: Valu
                     RpcErr::new("E_NOT_AVAILABLE", "core is stopping", Some("stopping")),
                 );
             }
-            let nonce = msg
-                .pointer("/params/nonce")
-                .and_then(Value::as_str)
-                .unwrap_or("")
-                .to_owned();
-            Some(Intercept::Adopt {
+            Intercept::Adopt {
                 id: id.clone(),
-                nonce,
-            })
+                nonce: param("nonce")
+                    .and_then(peek::string_lossy)
+                    .unwrap_or_default(),
+            }
         }
-        Kind::Shutdown => Some(Intercept::Shutdown {
+        Kind::Shutdown => Intercept::Shutdown {
             id: id.clone(),
-            budget: msg.pointer("/params/budgetMs").and_then(Value::as_u64),
-        }),
-        Kind::Subscribe => Some(Intercept::Subscribe {
+            budget: param("budgetMs").and_then(|b| serde_json::from_str::<u64>(b.get()).ok()),
+        },
+        Kind::Subscribe => {
+            let mut facts = Map::new();
+            for key in ["names", "agentId"] {
+                if let Some(value) = param(key).and_then(|v| peek::value_lossy(v.get())) {
+                    facts.insert(key.into(), value);
+                }
+            }
+            Intercept::Subscribe {
+                id: id.clone(),
+                params: Value::Object(facts),
+            }
+        }
+        Kind::Unsubscribe => Intercept::Unsubscribe {
             id: id.clone(),
-            params: msg.get("params").cloned().unwrap_or_else(|| json!({})),
-        }),
-        Kind::Unsubscribe => Some(Intercept::Unsubscribe {
-            id: id.clone(),
-            sub: msg
-                .pointer("/params/subscriptionId")
-                .and_then(Value::as_str)
-                .unwrap_or("")
-                .to_owned(),
-        }),
+            sub: param("subscriptionId")
+                .and_then(peek::string_lossy)
+                .unwrap_or_default(),
+        },
     };
     // A request without a usable id is relayed as written: the legacy core answers it (invalid request).
-    let intercept = intercept.filter(|_| !id.is_null());
-    let Some(intercept) = intercept else {
+    let Some(id_raw) = id_raw.filter(|_| !id.is_null()) else {
         return relay_raw(conn, bytes);
     };
     let link = relock(&conn.state).link.clone();
@@ -1041,12 +1097,39 @@ fn post_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, bytes: Vec<u8>, msg: Valu
         return conn.legacy_gone();
     };
     let link_id = link.next_id();
-    let mut rewritten = msg;
-    rewritten["id"] = Value::from(link_id.clone());
+    let Some(line) = peek::splice(&text, id_raw, &format!("\"{link_id}\"")) else {
+        return relay_raw(conn, bytes);
+    };
     relock(&conn.state).intercepts.insert(link_id, intercept);
-    if link.send(&frame::encode(&rewritten)).is_err() {
+    if link.send_line(&line).is_err() {
         conn.legacy_gone();
     }
+}
+
+/// `core.auth` after the handshake: the delegation checks of `pre_auth`, then the handshake itself.
+fn reauth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &RawId, msg: &Value) {
+    let auth_delegation = msg
+        .get("params")
+        .and_then(Value::as_object)
+        .and_then(|p| p.get("api"))
+        .cloned();
+    let top_api = msg.get("api").cloned();
+    let has_api = top_api.is_some() || auth_delegation.is_some();
+    let mut stripped = msg.clone();
+    if let Some(map) = stripped.as_object_mut() {
+        map.remove("api");
+    }
+    if has_api {
+        let delegation = top_api
+            .clone()
+            .filter(|v| !v.is_null())
+            .or(auth_delegation)
+            .unwrap_or(Value::Null);
+        if let Err(r) = auth::verify_api_delegation(&delegation, &front.api_token) {
+            return conn.error(id, refusal(r));
+        }
+    }
+    handle_auth(front, conn, id, &stripped, has_api, top_api);
 }
 
 /// A method the front door serves itself (`route::NATIVE`), after module-api's admission in its `dispatch` order: a scoped
@@ -1055,7 +1138,7 @@ fn post_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, bytes: Vec<u8>, msg: Valu
 /// call `host.*` only; a delegation needs an API handshake; a scoped client has no `events.*`. The method then decides on
 /// RBAC and a scoped client's per-call authorization from its [`route::CallContext`]. It is never relayed: a native
 /// method that answers `NotServed` is a route-table drift (`E_INTERNAL`, reason `route-table-drift`).
-fn native(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &Value, method: &str, mut msg: Value) {
+fn native(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &RawId, method: &str, mut msg: Value) {
     let caller = conn.caller().unwrap_or(Caller::Client);
     let has_api = msg.get("api").is_some();
     if caller == Caller::Client && (has_api || msg.pointer("/params/api").is_some()) {
@@ -1178,18 +1261,17 @@ fn native(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &Value, method: &str, mu
         api_principal,
     };
     match route::serve(&cx, method, params) {
-        Ok(result) => conn.send(&json!({"jsonrpc":"2.0","id":id,"result":result})),
-        Err(error) => conn.send(&json!({"jsonrpc":"2.0","id":id,"error":error})),
+        Ok(result) => conn.send_raw(id.frame("result", &result)),
+        Err(error) => conn.send_raw(id.frame("error", &error)),
     }
 }
 
 /// Relays a client line to its link unchanged.
-fn relay_raw(conn: &Arc<Conn>, mut bytes: Vec<u8>) {
+fn relay_raw(conn: &Arc<Conn>, bytes: &[u8]) {
     let link = relock(&conn.state).link.clone();
     match link {
         Some(link) => {
-            bytes.push(b'\n');
-            if link.send(&bytes).is_err() {
+            if link.send_line(bytes).is_err() {
                 conn.legacy_gone();
             }
         }
@@ -1198,7 +1280,7 @@ fn relay_raw(conn: &Arc<Conn>, mut bytes: Vec<u8>) {
 }
 
 /// The legacy core's bridge connection: `bridge.*` only, served here.
-fn bridge_call(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &Value, method: &str, msg: &Value) {
+fn bridge_call(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &RawId, method: &str, msg: &Value) {
     match method {
         "bridge.hello" => {
             let params = without_meta(msg.get("params").unwrap_or(&json!({})));
@@ -1221,40 +1303,42 @@ fn bridge_call(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &Value, method: &st
                     ),
                 );
             }
-            conn.send(&json!({"jsonrpc":"2.0","id":id,"result":result}));
+            conn.send_raw(id.frame("result", &result));
         }
-        "core.auth" => handle_auth(front, conn, msg, false, None),
+        "core.auth" => handle_auth(front, conn, id, msg, false, None),
         _ => conn.error(id, bridge_principal()),
     }
 }
 
-/// Reads the legacy core's answers and notifications for one client.
+/// Reads the legacy core's answers and notifications for one client. Each line is peeked for its `id` and `method` only
+/// (security review M1): an answer to one of the link's own ids completes that request; the legacy core's `core.state`
+/// is dropped on an owner's connection; every other line goes to the client as the legacy core wrote it, whatever
+/// serde_json would make of it.
 fn link_loop(front: &Arc<FrontDoor>, conn: &Arc<Conn>, link: &Arc<Link>, reader: Box<dyn Stream>) {
     let mut reader = BufReader::with_capacity(64 * 1024, reader);
     while let Ok(Line::Data(bytes)) = frame::read_line(&mut reader) {
-        let Ok(mut msg) = serde_json::from_slice::<Value>(&bytes) else {
-            break;
-        };
-        let own = msg
-            .get("id")
-            .and_then(Value::as_str)
-            .filter(|i| link.owns(i))
-            .map(str::to_owned);
-        if let Some(own) = own {
-            let taken = relock(&conn.state).intercepts.remove(&own);
-            if let Some(intercept) = taken {
-                complete(front, conn, intercept, &mut msg);
+        let forward = {
+            let text = String::from_utf8_lossy(&bytes);
+            let [id, method] = peek::members(&text, ["id", "method"]).unwrap_or([None, None]);
+            match id.and_then(peek::string_lossy).filter(|i| link.owns(i)) {
+                Some(own) => {
+                    let taken = relock(&conn.state).intercepts.remove(&own);
+                    if let Some(intercept) = taken {
+                        complete(front, conn, intercept, &text);
+                    }
+                    false
+                }
+                // The front door's own process state is what an owner subscriber sees.
+                None => {
+                    id.is_some()
+                        || conn.caller() != Some(Caller::Owner)
+                        || method.and_then(peek::string_lossy).as_deref() != Some("core.state")
+                }
             }
-            continue;
+        };
+        if forward {
+            conn.send_raw(bytes);
         }
-        let notification = msg.get("method").is_some() && msg.get("id").is_none();
-        if notification
-            && msg.get("method").and_then(Value::as_str) == Some("core.state")
-            && conn.caller() == Some(Caller::Owner)
-        {
-            continue; // the front door's own process state is what an owner subscriber sees
-        }
-        conn.send_raw(bytes);
     }
     // The link is gone: so is this client's connection to the core.
     let pending: Vec<Intercept> = {
@@ -1271,9 +1355,13 @@ fn link_loop(front: &Arc<FrontDoor>, conn: &Arc<Conn>, link: &Arc<Link>, reader:
     }
 }
 
-/// Completes an intercepted request with the legacy core's answer and sends it with the client's own id.
-fn complete(front: &Arc<FrontDoor>, conn: &Arc<Conn>, intercept: Intercept, msg: &mut Value) {
-    let ok = msg.get("result").is_some();
+/// Completes an intercepted request with the legacy core's answer `text` and sends it with the client's own id. What the
+/// front door acts on is peeked from the answer, so one serde_json cannot read still completes; an answer the front door
+/// changes is parsed for that ([`patched`]), every other one goes on as written with only the id replaced.
+fn complete(front: &Arc<FrontDoor>, conn: &Arc<Conn>, intercept: Intercept, text: &str) {
+    let [result] = peek::members(text, ["result"]).unwrap_or([None]);
+    let ok = result.is_some();
+    let fact = |key: &str| result.and_then(|r| peek::member(r, key));
     match intercept {
         Intercept::Auth {
             id,
@@ -1282,55 +1370,35 @@ fn complete(front: &Arc<FrontDoor>, conn: &Arc<Conn>, intercept: Intercept, msg:
             engine_token,
             done,
         } => {
-            msg["id"] = id;
-            if ok {
-                let result = &mut msg["result"];
-                result["instanceId"] = Value::from(front.instance.clone());
-                result["pid"] = Value::from(front.pid);
-                let features: Vec<String> = result
-                    .pointer("/capabilities/features")
-                    .and_then(Value::as_array)
-                    .map(|f| {
-                        f.iter()
-                            .filter_map(Value::as_str)
-                            .map(str::to_owned)
-                            .collect()
-                    })
-                    .unwrap_or_default();
-                if result.get("capabilities").is_some() {
-                    let refs: Vec<&str> = features.iter().map(String::as_str).collect();
-                    // The union of the methods served natively and the relayed ones: every `x-server: "core"` method.
-                    result["capabilities"] = plur1bus_rpc::capabilities("core", &refs);
+            let reply = patched(text, &id, |msg| {
+                if ok {
+                    patch_hello(front, msg);
                 }
+                Ok(())
+            });
+            if ok {
                 let mut st = relock(&conn.state);
                 st.authed = true;
                 st.caller = Some(caller);
                 st.api = api;
                 st.engine_token = engine_token;
             }
-            conn.send(msg);
+            send_or_refuse(conn, &id, reply);
             let _ = done.send(ok);
         }
         Intercept::Status { id } => {
-            msg["id"] = id;
-            if ok {
-                front.patch_status(&mut msg["result"]);
-                if !findings(&front.checks.status_result, &msg["result"]).is_empty() {
-                    let id = msg["id"].clone();
-                    return conn.error(
-                        &id,
-                        RpcErr::new(
-                            "E_INTERNAL",
-                            "result violates schema",
-                            Some("result-schema"),
-                        ),
-                    );
+            let reply = patched(text, &id, |msg| {
+                if ok {
+                    front.patch_status(&mut msg["result"]);
+                    if !findings(&front.checks.status_result, &msg["result"]).is_empty() {
+                        return Err(result_schema());
+                    }
                 }
-            }
-            conn.send(msg);
+                Ok(())
+            });
+            send_or_refuse(conn, &id, reply);
         }
         Intercept::Adopt { id, nonce } => {
-            msg["id"] = id.clone();
             if ok {
                 let supervisor = run_files::read_token(&front.files.supervisor_token)
                     .ok()
@@ -1344,46 +1412,104 @@ fn complete(front: &Arc<FrontDoor>, conn: &Arc<Conn>, intercept: Intercept, msg:
                 }
                 front.attach_lifeline(conn.id);
                 log("info", "adopted", json!({"connectionId": conn.id}));
-                front.patch_status(&mut msg["result"]["status"]);
-                if !findings(&front.checks.adopt_result, &msg["result"]).is_empty() {
-                    return conn.error(
-                        &id,
-                        RpcErr::new(
-                            "E_INTERNAL",
-                            "result violates schema",
-                            Some("result-schema"),
-                        ),
-                    );
-                }
             }
-            conn.send(msg);
+            let reply = patched(text, &id, |msg| {
+                if ok {
+                    front.patch_status(&mut msg["result"]["status"]);
+                    if !findings(&front.checks.adopt_result, &msg["result"]).is_empty() {
+                        return Err(result_schema());
+                    }
+                }
+                Ok(())
+            });
+            send_or_refuse(conn, &id, reply);
         }
         Intercept::Shutdown { id, budget } => {
-            msg["id"] = id;
-            let accepted = msg.pointer("/result/accepted") == Some(&Value::Bool(true));
-            conn.send(msg);
+            let accepted = fact("accepted").is_some_and(|a| a.get() == "true");
+            conn.send_raw(id.splice_into(text));
             if accepted {
                 let budget = budget.map_or(front.timings.shutdown_budget, Duration::from_millis);
                 front.request_stop(budget, "core.shutdown");
             }
         }
         Intercept::Subscribe { id, params } => {
-            msg["id"] = id;
             if ok && conn.caller() == Some(Caller::Owner) {
-                if let Some(sub) = Sub::from_call(&params, &msg["result"]) {
+                let sub = fact("subscriptionId")
+                    .and_then(peek::string_lossy)
+                    .and_then(|s| Sub::from_call(&params, &json!({ "subscriptionId": s })));
+                if let Some(sub) = sub {
                     relock(&conn.state).subs.push(sub);
                 }
             }
-            conn.send(msg);
+            conn.send_raw(id.splice_into(text));
         }
         Intercept::Unsubscribe { id, sub } => {
-            msg["id"] = id;
-            if msg.pointer("/result/removed") == Some(&Value::Bool(true)) {
+            if fact("removed").is_some_and(|r| r.get() == "true") {
                 relock(&conn.state).subs.retain(|s| s.id != sub);
             }
-            conn.send(msg);
+            conn.send_raw(id.splice_into(text));
         }
     }
+}
+
+/// The handshake's answer names the front door: its pid and instance, and the union of the methods served natively and
+/// the relayed ones (every `x-server: "core"` method) with the legacy core's features.
+fn patch_hello(front: &FrontDoor, msg: &mut Value) {
+    let result = &mut msg["result"];
+    result["instanceId"] = Value::from(front.instance.clone());
+    result["pid"] = Value::from(front.pid);
+    let features: Vec<String> = result
+        .pointer("/capabilities/features")
+        .and_then(Value::as_array)
+        .map(|f| {
+            f.iter()
+                .filter_map(Value::as_str)
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_default();
+    if result.get("capabilities").is_some() {
+        let refs: Vec<&str> = features.iter().map(String::as_str).collect();
+        result["capabilities"] = plur1bus_rpc::capabilities("core", &refs);
+    }
+}
+
+/// The legacy core's answer `text` with the client's `id`, changed by `patch` (read with lone surrogates as U+FFFD). An
+/// answer nested too deep to read goes on as written with only the id replaced, unchanged (logged).
+fn patched(
+    text: &str,
+    id: &RawId,
+    patch: impl FnOnce(&mut Value) -> Result<(), RpcErr>,
+) -> Result<Vec<u8>, RpcErr> {
+    match peek::value_lossy(text) {
+        Some(mut msg) => {
+            patch(&mut msg)?;
+            Ok(id.answer(msg))
+        }
+        None => {
+            log(
+                "warn",
+                "an answer the front door completes is nested too deep to read; forwarded unchanged",
+                Value::Null,
+            );
+            Ok(id.splice_into(text))
+        }
+    }
+}
+
+fn send_or_refuse(conn: &Conn, id: &RawId, reply: Result<Vec<u8>, RpcErr>) {
+    match reply {
+        Ok(bytes) => conn.send_raw(bytes),
+        Err(e) => conn.error(id, e),
+    }
+}
+
+fn result_schema() -> RpcErr {
+    RpcErr::new(
+        "E_INTERNAL",
+        "result violates schema",
+        Some("result-schema"),
+    )
 }
 
 #[cfg(test)]

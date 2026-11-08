@@ -53,7 +53,17 @@ Before `core.auth` succeeds the front door parses every line itself. Invalid UTF
 TypeScript server's decoder does, so such a line gets the same answer on both cores. A lone surrogate escape (`"\ud800"`)
 is different: `JSON.parse` accepts it, `serde_json` cannot represent it in a string and refuses the line, so the front
 door answers `-32700` (`reason: parse-error`, id `null`) where the TypeScript server dispatches the request and refuses it
-there. After the handshake such a line is relayed to the legacy core unchanged, which answers it as before.
+there.
+
+After the handshake the front door reads only the members it routes on (`crates/plur1bus-core/src/peek.rs`, P4-10 fix
+round, security review M1/L3): every client line goes to the legacy core as written (a completed request with only its id
+replaced), and every answer and notification of the legacy core reaches the client byte for byte, a lone surrogate or
+nesting deeper than 128 included. What remains is narrow: a frame the front door reads whole — a `core.auth` on an
+authenticated connection, a natively served method (none in P4-10), and the six answers it completes (`core.auth`,
+`core.status`, `core.adopt` patched; `core.shutdown`, `events.subscribe`, `events.unsubscribe` only peeked) — reads a lone
+surrogate as U+FFFD, so a patched answer carries U+FFFD where the TypeScript core writes the escape; and such a frame
+nested deeper than 128 levels is refused with `-32700` (a request) or forwarded with only its id replaced (an answer, a
+warning on stderr).
 
 - Reproduction: `{"jsonrpc":"2.0","id":1,"method":"core.auth","params":{"token":"\ud800"}}` on a fresh connection. The
   TypeScript core answers `E_INVALID_PARAMS` (`/token` is too short), the front door `-32700`.

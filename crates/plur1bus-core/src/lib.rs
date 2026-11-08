@@ -33,6 +33,7 @@ pub mod frame;
 pub mod legacy;
 pub mod lifecycle;
 pub mod lock;
+pub mod peek;
 pub mod relay;
 pub mod route;
 pub mod run_files;

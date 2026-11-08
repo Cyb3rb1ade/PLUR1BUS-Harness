@@ -97,6 +97,14 @@ fn main() {
         ("stale_and_live_sockets", stale_and_live_sockets),
         ("sigterm_stops_the_pair", sigterm_stops_the_pair),
         ("credentials_never_leak", credentials_never_leak),
+        (
+            "frames_serde_cannot_read_reach_the_client_as_written",
+            frames_serde_cannot_read_reach_the_client_as_written,
+        ),
+        (
+            "an_adoption_with_a_lone_surrogate_in_meta_attaches_the_lifeline",
+            an_adoption_with_a_lone_surrogate_in_meta_attaches_the_lifeline,
+        ),
     ];
     let mut failed = Vec::new();
     for (name, test) in tests {
@@ -300,12 +308,21 @@ impl Client {
         self.writer.write_all(bytes).unwrap();
         self.writer.flush().unwrap();
     }
-    /// The next line, or `None` at EOF (the server closed the connection).
+    /// The next line, or `None` at EOF (the server closed the connection). A lone surrogate is read as U+FFFD (JSON.parse
+    /// takes it); a line nested deeper than serde_json reads is for [`Client::read_raw`].
     fn read(&mut self) -> Option<Value> {
+        let line = self.read_raw()?;
+        Some(
+            plur1bus_core::peek::value_lossy(&line)
+                .unwrap_or_else(|| panic!("not JSON: {line:.200}")),
+        )
+    }
+    /// The next line exactly as it arrived, without its newline; `None` at EOF.
+    fn read_raw(&mut self) -> Option<String> {
         let mut line = String::new();
         match self.reader.read_line(&mut line) {
             Ok(0) | Err(_) => None,
-            Ok(_) => Some(serde_json::from_str(&line).unwrap()),
+            Ok(_) => Some(line.trim_end_matches('\n').to_owned()),
         }
     }
     /// Sends a request and returns its response; notifications on the way are kept in `notes`.
@@ -1008,4 +1025,109 @@ fn credentials_never_leak() {
             "a prefix of credential {i} leaked"
         );
     }
+}
+
+/// Security review M1: what JSON.stringify writes and serde_json refuses (a lone surrogate escape, nesting deeper than
+/// 128) reaches the client byte for byte, its connection stays, and a broadcast carrying it disconnects no subscriber.
+fn frames_serde_cannot_read_reach_the_client_as_written() {
+    let d = door(Opts::default());
+    let mut watcher = d.owner();
+    assert!(watcher.call("events.subscribe", json!({}))["result"]["subscriptionId"].is_string());
+    let mut c = d.owner();
+    assert!(
+        c.call("events.subscribe", json!({"names": ["agent.activity"]}))["result"]
+            ["subscriptionId"]
+            .is_string()
+    );
+    c.send_line(r#"{"jsonrpc":"2.0","id":31,"method":"fake.surrogate","params":{}}"#);
+    assert_eq!(
+        c.read_raw().as_deref(),
+        Some(fake_legacy::surrogate_reply(&json!(31)).as_str()),
+        "a result with a lone surrogate, byte for byte"
+    );
+    assert!(
+        c.call("core.status", json!({})).get("result").is_some(),
+        "and the connection stays"
+    );
+    c.send_line(r#"{"jsonrpc":"2.0","id":"deep","method":"fake.deep","params":{}}"#);
+    assert_eq!(
+        c.read_raw().as_deref(),
+        Some(fake_legacy::deep_reply(&json!("deep")).as_str()),
+        "a result nested 200 deep, byte for byte"
+    );
+    assert!(c.call("core.status", json!({})).get("result").is_some());
+    c.send_line(r#"{"jsonrpc":"2.0","id":33,"method":"fake.notify-surrogate","params":{}}"#);
+    assert_eq!(
+        c.read_raw().as_deref(),
+        Some(fake_legacy::SURROGATE_NOTE),
+        "a notification with a lone surrogate, byte for byte"
+    );
+    assert_eq!(c.response(&json!(33))["result"], json!({}));
+    assert_eq!(
+        watcher.read_raw().as_deref(),
+        Some(fake_legacy::SURROGATE_NOTE),
+        "another owner subscriber gets the broadcast"
+    );
+    assert!(
+        watcher
+            .call("core.status", json!({}))
+            .get("result")
+            .is_some(),
+        "and stays connected"
+    );
+    assert!(c.call("core.status", json!({})).get("result").is_some());
+}
+
+/// Security review L3: a request the front door completes is routed by its method even when serde_json cannot read the
+/// rest (a lone surrogate in `_meta`): the adoption attaches the lifeline, and the legacy core gets the request as written.
+fn an_adoption_with_a_lone_surrogate_in_meta_attaches_the_lifeline() {
+    let supervisor = Secret::fresh().unwrap();
+    let s = supervisor.expose().to_owned();
+    let prepare = move |home: &Path| {
+        std::fs::create_dir_all(home.join("run")).unwrap();
+        std::fs::write(home.join("run/supervisor.token"), &s).unwrap();
+        std::fs::write(
+            home.join("config.json"),
+            r#"{"supervisor":{"graceMs":1500}}"#,
+        )
+        .unwrap();
+    };
+    let mut d = door(Opts {
+        lifeline: true,
+        prepare: Some(&prepare),
+        ..Opts::default()
+    });
+    let mut c = d.owner();
+    drop(d.stdin.take());
+    let state = |c: &mut Client| {
+        c.call("core.status", json!({}))["result"]["process"]["state"]
+            .as_str()
+            .unwrap()
+            .to_owned()
+    };
+    let until = Instant::now() + Duration::from_secs(5);
+    while state(&mut c) != "orphaned" {
+        assert!(Instant::now() < until, "never orphaned");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    let mut adopter = d.owner();
+    adopter.send_line(&format!(
+        r#"{{"jsonrpc":"2.0","id":5,"method":"core.adopt","params":{{"nonce":"{}","_meta":{{"x":"\ud800"}}}}}}"#,
+        supervisor.expose()
+    ));
+    let r = adopter.response(&json!(5));
+    assert_eq!(
+        r["result"]["status"]["pid"].as_u64(),
+        Some(d.pid()),
+        "completed by the front door: {r}"
+    );
+    assert_eq!(r["result"]["status"]["process"]["state"], "ready");
+    std::thread::sleep(Duration::from_millis(1700));
+    assert_eq!(state(&mut c), "ready", "the adoption cancelled the grace");
+    drop(adopter);
+    assert_eq!(
+        d.wait(Duration::from_secs(10)),
+        Some(0),
+        "the adopting connection was the lifeline"
+    );
 }
