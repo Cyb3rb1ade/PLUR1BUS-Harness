@@ -117,6 +117,10 @@ fn main() {
             "a_client_shutdown_reaches_every_subscriber_as_stopping_first",
             a_client_shutdown_reaches_every_subscriber_as_stopping_first,
         ),
+        (
+            "a_squatted_legacy_address_gets_nothing",
+            a_squatted_legacy_address_gets_nothing,
+        ),
     ];
     let mut failed = Vec::new();
     for (name, test) in tests {
@@ -1297,4 +1301,59 @@ fn a_client_shutdown_reaches_every_subscriber_as_stopping_first() {
     }
     assert!(c.closed());
     assert_eq!(d.wait(Duration::from_secs(10)), Some(0), "{}", d.stderr());
+}
+
+/// Task review M4 (the squatting containment of P4D-6 and ADR-012 R4): before a link sends anything, the process serving
+/// the legacy address must be the legacy core (`relay::Link::connect`, the OS's peer pid). A process that took over
+/// `run/core-legacy.sock` receives not one byte (no client credential, no link token), and the client's connection ends
+/// as with a core that went away.
+///
+/// Unix only: on Windows the squatter would have to serve the `-core-legacy` pipe from another process while the legacy
+/// core holds the name; that case is named in the Windows gating job (task P4-10 fix brief A1) as a `cfg(unix)` gap.
+fn a_squatted_legacy_address_gets_nothing() {
+    #[cfg(unix)]
+    {
+        let d = door(Opts::default());
+        let address = d.path("run/core-legacy.sock");
+        std::fs::remove_file(&address).unwrap();
+        let squatter = std::os::unix::net::UnixListener::bind(&address).unwrap();
+        squatter.set_nonblocking(true).unwrap();
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let until = Instant::now() + Duration::from_secs(5);
+            let (mut stream, _) = loop {
+                match squatter.accept() {
+                    Ok(pair) => break pair,
+                    Err(_) if Instant::now() < until => {
+                        std::thread::sleep(Duration::from_millis(10));
+                    }
+                    Err(_) => return,
+                }
+            };
+            // macOS refuses socket options on a connection its peer already shut down (EINVAL); a read then ends at once.
+            let _ = stream.set_nonblocking(false);
+            let _ = stream.set_read_timeout(Some(Duration::from_secs(1)));
+            let mut got = Vec::new();
+            let mut buf = [0u8; 4096];
+            while let Ok(n) = stream.read(&mut buf) {
+                if n == 0 {
+                    break;
+                }
+                got.extend_from_slice(&buf[..n]);
+            }
+            let _ = tx.send(got.len());
+        });
+        let mut c = d.client();
+        assert_eq!(
+            c.try_call("core.auth", json!({"token": d.token("core.token")})),
+            None,
+            "no reply: the connection ends"
+        );
+        assert!(c.notes.is_empty());
+        let received = rx
+            .recv_timeout(Duration::from_secs(8))
+            .expect("the front door connected to the squatter and checked it");
+        assert_eq!(received, 0, "the squatter read nothing");
+        assert!(d.stderr().contains("cannot open a link"), "{}", d.stderr());
+    }
 }
