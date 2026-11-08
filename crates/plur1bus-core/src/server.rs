@@ -172,8 +172,6 @@ pub struct FrontDoor {
     stop_entry: Mutex<()>,
     lifeline: Mutex<Lifeline>,
     events: Mutex<Sender<Event>>,
-    /// The timings read at start.
-    pub timings: Timings,
     /// How many connections it takes.
     pub capacity: Capacity,
     /// Out of descriptors since the last accepted connection (logged once per burst).
@@ -203,7 +201,6 @@ impl FrontDoor {
         legacy_contract: String,
         checks: Checks,
         events: Sender<Event>,
-        timings: Timings,
         stdin_lifeline: bool,
         capacity: Capacity,
     ) -> FrontDoor {
@@ -231,7 +228,6 @@ impl FrontDoor {
                 generation: u64::from(stdin_lifeline),
             }),
             events: Mutex::new(events),
-            timings,
             capacity,
             exhausted: AtomicBool::new(false),
             crowded: AtomicBool::new(false),
@@ -389,8 +385,8 @@ impl FrontDoor {
         let _ = relock(&self.events).send(event);
     }
 
-    /// Asks the main loop to stop.
-    pub fn request_stop(&self, budget: Duration, why: &'static str) {
+    /// Asks the main loop to stop; `budget` `None` is `core.shutdownBudgetMs` as it is when the stop begins.
+    pub fn request_stop(&self, budget: Option<Duration>, why: &'static str) {
         self.send_event(Event::Stop {
             budget,
             why,
@@ -437,17 +433,19 @@ impl FrontDoor {
             l.orphaned_since = Some(since);
             (l.generation, since)
         };
+        // `supervisor.graceMs` is live: the grace in force now (task review M1).
+        let grace = Timings::read(&self.files.config).grace;
         log(
             "warn",
             "lifeline lost, core orphaned",
-            json!({"graceMs": self.timings.grace.as_millis() as u64}),
+            json!({"graceMs": u64::try_from(grace.as_millis()).unwrap_or(u64::MAX)}),
         );
         self.set_state(ProcessState {
             state: "orphaned",
             since,
             reason: None,
         });
-        lifecycle::arm_grace(relock(&self.events).clone(), generation, self.timings.grace);
+        lifecycle::arm_grace(relock(&self.events).clone(), generation, grace);
     }
 
     /// An adoption made connection `id` the lifeline (`orphan-watch.ts` `watchConnection`).
@@ -1621,8 +1619,7 @@ fn complete(front: &Arc<FrontDoor>, conn: &Arc<Conn>, intercept: Intercept, text
             }
             conn.send_raw(id.splice_into(text));
             if accepted {
-                let budget = budget.map_or(front.timings.shutdown_budget, Duration::from_millis);
-                front.request_stop(budget, "core.shutdown");
+                front.request_stop(budget.map(Duration::from_millis), "core.shutdown");
             }
         }
         Intercept::Subscribe { id, params } => {

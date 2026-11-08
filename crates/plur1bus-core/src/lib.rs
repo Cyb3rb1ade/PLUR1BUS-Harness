@@ -164,7 +164,7 @@ pub fn serve(plan: &ServePlan) -> Result<i32, ServeError> {
     run_files::clear_leftovers(&files);
     let timings = Timings::read(&files.config);
     let (events_tx, events) = mpsc::channel::<Event>();
-    lifecycle::watch_signals(events_tx.clone(), timings.shutdown_budget)
+    lifecycle::watch_signals(events_tx.clone())
         .map_err(|e| ServeError::Start(format!("signal handlers: {e}")))?;
     let (front, listener, legacy, control) =
         match start(plan, &files, checks, timings, capacity, &events_tx, &events) {
@@ -225,15 +225,23 @@ pub fn serve(plan: &ServePlan) -> Result<i32, ServeError> {
     // The main loop: the first stop request, the legacy core's exit, or the end of an orphan grace.
     let request = loop {
         match events.recv() {
+            // `core.shutdownBudgetMs` is live: the budget in force when the stop begins (task review M1).
             Ok(Event::Stop {
                 budget,
                 why,
                 ok_code,
-            }) => break Some((budget, why, ok_code)),
+            }) => {
+                let budget = budget.unwrap_or_else(|| Timings::read(&files.config).shutdown_budget);
+                break Some((budget, why, ok_code));
+            }
             Ok(Event::GraceExpired(generation)) => {
                 if front.grace_applies(generation) {
                     server::log("warn", "orphan grace expired, stopping", Value::Null);
-                    break Some((timings.shutdown_budget, GRACE_EXPIRED, 0));
+                    break Some((
+                        Timings::read(&files.config).shutdown_budget,
+                        GRACE_EXPIRED,
+                        0,
+                    ));
                 }
             }
             Ok(Event::LegacyExited) | Err(_) => break None,
@@ -372,7 +380,6 @@ fn start(
         control.1,
         checks,
         events_tx.clone(),
-        timings,
         plan.lifeline,
         capacity,
     ));

@@ -65,8 +65,8 @@ impl ProcessState {
 pub enum Event {
     /// Stop with this budget; exit with `ok_code` when every step succeeded.
     Stop {
-        /// The stop budget (`core.shutdown`'s `budgetMs`, else `core.shutdownBudgetMs`).
-        budget: Duration,
+        /// `core.shutdown`'s `budgetMs`; `None` for `core.shutdownBudgetMs`, read when the stop begins (a live key).
+        budget: Option<Duration>,
         /// For the log.
         why: &'static str,
         /// 0, or 130 for SIGINT.
@@ -89,8 +89,10 @@ pub struct Lifeline {
     pub generation: u64,
 }
 
-/// The configuration the front door reads itself (P4-11 ports configuration; until then `config.json` once at start, and
-/// the schema's defaults when it is missing or unreadable, in which case the legacy core refuses to start anyway).
+/// The configuration the front door reads itself (P4-11 ports configuration; until then `config.json`, and the schema's
+/// defaults when it is missing or unreadable, in which case the legacy core refuses to start anyway). Both keys are
+/// `x-restart: live` and the supervisor is `config.json`'s only writer, so they are read again where they apply (task
+/// review M1): `graceMs` when an orphan grace is armed, `shutdownBudgetMs` when a stop begins.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Timings {
     /// `supervisor.graceMs` (default 60 000).
@@ -140,9 +142,9 @@ pub fn watch_stdin(lost: impl FnOnce() + Send + 'static) {
         });
 }
 
-/// SIGTERM and SIGINT take the stop path (`bin.ts`: SIGINT exits 130).
+/// SIGTERM and SIGINT take the stop path (`bin.ts`: SIGINT exits 130), with the budget in force when the stop begins.
 #[cfg(unix)]
-pub fn watch_signals(events: Sender<Event>, budget: Duration) -> std::io::Result<()> {
+pub fn watch_signals(events: Sender<Event>) -> std::io::Result<()> {
     use signal_hook::consts::{SIGINT, SIGTERM};
     let mut signals = signal_hook::iterator::Signals::new([SIGTERM, SIGINT])?;
     std::thread::Builder::new()
@@ -155,7 +157,7 @@ pub fn watch_signals(events: Sender<Event>, budget: Duration) -> std::io::Result
                     ("SIGTERM", 0)
                 };
                 let _ = events.send(Event::Stop {
-                    budget,
+                    budget: None,
                     why,
                     ok_code,
                 });
@@ -166,7 +168,7 @@ pub fn watch_signals(events: Sender<Event>, budget: Duration) -> std::io::Result
 
 /// No signals to watch: on Windows the supervisor stops the core through `core.shutdown`.
 #[cfg(not(unix))]
-pub fn watch_signals(_events: Sender<Event>, _budget: Duration) -> std::io::Result<()> {
+pub fn watch_signals(_events: Sender<Event>) -> std::io::Result<()> {
     Ok(())
 }
 

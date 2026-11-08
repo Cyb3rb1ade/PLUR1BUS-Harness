@@ -153,6 +153,10 @@ fn main() {
             "a_held_legacy_lock_is_reported_with_its_file_and_holder",
             a_held_legacy_lock_is_reported_with_its_file_and_holder,
         ),
+        (
+            "a_live_grace_change_applies_to_the_next_orphaning",
+            a_live_grace_change_applies_to_the_next_orphaning,
+        ),
     ];
     let mut failed = Vec::new();
     for (name, test) in tests {
@@ -1756,4 +1760,31 @@ fn a_held_legacy_lock_is_reported_with_its_file_and_holder() {
         "{line}"
     );
     assert!(!line.contains("state/core.lock"), "{line}");
+}
+
+/// Task review M1: `supervisor.graceMs` (and `core.shutdownBudgetMs`) are `x-restart: live`. The supervisor is
+/// `config.json`'s only writer; a change made while the front door runs applies to the next orphaning, as the TypeScript
+/// core applies it at once (`setGraceMs`). Started with the default 60 s grace, lowered to 1.5 s, the lifeline dropped:
+/// the front door stops within 5 s.
+fn a_live_grace_change_applies_to_the_next_orphaning() {
+    let prepare = |home: &Path| {
+        std::fs::write(
+            home.join("config.json"),
+            r#"{"supervisor":{"graceMs":60000}}"#,
+        )
+        .unwrap();
+    };
+    let mut d = door(Opts {
+        lifeline: true,
+        prepare: Some(&prepare),
+        ..Opts::default()
+    });
+    std::fs::write(d.path("config.json"), r#"{"supervisor":{"graceMs":1500}}"#).unwrap();
+    drop(d.stdin.take()); // the supervisor is gone
+    assert_eq!(
+        d.wait(Duration::from_secs(5)),
+        Some(0),
+        "the grace in force when the lifeline went is the one applied"
+    );
+    assert_eq!(d.token("core-legacy.stopped"), "lifeline");
 }
