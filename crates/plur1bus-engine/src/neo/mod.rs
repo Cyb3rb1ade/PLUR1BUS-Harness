@@ -2,5 +2,6 @@
 pub mod acl;
 pub mod merged;
 mod merged_order;
+pub mod routing;
 mod tail;
 mod vectors;

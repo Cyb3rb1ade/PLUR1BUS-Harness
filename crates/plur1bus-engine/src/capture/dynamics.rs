@@ -547,7 +547,7 @@ fn or_value(value: Option<&Json>, default: Json) -> Json {
         .unwrap_or(default)
 }
 
-pub(super) fn number(value: Option<&Json>) -> f64 {
+pub(crate) fn number(value: Option<&Json>) -> f64 {
     match value {
         None | Some(Json::Object(_)) => f64::NAN,
         Some(Json::Null) => 0.0,

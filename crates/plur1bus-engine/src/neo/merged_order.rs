@@ -11,7 +11,7 @@ pub(super) fn field<'a>(value: &'a Json, name: &str) -> Option<&'a Json> {
     let key = JsString::from_utf8_str(name);
     fields.iter().rev().find(|(k, _)| *k == key).map(|(_, v)| v)
 }
-fn truthy(value: &Json) -> bool {
+pub(super) fn truthy(value: &Json) -> bool {
     match value {
         Json::Null => false,
         Json::Bool(v) => *v,
@@ -73,7 +73,7 @@ fn date(value: &Json) -> f64 {
         _ => f64::NEG_INFINITY,
     }
 }
-fn time(row: &Json, revision: bool) -> f64 {
+pub(super) fn time(row: &Json, revision: bool) -> f64 {
     let names: &[&str] = if revision {
         &["updatedAt", "startTime", "createdAt"]
     } else {
