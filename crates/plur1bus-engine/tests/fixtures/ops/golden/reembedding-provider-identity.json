@@ -1,0 +1,680 @@
+{
+  "recordedFrom": {
+    "engine": "node",
+    "source": {
+      "commit": "088ba31e441c170b47dfa41d97bd78c5265e6f69",
+      "treeSha256": "83172f93354fc16837375db5f3e405815bf3ae5ce7b63c8c5d321a7d988561ff",
+      "paths": [
+        "engine/**/*.js",
+        "lib/**/*.js"
+      ],
+      "purpose": "C2 reembedding hardening from engine PR 266; validate facade and empty-agent acceptance additionally use pin 9f34008c"
+    },
+    "node": "v24.21.0"
+  },
+  "cases": [
+    {
+      "model": "intfloat/multilingual-e5-small",
+      "cap": null,
+      "input": {
+        "provider": "local-transformers",
+        "local": {
+          "model": "intfloat/multilingual-e5-small"
+        }
+      },
+      "fingerprint": {
+        "schemaVersion": 1,
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimensions": 384,
+        "queryPrefix": "query:",
+        "passagePrefix": "passage:",
+        "pooling": "mean",
+        "normalize": true,
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",null]",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+          }
+        ]
+      },
+      "plannedIdentity": {
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimension": 384,
+        "normalization": "l2",
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",null]",
+        "instruction": "",
+        "dtype": "float32",
+        "tokenCap": null,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+          }
+        ]
+      },
+      "actualIdentity": {
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimension": 384,
+        "normalization": "l2",
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",null]",
+        "instruction": "",
+        "dtype": "float32",
+        "tokenCap": null,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+          }
+        ]
+      },
+      "plannedId": "660740dd1c4502b3548a178f98fc7636c7cdb14bc3bf2a1ee345446464fe59f4",
+      "actualId": "660740dd1c4502b3548a178f98fc7636c7cdb14bc3bf2a1ee345446464fe59f4"
+    },
+    {
+      "model": "intfloat/multilingual-e5-small",
+      "cap": 256,
+      "input": {
+        "provider": "local-transformers",
+        "local": {
+          "model": "intfloat/multilingual-e5-small",
+          "maxTokens": 256
+        }
+      },
+      "fingerprint": {
+        "schemaVersion": 1,
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimensions": 384,
+        "queryPrefix": "query:",
+        "passagePrefix": "passage:",
+        "pooling": "mean",
+        "normalize": true,
+        "tokenCap": 256,
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",256]",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+          }
+        ]
+      },
+      "plannedIdentity": {
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimension": 384,
+        "normalization": "l2",
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",256]",
+        "instruction": "",
+        "dtype": "float32",
+        "tokenCap": 256,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+          }
+        ]
+      },
+      "actualIdentity": {
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimension": 384,
+        "normalization": "l2",
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",null]",
+        "instruction": "",
+        "dtype": "float32",
+        "tokenCap": 256,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+          }
+        ]
+      },
+      "plannedId": "5982dd27df2f3974f472cfdc6463cbea50de7e9328381832144439064da22b13",
+      "actualId": "639a972647847575c43b3b3fdf65c4727cd3e07082a51ef5d184ad24b360b003",
+      "rustException": "local-prefix-token-cap"
+    },
+    {
+      "model": "intfloat/multilingual-e5-small",
+      "cap": 512,
+      "input": {
+        "provider": "local-transformers",
+        "local": {
+          "model": "intfloat/multilingual-e5-small",
+          "maxTokens": 512
+        }
+      },
+      "fingerprint": {
+        "schemaVersion": 1,
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimensions": 384,
+        "queryPrefix": "query:",
+        "passagePrefix": "passage:",
+        "pooling": "mean",
+        "normalize": true,
+        "tokenCap": 512,
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",512]",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+          }
+        ]
+      },
+      "plannedIdentity": {
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimension": 384,
+        "normalization": "l2",
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",512]",
+        "instruction": "",
+        "dtype": "float32",
+        "tokenCap": 512,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+          }
+        ]
+      },
+      "actualIdentity": {
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimension": 384,
+        "normalization": "l2",
+        "prefixScheme": "[\"query: \",\"passage: \",\"mean\",null]",
+        "instruction": "",
+        "dtype": "float32",
+        "tokenCap": 512,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "69137736cab8b8903a07fe8afaafdda25aac55415a12a55d1bffa9f581abf959"
+          },
+          {
+            "path": "onnx/model.onnx",
+            "sha256": "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "a1d6bc8734a6f635dc158508bef000f8e2e5a759c7d92f984b2c86e5ff53425b"
+          }
+        ]
+      },
+      "plannedId": "09122f74aef2b8559859b18ea80dcf86b521f230c94156c32a054556ede780ec",
+      "actualId": "d1366e0f55bbafd9897a3986ed6df4e2d4f9f7b92ac122c0f68a587bb62bd2cd",
+      "rustException": "local-prefix-token-cap"
+    },
+    {
+      "model": "google/embeddinggemma-2",
+      "cap": null,
+      "input": {
+        "provider": "local-transformers",
+        "local": {
+          "model": "google/embeddinggemma-2"
+        }
+      },
+      "fingerprint": {
+        "schemaVersion": 1,
+        "provider": "local-transformers",
+        "model": "google/embeddinggemma-2",
+        "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+        "dimensions": 768,
+        "queryPrefix": "task: search result | query:",
+        "passagePrefix": "title: none | text:",
+        "pooling": "mean",
+        "normalize": true,
+        "dtype": "q8",
+        "prefixScheme": "[\"task: search result | query: \",\"title: none | text: \",\"mean\",null]",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "8d011bfe08b5e345bbe0b81e5c6fd02c381920b345b986047bc2a33ce7b90d1d"
+          },
+          {
+            "path": "onnx/model_quantized.onnx",
+            "sha256": "d06edd601f851c633a2519304cbeb8dc6170d7ceb61b436625c17fb9b6e74953"
+          },
+          {
+            "path": "onnx/model_quantized.onnx_data",
+            "sha256": "278a7ff1248c3618e4bd11a607fc54f7bdc7778854230f3956d3f86bd9db4f3b"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "17bd5d6e9364ca49a534e1502076593317c298d4a663623091ed45388f004874"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4"
+          }
+        ]
+      },
+      "plannedIdentity": {
+        "provider": "local-transformers",
+        "model": "google/embeddinggemma-2",
+        "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+        "dimension": 768,
+        "normalization": "l2",
+        "prefixScheme": "[\"task: search result | query: \",\"title: none | text: \",\"mean\",null]",
+        "instruction": "",
+        "dtype": "q8",
+        "tokenCap": null,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "8d011bfe08b5e345bbe0b81e5c6fd02c381920b345b986047bc2a33ce7b90d1d"
+          },
+          {
+            "path": "onnx/model_quantized.onnx",
+            "sha256": "d06edd601f851c633a2519304cbeb8dc6170d7ceb61b436625c17fb9b6e74953"
+          },
+          {
+            "path": "onnx/model_quantized.onnx_data",
+            "sha256": "278a7ff1248c3618e4bd11a607fc54f7bdc7778854230f3956d3f86bd9db4f3b"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "17bd5d6e9364ca49a534e1502076593317c298d4a663623091ed45388f004874"
+          }
+        ]
+      },
+      "actualIdentity": {
+        "provider": "local-transformers",
+        "model": "google/embeddinggemma-2",
+        "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+        "dimension": 768,
+        "normalization": "l2",
+        "prefixScheme": "[\"task: search result | query: \",\"title: none | text: \",\"mean\",null]",
+        "instruction": "",
+        "dtype": "q8",
+        "tokenCap": null,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "8d011bfe08b5e345bbe0b81e5c6fd02c381920b345b986047bc2a33ce7b90d1d"
+          },
+          {
+            "path": "onnx/model_quantized.onnx",
+            "sha256": "d06edd601f851c633a2519304cbeb8dc6170d7ceb61b436625c17fb9b6e74953"
+          },
+          {
+            "path": "onnx/model_quantized.onnx_data",
+            "sha256": "278a7ff1248c3618e4bd11a607fc54f7bdc7778854230f3956d3f86bd9db4f3b"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "17bd5d6e9364ca49a534e1502076593317c298d4a663623091ed45388f004874"
+          }
+        ]
+      },
+      "plannedId": "d06ac77004042f77dac1ddb5b6017d7702e5592af934dce9636ca73c487d92b3",
+      "actualId": "d06ac77004042f77dac1ddb5b6017d7702e5592af934dce9636ca73c487d92b3"
+    },
+    {
+      "model": "google/embeddinggemma-2",
+      "cap": 256,
+      "input": {
+        "provider": "local-transformers",
+        "local": {
+          "model": "google/embeddinggemma-2",
+          "maxTokens": 256
+        }
+      },
+      "fingerprint": {
+        "schemaVersion": 1,
+        "provider": "local-transformers",
+        "model": "google/embeddinggemma-2",
+        "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+        "dimensions": 768,
+        "queryPrefix": "task: search result | query:",
+        "passagePrefix": "title: none | text:",
+        "pooling": "mean",
+        "normalize": true,
+        "dtype": "q8",
+        "tokenCap": 256,
+        "prefixScheme": "[\"task: search result | query: \",\"title: none | text: \",\"mean\",256]",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "8d011bfe08b5e345bbe0b81e5c6fd02c381920b345b986047bc2a33ce7b90d1d"
+          },
+          {
+            "path": "onnx/model_quantized.onnx",
+            "sha256": "d06edd601f851c633a2519304cbeb8dc6170d7ceb61b436625c17fb9b6e74953"
+          },
+          {
+            "path": "onnx/model_quantized.onnx_data",
+            "sha256": "278a7ff1248c3618e4bd11a607fc54f7bdc7778854230f3956d3f86bd9db4f3b"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "17bd5d6e9364ca49a534e1502076593317c298d4a663623091ed45388f004874"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4"
+          }
+        ]
+      },
+      "plannedIdentity": {
+        "provider": "local-transformers",
+        "model": "google/embeddinggemma-2",
+        "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+        "dimension": 768,
+        "normalization": "l2",
+        "prefixScheme": "[\"task: search result | query: \",\"title: none | text: \",\"mean\",256]",
+        "instruction": "",
+        "dtype": "q8",
+        "tokenCap": 256,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "8d011bfe08b5e345bbe0b81e5c6fd02c381920b345b986047bc2a33ce7b90d1d"
+          },
+          {
+            "path": "onnx/model_quantized.onnx",
+            "sha256": "d06edd601f851c633a2519304cbeb8dc6170d7ceb61b436625c17fb9b6e74953"
+          },
+          {
+            "path": "onnx/model_quantized.onnx_data",
+            "sha256": "278a7ff1248c3618e4bd11a607fc54f7bdc7778854230f3956d3f86bd9db4f3b"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "17bd5d6e9364ca49a534e1502076593317c298d4a663623091ed45388f004874"
+          }
+        ]
+      },
+      "actualIdentity": {
+        "provider": "local-transformers",
+        "model": "google/embeddinggemma-2",
+        "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+        "dimension": 768,
+        "normalization": "l2",
+        "prefixScheme": "[\"task: search result | query: \",\"title: none | text: \",\"mean\",null]",
+        "instruction": "",
+        "dtype": "q8",
+        "tokenCap": 256,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "8d011bfe08b5e345bbe0b81e5c6fd02c381920b345b986047bc2a33ce7b90d1d"
+          },
+          {
+            "path": "onnx/model_quantized.onnx",
+            "sha256": "d06edd601f851c633a2519304cbeb8dc6170d7ceb61b436625c17fb9b6e74953"
+          },
+          {
+            "path": "onnx/model_quantized.onnx_data",
+            "sha256": "278a7ff1248c3618e4bd11a607fc54f7bdc7778854230f3956d3f86bd9db4f3b"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "17bd5d6e9364ca49a534e1502076593317c298d4a663623091ed45388f004874"
+          }
+        ]
+      },
+      "plannedId": "743e8ab8d7aceff8fce08fe18e5350867f5c77357ff2ab502cb34bd50c06a315",
+      "actualId": "7a29cea3f85d1b458c81a33bccabf75d47d60747b689dc2363314d77b9557a22",
+      "rustException": "local-prefix-token-cap"
+    },
+    {
+      "model": "google/embeddinggemma-2",
+      "cap": 512,
+      "input": {
+        "provider": "local-transformers",
+        "local": {
+          "model": "google/embeddinggemma-2",
+          "maxTokens": 512
+        }
+      },
+      "fingerprint": {
+        "schemaVersion": 1,
+        "provider": "local-transformers",
+        "model": "google/embeddinggemma-2",
+        "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+        "dimensions": 768,
+        "queryPrefix": "task: search result | query:",
+        "passagePrefix": "title: none | text:",
+        "pooling": "mean",
+        "normalize": true,
+        "dtype": "q8",
+        "tokenCap": 512,
+        "prefixScheme": "[\"task: search result | query: \",\"title: none | text: \",\"mean\",512]",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "8d011bfe08b5e345bbe0b81e5c6fd02c381920b345b986047bc2a33ce7b90d1d"
+          },
+          {
+            "path": "onnx/model_quantized.onnx",
+            "sha256": "d06edd601f851c633a2519304cbeb8dc6170d7ceb61b436625c17fb9b6e74953"
+          },
+          {
+            "path": "onnx/model_quantized.onnx_data",
+            "sha256": "278a7ff1248c3618e4bd11a607fc54f7bdc7778854230f3956d3f86bd9db4f3b"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "17bd5d6e9364ca49a534e1502076593317c298d4a663623091ed45388f004874"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4"
+          }
+        ]
+      },
+      "plannedIdentity": {
+        "provider": "local-transformers",
+        "model": "google/embeddinggemma-2",
+        "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+        "dimension": 768,
+        "normalization": "l2",
+        "prefixScheme": "[\"task: search result | query: \",\"title: none | text: \",\"mean\",512]",
+        "instruction": "",
+        "dtype": "q8",
+        "tokenCap": 512,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "8d011bfe08b5e345bbe0b81e5c6fd02c381920b345b986047bc2a33ce7b90d1d"
+          },
+          {
+            "path": "onnx/model_quantized.onnx",
+            "sha256": "d06edd601f851c633a2519304cbeb8dc6170d7ceb61b436625c17fb9b6e74953"
+          },
+          {
+            "path": "onnx/model_quantized.onnx_data",
+            "sha256": "278a7ff1248c3618e4bd11a607fc54f7bdc7778854230f3956d3f86bd9db4f3b"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "17bd5d6e9364ca49a534e1502076593317c298d4a663623091ed45388f004874"
+          }
+        ]
+      },
+      "actualIdentity": {
+        "provider": "local-transformers",
+        "model": "google/embeddinggemma-2",
+        "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+        "dimension": 768,
+        "normalization": "l2",
+        "prefixScheme": "[\"task: search result | query: \",\"title: none | text: \",\"mean\",null]",
+        "instruction": "",
+        "dtype": "q8",
+        "tokenCap": 512,
+        "pooling": "mean",
+        "artifacts": [
+          {
+            "path": "config.json",
+            "sha256": "8d011bfe08b5e345bbe0b81e5c6fd02c381920b345b986047bc2a33ce7b90d1d"
+          },
+          {
+            "path": "onnx/model_quantized.onnx",
+            "sha256": "d06edd601f851c633a2519304cbeb8dc6170d7ceb61b436625c17fb9b6e74953"
+          },
+          {
+            "path": "onnx/model_quantized.onnx_data",
+            "sha256": "278a7ff1248c3618e4bd11a607fc54f7bdc7778854230f3956d3f86bd9db4f3b"
+          },
+          {
+            "path": "tokenizer.json",
+            "sha256": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4"
+          },
+          {
+            "path": "tokenizer_config.json",
+            "sha256": "17bd5d6e9364ca49a534e1502076593317c298d4a663623091ed45388f004874"
+          }
+        ]
+      },
+      "plannedId": "7d0928bd5bc2233152231e986fe7a3590cb6072c32b4cf09df88ff8861092e67",
+      "actualId": "1dc6288486752c004448e7f44d00763fa3ffdb1ee5a773465d862c523e0d4ac1",
+      "rustException": "local-prefix-token-cap"
+    }
+  ]
+}

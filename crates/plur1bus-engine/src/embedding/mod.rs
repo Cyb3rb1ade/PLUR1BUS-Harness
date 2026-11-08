@@ -125,6 +125,8 @@ pub mod local_rerank;
 pub mod model_selection;
 /// Configuration normalization shared with the Node engine.
 pub mod normalize;
+/// Explicit planned-generation identity construction, preserving legacy store identities.
+pub mod planned;
 /// Model probe coalescing and caller wait cancellation.
 pub mod readiness;
 /// OpenAI-compatible embedding provider over the guarded transport.

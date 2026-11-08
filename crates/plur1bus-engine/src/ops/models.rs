@@ -144,7 +144,7 @@ fn path_error(error: &StoreError) -> ArtifactStatus {
         _ => ArtifactStatus::Unavailable,
     }
 }
-fn inspect_artifacts(
+pub(crate) fn inspect_artifacts(
     profile: &Artifact,
     cache: Option<&Path>,
     cancel: &Cancel,
