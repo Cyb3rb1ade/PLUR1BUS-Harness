@@ -3,39 +3,73 @@
 //! limit of 256, which a Rust server would otherwise keep, so the TypeScript core never had that ceiling and the Rust
 //! front door did.
 
-/// Raises the soft open-file limit as far as the hard limit allows, with Node's search: straight to the hard limit when
-/// it is finite, else the largest value up to 2^20 the kernel accepts (macOS caps it at `kern.maxfilesperproc`). Returns
-/// the soft limit in force afterwards, or `None` when it cannot be read.
+/// Raises the soft open-file limit as far as the hard limit allows, as Node does: to a finite hard limit; to the highest
+/// value the kernel accepts, up to 2^20, when it is unlimited. A process can never use more than the kernel's per-process
+/// cap (macOS `kern.maxfilesperproc`), so the target stops there; when the kernel refuses the target (macOS refuses a
+/// soft limit above that cap even below a finite hard limit) the highest accepted value between the current soft limit
+/// and the target is searched. Every path tries `setrlimit` at least once when the soft limit is below the target.
+/// Returns the soft limit in force afterwards, or `None` when it cannot be read.
 #[cfg(unix)]
 pub fn raise_open_files() -> Option<u64> {
-    let mut current = read()?;
-    if current.rlim_cur != current.rlim_max {
-        let (mut min, mut max): (libc::rlim_t, libc::rlim_t) =
-            if current.rlim_max == libc::RLIM_INFINITY {
-                (current.rlim_cur, 1 << 20)
+    let current = read()?;
+    let wanted: libc::rlim_t = if current.rlim_max == libc::RLIM_INFINITY {
+        1 << 20
+    } else {
+        current.rlim_max
+    };
+    let target = per_process_cap().map_or(wanted, |cap| wanted.min(cap));
+    if current.rlim_cur < target && !set_soft(target, current.rlim_max) {
+        // `lo` is accepted (in force), `hi` refused.
+        let (mut lo, mut hi) = (current.rlim_cur, target);
+        while lo + 1 < hi {
+            let mid = lo + (hi - lo) / 2;
+            if set_soft(mid, current.rlim_max) {
+                lo = mid;
             } else {
-                (current.rlim_max, current.rlim_max)
-            };
-        while min < max {
-            let next = libc::rlimit {
-                rlim_cur: min + (max - min) / 2,
-                rlim_max: current.rlim_max,
-            };
-            // SAFETY: `next` is a live, initialised rlimit that the call only reads.
-            if unsafe { libc::setrlimit(libc::RLIMIT_NOFILE, &next) } == 0 {
-                min = next.rlim_cur;
-            } else {
-                max = next.rlim_cur;
-            }
-            if min + 1 >= max {
-                break;
+                hi = mid;
             }
         }
-        current = read()?;
     }
     #[allow(clippy::useless_conversion)]
     // `rlim_t` is `u64` on the supported targets, narrower elsewhere
-    u64::try_from(current.rlim_cur).ok()
+    u64::try_from(read()?.rlim_cur).ok()
+}
+
+#[cfg(unix)]
+fn set_soft(soft: libc::rlim_t, hard: libc::rlim_t) -> bool {
+    let limit = libc::rlimit {
+        rlim_cur: soft,
+        rlim_max: hard,
+    };
+    // SAFETY: `limit` is a live, initialised rlimit that the call only reads.
+    unsafe { libc::setrlimit(libc::RLIMIT_NOFILE, &limit) == 0 }
+}
+
+/// The most descriptors one process may hold, where the kernel caps it below the hard limit (macOS).
+#[cfg(target_os = "macos")]
+fn per_process_cap() -> Option<libc::rlim_t> {
+    let mut value: libc::c_int = 0;
+    let mut size = std::mem::size_of::<libc::c_int>();
+    // SAFETY: the name is a NUL-terminated C string; `value` and `size` are live and writable, `size` is `value`'s size,
+    // and no new value is passed.
+    let status = unsafe {
+        libc::sysctlbyname(
+            c"kern.maxfilesperproc".as_ptr(),
+            std::ptr::from_mut(&mut value).cast(),
+            &mut size,
+            std::ptr::null_mut(),
+            0,
+        )
+    };
+    if status != 0 {
+        return None;
+    }
+    libc::rlim_t::try_from(value).ok().filter(|&cap| cap > 0)
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+fn per_process_cap() -> Option<libc::rlim_t> {
+    None
 }
 
 #[cfg(unix)]

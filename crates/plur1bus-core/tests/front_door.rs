@@ -129,6 +129,10 @@ fn main() {
             "idle_sockets_cannot_crowd_out_an_owner_under_a_hard_limit",
             idle_sockets_cannot_crowd_out_an_owner_under_a_hard_limit,
         ),
+        (
+            "a_finite_hard_descriptor_limit_is_taken_whole",
+            a_finite_hard_descriptor_limit_is_taken_whole,
+        ),
     ];
     let mut failed = Vec::new();
     for (name, test) in tests {
@@ -168,8 +172,8 @@ struct Opts<'a> {
     prepare: Option<&'a dyn Fn(&Path)>,
     /// Starts the front door with this soft `RLIMIT_NOFILE` (Unix), as launchd starts processes with 256.
     open_files: Option<u64>,
-    /// With `open_files`: the hard limit too, so the front door cannot raise it.
-    open_files_hard: bool,
+    /// With `open_files`: this hard limit as well (the front door cannot raise beyond it).
+    hard_open_files: Option<u64>,
 }
 
 fn spawn_door(home: &Path, o: &Opts<'_>) -> Child {
@@ -178,10 +182,11 @@ fn spawn_door(home: &Path, o: &Opts<'_>) -> Child {
         Some(n) => {
             let mut sh = Command::new("/bin/sh");
             sh.arg("-c")
-                .arg(if o.open_files_hard {
-                    format!(r#"ulimit -Sn {n} && ulimit -Hn {n} && exec "$0" "$@""#)
-                } else {
-                    format!(r#"ulimit -Sn {n} && exec "$0" "$@""#)
+                .arg(match o.hard_open_files {
+                    Some(hard) => {
+                        format!(r#"ulimit -Sn {n} && ulimit -Hn {hard} && exec "$0" "$@""#)
+                    }
+                    None => format!(r#"ulimit -Sn {n} && exec "$0" "$@""#),
                 })
                 .arg(bin);
             sh
@@ -1443,7 +1448,7 @@ fn idle_sockets_cannot_crowd_out_an_owner_under_a_hard_limit() {
         plur1bus_rpc::limits::raise_open_files();
         let d = door(Opts {
             open_files: Some(256),
-            open_files_hard: true,
+            hard_open_files: Some(256),
             ..Opts::default()
         });
         let until = Instant::now() + Duration::from_secs(5);
@@ -1474,5 +1479,29 @@ fn idle_sockets_cannot_crowd_out_an_owner_under_a_hard_limit() {
             d.stderr()
         );
         drop((idle, owners, more_idle));
+    }
+}
+
+/// Fix round 1b F1: with a finite hard limit (GitHub's ubuntu runners, systemd user units) the soft limit is raised to
+/// it, as Node does; started under launchd's soft 256 with a hard 4096 the front door takes 4096.
+fn a_finite_hard_descriptor_limit_is_taken_whole() {
+    #[cfg(unix)]
+    {
+        let d = door(Opts {
+            open_files: Some(256),
+            hard_open_files: Some(4096),
+            ..Opts::default()
+        });
+        let until = Instant::now() + Duration::from_secs(5);
+        while !d.stderr().contains("core ready") {
+            assert!(Instant::now() < until, "{}", d.stderr());
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert!(
+            d.stderr().contains(r#""openFiles":4096"#)
+                && d.stderr().contains(r#""maxConnections":512"#),
+            "{}",
+            d.stderr()
+        );
     }
 }
