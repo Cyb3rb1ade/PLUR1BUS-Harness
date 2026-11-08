@@ -121,7 +121,9 @@ pub fn ensure_quiescent(layout: &Layout) -> Result<(), BackupError> {
 /// file before it opens a store and it is never removed, so where it does not exist no legacy core ever got that far:
 /// nothing to take, and a refused restore leaves the home byte for byte as it was. The restore takes no other lock, so
 /// the order every holder follows (`state/core.lock`, then `run/core-legacy.lock`) cannot deadlock with it.
-fn hold_legacy_lock(layout: &Layout) -> Result<Option<plur1bus_audit::lock::CoreLock>, BackupError> {
+fn hold_legacy_lock(
+    layout: &Layout,
+) -> Result<Option<plur1bus_audit::lock::CoreLock>, BackupError> {
     let path = layout.run().join("core-legacy.lock");
     if path.symlink_metadata().is_err() {
         return Ok(None);

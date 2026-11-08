@@ -899,7 +899,9 @@ globalThis.held = db; process.stdout.write("locked\n"); setInterval(() => {}, 10
     let units = |home: &Path| -> BTreeMap<_, _> {
         tree(home)
             .into_iter()
-            .filter(|(k, _)| k.starts_with("agents") || k.starts_with("state") || k == "config.json")
+            .filter(|(k, _)| {
+                k.starts_with("agents") || k.starts_with("state") || k == "config.json"
+            })
             .collect()
     };
     let before = units(&home);
