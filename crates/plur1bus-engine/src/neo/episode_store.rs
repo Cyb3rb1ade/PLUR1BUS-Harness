@@ -19,6 +19,10 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[path = "episode_recovery.rs"]
+mod recovery;
+pub use recovery::RecoveryReport;
+
 /// Composition-owned root, actual host/policy and the shared capture/recall mood pool.
 pub struct EpisodeStore {
     journal: CaptureJournal,
@@ -90,36 +94,7 @@ impl EpisodeStore {
                     ctx: context,
                     check,
                 };
-                let mut recovered = 0;
-                if let Some(plan) = episode_io::read(dir, name, proof, &cancel)? {
-                    let pending_session = str_field(&plan, "session")?;
-                    let caller = super::caller::decode(
-                        super::merged_order::field(&plan, "caller").ok_or(StoreError::Corrupt)?,
-                    )?;
-                    let original = self.journal.authorize_caller(&caller, proof, &cancel)?;
-                    let original_check = || -> Result<(), EngineError> {
-                        check()?;
-                        if self.journal.authorize_caller(&caller, proof, &cancel)? != original {
-                            return Err(StoreError::InvalidInput.into());
-                        }
-                        Ok(())
-                    };
-                    let recovery = Publication {
-                        dir,
-                        proof,
-                        name,
-                        ctx: &original,
-                        check: &original_check,
-                    };
-                    recovered = self.sessions.transaction(
-                        &caller.principal,
-                        &caller.agent,
-                        pending_session,
-                        &cancel,
-                        &original_check,
-                        |checkpoint| episode_io::replay(&recovery, &plan, checkpoint, &cancel),
-                    )?;
-                }
+                let recovered = self.resume_episode(dir, proof, name, check, &cancel)?;
                 self.sessions.transaction(
                     &turn.principal,
                     &turn.agent,

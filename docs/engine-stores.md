@@ -565,3 +565,28 @@ foreign and oversized original identity fail closed with the pending file preser
 no inferred owner or broader fallback. Older settled capture envelopes need no caller, while
 older active envelopes without one require explicit repair. Global startup enumeration remains
 separate from this per-plan identity restoration.
+
+### Opening the native capture hook
+
+`NativeNeoCaptureHook::open` runs `EpisodeStore::recover_pending` before exposing the hook.
+EpisodeStore's low-level `open` itself remains read-only. Recovery inventories only committed
+`native-capture-pending-<sha256>.json` and `native-episode-pending-<sha256>.json` files. Each
+active file must match the original caller's canonical workspace directory, logical filename,
+physical ownership proof and current policy. The full read-only inventory precedes replay;
+links, corrupt/unrestorable identities and misplaced active plans fail closed. Uncommitted
+atomic-write temporary siblings are neither read as plans nor deleted.
+
+The inventory is bounded to 50,000 directory/file entries and 512 distinct ownership bindings;
+caller and file byte limits remain unchanged. Exceeding a bound refuses rather than truncates
+or evicts. A pass shares one five-minute deadline and the existing writer/checkpoint leases,
+reauthorizing the original caller at each mutation. No new TurnRecord, message, session count
+or episode is synthesized. Captured rows replay from prepared journal plans; an already durable
+episode can finish its prepared checkpoint with zero newly appended revisions. Repeated clean
+opening writes nothing. Aggregate local counters contain no caller IDs or content.
+
+This recovery covers prepared **Neo** publications. It does not replay the independent Lance
+capture WAL, recreate an episode whose plan was never persisted, or activate ProcessEngine.
+Whole-turn recovery and composition of engine checkpoint/drain remain explicit T6/RX8 work.
+Eight real-file startup tests cover empty/read-only opening, prepared episodes, partial capture,
+two original principals, denied policy, misplaced filenames, orphan temporary files and waiting
+behind a held writer with a cancellation deadline. Existing real SIGKILL suites remain green.

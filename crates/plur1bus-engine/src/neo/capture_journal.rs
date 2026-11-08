@@ -31,6 +31,11 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[path = "capture_recovery.rs"]
+mod recovery;
+#[path = "capture_transaction.rs"]
+mod transaction;
+
 /// Numbers of newly persisted records in this call, excluding replayed existing records.
 #[derive(Default, Debug)]
 pub struct JournalResult {
@@ -250,33 +255,22 @@ impl CaptureJournal {
         ) -> Result<T, EngineError>,
     ) -> Result<T, EngineError> {
         turn.cancel.check()?;
-        let binding = self.bind(&turn.principal, &turn.agent)?;
-        if &binding.ctx != expected || turn.agent_id != binding.ctx.agent_id || turn.incognito {
+        if turn.agent_id != expected.agent_id || turn.incognito {
             return Err(StoreError::InvalidInput.into());
         }
-        let directory = self
-            .directory(&binding, true)?
-            .ok_or(StoreError::Unavailable)?;
-        self.with_locks(
-            &binding,
-            &directory,
+        self.with_writer(
             &turn.principal,
             &turn.agent,
+            expected,
             cancel,
-            |check| {
-                let check = || -> Result<(), EngineError> {
-                    turn.cancel.check()?;
-                    check()
-                };
-                self.replay(&binding, &directory, cancel, &check)?;
-                check()?;
-                let name = binding
-                    .file
-                    .replace("native-capture-pending-", "native-episode-pending-");
-                action(&directory, &binding.proof, &name, &check)
+            &|| {
+                turn.cancel.check()?;
+                Ok(())
             },
+            action,
         )
     }
+
     /// Restored metadata is only a candidate identity: current host binding/policy must prove it.
     pub(super) fn authorize_caller(
         &self,

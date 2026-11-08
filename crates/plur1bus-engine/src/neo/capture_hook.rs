@@ -14,7 +14,7 @@ pub struct NativeNeoCaptureHook {
     enabled: bool,
 }
 impl NativeNeoCaptureHook {
-    /// Bind the same effective configuration and policy as the surrounding capture pipeline.
+    /// Bind the same effective configuration/policy and recover prepared Neo plans before admission.
     pub fn open(
         root: &Path,
         host: Arc<dyn HostServices>,
@@ -23,9 +23,12 @@ impl NativeNeoCaptureHook {
     ) -> Result<Self, EngineError> {
         let raw = serde_json::to_value(host.config()).map_err(|_| StoreError::InvalidInput)?;
         let config = crate::config::effective_config(&raw).map_err(|_| StoreError::InvalidInput)?;
+        let episodes = EpisodeStore::open(root, host, policy, mood)?;
+        // Recover prepared native work before exposing the hook to new capture admissions.
+        episodes.recover_pending(&Cancel::never())?;
         Ok(Self {
             enabled: config["neo"]["enabled"] != false,
-            episodes: EpisodeStore::open(root, host, policy, mood)?,
+            episodes,
         })
     }
 }
