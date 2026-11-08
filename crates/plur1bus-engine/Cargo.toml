@@ -90,6 +90,8 @@ image = { version = "=0.25.10", default-features = false, features = ["jpeg", "p
 arrow-array = "=57.3.1"
 arrow-schema = "=57.3.1"
 arrow-json = "=57.3.1"
+# Reuse Lance's locked Arrow cast for exact fixed-list schemas after JSON decoding.
+arrow-cast = "=57.3.1"
 futures = "=0.3.34"
 chrono = "0.4"
 uuid = { version = "1", features = ["v4"] }

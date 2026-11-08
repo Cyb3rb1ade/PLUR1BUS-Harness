@@ -17,6 +17,9 @@ use std::time::Duration;
 #[path = "adopt_probe.rs"]
 pub mod adopt_probe;
 
+#[path = "migration_table.rs"]
+pub(crate) mod migration_table;
+
 #[path = "memory_read.rs"]
 mod memory_read;
 #[path = "shared_store.rs"]

@@ -1,7 +1,7 @@
 //! Node-compatible nonce-owned registry locks and their job-lock wrapper (RE-02/T6).
 //!
-//! The default mtime is the acquisition time; only the import owner explicitly heartbeats
-//! to match Node's import-lock wrapper. Release and stale takeover
+//! The default mtime is the acquisition time; import and reembedding owners explicitly
+//! heartbeat their long-running mutations. Release and stale takeover
 //! rename a lock aside, verify ownership, and restore a different owner's file.
 
 use std::{
@@ -525,7 +525,7 @@ impl LockGuard {
                 .is_ok_and(|row| Ownership::Nonce(self.nonce.clone()).matches(&row))
     }
 
-    /// Explicit import-lock heartbeat on the opened, nonce-checked inode only.
+    /// Explicit long-running owner heartbeat on the opened, nonce-checked inode only.
     /// A replaced pathname never causes the replacement owner's inode to be touched.
     pub fn heartbeat(&self) -> Result<bool, StoreError> {
         if self.released || self.neo.is_some() {
