@@ -370,7 +370,10 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
         const owners = pids.filter((pid) => readdirSync(`/proc/${pid}/fd`).some((fd) => {
           try { return readlinkSync(`/proc/${pid}/fd/${fd}`).startsWith(lancedb); } catch { return false; }
         }));
-        assert.ok(owners.every((pid) => core.includes(pid)), `LanceDB fds held by ${owners.join(", ")}; core is ${core.join(", ")}`);
+        // Exactly the process that owns the stores (P4-10 task review L6): the TypeScript core on the ts leg, the legacy core
+        // behind the front door on the rust leg. The front door itself never opens LanceDB (no Rust store opens early, F4).
+        const storeOwner = legacy ?? ready.pid;
+        assert.ok(owners.every((pid) => pid === storeOwner), `LanceDB fds held by ${owners.join(", ")}; the store owner is ${storeOwner}`);
       }
 
       stopDaemon(h);
