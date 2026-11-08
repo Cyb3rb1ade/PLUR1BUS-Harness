@@ -72,3 +72,5 @@ pub mod tier3;
 pub mod emotion_state;
 /// Host-bound mood persistence with exact ownership and atomic state replacement.
 pub mod emotion_store;
+/// Host-only joint importance/emotion encoding and deterministic refinement patches.
+pub mod encoding;

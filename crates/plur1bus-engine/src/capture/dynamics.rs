@@ -530,7 +530,7 @@ fn nullish<'a>(value: Option<&'a Json>, default: &'a Json) -> &'a Json {
         .unwrap_or(default)
 }
 
-fn truthy(value: Option<&Json>) -> bool {
+pub(super) fn truthy(value: Option<&Json>) -> bool {
     match value {
         None | Some(Json::Null) => false,
         Some(Json::Bool(v)) => *v,
@@ -547,7 +547,7 @@ fn or_value(value: Option<&Json>, default: Json) -> Json {
         .unwrap_or(default)
 }
 
-fn number(value: Option<&Json>) -> f64 {
+pub(super) fn number(value: Option<&Json>) -> f64 {
     match value {
         None | Some(Json::Object(_)) => f64::NAN,
         Some(Json::Null) => 0.0,
@@ -651,7 +651,7 @@ fn first_timestamp(row: &Json, names: &[&str]) -> f64 {
         .unwrap_or(0.0)
 }
 
-fn js_string(value: &Json) -> String {
+pub(super) fn js_string(value: &Json) -> String {
     match value {
         Json::Null => "null".to_owned(),
         Json::Bool(v) => v.to_string(),
