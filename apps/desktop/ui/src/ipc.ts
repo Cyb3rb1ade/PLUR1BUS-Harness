@@ -25,6 +25,8 @@ export type TransportReport = { category: "loopback" | "tailnet" | "private" | "
 export type TransportView = { transport: Transport; publicAck: boolean; storeReadOnly: boolean };
 export type TransportStoreMode = "read-write" | "read-only-newer" | "failed";
 export type ConnectionList = { connections: Connection[]; active: string | null; tokenStore: TokenStoreKind | null; transports?: Record<string, TransportView>; transportStore?: TransportStoreMode };
+/** #740 Home chip: the tray header as the shell reads it (`status_view`, then the `desktop-tray-state` event). */
+export type TrayView = { harness: string; runtime: "ready" | "stopped" | "missing" | null; secretsLocked: boolean; updateAvailable: boolean; held: boolean; path: "tailscale" | "direct" | "direct-public" | null; transportAttention: boolean; tailscaleNotice: boolean; approvalsPending: boolean; badge: "running" | "busy" | "attention" | "update"; connectionName: string | null; connectionKind: Connection["kind"] | null };
 export type ConnectionSnapshot = { status: "loading" | "ready" | "error"; data: ConnectionList | null; timedOut?: boolean };
 export type LinkEnvelope = { id: number; intent: {kind: "pair"; origin: string; code: string; pin: string | null; ca: string | null} | {kind: "open"; path: string} | {kind: "chat" | "install" | "p1x" | "ignored"} };
 export type PairPrefill = { linkId: number; origin: string; code: string; pin: string | null; ca: string | null };
@@ -84,6 +86,8 @@ export type DesktopTransport = {
   harnessStatus?(): Promise<{state: string;resources?:{memoryMiB:number}}>;
   harnessStatusEvents?(onStatus:(status:{state:string})=>void):Promise<()=>void>;
   harnessLogsTail?(): Promise<string>;
+  trayView?(): Promise<TrayView>;
+  trayViewEvents?(listener: (view: TrayView) => void): Promise<() => void>;
   autostartGet?(): Promise<boolean | null>;
   autostartSet?(enabled: boolean): Promise<boolean>;
   connectionsList(): Promise<ConnectionList>;
@@ -148,6 +152,8 @@ export const nativeTransport: DesktopTransport = {
   harnessStatus: () => invoke("harness_status"),
   harnessStatusEvents: onStatus => listen<{state:string}>("desktop-harness-status",event=>onStatus(event.payload)),
   harnessLogsTail: () => invoke("harness_logs_tail"),
+  trayView: () => invoke("status_view"),
+  trayViewEvents: listener => listen<TrayView>("desktop-tray-state", event => listener(event.payload)),
   autostartGet: () => invoke("autostart_get"),
   autostartSet: enabled => invoke("autostart_set", {enabled}),
   connectionsList: () => invoke("connections_list"),

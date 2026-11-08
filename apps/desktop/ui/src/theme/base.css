@@ -214,6 +214,15 @@ p { color: var(--ink-2); line-height: 1.5; }
 .transport-public .choice-title { color: inherit; }
 .transport-public .button { justify-self: start; }
 .chip-warning { background: var(--warn-bg); color: var(--warn-ink); }
+/* #740 Home chip: connection, a status dot in the tray badge's colour and the tray word; a button to Connections. */
+.connection-chip { gap: 6px; max-width: 100%; min-height: 44px; padding: 6px 14px; border: 0; border-radius: 12px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.connection-chip svg { flex: none; }
+.connection-chip .chip-name { min-width: 0; max-width: 28ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.connection-chip .chip-state, .connection-chip .chip-path { white-space: nowrap; }
+.status-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); }
+.connection-chip[data-badge="running"] .status-dot { background: var(--ok-ink); }
+.connection-chip[data-badge="attention"] .status-dot { background: var(--warn-ink); }
+.connection-chip[data-badge="busy"] .status-dot, .connection-chip[data-badge="update"] .status-dot { background: var(--info-ink); }
 .transport-line { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .transport-line .transport-detail { margin: 0; }
 .transport-change { display: grid; gap: 16px; }

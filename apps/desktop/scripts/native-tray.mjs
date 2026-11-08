@@ -4,8 +4,8 @@ import {tmpdir} from 'node:os';
 import {join, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 const desktop = fileURLToPath(new URL('..', import.meta.url));
-const fields = ['english_headers','german_headers','runtime_and_secrets_words','settings_ipc_refresh','native_tooltip_matches','colour_image_default','decoder_fallback_is_native_template','colour_image_restored'];
-const reasons = new Set(['TRAY_FIXTURE_DISPATCH_FAILED','TRAY_FIXTURE_GUI_TIMEOUT','TRAY_FIXTURE_OBSERVER_TIMEOUT','TRAY_FIXTURE_HEADER_MISSING','TRAY_FIXTURE_COLOUR_FAILED','TRAY_FIXTURE_SETTINGS_IPC_FAILED','TRAY_FIXTURE_NATIVE_TEXT_FAILED','TRAY_FIXTURE_DECODER_FAILED','TRAY_FIXTURE_TEMPLATE_SET_FAILED','TRAY_FIXTURE_TEMPLATE_FLAG_FAILED','TRAY_FIXTURE_COLOUR_RESTORE_FAILED']);
+const fields = ['english_headers','german_headers','runtime_and_secrets_words','settings_ipc_refresh','native_tooltip_matches','colour_image_default','decoder_fallback_is_native_template','colour_image_restored','retirement_reaches_shell'];
+const reasons = new Set(['TRAY_FIXTURE_RETIRE_EVENT_MISSING','TRAY_FIXTURE_RETIRE_EVENT_INVALID','TRAY_FIXTURE_DISPATCH_FAILED','TRAY_FIXTURE_GUI_TIMEOUT','TRAY_FIXTURE_OBSERVER_TIMEOUT','TRAY_FIXTURE_HEADER_MISSING','TRAY_FIXTURE_COLOUR_FAILED','TRAY_FIXTURE_SETTINGS_IPC_FAILED','TRAY_FIXTURE_NATIVE_TEXT_FAILED','TRAY_FIXTURE_DECODER_FAILED','TRAY_FIXTURE_TEMPLATE_SET_FAILED','TRAY_FIXTURE_TEMPLATE_FLAG_FAILED','TRAY_FIXTURE_COLOUR_RESTORE_FAILED']);
 function run(command, args, timeout, capture = false) {
   return new Promise((accept, reject) => {
     const child = spawn(command, args, {cwd:desktop, stdio:capture ? ['ignore','pipe','pipe'] : 'inherit'});

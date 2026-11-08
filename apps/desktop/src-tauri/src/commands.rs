@@ -98,6 +98,13 @@ pub fn app_info(window: WebviewWindow) -> Result<AppInfo, String> {
     })
 }
 
+/// #740 Home chip: the tray's current view, badge and active connection. Later changes arrive as `desktop-tray-state`.
+#[tauri::command]
+pub fn status_view(window: WebviewWindow) -> Result<crate::tray::ShellTray, String> {
+    check(&window, "status_view")?;
+    crate::native::shell_tray(window.app_handle()).ok_or_else(|| "unavailable".into())
+}
+
 #[tauri::command]
 pub fn settings_get(window: WebviewWindow) -> Result<Settings, String> {
     check(&window, "settings_get")?;

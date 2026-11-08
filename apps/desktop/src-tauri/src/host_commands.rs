@@ -91,7 +91,9 @@ pub fn event(app: &tauri::AppHandle, generation: u64, name: &str, value: serde_j
                 } else {
                     cards.remove(&card.id);
                 }
+                let pending = !cards.is_empty();
                 drop(cards);
+                crate::native::set_approvals_pending(&gui, pending);
                 if gui.get_webview_window("approvals").is_none() && name == "approval.requested" {
                     let title = match crate::native::language(&gui) {
                         crate::tray::Language::De => "PLUR1BUS · Freigaben",
