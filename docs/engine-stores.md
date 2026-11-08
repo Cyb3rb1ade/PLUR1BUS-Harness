@@ -773,3 +773,40 @@ silently changed. This stage requires already authorized source snapshots from i
 native caller. Contradiction-ledger persistence, current-authority rechecks around
 productive effect composition, conflict resolution and complete T4 activation remain
 separate work; a positive model result does not resolve or discard either memory.
+
+
+### Native reconsolidation effects (RX6 / RE-D70)
+
+`neo::correction_effects::NativeCorrectionEffects` implements the existing
+`CorrectionEffects` port used by real `MemoryWriter::safe_update` and `correct`.
+It captures the original Principal/AgentContext/Cancel, physical workspace and
+registry directory. The supplied CaptureJournal owns the existing kernel workspace
+lease, interoperable Neo lock and current policy adapter. Runtime composition must
+supply the policy appropriate to the original operation; this does not activate Core
+or turn an automatic-capture decision into a manual-operation grant.
+
+Every operation rebuilds the original current context, compares the trait caller and
+physical handles, and revalidates policy through the shared journal transaction.
+Source and successor must actually exist in the private table, have matching private
+owner/agent/workspace, satisfy the real predecessor/supersededBy linkage, and remain
+untombstoned. Graph peers are independently checked in the actual table and registry;
+a visible edge is never authority to access its other endpoint. Foreign, ownerless,
+deleted or forgotten peers cannot be rewritten. Backend/read errors propagate rather
+than masquerading as an ineligible peer.
+
+The graph reader retains current revision/ACL-before-tail semantics and a 10,000-row
+limit, including safe read-only legacy overlay. Writes stay canonical. Existing
+identical full rewritten records are detected by SHA-256, so retrying a partially
+completed effect does not duplicate anonymous edges. Event lookup is canonical-only,
+filters current private authority before the last-1,000 bound, and never borrows a
+legacy event receipt. Newly appended Node-shaped events additionally carry explicit
+private owner/agent/workspace binding; conflicting nested authority is refused.
+
+Appends are fsynced and bounded to 64 MiB / 50,000 rows per ledger and 1 MiB per new
+record. Torn, malformed, symlinked or hardlinked files refuse without rewriting their
+contents. The existing original-caller capture-plan recovery may finish under the
+shared writer transaction before these effects. There is no new graph-effect WAL or
+automatic repair of damaged effect journals. Lance commits and optional Neo effects
+remain separate, best effort steps, as the existing Node safeUpdate port specifies.
+Actual C4 reviseRecord/curation, conflict resolution and full process composition are
+not supplied by this increment.

@@ -5,6 +5,7 @@ pub mod candidate_index;
 pub mod capture_hook;
 pub mod capture_journal;
 mod capture_plan;
+pub mod correction_effects;
 pub mod derived;
 mod derived_fields;
 pub mod embedding_drain;
