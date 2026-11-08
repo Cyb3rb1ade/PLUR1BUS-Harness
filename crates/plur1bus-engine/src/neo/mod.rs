@@ -7,5 +7,6 @@ pub mod merged;
 mod merged_order;
 pub mod prelude;
 pub mod routing;
+pub mod status;
 mod tail;
 mod vectors;
