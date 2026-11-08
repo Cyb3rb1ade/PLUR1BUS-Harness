@@ -207,6 +207,7 @@ pub fn run() {
             snapshot_commands::host_file_pick,
             snapshot_commands::host_import_snapshot,
             commands::app_info,
+            commands::status_view,
             commands::settings_get,
             commands::settings_set,
             commands::connections_list,

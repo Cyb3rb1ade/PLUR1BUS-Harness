@@ -54,7 +54,7 @@ test("full keyboard traversal: ordered accessible names, wrap and visible 3:1 fo
         const expected = [
           ...(width < 1024 ? ["Open navigation"] : []), "Home", "Connections", "Settings",
           ...(section === "settings" && width >= 1024 ? ["General", "Runtime", "Updates", "Version", "Advanced", "Computer access"] : []), "Home",
-          ...(section === "home" ? ["View connections", "Open settings"] : [
+          ...(section === "home" ? ["No connection, Not paired", "View connections", "Open settings"] : [
             ...(section === "settings" && width < 1024 ? ["Sections"] : []),
             ...(section === "connections" ? ["Add remote", "Attach native local", "Refresh", ...(width < 1024 ? ["Choose connection"] : [])] : []),
             ...(width <= 1600 ? [section === "settings" ? "About this page" : "Connection details"] : []),

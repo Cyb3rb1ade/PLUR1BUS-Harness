@@ -84,7 +84,7 @@ export const SRC_RULES = [
   [rx(`${C}rpc/(?:auth-surface)\\.ts$`), "P4-23", "port", "auth.* surface"],
   [rx(`${C}rpc/(?:channel-surface)\\.ts$`), "P4-67", "port", "plan P4-67 source"],
   [rx(`${C}rpc/(?:chat-surface|session-access|session-overview)\\.ts$`), "P4-40", "port", "session.* and chat.* surfaces"],
-  [rx(`${C}rpc/(?:code-surface|collab-surface|project-board-surface)\\.ts$`), "P4-50", "port", "code.session.*, collab.*, project.*"],
+  [rx(`${C}rpc/(?:code-surface|collab-surface|project-board-surface|team-surface)\\.ts$`), "P4-50", "port", "code.session.*, collab.*, project.*, team.* (the TK team shell of PR #900, plan P4-50)"],
   [rx(`${C}rpc/(?:device-surface|remote-device-service-surface)\\.ts$`), "P4-80c", "stays-TS", "assigned by import: both serve the DeviceStore of packages/remote-access; the plan does not name them"],
   [rx(`${C}rpc/(?:inbox-surface)\\.ts$`), "P4-22", "port", "inbox.*"],
   [rx(`${C}rpc/(?:licence-surface|session-usage|telemetry-surface)\\.ts$`), "P4-24", "port", "licences, usage (plan P4-24 source), telemetry.cache.summary reads the budget ledger"],

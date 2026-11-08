@@ -80,8 +80,23 @@ where
     // applies to object results; every result still has the roundtrip above.
     if let Some(properties) = result_with_unknown.as_object_mut() {
         properties.insert("unknownRoundtripField".into(), Value::Bool(true));
-        serde_json::from_value::<R>(result_with_unknown)
-            .unwrap_or_else(|e| panic!("{name} result: rejected an unknown field: {e}"));
+        let decoded = serde_json::from_value::<R>(result_with_unknown);
+        // Shared Team records are authority inputs as well as outputs. build.rs
+        // deliberately preserves their closed schema, including result aliases.
+        let closed_team = result_schema["$ref"]
+            .as_str()
+            .and_then(|reference| reference.strip_prefix("#/$defs/Team"))
+            .is_some_and(|suffix| {
+                root_schema["$defs"][format!("Team{suffix}")]["additionalProperties"] == false
+            });
+        if closed_team {
+            assert!(
+                decoded.is_err(),
+                "{name} result: accepted an unknown authority field"
+            );
+        } else {
+            decoded.unwrap_or_else(|e| panic!("{name} result: rejected an unknown field: {e}"));
+        }
     }
 }
 
@@ -111,6 +126,86 @@ fn every_method_fixture_round_trips_and_checks_serde_contracts() {
                 fixture,
                 &root_schema,
             ),
+            "team.get" => check_pair::<types::TeamGetParams, types::TeamGetResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "team.list" => check_pair::<types::TeamListParams, types::TeamListResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "team.create" => check_pair::<types::TeamCreateParams, types::TeamCreateResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "team.composition.confirm" => check_pair::<
+                types::TeamCompositionConfirmParams,
+                types::TeamCompositionConfirmResult,
+            >(name, fixture, &root_schema),
+            "team.plan.approve" => check_pair::<
+                types::TeamPlanApproveParams,
+                types::TeamPlanApproveResult,
+            >(name, fixture, &root_schema),
+            "team.scope.extend" => check_pair::<
+                types::TeamScopeExtendParams,
+                types::TeamScopeExtendResult,
+            >(name, fixture, &root_schema),
+            "team.pause" => check_pair::<types::TeamPauseParams, types::TeamPauseResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "team.resume" => check_pair::<types::TeamResumeParams, types::TeamResumeResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "team.cancel" => check_pair::<types::TeamCancelParams, types::TeamCancelResult>(
+                name,
+                fixture,
+                &root_schema,
+            ),
+            "team.package.reassign" => check_pair::<
+                types::TeamPackageReassignParams,
+                types::TeamPackageReassignResult,
+            >(name, fixture, &root_schema),
+            "team.package.budget.set" => check_pair::<
+                types::TeamPackageBudgetSetParams,
+                types::TeamPackageBudgetSetResult,
+            >(name, fixture, &root_schema),
+            "team.budget.set" => {
+                check_pair::<types::TeamBudgetSetParams, types::TeamBudgetSetResult>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
+            "team.package.sync.set" => check_pair::<
+                types::TeamPackageSyncSetParams,
+                types::TeamPackageSyncSetResult,
+            >(name, fixture, &root_schema),
+            "tools.team.check" => check_pair::<
+                types::ToolsTeamCheckParams,
+                types::ToolsTeamCheckResult,
+            >(name, fixture, &root_schema),
+            "tools.team.diffcheck" => check_pair::<
+                types::ToolsTeamDiffcheckParams,
+                types::ToolsTeamDiffcheckResult,
+            >(name, fixture, &root_schema),
+            "tools.team.impact" => check_pair::<
+                types::ToolsTeamImpactParams,
+                types::ToolsTeamImpactResult,
+            >(name, fixture, &root_schema),
+            "tools.team.next" => {
+                check_pair::<types::ToolsTeamNextParams, types::ToolsTeamNextResult>(
+                    name,
+                    fixture,
+                    &root_schema,
+                )
+            }
             "tools.hello" => check_pair::<types::ToolsHelloParams, types::ToolsHelloResult>(
                 name,
                 fixture,

@@ -1,5 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { CollabError } from "./errors.ts";
+import { TEAM_MIGRATION } from './team/migration.ts';
 
 export const MIGRATIONS: readonly string[] = [
   `
@@ -143,6 +144,7 @@ export const MIGRATIONS: readonly string[] = [
    ALTER TABLE project_worktrees ADD COLUMN common_git_dir TEXT;
    ALTER TABLE project_worktrees ADD COLUMN device TEXT;
    ALTER TABLE project_worktrees ADD COLUMN inode TEXT;`,
+  TEAM_MIGRATION,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

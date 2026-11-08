@@ -1,0 +1,40 @@
+{
+  "params": {
+    "merged": {
+      "key": "done",
+      "section": "first",
+      "files": [
+        "src/api"
+      ],
+      "provides": [
+        "api"
+      ]
+    },
+    "running": [
+      {
+        "key": "consumer",
+        "section": "first",
+        "owns": [],
+        "consumes": [
+          "api"
+        ],
+        "dependsOn": [],
+        "lane": "contained"
+      }
+    ]
+  },
+  "result": {
+    "affected": [
+      {
+        "package": "consumer",
+        "reasons": [
+          "interface"
+        ],
+        "interfaceFiles": [
+          "src/api"
+        ],
+        "lane": "contained"
+      }
+    ]
+  }
+}

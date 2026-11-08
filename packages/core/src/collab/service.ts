@@ -29,6 +29,7 @@ import { assertRepoBinding } from "../external-agents/binding.ts";
 import type { GitExec } from "../external-agents/git.ts";
 
 export interface CollabOptions {
+  teamPolicy?: () => import('@plur1bus/rpc-schema').TeamPolicy;
   /** Trusted receiving-agent view. Missing means no writer tools; contracts may only narrow it. */
   toolView?: (agentId: string) => readonly string[];
   limits?: () => CollaborationLimitsConfig;
@@ -112,7 +113,7 @@ export interface Collab {
 }
 
 export function createCollab(o: CollabOptions): Collab {
-  const store = new CollabStore({ path: o.path, ...(o.limits ? { limits: o.limits } : {}), ...(o.clock ? { clock: o.clock } : {}), ...(o.newId ? { newId: o.newId } : {}), ...(o.grants ? { grants: o.grants } : {}), ...(o.logWarn ? { logWarn: o.logWarn } : {}) });
+  const store = new CollabStore({ path: o.path, ...(o.redact ? { redact: o.redact } : {}), ...(o.teamPolicy ? { teamPolicy: o.teamPolicy } : {}), ...(o.limits ? { limits: o.limits } : {}), ...(o.clock ? { clock: o.clock } : {}), ...(o.newId ? { newId: o.newId } : {}), ...(o.grants ? { grants: o.grants } : {}), ...(o.logWarn ? { logWarn: o.logWarn } : {}) });
   const marker = `${sep}state${sep}collab.sqlite`;
   const harnessHome = o.home ?? (o.path.endsWith(marker) ? dirname(dirname(o.path)) : undefined);
   const timers = o.timers ?? { set(callback: () => void, ms: number) { const timer = setTimeout(callback, ms); timer.unref?.(); return () => clearTimeout(timer); } };

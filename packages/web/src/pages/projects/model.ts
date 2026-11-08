@@ -36,7 +36,7 @@ export function columnTitle(col: BoardColumn): string {
 /** Check if current role has column management rights (lead, admin, owner). */
 export function canManageColumns(
   globalRole: string | null,
-  projectRole: "member" | "lead" | null,
+  projectRole: "member" | "lead" | "worker" | "reviewer" | null,
   isAgent = false,
 ): boolean {
   if (isAgent) return false;
@@ -47,7 +47,7 @@ export function canManageColumns(
 /** Check if user can create, update, assign, archive cards. */
 export function canWriteCards(
   globalRole: string | null,
-  projectRole: "member" | "lead" | null,
+  projectRole: "member" | "lead" | "worker" | "reviewer" | null,
   isAgent = false,
 ): boolean {
   if (isAgent) return false;
@@ -59,7 +59,7 @@ export function canWriteCards(
 export function canMoveCard(
   card: BoardCard,
   globalRole: string | null,
-  projectRole: "member" | "lead" | null,
+  projectRole: "member" | "lead" | "worker" | "reviewer" | null,
   isAgent: boolean,
   agentId: string | null,
 ): boolean {

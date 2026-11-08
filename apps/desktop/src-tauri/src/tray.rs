@@ -9,6 +9,9 @@ pub enum HarnessState {
     Ready,
     Degraded,
     Down,
+    /// Paired, but the harness cannot be reached: a changed certificate, an untrusted CA, a failed ticket, a refused
+    /// tunnel or a lost connection (owner decision 2026-11-04, #740). *Stopped* stays for a harness that is stopped.
+    Disconnected,
     #[default]
     Unpaired,
     Updating,
@@ -22,6 +25,7 @@ impl HarnessState {
             Self::Ready => "Running",
             Self::Degraded => "Degraded",
             Self::Down => "Stopped",
+            Self::Disconnected => "Not connected",
             Self::Unpaired => "Not paired",
             Self::Updating => "Updating",
             Self::Rollback => "Rolling back",
@@ -84,6 +88,9 @@ pub struct TrayState {
     pub transport_attention: bool,
     /// The attention is one of the four Tailscale disconnect states (the header says „Tailscale getrennt“).
     pub tailscale_notice: bool,
+    /// A request waits in the Approvals window (owner decision 2026-10-21, #740): the badge shows *Attention*, the harness
+    /// word stays.
+    pub approvals_pending: bool,
 }
 /// The hint codes of an actual Tailscale disconnect (transport choice spec §7.3): the daemon is down, Tailscale is
 /// stopped or needs a login, or the matched peer is offline. Only these read „Tailscale getrennt“.
@@ -96,12 +103,34 @@ pub const TAILSCALE_DISCONNECTED: [&str; 4] = [
 /// The hint codes of a Tailscale path that does not work although Tailscale runs (the probe failed, or the connection
 /// left through another interface): the attention badge, without „Tailscale getrennt“.
 pub const TAILSCALE_PATH_BROKEN: [&str; 2] = ["tailscale-unreachable", "tailscale-route-mismatch"];
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Badge {
     Running,
     Busy,
     Attention,
     Update,
+}
+/// The tray view as the shell's Home chip reads it (#740, owner decision 2026-11-07): the view, its badge and the active
+/// connection's name and kind, so the window shows what the tray header shows and never recomputes the badge rule.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShellTray {
+    #[serde(flatten)]
+    pub view: TrayState,
+    pub badge: Badge,
+    pub connection_name: Option<String>,
+    pub connection_kind: Option<crate::connections::Kind>,
+}
+impl ShellTray {
+    pub fn of(view: &TrayState, connection: Option<(&str, crate::connections::Kind)>) -> Self {
+        Self {
+            view: view.clone(),
+            badge: view.badge(),
+            connection_name: connection.as_ref().map(|(name, _)| (*name).to_owned()),
+            connection_kind: connection.map(|(_, kind)| kind),
+        }
+    }
 }
 impl TrayState {
     /// The active connection's path after a check (transport choice spec §7.3): its label, and whether Tailscale is
@@ -150,7 +179,9 @@ impl TrayState {
         }
         match self.harness {
             HarnessState::Starting | HarnessState::Updating => Badge::Busy,
-            HarnessState::Ready if self.secrets_locked => Badge::Attention,
+            HarnessState::Ready if self.secrets_locked || self.approvals_pending => {
+                Badge::Attention
+            }
             HarnessState::Ready if self.update_available => Badge::Update,
             HarnessState::Ready => Badge::Running,
             _ => Badge::Attention,
@@ -168,6 +199,17 @@ pub fn map_status(event: &Value) -> HarnessState {
         Some("rollback") => HarnessState::Rollback,
         Some("crashed") => HarnessState::Crashed,
         _ => HarnessState::Degraded,
+    }
+}
+/// The tray word for an event-stream update (owner decision 2026-11-04, #740). A stream lost without an authentication
+/// failure arrives as `Down` with `connected == false`; for a paired remote or local connection that means the harness
+/// cannot be reached, *Not connected*. A bundled connection keeps `Down`: its own controller knows whether the harness is
+/// stopped and sets the word.
+pub fn connection_state(state: HarnessState, connected: bool, bundled: bool) -> HarnessState {
+    if state == HarnessState::Down && !connected && !bundled {
+        HarnessState::Disconnected
+    } else {
+        state
     }
 }
 pub fn combine(
@@ -277,6 +319,7 @@ impl Language {
             HarnessState::Ready => "Läuft",
             HarnessState::Degraded => "Eingeschränkt",
             HarnessState::Down => "Gestoppt",
+            HarnessState::Disconnected => "Nicht verbunden",
             HarnessState::Unpaired => "Nicht gekoppelt",
             HarnessState::Updating => "Wird aktualisiert",
             HarnessState::Rollback => "Wird zurückgesetzt",

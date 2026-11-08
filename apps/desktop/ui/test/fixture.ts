@@ -22,7 +22,7 @@ let autostartFail = false;
 const autostartCalls: boolean[] = [];
 let deferredSaves = false;
 const pendingSaves: Array<{ value: Settings; resolve: (value: Settings) => void; reject: (error: Error) => void }> = [];
-const boot = (window as any).__fixtureBoot as { bundled?: boolean; platform?: "mac" | "win" | "gnome" | "kde"; autostartUnknown?: boolean; failGet?: boolean; deferLoad?: boolean; locale?: string; rows?: import("../src/ipc.ts").Connection[]; deferConnections?: boolean; failConnections?: boolean; failProgress?: boolean; harnessState?: string; runtimeLog?: string; deadlineMs?: number } | undefined;
+const boot = (window as any).__fixtureBoot as { bundled?: boolean; platform?: "mac" | "win" | "gnome" | "kde"; autostartUnknown?: boolean; failGet?: boolean; deferLoad?: boolean; locale?: string; rows?: import("../src/ipc.ts").Connection[]; deferConnections?: boolean; failConnections?: boolean; failProgress?: boolean; harnessState?: string; runtimeLog?: string; deadlineMs?: number; tray?: import("../src/ipc.ts").TrayView | null } | undefined;
 autostart = boot?.autostartUnknown ? null : false;
 let rows: import("../src/ipc.ts").Connection[]=boot?.rows??[];
 let active:string|null=null;
@@ -97,6 +97,14 @@ if ((boot as Record<string, unknown> | undefined)?.stepUp) {
  transport.stepUpPoll = async request => { calls.stepUps.push({action:"poll",...request}); return metadata(request.connectionId,purpose,"approved"); };
  transport.stepUpCancel = async request => { calls.stepUps.push({action:"cancel",...request}); };
  transport.stepUpOpen = async request => { calls.stepUps.push({action:"open",...request}); };
+}
+// #740 Home chip: the native default is a fresh tray (no connection, *Not paired*, attention); `tray: null` means no
+// native tray view at all.
+const defaultTray: import("../src/ipc.ts").TrayView = { harness: "unpaired", runtime: null, secretsLocked: false, updateAvailable: false, held: false, path: null, transportAttention: false, tailscaleNotice: false, approvalsPending: false, badge: "attention", connectionName: null, connectionKind: null };
+let trayListener: ((view: import("../src/ipc.ts").TrayView) => void) | null = null;
+if (boot?.tray !== null) {
+ transport.trayView = async () => boot?.tray ?? defaultTray;
+ transport.trayViewEvents = async listener => { trayListener = listener; return () => { trayListener = null; }; };
 }
 const shellRoot = document.createElement("div");
 document.body.append(shellRoot);
@@ -224,3 +232,4 @@ Object.assign((window as any).testShell, {
   shellRoot.replaceChildren(render());
  },
 });
+Object.assign((window as any).testShell, { emitTray: (view: import("../src/ipc.ts").TrayView) => { trayListener?.(view); } });

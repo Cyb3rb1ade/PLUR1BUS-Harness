@@ -323,7 +323,11 @@ fn main() {
         )
         .collect();
     // Shared `$defs` (Capabilities, cards, ErrorObject, …) are read from the core, so they are opened too.
-    defs.values_mut().for_each(open_objects);
+    for (name, definition) in &mut defs {
+        if !name.starts_with("Team") {
+            open_objects(definition);
+        }
+    }
     for (m, def) in methods.as_object().unwrap() {
         let mut params = def["params"].clone();
         // A top-level `not` (e.g. config.get's "key and tier are exclusive") would turn the struct into an opaque

@@ -46,7 +46,7 @@ A test file with no mode carries a reason instead (test support, a package that 
 | P4-42 Prompt builder, tool-call runtime, decision service, triage | 42 | 42 | 0 | 0 | 0 | 0 | 0 |
 | P4-43 Dispatcher, registry, turn loop, provider loop, composition | 53 | 53 | 0 | 0 | 0 | 0 | 0 |
 | P4-44 Model discovery and the extension catalogue | 33 | 33 | 0 | 0 | 0 | 0 | 0 |
-| P4-50 Collaboration, the coding surface and the team shell | 36 | 36 | 0 | 0 | 0 | 0 | 0 |
+| P4-50 Collaboration, the coding surface and the team shell | 40 | 40 | 0 | 0 | 0 | 0 | 0 |
 | P4-51 Jobs and the memory-facing forwards | 80 | 80 | 0 | 0 | 0 | 0 | 0 |
 | P4-52 Voice | 39 | 39 | 0 | 0 | 0 | 0 | 0 |
 | P4-53 Media jobs and documents | 44 | 44 | 0 | 0 | 0 | 0 | 0 |
@@ -71,7 +71,7 @@ A test file with no mode carries a reason instead (test support, a package that 
 | P4-93 Local ML on ONNX Runtime (after 0.1) | 5 | 5 | 0 | 0 | 0 | 0 | 0 |
 | RE-11 Node engine retired (RE programme) | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | — no package: stays as it is | 26 | 0 | 0 | 0 | 0 | 26 | 0 |
-| **all** | **1199** | **876** | **5** | **28** | **2** | **288** | **0** |
+| **all** | **1203** | **880** | **5** | **28** | **2** | **288** | **0** |
 
 ## Files by TypeScript package
 
@@ -86,18 +86,18 @@ A test file with no mode carries a reason instead (test support, a package that 
 | `packages/channels-slack` | 15 | 17 | 0 | 15 | 0 | 0 | 0 | 0 | 0 |
 | `packages/channels-telegram` | 10 | 12 | 0 | 10 | 0 | 0 | 0 | 0 | 0 |
 | `packages/config-schema` | 10 | 42 | 0 | 0 | 0 | 0 | 0 | 10 | 0 |
-| `packages/core` | 793 | 1070 | 1 | 656 | 2 | 1 | 2 | 132 | 0 |
+| `packages/core` | 797 | 1074 | 1 | 660 | 2 | 1 | 2 | 132 | 0 |
 | `packages/documents` | 14 | 9 | 2 | 14 | 0 | 0 | 0 | 0 | 0 |
 | `packages/embedding-adapters` | 27 | 25 | 0 | 0 | 0 | 27 | 0 | 0 | 0 |
 | `packages/hostctl` | 10 | 21 | 0 | 10 | 0 | 0 | 0 | 0 | 0 |
 | `packages/log-schema` | 3 | 6 | 0 | 0 | 3 | 0 | 0 | 0 | 0 |
 | `packages/media` | 29 | 41 | 0 | 29 | 0 | 0 | 0 | 0 | 0 |
-| `packages/module-api` | 22 | 28 | 0 | 0 | 0 | 0 | 0 | 22 | 0 |
+| `packages/module-api` | 22 | 29 | 0 | 0 | 0 | 0 | 0 | 22 | 0 |
 | `packages/module-fixture` | 1 | 1 | 1 | 0 | 0 | 0 | 0 | 1 | 0 |
 | `packages/providers` | 53 | 63 | 0 | 52 | 0 | 0 | 0 | 1 | 0 |
 | `packages/remote-access` | 20 | 26 | 0 | 0 | 0 | 0 | 0 | 20 | 0 |
 | `packages/remote-fs` | 7 | 7 | 0 | 0 | 0 | 0 | 0 | 7 | 0 |
-| `packages/rpc-schema` | 4 | 26 | 0 | 0 | 0 | 0 | 0 | 4 | 0 |
+| `packages/rpc-schema` | 4 | 28 | 0 | 0 | 0 | 0 | 0 | 4 | 0 |
 | `packages/voice-providers` | 25 | 27 | 0 | 25 | 0 | 0 | 0 | 0 | 0 |
 | `packages/webmcp` | 6 | 4 | 0 | 0 | 0 | 0 | 0 | 6 | 0 |
 
@@ -105,20 +105,24 @@ A test file with no mode carries a reason instead (test support, a package that 
 
 | Mode | Test files |
 |---|---:|
-| `V` | 551 |
-| `T` | 895 |
+| `V` | 553 |
+| `T` | 898 |
 | `S` | 0 |
 | `W` | 414 |
-| `B` | 163 |
-| no mode, with a reason | 126 |
-| unassigned owner | 0 |
-| **all** | **1629** |
+| `B` | 166 |
+| no mode, with a reason | 127 |
+| unassigned owner | 1 |
+| **all** | **1636** |
 
 Test files for mode S are the suites of `tests/system/` (28, table at the end): they run on both legs of `PLUR1BUS_CORE_IMPL`.
 
 ## Unassigned
 
-0 source files, 0 test files (owner unknown; mode known where listed) and 0 other files have no rule. They are visible on purpose; the first PR that touches the subsystem, or an owner answer, adds the rule.
+0 source files, 1 test files (owner unknown; mode known where listed) and 0 other files have no rule. They are visible on purpose; the first PR that touches the subsystem, or an owner answer, adds the rule.
+
+| Test file | Mode | Why |
+|---|---|---|
+| `packages/core/test/core-front-door.test.ts` | — | no rule matches |
 
 ## Provisional assignments
 
@@ -779,14 +783,18 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/core/src/collab/store.ts` | port | plan §1.2 |
 | `packages/core/src/collab/target.ts` | port | plan §1.2 |
 | `packages/core/src/collab/team-eval.ts` | port | plan §1.2 |
+| `packages/core/src/collab/team/migration.ts` | port | plan §1.2 |
+| `packages/core/src/collab/team/plan.ts` | port | plan §1.2 |
+| `packages/core/src/collab/team/store.ts` | port | plan §1.2 |
 | `packages/core/src/collab/types.ts` | port | plan §1.2 |
 | `packages/core/src/collab/verifier.ts` | port | plan §1.2 |
 | `packages/core/src/external-turn/index.ts` | port | plan §1.2 |
 | `packages/core/src/federation/loan-memory-policy.ts` | port | plan §1.2 |
 | `packages/core/src/federation/loan-model.ts` | port | plan §1.2 |
-| `packages/core/src/rpc/code-surface.ts` | port | code.session.*, collab.*, project.* |
-| `packages/core/src/rpc/collab-surface.ts` | port | code.session.*, collab.*, project.* |
-| `packages/core/src/rpc/project-board-surface.ts` | port | code.session.*, collab.*, project.* |
+| `packages/core/src/rpc/code-surface.ts` | port | code.session.*, collab.*, project.*, team.* (the TK team shell of PR #900, plan P4-50) |
+| `packages/core/src/rpc/collab-surface.ts` | port | code.session.*, collab.*, project.*, team.* (the TK team shell of PR #900, plan P4-50) |
+| `packages/core/src/rpc/project-board-surface.ts` | port | code.session.*, collab.*, project.*, team.* (the TK team shell of PR #900, plan P4-50) |
+| `packages/core/src/rpc/team-surface.ts` | port | code.session.*, collab.*, project.*, team.* (the TK team shell of PR #900, plan P4-50) |
 
 ### P4-51 — Jobs and the memory-facing forwards
 
@@ -1668,10 +1676,12 @@ Columns: file · mode · reason (the reason names why a test has no mode, or wha
 | `packages/rpc-schema/test/media-capabilities.test.ts` | V | 508 contract fixtures, gate G1 |
 | `packages/rpc-schema/test/method-descriptions-fixtures.test.ts` | V | 508 contract fixtures, gate G1 |
 | `packages/rpc-schema/test/model-new.test.ts` | V | 508 contract fixtures, gate G1 |
+| `packages/rpc-schema/test/phase4-bridge.test.ts` | V | 508 contract fixtures, gate G1 |
 | `packages/rpc-schema/test/prompt-version.test.ts` | V | 508 contract fixtures, gate G1 |
 | `packages/rpc-schema/test/rewind.test.ts` | V | 508 contract fixtures, gate G1 |
 | `packages/rpc-schema/test/schema.test.ts` | V | 508 contract fixtures, gate G1 |
 | `packages/rpc-schema/test/stability.test.ts` | V | 508 contract fixtures, gate G1 |
+| `packages/rpc-schema/test/team-tools.test.ts` | V | 508 contract fixtures, gate G1 |
 | `packages/rpc-schema/test/tools.test.ts` | V | 508 contract fixtures, gate G1 |
 
 ### P4-11 — Configuration, logs, doctor, metrics
@@ -2461,7 +2471,10 @@ Columns: file · mode · reason (the reason names why a test has no mode, or wha
 | `packages/core/test/collab/team-guards-typescript.test.ts` | T,B | collab store (B), collab.* and code.session.* (T) |
 | `packages/core/test/collab/team-live-isolation.test.ts` | T,B | collab store (B), collab.* and code.session.* (T) |
 | `packages/core/test/collab/team-mutants.test.ts` | T,B | collab store (B), collab.* and code.session.* (T) |
+| `packages/core/test/collab/team-plan.test.ts` | T,B | collab store (B), collab.* and code.session.* (T) |
 | `packages/core/test/collab/team-process.test.ts` | T,B | collab store (B), collab.* and code.session.* (T) |
+| `packages/core/test/collab/team-store.test.ts` | T,B | collab store (B), collab.* and code.session.* (T) |
+| `packages/core/test/collab/team-surface.test.ts` | T,B | collab store (B), collab.* and code.session.* (T) |
 | `packages/core/test/collab/tools.test.ts` | T,B | collab store (B), collab.* and code.session.* (T) |
 | `packages/core/test/collab/trace.test.ts` | T,B | collab store (B), collab.* and code.session.* (T) |
 | `packages/core/test/collab/turn-lifetime.test.ts` | T,B | collab store (B), collab.* and code.session.* (T) |
@@ -3345,6 +3358,12 @@ Columns: file · mode · reason (the reason names why a test has no mode, or wha
 | `packages/core/test/engine-role-live.test.ts` | — | tests the in-process Node engine contract; retired with engine.implementation=node (RE-11) |
 | `packages/core/test/engine-role-test.test.ts` | — | tests the in-process Node engine contract; retired with engine.implementation=node (RE-11) |
 
+### unassigned
+
+| File | Mode | Reason |
+|---|---|---|
+| `packages/core/test/core-front-door.test.ts` | — | no rule matches |
+
 ### — — no package: stays as it is
 
 | File | Mode | Reason |
@@ -3375,6 +3394,7 @@ Columns: file · mode · reason (the reason names why a test has no mode, or wha
 | `packages/module-api/test/client.test.ts` | — | published module SDK, stays TypeScript (ADR-016 §1, Q7) |
 | `packages/module-api/test/config-watch.test.ts` | — | published module SDK, stays TypeScript (ADR-016 §1, Q7) |
 | `packages/module-api/test/data-dir.test.ts` | — | published module SDK, stays TypeScript (ADR-016 §1, Q7) |
+| `packages/module-api/test/front-door-link.test.ts` | — | published module SDK, stays TypeScript (ADR-016 §1, Q7) |
 | `packages/module-api/test/helpers/data-module.ts` | — | test support |
 | `packages/module-api/test/helpers/endpoint.ts` | — | test support |
 | `packages/module-api/test/helpers/fake-supervisor.ts` | — | test support |

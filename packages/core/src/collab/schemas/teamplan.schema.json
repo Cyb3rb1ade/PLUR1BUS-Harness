@@ -1,0 +1,4 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "https://plur1bus.dev/schema/rpc/1.24.0/rpc.schema.json#/$defs/TeamPlan"
+}

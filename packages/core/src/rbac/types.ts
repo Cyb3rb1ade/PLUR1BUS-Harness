@@ -7,7 +7,7 @@ export type Role = (typeof ROLES)[number];
 
 /** Object rights (ADR-007 "Object rights"): per agent `use` < `manage`, per project `member` < `lead`. */
 export type AgentRight = "use" | "manage";
-export type ProjectRight = "member" | "lead";
+export type ProjectRight = "member" | "lead" | "worker" | "reviewer";
 
 /** A live break-glass grant (`break-glass.ts` mints them). Read access to one target user's `user`-scope cards. */
 export interface BreakGlassGrant {

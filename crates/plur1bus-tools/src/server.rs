@@ -834,7 +834,7 @@ mod panic_boundary_tests {
             let service = Service::bind(
                 home.path(),
                 "panic-fixture",
-                vec![Arc::new(PanickingModule)],
+                vec![Arc::new(PanickingModule), Arc::new(crate::team::TeamModule)],
             )
             .unwrap();
             let runtime = service.runtime.clone();
@@ -968,6 +968,56 @@ mod panic_boundary_tests {
         assert!(refused(hello(&no_legacy)), "no legacy record");
     }
 
+    #[test]
+    fn team_methods_require_core_authentication_before_dispatch() {
+        let service = Running::start();
+        let ticket_key = files::fresh_token().unwrap();
+        for (method, fixture) in [
+            (
+                "tools.team.check",
+                include_str!("../../../packages/rpc-schema/fixtures/methods/tools.team.check.json"),
+            ),
+            (
+                "tools.team.next",
+                include_str!("../../../packages/rpc-schema/fixtures/methods/tools.team.next.json"),
+            ),
+            (
+                "tools.team.diffcheck",
+                include_str!(
+                    "../../../packages/rpc-schema/fixtures/methods/tools.team.diffcheck.json"
+                ),
+            ),
+            (
+                "tools.team.impact",
+                include_str!(
+                    "../../../packages/rpc-schema/fixtures/methods/tools.team.impact.json"
+                ),
+            ),
+        ] {
+            let stream = plur1bus_rpc::transport::connect(
+                &crate::address(service.home.path()),
+                Duration::from_secs(2),
+            )
+            .unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(10)))
+                .unwrap();
+            let mut stream = BufReader::new(stream);
+            let fixture: Value = serde_json::from_str(fixture).unwrap();
+            assert_eq!(
+                rpc(&mut stream, method, &fixture["params"])["error"]["data"]["error"],
+                "E_DENIED"
+            );
+            assert!(rpc(&mut stream, "tools.hello", &json!({
+                "token":files::read_private(&service.home.path().join("run/tools-core.token")).unwrap(),
+                "ticketKey":ticket_key,
+            }))["result"].is_object());
+            assert_eq!(
+                rpc(&mut stream, method, &fixture["params"])["result"],
+                fixture["result"]
+            );
+        }
+    }
     #[test]
     fn accept_errors_back_off_count_and_reset_only_after_a_connection() {
         let mut errors = AcceptErrors::default();

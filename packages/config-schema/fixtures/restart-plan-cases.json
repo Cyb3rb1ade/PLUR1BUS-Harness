@@ -35,7 +35,12 @@
           },
           "disk": {
             "minFreeBytes": 21474836480
-          }
+          },
+          "approval": {
+            "auto": false
+          },
+          "closedPaths": [],
+          "deployBranches": []
         },
         "limits": {
           "readHelpers": {
@@ -678,7 +683,12 @@
           },
           "disk": {
             "minFreeBytes": 21474836480
-          }
+          },
+          "approval": {
+            "auto": false
+          },
+          "closedPaths": [],
+          "deployBranches": []
         },
         "limits": {
           "readHelpers": {
@@ -1334,7 +1344,12 @@
           },
           "disk": {
             "minFreeBytes": 21474836480
-          }
+          },
+          "approval": {
+            "auto": false
+          },
+          "closedPaths": [],
+          "deployBranches": []
         },
         "limits": {
           "readHelpers": {
@@ -1977,7 +1992,12 @@
           },
           "disk": {
             "minFreeBytes": 21474836480
-          }
+          },
+          "approval": {
+            "auto": false
+          },
+          "closedPaths": [],
+          "deployBranches": []
         },
         "limits": {
           "readHelpers": {
@@ -2634,7 +2654,12 @@
           },
           "disk": {
             "minFreeBytes": 21474836480
-          }
+          },
+          "approval": {
+            "auto": false
+          },
+          "closedPaths": [],
+          "deployBranches": []
         },
         "limits": {
           "readHelpers": {
@@ -3277,7 +3302,12 @@
           },
           "disk": {
             "minFreeBytes": 21474836480
-          }
+          },
+          "approval": {
+            "auto": false
+          },
+          "closedPaths": [],
+          "deployBranches": []
         },
         "limits": {
           "readHelpers": {
@@ -3939,7 +3969,12 @@
           },
           "disk": {
             "minFreeBytes": 21474836480
-          }
+          },
+          "approval": {
+            "auto": false
+          },
+          "closedPaths": [],
+          "deployBranches": []
         },
         "limits": {
           "readHelpers": {
@@ -4586,7 +4621,12 @@
           },
           "disk": {
             "minFreeBytes": 21474836480
-          }
+          },
+          "approval": {
+            "auto": false
+          },
+          "closedPaths": [],
+          "deployBranches": []
         },
         "limits": {
           "readHelpers": {
@@ -5244,7 +5284,12 @@
           },
           "disk": {
             "minFreeBytes": 21474836480
-          }
+          },
+          "approval": {
+            "auto": false
+          },
+          "closedPaths": [],
+          "deployBranches": []
         },
         "limits": {
           "readHelpers": {
@@ -5891,7 +5936,12 @@
           },
           "disk": {
             "minFreeBytes": 21474836480
-          }
+          },
+          "approval": {
+            "auto": false
+          },
+          "closedPaths": [],
+          "deployBranches": []
         },
         "limits": {
           "readHelpers": {
@@ -6555,7 +6605,12 @@
           },
           "disk": {
             "minFreeBytes": 21474836480
-          }
+          },
+          "approval": {
+            "auto": false
+          },
+          "closedPaths": [],
+          "deployBranches": []
         },
         "limits": {
           "readHelpers": {
@@ -7198,7 +7253,12 @@
           },
           "disk": {
             "minFreeBytes": 21474836480
-          }
+          },
+          "approval": {
+            "auto": false
+          },
+          "closedPaths": [],
+          "deployBranches": []
         },
         "limits": {
           "readHelpers": {
@@ -7860,7 +7920,12 @@
           },
           "disk": {
             "minFreeBytes": 21474836480
-          }
+          },
+          "approval": {
+            "auto": false
+          },
+          "closedPaths": [],
+          "deployBranches": []
         },
         "limits": {
           "readHelpers": {
@@ -8503,7 +8568,12 @@
           },
           "disk": {
             "minFreeBytes": 21474836480
-          }
+          },
+          "approval": {
+            "auto": false
+          },
+          "closedPaths": [],
+          "deployBranches": []
         },
         "limits": {
           "readHelpers": {
@@ -9162,7 +9232,12 @@
           },
           "disk": {
             "minFreeBytes": 21474836480
-          }
+          },
+          "approval": {
+            "auto": false
+          },
+          "closedPaths": [],
+          "deployBranches": []
         },
         "limits": {
           "readHelpers": {
@@ -9810,7 +9885,12 @@
           },
           "disk": {
             "minFreeBytes": 21474836480
-          }
+          },
+          "approval": {
+            "auto": false
+          },
+          "closedPaths": [],
+          "deployBranches": []
         },
         "limits": {
           "readHelpers": {
@@ -10473,7 +10553,12 @@
           },
           "disk": {
             "minFreeBytes": 21474836480
-          }
+          },
+          "approval": {
+            "auto": false
+          },
+          "closedPaths": [],
+          "deployBranches": []
         },
         "limits": {
           "readHelpers": {
@@ -11116,7 +11201,12 @@
           },
           "disk": {
             "minFreeBytes": 21474836480
-          }
+          },
+          "approval": {
+            "auto": false
+          },
+          "closedPaths": [],
+          "deployBranches": []
         },
         "limits": {
           "readHelpers": {

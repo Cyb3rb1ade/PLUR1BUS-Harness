@@ -312,6 +312,15 @@ and a positive safe-integer `tools.sandbox.maxTasks`; zero refuses ACP launch.
 Native Mac acceptance remains pending D123 SB-1 (pnpm/RSS) and SB-3 (Git/libxcrun,
 open/osascript); see [ACP containment](acp.md#external-process-containment-820-q3).
 
+### Team planning (D124 TK1)
+
+Human team controls use the existing error vocabulary. `E_DENIED` covers agent/viewer
+principals and missing persisted project/lead rights. `E_CONFLICT` with
+`team-approval-stale` means the plan, checker, composition or policy changed;
+`team-plan-blocked` means blocking checker findings or no executable coding check.
+An approval never starts work: TK1 stores data and pending events, while PT-4b will
+apply the pure transition function and execute its transactional outbox.
+
 ### Core front door (Phase 4, P4-10)
 
 The Rust front door (`plur1bus-core`, opt-in with `core.impl: "rust"`) keeps every existing code and reason; the legacy core behind it still answers every relayed call. It adds these reasons, no new code. When the front door cannot reach the legacy core for a connection (the legacy core is stopping or gone), it ends that connection without a reply, as a TypeScript core that goes away does, so callers see an unreachable core.

@@ -1,0 +1,143 @@
+{
+  "params": {
+    "runId": "team_example2",
+    "packageId": "duration",
+    "tokenBudget": 1000,
+    "wallBudgetMs": 10000
+  },
+  "result": {
+    "run": {
+      "id": "team_example2",
+      "projectId": "prj_example1",
+      "leadAgent": "writer",
+      "objective": "Calendar duration",
+      "mode": "team",
+      "cardId": null,
+      "state": "awaiting-approval",
+      "stateVersion": 4,
+      "plan": {
+        "schema": "plur1bus.teamplan/1",
+        "goals": [
+          "Implement calendar duration"
+        ],
+        "targetBranch": "integration",
+        "sections": [
+          {
+            "key": "first",
+            "title": "Calendar",
+            "goals": [
+              "Duration"
+            ],
+            "budget": {
+              "tokens": 6000,
+              "wallTimeMs": 60000
+            },
+            "mergeOrder": [
+              "duration"
+            ]
+          }
+        ],
+        "packages": [
+          {
+            "key": "duration",
+            "section": "first",
+            "title": "Duration",
+            "objective": "Implement duration",
+            "doneWhen": [
+              "Duration tests pass"
+            ],
+            "taskClass": "code-small",
+            "owns": [
+              {
+                "glob": "src/duration.ts",
+                "mode": "own"
+              }
+            ],
+            "interfaces": {
+              "provides": [
+                "duration"
+              ],
+              "consumes": []
+            },
+            "dependsOn": [],
+            "worker": {
+              "kind": "native",
+              "member": "writer"
+            },
+            "sync": "auto",
+            "estimate": {
+              "changedLines": 20,
+              "tokens": 1000,
+              "wallTimeMs": 10000
+            },
+            "checks": [
+              {
+                "kind": "tests",
+                "criterion": 0,
+                "tests": [
+                  "duration"
+                ]
+              }
+            ],
+            "dataDeletion": false
+          }
+        ]
+      },
+      "planHash": "1f67dfae02b8237686daa2682163bf2d71cb1c31782596a31094d5ab65aff4ae",
+      "compositionHash": "4be6f0c84cd2b31fa781d51294e7250634d6ea13a455412e1c28807a1a476477",
+      "members": [
+        {
+          "id": "writer",
+          "kind": "native",
+          "role": "writer",
+          "model": "fixture",
+          "disclosure": [],
+          "agentId": "writer"
+        }
+      ],
+      "checkHash": "d1674b60ddbf6f1997bc4af3951d0cc2002f9e0c4d770bd1959bb2ea57a8c8e8",
+      "report": {
+        "policyHash": "5c3114396b176eb6568caf3c1909446790fc2e6443993629fa38117eda51791c",
+        "planHash": "1f67dfae02b8237686daa2682163bf2d71cb1c31782596a31094d5ab65aff4ae",
+        "findings": [],
+        "lanes": [
+          {
+            "package": "duration",
+            "lane": "contained",
+            "reasons": []
+          }
+        ],
+        "overlapScore": 0.0,
+        "criticalPathMs": 10000,
+        "targetDeploys": false,
+        "targetDeployReasons": []
+      },
+      "policy": {
+        "approval": {
+          "auto": false
+        },
+        "closedPaths": [],
+        "deployBranches": []
+      },
+      "approval": {
+        "planHash": "1f67dfae02b8237686daa2682163bf2d71cb1c31782596a31094d5ab65aff4ae",
+        "checkHash": "d1674b60ddbf6f1997bc4af3951d0cc2002f9e0c4d770bd1959bb2ea57a8c8e8",
+        "compositionHash": "4be6f0c84cd2b31fa781d51294e7250634d6ea13a455412e1c28807a1a476477",
+        "policyHash": "5c3114396b176eb6568caf3c1909446790fc2e6443993629fa38117eda51791c",
+        "scope": {
+          "kind": "plan"
+        },
+        "approvedBy": "person",
+        "at": 1000
+      },
+      "targetBranch": "integration",
+      "budget": {
+        "tokens": 6000,
+        "wallTimeMs": 60000
+      },
+      "writersMax": 4,
+      "createdAt": 1000,
+      "updatedAt": 1000
+    }
+  }
+}

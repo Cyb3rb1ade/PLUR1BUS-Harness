@@ -42,6 +42,33 @@ fn method_fixture(name: &str, f: &Value) {
     use types::*;
     match name {
         "bridge.hello" => pair::<BridgeHelloParams, BridgeHelloResult>(name, f),
+        "team.get" => pair::<TeamGetParams, TeamGetResult>(name, f),
+        "team.list" => pair::<TeamListParams, TeamListResult>(name, f),
+        "team.create" => pair::<TeamCreateParams, TeamCreateResult>(name, f),
+        "team.composition.confirm" => {
+            pair::<TeamCompositionConfirmParams, TeamCompositionConfirmResult>(name, f)
+        }
+        "team.plan.approve" => pair::<TeamPlanApproveParams, TeamPlanApproveResult>(name, f),
+        "team.scope.extend" => pair::<TeamScopeExtendParams, TeamScopeExtendResult>(name, f),
+        "team.pause" => pair::<TeamPauseParams, TeamPauseResult>(name, f),
+        "team.resume" => pair::<TeamResumeParams, TeamResumeResult>(name, f),
+        "team.cancel" => pair::<TeamCancelParams, TeamCancelResult>(name, f),
+        "team.package.reassign" => {
+            pair::<TeamPackageReassignParams, TeamPackageReassignResult>(name, f)
+        }
+        "team.package.budget.set" => {
+            pair::<TeamPackageBudgetSetParams, TeamPackageBudgetSetResult>(name, f)
+        }
+        "team.budget.set" => pair::<TeamBudgetSetParams, TeamBudgetSetResult>(name, f),
+        "team.package.sync.set" => {
+            pair::<TeamPackageSyncSetParams, TeamPackageSyncSetResult>(name, f)
+        }
+        "tools.team.check" => pair::<ToolsTeamCheckParams, ToolsTeamCheckResult>(name, f),
+        "tools.team.diffcheck" => {
+            pair::<ToolsTeamDiffcheckParams, ToolsTeamDiffcheckResult>(name, f)
+        }
+        "tools.team.impact" => pair::<ToolsTeamImpactParams, ToolsTeamImpactResult>(name, f),
+        "tools.team.next" => pair::<ToolsTeamNextParams, ToolsTeamNextResult>(name, f),
         "tools.hello" => pair::<ToolsHelloParams, ToolsHelloResult>(name, f),
         "tools.health" => pair::<ToolsHealthParams, ToolsHealthResult>(name, f),
         "a2a.peer.add" => pair::<A2aPeerAddParams, A2aPeerAddResult>(name, f),

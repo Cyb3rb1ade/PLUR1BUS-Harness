@@ -1259,6 +1259,58 @@
     "memory.exportText": {
       "stability": "experimental",
       "since": "1.22.0"
+    },
+    "team.get": {
+      "stability": "experimental",
+      "since": "1.24.0"
+    },
+    "team.list": {
+      "stability": "experimental",
+      "since": "1.24.0"
+    },
+    "team.create": {
+      "stability": "experimental",
+      "since": "1.24.0"
+    },
+    "team.composition.confirm": {
+      "stability": "experimental",
+      "since": "1.24.0"
+    },
+    "team.plan.approve": {
+      "stability": "experimental",
+      "since": "1.24.0"
+    },
+    "team.scope.extend": {
+      "stability": "experimental",
+      "since": "1.24.0"
+    },
+    "team.pause": {
+      "stability": "experimental",
+      "since": "1.24.0"
+    },
+    "team.resume": {
+      "stability": "experimental",
+      "since": "1.24.0"
+    },
+    "team.cancel": {
+      "stability": "experimental",
+      "since": "1.24.0"
+    },
+    "team.package.reassign": {
+      "stability": "experimental",
+      "since": "1.24.0"
+    },
+    "team.package.budget.set": {
+      "stability": "experimental",
+      "since": "1.24.0"
+    },
+    "team.budget.set": {
+      "stability": "experimental",
+      "since": "1.24.0"
+    },
+    "team.package.sync.set": {
+      "stability": "experimental",
+      "since": "1.24.0"
     }
   },
   "notifications": {

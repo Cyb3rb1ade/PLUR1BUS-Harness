@@ -463,6 +463,53 @@
                 }
               },
               "description": "Required free disk space before creating an additional worktree."
+            },
+            "approval": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "auto": {
+                  "type": "boolean",
+                  "description": "Permit automatic section merge only under an approved auto scope and lane gates.",
+                  "default": false,
+                  "x-restart": "live",
+                  "x-tier": "advanced"
+                }
+              },
+              "required": [],
+              "description": "Default team approval policy; a project lead confirms the scope.",
+              "default": {},
+              "x-restart": "live",
+              "x-tier": "advanced"
+            },
+            "closedPaths": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "^(?:[A-Za-z0-9_.@+\\-]+|\\*|\\*\\*)(?:/(?:[A-Za-z0-9_.@+\\-]+|\\*|\\*\\*))*$"
+              },
+              "maxItems": 128,
+              "minItems": 0,
+              "description": "Additional closed-lane path globs. Built-in protected path classes always apply.",
+              "default": [],
+              "x-restart": "live",
+              "x-tier": "advanced"
+            },
+            "deployBranches": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "maxItems": 128,
+              "minItems": 0,
+              "description": "Additional deploying target branches. Workflow-derived deployment rules always apply.",
+              "default": [],
+              "x-restart": "live",
+              "x-tier": "advanced"
             }
           }
         },

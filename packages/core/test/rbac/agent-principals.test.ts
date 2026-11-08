@@ -55,7 +55,7 @@ describe("grant.* / approval.* policy actions (D6)", () => {
 
   it("no role entry of an agent-capable action leaks: humanOnly is the only way these actions are reached", () => {
     const humanOnly = POLICY.filter((s) => s.humanOnly).map((s) => s.action).sort();
-    assert.deepEqual(humanOnly, [...ACTIONS,"a2a.peers.manage","extensions.read","extensions.manage","imports.read","imports.manage","inbox.read","inbox.write","project.board.write","project.board.manage","device.list","device.revoke","device.rename","remote.device.write","admin.agent.operate","admin.agent.manage","admin.agent.delete","admin.agent.rights","admin.users.read","admin.users.write","admin.breakglass.read","admin.breakglass.write","admin.sessions.read","admin.sessions.write","admin.sessions.transcript","admin.pairing.read","admin.notices.read","admin.memory.read","media.read","media.write","project.create","project.surface.read","project.surface.write","identity.self.read","identity.self.write","auth.credentials.read","auth.credentials.write","channel.read","channel.write","media.index.operate","media.caption.write"].sort());
+    assert.deepEqual(humanOnly, [...ACTIONS,"a2a.peers.manage","extensions.read","extensions.manage","imports.read","imports.manage","inbox.read","inbox.write","project.board.write","project.board.manage","device.list","device.revoke","device.rename","remote.device.write","admin.agent.operate","admin.agent.manage","admin.agent.delete","admin.agent.rights","admin.users.read","admin.users.write","admin.breakglass.read","admin.breakglass.write","admin.sessions.read","admin.sessions.write","admin.sessions.transcript","admin.pairing.read","admin.notices.read","admin.memory.read","media.read","media.write","project.create","project.surface.read","project.surface.write","identity.self.read","identity.self.write","auth.credentials.read","auth.credentials.write","channel.read","channel.write","media.index.operate","media.caption.write","team.surface.read","team.surface.write"].sort());
   });
 
   it("persons get exactly the roles written down, nothing else", () => {
@@ -212,6 +212,7 @@ describe("budget.set human-only RPC boundary",()=>{
   it("keeps the exact explicit human-only method inventory, including budget mutation",()=>{
     assert.deepEqual(Object.entries(RPC_RULES).filter(([,r])=>r.humanOnly).map(([m])=>m).sort(),[
       "chat.rewind","session.rewind",
+      "team.get","team.list","team.create","team.composition.confirm","team.plan.approve","team.scope.extend","team.pause","team.resume","team.cancel","team.package.reassign","team.package.budget.set","team.budget.set","team.package.sync.set",
       "dreams.learn.run","dreams.learn.status","dreams.learn.list","dreams.learn.get","dreams.learn.decide","dreams.learn.rollback","dreams.learn.calibration",
       "ext.list","ext.show","ext.watch","ext.inspection.get","ext.inspect","ext.install","ext.uninstall","ext.restore","ext.enable","ext.disable",
       "admin.extensions.setup.get","admin.extensions.setup.set","admin.extensions.runtime.status","admin.extensions.runtime.hold","admin.extensions.runtime.release","admin.extensions.auth.start","admin.extensions.auth.status","admin.extensions.auth.submit","admin.extensions.auth.cancel",

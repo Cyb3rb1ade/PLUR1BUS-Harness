@@ -23,7 +23,7 @@ export interface CardDrawerProps {
   project: Project;
   columns: readonly BoardColumn[];
   globalRole: string | null;
-  projectRole: "member" | "lead" | null;
+  projectRole: "member" | "lead" | "worker" | "reviewer" | null;
   isAgent: boolean;
   onClose: () => void;
   onUpdate: () => void;
