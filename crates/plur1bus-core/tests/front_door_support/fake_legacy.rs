@@ -8,7 +8,7 @@
 //! `FAKE_LEGACY_MODE`: `exit:<n>` exits at once with `n`; `bad-ready` prints a ready line naming another pid; `slow-stop`
 //! takes 300 ms to stop after `core.shutdown`; `one-link` takes the control link and then no connection;
 //! `slow-refuse-shutdown` refuses a client's `core.shutdown` after 1.5 s; `odd-results` answers `core.adopt` with a result
-//! that is no object.
+//! that is no object; `close-on-shutdown` answers `core.shutdown` and ends every connection ~5 ms later.
 use plur1bus_rpc::server_transport::{Accepted, Listener};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -20,6 +20,7 @@ use std::time::Duration;
 
 type Writer = Arc<Mutex<Box<dyn Write + Send>>>;
 type Subs = Mutex<HashMap<u64, (Writer, Option<Vec<String>>)>>;
+type Closer = Arc<dyn Fn() + Send + Sync>;
 
 struct Legacy {
     home: PathBuf,
@@ -29,6 +30,8 @@ struct Legacy {
     link: String,
     subs: Subs,
     next: AtomicU64,
+    /// Every connection's closer (`close-on-shutdown` ends them all, as `server.close()` does).
+    closers: Mutex<Vec<Closer>>,
 }
 
 fn read(path: &Path) -> String {
@@ -128,6 +131,7 @@ pub fn run(args: &[String]) -> ! {
         home: home.clone(),
         subs: Mutex::new(HashMap::new()),
         next: AtomicU64::new(1),
+        closers: Mutex::new(Vec::new()),
     });
     std::fs::write(run.join("core-legacy.mode"), arg("--behind-front-door")).unwrap();
     std::fs::write(
@@ -222,6 +226,7 @@ fn serve(l: &Arc<Legacy>, conn: Accepted, mode: &str, control: bool) {
         ..
     } = conn;
     let writer: Writer = Arc::new(Mutex::new(writer));
+    l.closers.lock().unwrap().push(closer.clone());
     let mut reader = BufReader::new(reader);
     let mut caller: Option<&'static str> = None;
     let conn_id = l.next.fetch_add(1, Ordering::Relaxed);
@@ -305,6 +310,24 @@ fn serve(l: &Arc<Legacy>, conn: Accepted, mode: &str, control: bool) {
                 std::thread::spawn(move || {
                     std::thread::sleep(Duration::from_millis(1500));
                     send(&w, &error(&id, "E_DENIED", "role-required"));
+                });
+            }
+            // `close-on-shutdown`: the TypeScript core's quick stop with nothing to drain: the answer, then every
+            // connection ends ~5 ms later (`server.close()`), then the process exits.
+            "core.shutdown" if mode == "close-on-shutdown" => {
+                let _ = std::fs::write(l.home.join("run/core-legacy.stopped"), "shutdown");
+                send(
+                    &writer,
+                    &json!({"jsonrpc":"2.0","id":id,"result":{"accepted":true}}),
+                );
+                let closers: Vec<Closer> = l.closers.lock().unwrap().clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(Duration::from_millis(5));
+                    for close in closers {
+                        close();
+                    }
+                    std::thread::sleep(Duration::from_millis(50));
+                    std::process::exit(0);
                 });
             }
             "fake.accept" => send(

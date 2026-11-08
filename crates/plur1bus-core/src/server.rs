@@ -224,6 +224,15 @@ impl FrontDoor {
         !self.stopping.swap(true, Ordering::SeqCst)
     }
 
+    /// Begins the stop and tells the owner subscribers (`stopping`), once; `false` when the stop had begun already.
+    pub fn enter_stopping(&self) -> bool {
+        let first = self.begin_stop();
+        if first {
+            self.set_state(ProcessState::now("stopping"));
+        }
+        first
+    }
+
     fn send_event(&self, event: Event) {
         let _ = relock(&self.events).send(event);
     }
@@ -1461,6 +1470,12 @@ fn complete(front: &Arc<FrontDoor>, conn: &Arc<Conn>, intercept: Intercept, text
         }
         Intercept::Shutdown { id, budget } => {
             let accepted = fact("accepted").is_some_and(|a| a.get() == "true");
+            // ADR-012 §3 (task review M2): the front door is `stopping`, and every owner subscriber has it queued, before
+            // the accepted answer goes on. The legacy core has begun its own stop and may end every link right after
+            // its answer; a subscriber whose link ends sees what is queued for it, then the end.
+            if accepted {
+                front.enter_stopping();
+            }
             conn.send_raw(id.splice_into(text));
             if accepted {
                 let budget = budget.map_or(front.timings.shutdown_budget, Duration::from_millis);

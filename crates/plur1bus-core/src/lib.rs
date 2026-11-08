@@ -412,14 +412,14 @@ fn stop(
     mut lifeline: Option<std::process::ChildStdin>,
     request: Option<(Duration, &'static str, i32)>,
 ) -> i32 {
-    front.begin_stop();
     let (budget, why, ok_code) = request.unwrap_or((Duration::ZERO, "the legacy core exited", 1));
     server::log(
         "info",
         "core stopping",
         json!({"why": why, "budgetMs": u64::try_from(budget.as_millis()).unwrap_or(u64::MAX)}),
     );
-    front.set_state(ProcessState::now("stopping"));
+    // Already `stopping` when an accepted `core.shutdown` began the stop (the state went out before its answer).
+    front.enter_stopping();
     let mut failed = request.is_none();
     if request.is_some() && why == GRACE_EXPIRED {
         drop(lifeline.take());

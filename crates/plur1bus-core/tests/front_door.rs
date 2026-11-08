@@ -113,6 +113,10 @@ fn main() {
             "an_answer_that_is_no_object_is_refused_not_patched",
             an_answer_that_is_no_object_is_refused_not_patched,
         ),
+        (
+            "a_client_shutdown_reaches_every_subscriber_as_stopping_first",
+            a_client_shutdown_reaches_every_subscriber_as_stopping_first,
+        ),
     ];
     let mut failed = Vec::new();
     for (name, test) in tests {
@@ -1244,4 +1248,53 @@ fn an_answer_that_is_no_object_is_refused_not_patched() {
         c.call("core.status", json!({})).get("result").is_some(),
         "the connection and its link are still served"
     );
+}
+
+/// Task review M2 (ADR-012 §3, G17): the supervisor's own stop is a `core.shutdown` on its connection. The front door is
+/// `stopping`, and says so to every owner subscriber, before the accepted answer goes on, so a legacy core that ends every
+/// link right after answering cannot cut a subscriber off before it saw `stopping`.
+fn a_client_shutdown_reaches_every_subscriber_as_stopping_first() {
+    let mut d = door(Opts {
+        mode: "close-on-shutdown",
+        ..Opts::default()
+    });
+    let mut a = d.owner();
+    assert!(a.call("events.subscribe", json!({}))["result"]["subscriptionId"].is_string());
+    let mut b = d.owner();
+    assert!(
+        b.call("events.subscribe", json!({"names": ["core.state"]}))["result"]["subscriptionId"]
+            .is_string()
+    );
+    let mut c = d.owner();
+    assert!(c.call("events.subscribe", json!({}))["result"]["subscriptionId"].is_string());
+    c.send_line(
+        r#"{"jsonrpc":"2.0","id":"stop","method":"core.shutdown","params":{"budgetMs":2000}}"#,
+    );
+    // The requester's own stream: `stopping` is queued before the answer (both on this connection's one writer).
+    let first = c.read().unwrap();
+    assert_eq!(
+        (
+            first["method"].as_str(),
+            first["params"]["process"]["state"].as_str()
+        ),
+        (Some("core.state"), Some("stopping")),
+        "stopping before the answer: {first}"
+    );
+    assert_eq!(c.response(&json!("stop"))["result"]["accepted"], true);
+    for (name, s) in [("a", &mut a), ("b", &mut b)] {
+        assert!(s.closed(), "{name}: the connection ends");
+        let states: Vec<&str> = s
+            .notes
+            .iter()
+            .filter(|n| n["method"] == "core.state")
+            .filter_map(|n| n["params"]["process"]["state"].as_str())
+            .collect();
+        assert_eq!(
+            states,
+            ["stopping"],
+            "{name} saw stopping before the end, once"
+        );
+    }
+    assert!(c.closed());
+    assert_eq!(d.wait(Duration::from_secs(10)), Some(0), "{}", d.stderr());
 }
