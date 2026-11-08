@@ -1,6 +1,6 @@
 //! Trusted C4 metadata reads: latest revision, then D130 ACL, then result limit.
 //! Vectors are deliberately not projected here: sidecar attachment is a separate operation.
-use super::{acl, merged_order, tail};
+use super::{acl, merged_order, tail, vectors};
 use crate::{
     context::RequestContext,
     contract::StoreError,
@@ -88,6 +88,30 @@ impl RecordKind {
         }
     }
 }
+/// Authorized metadata and its optional vector. Sidecar values stay separate from JSON
+/// so serializing the metadata preserves Node's non-enumerable lazy-vector behavior.
+#[derive(Debug)]
+pub struct Record {
+    /// Original metadata, without injected sidecar properties.
+    pub metadata: Json,
+    /// Inline f64 values or losslessly widened float32 sidecar values.
+    pub embedding: Option<Vec<f64>>,
+}
+struct Window {
+    rows: Vec<merged_order::Sourced>,
+    canonical: Option<TrustedDirectory>,
+    legacy: Option<TrustedDirectory>,
+}
+impl Window {
+    fn empty() -> Self {
+        Self {
+            rows: Vec::new(),
+            canonical: None,
+            legacy: None,
+        }
+    }
+}
+
 /// Warm read handle. Opening or reading never creates directories, ledgers, indexes or locks.
 /// The root must already exist. Retrieval/reconsolidation ledgers are intentionally excluded:
 /// their idempotency and watermark semantics are canonical-only, not merged metadata.
@@ -112,15 +136,47 @@ impl MetadataReader {
         limit: usize,
         ctx: &RequestContext,
     ) -> Result<Vec<Json>, StoreError> {
+        Ok(self
+            .window(kind, limit, ctx)?
+            .rows
+            .into_iter()
+            .map(|row| row.metadata)
+            .collect())
+    }
+    /// Attach only the winning revision's own physical-source vector, after authorization.
+    /// Malformed indexed data is an error, while an absent index/entry is an absent vector.
+    /// This takes manifest snapshots; it is not a cross-ledger writer transaction.
+    pub fn read_records(
+        &self,
+        kind: RecordKind,
+        limit: usize,
+        ctx: &RequestContext,
+    ) -> Result<Vec<Record>, StoreError> {
+        let window = self.window(kind, limit, ctx)?;
+        let rows = vectors::attach(
+            kind,
+            window.rows,
+            window.canonical.as_ref(),
+            window.legacy.as_ref(),
+        )?;
+        self.root.assert_unchanged()?;
+        Ok(rows)
+    }
+    fn window(
+        &self,
+        kind: RecordKind,
+        limit: usize,
+        ctx: &RequestContext,
+    ) -> Result<Window, StoreError> {
         if limit > tail::MAX_LINES {
             return Err(StoreError::InvalidInput);
         }
         self.root.assert_unchanged()?;
         if limit == 0 {
-            return Ok(Vec::new());
+            return Ok(Window::empty());
         }
         let Some(workspaces) = optional(self.root.open_child("workspaces"))? else {
-            return Ok(Vec::new());
+            return Ok(Window::empty());
         };
         let canonical = optional(workspaces.open_child(&self.layout.canonical))?;
         let legacy = self
@@ -136,7 +192,7 @@ impl MetadataReader {
             let b = tail::read(legacy.as_ref(), kind.file_name(), window)?;
             let exhausted = a.len() < window && b.len() < window;
             let mut rows = merged_order::merge(&a, &b);
-            rows.retain(|row| acl::visible(row, Some(ctx)));
+            rows.retain(|row| acl::visible(&row.metadata, Some(ctx)));
             if rows.len() >= limit || exhausted || window == tail::MAX_LINES {
                 self.root.assert_unchanged()?;
                 workspaces.assert_unchanged()?;
@@ -146,7 +202,11 @@ impl MetadataReader {
                 if let Some(dir) = &legacy {
                     dir.assert_unchanged()?;
                 }
-                return Ok(merged_order::select(rows, limit));
+                return Ok(Window {
+                    rows: merged_order::select(rows, limit),
+                    canonical,
+                    legacy,
+                });
             }
             window = (window * 4).min(tail::MAX_LINES);
         }

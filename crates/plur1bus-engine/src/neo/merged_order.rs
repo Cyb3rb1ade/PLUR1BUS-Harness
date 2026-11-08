@@ -4,7 +4,7 @@ use crate::text::{
     json::{parse_json, TolerantJsonValue as Json},
 };
 use std::collections::HashMap;
-fn field<'a>(value: &'a Json, name: &str) -> Option<&'a Json> {
+pub(super) fn field<'a>(value: &'a Json, name: &str) -> Option<&'a Json> {
     let Json::Object(fields) = value else {
         return None;
     };
@@ -20,7 +20,7 @@ fn truthy(value: &Json) -> bool {
         _ => true,
     }
 }
-fn string(value: &Json) -> JsString {
+pub(super) fn string(value: &Json) -> JsString {
     match value {
         Json::String(s) => s.clone(),
         Json::Array(items) => {
@@ -84,50 +84,69 @@ fn time(row: &Json, revision: bool) -> f64 {
         .find_map(|name| field(row, name).filter(|v| !matches!(v, Json::Null)))
         .map_or(f64::NEG_INFINITY, date)
 }
-pub(super) fn merge(canonical: &[String], legacy: &[String]) -> Vec<Json> {
-    let mut rows: Vec<Json> = Vec::new();
-    let mut ids = HashMap::new();
+pub(super) fn record_id(row: &Json) -> Option<JsString> {
+    field(row, "id")
+        .filter(|v| truthy(v))
+        .map(string)
+        .filter(|s| !s.is_empty())
+}
+pub(super) struct Sourced {
+    pub metadata: Json,
+    pub legacy: bool,
+}
+pub(super) fn merge(canonical: &[String], legacy: &[String]) -> Vec<Sourced> {
+    let mut rows: Vec<Sourced> = Vec::new();
+    let mut ids: HashMap<JsString, usize> = HashMap::new();
     let mut anonymous = Vec::new();
-    for line in legacy.iter().chain(canonical) {
+    for (line, from_legacy) in legacy
+        .iter()
+        .map(|v| (v, true))
+        .chain(canonical.iter().map(|v| (v, false)))
+    {
         let Ok(row) = parse_json(line) else {
             continue;
         };
         if !truthy(&row) {
             continue;
         }
-        let Some(id) = field(&row, "id")
-            .filter(|v| truthy(v))
-            .map(string)
-            .filter(|s| !s.is_empty())
-        else {
-            anonymous.push(row);
+        let Some(id) = record_id(&row) else {
+            anonymous.push(Sourced {
+                metadata: row,
+                legacy: from_legacy,
+            });
             continue;
         };
         if let Some(&index) = ids.get(&id) {
-            if time(&row, true) >= time(&rows[index], true) {
-                rows[index] = row;
+            if time(&row, true) >= time(&rows[index].metadata, true) {
+                rows[index] = Sourced {
+                    metadata: row,
+                    legacy: from_legacy,
+                };
             }
         } else {
             ids.insert(id, rows.len());
-            rows.push(row);
+            rows.push(Sourced {
+                metadata: row,
+                legacy: from_legacy,
+            });
         }
     }
     rows.extend(anonymous);
     rows.sort_by(|a, b| {
-        time(a, false)
-            .partial_cmp(&time(b, false))
+        time(&a.metadata, false)
+            .partial_cmp(&time(&b.metadata, false))
             .unwrap_or(std::cmp::Ordering::Equal)
     });
     rows
 }
-pub(super) fn select(rows: Vec<Json>, limit: usize) -> Vec<Json> {
+pub(super) fn select(rows: Vec<Sourced>, limit: usize) -> Vec<Sourced> {
     if rows.len() <= limit {
         return rows;
     }
     let mut indices: Vec<_> = (0..rows.len()).collect();
     indices.sort_by(|a, b| {
-        time(&rows[*a], true)
-            .partial_cmp(&time(&rows[*b], true))
+        time(&rows[*a].metadata, true)
+            .partial_cmp(&time(&rows[*b].metadata, true))
             .unwrap_or(std::cmp::Ordering::Equal)
             .then(a.cmp(b))
     });

@@ -3,3 +3,4 @@ pub mod acl;
 pub mod merged;
 mod merged_order;
 mod tail;
+mod vectors;

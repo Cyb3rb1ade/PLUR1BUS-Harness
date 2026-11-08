@@ -1,0 +1,893 @@
+{
+  "provenance": {
+    "commit": "b097045b6f115275baa8b15016321c3ba080c812",
+    "node": "v24.21.0",
+    "sourceHashes": {
+      "lib/neo-arch.js": "8c6b87d7669d9ae041b4c661bb7d9d24465a75e3ff22333af0c653e6e17e4950",
+      "lib/emotion.js": "4fad4d37803bbee8bf95a8d3db11b5e2fdc3b195d617055a8af63a0d52780c27",
+      "lib/emotion-engine.js": "b8d4e60b785c9d19809b7f2bfe67e6d2871dfb1b4699bd96b6ee666391372557",
+      "lib/emotion-score.js": "4f5aff9b4bb80e9673c2d1d0a748bd69f12979e11241f946e0b43e48a0df3573",
+      "lib/tier1-lexicon.js": "b4f0e03d727355e52806cda8761f4b38c3af3dc064a051f804ed99981b3d09f8",
+      "lib/tier2-transformer.js": "f928294f31e1cf5c69ffff8b3a8c98b42af8ccc4205877036895d35acc13a120",
+      "lib/tier3-llm.js": "7749de629deee9a0cc8cd01dc51cb7bbcc6e5a99256b5eb794abf0fd41ab0dc6",
+      "lib/host-network.js": "360b692df2f2c3dc9761cfe73ca5165da4b5416f8b7778b5ec79b1dd253aaf69",
+      "lib/emotion-blends.js": "653021f8048772dc6a2c1da0e60bfef08250bcd61aacf45ba1a9bf379fa7ca29",
+      "lib/abort.js": "435016008fa477f7ed7d3215505324bb3e7159e123ea553b35fb8a14d5a4055d",
+      "lib/relevant-memory-context.js": "021cb6e3e568915dbd12602f77ba924ac8c6f1cbc43fcb93cd8697156dca4c66",
+      "lib/memory-context-sanitize.js": "476528aa230fcda996245aa22efee376153ea4bc9a6287ce77da62c1a54e2377",
+      "lib/pattern-surface.js": "e65b2ec958b0564f44ae374579ee59f52f2c9b5be50e3a95e9bb33527b276b8b",
+      "lib/continuity-gate.js": "74b57c98d4631c9d6d34ecc2c744b02f2f430584e270671f60b3ecadc2de84b6",
+      "lib/recall-decision-trace.js": "cee6208fa0a91654adae11ccd17c3b44e86c84fdf9b30c1addfa1d299c96711d",
+      "lib/temporal-provenance.js": "b15da5a91b134fddd99a8ff2448999b9b9e8da3f069b05dd73a2c1ae3a89cc60",
+      "lib/prompt-memory-fields.js": "f20716b535734930677a4657ee62c01247679aa2ba2f0f6a3d7a6de62396bbda",
+      "lib/epistemic-status.js": "552a71f9616c8caa2151b54feadd3e6ab19a470218022027425b11ccaf967fec",
+      "lib/inject-budget.js": "5897fe0a629543e60997e4749f4692c841a8f21a66526c618d7ff3fc1f52d945",
+      "lib/safe-logging.js": "4a634fa3c4cce35d5c7cb29c7c2eb72378666ef400e79dc7869a4c50d2e2c0ac",
+      "lib/log-redact.js": "f64f7d2e2fbf13684ad16fe045a1e43a9755c57be00ee7532479286eed0068e3",
+      "lib/registry-lock.js": "718791a188344b396e72db33c908fb2ef3d71a67dc1ac29a3b2b882c7b76a4e9"
+    }
+  },
+  "cases": [
+    {
+      "name": "batch-offset-order",
+      "files": [
+        {
+          "source": "canonical",
+          "name": "memory-candidates.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000000}\n{\"id\":\"b\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000000}\n{\"id\":\"c\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000000}\n"
+        },
+        {
+          "source": "canonical",
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.7.f32\",\"entries\":{\"b\":{\"offset\":0,\"length\":12,\"dims\":3},\"a\":{\"offset\":12,\"length\":12,\"dims\":3},\"c\":{\"offset\":24,\"length\":12,\"dims\":3}}}"
+        },
+        {
+          "source": "canonical",
+          "name": "vectors.7.f32",
+          "bytes": [
+            0,
+            0,
+            16,
+            65,
+            0,
+            0,
+            0,
+            65,
+            0,
+            0,
+            224,
+            64,
+            205,
+            204,
+            204,
+            61,
+            205,
+            204,
+            76,
+            62,
+            154,
+            153,
+            153,
+            62,
+            0,
+            0,
+            128,
+            191,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            128,
+            63
+          ]
+        }
+      ],
+      "output": [
+        {
+          "metadata": {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000000
+          },
+          "embedding": [
+            0.10000000149011612,
+            0.20000000298023224,
+            0.30000001192092896
+          ]
+        },
+        {
+          "metadata": {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000000
+          },
+          "embedding": [
+            9,
+            8,
+            7
+          ]
+        },
+        {
+          "metadata": {
+            "id": "c",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000000
+          },
+          "embedding": [
+            -1,
+            0,
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "name": "false-id",
+      "files": [
+        {
+          "source": "canonical",
+          "name": "memory-candidates.jsonl",
+          "text": "{\"id\":0,\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000000}\n"
+        },
+        {
+          "source": "canonical",
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.7.f32\",\"entries\":{\"0\":{\"offset\":0,\"length\":12,\"dims\":3}}}"
+        },
+        {
+          "source": "canonical",
+          "name": "vectors.7.f32",
+          "bytes": [
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            64,
+            0,
+            0,
+            64,
+            64
+          ]
+        }
+      ],
+      "output": [
+        {
+          "metadata": {
+            "id": 0,
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000000
+          },
+          "embedding": null
+        }
+      ]
+    },
+    {
+      "name": "canonical",
+      "files": [
+        {
+          "source": "canonical",
+          "name": "memory-candidates.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000000}\n"
+        },
+        {
+          "source": "canonical",
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.7.f32\",\"entries\":{\"a\":{\"offset\":0,\"length\":12,\"dims\":3}}}"
+        },
+        {
+          "source": "canonical",
+          "name": "vectors.7.f32",
+          "bytes": [
+            205,
+            204,
+            204,
+            61,
+            0,
+            0,
+            0,
+            191,
+            0,
+            0,
+            64,
+            64
+          ]
+        }
+      ],
+      "output": [
+        {
+          "metadata": {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000000
+          },
+          "embedding": [
+            0.10000000149011612,
+            -0.5,
+            3
+          ]
+        }
+      ]
+    },
+    {
+      "name": "inline",
+      "files": [
+        {
+          "source": "canonical",
+          "name": "memory-candidates.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000000,\"embedding\":[0.1,0.2,0.3]}\n"
+        },
+        {
+          "source": "canonical",
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.7.f32\",\"entries\":{\"a\":{\"offset\":0,\"length\":12,\"dims\":3}}}"
+        },
+        {
+          "source": "canonical",
+          "name": "vectors.7.f32",
+          "bytes": [
+            0,
+            0,
+            16,
+            65,
+            0,
+            0,
+            16,
+            65,
+            0,
+            0,
+            16,
+            65
+          ]
+        }
+      ],
+      "output": [
+        {
+          "metadata": {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000000,
+            "embedding": [
+              0.1,
+              0.2,
+              0.3
+            ]
+          },
+          "embedding": [
+            0.1,
+            0.2,
+            0.3
+          ]
+        }
+      ]
+    },
+    {
+      "name": "inline-null",
+      "files": [
+        {
+          "source": "canonical",
+          "name": "memory-candidates.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000000,\"embedding\":null}\n"
+        },
+        {
+          "source": "canonical",
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.7.f32\",\"entries\":{\"a\":{\"offset\":0,\"length\":12,\"dims\":3}}}"
+        },
+        {
+          "source": "canonical",
+          "name": "vectors.7.f32",
+          "bytes": [
+            0,
+            0,
+            16,
+            65,
+            0,
+            0,
+            16,
+            65,
+            0,
+            0,
+            16,
+            65
+          ]
+        }
+      ],
+      "output": [
+        {
+          "metadata": {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000000,
+            "embedding": null
+          },
+          "embedding": null
+        }
+      ]
+    },
+    {
+      "name": "no-index",
+      "files": [
+        {
+          "source": "canonical",
+          "name": "memory-candidates.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000000}\n"
+        }
+      ],
+      "output": [
+        {
+          "metadata": {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000000
+          },
+          "embedding": null
+        }
+      ]
+    },
+    {
+      "name": "no-entry",
+      "files": [
+        {
+          "source": "canonical",
+          "name": "memory-candidates.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000000}\n"
+        },
+        {
+          "source": "canonical",
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.7.f32\",\"entries\":{\"other\":{\"offset\":0,\"length\":12,\"dims\":3}}}"
+        },
+        {
+          "source": "canonical",
+          "name": "vectors.7.f32",
+          "bytes": [
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            64,
+            0,
+            0,
+            64,
+            64
+          ]
+        }
+      ],
+      "output": [
+        {
+          "metadata": {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000000
+          },
+          "embedding": null
+        }
+      ]
+    },
+    {
+      "name": "foreign",
+      "files": [
+        {
+          "source": "canonical",
+          "name": "memory-candidates.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000000}\n"
+        },
+        {
+          "source": "canonical",
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.7.f32\",\"entries\":{\"a\":{\"offset\":0,\"length\":12,\"dims\":3}}}"
+        },
+        {
+          "source": "canonical",
+          "name": "vectors.7.f32",
+          "bytes": [
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            64,
+            0,
+            0,
+            64,
+            64
+          ]
+        }
+      ],
+      "output": []
+    },
+    {
+      "name": "legacy-origin",
+      "files": [
+        {
+          "source": "canonical",
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.7.f32\",\"entries\":{\"a\":{\"offset\":0,\"length\":12,\"dims\":3}}}"
+        },
+        {
+          "source": "canonical",
+          "name": "vectors.7.f32",
+          "bytes": [
+            0,
+            0,
+            16,
+            65,
+            0,
+            0,
+            16,
+            65,
+            0,
+            0,
+            16,
+            65
+          ]
+        },
+        {
+          "source": "legacy",
+          "name": "memory-candidates.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000000}\n"
+        },
+        {
+          "source": "legacy",
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.7.f32\",\"entries\":{\"a\":{\"offset\":0,\"length\":12,\"dims\":3}}}"
+        },
+        {
+          "source": "legacy",
+          "name": "vectors.7.f32",
+          "bytes": [
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            64,
+            0,
+            0,
+            64,
+            64
+          ]
+        }
+      ],
+      "output": [
+        {
+          "metadata": {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000000
+          },
+          "embedding": [
+            9,
+            9,
+            9
+          ]
+        }
+      ]
+    },
+    {
+      "name": "canonical-tie",
+      "files": [
+        {
+          "source": "canonical",
+          "name": "memory-candidates.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000000}\n"
+        },
+        {
+          "source": "canonical",
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.7.f32\",\"entries\":{\"a\":{\"offset\":0,\"length\":12,\"dims\":3}}}"
+        },
+        {
+          "source": "canonical",
+          "name": "vectors.7.f32",
+          "bytes": [
+            0,
+            0,
+            0,
+            64,
+            0,
+            0,
+            64,
+            64,
+            0,
+            0,
+            128,
+            64
+          ]
+        },
+        {
+          "source": "legacy",
+          "name": "memory-candidates.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000000}\n"
+        },
+        {
+          "source": "legacy",
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.7.f32\",\"entries\":{\"a\":{\"offset\":0,\"length\":12,\"dims\":3}}}"
+        },
+        {
+          "source": "legacy",
+          "name": "vectors.7.f32",
+          "bytes": [
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            64,
+            0,
+            0,
+            64,
+            64
+          ]
+        }
+      ],
+      "output": [
+        {
+          "metadata": {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000000
+          },
+          "embedding": [
+            2,
+            3,
+            4
+          ]
+        }
+      ]
+    },
+    {
+      "name": "legacy-newest",
+      "files": [
+        {
+          "source": "canonical",
+          "name": "memory-candidates.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000000}\n"
+        },
+        {
+          "source": "canonical",
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.7.f32\",\"entries\":{\"a\":{\"offset\":0,\"length\":12,\"dims\":3}}}"
+        },
+        {
+          "source": "canonical",
+          "name": "vectors.7.f32",
+          "bytes": [
+            0,
+            0,
+            0,
+            64,
+            0,
+            0,
+            64,
+            64,
+            0,
+            0,
+            128,
+            64
+          ]
+        },
+        {
+          "source": "legacy",
+          "name": "memory-candidates.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000000,\"updatedAt\":1700000000001}\n"
+        },
+        {
+          "source": "legacy",
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.7.f32\",\"entries\":{\"a\":{\"offset\":0,\"length\":12,\"dims\":3}}}"
+        },
+        {
+          "source": "legacy",
+          "name": "vectors.7.f32",
+          "bytes": [
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            64,
+            0,
+            0,
+            64,
+            64
+          ]
+        }
+      ],
+      "output": [
+        {
+          "metadata": {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000000,
+            "updatedAt": 1700000000001
+          },
+          "embedding": [
+            2,
+            3,
+            4
+          ]
+        }
+      ]
+    },
+    {
+      "name": "missing-file",
+      "files": [
+        {
+          "source": "canonical",
+          "name": "memory-candidates.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000000}\n"
+        },
+        {
+          "source": "canonical",
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.7.f32\",\"entries\":{\"a\":{\"offset\":0,\"length\":12,\"dims\":3}}}"
+        }
+      ],
+      "output": [
+        {
+          "metadata": {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000000
+          },
+          "embedding": null
+        }
+      ]
+    },
+    {
+      "name": "truncated",
+      "files": [
+        {
+          "source": "canonical",
+          "name": "memory-candidates.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000000}\n"
+        },
+        {
+          "source": "canonical",
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.7.f32\",\"entries\":{\"a\":{\"offset\":0,\"length\":12,\"dims\":3}}}"
+        },
+        {
+          "source": "canonical",
+          "name": "vectors.7.f32",
+          "bytes": [
+            0,
+            0,
+            128,
+            63
+          ]
+        }
+      ],
+      "output": [
+        {
+          "metadata": {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000000
+          },
+          "embedding": null
+        }
+      ]
+    },
+    {
+      "name": "non-finite",
+      "files": [
+        {
+          "source": "canonical",
+          "name": "memory-candidates.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000000}\n"
+        },
+        {
+          "source": "canonical",
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.7.f32\",\"entries\":{\"a\":{\"offset\":0,\"length\":12,\"dims\":3}}}"
+        },
+        {
+          "source": "canonical",
+          "name": "vectors.7.f32",
+          "bytes": [
+            0,
+            0,
+            192,
+            127,
+            0,
+            0,
+            128,
+            127,
+            0,
+            0,
+            128,
+            63
+          ]
+        }
+      ],
+      "output": [
+        {
+          "metadata": {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000000
+          },
+          "embedding": [
+            null,
+            null,
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "name": "invalid-index",
+      "files": [
+        {
+          "source": "canonical",
+          "name": "memory-candidates.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000000}\n"
+        },
+        {
+          "source": "canonical",
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.7.f32\",\"entries\":{\"a\":{\"offset\":-1,\"length\":12,\"dims\":3}}}"
+        },
+        {
+          "source": "canonical",
+          "name": "vectors.7.f32",
+          "bytes": [
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            64,
+            0,
+            0,
+            64,
+            64
+          ]
+        }
+      ],
+      "output": [
+        {
+          "metadata": {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000000
+          },
+          "embedding": null
+        }
+      ]
+    }
+  ]
+}
