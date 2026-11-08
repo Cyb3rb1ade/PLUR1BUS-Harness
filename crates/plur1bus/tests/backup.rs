@@ -169,6 +169,13 @@ fn old_home(home: &Path) {
     w("run/core.token", "SECRET-TOKEN");
     w("logs/supervisor.log", "log line");
     w("models/m.bin", "model");
+    // A previously used home has permanent writer lock files. Include their actual
+    // bytes in the unchanged rollback/refusal assertions, including the Core holder row.
+    w("run/supervisor.lock", "supervisor-lock-inode");
+    w("run/engine.process.lock", "engine-lock-inode");
+    let db = rusqlite::Connection::open(home.join("state/core.lock")).unwrap();
+    db.execute_batch("CREATE TABLE IF NOT EXISTS holder(pid INTEGER, instance TEXT, at INTEGER); DELETE FROM holder; INSERT INTO holder VALUES (1, 'previous-core', 42);")
+        .unwrap();
 }
 
 /// Every file (content) and directory below `root`, relative.

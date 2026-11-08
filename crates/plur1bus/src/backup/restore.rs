@@ -349,6 +349,10 @@ pub fn restore(
         return Ok(report);
     }
     ensure_quiescent(layout)?;
+    // Keep all writer fences through extraction, swapping and any rollback. A one-time
+    // socket probe cannot exclude a core/import/engine starting immediately afterwards.
+    let _writers = super::writer_guard::WriterGuard::acquire(layout)?;
+    ensure_quiescent(layout)?;
 
     let id = format!("{}-{}", utc_stamp(now_ms()), short_id());
     let staging = home.join(format!(".restore-{id}"));

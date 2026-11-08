@@ -5599,6 +5599,7 @@ dependencies = [
  "regex",
  "reqwest",
  "roxmltree",
+ "rusqlite",
  "ruzstd",
  "semver",
  "serde",

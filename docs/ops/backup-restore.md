@@ -115,6 +115,18 @@ Restore ersetzt oder entfernt die im Plan aufgeführten Einheiten. Der Core und 
 gestoppt sein. `restore` prüft das Archiv vor dem Anwenden und bewahrt ersetzte Daten unter
 `<home>/backups/pre-restore-<id>/` auf. Bei einem Fehler wird der vorherige Zustand zurückgesetzt.
 
+Während Entpacken, Austausch und einem möglichen Rollback hält Restore die vorhandenen Writer-Sperren:
+`state/core.lock` für Core und Import sowie `run/supervisor.lock` und `run/engine.process.lock` für die Rust-Prozesse.
+Dadurch kann auch nach der ersten Prüfung kein solcher Writer dazwischen starten. Eine belegte Sperre führt zu
+`E_LOCKED` mit `reason=core-running`; Holder-Zeilen, Engine-Nonces und PID-Dateien bleiben unverändert.
+In einem frischen Home entstehen drei leere Lock-Dateien. Sie bleiben nach dem Vorgang bestehen, damit jeder
+spätere Prozess dieselbe Datei sperrt. Ein Prozessabbruch gibt die gehaltenen Betriebssystem-Sperren frei.
+
+Der abgeleitete LLM-Ergebnis-Cache unter `store/llm-result-cache-v1` ist kein Bestandteil neuer Archive.
+Bei älteren Archiven werden seine Dateien weiterhin auf Größe und Prüfsumme geprüft, aber nicht wiederhergestellt.
+Gleichnamige Dateien in Agenten-Workspaces sind davon nicht betroffen. Ein Dry-run oder abgelehnter Restore leert
+den aktuellen Cache nicht; nach erfolgreichem Austausch liegt der bisherige Cache nur noch im Pre-Restore-Verzeichnis.
+
 1. Supervisor und Core stoppen:
 
    ```sh
