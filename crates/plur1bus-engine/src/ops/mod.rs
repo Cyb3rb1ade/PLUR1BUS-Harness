@@ -48,3 +48,6 @@ pub mod adopt;
 
 /// Explicit audited schema-marker migration through a Core-link maintenance grant.
 pub mod migrate;
+
+/// Shared C7 validation, TTL and query-forget decisions for native adapters.
+pub mod memory_guards;

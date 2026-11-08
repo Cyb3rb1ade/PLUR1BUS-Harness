@@ -52,6 +52,18 @@ pub fn is_core_memory(row: &Json) -> bool {
         || matches!(get(row, "neverForget"), Some(Json::Number(n)) if n.parse::<f64>() == Ok(1.0))
 }
 
+/// Merge expiry preserves permanence (zero, absent or non-finite); otherwise the later expiry wins.
+/// Both the capture merge and explicit store adapters use this C7 rule.
+pub fn merged_expires_at(candidate: Option<&Json>, incoming: Option<&Json>) -> f64 {
+    let a = number(candidate);
+    let b = number(incoming);
+    if !a.is_finite() || a <= 0. || !b.is_finite() || b <= 0. {
+        0.
+    } else {
+        a.max(b)
+    }
+}
+
 /// Exponential forgetting after the first valid dynamics/strengthening/creation timestamp.
 #[must_use]
 pub fn compute_decayed_strength(row: &Json, now: f64) -> f64 {

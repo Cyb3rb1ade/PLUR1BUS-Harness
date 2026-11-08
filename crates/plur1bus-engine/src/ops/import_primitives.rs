@@ -134,7 +134,7 @@ fn number_string(value: f64) -> String {
     ryu_js::Buffer::new().format(value).to_owned()
 }
 
-fn string(value: &Json) -> JsString {
+pub(super) fn string(value: &Json) -> JsString {
     match value {
         Json::Null => "null".into(),
         Json::Bool(true) => "true".into(),
