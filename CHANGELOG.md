@@ -8,6 +8,19 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 
 ### Added
 
+- **Rust core front door, opt-in (Phase 4 P4-10, RPC 1.25.0).** `core.impl: "rust"` (advanced; `PLUR1BUS_CORE_IMPL` for
+  tests) runs `plur1bus-core`, which owns `run/core.sock`, the token, the run files and `state/core.lock` and relays every
+  call it does not serve yet to the TypeScript core running behind it as `core-legacy`. The default stays `ts`. `rust`
+  needs a developer build until the flip: `plur1bus-core` is not shipped yet, so `config set core.impl rust` is refused
+  with `core-binary-missing` while no binary is found, and `plur1bus config set core.impl ts` goes back. RPC 1.25.0 adds
+  the server value `bridge` and `bridge.hello` (experimental and deprecated from the start: the bridge goes with the legacy
+  core in P4-90). New error reasons: `front-door-link`, `bridge-principal`, `front-door-id`, `route-table-drift` and
+  `core-binary-missing` (`docs/errors.md`). Known differences from the TypeScript core are kept in
+  `docs/phase4/defects.md`.
+
+- **Team runs (RPC 1.24.0, #900).** Experimental `team.*` core methods (create, plan approval, scope, pause/resume/cancel,
+  package and budget settings) and the tools-service checks `tools.team.check|diffcheck|impact|next`.
+
 - **Three bundled skills for planning and research.** `project-kickoff` starts a project or a larger work package with the
   Disney strategy and backcasting: bound decisions first, a target with success signs, milestones including a verification
   step, a first order card, risks and bundled owner decisions. `quick-research` answers a factual or current question
@@ -137,6 +150,12 @@ All notable user-visible changes to the PLUR1BUS Harness are documented here. Th
 - **#193:** Added cache-aware prompt layout metadata and cache-usage telemetry.
 
 ### Changed
+
+- **The stock core, the import and `backup restore` also take `run/core-legacy.lock` (P4-10).** Besides `state/core.lock`
+  they take the legacy core's lock, without waiting, and refuse while it is held (`E_LOCKED core-lock-held`,
+  `target-running`, `E_LOCKED core-running`), so none of them starts beside a legacy core that is still stopping after
+  its front door died. A home that never ran `core.impl: "rust"` behaves as before. `backup restore` says to stop the
+  daemon or `core run` first and to start no core until it has finished (`docs/phase4/defects.md` P4D-5).
 
 - **Channel uploads have bounded, private storage.** Generated outputs and uploads share a 1 GiB quota and 30-day
   retention. Private direct-message uploads require their owning person in addition to agent rights. Missing ffmpeg
