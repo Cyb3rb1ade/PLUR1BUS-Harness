@@ -15,8 +15,12 @@ Run with Node **24.21.0** and `PLUR1BUS_ENGINE_SRC` pointing at that read-only s
 | `record-shares.mjs` | 29 share/read cases: legacy and identity-bound targets, missing/wrong provider, wrong dimensions, sensitivity, ACL and source changes |
 | `record-shared-mutations.mjs` | 14 retract/refresh cases, full archives, audit and partial-failure recovery IDs |
 | `record-proposals.mjs` | 20 filing/list/accept/reject cases, durable files, stale copies, scope isolation and host events |
+| `record-workspace-policy.mjs` | 27 canonical tuple, compare-and-set, persisted-state and explicit/automatic guard cases |
+| `record-import-primitives.mjs` | C3: 21 deterministic UUIDs, 42 group digests, 7 durable ledger/index cases; `import-sources.json` binds the three source files |
 
 `shared-store-node` contains only one synthetic shared card. Tests open the committed fixture read-only; writable legacy tests copy it to a temporary directory and remove the copied row there. The committed fixture is never mutated by tests.
+
+Import digest inputs are stored as Node-produced `rowJson` strings. Tests parse those directly with the tolerant reader: an intermediate `serde_json::Value` parse can round a large fractional number before the digest sees it and cannot preserve lone UTF-16 surrogates. The digests use ECMAScript number spelling, six-decimal rounding and ordered field projections. Retrieval counters and vectors are deliberately excluded. Import-ledger tests retain unknown fields on read, verify unimport/reimport key reclamation, and distinguish unreadable ledgers from empty ones.
 
 Parity exceptions are separate, SHA-bound records; ordinary Node outputs remain unchanged:
 

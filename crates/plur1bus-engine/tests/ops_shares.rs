@@ -978,7 +978,7 @@ fn proposal_oracles_preserve_pool_acl_staleness_events_and_durable_resolution() 
             );
             let original_file = original_file.trim_end();
             let opaque = format!(
-                "{},\"opaque\":\"\\ud800\"}}",
+                "{},\"status\":\"pending\",\"opaque\":\"\\ud800\"}}",
                 &original_file[..original_file.len() - 1]
             );
             std::fs::write(&path, opaque).unwrap();

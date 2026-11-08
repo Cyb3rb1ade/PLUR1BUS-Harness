@@ -71,6 +71,10 @@ ort = { version = "=2.0.0-rc.14", default-features = false, features = ["load-dy
 # Sensitive header flags still protect the remaining Debug request diagnostics.
 log = { version = "0.4", features = ["max_level_debug"] }
 sha2 = "0.10"
+# Node import UUID v5 uses SHA-1; this version is already in the locked Lance closure.
+sha1 = "0.11"
+# Exact ECMAScript number spelling for persisted import digest compatibility.
+ryu-js = "=0.2.2"
 # One HTTP client policy in the workspace: the same version and features as crates/plur1bus (rustls, no native-tls).
 ureq = { version = "3", default-features = false, features = ["rustls", "platform-verifier"] }
 # Reuse the locked socket API for cancellation of ureq connections; this adds no HTTP/TLS stack.

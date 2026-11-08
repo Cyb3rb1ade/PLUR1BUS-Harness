@@ -1,0 +1,1154 @@
+{
+  "recordedFrom": {
+    "source": {
+      "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+      "treeSha256": "7def6824293d4cfb5f405ecbde1e5ac4e8ab83c9358e9f4d68bb7d428445781d"
+    },
+    "node": "v24.21.0"
+  },
+  "now": 1800000000000,
+  "cases": [
+    {
+      "name": "default",
+      "ops": [
+        {
+          "kind": "get",
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture"
+          }
+        },
+        {
+          "kind": "list"
+        }
+      ],
+      "initialState": null,
+      "results": [
+        {
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": true,
+            "revision": 0,
+            "source": "default"
+          }
+        },
+        {
+          "value": []
+        }
+      ],
+      "invalidations": [],
+      "state": null
+    },
+    {
+      "name": "disable-enable",
+      "ops": [
+        {
+          "kind": "set",
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "expectedRevision": 0,
+            "actorId": "user:v1:fixture"
+          }
+        },
+        {
+          "kind": "get",
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture"
+          }
+        },
+        {
+          "kind": "set",
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": true,
+            "expectedRevision": 1,
+            "actorId": "user:v1:fixture"
+          }
+        },
+        {
+          "kind": "list"
+        }
+      ],
+      "initialState": null,
+      "results": [
+        {
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "revision": 1,
+            "updatedAt": 1800000000000,
+            "actorId": "user:v1:fixture",
+            "source": "override"
+          }
+        },
+        {
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "revision": 1,
+            "updatedAt": 1800000000000,
+            "actorId": "user:v1:fixture",
+            "source": "override"
+          }
+        },
+        {
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": true,
+            "revision": 2,
+            "updatedAt": 1800000000000,
+            "actorId": "user:v1:fixture",
+            "source": "override"
+          }
+        },
+        {
+          "value": [
+            {
+              "agentId": "agent",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "enabled": true,
+              "revision": 2,
+              "updatedAt": 1800000000000,
+              "actorId": "user:v1:fixture",
+              "source": "override"
+            }
+          ]
+        }
+      ],
+      "invalidations": [],
+      "state": {
+        "schemaVersion": 1,
+        "revision": 2,
+        "policies": {
+          "agent\u0000workspace:v1:fixture": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": true,
+            "revision": 2,
+            "updatedAt": 1800000000000,
+            "actorId": "user:v1:fixture"
+          }
+        }
+      }
+    },
+    {
+      "name": "revision-conflict",
+      "ops": [
+        {
+          "kind": "set",
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "expectedRevision": 0,
+            "actorId": "user:v1:fixture"
+          }
+        },
+        {
+          "kind": "set",
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "expectedRevision": 0,
+            "actorId": "user:v1:fixture"
+          }
+        },
+        {
+          "kind": "get",
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture"
+          }
+        }
+      ],
+      "initialState": null,
+      "results": [
+        {
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "revision": 1,
+            "updatedAt": 1800000000000,
+            "actorId": "user:v1:fixture",
+            "source": "override"
+          }
+        },
+        {
+          "error": "workspace_policy_revision_conflict",
+          "current": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "revision": 1,
+            "updatedAt": 1800000000000,
+            "actorId": "user:v1:fixture",
+            "source": "override"
+          }
+        },
+        {
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "revision": 1,
+            "updatedAt": 1800000000000,
+            "actorId": "user:v1:fixture",
+            "source": "override"
+          }
+        }
+      ],
+      "invalidations": [],
+      "state": {
+        "schemaVersion": 1,
+        "revision": 1,
+        "policies": {
+          "agent\u0000workspace:v1:fixture": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "revision": 1,
+            "updatedAt": 1800000000000,
+            "actorId": "user:v1:fixture"
+          }
+        }
+      }
+    },
+    {
+      "name": "independent-tuples",
+      "ops": [
+        {
+          "kind": "set",
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "expectedRevision": 0,
+            "actorId": "user:v1:fixture"
+          }
+        },
+        {
+          "kind": "set",
+          "value": {
+            "agentId": "Agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "expectedRevision": 0,
+            "actorId": "user:v1:fixture"
+          }
+        },
+        {
+          "kind": "set",
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:other",
+            "enabled": false,
+            "expectedRevision": 0,
+            "actorId": "user:v1:fixture"
+          }
+        },
+        {
+          "kind": "list"
+        }
+      ],
+      "initialState": null,
+      "results": [
+        {
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "revision": 1,
+            "updatedAt": 1800000000000,
+            "actorId": "user:v1:fixture",
+            "source": "override"
+          }
+        },
+        {
+          "value": {
+            "agentId": "Agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "revision": 1,
+            "updatedAt": 1800000000000,
+            "actorId": "user:v1:fixture",
+            "source": "override"
+          }
+        },
+        {
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:other",
+            "enabled": false,
+            "revision": 1,
+            "updatedAt": 1800000000000,
+            "actorId": "user:v1:fixture",
+            "source": "override"
+          }
+        },
+        {
+          "value": [
+            {
+              "agentId": "agent",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "enabled": false,
+              "revision": 1,
+              "updatedAt": 1800000000000,
+              "actorId": "user:v1:fixture",
+              "source": "override"
+            },
+            {
+              "agentId": "Agent",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "enabled": false,
+              "revision": 1,
+              "updatedAt": 1800000000000,
+              "actorId": "user:v1:fixture",
+              "source": "override"
+            },
+            {
+              "agentId": "agent",
+              "workspaceIdentity": "workspace:v1:other",
+              "enabled": false,
+              "revision": 1,
+              "updatedAt": 1800000000000,
+              "actorId": "user:v1:fixture",
+              "source": "override"
+            }
+          ]
+        }
+      ],
+      "invalidations": [],
+      "state": {
+        "schemaVersion": 1,
+        "revision": 3,
+        "policies": {
+          "agent\u0000workspace:v1:fixture": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "revision": 1,
+            "updatedAt": 1800000000000,
+            "actorId": "user:v1:fixture"
+          },
+          "Agent\u0000workspace:v1:fixture": {
+            "agentId": "Agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "revision": 1,
+            "updatedAt": 1800000000000,
+            "actorId": "user:v1:fixture"
+          },
+          "agent\u0000workspace:v1:other": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:other",
+            "enabled": false,
+            "revision": 1,
+            "updatedAt": 1800000000000,
+            "actorId": "user:v1:fixture"
+          }
+        }
+      }
+    },
+    {
+      "name": "canonical-bare",
+      "ops": [
+        {
+          "kind": "set",
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "  fixture ",
+            "enabled": false,
+            "expectedRevision": 0,
+            "actorId": "  actor  "
+          }
+        },
+        {
+          "kind": "get",
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture"
+          }
+        }
+      ],
+      "initialState": null,
+      "results": [
+        {
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "revision": 1,
+            "updatedAt": 1800000000000,
+            "actorId": "actor",
+            "source": "override"
+          }
+        },
+        {
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "revision": 1,
+            "updatedAt": 1800000000000,
+            "actorId": "actor",
+            "source": "override"
+          }
+        }
+      ],
+      "invalidations": [],
+      "state": {
+        "schemaVersion": 1,
+        "revision": 1,
+        "policies": {
+          "agent\u0000workspace:v1:fixture": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "revision": 1,
+            "updatedAt": 1800000000000,
+            "actorId": "actor"
+          }
+        }
+      }
+    },
+    {
+      "name": "invalid-agent",
+      "ops": [
+        {
+          "kind": "set",
+          "value": {
+            "agentId": "../bad",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "expectedRevision": 0,
+            "actorId": "user:v1:fixture"
+          }
+        },
+        {
+          "kind": "list"
+        }
+      ],
+      "initialState": null,
+      "results": [
+        {
+          "error": "invalid"
+        },
+        {
+          "value": []
+        }
+      ],
+      "invalidations": [],
+      "state": null
+    },
+    {
+      "name": "invalid-agent-dot",
+      "ops": [
+        {
+          "kind": "set",
+          "value": {
+            "agentId": "a.b",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "expectedRevision": 0,
+            "actorId": "user:v1:fixture"
+          }
+        },
+        {
+          "kind": "list"
+        }
+      ],
+      "initialState": null,
+      "results": [
+        {
+          "error": "invalid"
+        },
+        {
+          "value": []
+        }
+      ],
+      "invalidations": [],
+      "state": null
+    },
+    {
+      "name": "invalid-agent-long",
+      "ops": [
+        {
+          "kind": "set",
+          "value": {
+            "agentId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "expectedRevision": 0,
+            "actorId": "user:v1:fixture"
+          }
+        },
+        {
+          "kind": "list"
+        }
+      ],
+      "initialState": null,
+      "results": [
+        {
+          "error": "invalid"
+        },
+        {
+          "value": []
+        }
+      ],
+      "invalidations": [],
+      "state": null
+    },
+    {
+      "name": "leading-underscore",
+      "ops": [
+        {
+          "kind": "set",
+          "value": {
+            "agentId": "_agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "expectedRevision": 0,
+            "actorId": "user:v1:fixture"
+          }
+        },
+        {
+          "kind": "list"
+        }
+      ],
+      "initialState": null,
+      "results": [
+        {
+          "value": {
+            "agentId": "_agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "revision": 1,
+            "updatedAt": 1800000000000,
+            "actorId": "user:v1:fixture",
+            "source": "override"
+          }
+        },
+        {
+          "value": [
+            {
+              "agentId": "_agent",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "enabled": false,
+              "revision": 1,
+              "updatedAt": 1800000000000,
+              "actorId": "user:v1:fixture",
+              "source": "override"
+            }
+          ]
+        }
+      ],
+      "invalidations": [],
+      "state": {
+        "schemaVersion": 1,
+        "revision": 1,
+        "policies": {
+          "_agent\u0000workspace:v1:fixture": {
+            "agentId": "_agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "revision": 1,
+            "updatedAt": 1800000000000,
+            "actorId": "user:v1:fixture"
+          }
+        }
+      }
+    },
+    {
+      "name": "nested-workspace",
+      "ops": [
+        {
+          "kind": "set",
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:workspace:v1:bad",
+            "enabled": false,
+            "expectedRevision": 0,
+            "actorId": "user:v1:fixture"
+          }
+        },
+        {
+          "kind": "list"
+        }
+      ],
+      "initialState": null,
+      "results": [
+        {
+          "error": "invalid"
+        },
+        {
+          "value": []
+        }
+      ],
+      "invalidations": [],
+      "state": null
+    },
+    {
+      "name": "invalid-prefix",
+      "ops": [
+        {
+          "kind": "set",
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v2:bad",
+            "enabled": false,
+            "expectedRevision": 0,
+            "actorId": "user:v1:fixture"
+          }
+        },
+        {
+          "kind": "list"
+        }
+      ],
+      "initialState": null,
+      "results": [
+        {
+          "error": "invalid"
+        },
+        {
+          "value": []
+        }
+      ],
+      "invalidations": [],
+      "state": null
+    },
+    {
+      "name": "missing-actor",
+      "ops": [
+        {
+          "kind": "set",
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "expectedRevision": 0,
+            "actorId": ""
+          }
+        },
+        {
+          "kind": "list"
+        }
+      ],
+      "initialState": null,
+      "results": [
+        {
+          "error": "invalid"
+        },
+        {
+          "value": []
+        }
+      ],
+      "invalidations": [],
+      "state": null
+    },
+    {
+      "name": "long-actor",
+      "ops": [
+        {
+          "kind": "set",
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "expectedRevision": 0,
+            "actorId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        },
+        {
+          "kind": "list"
+        }
+      ],
+      "initialState": null,
+      "results": [
+        {
+          "error": "invalid"
+        },
+        {
+          "value": []
+        }
+      ],
+      "invalidations": [],
+      "state": null
+    },
+    {
+      "name": "fractional-revision",
+      "ops": [
+        {
+          "kind": "set",
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "expectedRevision": 0.5,
+            "actorId": "user:v1:fixture"
+          }
+        },
+        {
+          "kind": "list"
+        }
+      ],
+      "initialState": null,
+      "results": [
+        {
+          "error": "invalid"
+        },
+        {
+          "value": []
+        }
+      ],
+      "invalidations": [],
+      "state": null
+    },
+    {
+      "name": "negative-revision",
+      "ops": [
+        {
+          "kind": "set",
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "expectedRevision": -1,
+            "actorId": "user:v1:fixture"
+          }
+        },
+        {
+          "kind": "list"
+        }
+      ],
+      "initialState": null,
+      "results": [
+        {
+          "error": "invalid"
+        },
+        {
+          "value": []
+        }
+      ],
+      "invalidations": [],
+      "state": null
+    },
+    {
+      "name": "unsafe-revision",
+      "ops": [
+        {
+          "kind": "set",
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "expectedRevision": 9007199254740992,
+            "actorId": "user:v1:fixture"
+          }
+        },
+        {
+          "kind": "list"
+        }
+      ],
+      "initialState": null,
+      "results": [
+        {
+          "error": "invalid"
+        },
+        {
+          "value": []
+        }
+      ],
+      "invalidations": [],
+      "state": null
+    },
+    {
+      "name": "invalid-enabled",
+      "ops": [
+        {
+          "kind": "set",
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": "false",
+            "expectedRevision": 0,
+            "actorId": "user:v1:fixture"
+          }
+        },
+        {
+          "kind": "list"
+        }
+      ],
+      "initialState": null,
+      "results": [
+        {
+          "error": "invalid"
+        },
+        {
+          "value": []
+        }
+      ],
+      "invalidations": [],
+      "state": null
+    },
+    {
+      "name": "unknown-input-ignored",
+      "ops": [
+        {
+          "kind": "set",
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "expectedRevision": 0,
+            "actorId": "user:v1:fixture",
+            "unrelated": true
+          }
+        }
+      ],
+      "initialState": null,
+      "results": [
+        {
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "revision": 1,
+            "updatedAt": 1800000000000,
+            "actorId": "user:v1:fixture",
+            "source": "override"
+          }
+        }
+      ],
+      "invalidations": [],
+      "state": {
+        "schemaVersion": 1,
+        "revision": 1,
+        "policies": {
+          "agent\u0000workspace:v1:fixture": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "revision": 1,
+            "updatedAt": 1800000000000,
+            "actorId": "user:v1:fixture"
+          }
+        }
+      }
+    },
+    {
+      "name": "corrupt-json",
+      "raw": "{invalid",
+      "ops": [
+        {
+          "kind": "get",
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture"
+          }
+        },
+        {
+          "kind": "set",
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "expectedRevision": 0,
+            "actorId": "user:v1:fixture"
+          }
+        },
+        {
+          "kind": "list"
+        }
+      ],
+      "initialState": null,
+      "results": [
+        {
+          "error": "workspace_policy_state_invalid"
+        },
+        {
+          "error": "workspace_policy_state_invalid"
+        },
+        {
+          "error": "workspace_policy_state_invalid"
+        }
+      ],
+      "invalidations": [],
+      "state": {
+        "raw": "{invalid"
+      }
+    },
+    {
+      "name": "unknown-state-field",
+      "state": {
+        "schemaVersion": 1,
+        "revision": 0,
+        "policies": {},
+        "unknown": true
+      },
+      "ops": [
+        {
+          "kind": "list"
+        }
+      ],
+      "initialState": {
+        "schemaVersion": 1,
+        "revision": 0,
+        "policies": {},
+        "unknown": true
+      },
+      "results": [
+        {
+          "error": "workspace_policy_state_invalid"
+        }
+      ],
+      "invalidations": []
+    },
+    {
+      "name": "future-schema",
+      "state": {
+        "schemaVersion": 2,
+        "revision": 0,
+        "policies": {}
+      },
+      "ops": [
+        {
+          "kind": "list"
+        }
+      ],
+      "initialState": {
+        "schemaVersion": 2,
+        "revision": 0,
+        "policies": {}
+      },
+      "results": [
+        {
+          "error": "workspace_policy_state_invalid"
+        }
+      ],
+      "invalidations": []
+    },
+    {
+      "name": "mismatched-record-key",
+      "state": {
+        "schemaVersion": 1,
+        "revision": 1,
+        "policies": {
+          "wrong": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": true,
+            "revision": 1,
+            "updatedAt": 1800000000000,
+            "actorId": "actor"
+          }
+        }
+      },
+      "ops": [
+        {
+          "kind": "list"
+        }
+      ],
+      "initialState": {
+        "schemaVersion": 1,
+        "revision": 1,
+        "policies": {
+          "wrong": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": true,
+            "revision": 1,
+            "updatedAt": 1800000000000,
+            "actorId": "actor"
+          }
+        }
+      },
+      "results": [
+        {
+          "error": "workspace_policy_state_invalid"
+        }
+      ],
+      "invalidations": []
+    },
+    {
+      "name": "guard-default",
+      "guard": true,
+      "initialState": null,
+      "results": [
+        {
+          "value": {
+            "allowed": true,
+            "policy": {
+              "agentId": "agent",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "enabled": true,
+              "revision": 0,
+              "source": "default"
+            }
+          }
+        },
+        {
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": true,
+            "revision": 0,
+            "source": "default"
+          }
+        },
+        {
+          "value": {
+            "allowed": true
+          }
+        }
+      ],
+      "invalidations": [],
+      "state": null
+    },
+    {
+      "name": "guard-disabled",
+      "guard": true,
+      "disable": true,
+      "initialState": null,
+      "results": [
+        {
+          "value": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "revision": 1,
+            "updatedAt": 1800000000000,
+            "actorId": "actor",
+            "source": "override"
+          }
+        },
+        {
+          "value": {
+            "allowed": false,
+            "policy": {
+              "agentId": "agent",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "enabled": false,
+              "revision": 1,
+              "updatedAt": 1800000000000,
+              "actorId": "actor",
+              "source": "override"
+            }
+          }
+        },
+        {
+          "error": "workspace_disabled"
+        },
+        {
+          "value": {
+            "allowed": false,
+            "reason": "workspace_disabled"
+          }
+        }
+      ],
+      "invalidations": [
+        {
+          "agentId": "agent",
+          "workspaceIdentity": "workspace:v1:fixture"
+        }
+      ],
+      "state": {
+        "schemaVersion": 1,
+        "revision": 1,
+        "policies": {
+          "agent\u0000workspace:v1:fixture": {
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "enabled": false,
+            "revision": 1,
+            "updatedAt": 1800000000000,
+            "actorId": "actor"
+          }
+        }
+      }
+    },
+    {
+      "name": "guard-maintenance",
+      "guard": true,
+      "maintenance": true,
+      "initialState": null,
+      "results": [
+        {
+          "value": {
+            "allowed": false,
+            "reason": "migration_switching",
+            "retryable": true,
+            "policy": null
+          }
+        },
+        {
+          "error": "migration_switching"
+        },
+        {
+          "value": {
+            "allowed": false,
+            "reason": "migration_switching",
+            "retryable": true
+          }
+        }
+      ],
+      "invalidations": [],
+      "state": null
+    },
+    {
+      "name": "guard-missing-identity",
+      "guard": true,
+      "missing": true,
+      "initialState": null,
+      "results": [
+        {
+          "error": "workspace_identity_required"
+        },
+        {
+          "error": "workspace_identity_required"
+        },
+        {
+          "value": {
+            "allowed": false,
+            "reason": "workspace_identity_required"
+          }
+        }
+      ],
+      "invalidations": [],
+      "state": null
+    },
+    {
+      "name": "guard-corrupt",
+      "guard": true,
+      "raw": "{invalid",
+      "initialState": null,
+      "results": [
+        {
+          "error": "workspace_policy_state_invalid"
+        },
+        {
+          "error": "workspace_policy_state_invalid"
+        },
+        {
+          "value": {
+            "allowed": false,
+            "reason": "workspace_policy_state_invalid"
+          }
+        }
+      ],
+      "invalidations": [],
+      "state": {
+        "raw": "{invalid"
+      }
+    }
+  ]
+}

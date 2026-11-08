@@ -35,6 +35,7 @@ fn archive_value(
     now: i64,
     content: &TolerantJsonValue,
 ) -> Result<PathBuf, EngineError> {
+    crate::context::safe_agent_id(agent).map_err(|_| error(MemoryOpErrorCode::Storage))?;
     let directory = state.join("memory/_archive").join(agent);
     secure_dir(&directory).map_err(|_| error(MemoryOpErrorCode::Storage))?;
     let timestamp = iso(now)?.replace([':', '.'], "-");

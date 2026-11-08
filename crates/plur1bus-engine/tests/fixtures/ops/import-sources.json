@@ -1,0 +1,8 @@
+{
+  "commit": "1f0daec472b72755d851712968157a89ca3a7687",
+  "sha256": {
+    "engine/memory-ops/import-id.js": "37f587155c8637f0ed392980628df783eb4e60977ba573ed87b2d931030d997e",
+    "engine/memory-ops/import-digest.js": "9539985949844db9968333cf6027fd7f393296d541cdffc95ae847abb2c5e00e",
+    "engine/memory-ops/import-ledger.js": "577b01f06b5dfc1a8cb880a707542adc4b5b4e75b7473b777987b864031d8c78"
+  }
+}

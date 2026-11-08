@@ -3,7 +3,9 @@ mod archive;
 pub mod context;
 pub mod correction;
 mod correction_dynamics;
+pub mod import_ledger;
 pub mod import_lock;
+pub mod import_primitives;
 mod json_fields;
 mod ledgers;
 /// Import source links without card mutation.
@@ -19,3 +21,6 @@ pub mod write;
 mod proposal_store;
 /// Durable shared-copy proposals and resolution.
 pub mod proposals;
+
+/// Durable workspace enablement and maintenance guards.
+pub mod workspace_policy;

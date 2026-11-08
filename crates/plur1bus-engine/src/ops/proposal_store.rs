@@ -67,7 +67,9 @@ impl Proposal {
         let encoded = parse_json(&value.to_string()).map_err(|_| storage())?;
         if let TolerantJsonValue::Object(fields) = &mut self.raw {
             let name = JsString::from_utf8_str(key);
-            if let Some((_, old)) = fields.iter_mut().find(|(field, _)| *field == name) {
+            // JSON.parse and projection use the last occurrence of a duplicate key.
+            // Updating an earlier occurrence could leave the effective status pending.
+            if let Some((_, old)) = fields.iter_mut().rev().find(|(field, _)| *field == name) {
                 *old = encoded;
             } else {
                 fields.push((name, encoded));
@@ -89,13 +91,9 @@ pub(super) struct ProposalStore {
     root: PathBuf,
 }
 fn agent_valid(id: &str) -> bool {
-    !id.is_empty()
-        && id.len() <= 128
-        && id.as_bytes()[0].is_ascii_alphanumeric()
-        && id
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b"._:-".contains(&b))
+    crate::context::safe_agent_id(id).is_ok()
 }
+
 impl ProposalStore {
     pub fn new(base: &Path) -> Result<Self, EngineError> {
         let root = base.parent().ok_or_else(storage)?.join("_proposals");
@@ -124,6 +122,9 @@ impl ProposalStore {
         .map_err(|_| storage())
     }
     pub fn get(&self, ctx: &RequestContext, id: &str) -> Result<Option<Proposal>, EngineError> {
+        if !agent_valid(ctx.agent_id.as_str()) {
+            return Ok(None);
+        }
         let raw = match StateFile::<TolerantJsonValue>::load(&self.path(ctx.agent_id.as_str(), id)?)
         {
             Ok(Some(raw)) => raw,
@@ -189,6 +190,9 @@ impl ProposalStore {
         status: Option<&str>,
         limit: usize,
     ) -> Result<Value, EngineError> {
+        if !agent_valid(ctx.agent_id.as_str()) {
+            return Err(storage());
+        }
         let entries = match std::fs::read_dir(&self.root) {
             Ok(entries) => entries,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
