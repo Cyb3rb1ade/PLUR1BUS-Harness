@@ -90,6 +90,8 @@ pub struct Legacy {
     pub lifeline: Option<ChildStdin>,
     /// What ties its life to this process; keep it until the legacy core is gone (dropping it on Windows kills it).
     pub binding: Binding,
+    /// `run/core-legacy.pid`, the record it writes of itself ([`forget_record`]).
+    pub record: PathBuf,
 }
 
 /// What ties the legacy core's life to the front door's at the OS level (P4-10 security review M4), so a hung legacy
@@ -199,6 +201,7 @@ pub fn start(
         instance,
         lifeline,
         binding,
+        record: spec.home.join("run").join("core-legacy.pid"),
     };
     loop {
         match rx.recv_timeout(Duration::from_millis(50)) {
@@ -215,10 +218,12 @@ pub fn start(
             Err(mpsc::RecvTimeoutError::Disconnected) => {
                 // stdout closed without a ready line: the process is exiting.
                 let status = legacy.child.wait().map_err(StartError::Spawn)?;
+                forget_record(&legacy.record, pid);
                 return Err(StartError::Exited(status));
             }
         }
         if let Ok(Some(status)) = legacy.child.try_wait() {
+            forget_record(&legacy.record, pid);
             return Err(StartError::Exited(status));
         }
         if stop() {
@@ -245,10 +250,25 @@ pub fn check_ready(line: &str, pid: u32, expected_address: &str) -> Result<(), S
 }
 
 impl Legacy {
-    /// Kills the process (SIGKILL / TerminateProcess) and reaps it.
+    /// Kills the process (SIGKILL / TerminateProcess), reaps it and removes its record.
     pub fn kill(&mut self) {
         let _ = self.child.kill();
         let _ = self.child.wait();
+        forget_record(&self.record, self.pid);
+    }
+}
+
+/// Removes `run/core-legacy.pid` (`record`) once the legacy core `pid` has been reaped, when the record still names it
+/// (security review L5). A legacy core that is killed, or crashes, cannot remove its own record, and one left behind
+/// carries the current instance until the next start: a process that later got its pid would match it. A record of
+/// another legacy core (the older one whose lock made this one exit 3) is left alone.
+pub fn forget_record(record: &Path, pid: u32) {
+    let names = std::fs::read_to_string(record)
+        .ok()
+        .and_then(|text| text.split_whitespace().next()?.parse::<u32>().ok())
+        == Some(pid);
+    if names {
+        let _ = std::fs::remove_file(record);
     }
 }
 

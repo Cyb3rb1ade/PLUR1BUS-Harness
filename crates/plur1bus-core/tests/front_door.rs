@@ -921,6 +921,12 @@ fn a_legacy_core_that_dies_ends_the_front_door() {
     assert!(c.closed(), "its link died with it");
     assert_eq!(d.wait(Duration::from_secs(10)), Some(1));
     assert!(!d.path("run/core.token").exists() && !d.path("run/core.sock").exists());
+    // Security review L5: a killed legacy core cannot remove its record; the front door that reaped it does, so no
+    // stale record of the current instance is left for a reused pid to match.
+    assert!(
+        !d.path("run/core-legacy.pid").exists(),
+        "the reaped legacy core's record is gone"
+    );
 }
 
 fn a_client_whose_link_cannot_open_sees_the_core_go_away() {

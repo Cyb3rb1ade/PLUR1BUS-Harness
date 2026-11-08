@@ -233,6 +233,11 @@ impl Runtime {
     /// Phase 4 (P4-10): with `core.impl: "rust"`, `run/core.pid` names the front door (`plur1bus-core`), and the
     /// TypeScript core behind it, which is the one that connects here, records itself in `run/core-legacy.pid` with the
     /// front door's instance id. That process counts as the core; a record of another instance or process does not.
+    ///
+    /// The record is also bound to the front door (security review L5): a record a killed legacy core left behind
+    /// carries the current instance until the next start, so a process that later got its pid would match it. Where the
+    /// OS reports a process's parent (Linux, macOS), the peer must be the child of the front door `run/core.pid` names;
+    /// elsewhere (Windows) the record must be at least as fresh as `run/core.pid`.
     fn is_legacy_core(&self, peer: u32, identity: &CoreIdentity) -> bool {
         let Ok(recorded) = files::read_private(&self.home.join("run/core-legacy.pid")) else {
             return false;
@@ -240,7 +245,25 @@ impl Runtime {
         let mut fields = recorded.split_whitespace();
         let pid = fields.next().and_then(|value| value.parse::<u32>().ok());
         let instance = fields.next();
-        fields.next().is_none() && pid == Some(peer) && instance == Some(identity.instance.as_str())
+        fields.next().is_none()
+            && pid == Some(peer)
+            && instance == Some(identity.instance.as_str())
+            && self.bound_to_front_door(peer, identity)
+    }
+
+    fn bound_to_front_door(&self, peer: u32, identity: &CoreIdentity) -> bool {
+        if let Some(parent) = plur1bus_rpc::process::parent_pid(peer) {
+            return parent == identity.pid;
+        }
+        let modified = |name: &str| {
+            fs::metadata(self.home.join(name))
+                .and_then(|m| m.modified())
+                .ok()
+        };
+        matches!(
+            (modified("run/core-legacy.pid"), modified("run/core.pid")),
+            (Some(legacy), Some(core)) if legacy >= core
+        )
     }
 
     fn authorize_core(
@@ -940,13 +963,34 @@ mod panic_boundary_tests {
     fn behind_the_front_door_only_the_legacy_core_of_the_same_instance_is_the_core() {
         let me = std::process::id();
         let instance = uuid::Uuid::new_v4();
-        // `run/core.pid` names the Phase 4 front door, not this process; this process is the legacy core behind it.
-        let front_door = format!("{} {instance}\n", me.wrapping_add(1).max(1));
+        // `run/core.pid` names the Phase 4 front door, not this process; this process is the legacy core behind it, so the
+        // front door is its parent where the OS reports parents (security review L5). Windows checks freshness instead.
+        #[cfg(unix)]
+        let parent = std::os::unix::process::parent_id();
+        #[cfg(not(unix))]
+        let parent = me.wrapping_add(1).max(1);
+        let front_door = format!("{parent} {instance}\n");
         let refused = |v: Value| v["error"]["data"]["reason"] == "tools-core-identity";
         let legacy = Running::start_with(&front_door, Some(&format!("{me} {instance}\n")));
         assert!(
             hello(&legacy)["result"].is_object(),
             "the legacy core of this instance"
+        );
+        // Security review L5: a stale record of the current instance whose pid is now another process (the front door
+        // named in run/core.pid is not its parent, and the record is older than run/core.pid) is no core.
+        let stale = Running::start_with(
+            &format!("{} {instance}\n", parent.wrapping_add(7).max(2)),
+            Some(&format!("{me} {instance}\n")),
+        );
+        File::options()
+            .write(true)
+            .open(stale.home.path().join("run/core-legacy.pid"))
+            .unwrap()
+            .set_modified(SystemTime::now() - Duration::from_secs(3600))
+            .unwrap();
+        assert!(
+            refused(hello(&stale)),
+            "a stale legacy record whose pid is another process"
         );
         let other_instance = Running::start_with(
             &front_door,

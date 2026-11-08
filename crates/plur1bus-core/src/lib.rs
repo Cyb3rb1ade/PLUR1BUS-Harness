@@ -238,6 +238,8 @@ pub fn serve(plan: &ServePlan) -> Result<i32, ServeError> {
         }
     };
     let code = stop(&front, &child, &control, lifeline, request);
+    // Reaped by now (the waiter or `stop`): its record goes unless it already removed it itself (security review L5).
+    legacy::forget_record(&files.legacy_pid, legacy_pid);
     binding.release();
     run_files::remove_owned(&files);
     drop(lock);
