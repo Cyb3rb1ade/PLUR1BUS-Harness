@@ -599,22 +599,10 @@ struct ConnState {
     /// A complete frame arrived (fix round 1b F5): from then on the connection is never ended to make room for another.
     spoke: bool,
     caller: Option<Caller>,
-    /// An API connection's handshake delegation: every later request must carry the same principal and transport.
-    api: Option<ApiBinding>,
-    /// An engine connection's `engine.token`, verified again before every native call (module-api's rule).
-    engine_token: Option<Secret>,
     link: Option<Arc<Link>>,
     subs: Vec<Sub>,
     intercepts: HashMap<String, Intercept>,
     closing: bool,
-}
-
-/// What an API handshake bound to its connection (module-api's `c.api` and `c.apiTransport`).
-#[derive(Clone, Debug, PartialEq)]
-struct ApiBinding {
-    /// The delegation's `principal`, `null` without one.
-    principal: Value,
-    transport: Option<String>,
 }
 
 /// A request id as the client wrote it (its raw JSON text, `null` without one), so an answer carries back exactly what the
@@ -674,8 +662,6 @@ enum Intercept {
     Auth {
         id: RawId,
         caller: Caller,
-        api: Option<ApiBinding>,
-        engine_token: Option<Secret>,
         done: Sender<bool>,
     },
     Status {
@@ -1105,26 +1091,6 @@ fn handle_auth(
     let Some(link) = link_of(front, conn) else {
         return conn.legacy_gone();
     };
-    // What the handshake binds to the connection for the native calls after it (module-api's `c.api`, `c.engineToken`).
-    let api = (caller == Caller::Api).then(|| {
-        let delegation = top_api
-            .clone()
-            .filter(|v| !v.is_null())
-            .or_else(|| p.get("api").cloned())
-            .unwrap_or(Value::Null);
-        ApiBinding {
-            principal: delegation.get("principal").cloned().unwrap_or(Value::Null),
-            transport: delegation
-                .get("transport")
-                .and_then(Value::as_str)
-                .map(str::to_owned),
-        }
-    });
-    let engine_token = (caller == Caller::Engine)
-        .then(|| p.get("engine").and_then(|e| e.get("token")))
-        .flatten()
-        .and_then(Value::as_str)
-        .map(|t| Secret::new(t.to_owned()));
     let link_id = link.next_id();
     let mut forwarded = p.clone();
     forwarded.insert(
@@ -1145,8 +1111,6 @@ fn handle_auth(
         Intercept::Auth {
             id: id.clone(),
             caller,
-            api,
-            engine_token,
             done,
         },
     );
@@ -1230,7 +1194,8 @@ fn post_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, bytes: &[u8]) {
         );
     }
     let method = method.and_then(peek::string_lossy).unwrap_or_default();
-    let route = route::route(&method);
+    // A native method serves the local owner only until P4-12; anyone else's call is relayed (fix round 1b F3).
+    let route = route::route_for(&method, conn.caller().unwrap_or(Caller::Client));
     match route {
         Route::Bridge => return conn.error(&id, bridge_principal()),
         Route::Native => {
@@ -1342,69 +1307,25 @@ fn reauth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &RawId, msg: &Value) {
     );
 }
 
-/// A method the front door serves itself (`route::NATIVE`), after module-api's admission in its `dispatch` order: a scoped
-/// client cannot delegate; a delegation on the request is verified, an API connection must carry one, and its principal
-/// and transport must be the handshake's; the request shape; an engine connection's token is verified again and it may
-/// call `host.*` only; a delegation needs an API handshake; a scoped client has no `events.*`. The method then decides on
-/// RBAC and a scoped client's per-call authorization from its [`route::CallContext`]. It is never relayed: a native
-/// method that answers `NotServed` is a route-table drift (`E_INTERNAL`, reason `route-table-drift`).
+/// A method the front door serves itself (`route::NATIVE`) for the local owner, the only principal served natively until
+/// P4-12 (`route::route_for` relays everyone else's call). Before the generated dispatcher it runs module-api's admission
+/// of an owner connection in its `dispatch` order: a delegation the request carries is verified (`api-delegation`), the
+/// request shape (`invalid-request`), then a valid delegation is refused because the connection did not delegate at its
+/// handshake (`api-handshake-required`). RBAC is the method's, as in a TypeScript handler. A native call is never relayed:
+/// one that answers `NotServed` is a route-table drift (`E_INTERNAL`, reason `route-table-drift`).
 fn native(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &RawId, method: &str, mut msg: Value) {
-    let caller = conn.caller().unwrap_or(Caller::Client);
     let Delegation {
         present: has_api,
         value: delegation,
         ..
     } = api_delegation(&msg);
-    if caller == Caller::Client && (has_api || msg.pointer("/params/api").is_some()) {
-        return conn.error(
-            id,
-            RpcErr::new("E_DENIED", "scoped clients cannot delegate", None),
-        );
-    }
-    let mut api_principal = None;
     if has_api {
         if let Some(map) = msg.as_object_mut() {
             map.remove("api");
         }
-        let transport = match auth::verify_api_delegation(&delegation, &front.api_token) {
-            Ok(transport) => transport,
-            Err(r) => return conn.error(id, refusal(r)),
-        };
-        let principal = delegation.get("principal").cloned().unwrap_or(Value::Null);
-        let bound = relock(&conn.state).api.clone();
-        if let Some(bound) = bound {
-            let same = |key: &str| bound.principal.get(key) == principal.get(key);
-            if !same("userId") || !same("kind") {
-                return conn.error(
-                    id,
-                    RpcErr::new(
-                        "E_UNAUTHORIZED",
-                        "API connection identity cannot change",
-                        Some("api-identity-change"),
-                    ),
-                );
-            }
-            if bound.transport != transport {
-                return conn.error(
-                    id,
-                    RpcErr::new(
-                        "E_UNAUTHORIZED",
-                        "API transport cannot change",
-                        Some("api-transport-change"),
-                    ),
-                );
-            }
+        if let Err(r) = auth::verify_api_delegation(&delegation, &front.api_token) {
+            return conn.error(id, refusal(r));
         }
-        api_principal = Some(principal);
-    } else if caller == Caller::Api {
-        return conn.error(
-            id,
-            RpcErr::new(
-                "E_UNAUTHORIZED",
-                "API principal required",
-                Some("api-principal-required"),
-            ),
-        );
     }
     let found = findings(&front.checks.request, &msg);
     if !found.is_empty() {
@@ -1419,36 +1340,7 @@ fn native(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &RawId, method: &str, mu
             .jsonrpc(-32600),
         );
     }
-    if caller == Caller::Engine {
-        let current = run_files::read_token(&front.files.engine_token)
-            .ok()
-            .flatten();
-        let still = {
-            let st = relock(&conn.state);
-            match (st.engine_token.as_ref(), current.as_ref()) {
-                (Some(held), Some(current)) => {
-                    auth::is_hex64(current.expose()) && current.matches(held.expose())
-                }
-                _ => false,
-            }
-        };
-        if !still {
-            return conn.error(id, refusal(auth::ENGINE_DELEGATION));
-        }
-        if !method.starts_with("host.")
-            && !["events.subscribe", "events.unsubscribe"].contains(&method)
-        {
-            return conn.error(
-                id,
-                RpcErr::new(
-                    "E_DENIED",
-                    "engine connection cannot call this method",
-                    Some("engine-method"),
-                ),
-            );
-        }
-    }
-    if has_api && caller != Caller::Api {
+    if has_api {
         return conn.error(
             id,
             RpcErr::new(
@@ -1458,20 +1350,11 @@ fn native(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &RawId, method: &str, mu
             ),
         );
     }
-    if caller == Caller::Client && method.starts_with("events.") {
-        return conn.error(
-            id,
-            RpcErr::new(
-                "E_DENIED",
-                "scoped client subscriptions are unavailable",
-                None,
-            ),
-        );
-    }
     let params = msg.get("params").cloned().unwrap_or_else(|| json!({}));
     let cx = route::CallContext {
-        caller,
-        api_principal,
+        principal: route::Principal::LocalOwner {
+            transport: route::Transport::Ipc,
+        },
     };
     match route::serve(&cx, method, params) {
         Ok(result) => conn.send_raw(id.frame("result", &result)),
@@ -1579,13 +1462,7 @@ fn complete(front: &Arc<FrontDoor>, conn: &Arc<Conn>, intercept: Intercept, text
     let odd = result.is_some_and(|r| !r.get().starts_with('{'));
     let fact = |key: &str| result.and_then(|r| peek::member(r, key));
     match intercept {
-        Intercept::Auth {
-            id,
-            caller,
-            api,
-            engine_token,
-            done,
-        } => {
+        Intercept::Auth { id, caller, done } => {
             if odd {
                 let _ = done.send(false);
                 return conn.error(&id, result_schema());
@@ -1600,8 +1477,6 @@ fn complete(front: &Arc<FrontDoor>, conn: &Arc<Conn>, intercept: Intercept, text
                 let mut st = relock(&conn.state);
                 st.authed = true;
                 st.caller = Some(caller);
-                st.api = api;
-                st.engine_token = engine_token;
             }
             send_or_refuse(conn, &id, reply);
             let _ = done.send(ok);

@@ -14,12 +14,16 @@
 //! never answer `NotServed`, every other core method must. Should a native method answer `NotServed` anyway, the call is
 //! refused with `E_INTERNAL` reason `route-table-drift` (logged) instead of being relayed after its params were consumed.
 //!
+//! **Who a native method serves** (fix round 1b F3, controller ruling): until P4-12 moves the identity store, a native
+//! method serves the local owner only ([`Principal::served_natively`]); a call from any other principal (an API
+//! delegation, a scoped client, the engine) is relayed to the legacy core like any other call, which runs module-api's
+//! `authorizeClient`, its RBAC and the API's per-request binding ([`route_for`]). The method receives its caller as an
+//! explicit [`Principal`] with its [`Transport`]; there is no "absent" principal a port could read as the owner.
+//!
 //! [`serve`] runs only the generated dispatcher (params against the schema with `_meta` removed, the method, the result
-//! against the schema). The admission module-api runs before it for every method (the request shape, delegations, the
-//! engine's method limit) is the front door's (`server.rs`); what depends on the method — RBAC, a scoped client's
-//! per-call authorization (the identity store stays the legacy core's until P4-12) — is the overriding method's, from the
-//! [`CallContext`] it receives.
-use crate::auth::Caller;
+//! against the schema). The admission module-api runs before it for an owner's call (a delegation it carries, the request
+//! shape) is the front door's (`server.rs`); RBAC is the overriding method's, as in a TypeScript handler.
+use crate::auth::{Caller, Secret};
 use crate::frame::RpcErr;
 use crate::server::log;
 use plur1bus_rpc::server::{
@@ -74,41 +78,120 @@ pub enum Route {
     Relay,
 }
 
-/// The route of `method`.
+/// The route of `method`, whoever calls.
 pub fn route(method: &str) -> Route {
+    lookup(table(), method)
+}
+
+/// The route of `method` for a connection authenticated as `caller`: a native method only for a principal served
+/// natively (the local owner, until P4-12), relayed for every other one.
+pub fn route_for(method: &str, caller: Caller) -> Route {
+    route_in(table(), method, caller)
+}
+
+fn route_in(table: &HashMap<&'static str, Route>, method: &str, caller: Caller) -> Route {
+    match (caller, lookup(table, method)) {
+        (Caller::LegacyCore, _) => Route::Bridge,
+        (Caller::Owner, route) => route,
+        (_, Route::Native) => Route::Relay,
+        (_, route) => route,
+    }
+}
+
+fn lookup(table: &HashMap<&'static str, Route>, method: &str) -> Route {
     if method.starts_with("bridge.") {
         return Route::Bridge;
     }
-    table().get(method).copied().unwrap_or(Route::Relay)
+    table.get(method).copied().unwrap_or(Route::Relay)
 }
 
 /// The table, built once from the generated method lists.
 fn table() -> &'static HashMap<&'static str, Route> {
     static TABLE: OnceLock<HashMap<&'static str, Route>> = OnceLock::new();
-    TABLE.get_or_init(|| {
-        let core = CORE_METHODS.iter().map(|&method| {
-            let route = if NATIVE.contains(&method) {
-                Route::Native
-            } else if let Some((_, kind)) = COMPLETED.iter().find(|(m, _)| *m == method) {
-                Route::Complete(*kind)
-            } else {
-                Route::Relay
-            };
-            (method, route)
-        });
-        core.chain(BRIDGE_METHODS.iter().map(|&m| (m, Route::Bridge)))
-            .collect()
-    })
+    TABLE.get_or_init(|| table_with(NATIVE))
 }
 
-/// What a native method receives besides its params: the connection's caller as the front door authenticated it.
+fn table_with(native: &[&str]) -> HashMap<&'static str, Route> {
+    let core = CORE_METHODS.iter().map(|&method| {
+        let route = if native.contains(&method) {
+            Route::Native
+        } else if let Some((_, kind)) = COMPLETED.iter().find(|(m, _)| *m == method) {
+            Route::Complete(*kind)
+        } else {
+            Route::Relay
+        };
+        (method, route)
+    });
+    core.chain(BRIDGE_METHODS.iter().map(|&m| (m, Route::Bridge)))
+        .collect()
+}
+
+/// How a call reached the core.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Transport {
+    /// The core's own socket or pipe (`run/core.sock`, the per-home pipe), no delegation.
+    Ipc,
+    /// Through the harness API, which states how the request reached it (`api.transport`; `None` when it does not).
+    Api(Option<ApiTransport>),
+}
+
+/// `api.transport`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ApiTransport {
+    /// `loopback`.
+    Loopback,
+    /// `remote`.
+    Remote,
+}
+
+/// Who calls, as the front door authenticated the connection (fix round 1b F3). Every principal is explicit: TypeScript's
+/// "no API principal" means local owner IPC, and a port must never meet an absent principal it could read that way.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Principal {
+    /// `run/core.token` on the core's own socket or pipe, without a delegation.
+    LocalOwner {
+        /// Always [`Transport::Ipc`].
+        transport: Transport,
+    },
+    /// The harness API with the person or agent it delegates for (`api.principal`; `None` for the API itself).
+    Api {
+        /// `api.principal`.
+        principal: Option<Value>,
+        /// [`Transport::Api`].
+        transport: Transport,
+    },
+    /// A scoped client token; only the legacy core's identity store can authorize its calls (until P4-12).
+    ScopedClient {
+        /// The token the client authenticated with, for that per-call authorization.
+        token: Arc<Secret>,
+        /// The connection's transport.
+        transport: Transport,
+    },
+    /// A module (controller ruling D/F3). No connection of the front door authenticates as a module today.
+    Module {
+        /// The connection's transport.
+        transport: Transport,
+    },
+    /// The memory engine (`run/engine.token`): `host.*` and its egress subscription.
+    Engine {
+        /// The connection's transport.
+        transport: Transport,
+    },
+}
+
+impl Principal {
+    /// Whether a native method serves this principal. Until P4-12 only the local owner: every other principal's call is
+    /// relayed to the legacy core ([`route_for`]).
+    pub fn served_natively(&self) -> bool {
+        matches!(self, Principal::LocalOwner { .. })
+    }
+}
+
+/// What a native method receives besides its params.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CallContext {
-    /// The authenticated caller kind.
-    pub caller: Caller,
-    /// For an API connection, the principal of the request's verified delegation (`api.principal`, `null` when the
-    /// delegation names none).
-    pub api_principal: Option<Value>,
+    /// Who calls. A native method meets only principals that are [`Principal::served_natively`].
+    pub principal: Principal,
 }
 
 /// The front door's `CoreMethods`: every method keeps its generated default (`NotServed`) until it is ported. A method
@@ -307,8 +390,9 @@ mod tests {
 
     fn owner() -> CallContext {
         CallContext {
-            caller: Caller::Owner,
-            api_principal: None,
+            principal: Principal::LocalOwner {
+                transport: Transport::Ipc,
+            },
         }
     }
 
@@ -357,6 +441,89 @@ mod tests {
             Route::Relay,
             "another server's method is not the core's to serve"
         );
+    }
+
+    /// Fix round 1b F3 (ruling D/F3): until P4-12 a native method serves the local owner only; every other principal's
+    /// call goes to the legacy core, which runs `authorizeClient`, RBAC and the API's per-request binding. Checked with a
+    /// test-only native set (`logs.query`) and a `CoreMethods` that fails the test if it is ever called for one of them.
+    #[test]
+    fn a_native_method_serves_the_local_owner_and_every_other_principal_is_relayed() {
+        let table = table_with(&["logs.query"]);
+        assert_eq!(route_in(&table, "logs.query", Caller::Owner), Route::Native);
+        for caller in [Caller::Client, Caller::Api, Caller::Engine] {
+            assert_eq!(
+                route_in(&table, "logs.query", caller),
+                Route::Relay,
+                "{caller:?}: relayed until P4-12"
+            );
+        }
+        assert_eq!(
+            route_in(&table, "logs.query", Caller::LegacyCore),
+            Route::Bridge,
+            "the bridge connection serves bridge.* only"
+        );
+        assert_eq!(
+            route_in(&table, "core.status", Caller::Client),
+            Route::Complete(Kind::Status)
+        );
+        assert_eq!(route_in(&table, "memory.list", Caller::Owner), Route::Relay);
+
+        /// Fails the test if a method is dispatched for anyone but the local owner.
+        struct OwnerOnly;
+        impl CoreMethods for OwnerOnly {
+            type Context = CallContext;
+            #[allow(clippy::manual_async_fn)] // the generated trait's own signature
+            fn logs_query(
+                &self,
+                cx: &CallContext,
+                _params: types::LogsQueryParams,
+            ) -> impl Future<Output = Result<types::LogsQueryResult, MethodError>> + Send
+            {
+                assert!(
+                    cx.principal.served_natively(),
+                    "dispatched for {:?}",
+                    cx.principal
+                );
+                async { Err(MethodError::rpc(types::ErrorCode::EDenied, "test")) }
+            }
+        }
+        let validators = Validators::for_server("core").unwrap();
+        let owner = owner();
+        assert_eq!(
+            owner.principal,
+            Principal::LocalOwner {
+                transport: Transport::Ipc
+            }
+        );
+        let out = block_on(dispatch_core(
+            &OwnerOnly,
+            &owner,
+            &validators,
+            "logs.query",
+            json!({}),
+        ));
+        assert!(
+            matches!(out, Err(DispatchError::Method(_))),
+            "served natively for the owner: {out:?}"
+        );
+        for principal in [
+            Principal::Api {
+                principal: Some(json!({"userId": "alice", "kind": "person", "role": "member"})),
+                transport: Transport::Api(Some(ApiTransport::Remote)),
+            },
+            Principal::ScopedClient {
+                token: Arc::new(Secret::fresh().unwrap()),
+                transport: Transport::Ipc,
+            },
+            Principal::Module {
+                transport: Transport::Ipc,
+            },
+            Principal::Engine {
+                transport: Transport::Ipc,
+            },
+        ] {
+            assert!(!principal.served_natively(), "{principal:?}");
+        }
     }
 
     #[test]

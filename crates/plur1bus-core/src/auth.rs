@@ -45,6 +45,13 @@ impl Secret {
     }
 }
 
+/// Equality of two credentials, in constant time.
+impl PartialEq for Secret {
+    fn eq(&self, other: &Secret) -> bool {
+        self.matches(other.expose())
+    }
+}
+
 impl fmt::Debug for Secret {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("Secret(..)")
