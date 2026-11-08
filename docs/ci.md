@@ -30,7 +30,7 @@ invalid manifest fails the plan; unknown paths and empty diffs select the full s
 | Shared RPC/config/log schemas or module API | Rust, TypeScript, browser, Python and documentation/hygiene |
 | `hosts/**` or `clients/python/**` | Python/Hermes, WSL and documentation/hygiene |
 | `packages/documents/**` | TypeScript/runtime checks plus golden rendering |
-| `crates/plur1bus-{core,audit,tools,rpc}/**`, `crates/plur1bus/src/supervisor/**`, `packages/module-api/**`, and the front door's TypeScript seam in `packages/core` (`src/core.ts`, `src/bin.ts`, `src/lock.ts`, `test/core-front-door.test.ts`, `test/bin-entry.test.ts`) | Additionally the Rust front door's Windows leg `front-door-windows` (output `front-door`, P4-10 ruling A1) |
+| `crates/plur1bus-{core,audit,tools,rpc}/**`, `crates/plur1bus/src/supervisor/**`, `crates/plur1bus/src/commands/core.rs`, `crates/plur1bus/src/repair/**`, `packages/module-api/**`, and the front door's TypeScript seam in `packages/core` (`src/core.ts`, `src/bin.ts`, `src/lock.ts`, `test/core-front-door.test.ts`, `test/bin-entry.test.ts`) | Additionally the Rust front door's Windows leg `front-door-windows` (output `front-door`, P4-10 ruling A1) |
 | Engine pin, any Cargo lock, pnpm lock, workflow or unknown path | Full suite |
 
 The reader lists live in `TEST_READ` in `scripts/ci/changes.mjs`. Accepted gap: `error_codes_sync.rs` scans every other

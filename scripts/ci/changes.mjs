@@ -23,6 +23,7 @@ const testRead = file => TEST_READ.find(([re]) => re.test(file))?.[1];
 const FRONT_DOOR = [
   /^crates\/plur1bus-(?:core|audit|tools|rpc)\//,
   /^crates\/plur1bus\/src\/supervisor\//,
+  /^crates\/plur1bus\/src\/(?:commands\/core\.rs|repair\/)/, // the core command and 1staid, which the Windows leg tests
   /^packages\/module-api\//,
   /^packages\/core\/(?:src\/(?:core|bin|lock)\.ts|test\/(?:core-front-door|bin-entry)\.test\.ts)$/,
 ];
