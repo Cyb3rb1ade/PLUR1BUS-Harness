@@ -2197,7 +2197,7 @@ Exits 2 (`E_INVALID_PARAMS`) with a `reason` (archive-corrupt, truncated, manife
 
 [experimental] Restore an archive into this home (the core must be stopped)
 
-Verifies first, extracts into a staging directory, then swaps each unit in by rename. Whatever is replaced is kept in `<home>/backups/pre-restore-<id>/`; a failure puts the old state back. Asks first on a terminal; a script (or `--json`) needs `--yes`. `--dry-run` prints the plan and changes nothing.
+Verifies first, extracts into a staging directory, then swaps each unit in by rename. Whatever is replaced is kept in `<home>/backups/pre-restore-<id>/`; a failure puts the old state back. Defaults to a read-only plan. Applying requires `--confirm` (`--yes` is an alias). `--force` never confirms a restore or breaks writer locks.
 
 **Usage:** `plur1bus backup restore [OPTIONS] <FILE>`
 
@@ -2208,7 +2208,8 @@ Verifies first, extracts into a staging directory, then swaps each unit in by re
 ###### **Options:**
 
 * `--dry-run` — print what would be replaced, created and removed, without changing anything
-* `--yes` — apply without asking
+* `--confirm` [alias: `yes`] — explicitly apply the verified restore plan
+* `--force` — bypass endpoint liveness probes with a warning; held writer locks still refuse
 
 
 

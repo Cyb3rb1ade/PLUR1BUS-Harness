@@ -149,11 +149,11 @@ den aktuellen Cache nicht; nach erfolgreichem Austausch liegt der bisherige Cach
 3. Den Plan prüfen und Restore ausführen:
 
    ```sh
-   plur1bus backup restore "/pfad/zum/backup.tar.gz"
+   plur1bus backup restore "/pfad/zum/backup.tar.gz" --confirm
    ```
 
-   Auf einem Terminal fragt der Befehl vor dem Anwenden nach Bestätigung. Für Skripte oder mit `--json` ist die
-   Bestätigung explizit erforderlich:
+   Ohne `--confirm` zeigt der Befehl nur den Plan und ändert nichts, auch auf einem Terminal. `--yes` bleibt als
+   Alias für die ausdrückliche Bestätigung erhalten:
 
    ```sh
    plur1bus backup restore "/pfad/zum/backup.tar.gz" --yes
@@ -164,6 +164,10 @@ den aktuellen Cache nicht; nach erfolgreichem Austausch liegt der bisherige Cach
    ```powershell
    plur1bus backup restore "D:\Backups\backup.tar.gz" --yes
    ```
+
+   `--force` ersetzt keine Bestätigung. Mit `--confirm --force` werden unter einer ausdrücklichen Warnung lediglich
+   die Endpoint-Prüfungen übersprungen; belegte Writer-Sperren führen weiterhin zur Ablehnung. `--dry-run` hat auch
+   zusammen mit `--confirm` Vorrang und wendet nichts an.
 
 4. Nach erfolgreichem Restore den Dienst wieder starten und den Zustand kontrollieren:
 

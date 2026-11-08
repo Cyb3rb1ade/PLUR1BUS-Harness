@@ -32,6 +32,8 @@ const REAPPLY_MARKER_SCHEMA: &str = "plur1bus.restore-reapply-tombstones/1";
 
 pub struct RestoreOpts {
     pub dry_run: bool,
+    /// Explicit operator override for endpoint probes only. Kernel writer fences are mandatory.
+    pub force: bool,
     /// Test seam (`PLUR1BUS_TEST_BACKUP_FAIL_AT`, honoured only with `PLUR1BUS_ALLOW_TEST_INTERNALS=1`):
     /// `extract`, `swap:<i>` (after unit i's live tree was moved aside) or `swap-after:<i>` (after unit i was placed).
     pub fail_at: Option<String>,
@@ -348,11 +350,15 @@ pub fn restore(
     if opts.dry_run {
         return Ok(report);
     }
-    ensure_quiescent(layout)?;
+    if !opts.force {
+        ensure_quiescent(layout)?;
+    }
     // Keep all writer fences through extraction, swapping and any rollback. A one-time
     // socket probe cannot exclude a core/import/engine starting immediately afterwards.
     let _writers = super::writer_guard::WriterGuard::acquire(layout)?;
-    ensure_quiescent(layout)?;
+    if !opts.force {
+        ensure_quiescent(layout)?;
+    }
 
     let id = format!("{}-{}", utc_stamp(now_ms()), short_id());
     let staging = home.join(format!(".restore-{id}"));
@@ -476,6 +482,7 @@ mod tests {
             &destination,
             &archive,
             &RestoreOpts {
+                force: false,
                 dry_run: true,
                 fail_at: None,
             },
@@ -656,6 +663,7 @@ mod tests {
             &dst,
             &out,
             &RestoreOpts {
+                force: false,
                 dry_run: false,
                 fail_at: None,
             },
@@ -689,6 +697,7 @@ mod tests {
                 &dst,
                 &out,
                 &RestoreOpts {
+                    force: false,
                     dry_run: false,
                     fail_at: Some(at.into()),
                 },
@@ -726,6 +735,7 @@ mod tests {
             dst,
             out,
             &RestoreOpts {
+                force: false,
                 dry_run: false,
                 fail_at: fail_at.map(String::from),
             },
@@ -762,6 +772,7 @@ mod tests {
             &dst,
             &out,
             &RestoreOpts {
+                force: false,
                 dry_run: true,
                 fail_at: None,
             },
@@ -825,6 +836,7 @@ mod tests {
             &dst,
             &out,
             &RestoreOpts {
+                force: false,
                 dry_run: false,
                 fail_at: None,
             },
@@ -861,6 +873,7 @@ mod tests {
     #[test]
     fn fail_points_fire_only_where_named() {
         let o = RestoreOpts {
+            force: false,
             dry_run: false,
             fail_at: Some("swap:1".into()),
         };

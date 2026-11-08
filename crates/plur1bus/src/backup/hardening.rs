@@ -97,6 +97,7 @@ fn hashes(root: &Path) -> BTreeMap<String, String> {
 
 fn opts() -> RestoreOpts {
     RestoreOpts {
+        force: false,
         dry_run: false,
         fail_at: None,
     }

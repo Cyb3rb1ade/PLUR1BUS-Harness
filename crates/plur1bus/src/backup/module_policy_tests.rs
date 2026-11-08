@@ -120,6 +120,7 @@ fn installed_module_literals_are_removed_and_prefixed_reference_data_round_trips
         &destination,
         &archive,
         &RestoreOpts {
+            force: false,
             dry_run: false,
             fail_at: None,
         },
@@ -236,6 +237,7 @@ fn token_looking_reference_names_cannot_survive_an_ordinary_archive() {
         &destination,
         &archive,
         &RestoreOpts {
+            force: false,
             dry_run: false,
             fail_at: None,
         },
@@ -355,6 +357,7 @@ fn reference_only_module_slots_preserve_names_and_remove_pasted_keys_with_restor
         &destination,
         &archive,
         &RestoreOpts {
+            force: false,
             dry_run: false,
             fail_at: None,
         },
@@ -414,6 +417,7 @@ fn uri_credentials_create_restore_and_validate_with_ascii_placeholders_and_reent
         &destination,
         &archive,
         &RestoreOpts {
+            force: false,
             dry_run: false,
             fail_at: None,
         },

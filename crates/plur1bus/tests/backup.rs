@@ -625,21 +625,32 @@ fn restore_reports_replaced_config_keys_on_stderr_without_changing_json_shape() 
 }
 
 #[test]
-fn restore_without_yes_in_a_script_is_refused_before_anything_changes() {
+fn restore_defaults_to_a_read_only_plan_and_force_never_confirms_it() {
     let (_d, home, a) = setup();
     old_home(&home);
     build(&a, &fixture());
     let before = tree(&home);
-    let out = cli(&home)
-        .args(["backup", "restore"])
-        .arg(&a)
-        .assert()
-        .failure()
-        .code(2)
-        .get_output()
-        .clone();
-    assert_eq!(doc(&out)["applied"], false);
-    assert_eq!(tree(&home), before);
+    for flags in [
+        vec![],
+        vec!["--force"],
+        vec!["--confirm", "--dry-run"],
+        vec!["--force", "--dry-run"],
+    ] {
+        let out = cli(&home)
+            .args(["backup", "restore"])
+            .args(&flags)
+            .arg(&a)
+            .assert()
+            .success()
+            .get_output()
+            .clone();
+        assert_eq!(doc(&out)["applied"], false);
+        assert_eq!(doc(&out)["dryRun"], true);
+        assert_eq!(tree(&home), before, "{flags:?}");
+        if flags.contains(&"--force") {
+            assert!(String::from_utf8_lossy(&out.stderr).contains("does not confirm"));
+        }
+    }
 }
 
 #[test]
@@ -649,7 +660,7 @@ fn a_restore_swaps_the_units_keeps_what_it_replaced_and_leaves_everything_else_a
     build(&a, &fixture());
     let before = tree(&home);
     let out = cli(&home)
-        .args(["backup", "restore", "--yes"])
+        .args(["backup", "restore", "--confirm"])
         .arg(&a)
         .assert()
         .success()
@@ -857,6 +868,16 @@ fn restore_refuses_while_a_supervisor_answers_for_the_home() {
     let e = doc(&out);
     assert_eq!(e["error"], "E_LOCKED");
     assert_eq!(e["reason"], "core-running");
+    let forced = cli(&home)
+        .args(["backup", "restore", "--confirm", "--force"])
+        .arg(&a)
+        .assert()
+        .failure()
+        .code(3)
+        .get_output()
+        .clone();
+    assert_eq!(doc(&forced)["reason"], "core-running");
+    assert!(String::from_utf8_lossy(&forced.stderr).contains("WARNING: --force"));
     let after: BTreeMap<_, _> = tree(&home)
         .into_iter()
         .filter(|(k, _)| k.starts_with("agents") || k.starts_with("state") || k == "config.json")

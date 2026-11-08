@@ -10,7 +10,6 @@ use crate::backup::restore::{self, RestoreOpts, RestoreReport};
 use crate::backup::{now_ms, BackupError};
 use crate::cli::BackupCmd;
 use crate::commands::memory_ops::{connect_core, require_supports};
-use crate::commands::module::confirm;
 use crate::output::Out;
 use crate::paths::Layout;
 use serde_json::{json, Value};
@@ -76,7 +75,12 @@ pub fn run(out: &Out, layout: &Layout, cmd: BackupCmd) {
                 )
             });
         }
-        BackupCmd::Restore { file, dry_run, yes } => restore_cmd(out, layout, &file, dry_run, yes),
+        BackupCmd::Restore {
+            file,
+            dry_run,
+            confirm,
+            force,
+        } => restore_cmd(out, layout, &file, dry_run || !confirm, force),
     }
 }
 
@@ -175,23 +179,21 @@ fn describe_restore(r: &RestoreReport) -> String {
     s.trim_end().to_string()
 }
 
-fn restore_cmd(out: &Out, layout: &Layout, file: &Path, dry_run: bool, yes: bool) {
+fn restore_cmd(out: &Out, layout: &Layout, file: &Path, dry_run: bool, force: bool) {
     let fail_at = std::env::var("PLUR1BUS_TEST_BACKUP_FAIL_AT")
         .ok()
         .filter(|_| std::env::var("PLUR1BUS_ALLOW_TEST_INTERNALS").as_deref() == Ok("1"));
-    let opts = RestoreOpts { dry_run, fail_at };
-    if !dry_run {
-        // Asked before anything is read or changed, after the cheap refusals: a bad archive or a running core need no answer.
-        let m = verify(file).unwrap_or_else(|e| fail(out, e));
-        restore::ensure_quiescent(layout).unwrap_or_else(|e| fail(out, e));
-        confirm(
-            out,
-            &format!(
-                "replace this installation's state ({}) with the backup?",
-                units_line(&m)
-            ),
-            yes,
-        );
+    let opts = RestoreOpts {
+        dry_run,
+        force,
+        fail_at,
+    };
+    if force {
+        crate::output::say_err(if dry_run {
+            "plur1bus: --force does not confirm a restore; this is a read-only plan. Apply explicitly with --confirm."
+        } else {
+            "plur1bus: WARNING: --force bypasses endpoint liveness probes. Stop writers before restoring; a held writer lock still refuses the restore."
+        });
     }
     let r = restore::restore(layout, file, &opts).unwrap_or_else(|e| fail(out, e));
     if r.applied {
