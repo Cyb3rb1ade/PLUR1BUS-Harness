@@ -9,7 +9,8 @@
 //! takes 300 ms to stop after `core.shutdown`; `one-link` takes the control link and then no connection;
 //! `slow-refuse-shutdown` refuses a client's `core.shutdown` after 1.5 s; `odd-results` answers `core.adopt` with a result
 //! that is no object; `close-on-shutdown` answers `core.shutdown` and ends every connection ~5 ms later; `slow-auth`
-//! answers a client's link handshake after 1 s.
+//! answers a client's link handshake after 1 s; `hang` ignores its lifeline and SIGTERM/SIGINT; `drop-control` ends the
+//! control link right after its handshake.
 use plur1bus_rpc::server_transport::{Accepted, Listener};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -301,6 +302,12 @@ fn serve(l: &Arc<Legacy>, conn: Accepted, mode: &str, control: bool) {
                 hello["apiPrincipal"] = d.get("principal").cloned().unwrap_or(Value::Null);
             }
             send(&writer, &json!({"jsonrpc":"2.0","id":id,"result":hello}));
+            // `drop-control`: the front door's control link ends soon after its handshake, once the front door is ready
+            // (task review L1).
+            if control && mode == "drop-control" {
+                std::thread::sleep(Duration::from_millis(300));
+                break;
+            }
             continue;
         }
         let Some(who) = caller else {

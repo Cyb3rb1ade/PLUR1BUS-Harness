@@ -49,6 +49,7 @@ use serde_json::{json, Value};
 use std::fmt;
 use std::io::{self, BufReader, Write};
 use std::process::{Child, ExitStatus};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -256,12 +257,14 @@ pub fn serve(plan: &ServePlan) -> Result<i32, ServeError> {
     Ok(code)
 }
 
-type Started = (
-    Arc<server::FrontDoor>,
-    Listener,
-    legacy::Legacy,
-    relay::Link,
-);
+type Started = (Arc<server::FrontDoor>, Listener, legacy::Legacy, Control);
+
+/// The front door's own owner link to the legacy core ([`control_link`]).
+struct Control {
+    link: relay::Link,
+    /// Set once the link's reader has seen its end: a stop then cannot reach the legacy core through it.
+    gone: Arc<AtomicBool>,
+}
 
 /// Everything between the lock and `ready`: run files, the legacy core, the control link, the listener.
 #[allow(clippy::too_many_arguments)]
@@ -419,7 +422,7 @@ fn control_link(
     files: &RunFiles,
     credentials: &server::Credentials,
     legacy_pid: u32,
-) -> Result<(relay::Link, String), String> {
+) -> Result<(Control, String), String> {
     let (link, reader) = relay::Link::connect(&files.legacy_address, legacy_pid)
         .map_err(|e| format!("cannot connect to the legacy core: {e}"))?;
     let id = link.next_id();
@@ -454,18 +457,23 @@ fn control_link(
         .get_ref()
         .set_read_timeout(None)
         .map_err(|e| e.to_string())?;
+    let gone = Arc::new(AtomicBool::new(false));
+    let ended = gone.clone();
     std::thread::Builder::new()
         .name("core-control".into())
-        .spawn(move || while let Ok(frame::Line::Data(_)) = frame::read_line(&mut reader) {})
+        .spawn(move || {
+            while let Ok(frame::Line::Data(_)) = frame::read_line(&mut reader) {}
+            ended.store(true, Ordering::SeqCst);
+        })
         .map_err(|e| e.to_string())?;
-    Ok((link, contract))
+    Ok((Control { link, gone }, contract))
 }
 
 /// The stop (ADR-012 §3, see [`lifecycle`]). `request` is `None` when the legacy core exited on its own.
 fn stop(
     front: &Arc<server::FrontDoor>,
     child: &Arc<Mutex<Child>>,
-    control: &relay::Link,
+    control: &Control,
     mut lifeline: Option<std::process::ChildStdin>,
     request: Option<(Duration, &'static str, i32)>,
 ) -> i32 {
@@ -484,13 +492,19 @@ fn stop(
         let budget_ms = u64::try_from(budget.as_millis())
             .unwrap_or(u64::MAX)
             .min(120_000);
-        let shutdown = json!({"jsonrpc":"2.0","id": control.next_id(),"method":"core.shutdown","params":{"budgetMs": budget_ms}});
-        if control.send(&frame::encode(&shutdown)).is_err() {
+        let shutdown = json!({"jsonrpc":"2.0","id": control.link.next_id(),"method":"core.shutdown","params":{"budgetMs": budget_ms}});
+        // A link whose end was read may still take a write (the peer's reset comes later): its flag decides first.
+        let sent = !control.gone.load(Ordering::SeqCst)
+            && control.link.send(&frame::encode(&shutdown)).is_ok();
+        if !sent {
+            // Task review L1: nothing else would tell the legacy core to stop before it is killed without a drain at the
+            // end of the budget; its lifeline does (no grace behind a front door).
             server::log(
                 "warn",
                 "the control link is gone; the legacy core stops on its lifeline",
                 Value::Null,
             );
+            drop(lifeline.take());
         }
     }
     let status = legacy::wait_until(child, Instant::now() + budget + LEGACY_STOP_MARGIN);
@@ -519,7 +533,7 @@ fn stop(
         failed = true;
     }
     drop(lifeline);
-    control.close();
+    control.link.close();
     front.close_connections(Duration::from_secs(1));
     // The writers flush what is queued; a peer that never reads is destroyed after the grace.
     let flushed = Instant::now() + Duration::from_millis(1200);

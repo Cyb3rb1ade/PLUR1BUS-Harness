@@ -157,6 +157,10 @@ fn main() {
             "a_live_grace_change_applies_to_the_next_orphaning",
             a_live_grace_change_applies_to_the_next_orphaning,
         ),
+        (
+            "a_stop_without_the_control_link_ends_the_lifeline",
+            a_stop_without_the_control_link_ends_the_lifeline,
+        ),
     ];
     let mut failed = Vec::new();
     for (name, test) in tests {
@@ -1787,4 +1791,26 @@ fn a_live_grace_change_applies_to_the_next_orphaning() {
         "the grace in force when the lifeline went is the one applied"
     );
     assert_eq!(d.token("core-legacy.stopped"), "lifeline");
+}
+
+/// Task review L1: when the control link is gone at a stop, `core.shutdown` cannot reach the legacy core, so the front door
+/// ends its lifeline instead, and the legacy core stops on it (no grace behind a front door) well inside the budget,
+/// rather than being killed without a drain after budget + 5 s.
+fn a_stop_without_the_control_link_ends_the_lifeline() {
+    #[cfg(unix)]
+    {
+        let mut d = door(Opts {
+            mode: "drop-control",
+            ..Opts::default()
+        });
+        std::thread::sleep(Duration::from_millis(600)); // the control link ends 300 ms after its handshake
+        kill(&d.pid().to_string(), "-TERM");
+        assert_eq!(d.wait(Duration::from_secs(5)), Some(0), "{}", d.stderr());
+        assert_eq!(d.token("core-legacy.stopped"), "lifeline");
+        assert!(
+            d.stderr().contains("the control link is gone"),
+            "{}",
+            d.stderr()
+        );
+    }
 }
