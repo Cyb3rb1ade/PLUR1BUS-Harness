@@ -84,6 +84,8 @@ impl Capacity {
 fn out_of_descriptors(e: &io::Error) -> bool {
     cfg!(unix) && matches!(e.raw_os_error(), Some(23 | 24))
 }
+/// How long the accept loop waits for the slot of a connection it ended at the connection limit.
+const SLOT_WAIT: Duration = Duration::from_millis(200);
 /// The longest a handshake waits for the legacy core's answer.
 const LINK_AUTH_TIMEOUT: Duration = Duration::from_secs(30);
 const THREAD_STACK: usize = 512 * 1024;
@@ -247,10 +249,10 @@ impl FrontDoor {
         true
     }
 
-    /// Keeps the connections before their handshake under their cap (security review M2): when it is reached, the oldest
-    /// of them ends to make room for the one just accepted, so idle sockets cannot keep an owner from its handshake.
-    fn make_room_for_unauthenticated(&self) {
-        let waiting: Vec<Arc<Conn>> = self
+    /// The connections still waiting for their handshake, oldest first. Every accepted connection is registered before
+    /// its thread starts, so the accept loop sees them all.
+    fn waiting(&self) -> Vec<Arc<Conn>> {
+        let mut waiting: Vec<Arc<Conn>> = self
             .connections()
             .into_iter()
             .filter(|c| {
@@ -258,21 +260,66 @@ impl FrontDoor {
                 !st.authed && !st.closing
             })
             .collect();
-        if waiting.len() < self.capacity.unauthenticated {
-            self.crowded.store(false, Ordering::SeqCst);
-            return;
-        }
-        let Some(oldest) = waiting.into_iter().min_by_key(|c| c.id) else {
-            return;
+        waiting.sort_by_key(|c| c.id);
+        waiting
+    }
+
+    /// Ends the oldest connection still waiting for its handshake; `false` when there is none.
+    fn evict_oldest_waiting(&self) -> bool {
+        let Some(oldest) = self.waiting().into_iter().next() else {
+            return false;
         };
         if !self.crowded.swap(true, Ordering::SeqCst) {
             log(
                 "warn",
                 "unauthenticated connections at their limit, ending the oldest",
-                json!({"limit": self.capacity.unauthenticated}),
+                json!({"limit": self.capacity.unauthenticated, "maxConnections": self.capacity.connections}),
             );
         }
         oldest.evict();
+        true
+    }
+
+    /// Keeps the connections before their handshake under their cap (security review M2): when it is reached, the oldest
+    /// of them ends to make room for the one just accepted, so idle sockets cannot keep an owner from its handshake.
+    fn make_room_for_unauthenticated(&self) {
+        if self.waiting().len() < self.capacity.unauthenticated {
+            self.crowded.store(false, Ordering::SeqCst);
+            return;
+        }
+        self.evict_oldest_waiting();
+    }
+
+    /// Takes a connection slot for a connection just accepted (fix round 1b F2). At the limit, the oldest connection still
+    /// waiting for its handshake is ended instead of refusing the new one, and the slot is taken once its socket is
+    /// closed (its thread ends at once; it is waited for at most [`SLOT_WAIT`]). `false`: every slot is held by a
+    /// connection past its handshake.
+    fn take_slot(&self) -> bool {
+        let until = Instant::now() + SLOT_WAIT;
+        let mut evicted = false;
+        loop {
+            let live = self.live.load(Ordering::SeqCst);
+            if live < self.capacity.connections {
+                if self
+                    .live
+                    .compare_exchange(live, live + 1, Ordering::SeqCst, Ordering::SeqCst)
+                    .is_ok()
+                {
+                    return true;
+                }
+                continue;
+            }
+            if !evicted {
+                if !self.evict_oldest_waiting() {
+                    return false;
+                }
+                evicted = true;
+            }
+            if Instant::now() >= until {
+                return false;
+            }
+            std::thread::sleep(Duration::from_millis(1));
+        }
     }
 
     /// The current process state.
@@ -457,8 +504,10 @@ pub fn accept_loop(front: &Arc<FrontDoor>, listener: &Listener) {
                 continue;
             }
         };
-        if front.live.fetch_add(1, Ordering::SeqCst) >= front.capacity.connections {
-            front.live.fetch_sub(1, Ordering::SeqCst);
+        // Room first, then the limit (fix round 1b F2): a connection still waiting for its handshake makes way for the new
+        // one, both below its own cap and at the connection limit.
+        front.make_room_for_unauthenticated();
+        if !front.take_slot() {
             log(
                 "warn",
                 "connection limit reached, closing a new connection",
@@ -467,16 +516,27 @@ pub fn accept_loop(front: &Arc<FrontDoor>, listener: &Listener) {
             (accepted.closer)();
             continue;
         }
-        front.make_room_for_unauthenticated();
+        // Registered before its thread starts, so the next accept counts it.
+        let id = front.next_conn.fetch_add(1, Ordering::Relaxed);
+        let conn = Arc::new(Conn {
+            id,
+            out: Arc::new(Outbox::new()),
+            closer: accepted.closer.clone(),
+            state: Mutex::new(ConnState::default()),
+        });
+        relock(&front.conns).insert(id, conn.clone());
         let f = front.clone();
+        let c = conn.clone();
         let spawned = std::thread::Builder::new()
             .name("core-conn".into())
             .stack_size(THREAD_STACK)
             .spawn(move || {
-                serve_connection(&f, accepted);
+                serve_connection(&f, &c, accepted);
                 f.live.fetch_sub(1, Ordering::SeqCst);
             });
         if spawned.is_err() {
+            relock(&front.conns).remove(&id);
+            (conn.closer)();
             front.live.fetch_sub(1, Ordering::SeqCst);
         }
     }
@@ -727,7 +787,7 @@ fn refusal(r: Refusal) -> RpcErr {
     RpcErr::new(r.code, r.message, r.reason)
 }
 
-fn serve_connection(front: &Arc<FrontDoor>, accepted: Accepted) {
+fn serve_connection(front: &Arc<FrontDoor>, conn: &Arc<Conn>, accepted: Accepted) {
     let Accepted {
         reader,
         writer,
@@ -736,14 +796,7 @@ fn serve_connection(front: &Arc<FrontDoor>, accepted: Accepted) {
         read_timeout,
         ..
     } = accepted;
-    let id = front.next_conn.fetch_add(1, Ordering::Relaxed);
-    let conn = Arc::new(Conn {
-        id,
-        out: Arc::new(Outbox::new()),
-        closer: closer.clone(),
-        state: Mutex::new(ConnState::default()),
-    });
-    relock(&front.conns).insert(id, conn.clone());
+    let id = conn.id;
     let out = conn.out.clone();
     let writer_closer = closer.clone();
     let writer_thread = std::thread::Builder::new()
@@ -771,7 +824,7 @@ fn serve_connection(front: &Arc<FrontDoor>, accepted: Accepted) {
             }
         }
         match frame::read_line(&mut reader) {
-            Ok(Line::Data(bytes)) => handle_line(front, &conn, &bytes),
+            Ok(Line::Data(bytes)) => handle_line(front, conn, &bytes),
             Ok(Line::TooLong(n)) => {
                 conn.reply_and_close(&RawId::null(), frame::line_too_long(n));
                 break;

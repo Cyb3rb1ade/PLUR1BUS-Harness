@@ -1462,11 +1462,10 @@ fn idle_sockets_cannot_crowd_out_an_owner_under_a_hard_limit() {
             "{}",
             d.stderr()
         );
+        // No pauses: the accounting must hold while the bursts are still being accepted (fix round 1b F2).
         let idle: Vec<Client> = (0..100).map(|_| d.client()).collect();
-        std::thread::sleep(Duration::from_millis(300));
         let owners: Vec<Client> = (0..20).map(|_| d.owner()).collect();
         let more_idle: Vec<Client> = (0..100).map(|_| d.client()).collect();
-        std::thread::sleep(Duration::from_millis(300));
         let mut late = d.client();
         let r = late
             .try_call("core.auth", json!({"token": d.token("core.token")}))

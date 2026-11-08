@@ -58,21 +58,27 @@ impl Listener {
                     // Accepted sockets remain blocking even though the listener polls nonblocking.
                     stream.set_nonblocking(false)?;
                     let peer_pid = crate::transport::unix_peer_pid(&stream);
-                    // One descriptor per connection (P4-10 security review M2): the reader, writer, closer and timer
-                    // share the socket; it is closed when the last of them is dropped.
+                    // One descriptor per connection (P4-10 security review M2): the reader and the writer share the
+                    // socket, which is closed when both are dropped. The closer and the timer only refer to it
+                    // (fix round 1b F2): a closer kept for a grace period never holds a socket open.
                     let socket = Arc::new(stream);
-                    let closer = socket.clone();
-                    let timer = socket.clone();
+                    let closer = Arc::downgrade(&socket);
+                    let timer = Arc::downgrade(&socket);
                     return Ok(Some(Accepted {
                         peer_pid,
                         reader: Box::new(Shared(socket.clone())),
                         writer: Box::new(Shared(socket)),
                         closer: Arc::new(move || {
-                            let _ = closer.shutdown(Shutdown::Both);
+                            if let Some(socket) = closer.upgrade() {
+                                let _ = socket.shutdown(Shutdown::Both);
+                            }
                         }),
                         // The kernel delivers what was written before close.
                         drain: Box::new(|| {}),
-                        read_timeout: Box::new(move |timeout| timer.set_read_timeout(timeout)),
+                        read_timeout: Box::new(move |timeout| match timer.upgrade() {
+                            Some(socket) => socket.set_read_timeout(timeout),
+                            None => Err(io::Error::from(io::ErrorKind::NotConnected)),
+                        }),
                     }));
                 }
                 Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
