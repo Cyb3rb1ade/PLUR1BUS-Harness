@@ -42,7 +42,7 @@ fn time_or_epoch(row: &Json, key: &str) -> Result<i64, StoreError> {
         .filter(|v| truthy(v))
         .map_or(Ok(0), episodes::time)
 }
-fn snapshot(turn: &Json) -> Json {
+pub(super) fn snapshot(turn: &Json) -> Json {
     let content = field(turn, "content")
         .filter(|v| truthy(v))
         .map(string)

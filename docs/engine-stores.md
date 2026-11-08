@@ -21,6 +21,7 @@ reports legacy version `"0"`; an unreadable or unsupported marker is an error.
 | `run-state.json`, `snapshot.json`, `.emotional-state.json`, `semantic-lens-index.json`, `hook-state.json`, re-embedding state | `store::state_file` | Tolerant JSON load and atomic replace. Invalid state remains a distinct failure; only an absent file returns no state. |
 | `workspaces/<canonical>/native-hook-state-<binding-sha256>.json` | `neo::session_store` | Native S2 checkpoint extension (RE-D60): exact ownership proof plus `agentEnd` session state. Principal/physical-workspace-bound, with held filesystem identities checked inside the envelope. Replacement/restore identity changes require explicit rebinding; they never silently reset progress. 4 MiB maximum, atomic fsync/replace. Never adopts ownerless Node `hook-state.json` implicitly. |
 | `workspaces/<canonical>/native-capture-pending-<binding-sha256>.json` | `neo::capture_journal` | Native frozen capture plan (RE-D62): physical root/workspace identities and canonical principal proof, plus the exact five journal batches. Atomic fsync before record writes; empty settled plan after journals and both indices are durable. Recovery reauthorizes the original principal; restore/replacement requires explicit rebinding. 64 MiB and 50,000 planned records maximum. |
+| `workspaces/<canonical>/native-episode-pending-<binding-sha256>.json` | `neo::episode_store` | RE-D64 frozen episode rows, source/predecessor digests, session key and exact previous/next checkpoint. Same physical ownership proof as capture. Empty settlement only after durable episode publication and checkpoint commit; pending work is never evicted. |
 | `workspaces/<canonical>/.native-capture-leases/workspace.lock` | shared native kernel lease | Persistent kernel-held workspace lease plus the actual Node `.neo-write.lock`. Caller cancellation and a 300-second ceiling bound a call; every mutation rechecks both leases, physical identity, current host mapping and capture policy. |
 | `workspaces/<canonical>/.native-hook-leases/<state-file>.lock` | shared native kernel lease | Persistent inode; kernel-held exclusive lock, cancellation while waiting, no TTL takeover or unlink on release. Process death releases ownership. |
 | `.neo-write.lock/owner.json` | `store::lock` (private `neo_lock` implementation) | The existing Node directory-lock layout, with its own orphan grace and liveness rules below. |
@@ -503,3 +504,37 @@ normalizing the complete prefix (RE-D63). This keeps repeated-content ordinals, 
 links and display positions identical to the full journal. A compacted history shorter than its
 watermark restarts selection at zero. Persistence must still look up the selected actual source
 rows under current authority and retain their durable timestamps; selection alone advances no state.
+
+### Native episode/checkpoint publication (RX6 / RE-D64)
+
+`EpisodeStore` composes the actual capture journal, shared EmotionalPool and principal-bound
+SessionStore. Selected RE-D63 IDs resolve to real durable turn rows and timestamps. Every source
+(including open-episode snapshots) must still belong to the actual owner/agent/workspace and
+remain private and visible. Source changes, missing history and unexpected predecessor revisions
+fail closed before a new publication plan is recorded. Participant labels currently use the
+deterministic fallback; USER.md/IDENTITY.md resolution and narrative enrichment remain separate.
+
+Lock order is native capture kernel lease, interoperable Neo writer lock, then principal hook
+checkpoint lease. The pending plan freezes episode UUIDs/content, mood, source/predecessor
+fingerprints and both checkpoint states. Each episode revision is fsynced before the complete
+checkpoint is atomically replaced. Replay accepts only the exact previous or already-committed
+next checkpoint and exact matching episode revisions; it cannot rebase over unrelated progress.
+A killed partial JSONL tail is truncated under the writer leases and replayed from the frozen plan.
+The checkpoint is not advanced by retry exhaustion. Once committed, absent episode rows are
+corruption, not permission to regenerate an acknowledged episode. Readers can observe individual
+rows during publication; this does not promise atomic batch visibility.
+
+Open episodes and remembered turn IDs live in `agentEnd.episodeSessions`, keyed by the same
+opaque prefixed session key as `sessionWatermarks`. Eviction follows the existing 500-session
+map, the ID suffix remains 2,000, and the full private checkpoint retains its 4 MiB limit. The
+episode journal and pending file retain 64 MiB / 50,000-row bounds with preflight refusal. No
+implicit history retention or pending-plan deletion is introduced. The frozen Node role/content
+digest shortcut is not an acknowledgement: native replay uses durable turn IDs and the exact
+checkpoint, allowing distinct repeated turns without reusing an earlier ordinal.
+
+Recovery here is on the next explicitly authorized operation for the bound owner/agent/workspace.
+Host-wide startup enumeration/original-principal restoration, the full engine checkpoint digest,
+embedding drain/generations, vault publication and process activation remain later composition.
+`neo_episode_store` and `neo_episode_store_edges` exercise real files, concurrent writers, both
+SIGKILL boundaries, revocation, source/checkpoint changes, links and torn tails. Existing session,
+journal and Node episode parity tests remain unchanged. Native Windows execution is not claimed.

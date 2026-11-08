@@ -14,7 +14,7 @@ use crate::{
     text::{js::JsString, json::TolerantJsonValue as Json},
 };
 
-fn stamp(row: &mut Json, ctx: &RequestContext) -> Result<(), StoreError> {
+pub(super) fn stamp(row: &mut Json, ctx: &RequestContext) -> Result<(), StoreError> {
     let authority = [
         ("agentId", ctx.agent_id.as_str()),
         ("ownerUserId", &ctx.owner_user_id),

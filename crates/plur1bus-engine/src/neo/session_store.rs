@@ -154,84 +154,140 @@ impl SessionStore {
         if baseline > MAX_COUNTER || value > MAX_COUNTER {
             return Err(StoreError::InvalidInput.into());
         }
+        self.transaction(p, a, session, cancel, &|| Ok(()), |transaction| {
+            let now = Utc
+                .timestamp_millis_opt(self.host.now_ms())
+                .single()
+                .ok_or(StoreError::InvalidInput)?
+                .to_rfc3339_opts(SecondsFormat::Millis, true);
+            let now = JsString::from(now.as_str());
+            let patch = match change {
+                Change::Advance { .. } => watermark::plan_advance(
+                    transaction.state(),
+                    session,
+                    &num(baseline),
+                    &num(value),
+                    &now,
+                )?,
+                Change::Failure { .. } => watermark::plan_failure(
+                    transaction.state(),
+                    session,
+                    &num(baseline),
+                    &num(value),
+                    &now,
+                )?,
+            };
+            let Some(patch) = patch else {
+                return Ok(Applied {
+                    applied: false,
+                    watermark: watermark::read_session(transaction.state(), session),
+                });
+            };
+            let mut state = transaction.state().clone();
+            let Json::Object(patch) = patch else {
+                return Err(StoreError::Corrupt.into());
+            };
+            for (key, value) in patch {
+                let Json::Object(fields) = &mut state else {
+                    return Err(StoreError::Corrupt.into());
+                };
+                if let Some((_, old)) = fields.iter_mut().find(|(k, _)| k == &key) {
+                    *old = value;
+                } else {
+                    fields.push((key, value));
+                }
+            }
+            transaction.commit(state)?;
+            Ok(Applied {
+                applied: true,
+                watermark: watermark::read_session(transaction.state(), session),
+            })
+        })
+    }
+    /// Internal composition holds the same checkpoint lease through dependent durable writes.
+    /// Lock order is Neo writer, then checkpoint. External policy is rechecked before commit.
+    pub(super) fn transaction<T>(
+        &self,
+        p: &Principal,
+        a: &AgentContext,
+        session: &JsString,
+        cancel: &Cancel,
+        external: &dyn Fn() -> Result<(), EngineError>,
+        action: impl FnOnce(&mut Checkpoint<'_>) -> Result<T, EngineError>,
+    ) -> Result<T, EngineError> {
+        check_session(session)?;
+        cancel.check()?;
+        external()?;
         let binding = self.bind(p, a)?;
-        // Reject corrupt/foreign/legacy state before creating lease metadata.
         load(self.directory(&binding, false)?.as_ref(), &binding, cancel)?;
         let directory = self
             .directory(&binding, true)?
             .ok_or(StoreError::Unavailable)?;
         let locks = directory.create_child(".native-hook-leases")?;
         let lease = kernel_lock::acquire(&locks, &binding.file, cancel, &mut || {})?;
-        binding.workspace.assert_unchanged()?;
-        // Waiting for a competing writer must not retain a revoked host mapping.
-        if self.bind(p, a)?.proof != binding.proof {
-            return Err(StoreError::InvalidInput.into());
-        }
-        let state = load(Some(&directory), &binding, cancel)?;
-        let now = Utc
-            .timestamp_millis_opt(self.host.now_ms())
-            .single()
-            .ok_or(StoreError::InvalidInput)?
-            .to_rfc3339_opts(SecondsFormat::Millis, true);
-        let now = JsString::from(now.as_str());
-        let patch = match change {
-            Change::Advance { .. } => {
-                watermark::plan_advance(&state, session, &num(baseline), &num(value), &now)?
+        let check = || -> Result<(), EngineError> {
+            cancel.check()?;
+            external()?;
+            if self.bind(p, a)?.proof != binding.proof {
+                return Err(StoreError::InvalidInput.into());
             }
-            Change::Failure { .. } => {
-                watermark::plan_failure(&state, session, &num(baseline), &num(value), &now)?
-            }
-        };
-        let Some(patch) = patch else {
             lease.check(&locks)?;
             directory.assert_unchanged()?;
-            cancel.check()?;
-            return Ok(Applied {
-                applied: false,
-                watermark: watermark::read_session(&state, session),
-            });
+            binding.workspace.assert_unchanged()?;
+            Ok(())
         };
-        // Planner patches retain the complete session map; preserve any future unrelated hook fields.
-        let mut fields = match state {
-            Json::Object(fields) => fields,
-            _ => return Err(StoreError::Corrupt.into()),
-        };
-        let Json::Object(patch) = patch else {
-            return Err(StoreError::Corrupt.into());
-        };
-        for (key, value) in patch {
-            if let Some((_, old)) = fields.iter_mut().find(|(k, _)| k == &key) {
-                *old = value
-            } else {
-                fields.push((key, value));
+        check()?;
+        let state = load(Some(&directory), &binding, cancel)?;
+        let validate = |state: &Json| -> Result<(), EngineError> {
+            watermark::validate_state(state)?;
+            let record = object(vec![
+                ("ownership", binding.proof.clone()),
+                ("agentEnd", state.clone()),
+            ]);
+            if write_json(&record).len() as u64 + 1 > MAX_BYTES {
+                return Err(StoreError::InvalidInput.into());
             }
-        }
-        let state = Json::Object(fields);
-        let result = watermark::read_session(&state, session);
-        let record = object(vec![
-            ("ownership", binding.proof.clone()),
-            ("agentEnd", state),
-        ]);
-        if write_json(&record).len() as u64 + 1 > MAX_BYTES {
-            return Err(StoreError::InvalidInput.into());
-        }
-        // Host mappings can change while waiting for another process's lease.
-        if self.bind(p, a)?.proof != binding.proof {
-            return Err(StoreError::InvalidInput.into());
-        }
-        lease.check(&locks)?;
-        binding.workspace.assert_unchanged()?;
-        directory.assert_unchanged()?;
-        cancel.check()?;
-        StateFile::<Json>::store(&directory.path().join(&binding.file), &record)?;
-        directory.assert_unchanged()?;
-        self.root.assert_unchanged()?;
-        Ok(Applied {
-            applied: true,
-            watermark: result,
+            Ok(())
+        };
+        let write = |state: &Json| {
+            validate(state)?;
+            check()?;
+            let record = object(vec![
+                ("ownership", binding.proof.clone()),
+                ("agentEnd", state.clone()),
+            ]);
+            StateFile::<Json>::store(&directory.path().join(&binding.file), &record)?;
+            directory.assert_unchanged()?;
+            self.root.assert_unchanged()?;
+            Ok(())
+        };
+        action(&mut Checkpoint {
+            state,
+            validate: &validate,
+            write: &write,
         })
     }
 }
+/// Only constructible while the principal's checkpoint lease is held.
+pub(super) struct Checkpoint<'a> {
+    state: Json,
+    validate: &'a dyn Fn(&Json) -> Result<(), EngineError>,
+    write: &'a dyn Fn(&Json) -> Result<(), EngineError>,
+}
+impl Checkpoint<'_> {
+    pub(super) fn state(&self) -> &Json {
+        &self.state
+    }
+    pub(super) fn validate(&self, next: &Json) -> Result<(), EngineError> {
+        (self.validate)(next)
+    }
+    pub(super) fn commit(&mut self, next: Json) -> Result<(), EngineError> {
+        (self.write)(&next)?;
+        self.state = next;
+        Ok(())
+    }
+}
+
 fn check_session(session: &JsString) -> Result<(), StoreError> {
     if session.as_utf16_units().len() > MAX_SESSION_UNITS {
         Err(StoreError::InvalidInput)

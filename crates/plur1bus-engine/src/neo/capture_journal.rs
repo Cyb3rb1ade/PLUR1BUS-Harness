@@ -230,6 +230,47 @@ impl CaptureJournal {
                 .map(|r| r.total())
         })
     }
+    /// Authorized composition under the existing native and interoperable Neo writer leases.
+    pub(super) fn transaction<T>(
+        &self,
+        turn: &TurnRecord,
+        expected: &RequestContext,
+        cancel: &Cancel,
+        action: impl FnOnce(
+            &TrustedDirectory,
+            &Json,
+            &str,
+            &dyn Fn() -> Result<(), EngineError>,
+        ) -> Result<T, EngineError>,
+    ) -> Result<T, EngineError> {
+        turn.cancel.check()?;
+        let binding = self.bind(&turn.principal, &turn.agent)?;
+        if &binding.ctx != expected || turn.agent_id != binding.ctx.agent_id || turn.incognito {
+            return Err(StoreError::InvalidInput.into());
+        }
+        let directory = self
+            .directory(&binding, true)?
+            .ok_or(StoreError::Unavailable)?;
+        self.with_locks(
+            &binding,
+            &directory,
+            &turn.principal,
+            &turn.agent,
+            cancel,
+            |check| {
+                let check = || {
+                    turn.cancel.check()?;
+                    check()
+                };
+                self.replay(&binding, &directory, cancel, &check)?;
+                check()?;
+                let name = binding
+                    .file
+                    .replace("native-capture-pending-", "native-episode-pending-");
+                action(&directory, &binding.proof, &name, &check)
+            },
+        )
+    }
     fn with_locks<T>(
         &self,
         binding: &Binding,
