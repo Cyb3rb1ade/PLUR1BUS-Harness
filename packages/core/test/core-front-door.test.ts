@@ -5,6 +5,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createConnection } from "node:net";
 import { PassThrough } from "node:stream";
 import { join } from "node:path";
 import { defaults } from "@plur1bus/config-schema";
@@ -14,6 +15,7 @@ import { acquireCoreLock } from "../src/lock.ts";
 import { layout } from "../src/paths.ts";
 import { flatTestInternals } from "./helpers/flat-embedder.ts";
 import { tempDir } from "./helpers/temp-dir.ts";
+import { until } from "./helpers/until.ts";
 
 const hex = () => randomBytes(32).toString("hex");
 
@@ -77,17 +79,66 @@ describe("core behind the front door (P4-10 seam)", () => {
     assert.ok(!existsSync(join(l.run, "core-legacy.pid")), "it never got as far as its pid file");
     acquireCoreLock(join(l.run, "core-legacy.lock"), "next").release(); // and holds no lock: the next legacy core starts
   });
+
+  it("an adoption over a front-door link never takes the lifeline, and the lifeline's loss expires at once (task review L8)", async () => {
+    // The front door relays a supervisor's core.adopt so this core still checks the nonce and the caller's rights, but the
+    // lifeline stays the front door's: closing the adopting connection must not orphan this core, and the end of the
+    // front door's lifeline must stop it without a grace (nothing can adopt a core behind a front door).
+    const { home, l, owner, link } = frontDoorHome();
+    const nonce = hex();
+    writeFileSync(l.supervisorToken, nonce, { mode: 0o600 });
+    const lifeline = new PassThrough();
+    let expiredAt: number | null = null;
+    const core = createCore({ home, testInternals: flatTestInternals(), dreams: { scheduler: false }, lifeline, behindFrontDoor: "standalone", onOrphanGraceExpired: () => { expiredAt ??= Date.now(); } });
+    await core.start();
+    try {
+      const c = await rawClient(core.address);
+      assert.ok((await c.call("core.auth", { token: owner, frontDoor: { token: link, caller: "owner" } })).result, "a front-door link");
+      const adopted = await c.call("core.adopt", { nonce });
+      assert.ok(adopted.result, JSON.stringify(adopted));
+      await c.close();
+      await new Promise((r) => setTimeout(r, 200));
+      assert.equal(core.status().process.state, "ready", "the adopting link's end orphans nothing");
+      assert.equal(expiredAt, null);
+      const ended = Date.now();
+      lifeline.end();
+      await until(() => expiredAt !== null, "the grace expiry", { ms: 2000 });
+      assert.ok(expiredAt! - ended < 500, `expired ${expiredAt! - ended} ms after the lifeline ended`);
+    } finally {
+      await core.stop({ budgetMs: 5000 });
+    }
+  });
 });
 
+/** A raw NDJSON connection: `call` sends one request and resolves with its answer. */
+async function rawClient(address: string): Promise<{ call(method: string, params: Record<string, unknown>): Promise<any>; close(): Promise<void> }> {
+  const s = createConnection(address);
+  await new Promise<void>((resolve, reject) => { s.once("connect", resolve); s.once("error", reject); });
+  const waiting = new Map<number, (v: any) => void>();
+  let buf = ""; let next = 1;
+  s.on("data", (d) => {
+    buf += String(d);
+    for (let nl = buf.indexOf("\n"); nl >= 0; nl = buf.indexOf("\n")) {
+      const msg = JSON.parse(buf.slice(0, nl)); buf = buf.slice(nl + 1);
+      if (typeof msg.id === "number") waiting.get(msg.id)?.(msg);
+    }
+  });
+  return {
+    call: (method, params) => new Promise((resolve) => { const id = next++; waiting.set(id, resolve); s.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n"); }),
+    close: () => new Promise<void>((resolve) => { s.once("close", () => resolve()); s.end(); }),
+  };
+}
+
 /** A home as the front door leaves it before it spawns the legacy core. */
-function frontDoorHome(): { home: string; l: ReturnType<typeof layout> } {
+function frontDoorHome(): { home: string; l: ReturnType<typeof layout>; owner: string; link: string } {
   const home = tempDir("p1b-front-door-");
   const l = layout(home);
   mkdirSync(l.run, { recursive: true, mode: 0o700 });
   const cfg = defaults(); cfg.agents.bernd = {};
   writeFileSync(l.configPath, JSON.stringify(cfg));
-  writeFileSync(join(l.run, "core-legacy.credentials"), JSON.stringify({ core: hex(), api: hex() }), { mode: 0o600 });
-  writeFileSync(join(l.run, "core-legacy.token"), hex(), { mode: 0o600 });
+  const owner = hex(), link = hex();
+  writeFileSync(join(l.run, "core-legacy.credentials"), JSON.stringify({ core: owner, api: hex() }), { mode: 0o600 });
+  writeFileSync(join(l.run, "core-legacy.token"), link, { mode: 0o600 });
   writeFileSync(l.corePid, "4242 7a3a4b2c-0d1e-4f50-9a6b-1c2d3e4f5a6b\n", { mode: 0o600 });
-  return { home, l };
+  return { home, l, owner, link };
 }
