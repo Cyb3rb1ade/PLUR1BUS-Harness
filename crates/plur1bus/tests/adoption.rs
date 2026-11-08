@@ -128,12 +128,19 @@ struct HandCore {
 }
 impl HandCore {
     fn start(h: &Home, mode: &str) -> Self {
+        Self::start_with(h, mode, false)
+    }
+    /// `legacy`: the core plays a Rust front door with a hung legacy core behind it (`FAKE_CORE_LEGACY`).
+    fn start_with(h: &Home, mode: &str, legacy: bool) -> Self {
         // --expose-gc: the fixture then collects garbage every 50 ms (pins that it holds its lock for good).
         let child = Command::new("node")
             .arg("--expose-gc")
             .arg(fixture())
             .arg("--home")
             .arg(&h.home)
+            .env("FAKE_CORE_LEGACY", if legacy { "1" } else { "0" })
+            // A hung front door catches SIGTERM and never gets to its stop: only the kill ends it.
+            .env("FAKE_CORE_IGNORE_SIGTERM", if legacy { "1" } else { "0" })
             .env("FAKE_CORE_MODE", mode)
             .env("FAKE_CORE_EVENTS", &h.events)
             .stdin(Stdio::null())
@@ -447,6 +454,50 @@ fn a_hung_core_found_at_start_is_terminated_and_replaced() {
         .all(|r| r["pid"].as_u64() == Some(u64::from(hung.pid))));
     assert_eq!(steps[0]["step"], "shutdown");
     assert!(steps.iter().any(|r| r["step"] == "terminate"), "{steps:?}");
+    s.stop(&mut c);
+}
+
+/// Re-review M-c (P4-10 security review M4, `Gen::kill`'s legacy branch): an adopted core that plays a Rust front door
+/// hangs, and so does its legacy core (`fake-legacy-hang.mjs`: no SIGTERM, no lifeline, in no group the core leads).
+/// The supervisor's hang kill of the adopted front door kills the legacy core `run/core-legacy.pid` names as well.
+#[cfg(unix)]
+#[test]
+fn an_adopted_front_doors_hung_legacy_core_is_killed_with_it() {
+    let h = Home::new();
+    let door = HandCore::start_with(&h, "hang-after:3000", true);
+    wait_until("the legacy core listening", WAIT, || {
+        !h.events("legacy").is_empty()
+    });
+    let legacy = h.events("legacy")[0]["legacyPid"].as_u64().unwrap() as libc::pid_t;
+    // SAFETY: kill(2) with signal 0 only checks that the process exists.
+    let alive = |pid: libc::pid_t| unsafe { libc::kill(pid, 0) } == 0;
+    assert!(alive(legacy));
+    /// A failing run does not leave the hung legacy core behind (a passing one has seen it gone).
+    struct Reap(libc::pid_t);
+    impl Drop for Reap {
+        fn drop(&mut self) {
+            if std::thread::panicking() {
+                // SAFETY: SIGKILL to the fixture's legacy core, which the failed wait has just seen alive.
+                unsafe { libc::kill(self.0, libc::SIGKILL) };
+            }
+        }
+    }
+    let _reap = Reap(legacy);
+
+    let mut s = start(&h, LONG_GRACE);
+    let mut c = client(&h.home);
+    wait_child(&mut c, "the front door adopted", |c| {
+        ready(c) && c["adopted"] == true && c["pid"].as_u64() == Some(u64::from(door.pid))
+    });
+    wait_until("the adopted front door hung", WAIT, || {
+        !h.events("hung").is_empty()
+    });
+    wait_until("the hung front door killed", WAIT, || {
+        door.exit_status().is_some()
+    });
+    wait_until("its hung legacy core killed with it", WAIT, || {
+        !alive(legacy)
+    });
     s.stop(&mut c);
 }
 

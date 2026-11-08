@@ -26,6 +26,8 @@
 // FAKE_CORE_WATCH_CONFIG=1: before listening, call config.watch on the supervisor (auth with run/supervisor.token) and
 // wait up to 10 s for its reply, like core.js under a supervisor (B7); event `config-watched` { revision } or
 // `config-watch-failed`. The connection stays open.
+// FAKE_CORE_IGNORE_SIGTERM=1: SIGTERM is caught and does nothing, as a hung Rust front door catches it and never gets to
+// its stop (re-review M-c): only a SIGKILL ends it.
 // Every event (started, listening, hung, shutdown, orphaned, adopted, exiting) is appended as one JSON line to $FAKE_CORE_EVENTS.
 // The lifeline (S4) is stdin with --lifeline stdin, then the connection of the last successful core.adopt (whose nonce
 // must equal run/supervisor.token, compared lower-cased). Losing the current lifeline reports `orphaned` and exits 0
@@ -97,6 +99,7 @@ try {
 // closes the file (a second core would then get the lock). The exit handler keeps it reachable and releases it.
 globalThis.fakeCoreLock = lock;
 process.on("exit", () => { try { globalThis.fakeCoreLock.close(); } catch { /* already closed */ } });
+if (process.env.FAKE_CORE_IGNORE_SIGTERM === "1") process.on("SIGTERM", () => {});
 // Started with --expose-gc (the tests' hand-started cores): collect garbage often, so a lock that is only weakly
 // held is lost at once instead of whenever V8 gets to it.
 if (typeof globalThis.gc === "function") setInterval(() => globalThis.gc(), 50).unref();
