@@ -64,8 +64,12 @@ nesting deeper than 128 included. What remains is narrow: a frame the front door
 authenticated connection, a natively served method (none in P4-10), and the six answers it completes (`core.auth`,
 `core.status`, `core.adopt` patched; `core.shutdown`, `events.subscribe`, `events.unsubscribe` only peeked) — reads a lone
 surrogate as U+FFFD, so a patched answer carries U+FFFD where the TypeScript core writes the escape; and such a frame
-nested deeper than 128 levels is refused with `-32700` (a request) or forwarded with only its id replaced (an answer, a
-warning on stderr).
+that serde_json cannot read — nested deeper than 128 levels, or with a number out of its range (`1e400`, which
+`JSON.parse` reads as Infinity) — is refused with `-32700` (a request) or forwarded with only its id replaced (an answer,
+a warning on stderr). Two more are read alone (task review I2): the `api` member of every request on an API connection,
+which the front door verifies before it relays the request (a member nested that deep or with such a number is refused
+`api-delegation`, as module-api refuses what `JSON.parse` makes of it); and the legacy core's answer to the control
+link's handshake, read strictly once at start (its own `core.auth` result, no client data).
 
 A request id goes back as the client wrote it, on the answers the front door completes or gives itself: `1E+2` or
 `9007199254740993` returns as written, where module-api returns what `JSON.parse` made of it (`100`,

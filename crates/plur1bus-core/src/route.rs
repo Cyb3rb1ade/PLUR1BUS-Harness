@@ -202,10 +202,24 @@ impl CoreMethods for Methods {
     type Context = CallContext;
 }
 
-/// The validators of every `x-server: "core"` method, compiled on the first native call.
+/// The validators of every `x-server: "core"` method, compiled once: at start when there are native methods
+/// ([`prepare`]), else never.
 fn validators() -> &'static Result<Validators, String> {
     static VALIDATORS: OnceLock<Result<Validators, String>> = OnceLock::new();
     VALIDATORS.get_or_init(|| Validators::for_server("core"))
+}
+
+/// Compiles the validators at start when the front door serves any method itself, so that no connection thread pays for
+/// the compile of every core validator on the first native call (task review I4). Nothing while [`NATIVE`] is empty.
+pub fn prepare() -> Result<(), String> {
+    prepare_for(NATIVE)
+}
+
+fn prepare_for(native: &[&str]) -> Result<(), String> {
+    if native.is_empty() {
+        return Ok(());
+    }
+    validators().as_ref().map(|_| ()).map_err(Clone::clone)
 }
 
 /// Serves a native call through `dispatch_core`: the result, or the `error` member of the reply (module-api's
@@ -312,6 +326,8 @@ fn failure_json(f: &RpcFailure) -> Value {
 
 /// Runs a future to completion on this thread (the front door's connections are threads, not tasks). The generated
 /// dispatcher and a method that does not await anything complete on the first poll; a method that does is woken here.
+/// There is no async runtime on these threads: a ported method that awaits tokio I/O or timers needs a runtime handle
+/// first (P4-11, task review I4).
 pub fn block_on<F: Future>(future: F) -> F::Output {
     struct Unpark(std::thread::Thread);
     impl Wake for Unpark {
@@ -616,6 +632,14 @@ mod tests {
             reason(&serve(&owner(), "no.such", json!({})).unwrap_err()),
             "method-not-found"
         );
+    }
+
+    #[test]
+    fn the_validators_are_compiled_at_start_once_a_method_is_native() {
+        assert_eq!(prepare_for(&[]), Ok(()));
+        assert_eq!(prepare_for(&["core.status"]), Ok(()));
+        assert!(validators().is_ok(), "compiled by prepare");
+        assert_eq!(prepare(), Ok(()));
     }
 
     #[test]

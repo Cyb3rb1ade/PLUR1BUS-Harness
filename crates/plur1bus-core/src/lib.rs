@@ -142,6 +142,7 @@ pub fn serve(plan: &ServePlan) -> Result<i32, ServeError> {
     let capacity = server::Capacity::for_open_files(plur1bus_rpc::limits::raise_open_files());
     let files = plan.run_files.clone();
     let checks = server::Checks::new().map_err(ServeError::Start)?;
+    route::prepare().map_err(ServeError::Start)?;
     run_files::prepare(&files).map_err(|e| ServeError::Start(e.to_string()))?;
     let lock = match lock::acquire(&files.lock) {
         Ok(lock) => lock,

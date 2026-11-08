@@ -1380,7 +1380,9 @@ fn reauth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &RawId, msg: &Value) {
 /// of an owner connection in its `dispatch` order: a delegation the request carries is verified (`api-delegation`), the
 /// request shape (`invalid-request`), then a valid delegation is refused because the connection did not delegate at its
 /// handshake (`api-handshake-required`). RBAC is the method's, as in a TypeScript handler. A native call is never relayed:
-/// one that answers `NotServed` is a route-table drift (`E_INTERNAL`, reason `route-table-drift`).
+/// one that answers `NotServed` is a route-table drift (`E_INTERNAL`, reason `route-table-drift`). module-api also
+/// re-binds an API connection's principal on every delegated request (`c.api = delegated`); no API call reaches this
+/// path before P4-12, which has to do that when it serves API principals natively (task review I4).
 fn native(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &RawId, method: &str, mut msg: Value) {
     let Delegation {
         present: has_api,
@@ -1663,7 +1665,8 @@ fn patch_hello(front: &FrontDoor, msg: &mut Value) {
 }
 
 /// The legacy core's answer `text` with the client's `id`, changed by `patch` (read with lone surrogates as U+FFFD). An
-/// answer nested too deep to read goes on as written with only the id replaced, unchanged (logged).
+/// answer serde_json cannot read (nested deeper than 128 levels, or a number out of its range such as `1e400`) goes on
+/// as written with only the id replaced, unchanged (logged).
 fn patched(
     text: &str,
     id: &RawId,
@@ -1677,7 +1680,7 @@ fn patched(
         None => {
             log(
                 "warn",
-                "an answer the front door completes is nested too deep to read; forwarded unchanged",
+                "an answer the front door completes cannot be read (nesting deeper than 128, or a number out of range); forwarded unchanged",
                 Value::Null,
             );
             Ok(id.splice_into(text))
