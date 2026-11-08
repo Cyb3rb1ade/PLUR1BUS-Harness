@@ -14,7 +14,7 @@
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { rawConnect } from "./raw-client.ts";
+import { rawConnect, type RawConnection } from "./raw-client.ts";
 import { replayTranscript } from "./replay.ts";
 import { parityHome, startProcessTarget, type CoreImpl, type ParityTarget } from "./target.ts";
 import { compareTranscripts, parseTranscript, type TranscriptLine } from "./transcript.ts";
@@ -81,33 +81,56 @@ export function methodFixtures(): Array<[string, string, unknown]> {
   });
 }
 
-/** One owner session that sends every fixture in order; returns a transcript of requests and responses. */
-async function fixturesOn(impl: CoreImpl, home: string): Promise<TranscriptLine[]> {
-  const target = await startLeg(impl, home);
+/** What one leg of G1 recorded: the transcript of requests and responses, and the fixtures that got no response (a
+ *  timeout or a dropped connection). Those keep a placeholder line so the legs stay aligned, but they are counted apart
+ *  and fail G1: a fixture that hangs or drops the connection on both legs is not parity (task review L7). */
+export interface FixtureRun { lines: TranscriptLine[]; unanswered: string[] }
+
+type FixtureConnection = Pick<RawConnection, "send" | "waitFor" | "close">;
+
+/** One owner session that sends every fixture in order; after a fixture without a response it reconnects and goes on. */
+export async function sendFixtures(
+  fixtures: ReadonlyArray<[string, string, unknown]>,
+  connect: () => Promise<FixtureConnection>,
+  token: string,
+  timeoutMs = 15_000,
+): Promise<FixtureRun> {
   const lines: TranscriptLine[] = [];
+  const unanswered: string[] = [];
   let seq = 0;
-  try {
-    let c = await rawConnect(target.address);
-    const auth = async () => {
-      c.send({ jsonrpc: "2.0", id: 0, method: "core.auth", params: { token: target.token } });
-      await c.waitFor((f) => f.id === 0, "core.auth");
-    };
-    await auth();
-    let id = 0;
-    for (const [stem, method, params] of methodFixtures()) {
-      if (G1_EXCLUDED[method]) continue;
-      const mine = `${stem}#${++id}`;
-      const msg = { jsonrpc: "2.0", id: mine, method, params };
-      lines.push({ seq: ++seq, conn: 0, dir: "in", msg });
-      c.send(msg);
-      let reply: unknown;
-      try { reply = await c.waitFor((f) => f.id === mine && f.method === undefined, mine, 15_000); }
-      catch { reply = { jsonrpc: "2.0", id: mine, result: { "<p4-10>": "no response within 15 s" } }; c = await rawConnect(target.address); await auth(); }
-      lines.push({ seq: ++seq, conn: 0, dir: "out", msg: reply });
+  let c = await connect();
+  const auth = async () => {
+    c.send({ jsonrpc: "2.0", id: 0, method: "core.auth", params: { token } });
+    await c.waitFor((f) => f.id === 0, "core.auth");
+  };
+  await auth();
+  let id = 0;
+  for (const [stem, method, params] of fixtures) {
+    if (G1_EXCLUDED[method]) continue;
+    const mine = `${stem}#${++id}`;
+    const msg = { jsonrpc: "2.0", id: mine, method, params };
+    lines.push({ seq: ++seq, conn: 0, dir: "in", msg });
+    c.send(msg);
+    let reply: unknown;
+    try { reply = await c.waitFor((f) => f.id === mine && f.method === undefined, mine, timeoutMs); }
+    catch {
+      unanswered.push(mine);
+      reply = { jsonrpc: "2.0", id: mine, result: { "<p4-10>": `no response within ${timeoutMs} ms` } };
+      await c.close();
+      c = await connect();
+      await auth();
     }
-    await c.close();
-  } finally { await target.stop(); }
-  return lines;
+    lines.push({ seq: ++seq, conn: 0, dir: "out", msg: reply });
+  }
+  await c.close();
+  return { lines, unanswered };
+}
+
+/** G1 on one leg: a stock or front-door core in a child process, settled first. */
+async function fixturesOn(impl: CoreImpl, home: string): Promise<FixtureRun> {
+  const target = await startLeg(impl, home);
+  try { return await sendFixtures(methodFixtures(), () => rawConnect(target.address), target.token); }
+  finally { await target.stop(); }
 }
 
 /** Methods whose G1 answer differs by design, with the reason; their differences are reported apart, not as failures. */
@@ -132,11 +155,27 @@ export function beyondFloor(frontDoor: readonly string[], control: readonly stri
   return frontDoor.filter((d) => !floor.has(diffPath(d)));
 }
 
-export async function g1(legs: readonly [CoreImpl, CoreImpl] = ["ts", "rust"]): Promise<{ sent: number; excluded: string[]; diffs: string[] }> {
+export interface G1Result { sent: number; excluded: string[]; diffs: string[]; unanswered: string[]; passed: boolean }
+
+/** Compares the legs' transcripts; the fixtures either leg left unanswered are listed (`<leg>: <fixture>`) and fail G1
+ *  whatever the comparison says. `passed` is before `G1_EXPECTED` and the noise floor are set aside. */
+export function compareFixtureRuns(first: FixtureRun, second: FixtureRun, legs: readonly [CoreImpl, CoreImpl]): G1Result {
+  const diffs = compareTranscripts(first.lines, second.lines).diffs;
+  const unanswered = [...first.unanswered.map((f) => `${legs[0]}: ${f}`), ...second.unanswered.map((f) => `${legs[1]}: ${f}`)];
+  return {
+    sent: first.lines.filter((l) => l.dir === "in").length,
+    excluded: Object.keys(G1_EXCLUDED),
+    diffs,
+    unanswered,
+    passed: diffs.length === 0 && unanswered.length === 0,
+  };
+}
+
+export async function g1(legs: readonly [CoreImpl, CoreImpl] = ["ts", "rust"]): Promise<G1Result> {
   const home = parityHome();
-  const ts = await fixturesOn(legs[0], home);
-  const rust = await fixturesOn(legs[1], home);
-  return { sent: ts.filter((l) => l.dir === "in").length, excluded: Object.keys(G1_EXCLUDED), diffs: compareTranscripts(ts, rust).diffs };
+  const first = await fixturesOn(legs[0], home);
+  const second = await fixturesOn(legs[1], home);
+  return compareFixtureRuns(first, second, legs);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
@@ -172,9 +211,10 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     report.g1 = result;
     const counted = result.beyondFloor ?? diffs;
     const noise = result.beyondFloor ? `, ${diffs.length - result.beyondFloor.length} at the noise floor` : "";
-    console.log(`G1: ${g.sent} method fixtures through both legs, excluded ${g.excluded.join(", ")}; ${counted.length} diffs${noise}; expected (${Object.keys(G1_EXPECTED).join(", ")}): ${result.expected.length}`);
+    console.log(`G1: ${g.sent} method fixtures through both legs, excluded ${g.excluded.join(", ")}; ${counted.length} diffs${noise}; ${g.unanswered.length} unanswered (timeouts or dropped connections); expected (${Object.keys(G1_EXPECTED).join(", ")}): ${result.expected.length}`);
     for (const d of counted) console.log(`       ${d}`);
-    if (counted.length) failed++;
+    for (const u of g.unanswered) console.log(`       unanswered ${u}`);
+    if (counted.length || g.unanswered.length) failed++;
   }
   if (out) writeFileSync(out, JSON.stringify(report, null, 2));
   process.exit(failed ? 1 : 0);
