@@ -161,6 +161,10 @@ fn main() {
             "a_stop_without_the_control_link_ends_the_lifeline",
             a_stop_without_the_control_link_ends_the_lifeline,
         ),
+        (
+            "a_console_break_stops_the_pair_in_order",
+            a_console_break_stops_the_pair_in_order,
+        ),
     ];
     let mut failed = Vec::new();
     for (name, test) in tests {
@@ -229,8 +233,12 @@ fn spawn_door(home: &Path, o: &Opts<'_>) -> Child {
         use std::os::unix::process::CommandExt;
         cmd.process_group(0);
     }
-    #[cfg(not(unix))]
-    let _ = o.own_group; // no process groups to signal
+    // Windows: a console process group of its own (`CREATE_NEW_PROCESS_GROUP`), for Ctrl+Break.
+    #[cfg(windows)]
+    if o.own_group {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0000_0200);
+    }
     cmd.args(["serve", "--home"]).arg(home);
     if o.lifeline {
         cmd.args([
@@ -1846,5 +1854,31 @@ fn a_stop_without_the_control_link_ends_the_lifeline() {
             "{}",
             d.stderr()
         );
+    }
+}
+
+/// Task review L5 (Windows only, runs in the `front-door-windows` job): Ctrl+Break (and Ctrl+C, closing the console) on
+/// `plur1bus core run` takes the ordered stop, with SIGINT's code 130, instead of the default handler's instant exit
+/// that left `stopping`, the legacy core's drain and the run files behind. Unix has its signals (`sigterm_stops_the_pair`).
+fn a_console_break_stops_the_pair_in_order() {
+    #[cfg(windows)]
+    {
+        let mut d = door(Opts {
+            own_group: true,
+            ..Opts::default()
+        });
+        let group = u32::try_from(d.pid()).unwrap();
+        if let Err(e) = plur1bus_rpc::win::send_ctrl_break(group) {
+            println!("  (skipped: no console to send Ctrl+Break on: {e})");
+            return;
+        }
+        assert_eq!(d.wait(Duration::from_secs(10)), Some(130), "{}", d.stderr());
+        assert!(d.stderr().contains("CTRL_BREAK"), "{}", d.stderr());
+        assert_eq!(
+            d.token("core-legacy.stopped"),
+            "shutdown",
+            "the legacy core drained through core.shutdown"
+        );
+        assert!(!d.path("run/core.token").exists(), "run files removed");
     }
 }

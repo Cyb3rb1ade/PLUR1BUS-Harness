@@ -183,8 +183,38 @@ pub fn watch_signals(events: Sender<Event>) -> std::io::Result<()> {
     Ok(())
 }
 
-/// No signals to watch: on Windows the supervisor stops the core through `core.shutdown`.
-#[cfg(not(unix))]
+/// Windows has no signals (the supervisor stops the core through `core.shutdown`), but `plur1bus core run` has a console:
+/// Ctrl+C, Ctrl+Break and closing the console (also logoff and shutdown) take the stop path with SIGINT's code 130
+/// instead of the default handler's instant exit, which skipped `stopping`, the legacy core's ordered stop and the removal
+/// of the run files (task review L5; through `plur1bus_rpc::win`, this crate stays free of `unsafe`).
+#[cfg(windows)]
+pub fn watch_signals(events: Sender<Event>) -> std::io::Result<()> {
+    /// After a close, logoff or shutdown event the system ends the process once the handler returns (5 s at most for a
+    /// close): the handler holds it for that long, so the stop gets as far as it can.
+    const LAST_WORDS: Duration = Duration::from_millis(4500);
+    plur1bus_rpc::win::on_console_control(move |event| {
+        let why = match event {
+            0 => "CTRL_C",
+            1 => "CTRL_BREAK",
+            2 => "CTRL_CLOSE",
+            5 => "CTRL_LOGOFF",
+            6 => "CTRL_SHUTDOWN",
+            _ => return false,
+        };
+        let _ = events.send(Event::Stop {
+            budget: None,
+            why,
+            ok_code: 130,
+        });
+        if event >= 2 {
+            std::thread::sleep(LAST_WORDS);
+        }
+        true
+    })
+}
+
+/// No signals and no console to watch.
+#[cfg(not(any(unix, windows)))]
 pub fn watch_signals(_events: Sender<Event>) -> std::io::Result<()> {
     Ok(())
 }

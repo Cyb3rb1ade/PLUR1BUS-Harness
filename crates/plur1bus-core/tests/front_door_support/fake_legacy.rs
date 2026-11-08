@@ -163,6 +163,10 @@ pub fn run(args: &[String]) -> ! {
     // which way the front door stopped it (`shutdown` or `lifeline`), unless a shutdown came first. `hang`: a legacy core
     // whose event loop is stuck notices neither its lifeline nor SIGTERM (security review M4).
     let stopped = run.join("core-legacy.stopped");
+    // Windows: the console events of the front door's process group reach this process too; behind the front door it
+    // stops through the front door (`core.shutdown`, its lifeline), not on its own.
+    #[cfg(windows)]
+    let _ = plur1bus_rpc::win::on_console_control(|_| true);
     if mode == "hang" {
         #[cfg(unix)]
         {
