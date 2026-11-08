@@ -105,6 +105,14 @@ fn main() {
             "an_adoption_with_a_lone_surrogate_in_meta_attaches_the_lifeline",
             an_adoption_with_a_lone_surrogate_in_meta_attaches_the_lifeline,
         ),
+        (
+            "a_client_cannot_answer_the_front_doors_own_requests",
+            a_client_cannot_answer_the_front_doors_own_requests,
+        ),
+        (
+            "an_answer_that_is_no_object_is_refused_not_patched",
+            an_answer_that_is_no_object_is_refused_not_patched,
+        ),
     ];
     let mut failed = Vec::new();
     for (name, test) in tests {
@@ -1129,5 +1137,88 @@ fn an_adoption_with_a_lone_surrogate_in_meta_attaches_the_lifeline() {
         d.wait(Duration::from_secs(10)),
         Some(0),
         "the adopting connection was the lifeline"
+    );
+}
+
+/// Security review L1: an id in the front door's own space (`fd-<link nonce>-<n>`) is refused from a client, on a frame
+/// serde_json reads and on one it does not, so a client that learnt a link nonce cannot answer the front door's pending
+/// request itself (here: make a refused `core.shutdown` look accepted).
+fn a_client_cannot_answer_the_front_doors_own_requests() {
+    let mut d = door(Opts {
+        mode: "slow-refuse-shutdown",
+        ..Opts::default()
+    });
+    let mut c = d.owner();
+    c.send_line(r#"{"jsonrpc":"2.0","id":2,"method":"core.shutdown","params":{}}"#);
+    let leaked = d.path("run/core-legacy.shutdown-id");
+    let until = Instant::now() + Duration::from_secs(5);
+    while !leaked.exists() {
+        assert!(
+            Instant::now() < until,
+            "the legacy core never saw the shutdown"
+        );
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    let own = std::fs::read_to_string(&leaked).unwrap();
+    assert!(own.starts_with("fd-"), "{own}");
+    c.send_line(&json!({"jsonrpc":"2.0","id":own,"method":"fake.accept","params":{}}).to_string());
+    let r = c.response(&json!(own));
+    assert_eq!(
+        (code(&r), reason(&r)),
+        ("E_INVALID_PARAMS", "front-door-id"),
+        "{r}"
+    );
+    // The same on a frame serde_json cannot read (a lone surrogate in its params).
+    c.send_line(&format!(
+        r#"{{"jsonrpc":"2.0","id":"{own}","method":"fake.accept","params":{{"t":"\ud800"}}}}"#
+    ));
+    let r = c.response(&json!(own));
+    assert_eq!(reason(&r), "front-door-id", "{r}");
+    let refused = c.response(&json!(2));
+    assert_eq!(
+        (code(&refused), reason(&refused)),
+        ("E_DENIED", "role-required"),
+        "the client gets the legacy core's own answer"
+    );
+    std::thread::sleep(Duration::from_millis(200));
+    assert_eq!(
+        d.child.try_wait().unwrap(),
+        None,
+        "the front door keeps running"
+    );
+    assert!(c.call("core.status", json!({})).get("result").is_some());
+    let spoofed = json!({"jsonrpc":"2.0","id":"fd-0-1","method":"memory.list","params":{}});
+    c.send_line(&spoofed.to_string());
+    assert_eq!(
+        reason(&c.response(&json!("fd-0-1"))),
+        "front-door-id",
+        "whatever the nonce"
+    );
+}
+
+/// Security review L1: an answer the front door completes is checked to be an object before it is patched, so a legacy
+/// answer of another shape is a `result-schema` refusal, not a panic of the link's thread.
+fn an_answer_that_is_no_object_is_refused_not_patched() {
+    let supervisor = Secret::fresh().unwrap();
+    let s = supervisor.expose().to_owned();
+    let prepare = move |home: &Path| {
+        std::fs::create_dir_all(home.join("run")).unwrap();
+        std::fs::write(home.join("run/supervisor.token"), &s).unwrap();
+    };
+    let d = door(Opts {
+        mode: "odd-results",
+        prepare: Some(&prepare),
+        ..Opts::default()
+    });
+    let mut c = d.owner();
+    let r = c.call("core.adopt", json!({"nonce": supervisor.expose()}));
+    assert_eq!(
+        (code(&r), reason(&r)),
+        ("E_INTERNAL", "result-schema"),
+        "{r}"
+    );
+    assert!(
+        c.call("core.status", json!({})).get("result").is_some(),
+        "the connection and its link are still served"
     );
 }

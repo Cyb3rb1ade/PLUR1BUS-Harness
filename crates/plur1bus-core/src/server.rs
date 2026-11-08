@@ -35,6 +35,9 @@ use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
+/// The prefix of the request ids the front door sends on a link ([`Link::next_id`]); refused from a client.
+const FRONT_DOOR_ID_PREFIX: &str = "fd-";
+
 /// An unauthenticated connection is closed after this long (`authIdleMs`).
 pub const AUTH_IDLE: Duration = Duration::from_secs(30);
 /// At most this many client connections at once; more are closed on accept (each costs threads, not a Node socket).
@@ -1015,6 +1018,23 @@ fn post_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, bytes: &[u8]) {
         return relay_raw(conn, bytes);
     };
     let id = RawId::of(id_raw);
+    // The front door's own ids (`fd-<link nonce>-<n>`) are never a client's (security review L1): a client that learnt a
+    // link nonce could otherwise answer the front door's pending request itself. Every frame after the handshake is
+    // peeked here, so this holds for one serde_json cannot read as well.
+    if id_raw
+        .and_then(peek::string_lossy)
+        .is_some_and(|i| i.starts_with(FRONT_DOOR_ID_PREFIX))
+    {
+        return conn.error(
+            &id,
+            RpcErr::new(
+                "E_INVALID_PARAMS",
+                "request ids starting with fd- are the front door's",
+                Some("front-door-id"),
+            )
+            .jsonrpc(-32600),
+        );
+    }
     let method = method.and_then(peek::string_lossy).unwrap_or_default();
     let route = route::route(&method);
     match route {
@@ -1361,6 +1381,9 @@ fn link_loop(front: &Arc<FrontDoor>, conn: &Arc<Conn>, link: &Arc<Link>, reader:
 fn complete(front: &Arc<FrontDoor>, conn: &Arc<Conn>, intercept: Intercept, text: &str) {
     let [result] = peek::members(text, ["result"]).unwrap_or([None]);
     let ok = result.is_some();
+    // An answer the front door patches or acts on must be an object (security review L1): anything else is refused as a
+    // result-schema violation, never indexed into.
+    let odd = result.is_some_and(|r| !r.get().starts_with('{'));
     let fact = |key: &str| result.and_then(|r| peek::member(r, key));
     match intercept {
         Intercept::Auth {
@@ -1370,6 +1393,10 @@ fn complete(front: &Arc<FrontDoor>, conn: &Arc<Conn>, intercept: Intercept, text
             engine_token,
             done,
         } => {
+            if odd {
+                let _ = done.send(false);
+                return conn.error(&id, result_schema());
+            }
             let reply = patched(text, &id, |msg| {
                 if ok {
                     patch_hello(front, msg);
@@ -1387,6 +1414,9 @@ fn complete(front: &Arc<FrontDoor>, conn: &Arc<Conn>, intercept: Intercept, text
             let _ = done.send(ok);
         }
         Intercept::Status { id } => {
+            if odd {
+                return conn.error(&id, result_schema());
+            }
             let reply = patched(text, &id, |msg| {
                 if ok {
                     front.patch_status(&mut msg["result"]);
@@ -1399,6 +1429,9 @@ fn complete(front: &Arc<FrontDoor>, conn: &Arc<Conn>, intercept: Intercept, text
             send_or_refuse(conn, &id, reply);
         }
         Intercept::Adopt { id, nonce } => {
+            if odd {
+                return conn.error(&id, result_schema());
+            }
             if ok {
                 let supervisor = run_files::read_token(&front.files.supervisor_token)
                     .ok()
@@ -1415,7 +1448,9 @@ fn complete(front: &Arc<FrontDoor>, conn: &Arc<Conn>, intercept: Intercept, text
             }
             let reply = patched(text, &id, |msg| {
                 if ok {
-                    front.patch_status(&mut msg["result"]["status"]);
+                    if let Some(status) = msg.get_mut("result").and_then(|r| r.get_mut("status")) {
+                        front.patch_status(status);
+                    }
                     if !findings(&front.checks.adopt_result, &msg["result"]).is_empty() {
                         return Err(result_schema());
                     }
@@ -1455,11 +1490,14 @@ fn complete(front: &Arc<FrontDoor>, conn: &Arc<Conn>, intercept: Intercept, text
 /// The handshake's answer names the front door: its pid and instance, and the union of the methods served natively and
 /// the relayed ones (every `x-server: "core"` method) with the legacy core's features.
 fn patch_hello(front: &FrontDoor, msg: &mut Value) {
-    let result = &mut msg["result"];
-    result["instanceId"] = Value::from(front.instance.clone());
-    result["pid"] = Value::from(front.pid);
+    let Some(result) = msg.get_mut("result").and_then(Value::as_object_mut) else {
+        return;
+    };
+    result.insert("instanceId".into(), Value::from(front.instance.clone()));
+    result.insert("pid".into(), Value::from(front.pid));
     let features: Vec<String> = result
-        .pointer("/capabilities/features")
+        .get("capabilities")
+        .and_then(|c| c.get("features"))
         .and_then(Value::as_array)
         .map(|f| {
             f.iter()
@@ -1468,9 +1506,12 @@ fn patch_hello(front: &FrontDoor, msg: &mut Value) {
                 .collect()
         })
         .unwrap_or_default();
-    if result.get("capabilities").is_some() {
+    if result.contains_key("capabilities") {
         let refs: Vec<&str> = features.iter().map(String::as_str).collect();
-        result["capabilities"] = plur1bus_rpc::capabilities("core", &refs);
+        result.insert(
+            "capabilities".into(),
+            plur1bus_rpc::capabilities("core", &refs),
+        );
     }
 }
 

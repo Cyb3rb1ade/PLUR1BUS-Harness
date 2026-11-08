@@ -69,8 +69,8 @@ impl Link {
         writer.flush()
     }
 
-    /// A request id of the front door's own on this link: `fd-<per-link random>-<n>`, so a client's ids never collide
-    /// with it.
+    /// A request id of the front door's own on this link: `fd-<per-link random>-<n>`. Client ids never collide with it:
+    /// the front door refuses a client id that starts with `fd-` (`front-door-id`).
     pub fn next_id(&self) -> String {
         format!(
             "fd-{}-{}",
@@ -79,11 +79,12 @@ impl Link {
         )
     }
 
-    /// Whether `id` is one of this link's own ids.
+    /// Whether `id` is one of this link's own ids (exactly `fd-<nonce>-<digits>`).
     pub fn owns(&self, id: &str) -> bool {
         id.strip_prefix("fd-")
             .and_then(|rest| rest.strip_prefix(self.nonce.as_str()))
-            .is_some_and(|rest| rest.starts_with('-'))
+            .and_then(|rest| rest.strip_prefix('-'))
+            .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
     }
 
     /// Closes the link (both directions; the legacy core sees the client go).

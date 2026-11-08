@@ -6,7 +6,9 @@
 //! Started by the front door as `<this test binary> fake-legacy --home <h> --behind-front-door <mode> --lifeline stdin
 //! --instance <uuid>` (the tests set `PLUR1BUS_NODE` to this binary and `PLUR1BUS_CORE_JS` to `fake-legacy`).
 //! `FAKE_LEGACY_MODE`: `exit:<n>` exits at once with `n`; `bad-ready` prints a ready line naming another pid; `slow-stop`
-//! takes 300 ms to stop after `core.shutdown`; `one-link` takes the control link and then no connection.
+//! takes 300 ms to stop after `core.shutdown`; `one-link` takes the control link and then no connection;
+//! `slow-refuse-shutdown` refuses a client's `core.shutdown` after 1.5 s; `odd-results` answers `core.adopt` with a result
+//! that is no object.
 use plur1bus_rpc::server_transport::{Accepted, Listener};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -171,7 +173,8 @@ pub fn run(args: &[String]) -> ! {
         if let Ok(Some(conn)) = l.accept_timeout(Duration::from_millis(50)) {
             let l = legacy.clone();
             let conn_mode = mode.clone();
-            std::thread::spawn(move || serve(&l, conn, &conn_mode));
+            let control = accepted == 0;
+            std::thread::spawn(move || serve(&l, conn, &conn_mode, control));
             accepted += 1;
             // `one-link`: after the front door's control link the legacy core takes no connection (it is going away).
             if mode == "one-link" && accepted == 1 {
@@ -211,7 +214,7 @@ fn proved(l: &Legacy, msg: &Value) -> Result<&'static str, &'static str> {
     }
 }
 
-fn serve(l: &Arc<Legacy>, conn: Accepted, mode: &str) {
+fn serve(l: &Arc<Legacy>, conn: Accepted, mode: &str, control: bool) {
     let Accepted {
         reader,
         writer,
@@ -276,6 +279,9 @@ fn serve(l: &Arc<Legacy>, conn: Accepted, mode: &str) {
                 &writer,
                 &json!({"jsonrpc":"2.0","id":id,"result":status(l)}),
             ),
+            "core.adopt" if mode == "odd-results" => {
+                send(&writer, &json!({"jsonrpc":"2.0","id":id,"result":5}));
+            }
             "core.adopt" => {
                 let expected = read(&l.home.join("run/supervisor.token"));
                 let given = msg["params"]["nonce"].as_str().unwrap_or("").to_lowercase();
@@ -288,6 +294,23 @@ fn serve(l: &Arc<Legacy>, conn: Accepted, mode: &str) {
                     send(&writer, &error(&id, "E_UNAUTHORIZED", "adopt-nonce"));
                 }
             }
+            // `slow-refuse-shutdown`: a client's shutdown is refused after 1.5 s, and the id it came with (the front door's
+            // own) is written to `run/core-legacy.shutdown-id`, as a leaked request id would be (security review L1).
+            "core.shutdown" if mode == "slow-refuse-shutdown" && !control => {
+                let _ = std::fs::write(
+                    l.home.join("run/core-legacy.shutdown-id"),
+                    id.as_str().unwrap_or(""),
+                );
+                let w = writer.clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(Duration::from_millis(1500));
+                    send(&w, &error(&id, "E_DENIED", "role-required"));
+                });
+            }
+            "fake.accept" => send(
+                &writer,
+                &json!({"jsonrpc":"2.0","id":id,"result":{"accepted":true}}),
+            ),
             "core.shutdown" => {
                 let _ = std::fs::write(l.home.join("run/core-legacy.stopped"), "shutdown");
                 send(
