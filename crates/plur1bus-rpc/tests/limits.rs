@@ -39,12 +39,39 @@ fn raised_in_child(setup: &str) -> Option<(u64, String)> {
     Some((soft, hard))
 }
 
+/// Puts the descriptor limit back as it was when dropped. The probe runs in a child process of its own, so nothing else
+/// sees its limit; the guard keeps it so should the probe ever run inside a shared test process.
+struct Restore(libc::rlimit);
+
+impl Restore {
+    fn now() -> Restore {
+        let mut limit = libc::rlimit {
+            rlim_cur: 0,
+            rlim_max: 0,
+        };
+        // SAFETY: `limit` is a live, writable rlimit for the duration of the call.
+        assert_eq!(
+            unsafe { libc::getrlimit(libc::RLIMIT_NOFILE, &mut limit) },
+            0
+        );
+        Restore(limit)
+    }
+}
+
+impl Drop for Restore {
+    fn drop(&mut self) {
+        // SAFETY: `self.0` is a live, initialised rlimit that the call only reads.
+        unsafe { libc::setrlimit(libc::RLIMIT_NOFILE, &self.0) };
+    }
+}
+
 /// Run as the child only (`PLUR1BUS_LIMITS_CHILD`): raises, checks that raising again changes nothing, prints the result.
 #[test]
 fn child_probe() {
     if std::env::var_os(CHILD).is_none() {
         return;
     }
+    let _restore = Restore::now();
     let first = plur1bus_rpc::limits::raise_open_files().unwrap();
     assert_eq!(
         plur1bus_rpc::limits::raise_open_files(),

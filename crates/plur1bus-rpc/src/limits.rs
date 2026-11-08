@@ -88,44 +88,5 @@ pub fn raise_open_files() -> Option<u64> {
     None
 }
 
-#[cfg(all(test, unix))]
-mod tests {
-    use super::*;
-
-    #[test]
-    #[allow(clippy::useless_conversion)] // `rlim_t` is `u64` here
-    fn the_soft_limit_is_raised_towards_the_hard_one() {
-        let before = read().unwrap();
-        let low = libc::rlimit {
-            rlim_cur: before.rlim_max.min(256),
-            rlim_max: before.rlim_max,
-        };
-        // SAFETY: `low` is a live, initialised rlimit that the call only reads.
-        assert_eq!(unsafe { libc::setrlimit(libc::RLIMIT_NOFILE, &low) }, 0);
-        let raised = raise_open_files().unwrap();
-        let after = read().unwrap();
-        assert_eq!(
-            u64::try_from(after.rlim_cur).ok(),
-            Some(raised),
-            "the limit in force"
-        );
-        assert_eq!(
-            after.rlim_max, before.rlim_max,
-            "the hard limit is left alone"
-        );
-        if before.rlim_max == libc::RLIM_INFINITY || before.rlim_max > 256 {
-            assert!(raised > 256, "raised from the launchd default ({raised})");
-        }
-        if before.rlim_max != libc::RLIM_INFINITY {
-            assert_eq!(
-                after.rlim_cur, before.rlim_max,
-                "a finite hard limit is taken whole"
-            );
-        }
-        assert_eq!(
-            raise_open_files(),
-            Some(raised),
-            "raising again changes nothing"
-        );
-    }
-}
+// Tested in `tests/limits.rs`, each case in a child process of its own: a test here would change the limit of the whole
+// test process while other tests run (fix round 1b F6).
