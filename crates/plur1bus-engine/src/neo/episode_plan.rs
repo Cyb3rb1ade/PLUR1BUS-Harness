@@ -107,6 +107,7 @@ pub(super) struct Build<'a> {
     pub session: &'a JsString,
     pub now: &'a JsString,
     pub mood: &'a Json,
+    pub names: &'a dyn Fn() -> Result<super::participant_names::ParticipantNames, EngineError>,
 }
 pub(super) fn build(
     input: &Build<'_>,
@@ -120,6 +121,7 @@ pub(super) fn build(
         session,
         now,
         mood,
+        names,
     } = *input;
     let watermark = watermark::read_session(state, session);
     if watermark.known && watermark.count == turn.messages.len() as f64 {
@@ -168,6 +170,7 @@ pub(super) fn build(
             required.push(id);
         }
     }
+    let names = names()?;
     let extracted = episode_state::extract(
         &actual,
         &episode_state::Options {
@@ -175,7 +178,7 @@ pub(super) fn build(
             workspace_key: &workspace,
             agent_id: &agent,
             session_key: session,
-            participant_names: None,
+            participant_names: Some((&names.user, &names.assistant)),
             mood: Some(mood),
             open_episode: open,
             episoded_turn_ids: &known,

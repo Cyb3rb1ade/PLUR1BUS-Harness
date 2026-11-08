@@ -895,3 +895,32 @@ explicit repair; neither policy is silently reused for the other operation type.
 No new wire/brief interface is introduced. Runtime composition must still construct
 the appropriate policy adapters and order component startup; ProcessEngine/Core
 activation and A1 confirmation remain outstanding RX work.
+
+
+### Authorized episode participant names (RX6 / RE-D73)
+
+EpisodeStore now resolves descriptive participant names from the actual authorized
+workspace's closed `USER.md` and `IDENTITY.md` paths. Original current policy is
+checked before and after the read. Missing files retain the Node defaults; links,
+hardlinks, changed physical identity and other I/O failures refuse publication.
+Names never supply owner, workspace, agent or scope authority. Completed session
+watermarks skip the read; prepared recovery retains the frozen participant names.
+
+The exact case-sensitive Name marker, markdown removal, JavaScript whitespace,
+first 4,000 UTF-16 units and 60-unit name limit follow the pinned Node function.
+Each file read is capped at 16 KiB, enough to cover the entire relevant prefix,
+including malformed UTF-8 replacement and a complete final code point. There is
+no mtime-only cache: an in-place edit with preserved mtime is visible on the next
+new episode. F3/RE-D17 drops a split trailing high surrogate; if this leaves no
+name at the 4,000-unit input boundary, the normal role fallback is used.
+
+`capture/golden/neo-names.json` contains 24 actual Node observations from verified
+b097045b6f115275baa8b15016321c3ba080c812 sources, each recorded twice. A second
+complete recording is byte-identical. The three native expectations in
+`capture/neo-names-exceptions.json` bind to golden SHA-256
+`ddbfe6f695f846b486f70a1c181e2d6c0b32b661536c796580d42225a0de37cc`:
+two safe display cuts and the deliberately uncached same-mtime edit. The original
+Node bytes, including isolated UTF-16 units and stale cache result, remain intact.
+
+This is ordinary episode participant composition. Narrative-model enrichment,
+vault publication and final ProcessEngine composition remain separate work.

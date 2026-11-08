@@ -117,6 +117,20 @@ impl EpisodeStore {
                                 &cancel,
                                 |state, time| state.describe(time),
                             )?;
+                            let names = || {
+                                check()?;
+                                let workspace =
+                                    crate::store::directory::TrustedDirectory::open(Path::new(
+                                        &str_field(proof, "workspaceDirectory")?.to_utf8_lossy(),
+                                    ))?;
+                                let names = super::participant_names::resolve(
+                                    &workspace,
+                                    context.agent_id.as_str(),
+                                    &cancel,
+                                )?;
+                                check()?;
+                                Ok(names)
+                            };
                             let input = Build {
                                 turn,
                                 ctx: context,
@@ -124,6 +138,7 @@ impl EpisodeStore {
                                 session: &session,
                                 now: &now,
                                 mood: &mood,
+                                names: &names,
                             };
                             episode_plan::build(&input, checkpoint.state(), &cancel)?
                         } else {

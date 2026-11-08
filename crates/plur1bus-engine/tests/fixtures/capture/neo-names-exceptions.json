@@ -1,0 +1,29 @@
+{
+  "nodeGoldenSha256": "ddbfe6f695f846b486f70a1c181e2d6c0b32b661536c796580d42225a0de37cc",
+  "cases": [
+    {
+      "name": "surrogate-cut-name",
+      "reason": "F3/RE-D17: visible 60-unit name stops before the split emoji",
+      "output": {
+        "user": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "assistant": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx😀"
+      }
+    },
+    {
+      "name": "source-cut-surrogate",
+      "reason": "RE-D73: 4000-unit input cut leaves only an invalid name fragment; use the existing Nutzer fallback",
+      "output": {
+        "user": "Nutzer",
+        "assistant": "alpha"
+      }
+    },
+    {
+      "name": "cache-same-mtime",
+      "reason": "RE-D73: re-read the authorized file prefix; mtime equality is not a content/authority cache grant",
+      "after": {
+        "user": "After",
+        "assistant": "Agent"
+      }
+    }
+  ]
+}
