@@ -715,3 +715,35 @@ changed config/model/physical workspace, edited rows, malformed/oversized record
 This composes the native CaptureRuntime, not ProcessEngine/Core startup. It does not establish
 physical power-loss or native Windows acceptance, implement deferred dynamics/remaining T4
 side effects, or complete RX6 checkpoint/ProcessEngine composition.
+
+
+### Deferred reply-outcome dynamics (RX6 / RE-D68)
+
+`capture::deferred_dynamics` provides the frozen Node queue's per-agent FIFO,
+oldest-waiting eviction, first-options process singleton, fallback timer and explicit
+kick/drain lifecycle. It is an in-memory queue of reinforcement callbacks, not a
+capture WAL, persistent job queue or deferred LLM runner. The six existing actual
+Node queue vectors remain unchanged. No database effect is authorized by its agent
+key: productive callbacks must retain and revalidate their original caller, physical
+store binding and policy at the effect boundary. ProcessEngine/RecallDeps composition
+and the actual reply-outcome writer remain separate work.
+
+Timers carry their lane generation. Automatic delivery is rejected after close or
+a later timer registration. Spawn/handle registration and close share the queue
+mutex; close cancels and joins timers, while queued and running callbacks remain
+available to an explicit drain. An already active lane may continue queued callbacks,
+as in Node. `kick_background` starts without waiting; `kick`/`drain` await completion;
+`drain_with_cancel` stops waiting without releasing ownership of an unfinished callback.
+An unwinding callback panic is counted and later callbacks continue. Queue diagnostics
+omit callback contents; the process panic hook remains host-owned.
+
+Native bounds deliberately replace Node's unbounded distinct agent lanes/Infinity:
+twice available logical CPUs, clamped to 4–64 retained lanes; at most 1,024 waiting
+callbacks per lane, 4,096 total, 128 bytes per agent key, and twice the lane limit for
+each retained worker/timer handle collection. These count entries, not the opaque
+callback capture bytes. Excess admission is refused without evicting another agent;
+a full lane can still replace its own oldest callback. Finished handles are reaped.
+Worker resource/spawn failure restores the original callback and explicit drain
+reports unavailable for retry. Lanes retain insertion order and cumulative counters
+until queue disposal, so exhausting the distinct-agent cap requires a new independent
+queue; the process singleton remains closed once closed, matching Node.

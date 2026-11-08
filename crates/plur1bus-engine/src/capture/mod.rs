@@ -97,3 +97,6 @@ pub mod emotion_pool;
 
 /// Critical type classification and source eligibility, without push delivery.
 pub mod critical;
+
+/// Deferred reply-outcome reinforcement with per-agent FIFO lanes.
+pub mod deferred_dynamics;
