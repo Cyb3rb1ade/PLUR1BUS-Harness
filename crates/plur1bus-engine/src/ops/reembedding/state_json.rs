@@ -137,7 +137,7 @@ pub(super) fn normalize(value: &Json, depth: usize) -> Result<Json, StateError> 
         other => other.clone(),
     })
 }
-fn safe_payload(value: &Json) -> Result<(), StateError> {
+pub(super) fn safe_payload(value: &Json) -> Result<(), StateError> {
     match value {
         Json::Object(items) => {
             for (key, value) in items {
