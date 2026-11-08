@@ -135,3 +135,22 @@ fn a_soft_limit_at_the_hard_one_stays() {
     };
     assert_eq!((soft, in_force.as_str()), (300, "300"));
 }
+
+/// Task review I6: macOS accepts (or a parent left) a soft limit above `kern.maxfilesperproc`, but a process can never
+/// hold more descriptors than that cap: the count reported is the one the process can use.
+#[cfg(target_os = "macos")]
+#[test]
+fn a_soft_limit_above_the_kernels_cap_counts_as_the_cap() {
+    let cap = Command::new("sysctl")
+        .args(["-n", "kern.maxfilesperproc"])
+        .output()
+        .unwrap();
+    let cap: u64 = String::from_utf8_lossy(&cap.stdout).trim().parse().unwrap();
+    let above = (cap + 1).max(1 << 20) - 1;
+    let Some((soft, _)) = raised_in_child(&format!("ulimit -Hn unlimited && ulimit -Sn {above}"))
+    else {
+        println!("skipped: a soft limit above kern.maxfilesperproc cannot be set here");
+        return;
+    };
+    assert_eq!(soft, cap, "what the process can use");
+}

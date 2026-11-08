@@ -8,7 +8,8 @@
 /// cap (macOS `kern.maxfilesperproc`), so the target stops there; when the kernel refuses the target (macOS refuses a
 /// soft limit above that cap even below a finite hard limit) the highest accepted value between the current soft limit
 /// and the target is searched. Every path tries `setrlimit` at least once when the soft limit is below the target.
-/// Returns the soft limit in force afterwards, or `None` when it cannot be read.
+/// Returns how many descriptors the process can hold afterwards: the soft limit in force, or the per-process cap where a
+/// soft limit above it was left in place (task review I6); `None` when the limit cannot be read.
 #[cfg(unix)]
 pub fn raise_open_files() -> Option<u64> {
     let current = read()?;
@@ -30,9 +31,11 @@ pub fn raise_open_files() -> Option<u64> {
             }
         }
     }
+    let soft = read()?.rlim_cur;
+    let usable = per_process_cap().map_or(soft, |cap| soft.min(cap));
     #[allow(clippy::useless_conversion)]
     // `rlim_t` is `u64` on the supported targets, narrower elsewhere
-    u64::try_from(read()?.rlim_cur).ok()
+    u64::try_from(usable).ok()
 }
 
 #[cfg(unix)]
