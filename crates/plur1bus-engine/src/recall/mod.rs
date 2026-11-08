@@ -82,6 +82,7 @@ pub mod memory_sanitize;
 mod memory_trace;
 /// CA5 prelude interface, without a Neo implementation.
 pub mod neo_prelude;
+mod output_unicode;
 /// Pattern scoring, taste and formatting.
 pub mod patterns;
 /// Observation-time provenance and operational guards.

@@ -9,6 +9,8 @@ fn trace_texts_are_capped_at_the_configured_length() {
     use plur1bus_engine::recall::trace::text_preview;
     let fixture: Value =
         serde_json::from_str(include_str!("fixtures/recall/golden/runtime-trace.json")).unwrap();
+    let exceptions: Value =
+        serde_json::from_str(include_str!("fixtures/recall/unicode-exceptions.json")).unwrap();
     for (i, input) in fixture["inputs"].as_array().unwrap().iter().enumerate() {
         for (l, limit) in fixture["limits"].as_array().unwrap().iter().enumerate() {
             let limit = limit.as_u64().unwrap() as usize;
@@ -18,7 +20,24 @@ fn trace_texts_are_capped_at_the_configured_length() {
                 .iter()
                 .map(|n| n.as_u64().unwrap() as u16)
                 .collect::<Vec<_>>();
+            let expected = if let Some(exception) = exceptions["previews"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|e| e["input"] == i && e["limit"] == limit)
+            {
+                assert_eq!(serde_json::json!(expected), exception["nodeUnits"]);
+                exception["rustUnits"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|n| n.as_u64().unwrap() as u16)
+                    .collect::<Vec<_>>()
+            } else {
+                expected
+            };
             let actual = text_preview(input.as_str().unwrap(), limit);
+            assert!(String::from_utf16(actual.as_utf16_units()).is_ok());
             assert_eq!(actual.as_utf16_units(), expected, "input {i} limit {limit}");
             // The Node helper appends one ellipsis beyond the configured prefix cap.
             assert!(actual.utf16_len() <= limit + 1);
@@ -56,7 +75,7 @@ fn strip_trace_clocks(value: &mut Value) {
 }
 
 #[test]
-fn outer_result_keeps_cut_surrogates_in_blocks_and_trace() {
+fn outer_result_has_codepoint_safe_visible_blocks_and_trace() {
     use plur1bus_engine::{
         recall::{
             blocks::{ContextBlock, RenderedRecall},
@@ -86,11 +105,11 @@ fn outer_result_keeps_cut_surrogates_in_blocks_and_trace() {
         ledger_error: None,
     };
     let wire = result.to_json_line().unwrap();
-    assert!(wire.contains("\\ud83d"));
+    assert!(!wire.contains("\\ud83d"));
     assert!(!wire.contains('\u{fffd}'));
     assert!(parse_json(&wire).is_ok());
-    // F3's exact frozen-contract impedance is explicit, not hidden by lossy replacement.
-    assert!(serde_json::from_str::<plur1bus_engine::contract::RecallResult>(&wire).is_err());
+    // Controller F3 preserves the frozen typed boundary without a raw JSON adapter.
+    assert!(serde_json::from_str::<plur1bus_engine::contract::RecallResult>(&wire).is_ok());
 }
 
 #[test]

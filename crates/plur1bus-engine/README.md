@@ -13,9 +13,11 @@ Node engine stays the default.
 Contracts, stores, embeddings, namespace recall and post-selection rendering are implemented as library
 boundaries. `recall::runtime::run` adds cooperative request deadlines, independent namespace clocks,
 structured timeout/abort results and per-call reranker diagnostics. The process server exists; full
-production composition remains RE-08. Its frozen `RecallResult` uses Rust `String`, so the lossless
-UTF-16 result adapter at the process boundary remains a controller decision (RX question F3).
-No replacement-character conversion or wire-schema change is hidden in this library implementation.
+production composition remains RE-08. Controller F3 rejects a raw-JSON adapter: visible block,
+preview and degraded text now omits a dangling UTF-16 unit at a split-pair cut (RE-D17 exception).
+F5 remains open for canonical trace IDs: the pin emits a preview-derived string, not a hash, so
+split-surrogate IDs still conflict with the frozen `RecallResult` String boundary. No wire change
+or replacement-character conversion is hidden here.
 
 `recall::render::assemble_context` forwards the configured recall limit and summary word limit to a
 `SelectedRecallPipeline`, then renders the original six blocks. `inject_budget::plan` produces the
@@ -71,7 +73,10 @@ receive the narrowed cancellation token; a cancellation cannot write the canonic
 ledger, retry a provider, or deliver maintenance effects. Borrowed collaborators must cooperate with
 their token: workers settle before return, and no detached thread may keep a store lease alive.
 
-`RecallOutcome::to_json_line` preserves cut surrogate units in blocks and trace previews. Trace
+`RecallOutcome::to_json_line` emits Unicode-safe blocks and trace previews under controller F3.
+The three affected renderer cases and four preview cases have explicit Rust expectations in
+`tests/fixtures/recall/unicode-exceptions.json`; the actual Node goldens remain unchanged.
+Internal identity/hash material keeps Node semantics; unhashed canonical trace IDs await F5. Trace
 normalization uses the shared credential-pattern catalogue and host-registered secret values **before**
 preview cuts. The internal bounded candidate streams are not a diagnostic output format; expose only
 the final normalized trace. The renderer receives a preview-free metadata view. Stream suffix caps and

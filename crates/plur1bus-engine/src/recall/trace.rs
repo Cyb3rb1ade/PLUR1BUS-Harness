@@ -61,7 +61,7 @@ impl TracePolicy {
                 let id = entry["id"].as_str()?;
                 let heading = entry["preview"].as_str()?;
                 let mut units = "canonical:".encode_utf16().collect::<Vec<_>>();
-                units.extend(text_preview(&self.redact(heading), 40).into_utf16_units());
+                units.extend(node_text_preview(&self.redact(heading), 40).into_utf16_units());
                 Some((id.to_owned(), JsString::from_utf16_units(units)))
             })
             .collect::<std::collections::HashMap<_, _>>();
@@ -131,7 +131,7 @@ impl TracePolicy {
         ) {
             if let Some(heading) = id.strip_prefix("canonical:") {
                 let mut units = "canonical:".encode_utf16().collect::<Vec<_>>();
-                units.extend(text_preview(&self.redact(heading), 40).into_utf16_units());
+                units.extend(node_text_preview(&self.redact(heading), 40).into_utf16_units());
                 return Json::String(JsString::from_utf16_units(units));
             }
         }
@@ -291,9 +291,15 @@ fn valid_namespace(name: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
 }
 
-/// Exact Node whitespace, word-boundary and UTF-16 cut, including a lone surrogate.
+/// Node whitespace and word boundaries with codepoint-safe visible cuts (RE-D17/F3).
 #[must_use]
 pub fn text_preview(value: &str, limit: usize) -> JsString {
+    super::output_unicode::well_formed(node_text_preview(value, limit))
+}
+
+// Identity material remains Node-exact until the controller resolves F5's
+// unhashed canonical trace IDs; do not substitute visible text into an ID.
+fn node_text_preview(value: &str, limit: usize) -> JsString {
     let clean = value
         .chars()
         .map(|c| {

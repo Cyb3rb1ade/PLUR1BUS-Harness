@@ -51,8 +51,8 @@ pub struct RuntimeRequest<'a> {
     pub reranker_requested: bool,
 }
 
-/// Lossless internal result. The frozen generated Rust String contract requires a separate
-/// serialization seam for lone surrogates (controller question F3); no lossy conversion is offered.
+/// Internal result with codepoint-safe visible text under controller F3.
+/// Unhashed canonical trace IDs await F5; no raw-JSON RPC adapter is authorized.
 pub struct RecallOutcome {
     /// T5 blocks and caller-owned maintenance intents.
     pub rendered: RenderedRecall,
