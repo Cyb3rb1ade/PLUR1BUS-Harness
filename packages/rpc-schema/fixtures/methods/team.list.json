@@ -105,7 +105,7 @@
               "reasons": []
             }
           ],
-          "overlapScore": 0,
+          "overlapScore": 0.0,
           "criticalPathMs": 10000,
           "targetDeploys": false,
           "targetDeployReasons": []

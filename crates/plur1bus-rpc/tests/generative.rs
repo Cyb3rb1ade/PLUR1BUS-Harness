@@ -7,8 +7,8 @@
 //!
 //! Conventions under test (docs/rpc.md, ADR-016 §2, `build.rs`):
 //! - a valid instance deserializes and serializes back to the same JSON; an optional field that is absent stays absent (no `null`);
-//! - `Params` objects are closed (an unknown field is refused), results, notifications and shared definitions are open (an unknown
-//!   field is ignored, so a newer 1.x core can add one);
+//! - `Params` objects and shared Team authority records are closed (an unknown field is refused); other results,
+//!   notifications and shared definitions are open (an unknown field is ignored, so a newer 1.x core can add one);
 //! - hostile input is an error, never a panic and never a stack overflow.
 //!
 //! Every failure message carries the seed, the type and the instance index, so a failure replays exactly.
@@ -244,9 +244,8 @@ fn parse_seq(c: &[char], mut i: usize, p: &str) -> (Vec<Item>, usize) {
                 i += 2;
                 match e {
                     'd' => Atom::Class(vec![('0', '9')]),
-                    '.' | '\\' | '/' | '-' | '^' | '$' | '(' | ')' | '[' | ']' | '{' | '}' => {
-                        Atom::Lit(e)
-                    }
+                    '.' | '\\' | '/' | '-' | '^' | '$' | '(' | ')' | '[' | ']' | '{' | '}'
+                    | '*' => Atom::Lit(e),
                     other => panic!("pattern {p}: escape \\{other} not supported"),
                 }
             }
@@ -1003,8 +1002,14 @@ fn clip(v: &Value) -> String {
 // ---------------------------------------------------------------------------------------------------------------------
 
 /// Names ending in `Params`, `Result` or `Notification` in the generated `types.rs` that are not a method's or notification's own
-/// type: a nested object named `…Result` in `models.scan`'s result and the schema's generic `Notification` envelope.
-const NOT_ENTRY_TYPES: [&str; 2] = ["ModelScanProviderResult", "Notification"];
+/// type: nested result objects in model/team reports and the generic `Notification` envelope.
+/// Team report objects are exercised through the `tools.team.*` entries.
+const NOT_ENTRY_TYPES: [&str; 4] = [
+    "ModelScanProviderResult",
+    "Notification",
+    "TeamImpactResult",
+    "TeamLaneResult",
+];
 
 #[test]
 fn the_table_covers_every_schema_method_notification_and_generated_type() {
@@ -1183,7 +1188,7 @@ struct Point {
     path: Vec<Seg>,
     schema: Value,
     required: bool,
-    /// A closed object of a `Params` type: not behind a shared definition, which `build.rs` opens.
+    /// A closed params object or Team authority record, which `build.rs` deliberately keeps closed.
     closed: bool,
     /// An object with named properties that accepts no free-form extra keys either way.
     has_properties: bool,
@@ -1197,9 +1202,24 @@ struct Walk<'a> {
 }
 
 impl Walk<'_> {
-    fn visit(&mut self, node: &Value, value: &Value, opened: bool, required: bool) {
+    fn visit(
+        &mut self,
+        node: &Value,
+        value: &Value,
+        opened: bool,
+        required: bool,
+        team_closed: bool,
+    ) {
         let (resolved, via_ref) = self.schema.resolve(node);
-        let opened = opened || via_ref;
+        // Team definitions carry authority-bearing plans/state and are the explicit
+        // exception to build.rs's shared-definition opening pass, even inside results.
+        let team_closed = node
+            .get("$ref")
+            .and_then(Value::as_str)
+            .map_or(team_closed, |reference| {
+                reference.starts_with("#/$defs/Team")
+            });
+        let opened = if via_ref { !team_closed } else { opened };
         let object_with_props = resolved.get("properties").is_some_and(Value::is_object);
         let free_map = resolved
             .get("additionalProperties")
@@ -1208,7 +1228,7 @@ impl Walk<'_> {
             path: self.path.clone(),
             schema: resolved.clone(),
             required,
-            closed: self.kind == Kind::Params
+            closed: (self.kind == Kind::Params || team_closed)
                 && !opened
                 && resolved.get("additionalProperties") == Some(&Value::Bool(false)),
             has_properties: object_with_props && !free_map,
@@ -1226,7 +1246,7 @@ impl Walk<'_> {
                 for (k, sub) in resolved["properties"].as_object().unwrap() {
                     if let Some(v) = map.get(k) {
                         self.path.push(Seg::Key(k.clone()));
-                        self.visit(sub, v, opened, req.contains(k.as_str()));
+                        self.visit(sub, v, opened, req.contains(k.as_str()), team_closed);
                         self.path.pop();
                     }
                 }
@@ -1234,7 +1254,7 @@ impl Walk<'_> {
             Value::Array(items) if !items.is_empty() => {
                 if let Some(sub) = resolved.get("items") {
                     self.path.push(Seg::Idx(0));
-                    self.visit(sub, &items[0], opened, true);
+                    self.visit(sub, &items[0], opened, true, team_closed);
                     self.path.pop();
                 }
             }
@@ -1357,7 +1377,7 @@ fn all_points(schema: &Schema, e: &Entry, x: &Value) -> Vec<Point> {
         path: Vec::new(),
         out: Vec::new(),
     };
-    walk.visit(e.node(schema), x, false, true);
+    walk.visit(e.node(schema), x, false, true, false);
     walk.out
 }
 
@@ -1478,7 +1498,7 @@ fn path_text(path: &[Seg]) -> String {
 }
 
 #[test]
-fn an_unknown_field_is_refused_in_params_and_ignored_everywhere_else() {
+fn unknown_fields_follow_params_and_shared_authority_record_contracts() {
     let schema = Schema::load();
     let mut failures = Vec::new();
     let (mut closed_checked, mut open_checked) = (0usize, 0usize);
@@ -1495,7 +1515,7 @@ fn an_unknown_field_is_refused_in_params_and_ignored_everywhere_else() {
                     closed_checked += 1;
                     if outcome.is_ok() {
                         failures.push(format!(
-                            "{} base {b}: a closed params object accepted an unknown field at {}",
+                            "{} base {b}: a closed object accepted an unknown field at {}",
                             e.label(),
                             path_text(&p.path)
                         ));
@@ -2274,6 +2294,40 @@ table! {
     Result "identity.principals" IdentityPrincipalsResult,
     Params "core.auth" CoreAuthParams,
     Result "core.auth" CoreAuthResult,
+    Params "team.get" TeamGetParams,
+    Result "team.get" TeamGetResult,
+    Params "team.list" TeamListParams,
+    Result "team.list" TeamListResult,
+    Params "team.create" TeamCreateParams,
+    Result "team.create" TeamCreateResult,
+    Params "team.composition.confirm" TeamCompositionConfirmParams,
+    Result "team.composition.confirm" TeamCompositionConfirmResult,
+    Params "team.plan.approve" TeamPlanApproveParams,
+    Result "team.plan.approve" TeamPlanApproveResult,
+    Params "team.scope.extend" TeamScopeExtendParams,
+    Result "team.scope.extend" TeamScopeExtendResult,
+    Params "team.pause" TeamPauseParams,
+    Result "team.pause" TeamPauseResult,
+    Params "team.resume" TeamResumeParams,
+    Result "team.resume" TeamResumeResult,
+    Params "team.cancel" TeamCancelParams,
+    Result "team.cancel" TeamCancelResult,
+    Params "team.package.reassign" TeamPackageReassignParams,
+    Result "team.package.reassign" TeamPackageReassignResult,
+    Params "team.package.budget.set" TeamPackageBudgetSetParams,
+    Result "team.package.budget.set" TeamPackageBudgetSetResult,
+    Params "team.budget.set" TeamBudgetSetParams,
+    Result "team.budget.set" TeamBudgetSetResult,
+    Params "team.package.sync.set" TeamPackageSyncSetParams,
+    Result "team.package.sync.set" TeamPackageSyncSetResult,
+    Params "tools.team.check" ToolsTeamCheckParams,
+    Result "tools.team.check" ToolsTeamCheckResult,
+    Params "tools.team.diffcheck" ToolsTeamDiffcheckParams,
+    Result "tools.team.diffcheck" ToolsTeamDiffcheckResult,
+    Params "tools.team.impact" ToolsTeamImpactParams,
+    Result "tools.team.impact" ToolsTeamImpactResult,
+    Params "tools.team.next" ToolsTeamNextParams,
+    Result "tools.team.next" ToolsTeamNextResult,
     Params "tools.hello" ToolsHelloParams,
     Result "tools.hello" ToolsHelloResult,
     Params "tools.health" ToolsHealthParams,
