@@ -19,6 +19,7 @@ window that was not reproduced; the entry says which), `info` (a documented diff
 | P4D-5 | After the front door dies abruptly, the old legacy core stops on its own while a new front door waits; an offline writer could overlap it | `packages/core/src/core.ts` | low | P4-90 | open |
 | P4D-6 | The legacy core's Windows pipe keeps Node's default DACL (ADR-012 C2) | `packages/core/src/core.ts` | low | P4-90 | open, contained |
 | P4D-7 | The front door's own diagnostics are plain stderr lines, not log-schema records in `logs/core.log` | `packages/core/src/logger.ts` | info | P4-11 | open |
+| P4D-8 | module-api's `validApiPrincipal` coerces `role` and `kind` with `String()`; the Rust port does not | `packages/module-api/src/api-principal.ts` (reference) | low | P4-12 | open, Rust strict |
 
 ## P4D-1 — migration step read outside the write lock
 
@@ -127,3 +128,17 @@ bare core's log and the legacy core's after a start and a stop of each, and why 
 few bytes between the legs in G1.
 
 - Fix: P4-11 ports the logger and the log store; the front door then writes log-schema records itself.
+
+## P4D-8 — `String()` coercion of an API principal's `role` and `kind`
+
+module-api's `validApiPrincipal` checks `roles.has(String(p.role))` and `["person", "agent"].includes(String(p.kind))`, so a
+one-element array (`"role": ["owner"]`, also `[["admin"]]`) passes as that string; the Rust port in
+`crates/plur1bus-core/src/auth.rs` requires a string and refuses the delegation (`E_UNAUTHORIZED`, reason
+`api-delegation`). The front door therefore refuses a delegation the legacy core would accept. Only the harness API, which
+holds the delegation token, can present a principal, and it builds `role` and `kind` as strings, so no shipped client
+sends the lax shape. The Rust side stays strict (fail closed); the TypeScript check is the defect (ported, not patched).
+
+- Vector: `fixtures/parity/auth/module-api.json` (`scripts/parity/export-auth.ts`), the cases noted `P4D-8`
+  (`principal-role-in-an-array`, `principal-kind-in-an-array`, `principal-role-in-nested-arrays`); every other case gives
+  module-api's verdict on both sides (`auth::tests::the_ported_checks_give_module_apis_verdicts`).
+- Fix: P4-12, where the API principal moves to Rust, keeps the strict check and records it as the contract.

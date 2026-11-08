@@ -7,6 +7,7 @@ import { FIXTURE_ROOT, exporterMain, fixtureText, fixturePath, writeFixture } fr
 import { buildDispatcherVectors } from "./export-dispatcher.ts";
 import { buildWireFixtures } from "./export-wire.ts";
 import { buildFormatVectors } from "./export-formats.ts";
+import { buildAuthVectors, credentials, substitute } from "./export-auth.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
 describe("parity fixture writer (mode V)", () => {
@@ -107,5 +108,38 @@ describe("format vectors (P4-03 review F6)", () => {
       assert.ok(cases.some((c) => c.format === format && c.valid), `${format}: a valid probe`);
       assert.ok(cases.some((c) => c.format === format && !c.valid), `${format}: an invalid probe`);
     }
+  });
+});
+
+describe("auth vectors (P4-10 task review L9)", () => {
+  it("the committed fixture is exactly what the exporter records, and holds markers, never a credential", async () => {
+    const built = await buildAuthVectors();
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("auth", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/auth/${name}.json is stale: run scripts/parity/export-auth.ts`);
+      // The only long hex runs are the length probes (one repeated letter, e.g. a 256-character userId).
+      const runs = text.match(/[0-9a-f]{64,}/gi) ?? [];
+      assert.ok(runs.every((r) => new Set(r.toLowerCase()).size === 1), "no credential-like value is recorded");
+    }
+  });
+
+  it("pins module-api's String() coercion of role and kind (P4D-8) and nothing more", async () => {
+    const v = (await buildAuthVectors())["module-api"] as any;
+    const noted = v["api-delegation"].filter((c: any) => c.note?.startsWith("P4D-8"));
+    assert.deepEqual(noted.map((c: any) => c.name), ["principal-role-in-an-array", "principal-kind-in-an-array", "principal-role-in-nested-arrays"]);
+    for (const c of noted) assert.equal(c.valid, true, c.name);
+    const twoRoles = v["api-delegation"].find((c: any) => c.name === "principal-role-two-element-array");
+    assert.equal(twoRoles.valid, false, "String([a, b]) is \"a,b\": refused on both sides");
+    for (const section of ["api-delegation", "engine-delegation", "adoption-nonce"]) assert.ok(v[section].length >= 10, section);
+  });
+
+  it("puts a fresh value in place of every marker", () => {
+    const values = credentials();
+    const text = substitute('{"a":"@api@","b":"@API@","c":"@other@"}', values);
+    assert.doesNotMatch(text, /@[a-zA-Z]+@/);
+    const parsed = JSON.parse(text);
+    assert.equal(parsed.b, parsed.a.toUpperCase());
+    assert.notEqual(parsed.a, parsed.c);
+    assert.notEqual(credentials()["@api@"], values["@api@"], "fresh on every run");
   });
 });

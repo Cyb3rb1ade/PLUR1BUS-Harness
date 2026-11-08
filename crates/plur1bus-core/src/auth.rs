@@ -497,6 +497,106 @@ mod tests {
         );
     }
 
+    /// Mode-V vectors recorded from module-api itself (`scripts/parity/export-auth.ts`, task review L9): every ported
+    /// check gives module-api's verdict on every case, except the ones marked P4D-8, which module-api accepts (it coerces
+    /// `role` and `kind` with `String()`) and the port refuses (fail closed). Credentials are markers in the vectors; both
+    /// sides put fresh random values in their place.
+    #[test]
+    fn the_ported_checks_give_module_apis_verdicts() {
+        let vectors: Value = serde_json::from_str(include_str!(
+            "../../../fixtures/parity/auth/module-api.json"
+        ))
+        .unwrap();
+        let fresh = || Secret::fresh().unwrap().expose().to_owned();
+        let (api, engine, sup, other) = (fresh(), fresh(), fresh(), fresh());
+        let values = [
+            ("@api@", api.clone()),
+            ("@API@", api.to_uppercase()),
+            ("@engine@", engine.clone()),
+            ("@ENGINE@", engine.to_uppercase()),
+            ("@sup@", sup.clone()),
+            ("@SUP@", sup.to_uppercase()),
+            ("@other@", other),
+        ];
+        let subst = |text: &str| {
+            values.iter().fold(text.to_owned(), |t, (marker, value)| {
+                t.replace(marker, value)
+            })
+        };
+        let cases = |section: &str| vectors[section].as_array().unwrap().clone();
+        let name = |case: &Value| case["name"].as_str().unwrap().to_owned();
+        let valid = |case: &Value| case["valid"].as_bool().unwrap();
+
+        let mut divergent = Vec::new();
+        for case in cases("api-delegation") {
+            let input: Value =
+                serde_json::from_str(&subst(case["inputJson"].as_str().unwrap())).unwrap();
+            let token = if case["apiToken"] == "none" {
+                Secret::new(String::new())
+            } else {
+                Secret::new(api.clone())
+            };
+            let got = verify_api_delegation(&input, &token);
+            if case["note"]
+                .as_str()
+                .is_some_and(|n| n.starts_with("P4D-8"))
+            {
+                assert!(valid(&case), "{}: module-api accepts it", name(&case));
+                assert_eq!(
+                    got,
+                    Err(API_DELEGATION),
+                    "{}: the port refuses it",
+                    name(&case)
+                );
+                divergent.push(name(&case));
+                continue;
+            }
+            assert_eq!(got.is_ok(), valid(&case), "api-delegation {}", name(&case));
+            if !valid(&case) {
+                assert_eq!(
+                    (case["error"].as_str(), case["reason"].as_str()),
+                    (Some(API_DELEGATION.code), API_DELEGATION.reason)
+                );
+            }
+        }
+        assert_eq!(divergent.len(), 3, "the P4D-8 cases: {divergent:?}");
+
+        for case in cases("engine-delegation") {
+            let params: Value =
+                serde_json::from_str(&subst(case["paramsJson"].as_str().unwrap())).unwrap();
+            let file = match case["engineFile"].as_str().unwrap() {
+                "fresh" => Some(Secret::new(engine.clone())),
+                "upper" => Some(Secret::new(engine.to_uppercase())),
+                "malformed" => Some(Secret::new("short".to_owned())),
+                _ => None,
+            };
+            let got = verify_engine(params.as_object().unwrap(), file.as_ref());
+            assert_eq!(
+                got.is_ok(),
+                valid(&case),
+                "engine-delegation {}",
+                name(&case)
+            );
+            if let Err(refusal) = got {
+                assert_eq!(
+                    (Some(refusal.code), refusal.reason),
+                    (case["error"].as_str(), case["reason"].as_str())
+                );
+            }
+        }
+
+        for case in cases("adoption-nonce") {
+            let file = case["file"].as_str().map(|f| Secret::new(subst(f)));
+            let nonce = subst(case["nonce"].as_str().unwrap());
+            assert_eq!(
+                adoption_nonce_matches(file.as_ref(), &nonce),
+                valid(&case),
+                "adoption-nonce {}",
+                name(&case)
+            );
+        }
+    }
+
     #[test]
     fn the_adoption_nonce_is_the_supervisor_token_case_insensitively() {
         let token = Secret::fresh().unwrap();
