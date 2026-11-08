@@ -43,3 +43,5 @@ mod turn_rules;
 pub mod turns;
 mod vectors;
 pub mod watermark;
+
+pub mod narrative;

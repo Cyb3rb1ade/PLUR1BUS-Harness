@@ -1,0 +1,18 @@
+Analysiere das folgende Gespräch zwischen {user} (Mensch) und {assistant} (Agent) und beschreibe es als Geschichte.{voice}
+
+Gespräch:
+{session}
+
+Antworte NUR mit diesem JSON-Format (keine Code-Zäune, kein Text davor oder danach):
+{{
+  "title": "Kurzer, konkreter Titel (max 60 Zeichen, nennt das Thema)",
+  "summary": "2-3 Sätze Zusammenfassung: worum ging es, was kam heraus",
+  "narrativeArc": "setup-conflict-resolution|exploration|decision|emotional",
+  "turningPoint": "Der Wendepunkt oder leer",
+  "topics": ["3-5 Themen als deutsche Nomen oder kurze Nominalphrasen, z. B. Schulterschmerzen, Milchsuppe, Gateway-Neustart"],
+  "people": ["Personen, ÜBER die gesprochen wurde (abwesend) — ohne {user} und {assistant}; sonst leer"],
+  "emotion": "Grundstimmung, wie sie im Gespräch spürbar ist — auch bei sachlichem Thema, wenn es jemanden berührt: joy|trust|anticipation|sadness|anger|fear|surprise|disgust; neutral nur, wenn keine Gefühlsregung erkennbar ist",
+  "emotionIntensity": "niedrig = klingt an, mittel = prägt Teile des Gesprächs, hoch = bestimmt das Gespräch"
+}}
+
+Wenn kein klarer Wendepunkt existiert, setze narrativeArc auf "exploration" und turningPoint auf "".

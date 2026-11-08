@@ -126,28 +126,7 @@ pub(super) fn analyze(
     let mut scores: HashMap<JsString, (usize, usize)> = HashMap::new();
     for turn in turns.iter().filter(|t| !role(t, "tool")) {
         cancel.check()?;
-        let mut text = content(turn);
-        for (pattern, flags) in [
-            (
-                r"\[(?:audio transcript|media attached|user sent media|voice message)[^\]]*\]",
-                "gi",
-            ),
-            (r"https?://\S+", "gi"),
-            (r"<[^>]{1,80}>", "g"),
-            (r"`[^`]*`", "g"),
-        ] {
-            text = replace_pattern(pattern, flags, &text, " ")?;
-        }
-        let utf8 = text.to_utf8_lossy();
-        let mut cleaned = String::new();
-        let mut end = 0;
-        for found in patterns.pictographic.find_all(&utf8).map_err(|_| error())? {
-            cleaned.push_str(&utf8[end..found.byte_start]);
-            cleaned.push(' ');
-            end = found.byte_end;
-        }
-        cleaned.push_str(&utf8[end..]);
-        let text = JsString::from(cleaned);
+        let text = clean(&content(turn))?;
         for sentence in text
             .as_utf16_units()
             .split(|c| [46, 33, 63, 10].contains(c))
@@ -206,4 +185,31 @@ pub(super) fn analyze(
         voices,
         topics,
     })
+}
+
+/// Pinned topic/prompt cleaning, shared without changing the pure episode projection.
+pub(super) fn clean(text: &JsString) -> Result<JsString, EngineError> {
+    let patterns = patterns()?;
+    let mut text = text.clone();
+    for (pattern, flags) in [
+        (
+            r"\[(?:audio transcript|media attached|user sent media|voice message)[^\]]*\]",
+            "gi",
+        ),
+        (r"https?://\S+", "gi"),
+        (r"<[^>]{1,80}>", "g"),
+        (r"`[^`]*`", "g"),
+    ] {
+        text = replace_pattern(pattern, flags, &text, " ")?;
+    }
+    let utf8 = text.to_utf8_lossy();
+    let mut cleaned = String::new();
+    let mut end = 0;
+    for found in patterns.pictographic.find_all(&utf8).map_err(|_| error())? {
+        cleaned.push_str(&utf8[end..found.byte_start]);
+        cleaned.push(' ');
+        end = found.byte_end;
+    }
+    cleaned.push_str(&utf8[end..]);
+    Ok(JsString::from(cleaned))
 }

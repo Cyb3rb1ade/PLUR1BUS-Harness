@@ -924,3 +924,34 @@ Node bytes, including isolated UTF-16 units and stale cache result, remain intac
 
 This is ordinary episode participant composition. Narrative-model enrichment,
 vault publication and final ProcessEngine composition remain separate work.
+
+
+### Offline-verified narrative enrichment primitive (RX6 / RE-D74)
+
+The request-local `neo::narrative::enrich` preserves C4's newest-turn prompt budget
+(600 UTF-16 units per turn, 6,000 for selected lines), exact German prompt,
+500-token/temperature-zero call, tolerant fenced/prefixed JSON parsing and closed
+narrative-arc set. Topic and mentioned-person cleanup, speaker exclusion, emotion
+coercion, neutral cap and preservation of original source fields follow actual
+Node. An LLM result cannot change episode ID, owner, scope, source IDs or opaque
+source metadata. Provider errors return the original episode; cancellation propagates.
+
+Fifty-nine actual pinned Node cases run twice, with a separate complete rerun
+byte-identical. New `capture/golden/neo-narrative.json` has SHA-256
+`840a2da4beac886c926254d3f1be34ca0fa12aab703f6064bbec6d9925ba4d93`.
+`capture/neo-narrative-exceptions.json` retains four explicit native differences:
+F3 safe display/prompt-budget cuts, refusal of malformed original UTF-16 at the
+frozen UTF-8 LlmPort, and fallback for malformed model display text. Node originals
+remain unchanged, including isolated UTF-16 units. Removing a half-pair from a
+prompt cut does not reclaim budget or select another older turn.
+
+Native resource bounds are 512 turns, 50,000 JSON nodes, depth 128, 1,048,576 input
+UTF-16 units, 4,096 bytes per resolved role label, 65,536 final prompt UTF-16 units
+and 64 KiB of response. Excessive source/prompt input refuses before provider
+calls; malformed/oversized responses preserve the original episode. The shared
+existing topic cleaner remains covered by the unchanged episode fixtures. No new
+model, dependency, background job or consumed interface is introduced.
+
+This primitive accepts already-authorized snapshots and an existing host-bound
+provider. Actual EpisodeStore publication, provider-policy composition and
+ProcessEngine activation are subsequent work; it grants no source authority.
