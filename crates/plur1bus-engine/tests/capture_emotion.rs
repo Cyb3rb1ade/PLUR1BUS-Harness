@@ -366,3 +366,83 @@ fn compact_emotion_binary64_rounding_and_decimal_prefix_parsing_match_node() {
         );
     }
 }
+
+#[test]
+fn rolling_mood_decay_restart_history_boost_and_display_match_actual_node_bytes() {
+    use plur1bus_engine::capture::emotion_state::{
+        format_mood_file, format_mood_line, EmotionalState,
+    };
+    for case in array(get(get(&fixture(), "results"), "state")) {
+        let mut now = NOW;
+        let mut state = EmotionalState::new(get(case, "options"), now).unwrap();
+        for step in array(get(case, "steps")) {
+            let elapsed = write_json(get(step, "elapsed")).parse::<i64>().unwrap_or(0);
+            now += elapsed;
+            match string(get(step, "op")).as_str() {
+                "initial" => {}
+                "apply" => state.apply_emotion(get(step, "input"), now).unwrap(),
+                "decay" => state.decay(now).unwrap(),
+                "messages" => {
+                    let messages: Vec<contract::Message> =
+                        serde_json::from_str(&write_json(get(step, "input"))).unwrap();
+                    state.update_messages(&messages, now).unwrap();
+                }
+                "recalled" => state.update_recalled(get(step, "input"), now).unwrap(),
+                "hydrate" => {
+                    state = EmotionalState::new(get(case, "options"), now - elapsed).unwrap();
+                    let record = parse_json(&string(get(step, "recordLine"))).unwrap();
+                    assert_eq!(
+                        Json::Bool(state.hydrate_once(Some(&record), now).unwrap()),
+                        *get(step, "hydrated")
+                    );
+                    assert_eq!(
+                        Json::Bool(state.hydrate_once(Some(&record), now).unwrap()),
+                        *get(step, "secondHydrate")
+                    );
+                }
+                _ => unreachable!(),
+            }
+            let state_json = state.serialize_state(now).unwrap();
+            assert_eq!(
+                write_json(&state_json),
+                string(get(step, "stateLine")),
+                "{}",
+                string(get(step, "op"))
+            );
+            let mood = state.describe(now).unwrap();
+            assert_eq!(
+                write_json(&mood),
+                string(get(step, "moodLine")),
+                "{}",
+                string(get(step, "op"))
+            );
+            if get(step, "snapshotLine") != &Json::Null {
+                assert_eq!(
+                    write_json(&state.snapshot(now).unwrap()),
+                    string(get(step, "snapshotLine"))
+                );
+            }
+            if get(step, "moodText") != &Json::Null {
+                assert_eq!(
+                    format_mood_file(&mood, "alpha", now).unwrap(),
+                    string(get(step, "moodText"))
+                );
+            }
+            if get(step, "moodPrompt") != &Json::Null {
+                assert_eq!(format_mood_line(&mood), string(get(step, "moodPrompt")));
+            }
+            if get(step, "compatibility") != &Json::Null {
+                assert_eq!(
+                    state.compatibility(get(step, "input"), now).unwrap(),
+                    write_json(get(step, "compatibility"))
+                        .parse::<f64>()
+                        .unwrap()
+                );
+                assert_eq!(
+                    state.recall_boost(get(step, "input"), 0.8, now).unwrap(),
+                    write_json(get(step, "boost")).parse::<f64>().unwrap()
+                );
+            }
+        }
+    }
+}

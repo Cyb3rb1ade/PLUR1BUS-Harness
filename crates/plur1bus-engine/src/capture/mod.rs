@@ -67,3 +67,8 @@ pub mod tier1;
 pub mod tier2;
 /// Caller-owned emotion LLM route and exact messages.
 pub mod tier3;
+
+/// Per-owner mood state, decay, restart projection and display.
+pub mod emotion_state;
+/// Host-bound mood persistence with exact ownership and atomic state replacement.
+pub mod emotion_store;
