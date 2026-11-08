@@ -17,6 +17,13 @@
 //! (within the busy timeout) instead of failing half-way; `&mut self` keeps one writer per `Store`, and the core owns one
 //! `Store` per file. Do not branch on `sqlite_version()`: Node 26 and the bundled build differ (3.54.1 vs 3.53.2), and
 //! math SQL functions are not compiled in.
+//!
+//! **Start order behind the front door** (P4-10, plan obligation F4): the TypeScript core behind the Rust front door
+//! (`core-legacy`) owns the stores and migrates them while it starts. The Rust core therefore opens a store lazily, on
+//! its first use after `core-legacy` is ready, never at its own start. A store that is not there yet or still at an older
+//! schema ([`StoreError::Missing`], [`StoreError::OlderSchema`]) is a core that is not ready for it: `E_CORE_UNAVAILABLE`,
+//! reason `store-pending` (retry); one newer than this build ([`StoreError::NewerSchema`]) is `E_STORAGE`, reason
+//! `store-newer`. [`StoreError::refusal`] is that mapping (`docs/errors.md`); a method that serves a store natively uses it.
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 #![warn(clippy::print_stdout, clippy::print_stderr)]
@@ -125,6 +132,21 @@ impl fmt::Display for StoreError {
                 write!(f, "{store} store migration to v{to} failed: {error}")
             }
             Self::Sqlite(error) => write!(f, "sqlite: {error}"),
+        }
+    }
+}
+
+impl StoreError {
+    /// The RPC refusal for this error, `(code, reason)` (`docs/errors.md`, P4-10 task review L3): a store the legacy core
+    /// has not created or migrated yet is `E_CORE_UNAVAILABLE` `store-pending`; a newer one `E_STORAGE` `store-newer`; a
+    /// failed migration step or SQLite error `E_STORAGE` without a fixed reason.
+    pub fn refusal(&self) -> (&'static str, Option<&'static str>) {
+        match self {
+            Self::Missing(_) | Self::OlderSchema { .. } => {
+                ("E_CORE_UNAVAILABLE", Some("store-pending"))
+            }
+            Self::NewerSchema { .. } => ("E_STORAGE", Some("store-newer")),
+            Self::Migration { .. } | Self::Sqlite(_) => ("E_STORAGE", None),
         }
     }
 }
@@ -366,5 +388,45 @@ mod tests {
             "{refused:?}"
         );
         assert_eq!(user_version(&conn).unwrap(), 3, "nothing was written");
+    }
+
+    /// P4-10 task review L3: the refusal of every error is fixed here (`docs/errors.md`), so a package that ports a store
+    /// cannot pick another one.
+    #[test]
+    fn every_store_error_has_its_fixed_refusal() {
+        let sqlite = || rusqlite::Error::InvalidQuery;
+        for (error, refusal) in [
+            (
+                StoreError::Missing(PathBuf::from("x")),
+                ("E_CORE_UNAVAILABLE", Some("store-pending")),
+            ),
+            (
+                StoreError::OlderSchema {
+                    store: "s",
+                    found: 1,
+                    expected: 2,
+                },
+                ("E_CORE_UNAVAILABLE", Some("store-pending")),
+            ),
+            (
+                StoreError::NewerSchema {
+                    store: "s",
+                    found: 3,
+                    supported: 2,
+                },
+                ("E_STORAGE", Some("store-newer")),
+            ),
+            (
+                StoreError::Migration {
+                    store: "s",
+                    to: 2,
+                    error: sqlite(),
+                },
+                ("E_STORAGE", None),
+            ),
+            (StoreError::Sqlite(sqlite()), ("E_STORAGE", None)),
+        ] {
+            assert_eq!(error.refusal(), refusal, "{error}");
+        }
     }
 }
