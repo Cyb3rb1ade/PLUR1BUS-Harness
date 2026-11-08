@@ -63,3 +63,7 @@ pub mod models;
 
 /// Copy-on-write reembedding migration and confirmation binding.
 pub mod reembedding;
+
+/// Caller-bound non-destructive reconsolidation with persisted successors.
+pub mod safe_update;
+mod safe_update_row;

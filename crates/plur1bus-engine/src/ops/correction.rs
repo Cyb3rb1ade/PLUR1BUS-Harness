@@ -239,71 +239,23 @@ fn successor(
     evidence: &str,
     now: i64,
 ) -> Result<MemoryRow, EngineError> {
-    let mut value = serde_json::to_value(old).map_err(|_| error(MemoryOpErrorCode::Storage))?;
-    for (key, fallback) in [
-        ("type", "memory"),
-        ("origin", "dm"),
-        ("category", "other"),
-        ("mergedFrom", "[]"),
-        ("emotionalDominant", "neutral"),
-        ("emotionStatus", "final"),
-        ("memoryClass", "standard"),
-    ] {
-        if value[key].as_str().is_none_or(str::is_empty) {
-            value[key] = json!(fallback);
-        }
-    }
-    if !matches!(
-        value["importanceStatus"].as_str(),
-        Some("pending" | "pending_backfill" | "final")
-    ) {
-        value["importanceStatus"] = json!("final");
-    }
-    for key in ["createdAt", "sourceTimestamp"] {
-        if value[key].as_f64() == Some(0.) {
-            value[key] = json!(now);
-        }
-    }
-    for key in ["reminderStatus", "reminderKey"] {
-        value[key] = json!("");
-    }
-    for key in [
-        "remindAt",
-        "remindedAt",
-        "dispatchedAt",
-        "acknowledgedAt",
-        "cancelledAt",
-        "dispatchCount",
-        "lastDispatchAttemptAt",
-        "nextDispatchAttemptAt",
-    ] {
-        value[key] = json!(0);
-    }
-    value["memoryKind"] = json!("memory");
-    value["id"] = json!(uuid::Uuid::new_v4().to_string());
-    value["text"] = json!(text);
-    value["summary"] = json!(summary);
-    value["vector"] = json!(vector);
-    value["versionNumber"] = json!(old.version_number.as_f64().unwrap_or(1.) + 1.);
-    value["previousVersion"] = json!(old.id);
-    value["supersededBy"] = json!("");
-    value["updateSource"] = json!("user_correction");
-    value["updateEvidence"] = json!(evidence);
-    value["reconsolidationConfidence"] = json!(1);
-    value["status"] = json!("active");
-    value["versionCreatedAt"] = json!(now);
-    value["updatedAt"] = json!(now);
-    let epistemic = crate::recall::score::normalize_epistemic_status(&old.epistemic_status);
-    if matches!(epistemic, "trusted" | "corroborated") {
-        value["epistemicStatus"] = json!("observed");
-        value["previousEpistemicStatus"] = json!(epistemic);
-        value["epistemicStatusActor"] = json!("system:content-edit");
-        value["epistemicStatusReason"] =
-            json!("trusted/corroborated collapsed to observed on a content-changing safeUpdate");
-        value["epistemicStatusUpdatedAt"] = json!(now);
-    }
-    serde_json::from_value(value).map_err(|_| error(MemoryOpErrorCode::Storage))
+    super::safe_update_row::successor(
+        old,
+        &super::safe_update::UpdatePatch {
+            text: Some(text.into()),
+            summary: Some(summary.into()),
+            vector: Some(vector.into()),
+            ..Default::default()
+        },
+        &super::safe_update::UpdateEvidence {
+            update_source: Some("user_correction".into()),
+            update_evidence: Some(evidence.into()),
+            confidence: Some(1.),
+        },
+        now,
+    )
 }
+
 fn drift(old: &[f32], new: &[f32]) -> f64 {
     if old.len() != new.len() {
         return 1.;
