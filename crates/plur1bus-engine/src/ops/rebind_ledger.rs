@@ -10,14 +10,14 @@ use crate::{
     },
     text::{
         js::JsString,
-        json::{parse_json, write_json, TolerantJsonValue as Json},
+        json::{parse_json, TolerantJsonValue as Json},
     },
 };
 use sha2::{Digest, Sha256};
 use std::{
     collections::HashSet,
     fs::{self, File, OpenOptions},
-    io::{Read, Seek, SeekFrom, Write},
+    io::Write,
     path::{Path, PathBuf},
     time::{Duration, Instant},
 };
@@ -196,66 +196,9 @@ impl RebindLease {
         }
     }
     fn append(&self, id: &str, row: &Json, now: i64, new: bool) -> Result<(), EngineError> {
-        self.assert_held()?;
-        let path = self.ledger.path(id)?;
-        let mut options = OpenOptions::new();
-        options.read(true).write(true);
-        if new {
-            options.create_new(true);
-        } else {
-            options.create(true);
-        }
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::OpenOptionsExt;
-            options.mode(0o600);
-        }
-        let mut file = options.open(&path).map_err(|e| {
-            if new && e.kind() == std::io::ErrorKind::AlreadyExists {
-                error(MemoryOpErrorCode::Conflict)
-            } else {
-                storage(e)
-            }
-        })?;
-        let len = file.metadata().map_err(storage)?.len();
-        if len > 0 {
-            file.seek(SeekFrom::End(-1)).map_err(storage)?;
-            let mut last = [0];
-            file.read_exact(&mut last).map_err(storage)?;
-            if last[0] != b'\n' {
-                let mut end = len;
-                let mut found = None;
-                let mut chunk = vec![0u8; 65536];
-                while end > 0 {
-                    let start = end.saturating_sub(chunk.len() as u64);
-                    let size = (end - start) as usize;
-                    file.seek(SeekFrom::Start(start)).map_err(storage)?;
-                    file.read_exact(&mut chunk[..size]).map_err(storage)?;
-                    if let Some(i) = chunk[..size].iter().rposition(|b| *b == b'\n') {
-                        found = Some(start + i as u64 + 1);
-                        break;
-                    }
-                    end = start;
-                }
-                self.assert_held()?;
-                let Some(size) = found else {
-                    drop(file);
-                    let target = path.with_file_name(format!("{id}.jsonl.corrupt-{now}"));
-                    assert_trusted_path(&target).map_err(storage)?;
-                    fs::rename(&path, target).map_err(storage)?;
-                    sync_dir(&self.ledger.root());
-                    return Err(error(MemoryOpErrorCode::LedgerCorrupt));
-                };
-                file.set_len(size).map_err(storage)?;
-            }
-        }
-        self.assert_held()?;
-        file.seek(SeekFrom::End(0)).map_err(storage)?;
-        file.write_all(format!("{}\n", write_json(row)).as_bytes())
-            .map_err(storage)?;
-        file.sync_all().map_err(storage)?;
-        sync_dir(&self.ledger.root());
-        Ok(())
+        super::journal::append(&self.ledger.path(id)?, row, now, new, &|| {
+            self.assert_held()
+        })
     }
     /// Create a durable claim before the first header. Existing different targets conflict.
     pub fn write_claim(&self, from: &str, to: &str, now: i64) -> Result<(), EngineError> {

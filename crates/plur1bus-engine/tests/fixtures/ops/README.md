@@ -18,6 +18,7 @@ Run with Node **24.21.0** and `PLUR1BUS_ENGINE_SRC` pointing at that read-only s
 | `record-workspace-policy.mjs` | 27 canonical tuple, compare-and-set, persisted-state and explicit/automatic guard cases |
 | `record-import.mjs` | 34 C3 import cases with real Lance rows, batch duplicates, rollback/backfill, scope bindings and restored tombstones |
 | `record-rebind.mjs` | 29 C3 ownership migration/reversal cases on actual Lance, including interrupted patch resume, claims, edit/lifecycle guards and tombstones |
+| `record-unimport-ledger.mjs` | 18 C3 rollback journal cases: import-generation markers, numeric coercion, opaque UTF-16, torn-tail repair/quarantine and lock loss |
 | `record-rebind-ledger.mjs` | 16 C3 ledger/claim cases: first-card/last-header, opaque UTF-16, torn-tail repair, quarantine and engine-wide claim release |
 | `record-import-primitives.mjs` | C3: 21 deterministic UUIDs, 42 group digests, 7 durable ledger/index cases; `import-sources.json` binds the three source files |
 

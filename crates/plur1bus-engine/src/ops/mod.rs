@@ -9,6 +9,7 @@ pub mod import_lock;
 pub mod import_primitives;
 /// Finished-card encoding policy shared with the capture rules.
 pub mod import_row;
+mod journal;
 mod json_fields;
 mod ledgers;
 /// Import source links without card mutation.
@@ -19,6 +20,8 @@ mod shared_mutation;
 /// Explicit sharing with identity-routed embeddings and source revalidation.
 pub mod sharing;
 pub mod tombstones;
+/// Per-run write-ahead rollback markers, fenced by the shared import lease.
+pub mod unimport_ledger;
 pub mod write;
 
 mod proposal_store;
