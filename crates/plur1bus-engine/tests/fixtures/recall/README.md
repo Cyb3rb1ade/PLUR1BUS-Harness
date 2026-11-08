@@ -121,3 +121,31 @@ pair remains intact; all twenty-five previous recordings are byte-identical afte
 Source integrity is checked before the exact recording Node-version guard. The negative source
 regression therefore rejects an untrusted file for the correct reason on other installed Node
 versions too, before importing reference code; successful recording still requires Node24.21.0.
+
+## RX1: C1 source exception
+
+RX1 re-records `knowledge-section-failed-not-cached` and the seven fused-rerank
+namespace cases selected by `record-c1.mjs` from engine #257, immutable commit
+`432313664242fc6c29c0b9bf3bcea8b9e5ad93c0`. This is the controller-authorized C1
+source exception; all other goldens retain their existing sources. The C1 files
+carry their own provenance and `c1-sources.json` hashes. Reproduction of the
+complete fixture set runs the original recorder first, then this C1 recorder.
+
+```sh
+PLUR1BUS_ENGINE_SRC=/path/to/engine-at-4323136642 \
+  node crates/plur1bus-engine/tests/fixtures/recall/record-c1.mjs
+```
+
+Use Linux and Node 24.21.0: the unmodified Node named-namespace pool requires
+Linux directory capabilities and deliberately refuses macOS. The RX1 capture
+used `@lancedb/lancedb` 0.26.2, `apache-arrow` 18.1.0 and `openai` 6.42.0, matching
+the installed oracle dependencies. No optional transformer dependency is needed.
+An isolated Linux container installs these dependencies separately, mounts the
+oracle and dependencies read-only, and runs the recorder with networking disabled.
+It checks the source hashes before imports and compares two real executions.
+
+Each stage capture starts with a fresh workspace; its retry passes deliberately
+share that workspace. This prevents a completed first capture from leaving a
+knowledge cache in the second capture. C1's first failed embed therefore records
+no cache, while its successful retry records a complete cache. Namespace results
+now retain the fused reranker score and order through the final budget and ledger.

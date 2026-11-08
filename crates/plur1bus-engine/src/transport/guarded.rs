@@ -207,6 +207,23 @@ impl<'a> GuardedClient<'a> {
         for hop in 0..=10 {
             remaining_cancelled(deadline, cancel)?;
             let (url, target) = parse_url(&req.url)?;
+            let plaintext_credentials = url.scheme() == "http"
+                && req.headers.iter().any(|(name, _)| {
+                    [
+                        "authorization",
+                        "proxy-authorization",
+                        "x-api-key",
+                        "api-key",
+                        "cookie",
+                    ]
+                    .iter()
+                    .any(|sensitive| name.eq_ignore_ascii_case(sensitive))
+                });
+            // Egress permission does not authorize plaintext credentials. Check every
+            // redirect hop before DNS, socket creation or attaching sensitive headers.
+            if plaintext_credentials && !super::target::loopback_host(&target.host) {
+                return Err(TransportError::Denied);
+            }
             let decision = self.decision(&target, deadline, cancel)?;
             remaining_cancelled(deadline, cancel)?;
             let Decision::Allow { address_rules } = decision else {
@@ -219,10 +236,10 @@ impl<'a> GuardedClient<'a> {
                 resolver.resolve(&host, port, deadline)
             })??;
             remaining_cancelled(deadline, cancel)?;
-            if addresses
-                .iter()
-                .any(|address| !address_allowed(*address, address_rules))
-            {
+            if addresses.iter().any(|address| {
+                !address_allowed(*address, address_rules)
+                    || (plaintext_credentials && !super::target::loopback_address(*address))
+            }) {
                 return Err(TransportError::AddressDenied);
             }
             let address = addresses.first().ok_or(TransportError::Network)?;

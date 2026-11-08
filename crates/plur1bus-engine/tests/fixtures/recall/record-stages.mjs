@@ -132,14 +132,16 @@ function same(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
-export async function recordStages(engineRoot) {
+export async function recordStages(engineRoot, source = {}) {
+  const commit = source.commit ?? PIN;
+  const pipelineSha256 = source.pipelineSha256 ?? PIPELINE_SHA256;
   if (!process.version.startsWith("v24.21.")) {
     throw new Error(`expected Node 24.21.x, got ${process.version}`);
   }
   const pipelinePath = path.join(engineRoot, "lib/recall-pipeline.js");
   const digest = sha256(readFileSync(pipelinePath)).toString("hex");
-  if (digest !== PIPELINE_SHA256) {
-    throw new Error(`recall pipeline hash ${digest} is not pin ${PIN}`);
+  if (digest !== pipelineSha256) {
+    throw new Error(`recall pipeline hash ${digest} is not source ${commit}`);
   }
   const pipeline = await import(pathToFileURL(pipelinePath).href);
   const { runRecallPipeline, parseKnowledgeMd } = pipeline;
@@ -151,6 +153,7 @@ export async function recordStages(engineRoot) {
   try {
     const scenarios = buildScenarios();
     for (const scenario of scenarios) {
+      if (source.onlyNames && !source.onlyNames.includes(scenario.name)) continue;
       if (scenario.knowledge) {
         // parseKnowledgeMd appends a newline per line, so the embedded text is
         // not the file bytes. The query has to be that embedded text or the
@@ -179,8 +182,8 @@ export async function recordStages(engineRoot) {
           scenario: scenario.name,
           recordedFrom: {
             engine: "node",
-            commit: PIN,
-            pipelineSha256: PIPELINE_SHA256,
+            commit,
+            pipelineSha256,
             node: process.version,
             now: NOW,
           },
@@ -447,6 +450,8 @@ async function runPair(scenario, root, runRecallPipeline, MemoryDB) {
   Date.now = () => NOW;
   try {
   const workspace = path.join(root, `${scenario.name}-ws`);
+  // Repeated oracle captures must not inherit the first capture's successful cache.
+  rmSync(workspace, { recursive: true, force: true });
   mkdirSync(path.join(workspace, "memory"), { recursive: true });
   if (scenario.knowledge) {
     writeFileSync(path.join(workspace, "memory", "KNOWLEDGE.md"), scenario.knowledge.markdown);

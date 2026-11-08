@@ -1,9 +1,9 @@
 //! Canonical sections from `memory/KNOWLEDGE.md`.
 //!
-//! The cache is written after the embed loop even when every section threw.
-//! A cache whose `chunks` array is empty is not reused, so the next recall reads
-//! the file again (CP-5.7). The pinned recorder leaves `embeddings.identity`
-//! unset, so the cache identity is `"legacy"`.
+//! C1 serves successfully embedded sections but persists only a complete set.
+//! A failed section must be retried even when the source mtime is unchanged.
+//! The pinned recorder leaves `embeddings.identity` unset, so the cache identity
+//! is `"legacy"`.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -71,8 +71,8 @@ pub fn parse_knowledge_md(content: &str) -> Vec<KnowledgeSection> {
 
 /// Embed `memory/KNOWLEDGE.md` and return the sections at or above `min_score`.
 ///
-/// Passage embeddings that throw are skipped. The cache file is still written when
-/// `persist` is set. The query vector is the one `embedQuery` already produced.
+/// Failed passage embeddings are skipped and prevent cache persistence for this call.
+/// The query vector is the one `embedQuery` already produced.
 pub fn search_canonical(
     workspace: &Path,
     query_vector: &[f32],
@@ -146,7 +146,7 @@ fn knowledge_chunks(
             }
         }
     }
-    if persist {
+    if persist && chunks.len() == sections.len() {
         write_cache(workspace, mtime, &chunks);
     }
     chunks

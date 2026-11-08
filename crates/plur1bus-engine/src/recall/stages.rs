@@ -574,27 +574,43 @@ fn hydrate_one(
     if !acl_allows(input, &kept, "graph-hydration-acl", sink, rejections) {
         return Ok(None);
     }
+    Ok(graph_relevance_allows(input.embedder, query_vector, &kept, rejections).then_some(kept))
+}
+
+fn graph_relevance_allows(
+    embedder: &dyn EmbeddingProvider,
+    query_vector: &[f32],
+    kept: &Hit,
+    rejections: &mut Vec<Rejection>,
+) -> bool {
     if !query_vector.is_empty() {
         let vector = kept
             .row
             .as_ref()
             .map(|row| row.vector.as_slice())
             .unwrap_or_default();
-        let relevance = hydration_relevance(input, vector, query_vector, &kept)?;
+        let Ok(relevance) = hydration_relevance(embedder, vector, query_vector, kept) else {
+            rejections.push(Rejection {
+                memory_id: kept.id.clone(),
+                stage: "graph-hydration".to_owned(),
+                reason: "relevance check failed".to_owned(),
+            });
+            return false;
+        };
         if relevance_below_threshold(relevance, HYDRATION_RELEVANCE_THRESHOLD) {
             rejections.push(Rejection {
-                memory_id: kept.id,
+                memory_id: kept.id.clone(),
                 stage: "graph-hydration".to_owned(),
                 reason: relevance_reason(relevance, HYDRATION_RELEVANCE_THRESHOLD),
             });
-            return Ok(None);
+            return false;
         }
     }
-    Ok(Some(kept))
+    true
 }
 
 fn hydration_relevance(
-    input: &StageInput<'_>,
+    embedder: &dyn EmbeddingProvider,
     stored: &[f32],
     query_vector: &[f32],
     hit: &Hit,
@@ -614,8 +630,7 @@ fn hydration_relevance(
             }
         })
         .unwrap_or_default();
-    let embedded = input
-        .embedder
+    let embedded = embedder
         .embed(&[text], EmbedKind::Passage, &Cancel::never())
         .map_err(StageError::Embed)?;
     Ok(embedded
@@ -758,4 +773,72 @@ fn allowed_endpoints(
         }
     }
     Ok(allowed)
+}
+
+#[cfg(test)]
+mod hydration_tests {
+    use super::*;
+    use crate::contract::VectorSpaceIdentity;
+    use crate::recall::hash_embed::HashEmbedder;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    struct FailOnce {
+        inner: HashEmbedder,
+        failed: AtomicBool,
+    }
+    impl EmbeddingProvider for FailOnce {
+        fn identity(&self) -> &VectorSpaceIdentity {
+            self.inner.identity()
+        }
+        fn embed(
+            &self,
+            _: &[String],
+            _: EmbedKind,
+            _: &Cancel,
+        ) -> Result<Vec<Vec<f32>>, EmbedError> {
+            if !self.failed.swap(true, Ordering::SeqCst) {
+                Err(EmbedError::ProviderFailed { status: None })
+            } else {
+                Ok(vec![vec![1.0, 0.0]])
+            }
+        }
+    }
+
+    #[test]
+    fn failed_graph_relevance_drops_only_that_candidate_with_a_content_free_trace() {
+        let embedder = FailOnce {
+            inner: HashEmbedder::new(),
+            failed: AtomicBool::new(false),
+        };
+        let mut rejected = Vec::new();
+        // A missing vector follows the real re-embedding path, unlike the pinned
+        // Arrow vector path whose NaN behavior belongs to the existing oracle.
+        let first = Hit {
+            depth: Some(1),
+            id: "first".into(),
+            row: None,
+            score: 0.8,
+            source: "graph",
+        };
+        assert!(!graph_relevance_allows(
+            &embedder,
+            &[1.0, 0.0],
+            &first,
+            &mut rejected
+        ));
+        let second = Hit {
+            id: "second".into(),
+            ..first
+        };
+        assert!(graph_relevance_allows(
+            &embedder,
+            &[1.0, 0.0],
+            &second,
+            &mut rejected
+        ));
+        assert_eq!(rejected.len(), 1);
+        assert_eq!(rejected[0].memory_id, "first");
+        assert_eq!(rejected[0].stage, "graph-hydration");
+        assert_eq!(rejected[0].reason, "relevance check failed");
+    }
 }

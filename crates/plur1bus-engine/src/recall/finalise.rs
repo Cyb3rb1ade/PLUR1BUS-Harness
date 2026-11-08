@@ -399,7 +399,8 @@ fn order_hits(
     }
 }
 
-fn valid_hits(hits: &[RerankHit], len: usize) -> Vec<(usize, f64)> {
+/// Shared child/fused validation: retain the first valid index and a usable score.
+pub(crate) fn valid_hits(hits: &[RerankHit], len: usize) -> Vec<(usize, f64)> {
     let mut seen = HashSet::new();
     let mut valid = Vec::new();
     for hit in hits {

@@ -142,6 +142,15 @@ fn normalized_embedding(
         }
         block.insert("provider".into(), json!("local-transformers"));
     }
+    if !matches!(
+        block.get("provider").and_then(Value::as_str),
+        Some("openai" | "openai-compatible" | "local-transformers")
+    ) {
+        return Err(invalid_config(
+            "embedding.provider",
+            "supported providers are openai, openai-compatible and local-transformers",
+        ));
+    }
     if block.get("provider").and_then(Value::as_str) == Some("local-transformers") {
         let outer_cache = block.get("cacheDir").cloned();
         let local = block

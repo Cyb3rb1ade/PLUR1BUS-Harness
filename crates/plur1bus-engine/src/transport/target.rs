@@ -4,6 +4,21 @@ use super::TransportError;
 use crate::contract::{AddressRules, Scheme, Target};
 use std::net::{IpAddr, Ipv4Addr};
 
+/// Loopback only, including IPv4-mapped IPv6; private networks do not qualify.
+pub(crate) fn loopback_address(address: IpAddr) -> bool {
+    match address {
+        IpAddr::V4(ip) => ip.is_loopback(),
+        IpAddr::V6(ip) => {
+            ip.is_loopback() || ip.to_ipv4_mapped().is_some_and(|ip| ip.is_loopback())
+        }
+    }
+}
+
+/// Literal loopback or localhost after URL normalization, before any DNS lookup.
+pub(crate) fn loopback_host(host: &str) -> bool {
+    host == "localhost" || host.parse().is_ok_and(loopback_address)
+}
+
 pub(crate) fn parse_url(value: &str) -> Result<(url::Url, Target), TransportError> {
     let mut url = url::Url::parse(value).map_err(|_| TransportError::InvalidRequest)?;
     let scheme = match url.scheme() {

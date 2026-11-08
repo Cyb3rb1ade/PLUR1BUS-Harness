@@ -101,6 +101,97 @@ fn a_denied_target_is_never_connected() {
 }
 
 #[test]
+fn plaintext_credentials_require_a_loopback_hostname_before_dns() {
+    for host in [
+        "gateway.example",
+        "localhost.example",
+        "192.168.1.2",
+        "8.8.8.8",
+        "[::ffff:8.8.8.8]",
+    ] {
+        for header in [
+            "Authorization",
+            "aUtHoRiZaTiOn",
+            "X-Api-Key",
+            "api-key",
+            "Cookie",
+            "Proxy-Authorization",
+        ] {
+            let gate = Gate::local();
+            let calls = Arc::new(AtomicUsize::new(0));
+            let client = GuardedClient::new(
+                &gate,
+                Box::new(Lookup {
+                    calls: calls.clone(),
+                    answers: vec![],
+                }),
+            );
+            let mut request = HttpRequest::get(format!("http://{host}/v1"));
+            request
+                .headers
+                .push((header.into(), "fixture-private-value".into()));
+            assert_eq!(
+                client.request(request, deadline()),
+                Err(TransportError::Denied),
+                "{host}, {header}"
+            );
+            assert_eq!(calls.load(Ordering::SeqCst), 0);
+        }
+    }
+}
+
+#[test]
+fn plaintext_loopback_credentials_still_require_loopback_dns_answers() {
+    let mut gate = Gate::local();
+    gate.rules.allow_private = true;
+    // The first answer stays local even before the regression is fixed.
+    for answers in [vec!["127.0.0.1", "8.8.8.8"], vec!["127.0.0.1", "10.0.0.1"]] {
+        let client = GuardedClient::new(
+            &gate,
+            Box::new(Lookup {
+                calls: Arc::new(AtomicUsize::new(0)),
+                answers: answers.iter().map(|ip| ip.parse().unwrap()).collect(),
+            }),
+        );
+        let mut request = HttpRequest::get("http://localhost/v1");
+        request
+            .headers
+            .push(("Authorization".into(), "fixture-private-value".into()));
+        assert_eq!(
+            client.request(request, deadline()),
+            Err(TransportError::AddressDenied)
+        );
+    }
+}
+
+#[test]
+fn credentialed_http_loopback_and_anonymous_compatible_http_remain_usable() {
+    for host in [
+        "localhost",
+        "127.0.0.2",
+        "[::1]",
+        "[::ffff:127.0.0.1]",
+        "gateway.example",
+    ] {
+        let stub = Stub::new(200, "", "ok", Duration::ZERO);
+        let gate = Gate::local();
+        let client = GuardedClient::new(&gate, local_lookup());
+        let mut request = HttpRequest::get(format!("http://{host}:{}/v1", stub.port));
+        if host != "gateway.example" {
+            request
+                .headers
+                .push(("Authorization".into(), "fixture-private-value".into()));
+        }
+        assert_eq!(
+            client.request(request, deadline()).unwrap().status,
+            200,
+            "{host}"
+        );
+        assert_eq!(stub.requests.lock().unwrap().len(), 1);
+    }
+}
+
+#[test]
 fn a_redirect_to_the_same_host_on_a_port_the_gate_denies_is_refused() {
     let destination = Stub::new(200, "", "no", Duration::ZERO);
     let redirect = Stub::new(
@@ -260,7 +351,7 @@ fn a_redirect_to_another_origin_drops_credentials() {
     );
     let gate = Gate::local();
     let client = GuardedClient::new(&gate, local_lookup());
-    let mut req = HttpRequest::get(redirect.url("/"));
+    let mut req = HttpRequest::get(redirect.loopback_url("/"));
     req.headers
         .push(("Authorization".into(), "Bearer private-value".into()));
     assert!(client.request(req, deadline()).is_ok());
@@ -520,7 +611,7 @@ fn enabling_runtime_trace_never_logs_a_transmitted_credential() {
     let gate = Gate::local();
     let client = GuardedClient::new(&gate, local_lookup());
     let sentinel = "K9X7".repeat(32);
-    let mut request = HttpRequest::get(stub.url("/"));
+    let mut request = HttpRequest::get(stub.loopback_url("/"));
     request
         .headers
         .push(("Authorization".into(), format!("Bearer {sentinel}")));
