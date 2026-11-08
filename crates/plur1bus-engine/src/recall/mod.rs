@@ -98,7 +98,7 @@ pub mod render;
 mod render_access;
 mod render_boosters;
 mod render_compression;
-mod render_date;
+pub(crate) mod render_date;
 mod render_projection;
 mod render_value;
 /// Request-level time budgets, diagnostics and lossless result envelope.
