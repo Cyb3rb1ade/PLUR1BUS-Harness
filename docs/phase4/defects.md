@@ -111,6 +111,17 @@ flight). A new front door started in that window takes `state/core.lock`, and it
 once (`run/core-legacy.lock`), and clients see the address refused as they do while a TypeScript core restarts
 (tests/system kill-soak SIGKILLs the front door and passes on the rust leg: no fact lost, none replayed twice).
 
+Where the window exists (task review L11). When the supervisor spawned the front door (Linux, macOS), it SIGKILLs what is
+left of the front door's process group once it has reaped it (`crates/plur1bus/src/supervisor/child.rs` `sweep_tree` →
+`adopt.rs` `sweep_group`), the legacy core included: that legacy core does not finish its stop, and a supervised front
+door's crash equals a TypeScript core's SIGKILL (no drain), as on the ts leg. The window exists where nobody sweeps: an
+adopted front door (the supervisor never signals a peer's group after its exit), `plur1bus core run`, and Windows (no
+process group). Since P4-10 S-M4 the OS also ends the legacy core with its front door on Linux (parent-death signal) and
+on Windows (a job object that kills on close), and the supervisor's kill of an adopted front door and 1staid's
+`unit.terminate-hung` kill the legacy core `run/core-legacy.pid` names. What remains is a front door that dies abruptly
+by another hand on macOS (an OOM kill, a SIGKILL by hand, a `core run` terminal closed): its legacy core stops on its
+lifeline (no grace) and finishes what is in flight, under its own lock (below).
+
 Mitigated in P4-10 (security review M3, controller ruling S-M3). Until then every writer that is not the front door took
 only `state/core.lock`, which the kernel frees the moment the front door dies, so a stock TypeScript core (a `core.impl`
 switch to `ts` applies exactly at the restart after such a crash), the import and a restore could start beside the old
