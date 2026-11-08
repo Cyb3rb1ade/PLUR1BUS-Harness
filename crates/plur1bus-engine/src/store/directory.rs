@@ -97,6 +97,12 @@ impl TrustedDirectory {
         &self.physical
     }
 
+    /// Opaque device/volume and inode/file-index identity for a native ownership envelope.
+    /// This supplements the physical pathname; callers must still retain and revalidate the handle.
+    pub(crate) fn identity_parts(&self) -> (u64, u64) {
+        (self.identity.0, self.identity.1)
+    }
+
     /// The verified descriptor alias, or the identity-checked physical fallback path.
     #[must_use]
     pub fn lance_path(&self) -> &Path {

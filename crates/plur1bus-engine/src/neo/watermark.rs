@@ -71,6 +71,12 @@ fn valid(state: &Json, now: &JsString) -> Result<(), StoreError> {
     if !matches!(state, Json::Object(_)) || now.is_empty() {
         return Err(StoreError::InvalidInput);
     }
+    validate_state(state)
+}
+pub(super) fn validate_state(state: &Json) -> Result<(), StoreError> {
+    if !matches!(state, Json::Object(_)) {
+        return Err(StoreError::Corrupt);
+    }
     // Tolerant JSON retains duplicate keys; state mutation refuses ambiguous session maps.
     for object in [Some(state), field(state, "sessionWatermarks")]
         .into_iter()

@@ -26,7 +26,7 @@ use std::{
 };
 
 #[path = "wal_lock.rs"]
-pub(super) mod kernel_lock;
+pub(crate) mod kernel_lock;
 use kernel_lock::{acquire as lease, KernelLease};
 
 const MAX_BYTES: u64 = 64 * 1024 * 1024;

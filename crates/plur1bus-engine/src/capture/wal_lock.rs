@@ -8,12 +8,12 @@ use std::{
     time::Duration,
 };
 
-pub(in crate::capture) struct KernelLease {
+pub(crate) struct KernelLease {
     file: File,
     name: String,
 }
 impl KernelLease {
-    pub(in crate::capture) fn check(&self, directory: &TrustedDirectory) -> Result<(), StoreError> {
+    pub(crate) fn check(&self, directory: &TrustedDirectory) -> Result<(), StoreError> {
         let current = directory.open_file(&self.name)?;
         if identity(&current)? != identity(&self.file)? {
             return Err(StoreError::UntrustedPath);
@@ -21,7 +21,7 @@ impl KernelLease {
         Ok(())
     }
 }
-pub(in crate::capture) fn acquire(
+pub(crate) fn acquire(
     directory: &TrustedDirectory,
     name: &str,
     cancel: &Cancel,
