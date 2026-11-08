@@ -660,5 +660,133 @@
       "reason": "engine-delegation",
       "valid": false
     }
+  ],
+  "request-id": [
+    {
+      "idJson": "1",
+      "valid": true
+    },
+    {
+      "idJson": "-7",
+      "valid": true
+    },
+    {
+      "idJson": "0",
+      "valid": true
+    },
+    {
+      "idJson": "-0",
+      "valid": true
+    },
+    {
+      "idJson": "1.0",
+      "valid": true
+    },
+    {
+      "idJson": "1e3",
+      "valid": true
+    },
+    {
+      "idJson": "1E+2",
+      "valid": true
+    },
+    {
+      "idJson": "9007199254740993",
+      "valid": true
+    },
+    {
+      "idJson": "1e300",
+      "valid": true
+    },
+    {
+      "detail": "/id must be integer,string",
+      "echoed": "1.5",
+      "idJson": "1.5",
+      "valid": false
+    },
+    {
+      "detail": "/id must be integer,string",
+      "echoed": "-2.25",
+      "idJson": "-2.25",
+      "valid": false
+    },
+    {
+      "detail": "/id must be integer,string",
+      "echoed": "1e-7",
+      "idJson": "1e-7",
+      "valid": false
+    },
+    {
+      "detail": "/id must be integer,string",
+      "echoed": "null",
+      "idJson": "1e400",
+      "valid": false
+    },
+    {
+      "detail": "/id must be integer,string",
+      "echoed": "null",
+      "idJson": "-1e400",
+      "valid": false
+    },
+    {
+      "idJson": "\"a\"",
+      "valid": true
+    },
+    {
+      "idJson": "\"\"",
+      "valid": true
+    },
+    {
+      "idJson": "\"fd\"",
+      "valid": true
+    },
+    {
+      "detail": "/id must be integer,string",
+      "echoed": "null",
+      "idJson": "null",
+      "valid": false
+    },
+    {
+      "detail": "/id must be integer,string",
+      "echoed": "true",
+      "idJson": "true",
+      "valid": false
+    },
+    {
+      "detail": "/id must be integer,string",
+      "echoed": "false",
+      "idJson": "false",
+      "valid": false
+    },
+    {
+      "detail": "/id must be integer,string",
+      "echoed": "{}",
+      "idJson": "{}",
+      "valid": false
+    },
+    {
+      "detail": "/id must be integer,string",
+      "echoed": "{\"x\":1}",
+      "idJson": "{\"x\":1}",
+      "valid": false
+    },
+    {
+      "detail": "/id must be integer,string",
+      "echoed": "[]",
+      "idJson": "[]",
+      "valid": false
+    },
+    {
+      "detail": "/id must be integer,string",
+      "echoed": "[1]",
+      "idJson": "[1]",
+      "valid": false
+    },
+    {
+      "detail": "/id must be integer,string",
+      "echoed": "[\"a\"]",
+      "idJson": "[\"a\"]",
+      "valid": false
+    }
   ]
 }

@@ -67,6 +67,13 @@ surrogate as U+FFFD, so a patched answer carries U+FFFD where the TypeScript cor
 nested deeper than 128 levels is refused with `-32700` (a request) or forwarded with only its id replaced (an answer, a
 warning on stderr).
 
+A request id goes back as the client wrote it, on the answers the front door completes or gives itself: `1E+2` or
+`9007199254740993` returns as written, where module-api returns what `JSON.parse` made of it (`100`,
+`9007199254740992`). An id that is no `$defs/Id` (an object, an array, a boolean, a fraction) gets module-api's
+`invalid-request` answer with its detail (P4-10 fix round 1b F8, vectors in `fixtures/parity/auth/module-api.json`,
+section `request-id`); one the front door cannot read (`1e400`, Infinity to `JSON.parse`) goes to the legacy core, which
+echoes `null` as module-api does.
+
 - Reproduction: `{"jsonrpc":"2.0","id":1,"method":"core.auth","params":{"token":"\ud800"}}` on a fresh connection. The
   TypeScript core answers `E_INVALID_PARAMS` (`/token` is too short), the front door `-32700`.
 - Both refuse the line; only the error differs. P4-12 decides whether the Rust core keeps the stricter parse (recorded

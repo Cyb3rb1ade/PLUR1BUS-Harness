@@ -246,6 +246,21 @@ fn serve(l: &Arc<Legacy>, conn: Accepted, mode: &str, control: bool) {
         };
         let id = msg.get("id").cloned().unwrap_or(Value::Null);
         let method = msg["method"].as_str().unwrap_or("").to_owned();
+        // module-api's `validateRequest`: `$defs/Id` is an integer or a string.
+        let integer = |v: &Value| {
+            v.as_f64()
+                .is_some_and(|f| f.is_finite() && f.fract() == 0.0)
+        };
+        if msg
+            .get("id")
+            .is_some_and(|i| !(i.is_string() || integer(i)))
+        {
+            send(
+                &writer,
+                &json!({"jsonrpc":"2.0","id":id,"error":{"code":-32600,"message":"invalid request","data":{"error":"E_INVALID_PARAMS","reason":"invalid-request","detail":"/id must be integer,string"}}}),
+            );
+            continue;
+        }
         if method == "core.auth" {
             if mode == "slow-auth" && !control {
                 std::thread::sleep(Duration::from_millis(1000));

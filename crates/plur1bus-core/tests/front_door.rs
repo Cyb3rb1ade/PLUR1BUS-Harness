@@ -141,6 +141,10 @@ fn main() {
             "the_legacy_cores_own_stopping_reaches_every_subscriber_before_the_end",
             the_legacy_cores_own_stopping_reaches_every_subscriber_before_the_end,
         ),
+        (
+            "a_request_id_that_is_no_integer_or_string_is_an_invalid_request",
+            a_request_id_that_is_no_integer_or_string_is_an_invalid_request,
+        ),
     ];
     let mut failed = Vec::new();
     for (name, test) in tests {
@@ -1585,5 +1589,67 @@ fn the_legacy_cores_own_stopping_reaches_every_subscriber_before_the_end() {
         d.wait(Duration::from_secs(10)),
         Some(1),
         "the legacy core exited on its own"
+    );
+}
+
+/// Fix round 1b F8: a request id that is neither an integer nor a string (`$defs/Id`) is refused as the TypeScript core
+/// refuses it (`E_INVALID_PARAMS`, `invalid-request`, −32600, the id echoed), on a route the front door completes
+/// (`core.status`) as on a relayed one (`memory.list`); it never reaches the front door's own bookkeeping. JavaScript's
+/// integers (`1.0`, `1e3`) are integers.
+fn a_request_id_that_is_no_integer_or_string_is_an_invalid_request() {
+    let d = door(Opts::default());
+    let mut c = d.owner();
+    for id in [r#"{"x":1}"#, "[1]", "1.5", "true", "[]"] {
+        for method in ["core.status", "memory.list"] {
+            c.send_line(&format!(
+                r#"{{"jsonrpc":"2.0","id":{id},"method":"{method}","params":{{}}}}"#
+            ));
+            let r = c.read().unwrap();
+            assert_eq!(
+                (code(&r), reason(&r), r["error"]["code"].as_i64()),
+                ("E_INVALID_PARAMS", "invalid-request", Some(-32600)),
+                "{method} with id {id}: {r}"
+            );
+            assert_eq!(
+                r["id"],
+                serde_json::from_str::<Value>(id).unwrap(),
+                "the id as sent"
+            );
+            assert!(
+                r.pointer("/error/data/detail")
+                    .and_then(Value::as_str)
+                    .is_some_and(|d| d.contains("/id")),
+                "{r}"
+            );
+        }
+    }
+    for (raw, as_read) in [("1.0", json!(1.0)), ("1e3", json!(1000.0))] {
+        c.send_line(&format!(
+            r#"{{"jsonrpc":"2.0","id":{raw},"method":"core.status","params":{{}}}}"#
+        ));
+        let r = c.response(&as_read);
+        assert_eq!(
+            r["result"]["pid"].as_u64(),
+            Some(d.pid()),
+            "{raw} is an integer: completed here"
+        );
+    }
+    // An API connection's refusal comes from the legacy core (module-api's checks before validateRequest decide there).
+    let mut api = d.client();
+    let delegation = json!({"clientId":"harness-api","token": d.token("api-delegation.token")});
+    let r = api.call(
+        "core.auth",
+        json!({"token": d.token("core.token"), "api": delegation}),
+    );
+    assert!(r.get("result").is_some(), "{r}");
+    api.send_line(
+        &json!({"jsonrpc":"2.0","id":{"x":1},"method":"core.status","params":{},"api":delegation})
+            .to_string(),
+    );
+    let r = api.read().unwrap();
+    assert_eq!(reason(&r), "invalid-request", "{r}");
+    assert!(
+        c.call("core.status", json!({})).get("result").is_some(),
+        "the connection stays"
     );
 }

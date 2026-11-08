@@ -945,6 +945,71 @@ fn api_delegation(msg: &Value) -> Delegation {
     }
 }
 
+/// module-api's `validateRequest` refusal: `E_INVALID_PARAMS`, reason `invalid-request`, JSON-RPC −32600, the findings.
+fn invalid_request(found: &[String]) -> RpcErr {
+    RpcErr::new(
+        "E_INVALID_PARAMS",
+        "invalid request",
+        Some("invalid-request"),
+    )
+    .detail(found.join("; "))
+    .jsonrpc(-32600)
+}
+
+/// Whether a request id breaks `$defs/Id` (an integer or a string) as module-api's `validateRequest` reads it (fix round
+/// 1b F8): `JSON.parse` makes every number a double, so `1.0`, `1e3` and `-0` are integers and `1.5` or `1e400`
+/// (Infinity) are not; an object, an array or a boolean is no id. `null` does not count here: a request without a usable
+/// id goes to the legacy core, which answers it, as before.
+fn breaks_id_rule(id: &RawValue) -> bool {
+    let text = id.get();
+    match text.as_bytes().first() {
+        Some(b'"' | b'n') => false,
+        Some(b'{' | b'[' | b't' | b'f') => true,
+        // serde_json refuses a number out of range (`1e400`); the fraction of an infinity would be NaN.
+        _ => serde_json::from_str::<f64>(text).map_or(true, |n| n.fract() != 0.0),
+    }
+}
+
+/// module-api's answer to a request whose id breaks `$defs/Id` (fix round 1b F8), where the front door can give it from
+/// the request alone. Its `dispatch` runs `validateRequest` after the delegation checks: on an owner or engine connection
+/// a delegation the request carries is verified first (`api-delegation`); a scoped client that sends one is refused
+/// (`E_DENIED`) before; an API connection's checks compare it with the binding of its handshake. `None` where the answer
+/// is the legacy core's: a scoped client's delegation, any API connection, and a request the front door cannot read
+/// (`1e400` is Infinity to `JSON.parse`, which `JSON.stringify` echoes as `null`). The caller relays those.
+fn bad_id_answer(
+    checks: &Checks,
+    api_token: &Secret,
+    caller: Option<Caller>,
+    text: &str,
+) -> Option<RpcErr> {
+    let mut msg = peek::value_lossy(text)?;
+    match caller? {
+        Caller::Owner | Caller::Engine => {
+            let delegation = api_delegation(&msg);
+            if delegation.present {
+                if let Err(r) = auth::verify_api_delegation(&delegation.value, api_token) {
+                    return Some(refusal(r));
+                }
+            }
+        }
+        Caller::Client => {
+            let in_params = msg
+                .get("params")
+                .and_then(Value::as_object)
+                .is_some_and(|p| p.contains_key("api"));
+            if msg.get("api").is_some() || in_params {
+                return None;
+            }
+        }
+        Caller::Api | Caller::LegacyCore => return None,
+    }
+    if let Some(map) = msg.as_object_mut() {
+        map.remove("api");
+    }
+    let found = findings(&checks.request, &msg);
+    (!found.is_empty()).then(|| invalid_request(&found))
+}
+
 /// module-api's `dispatch` up to the handshake: the API delegation, `validateRequest`, `core.auth`, `auth-required`.
 fn pre_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, mut msg: Value) {
     let id = RawId::of_value(&frame::id_of(&msg));
@@ -960,16 +1025,7 @@ fn pre_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, mut msg: Value) {
     }
     let found = findings(&front.checks.request, &msg);
     if !found.is_empty() {
-        return conn.error(
-            &id,
-            RpcErr::new(
-                "E_INVALID_PARAMS",
-                "invalid request",
-                Some("invalid-request"),
-            )
-            .detail(found.join("; "))
-            .jsonrpc(-32600),
-        );
+        return conn.error(&id, invalid_request(&found));
     }
     if is_auth {
         return handle_auth(front, conn, &id, &msg, delegation.present, delegation.top);
@@ -1193,6 +1249,15 @@ fn post_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, bytes: &[u8]) {
             .jsonrpc(-32600),
         );
     }
+    // An id that is no `$defs/Id` (an object, an array, a fraction) is refused as module-api refuses it, and a request
+    // with one is never completed here under the front door's own id (fix round 1b F8): where module-api's answer needs
+    // the legacy core's state, the legacy core gives it.
+    let bad_id = id_raw.is_some_and(breaks_id_rule);
+    if bad_id {
+        if let Some(answer) = bad_id_answer(&front.checks, &front.api_token, conn.caller(), &text) {
+            return conn.error(&id, answer);
+        }
+    }
     let method = method.and_then(peek::string_lossy).unwrap_or_default();
     // A native method serves the local owner only until P4-12; anyone else's call is relayed (fix round 1b F3).
     let route = route::route_for(&method, conn.caller().unwrap_or(Caller::Client));
@@ -1220,6 +1285,9 @@ fn post_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, bytes: &[u8]) {
     let Route::Complete(kind) = route else {
         return relay_raw(conn, bytes);
     };
+    if bad_id {
+        return relay_raw(conn, bytes);
+    }
     let param = |key: &str| params.and_then(|p| peek::member(p, key));
     let intercept = match kind {
         Kind::Auth => {
@@ -1329,16 +1397,7 @@ fn native(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &RawId, method: &str, mu
     }
     let found = findings(&front.checks.request, &msg);
     if !found.is_empty() {
-        return conn.error(
-            id,
-            RpcErr::new(
-                "E_INVALID_PARAMS",
-                "invalid request",
-                Some("invalid-request"),
-            )
-            .detail(found.join("; "))
-            .jsonrpc(-32600),
-        );
+        return conn.error(id, invalid_request(&found));
     }
     if has_api {
         return conn.error(
@@ -1745,5 +1804,126 @@ mod tests {
         );
         assert!(findings(&checks.hello_params, &json!({})).is_empty());
         assert!(!findings(&checks.hello_params, &json!({"x":1})).is_empty());
+    }
+
+    fn status_request(id: &str) -> String {
+        format!(r#"{{"jsonrpc":"2.0","id":{id},"method":"core.status","params":{{}}}}"#)
+    }
+
+    /// Mode-V vectors recorded from module-api (`scripts/parity/export-auth.ts`, section `request-id`, fix round 1b F8):
+    /// the front door's id rule is `validateRequest`'s on every case; where it answers itself (an owner connection), the
+    /// answer has module-api's detail and echoes the id as module-api does; a request it cannot read (`1e400`) is left to
+    /// the legacy core, which echoes `null` as module-api does. `null` is no `$defs/Id` either, and the legacy core answers
+    /// it as before.
+    #[test]
+    fn the_request_id_rule_is_module_apis() {
+        let vectors: Value = serde_json::from_str(include_str!(
+            "../../../fixtures/parity/auth/module-api.json"
+        ))
+        .unwrap();
+        let checks = Checks::new().unwrap();
+        let token = Secret::fresh().unwrap();
+        let cases = vectors["request-id"].as_array().unwrap();
+        assert!(cases.len() >= 20);
+        let (mut answered, mut relayed) = (0, 0);
+        for case in cases {
+            let raw = case["idJson"].as_str().unwrap();
+            let valid = case["valid"].as_bool().unwrap();
+            let text = status_request(raw);
+            let [id] = peek::members(&text, ["id"]).unwrap();
+            let id = id.unwrap();
+            if raw == "null" {
+                assert!(!valid && !breaks_id_rule(id), "null: the legacy core's");
+                continue;
+            }
+            assert_eq!(breaks_id_rule(id), !valid, "{raw}");
+            if valid {
+                continue;
+            }
+            let echoed = case["echoed"].as_str().unwrap();
+            match bad_id_answer(&checks, &token, Some(Caller::Owner), &text) {
+                Some(answer) => {
+                    assert_eq!(
+                        (answer.code, answer.reason.as_deref(), answer.jsonrpc),
+                        ("E_INVALID_PARAMS", Some("invalid-request"), Some(-32600)),
+                        "{raw}"
+                    );
+                    assert_eq!(answer.detail.as_deref(), case["detail"].as_str(), "{raw}");
+                    assert_eq!(
+                        serde_json::from_str::<Value>(raw).unwrap(),
+                        serde_json::from_str::<Value>(echoed).unwrap(),
+                        "{raw}: the id goes back as written"
+                    );
+                    answered += 1;
+                }
+                None => {
+                    assert!(peek::value_lossy(&text).is_none(), "{raw}: unreadable only");
+                    assert_eq!(echoed, "null", "{raw}");
+                    relayed += 1;
+                }
+            }
+        }
+        assert!(
+            answered >= 10 && relayed == 2,
+            "{answered} answered, {relayed} relayed"
+        );
+    }
+
+    /// module-api's `dispatch` order before `validateRequest`, per connection (fix round 1b F8).
+    #[test]
+    fn a_bad_id_is_answered_where_module_apis_answer_needs_only_the_request() {
+        let checks = Checks::new().unwrap();
+        let token = Secret::fresh().unwrap();
+        let delegation = json!({"clientId":"harness-api","token": token.expose()});
+        let with = |extra: Value| {
+            let mut msg = json!({"jsonrpc":"2.0","id":{"x":1},"method":"memory.list","params":{}});
+            if let (Some(m), Some(e)) = (msg.as_object_mut(), extra.as_object()) {
+                m.extend(e.clone());
+            }
+            msg.to_string()
+        };
+        let reason = |caller, text: &str| {
+            bad_id_answer(&checks, &token, caller, text).map(|a| a.reason.unwrap_or_default())
+        };
+        let invalid = Some("invalid-request".to_owned());
+        for caller in [Caller::Owner, Caller::Engine] {
+            assert_eq!(reason(Some(caller), &with(json!({}))), invalid);
+            assert_eq!(
+                reason(Some(caller), &with(json!({"api": delegation}))),
+                invalid,
+                "a valid delegation is verified, then the request"
+            );
+            assert_eq!(
+                reason(
+                    Some(caller),
+                    &with(json!({"api": {"clientId":"harness-api"}}))
+                ),
+                Some("api-delegation".to_owned()),
+                "a bad delegation first"
+            );
+            assert_eq!(
+                reason(Some(caller), &with(json!({"api": null}))),
+                Some("api-delegation".to_owned()),
+                "`api: null` is a delegation to module-api (hasOwn)"
+            );
+        }
+        assert_eq!(reason(Some(Caller::Client), &with(json!({}))), invalid);
+        assert_eq!(
+            reason(Some(Caller::Client), &with(json!({"api": delegation}))),
+            None,
+            "E_DENIED is module-api's"
+        );
+        assert_eq!(
+            reason(
+                Some(Caller::Client),
+                &with(json!({"params": {"api": delegation}}))
+            ),
+            None
+        );
+        assert_eq!(
+            reason(Some(Caller::Api), &with(json!({"api": delegation}))),
+            None
+        );
+        assert_eq!(reason(None, &with(json!({}))), None);
     }
 }

@@ -133,6 +133,16 @@ describe("auth vectors (P4-10 task review L9)", () => {
     for (const section of ["api-delegation", "engine-delegation", "adoption-nonce"]) assert.ok(v[section].length >= 10, section);
   });
 
+  it("records module-api's request-id rule: integers as JSON.parse reads them, strings, nothing else (fix round 1b F8)", async () => {
+    const v = (await buildAuthVectors())["module-api"] as any;
+    const valid = (idJson: string) => v["request-id"].find((c: any) => c.idJson === idJson)?.valid;
+    for (const id of ["1", "-0", "1.0", "1e3", "\"a\""]) assert.equal(valid(id), true, id);
+    for (const id of ["1.5", "1e400", "null", "true", "{}", "[1]"]) assert.equal(valid(id), false, id);
+    const infinity = v["request-id"].find((c: any) => c.idJson === "1e400");
+    assert.equal(infinity.echoed, "null", "Infinity goes back as null");
+    assert.match(v["request-id"].find((c: any) => c.idJson === "{}").detail, /^\/id /);
+  });
+
   it("puts a fresh value in place of every marker", () => {
     const values = credentials();
     const text = substitute('{"a":"@api@","b":"@API@","c":"@other@"}', values);

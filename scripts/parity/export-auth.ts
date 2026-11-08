@@ -1,7 +1,9 @@
 // Parity vectors (mode V) for the credential checks the Rust front door ports from module-api (P4-10 task review L9):
 // `verifyApiDelegation` (with `validApiPrincipal`, `validBinding`, `isIdentifier`), `verifyEngineDelegation` plus the
 // handshake's `params.token === params.engine.token`, and `checkAdoptionNonce`. `crates/plur1bus-core/src/auth.rs` replays
-// every case. Recorded, never edited by hand.
+// every case. `request-id` (P4-10 fix round 1b F8): module-api's `dispatch` answers a request whose id breaks `$defs/Id`
+// (an integer or a string) with `validateRequest`'s findings and the id `JSON.stringify` writes back;
+// `crates/plur1bus-core/src/server.rs` replays it. Recorded, never edited by hand.
 //
 // No credential is recorded: an input names its credentials by marker (`@api@`, `@engine@`, `@sup@`, `@other@`; upper case
 // for the upper-cased value), and the exporter, like the Rust replay, puts a fresh random 64-hex value in their place. A
@@ -17,6 +19,7 @@ import { checkAdoptionNonce } from "../../packages/module-api/src/adoption.ts";
 import { verifyApiDelegation } from "../../packages/module-api/src/api-principal.ts";
 import { verifyEngineDelegation } from "../../packages/module-api/src/engine-principal.ts";
 import { RpcError } from "../../packages/module-api/src/rpc-error.ts";
+import { validateRequest } from "../../packages/rpc-schema/src/index.ts";
 import { exporterMain } from "./lib.mjs";
 
 /** Fresh values for the markers, and the substitution both sides apply to an input's JSON text. */
@@ -146,6 +149,12 @@ const nonceCases: Array<{ name: string; file: string | null; nonce: string }> = 
   { name: "file-empty", file: "", nonce: "" },
 ];
 
+/** Request ids as written on the wire: `JSON.parse` makes every number a double (`1e400` is Infinity). */
+const requestIds = [
+  "1", "-7", "0", "-0", "1.0", "1e3", "1E+2", "9007199254740993", "1e300", "1.5", "-2.25", "1e-7", "1e400", "-1e400",
+  "\"a\"", "\"\"", "\"fd\"", "null", "true", "false", "{}", "{\"x\":1}", "[]", "[1]", "[\"a\"]",
+];
+
 function verdict(run: () => unknown): { valid: boolean; error?: string; reason?: string } {
   try { run(); return { valid: true }; }
   catch (e) {
@@ -181,7 +190,12 @@ export async function buildAuthVectors(): Promise<Record<string, unknown>> {
       if (c.file !== null) writeFileSync(path, substitute(c.file, values));
       return { name: c.name, file: c.file, nonce: c.nonce, valid: checkAdoptionNonce(path, substitute(c.nonce, values)).ok };
     });
-    return { "module-api": { "api-delegation": api, "engine-delegation": engine, "adoption-nonce": nonce } };
+    const request = requestIds.map((idJson) => {
+      const msg = JSON.parse(`{"jsonrpc":"2.0","id":${idJson},"method":"core.status","params":{}}`);
+      const v = validateRequest(msg);
+      return { idJson, valid: v.ok, ...(v.ok ? {} : { detail: v.errors.join("; "), echoed: JSON.stringify(msg.id ?? null) }) };
+    });
+    return { "module-api": { "api-delegation": api, "engine-delegation": engine, "adoption-nonce": nonce, "request-id": request } };
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }
 
