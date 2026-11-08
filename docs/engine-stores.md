@@ -411,3 +411,11 @@ trips against the Node package still in use. Compare storage-version, manifest-p
 rows and `identityStatus`. A difference stops the upgrade: it needs an owner-approved migration and an explicit
 `STORE_SCHEMA_VERSION` decision, never an implicit compatibility repair. Keep Arrow, Lance, Tokio and SQLite on one
 dependency line. The Linux proof is local; macOS and Windows run the same tests in the labeled CI legs.
+
+## Native maintenance authority and explicit marker migration (RX / F7)
+
+The productive Core calls `engine.admin.migrate` and reembedding `plan`, `apply`, `resume`, `status`, and `validate` after its system-scope Owner/Admin RBAC check. Their native replacement uses `MaintenanceOps` with a `MaintenanceGrant` issued only after authenticating that Core connection. The grant is neither a person nor a Principal; disconnect revokes it. The wire schema and RPC version do not change. The legacy Principal-bearing administrative migration traits remain unavailable. Native service composition is completed in RX8; the grant alone does not enable a maintenance method.
+
+`ops::migrate::SchemaMigrator` records a durable maintenance audit before mutation, with the wire method, Core-link instance, schema target and `actor: core-maintenance`. It never records an operation payload or derives an owner from a fallback name. Audit failure rejects the operation. A nonce-owned `_schema-migrate.lock` fences competing Rust migrations, and cancellation/ownership are checked again before atomic marker replacement.
+
+The pinned Node `0 -> 1` migration only writes `_schema.json`; Rust preserves that behavior and the marker bytes. It does **not** add legacy Lance columns, upgrade shared-memory metadata, migrate identity tables, rewrite vectors or remove existing rows. These transformations are separate work: a marker must not be treated as proof that they ran. Unknown versions and downgrades are rejected. After a successful `migrate("0", "1")`, another call with the stale source `"0"` returns conflict; `migrate("1", "1")` returns `applied: false` without rewriting the marker. Leading-zero version strings retain the Node comparison and persistence semantics.

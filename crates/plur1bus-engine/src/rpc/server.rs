@@ -17,6 +17,22 @@ use super::lifeline::{Lifeline, Watch};
 use super::methods::{self, WireError};
 use crate::contract::{AgentId, AgentStoreHandle, Cancel, CaptureHandle, CaptureResult, Engine};
 
+use crate::contract::{MaintenanceGrant, MaintenanceMethod};
+
+/// Proof created only after this adapter has authenticated the actual Core link.
+pub(crate) struct AuthenticatedCoreLink {
+    instance: String,
+    cancellation: Cancel,
+}
+impl AuthenticatedCoreLink {
+    pub(crate) fn instance(&self) -> &str {
+        &self.instance
+    }
+    pub(crate) fn cancellation(&self) -> &Cancel {
+        &self.cancellation
+    }
+}
+
 const TICK: Duration = Duration::from_millis(25);
 const MAX_CONNECTIONS: usize = 64;
 const MAX_IN_FLIGHT: usize = 8;
@@ -206,6 +222,7 @@ struct Connection {
     closer: Arc<dyn Fn() + Send + Sync>,
     cancel: Cancel,
     authenticated: AtomicBool,
+    maintenance: Mutex<Option<Arc<MaintenanceGrant>>>,
     agents: Mutex<HashMap<String, Vec<AgentStoreHandle>>>,
 }
 
@@ -529,6 +546,16 @@ impl Shared {
         method: &str,
         params: &Value,
     ) -> Result<Value, WireError> {
+        if MaintenanceMethod::from_wire(method).is_some() {
+            let grant = lock(&connection.maintenance)
+                .clone()
+                .ok_or_else(|| unauthorized("auth-required"))?;
+            grant
+                .check(&connection.cancel)
+                .map_err(|_| WireError::not_available())?;
+            // RX8 composes the audited MaintenanceOps service here; frozen legacy dispatch
+            // stays unavailable until the native schema/coordinator implementation is installed.
+        }
         match method {
             "engine.status" => Ok(self.status()),
             "engine.shutdown" => Ok(json!({})),
@@ -656,6 +683,7 @@ fn connection_loop(state: &Arc<Shared>, accepted: Accepted, id: u64) {
         closer: accepted.closer,
         cancel: Cancel::never(),
         authenticated: AtomicBool::new(false),
+        maintenance: Mutex::new(None),
         agents: Mutex::new(HashMap::new()),
     });
     let notification_connection = Arc::downgrade(&connection);
@@ -739,6 +767,13 @@ fn connection_loop(state: &Arc<Shared>, accepted: Accepted, id: u64) {
                 connection.reply(request_id, Err(unauthorized("bad-token")));
                 break;
             }
+            let link = AuthenticatedCoreLink {
+                instance: format!("{}:{}", state.instance, connection.id),
+                cancellation: connection.cancel.clone(),
+            };
+            *lock(&connection.maintenance) = Some(Arc::new(
+                MaintenanceGrant::from_authenticated_core_link(&link),
+            ));
             authenticated = true;
             if read_timeout(None).is_err() {
                 break;

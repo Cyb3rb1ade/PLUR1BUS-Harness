@@ -31,7 +31,7 @@ pub trait AdminOps: Send + Sync {
     fn workspace_policy(&self) -> &dyn WorkspacePolicyOps;
     /// Access explicit-path vault setup without a host runtime.
     fn obsidian(&self) -> &dyn ObsidianOps;
-    /// Migrate the store schema; rejects conflicting, unknown or downgrading versions.
+    /// Superseded by MaintenanceOps::migrate (F7); this person-bound legacy port stays fail closed.
     fn migrate(
         &self,
         from: SchemaVersion,
@@ -41,7 +41,8 @@ pub trait AdminOps: Send + Sync {
     ) -> Result<MigrationResult, EngineError>;
 }
 
-/// Re-embedding migration coordination; opaque payloads mirror the frozen declaration's unknown types.
+/// Superseded by request-bearing MaintenanceOps (F7). These frozen person-bound signatures
+/// remain for compatibility and stay fail closed; rollback/switch belong to the Core.
 pub trait ReembeddingOps: Send + Sync {
     /// Prepare a migration plan without applying it.
     fn plan(&self, principal: &Principal, agent: &AgentContext) -> Result<Value, EngineError>;

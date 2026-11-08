@@ -45,3 +45,6 @@ mod unimport_plan;
 
 /// Copied-store schema and embedding identity inspection.
 pub mod adopt;
+
+/// Explicit audited schema-marker migration through a Core-link maintenance grant.
+pub mod migrate;

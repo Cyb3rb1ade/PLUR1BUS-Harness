@@ -46,6 +46,7 @@ mod engine;
 mod errors;
 mod host;
 mod jobs;
+mod maintenance;
 mod memory_ops;
 mod models;
 mod runtime;
@@ -63,6 +64,7 @@ pub use host::{
     SecurePathCallback, Target, UnsafeLinkCallback,
 };
 pub use jobs::JobRegistry;
+pub use maintenance::{MaintenanceGrant, MaintenanceMethod, MaintenanceOps};
 pub use memory_ops::{MemoryCurationOps, MemoryOps, MemoryProposalsOps};
 pub use models::ModelsService;
 pub use runtime::{AgentStoreHandle, CaptureHandle, EventReceiver};

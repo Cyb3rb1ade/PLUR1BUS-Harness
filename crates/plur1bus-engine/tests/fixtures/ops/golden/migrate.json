@@ -1,0 +1,294 @@
+{
+  "recordedFrom": {
+    "source": {
+      "engineCommit": "1f0daec472b72755d851712968157a89ca3a7687",
+      "treeSha256": "cdfdf8bb4881773d2d492969cd5a5ade44ccb62bd0db019abfedce45202e96ed"
+    },
+    "node": "v24.21.0"
+  },
+  "now": 1800000000000,
+  "engineVersion": "synthetic-engine",
+  "cases": [
+    {
+      "name": "missing",
+      "missing": true,
+      "results": [
+        {
+          "from": "0",
+          "to": "1",
+          "applied": true
+        }
+      ],
+      "marker": "{\n  \"schemaVersion\": \"1\",\n  \"writtenAt\": \"2027-01-15T08:00:00.000Z\",\n  \"engineVersion\": \"synthetic-engine\"\n}",
+      "current": "1"
+    },
+    {
+      "name": "legacy-marker",
+      "schema": "0",
+      "results": [
+        {
+          "from": "0",
+          "to": "1",
+          "applied": true
+        }
+      ],
+      "marker": "{\n  \"schemaVersion\": \"1\",\n  \"writtenAt\": \"2027-01-15T08:00:00.000Z\",\n  \"engineVersion\": \"synthetic-engine\"\n}",
+      "current": "1"
+    },
+    {
+      "name": "existing-no-marker",
+      "noMarker": true,
+      "results": [
+        {
+          "from": "0",
+          "to": "1",
+          "applied": true
+        }
+      ],
+      "marker": "{\n  \"schemaVersion\": \"1\",\n  \"writtenAt\": \"2027-01-15T08:00:00.000Z\",\n  \"engineVersion\": \"synthetic-engine\"\n}",
+      "current": "1"
+    },
+    {
+      "name": "current",
+      "schema": "1",
+      "from": "1",
+      "to": "1",
+      "results": [
+        {
+          "from": "1",
+          "to": "1",
+          "applied": false
+        }
+      ],
+      "marker": "{\"schemaVersion\":\"1\"}",
+      "current": "1"
+    },
+    {
+      "name": "stale-from",
+      "schema": "1",
+      "results": [
+        {
+          "error": "conflict"
+        }
+      ],
+      "marker": "{\"schemaVersion\":\"1\"}",
+      "current": "1"
+    },
+    {
+      "name": "unknown-source",
+      "schema": "2",
+      "from": "2",
+      "to": "2",
+      "results": [
+        {
+          "error": "invalid-input"
+        }
+      ],
+      "marker": "{\"schemaVersion\":\"2\"}",
+      "current": "2"
+    },
+    {
+      "name": "downgrade",
+      "schema": "1",
+      "from": "1",
+      "to": "0",
+      "results": [
+        {
+          "error": "invalid-input"
+        }
+      ],
+      "marker": "{\"schemaVersion\":\"1\"}",
+      "current": "1"
+    },
+    {
+      "name": "unknown-target",
+      "to": "2",
+      "results": [
+        {
+          "error": "invalid-input"
+        }
+      ],
+      "marker": "{\"schemaVersion\":\"0\"}",
+      "current": "0"
+    },
+    {
+      "name": "invalid-from",
+      "from": "bad",
+      "results": [
+        {
+          "error": "invalid-input"
+        }
+      ],
+      "marker": "{\"schemaVersion\":\"0\"}",
+      "current": "0"
+    },
+    {
+      "name": "invalid-to",
+      "to": "bad",
+      "results": [
+        {
+          "error": "invalid-input"
+        }
+      ],
+      "marker": "{\"schemaVersion\":\"0\"}",
+      "current": "0"
+    },
+    {
+      "name": "fraction",
+      "to": "1.0",
+      "results": [
+        {
+          "error": "invalid-input"
+        }
+      ],
+      "marker": "{\"schemaVersion\":\"0\"}",
+      "current": "0"
+    },
+    {
+      "name": "negative",
+      "from": "-1",
+      "results": [
+        {
+          "error": "invalid-input"
+        }
+      ],
+      "marker": "{\"schemaVersion\":\"0\"}",
+      "current": "0"
+    },
+    {
+      "name": "empty-from",
+      "from": "",
+      "results": [
+        {
+          "error": "invalid-input"
+        }
+      ],
+      "marker": "{\"schemaVersion\":\"0\"}",
+      "current": "0"
+    },
+    {
+      "name": "unreadable",
+      "raw": "{",
+      "results": [
+        {
+          "error": "storage"
+        }
+      ],
+      "marker": "{",
+      "current": null
+    },
+    {
+      "name": "marker-directory",
+      "markerDirectory": true,
+      "results": [
+        {
+          "error": "storage"
+        }
+      ],
+      "marker": null,
+      "current": null
+    },
+    {
+      "name": "marker-number",
+      "raw": "{\"schemaVersion\":1}",
+      "results": [
+        {
+          "error": "storage"
+        }
+      ],
+      "marker": "{\"schemaVersion\":1}",
+      "current": null
+    },
+    {
+      "name": "leading-zero-noop",
+      "schema": "00",
+      "from": "00",
+      "to": "0",
+      "results": [
+        {
+          "from": "00",
+          "to": "0",
+          "applied": false
+        }
+      ],
+      "marker": "{\"schemaVersion\":\"00\"}",
+      "current": "00"
+    },
+    {
+      "name": "leading-zero-step",
+      "schema": "00",
+      "from": "00",
+      "to": "01",
+      "results": [
+        {
+          "from": "00",
+          "to": "01",
+          "applied": true
+        }
+      ],
+      "marker": "{\n  \"schemaVersion\": \"01\",\n  \"writtenAt\": \"2027-01-15T08:00:00.000Z\",\n  \"engineVersion\": \"synthetic-engine\"\n}",
+      "current": "01"
+    },
+    {
+      "name": "leading-zero-conflict",
+      "schema": "00",
+      "from": "0",
+      "results": [
+        {
+          "error": "conflict"
+        }
+      ],
+      "marker": "{\"schemaVersion\":\"00\"}",
+      "current": "00"
+    },
+    {
+      "name": "duplicate-json-last-wins",
+      "raw": "{\"schemaVersion\":\"7\",\"schemaVersion\":\"0\"}",
+      "results": [
+        {
+          "from": "0",
+          "to": "1",
+          "applied": true
+        }
+      ],
+      "marker": "{\n  \"schemaVersion\": \"1\",\n  \"writtenAt\": \"2027-01-15T08:00:00.000Z\",\n  \"engineVersion\": \"synthetic-engine\"\n}",
+      "current": "1"
+    },
+    {
+      "name": "repeat",
+      "repeat": true,
+      "results": [
+        {
+          "from": "0",
+          "to": "1",
+          "applied": true
+        },
+        {
+          "error": "conflict"
+        },
+        {
+          "from": "1",
+          "to": "1",
+          "applied": false
+        }
+      ],
+      "marker": "{\n  \"schemaVersion\": \"1\",\n  \"writtenAt\": \"2027-01-15T08:00:00.000Z\",\n  \"engineVersion\": \"synthetic-engine\"\n}",
+      "current": "1"
+    },
+    {
+      "name": "same-current-no-write",
+      "schema": "1",
+      "from": "1",
+      "to": "01",
+      "results": [
+        {
+          "from": "1",
+          "to": "01",
+          "applied": false
+        }
+      ],
+      "marker": "{\"schemaVersion\":\"1\"}",
+      "current": "1"
+    }
+  ]
+}
