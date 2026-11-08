@@ -100,6 +100,34 @@ pub fn unit_address(home: &Path, role: &str, windows: bool) -> String {
     }
 }
 
+/// The longest Unix socket path the OS takes (`sizeof(sun_path)` less its NUL): 107 bytes on Linux, 103 on macOS and the
+/// BSDs.
+#[cfg(unix)]
+const SOCKET_PATH_MAX: usize = if cfg!(target_os = "linux") { 107 } else { 103 };
+
+/// Refuses a home whose sockets do not fit the OS's socket path length (P4D-10, security review I3), naming the socket,
+/// before anything is written: the legacy core's `run/core-legacy.sock` is 7 bytes longer than `run/core.sock`, so a
+/// home that fits a TypeScript core alone can be too long for the front door, and the legacy core's bind error would not
+/// say why. Windows pipe names have no such limit.
+pub fn check_socket_paths(files: &RunFiles) -> Result<(), String> {
+    #[cfg(unix)]
+    for (name, address) in [
+        ("run/core.sock", &files.address),
+        ("run/core-legacy.sock", &files.legacy_address),
+    ] {
+        if address.len() > SOCKET_PATH_MAX {
+            return Err(format!(
+                "the home is too long for the core's sockets: {name} would be {} bytes, the OS takes at most {SOCKET_PATH_MAX} \
+                 (with core.impl \"rust\" the legacy core's socket is 7 bytes longer than run/core.sock); choose a shorter \
+                 home (--home, PLUR1BUS_HOME)",
+                address.len()
+            ));
+        }
+    }
+    let _ = files;
+    Ok(())
+}
+
 /// Creates `state/` and `run/` for the core and makes sure `run/` holds credentials safely: `0700` and owned by this user
 /// on POSIX (re-`chmod`ed like the TypeScript core does at listen); on Windows the protected user-and-SYSTEM DACL, unless
 /// the supervisor already set it (`PLUR1BUS_RUN_ACL=inherited`, HB5). A `run/` that cannot be secured refuses the start
@@ -319,6 +347,26 @@ mod tests {
         );
         write_private(&files.token, "fresh").unwrap();
         assert_eq!(fs::read_to_string(&files.token).unwrap(), "fresh");
+    }
+
+    /// P4-10 P4D-10 (security review I3): a home whose `run/core-legacy.sock` would not fit `sun_path` is refused with a
+    /// message that says so, before anything is written; `run/core.sock` is 7 bytes shorter, so a home that fits a
+    /// TypeScript core alone can be too long for the front door.
+    #[cfg(unix)]
+    #[test]
+    fn a_home_too_long_for_the_legacy_socket_is_refused_by_name() {
+        let limit = if cfg!(target_os = "linux") { 108 } else { 104 };
+        let fits = |len: usize| RunFiles::new(Path::new(&format!("/{}", "h".repeat(len - 1))));
+        // The longest home whose legacy socket still fits, and one byte more.
+        let longest = limit - 1 - "/run/core-legacy.sock".len();
+        assert!(check_socket_paths(&fits(longest)).is_ok());
+        let refused = check_socket_paths(&fits(longest + 1)).unwrap_err();
+        assert!(refused.contains("core-legacy.sock"), "{refused}");
+        assert!(refused.contains("too long"), "{refused}");
+        assert!(
+            fits(longest + 1).address.len() < limit,
+            "the TypeScript core's own socket would still fit"
+        );
     }
 
     #[cfg(unix)]

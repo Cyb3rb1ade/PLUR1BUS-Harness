@@ -12,7 +12,10 @@ use std::fmt;
 use std::io;
 use zeroize::Zeroizing;
 
-/// A credential held in memory that is zeroed on drop and never printed: `Debug` shows `Secret(..)`.
+/// A credential held in memory that is never printed (`Debug` shows `Secret(..)`) and whose own buffer is zeroed on drop.
+/// Only that buffer (P4-10 security review I1): the copies made to use it, in `serde_json` values (the legacy core's
+/// credentials file, a forwarded `frontDoor`, the control link's handshake) and in frame buffers, are not zeroed. The
+/// threat model is a process of the same user, which can read `run/` anyway; nothing here claims more.
 pub struct Secret(Zeroizing<String>);
 
 impl Secret {

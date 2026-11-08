@@ -165,6 +165,10 @@ fn main() {
             "a_console_break_stops_the_pair_in_order",
             a_console_break_stops_the_pair_in_order,
         ),
+        (
+            "a_home_too_long_for_the_legacy_socket_is_refused_with_a_clear_message",
+            a_home_too_long_for_the_legacy_socket_is_refused_with_a_clear_message,
+        ),
     ];
     let mut failed = Vec::new();
     for (name, test) in tests {
@@ -1886,5 +1890,35 @@ fn a_console_break_stops_the_pair_in_order() {
             "the legacy core drained through core.shutdown"
         );
         assert!(!d.path("run/core.token").exists(), "run files removed");
+    }
+}
+
+/// P4D-10 (security review I3): `run/core-legacy.sock` is 7 bytes longer than `run/core.sock`, so a home that fits a
+/// TypeScript core alone can be too long for the front door's legacy core. The front door says so and stops before it
+/// writes anything, instead of a bind error of the legacy core.
+fn a_home_too_long_for_the_legacy_socket_is_refused_with_a_clear_message() {
+    #[cfg(unix)]
+    {
+        let limit = if cfg!(target_os = "linux") { 108 } else { 104 };
+        let base = tempfile::tempdir().unwrap();
+        // A home of `limit - 18` bytes: run/core-legacy.sock (+21) does not fit, run/core.sock (+14) does.
+        let want = limit - 18;
+        let have = base.path().to_string_lossy().len() + 1;
+        if have >= want {
+            println!("  (skipped: the temporary directory is already too long)");
+            return;
+        }
+        let home = base.path().join("h".repeat(want - have));
+        std::fs::create_dir(&home).unwrap();
+        let out = spawn_door(&home, &Opts::default())
+            .wait_with_output()
+            .unwrap();
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert_eq!(out.status.code(), Some(1), "{stderr}");
+        assert!(
+            stderr.contains("core-legacy.sock") && stderr.contains("too long"),
+            "{stderr}"
+        );
+        assert!(!home.join("run").exists(), "nothing was written");
     }
 }

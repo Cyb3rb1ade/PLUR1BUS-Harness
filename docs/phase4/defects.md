@@ -20,6 +20,8 @@ window that was not reproduced; the entry says which), `info` (a documented diff
 | P4D-6 | The legacy core's Windows pipe keeps Node's default DACL (ADR-012 C2) | `packages/core/src/core.ts` | low | P4-90 | open; contained for credentials, not for availability |
 | P4D-7 | The front door's own diagnostics are plain stderr lines, not log-schema records in `logs/core.log` | `packages/core/src/logger.ts` | info | P4-11 | open |
 | P4D-8 | module-api's `validApiPrincipal` coerces `role` and `kind` with `String()`; the Rust port does not | `packages/module-api/src/api-principal.ts` (reference) | low | P4-12 | open, Rust strict |
+| P4D-9 | A line of the legacy core longer than 4 MiB ends the client's connection | `packages/module-api/src/rpc-server.ts` (reference) | info | P4-12 | open |
+| P4D-10 | A home whose `run/core-legacy.sock` exceeds the OS's socket path length is refused | `packages/core/src/core.ts` | info | P4-90 | open, refused with a clear message |
 | P4D-11 | An accepted `core.shutdown`: the requester sees `core.state stopping` before the answer | `packages/core/src/core.ts` | info | P4-12 | open, intentional |
 
 ## P4D-1 — migration step read outside the write lock
@@ -202,9 +204,36 @@ sends the lax shape. The Rust side stays strict (fail closed); the TypeScript ch
   module-api's verdict on both sides (`auth::tests::the_ported_checks_give_module_apis_verdicts`).
 - Fix: P4-12, where the API principal moves to Rust, keeps the strict check and records it as the contract.
 
+## P4D-9 — a legacy line longer than 4 MiB
+
+The front door reads the legacy core's link with the same framing as a client's (`crates/plur1bus-core/src/frame.rs`,
+`MAX_LINE` 4 MiB, module-api's `MAX_LINE_BYTES`): a line from the legacy core longer than that ends that client's link
+and with it the client's connection (P4-10 security review I2). The TypeScript server writes its lines without a cap, so
+a client of a TypeScript core alone gets such a line, and module-api's own client then refuses it (`LineTooLong`, it
+reads with the same 4 MiB cap), so for every shipped client the outcome is the same: the connection ends. Only the
+link of the one client ends; no other client's frames are touched (links are per client, lines are written whole).
+
+- Reproduction: a fake legacy core that answers one request with a 5 MiB line; the client's connection ends, the next
+  client is served.
+- Owner: P4-12, where the server half moves to Rust, decides whether the core caps what it writes.
+
+## P4D-10 — the legacy core's socket path is 7 bytes longer
+
+On Linux and macOS the core's address is a Unix socket whose path must fit `sun_path` (107 bytes on Linux, 103 on macOS,
+without the NUL). Behind the front door the legacy core listens on `run/core-legacy.sock`, 7 bytes longer than
+`run/core.sock` (P4-10 security review I3): a home of 83 to 89 bytes on macOS (87 to 93 on Linux) works with
+`core.impl: "ts"` and cannot work with `"rust"`. The front door checks both paths before it writes anything and refuses
+the start with a message that names the socket and the limit (`run_files::check_socket_paths`, exit 1), instead of a
+bind error of the legacy core. Windows pipe names are not limited this way.
+
+- Reproduction: `crates/plur1bus-core/tests/front_door.rs`
+  `a_home_too_long_for_the_legacy_socket_is_refused_with_a_clear_message` and the `run_files` unit test
+  `a_home_too_long_for_the_legacy_socket_is_refused_by_name`.
+- Owner: P4-90, when the legacy core and its socket go.
+
 ## P4D-11 — `stopping` before the answer to an accepted `core.shutdown`
 
-(P4D-9 and P4D-10 are taken by fix round 1, part 2.) When the legacy core accepts a client's `core.shutdown`, the front
+When the legacy core accepts a client's `core.shutdown`, the front
 door enters `stopping` and queues `core.state stopping` to every owner subscriber before it forwards the accepted answer
 (P4-10 task review M2, ADR-012 §3 G17: no subscriber may lose `stopping` to a link the legacy core ends right after its
 answer). On the requester's own connection, when it is an owner subscriber too, `core.state stopping` therefore arrives
