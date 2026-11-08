@@ -418,3 +418,54 @@ fn every_format_probe_matches_ajv_formats() {
     }
     assert!(wrong.is_empty(), "{wrong:#?}");
 }
+
+/// P4-10 security review L2: a finding names the instance path and the failed rule (ajv's words), never the value it
+/// failed on, which can be a credential; property names a client sent are not echoed either.
+#[test]
+fn a_finding_never_quotes_the_value_it_failed_on() {
+    let validator = compile(&json!({
+        "type": "object",
+        "required": ["needed"],
+        "additionalProperties": false,
+        "properties": {
+            "needed": {},
+            "token": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "count": {"type": ["integer", "null"], "minimum": 1},
+            "kind": {"enum": ["a", "b"]},
+            "list": {"type": "array", "maxItems": 1}
+        }
+    }))
+    .unwrap();
+    let marker = "value-the-caller-sent";
+    let found = findings(
+        &validator,
+        &json!({
+            "token": [marker],
+            "count": 0,
+            "kind": marker,
+            "list": [marker, marker],
+            "key-the-caller-sent": marker
+        }),
+    );
+    let all = found.join("; ");
+    assert!(!all.contains(marker), "{all}");
+    assert!(!all.contains("key-the-caller-sent"), "{all}");
+    for expected in [
+        "/token must be string",
+        "/count must be >= 1",
+        "/kind must be equal to one of the allowed values",
+        "/list must NOT have more than 1 items",
+        "/ must have required property 'needed'",
+        "/ must NOT have additional properties",
+    ] {
+        assert!(found.iter().any(|f| f == expected), "{expected}: {all}");
+    }
+    let typed = findings(&validator, &json!({"needed": 1, "count": "x"}));
+    assert_eq!(
+        typed,
+        ["/count must be integer,null"],
+        "every allowed type, ajv's join"
+    );
+    let shaped = findings(&validator, &json!({"needed": 1, "token": "zz"}));
+    assert_eq!(shaped, ["/token must match pattern \"^[0-9a-f]{64}$\""]);
+}

@@ -234,6 +234,9 @@ fn ajv_uuid(value: &str) -> bool {
 }
 
 /// Every finding of `validator` on `value`, as module-api words its list: `<instance path, or / for the root> <message>`.
+/// The message names the rule that failed from the schema's side only, in ajv's words, never the value it failed on
+/// (P4-10 security review L2): `jsonschema`'s own `Display` quotes the instance, which can be a credential, and a finding
+/// goes back to the caller as `detail`.
 pub fn findings(validator: &jsonschema::Validator, value: &Value) -> Vec<String> {
     validator
         .iter_errors(value)
@@ -244,9 +247,66 @@ pub fn findings(validator: &jsonschema::Validator, value: &Value) -> Vec<String>
             } else {
                 path
             };
-            format!("{path} {error}")
+            format!("{path} {}", rule(&error.kind))
         })
         .collect()
+}
+
+/// ajv's message for a failed keyword, built from the schema's side of the error only.
+fn rule(kind: &jsonschema::error::ValidationErrorKind) -> String {
+    use jsonschema::error::{TypeKind, ValidationErrorKind as K};
+    match kind {
+        K::AdditionalItems { limit } => format!("must NOT have more than {limit} items"),
+        K::AdditionalProperties { .. } => "must NOT have additional properties".to_owned(),
+        K::AnyOf => "must match a schema in anyOf".to_owned(),
+        K::Constant { .. } => "must be equal to constant".to_owned(),
+        K::Contains => "must contain at least 1 valid item(s)".to_owned(),
+        K::ContentEncoding { content_encoding } => {
+            format!("must be encoded as \"{content_encoding}\"")
+        }
+        K::ContentMediaType { content_media_type } => {
+            format!("must be of media type \"{content_media_type}\"")
+        }
+        K::Enum { .. } => "must be equal to one of the allowed values".to_owned(),
+        K::ExclusiveMaximum { limit } => format!("must be < {limit}"),
+        K::ExclusiveMinimum { limit } => format!("must be > {limit}"),
+        K::FalseSchema => "boolean schema is false".to_owned(),
+        K::Format { format } => format!("must match format \"{format}\""),
+        K::MaxItems { limit } => format!("must NOT have more than {limit} items"),
+        K::Maximum { limit } => format!("must be <= {limit}"),
+        K::MaxLength { limit } => format!("must NOT have more than {limit} characters"),
+        K::MaxProperties { limit } => format!("must NOT have more than {limit} properties"),
+        K::MinItems { limit } => format!("must NOT have fewer than {limit} items"),
+        K::Minimum { limit } => format!("must be >= {limit}"),
+        K::MinLength { limit } => format!("must NOT have fewer than {limit} characters"),
+        K::MinProperties { limit } => format!("must NOT have fewer than {limit} properties"),
+        K::MultipleOf { multiple_of } => format!("must be multiple of {multiple_of}"),
+        K::Not { .. } => "must NOT be valid".to_owned(),
+        K::OneOfMultipleValid | K::OneOfNotValid => {
+            "must match exactly one schema in oneOf".to_owned()
+        }
+        K::Pattern { pattern } => format!("must match pattern \"{pattern}\""),
+        K::PropertyNames { .. } => "property name must be valid".to_owned(),
+        // The missing property's name comes from the schema's `required`, not from the instance.
+        K::Required { property } => format!(
+            "must have required property '{}'",
+            property.as_str().unwrap_or_default()
+        ),
+        K::Type { kind } => {
+            let types: Vec<String> = match kind {
+                TypeKind::Single(t) => vec![t.to_string()],
+                TypeKind::Multiple(set) => set.into_iter().map(|t| t.to_string()).collect(),
+            };
+            format!("must be {}", types.join(","))
+        }
+        K::UnevaluatedItems { .. } => "must NOT have unevaluated items".to_owned(),
+        K::UnevaluatedProperties { .. } => "must NOT have unevaluated properties".to_owned(),
+        K::UniqueItems => "must NOT have duplicate items".to_owned(),
+        K::BacktrackLimitExceeded { .. }
+        | K::Custom { .. }
+        | K::FromUtf8 { .. }
+        | K::Referencing(_) => "is invalid".to_owned(),
+    }
 }
 
 /// The params and result validators of every method of one `x-server`, compiled from pruned roots.

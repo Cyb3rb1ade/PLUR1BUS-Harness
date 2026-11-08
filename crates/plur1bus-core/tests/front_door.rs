@@ -1021,6 +1021,29 @@ fn credentials_never_leak() {
         }
         replies.append(&mut c.notes);
     }
+    // Shapes whose validation finding would quote the value (security review L2): an array envelope, an object id, and
+    // mistyped `api.token` / `engine.token` / `engine`. The `detail` names where and which rule, never the value. (An id
+    // comes back as the client sent it, the JSON-RPC rule both cores follow, so it is left out of the check.)
+    for line in [
+        json!([{"jsonrpc":"2.0","id":1,"method":"core.auth","params":{"token": secrets[0]}}]),
+        json!({"jsonrpc":"2.0","id":{"x": secrets[0]},"method":"core.auth","params":{"token": secrets[0]}}),
+        json!({"jsonrpc":"2.0","id":3,"method":"core.auth","params":{"token": secrets[0], "api": {"clientId": "harness-api", "token": [secrets[1]]}}}),
+        json!({"jsonrpc":"2.0","id":4,"method":"core.auth","params":{"token": secrets[0], "engine": {"clientId": "plur1bus-engine", "token": [secrets[0]]}}}),
+        json!({"jsonrpc":"2.0","id":5,"method":"core.auth","params":{"token": secrets[0], "engine": secrets[0]}}),
+        json!({"jsonrpc":"2.0","id":6,"method":"core.auth","params":{"token": [secrets[2]]}}),
+    ] {
+        let mut c = d.client();
+        c.send_line(&line.to_string());
+        let mut r = c.read().unwrap();
+        assert!(
+            r.pointer("/error/data/error").is_some(),
+            "every malformed handshake is refused"
+        );
+        if let Some(map) = r.as_object_mut() {
+            map.remove("id");
+        }
+        replies.push(r);
+    }
     let mut c = d.owner();
     replies.push(c.call("core.adopt", json!({"nonce": secrets[0]})));
     replies.push(c.call("core.shutdown", json!({})));
