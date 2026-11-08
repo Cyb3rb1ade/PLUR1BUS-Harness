@@ -1,0 +1,1527 @@
+{
+  "provenance": {
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "node": "v24.21.0",
+    "sourceHashes": {
+      "lib/neo-arch.js": "ec2aec625522af631d8764298f4a21ea51e6d437d7b73e495c4b7fe95b8c813f",
+      "lib/emotion.js": "4fad4d37803bbee8bf95a8d3db11b5e2fdc3b195d617055a8af63a0d52780c27",
+      "lib/emotion-engine.js": "b8d4e60b785c9d19809b7f2bfe67e6d2871dfb1b4699bd96b6ee666391372557",
+      "lib/emotion-score.js": "4f5aff9b4bb80e9673c2d1d0a748bd69f12979e11241f946e0b43e48a0df3573",
+      "lib/tier1-lexicon.js": "b4f0e03d727355e52806cda8761f4b38c3af3dc064a051f804ed99981b3d09f8",
+      "lib/tier2-transformer.js": "f928294f31e1cf5c69ffff8b3a8c98b42af8ccc4205877036895d35acc13a120",
+      "lib/tier3-llm.js": "7749de629deee9a0cc8cd01dc51cb7bbcc6e5a99256b5eb794abf0fd41ab0dc6",
+      "lib/host-network.js": "360b692df2f2c3dc9761cfe73ca5165da4b5416f8b7778b5ec79b1dd253aaf69",
+      "lib/emotion-blends.js": "653021f8048772dc6a2c1da0e60bfef08250bcd61aacf45ba1a9bf379fa7ca29",
+      "lib/abort.js": "435016008fa477f7ed7d3215505324bb3e7159e123ea553b35fb8a14d5a4055d",
+      "lib/relevant-memory-context.js": "021cb6e3e568915dbd12602f77ba924ac8c6f1cbc43fcb93cd8697156dca4c66",
+      "lib/memory-context-sanitize.js": "476528aa230fcda996245aa22efee376153ea4bc9a6287ce77da62c1a54e2377",
+      "lib/pattern-surface.js": "e65b2ec958b0564f44ae374579ee59f52f2c9b5be50e3a95e9bb33527b276b8b",
+      "lib/continuity-gate.js": "74b57c98d4631c9d6d34ecc2c744b02f2f430584e270671f60b3ecadc2de84b6",
+      "lib/recall-decision-trace.js": "cee6208fa0a91654adae11ccd17c3b44e86c84fdf9b30c1addfa1d299c96711d",
+      "lib/temporal-provenance.js": "b15da5a91b134fddd99a8ff2448999b9b9e8da3f069b05dd73a2c1ae3a89cc60",
+      "lib/prompt-memory-fields.js": "f20716b535734930677a4657ee62c01247679aa2ba2f0f6a3d7a6de62396bbda",
+      "lib/epistemic-status.js": "552a71f9616c8caa2151b54feadd3e6ab19a470218022027425b11ccaf967fec",
+      "lib/inject-budget.js": "5897fe0a629543e60997e4749f4692c841a8f21a66526c618d7ff3fc1f52d945",
+      "lib/safe-logging.js": "4a634fa3c4cce35d5c7cb29c7c2eb72378666ef400e79dc7869a4c50d2e2c0ac",
+      "lib/log-redact.js": "f64f7d2e2fbf13684ad16fe045a1e43a9755c57be00ee7532479286eed0068e3",
+      "lib/registry-lock.js": "718791a188344b396e72db33c908fb2ef3d71a67dc1ac29a3b2b882c7b76a4e9"
+    }
+  },
+  "ownerA": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+  "ownerB": "user:v1:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558",
+  "reads": [
+    {
+      "name": "no-bindings",
+      "index": 0,
+      "record": {},
+      "requester": {},
+      "neo": false,
+      "derived": true
+    },
+    {
+      "name": "no-bindings",
+      "index": 1,
+      "record": {},
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "no-bindings",
+      "index": 2,
+      "record": {},
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "no-bindings",
+      "index": 3,
+      "record": {},
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "no-bindings",
+      "index": 4,
+      "record": {},
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "legacy-agent",
+      "index": 0,
+      "record": {
+        "agentId": "alpha"
+      },
+      "requester": {},
+      "neo": false,
+      "derived": true
+    },
+    {
+      "name": "legacy-agent",
+      "index": 1,
+      "record": {
+        "agentId": "alpha"
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": true
+    },
+    {
+      "name": "legacy-agent",
+      "index": 2,
+      "record": {
+        "agentId": "alpha"
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "legacy-agent",
+      "index": 3,
+      "record": {
+        "agentId": "alpha"
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558"
+      },
+      "neo": false,
+      "derived": true
+    },
+    {
+      "name": "legacy-agent",
+      "index": 4,
+      "record": {
+        "agentId": "alpha"
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "private",
+      "index": 0,
+      "record": {
+        "agentId": "alpha",
+        "visibility": {
+          "scope": "agent_private",
+          "agentId": "alpha"
+        }
+      },
+      "requester": {},
+      "neo": false,
+      "derived": true
+    },
+    {
+      "name": "private",
+      "index": 1,
+      "record": {
+        "agentId": "alpha",
+        "visibility": {
+          "scope": "agent_private",
+          "agentId": "alpha"
+        }
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": true,
+      "derived": true
+    },
+    {
+      "name": "private",
+      "index": 2,
+      "record": {
+        "agentId": "alpha",
+        "visibility": {
+          "scope": "agent_private",
+          "agentId": "alpha"
+        }
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "private",
+      "index": 3,
+      "record": {
+        "agentId": "alpha",
+        "visibility": {
+          "scope": "agent_private",
+          "agentId": "alpha"
+        }
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558"
+      },
+      "neo": true,
+      "derived": true
+    },
+    {
+      "name": "private",
+      "index": 4,
+      "record": {
+        "agentId": "alpha",
+        "visibility": {
+          "scope": "agent_private",
+          "agentId": "alpha"
+        }
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "private-conflict",
+      "index": 0,
+      "record": {
+        "agentId": "beta",
+        "visibility": {
+          "scope": "agent_private",
+          "agentId": "alpha"
+        }
+      },
+      "requester": {},
+      "neo": false,
+      "derived": true
+    },
+    {
+      "name": "private-conflict",
+      "index": 1,
+      "record": {
+        "agentId": "beta",
+        "visibility": {
+          "scope": "agent_private",
+          "agentId": "alpha"
+        }
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": true
+    },
+    {
+      "name": "private-conflict",
+      "index": 2,
+      "record": {
+        "agentId": "beta",
+        "visibility": {
+          "scope": "agent_private",
+          "agentId": "alpha"
+        }
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": true,
+      "derived": false
+    },
+    {
+      "name": "private-conflict",
+      "index": 3,
+      "record": {
+        "agentId": "beta",
+        "visibility": {
+          "scope": "agent_private",
+          "agentId": "alpha"
+        }
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558"
+      },
+      "neo": false,
+      "derived": true
+    },
+    {
+      "name": "private-conflict",
+      "index": 4,
+      "record": {
+        "agentId": "beta",
+        "visibility": {
+          "scope": "agent_private",
+          "agentId": "alpha"
+        }
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": true,
+      "derived": false
+    },
+    {
+      "name": "workspace",
+      "index": 0,
+      "record": {
+        "workspaceKey": "workspace:v1:one",
+        "visibility": {
+          "scope": "workspace_shared",
+          "workspaceIdentity": "workspace:v1:one"
+        }
+      },
+      "requester": {},
+      "neo": false,
+      "derived": true
+    },
+    {
+      "name": "workspace",
+      "index": 1,
+      "record": {
+        "workspaceKey": "workspace:v1:one",
+        "visibility": {
+          "scope": "workspace_shared",
+          "workspaceIdentity": "workspace:v1:one"
+        }
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": true,
+      "derived": true
+    },
+    {
+      "name": "workspace",
+      "index": 2,
+      "record": {
+        "workspaceKey": "workspace:v1:one",
+        "visibility": {
+          "scope": "workspace_shared",
+          "workspaceIdentity": "workspace:v1:one"
+        }
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": true,
+      "derived": true
+    },
+    {
+      "name": "workspace",
+      "index": 3,
+      "record": {
+        "workspaceKey": "workspace:v1:one",
+        "visibility": {
+          "scope": "workspace_shared",
+          "workspaceIdentity": "workspace:v1:one"
+        }
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "workspace",
+      "index": 4,
+      "record": {
+        "workspaceKey": "workspace:v1:one",
+        "visibility": {
+          "scope": "workspace_shared",
+          "workspaceIdentity": "workspace:v1:one"
+        }
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "workspace-conflict",
+      "index": 0,
+      "record": {
+        "workspaceKey": "workspace:v1:two",
+        "visibility": {
+          "scope": "workspace_shared",
+          "workspaceIdentity": "workspace:v1:one"
+        }
+      },
+      "requester": {},
+      "neo": false,
+      "derived": true
+    },
+    {
+      "name": "workspace-conflict",
+      "index": 1,
+      "record": {
+        "workspaceKey": "workspace:v1:two",
+        "visibility": {
+          "scope": "workspace_shared",
+          "workspaceIdentity": "workspace:v1:one"
+        }
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": true
+    },
+    {
+      "name": "workspace-conflict",
+      "index": 2,
+      "record": {
+        "workspaceKey": "workspace:v1:two",
+        "visibility": {
+          "scope": "workspace_shared",
+          "workspaceIdentity": "workspace:v1:one"
+        }
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": true
+    },
+    {
+      "name": "workspace-conflict",
+      "index": 3,
+      "record": {
+        "workspaceKey": "workspace:v1:two",
+        "visibility": {
+          "scope": "workspace_shared",
+          "workspaceIdentity": "workspace:v1:one"
+        }
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558"
+      },
+      "neo": true,
+      "derived": false
+    },
+    {
+      "name": "workspace-conflict",
+      "index": 4,
+      "record": {
+        "workspaceKey": "workspace:v1:two",
+        "visibility": {
+          "scope": "workspace_shared",
+          "workspaceIdentity": "workspace:v1:one"
+        }
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": true,
+      "derived": false
+    },
+    {
+      "name": "user-canonical-stamp",
+      "index": 0,
+      "record": {
+        "visibility": {
+          "scope": "global_user",
+          "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+        }
+      },
+      "requester": {},
+      "neo": false,
+      "derived": true
+    },
+    {
+      "name": "user-canonical-stamp",
+      "index": 1,
+      "record": {
+        "visibility": {
+          "scope": "global_user",
+          "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+        }
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "user-canonical-stamp",
+      "index": 2,
+      "record": {
+        "visibility": {
+          "scope": "global_user",
+          "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+        }
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "user-canonical-stamp",
+      "index": 3,
+      "record": {
+        "visibility": {
+          "scope": "global_user",
+          "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+        }
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "user-canonical-stamp",
+      "index": 4,
+      "record": {
+        "visibility": {
+          "scope": "global_user",
+          "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+        }
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "user-canonical-root",
+      "index": 0,
+      "record": {
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "global_user"
+        }
+      },
+      "requester": {},
+      "neo": false,
+      "derived": true
+    },
+    {
+      "name": "user-canonical-root",
+      "index": 1,
+      "record": {
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "global_user"
+        }
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "user-canonical-root",
+      "index": 2,
+      "record": {
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "global_user"
+        }
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "user-canonical-root",
+      "index": 3,
+      "record": {
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "global_user"
+        }
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "user-canonical-root",
+      "index": 4,
+      "record": {
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "global_user"
+        }
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "user-legacy-only",
+      "index": 0,
+      "record": {
+        "ownerId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "global_user"
+        }
+      },
+      "requester": {},
+      "neo": false,
+      "derived": true
+    },
+    {
+      "name": "user-legacy-only",
+      "index": 1,
+      "record": {
+        "ownerId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "global_user"
+        }
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": true,
+      "derived": true
+    },
+    {
+      "name": "user-legacy-only",
+      "index": 2,
+      "record": {
+        "ownerId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "global_user"
+        }
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": true,
+      "derived": true
+    },
+    {
+      "name": "user-legacy-only",
+      "index": 3,
+      "record": {
+        "ownerId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "global_user"
+        }
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "user-legacy-only",
+      "index": 4,
+      "record": {
+        "ownerId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "global_user"
+        }
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": true,
+      "derived": true
+    },
+    {
+      "name": "user-legacy-same",
+      "index": 0,
+      "record": {
+        "ownerId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "global_user",
+          "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+        }
+      },
+      "requester": {},
+      "neo": false,
+      "derived": true
+    },
+    {
+      "name": "user-legacy-same",
+      "index": 1,
+      "record": {
+        "ownerId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "global_user",
+          "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+        }
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": true,
+      "derived": true
+    },
+    {
+      "name": "user-legacy-same",
+      "index": 2,
+      "record": {
+        "ownerId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "global_user",
+          "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+        }
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": true,
+      "derived": true
+    },
+    {
+      "name": "user-legacy-same",
+      "index": 3,
+      "record": {
+        "ownerId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "global_user",
+          "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+        }
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "user-legacy-same",
+      "index": 4,
+      "record": {
+        "ownerId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "global_user",
+          "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+        }
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": true,
+      "derived": true
+    },
+    {
+      "name": "user-legacy-conflict",
+      "index": 0,
+      "record": {
+        "ownerId": "user:v1:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "global_user",
+          "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+        }
+      },
+      "requester": {},
+      "neo": false,
+      "derived": true
+    },
+    {
+      "name": "user-legacy-conflict",
+      "index": 1,
+      "record": {
+        "ownerId": "user:v1:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "global_user",
+          "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+        }
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "user-legacy-conflict",
+      "index": 2,
+      "record": {
+        "ownerId": "user:v1:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "global_user",
+          "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+        }
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "user-legacy-conflict",
+      "index": 3,
+      "record": {
+        "ownerId": "user:v1:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "global_user",
+          "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+        }
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558"
+      },
+      "neo": true,
+      "derived": true
+    },
+    {
+      "name": "user-legacy-conflict",
+      "index": 4,
+      "record": {
+        "ownerId": "user:v1:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "visibility": {
+          "scope": "global_user",
+          "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+        }
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "user-canonical-conflict",
+      "index": 0,
+      "record": {
+        "ownerUserId": "user:v1:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558",
+        "visibility": {
+          "scope": "global_user",
+          "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+        }
+      },
+      "requester": {},
+      "neo": false,
+      "derived": true
+    },
+    {
+      "name": "user-canonical-conflict",
+      "index": 1,
+      "record": {
+        "ownerUserId": "user:v1:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558",
+        "visibility": {
+          "scope": "global_user",
+          "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+        }
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "user-canonical-conflict",
+      "index": 2,
+      "record": {
+        "ownerUserId": "user:v1:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558",
+        "visibility": {
+          "scope": "global_user",
+          "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+        }
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "user-canonical-conflict",
+      "index": 3,
+      "record": {
+        "ownerUserId": "user:v1:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558",
+        "visibility": {
+          "scope": "global_user",
+          "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+        }
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "user-canonical-conflict",
+      "index": 4,
+      "record": {
+        "ownerUserId": "user:v1:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558",
+        "visibility": {
+          "scope": "global_user",
+          "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+        }
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "scope-conflict",
+      "index": 0,
+      "record": {
+        "agentId": "alpha",
+        "workspaceKey": "workspace:v1:one",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "workspace_shared",
+          "agentId": "alpha",
+          "workspaceIdentity": "workspace:v1:one"
+        }
+      },
+      "requester": {},
+      "neo": false,
+      "derived": true
+    },
+    {
+      "name": "scope-conflict",
+      "index": 1,
+      "record": {
+        "agentId": "alpha",
+        "workspaceKey": "workspace:v1:one",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "workspace_shared",
+          "agentId": "alpha",
+          "workspaceIdentity": "workspace:v1:one"
+        }
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": true,
+      "derived": true
+    },
+    {
+      "name": "scope-conflict",
+      "index": 2,
+      "record": {
+        "agentId": "alpha",
+        "workspaceKey": "workspace:v1:one",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "workspace_shared",
+          "agentId": "alpha",
+          "workspaceIdentity": "workspace:v1:one"
+        }
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": true,
+      "derived": true
+    },
+    {
+      "name": "scope-conflict",
+      "index": 3,
+      "record": {
+        "agentId": "alpha",
+        "workspaceKey": "workspace:v1:one",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "workspace_shared",
+          "agentId": "alpha",
+          "workspaceIdentity": "workspace:v1:one"
+        }
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "scope-conflict",
+      "index": 4,
+      "record": {
+        "agentId": "alpha",
+        "workspaceKey": "workspace:v1:one",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "workspace_shared",
+          "agentId": "alpha",
+          "workspaceIdentity": "workspace:v1:one"
+        }
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "unknown-scope",
+      "index": 0,
+      "record": {
+        "agentId": "alpha",
+        "visibility": {
+          "scope": "invented",
+          "agentId": "alpha"
+        }
+      },
+      "requester": {},
+      "neo": false,
+      "derived": true
+    },
+    {
+      "name": "unknown-scope",
+      "index": 1,
+      "record": {
+        "agentId": "alpha",
+        "visibility": {
+          "scope": "invented",
+          "agentId": "alpha"
+        }
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "unknown-scope",
+      "index": 2,
+      "record": {
+        "agentId": "alpha",
+        "visibility": {
+          "scope": "invented",
+          "agentId": "alpha"
+        }
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "unknown-scope",
+      "index": 3,
+      "record": {
+        "agentId": "alpha",
+        "visibility": {
+          "scope": "invented",
+          "agentId": "alpha"
+        }
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "unknown-scope",
+      "index": 4,
+      "record": {
+        "agentId": "alpha",
+        "visibility": {
+          "scope": "invented",
+          "agentId": "alpha"
+        }
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "private-missing-agent",
+      "index": 0,
+      "record": {
+        "visibility": {
+          "scope": "agent_private"
+        }
+      },
+      "requester": {},
+      "neo": false,
+      "derived": true
+    },
+    {
+      "name": "private-missing-agent",
+      "index": 1,
+      "record": {
+        "visibility": {
+          "scope": "agent_private"
+        }
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "private-missing-agent",
+      "index": 2,
+      "record": {
+        "visibility": {
+          "scope": "agent_private"
+        }
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "private-missing-agent",
+      "index": 3,
+      "record": {
+        "visibility": {
+          "scope": "agent_private"
+        }
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "private-missing-agent",
+      "index": 4,
+      "record": {
+        "visibility": {
+          "scope": "agent_private"
+        }
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "user-missing-owner",
+      "index": 0,
+      "record": {
+        "visibility": {
+          "scope": "global_user"
+        }
+      },
+      "requester": {},
+      "neo": false,
+      "derived": true
+    },
+    {
+      "name": "user-missing-owner",
+      "index": 1,
+      "record": {
+        "visibility": {
+          "scope": "global_user"
+        }
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "user-missing-owner",
+      "index": 2,
+      "record": {
+        "visibility": {
+          "scope": "global_user"
+        }
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "user-missing-owner",
+      "index": 3,
+      "record": {
+        "visibility": {
+          "scope": "global_user"
+        }
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "user-missing-owner",
+      "index": 4,
+      "record": {
+        "visibility": {
+          "scope": "global_user"
+        }
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "origin-private",
+      "index": 0,
+      "record": {
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        }
+      },
+      "requester": {},
+      "neo": false,
+      "derived": true
+    },
+    {
+      "name": "origin-private",
+      "index": 1,
+      "record": {
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        }
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": true,
+      "derived": true
+    },
+    {
+      "name": "origin-private",
+      "index": 2,
+      "record": {
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        }
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    },
+    {
+      "name": "origin-private",
+      "index": 3,
+      "record": {
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        }
+      },
+      "requester": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558"
+      },
+      "neo": true,
+      "derived": true
+    },
+    {
+      "name": "origin-private",
+      "index": 4,
+      "record": {
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        }
+      },
+      "requester": {
+        "agentId": "beta",
+        "workspaceIdentity": "workspace:v1:two",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+      },
+      "neo": false,
+      "derived": false
+    }
+  ],
+  "stamps": [
+    {
+      "record": {
+        "id": "derived-a"
+      },
+      "binding": {
+        "agentId": "alpha"
+      },
+      "result": {
+        "id": "derived-a",
+        "visibility": {
+          "scope": "agent_private",
+          "agentId": "alpha",
+          "workspaceIdentity": "",
+          "ownerUserId": ""
+        }
+      }
+    },
+    {
+      "record": {
+        "id": "derived-a"
+      },
+      "binding": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:one"
+      },
+      "result": {
+        "id": "derived-a",
+        "visibility": {
+          "scope": "workspace_shared",
+          "agentId": "alpha",
+          "workspaceIdentity": "workspace:v1:one",
+          "ownerUserId": ""
+        }
+      }
+    },
+    {
+      "record": {
+        "id": "derived-a"
+      },
+      "binding": {
+        "agentId": "alpha",
+        "workspaceIdentity": "workspace:v1:one",
+        "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60",
+        "scope": "user"
+      },
+      "result": {
+        "id": "derived-a",
+        "visibility": {
+          "scope": "global_user",
+          "agentId": "alpha",
+          "workspaceIdentity": "workspace:v1:one",
+          "ownerUserId": "user:v1:dbb624cadeeb534e626a089c505b5aff692b02250dcc1287541de923e4ceee60"
+        }
+      }
+    },
+    {
+      "record": {
+        "id": "derived-a",
+        "visibility": {
+          "scope": "global_user",
+          "ownerId": "user:v1:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558"
+        }
+      },
+      "binding": {
+        "agentId": "alpha",
+        "scope": "agent-private"
+      },
+      "result": {
+        "id": "derived-a",
+        "visibility": {
+          "scope": "global_user",
+          "ownerId": "user:v1:2b5b2cef9a371df43573b4fafd01cb4d367e4781e98bba9a6da0aab54f59c558"
+        }
+      }
+    },
+    {
+      "record": {
+        "id": "derived-a"
+      },
+      "binding": {},
+      "result": {
+        "id": "derived-a"
+      }
+    }
+  ]
+}

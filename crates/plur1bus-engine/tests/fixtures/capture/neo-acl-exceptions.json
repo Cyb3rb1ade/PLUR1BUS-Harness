@@ -1,0 +1,172 @@
+{
+  "decision": "RE-D56 / Controller Ruling 5 / D130",
+  "nodeGoldenSha256": "e88bbcdb2679864cb5b59580fb00f989fc75f13b0d8680cc68d697ef1a19f510",
+  "reason": "Explicit requester required; canonical ownerUserId for global_user; consistent scope and binding fields; legacy ownerId alone never grants access. Existing owner-agent private records remain restricted to that agent. New stamps use the narrowest authenticated source scope, not the presence of a workspace. Mixed user/workspace sources are incomparable and therefore narrow to agent-private.",
+  "reads": [
+    {
+      "name": "no-bindings",
+      "index": 0,
+      "visible": false
+    },
+    {
+      "name": "legacy-agent",
+      "index": 0,
+      "visible": false
+    },
+    {
+      "name": "private",
+      "index": 0,
+      "visible": false
+    },
+    {
+      "name": "private-conflict",
+      "index": 0,
+      "visible": false
+    },
+    {
+      "name": "private-conflict",
+      "index": 1,
+      "visible": false
+    },
+    {
+      "name": "private-conflict",
+      "index": 3,
+      "visible": false
+    },
+    {
+      "name": "workspace",
+      "index": 0,
+      "visible": false
+    },
+    {
+      "name": "workspace-conflict",
+      "index": 0,
+      "visible": false
+    },
+    {
+      "name": "workspace-conflict",
+      "index": 1,
+      "visible": false
+    },
+    {
+      "name": "workspace-conflict",
+      "index": 2,
+      "visible": false
+    },
+    {
+      "name": "user-canonical-stamp",
+      "index": 0,
+      "visible": false
+    },
+    {
+      "name": "user-canonical-stamp",
+      "index": 1,
+      "visible": true
+    },
+    {
+      "name": "user-canonical-stamp",
+      "index": 2,
+      "visible": true
+    },
+    {
+      "name": "user-canonical-stamp",
+      "index": 4,
+      "visible": true
+    },
+    {
+      "name": "user-canonical-root",
+      "index": 0,
+      "visible": false
+    },
+    {
+      "name": "user-canonical-root",
+      "index": 1,
+      "visible": true
+    },
+    {
+      "name": "user-canonical-root",
+      "index": 2,
+      "visible": true
+    },
+    {
+      "name": "user-canonical-root",
+      "index": 4,
+      "visible": true
+    },
+    {
+      "name": "user-legacy-only",
+      "index": 0,
+      "visible": false
+    },
+    {
+      "name": "user-legacy-only",
+      "index": 1,
+      "visible": false
+    },
+    {
+      "name": "user-legacy-only",
+      "index": 2,
+      "visible": false
+    },
+    {
+      "name": "user-legacy-only",
+      "index": 4,
+      "visible": false
+    },
+    {
+      "name": "user-legacy-same",
+      "index": 0,
+      "visible": false
+    },
+    {
+      "name": "user-legacy-conflict",
+      "index": 0,
+      "visible": false
+    },
+    {
+      "name": "user-legacy-conflict",
+      "index": 3,
+      "visible": false
+    },
+    {
+      "name": "user-canonical-conflict",
+      "index": 0,
+      "visible": false
+    },
+    {
+      "name": "scope-conflict",
+      "index": 0,
+      "visible": false
+    },
+    {
+      "name": "scope-conflict",
+      "index": 1,
+      "visible": false
+    },
+    {
+      "name": "scope-conflict",
+      "index": 2,
+      "visible": false
+    },
+    {
+      "name": "unknown-scope",
+      "index": 0,
+      "visible": false
+    },
+    {
+      "name": "private-missing-agent",
+      "index": 0,
+      "visible": false
+    },
+    {
+      "name": "user-missing-owner",
+      "index": 0,
+      "visible": false
+    },
+    {
+      "name": "origin-private",
+      "index": 0,
+      "visible": false
+    }
+  ]
+}
