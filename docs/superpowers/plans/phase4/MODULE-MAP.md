@@ -86,7 +86,7 @@ A test file with no mode carries a reason instead (test support, a package that 
 | `packages/channels-slack` | 15 | 17 | 0 | 15 | 0 | 0 | 0 | 0 | 0 |
 | `packages/channels-telegram` | 10 | 12 | 0 | 10 | 0 | 0 | 0 | 0 | 0 |
 | `packages/config-schema` | 10 | 42 | 0 | 0 | 0 | 0 | 0 | 10 | 0 |
-| `packages/core` | 797 | 1074 | 1 | 660 | 2 | 1 | 2 | 132 | 0 |
+| `packages/core` | 797 | 1075 | 1 | 660 | 2 | 1 | 2 | 132 | 0 |
 | `packages/documents` | 14 | 9 | 2 | 14 | 0 | 0 | 0 | 0 | 0 |
 | `packages/embedding-adapters` | 27 | 25 | 0 | 0 | 0 | 27 | 0 | 0 | 0 |
 | `packages/hostctl` | 10 | 21 | 0 | 10 | 0 | 0 | 0 | 0 | 0 |
@@ -105,24 +105,20 @@ A test file with no mode carries a reason instead (test support, a package that 
 
 | Mode | Test files |
 |---|---:|
-| `V` | 553 |
-| `T` | 898 |
+| `V` | 554 |
+| `T` | 899 |
 | `S` | 0 |
 | `W` | 414 |
 | `B` | 166 |
 | no mode, with a reason | 127 |
-| unassigned owner | 1 |
-| **all** | **1636** |
+| unassigned owner | 0 |
+| **all** | **1637** |
 
 Test files for mode S are the suites of `tests/system/` (28, table at the end): they run on both legs of `PLUR1BUS_CORE_IMPL`.
 
 ## Unassigned
 
-0 source files, 1 test files (owner unknown; mode known where listed) and 0 other files have no rule. They are visible on purpose; the first PR that touches the subsystem, or an owner answer, adds the rule.
-
-| Test file | Mode | Why |
-|---|---|---|
-| `packages/core/test/core-front-door.test.ts` | — | no rule matches |
+0 source files, 0 test files (owner unknown; mode known where listed) and 0 other files have no rule. They are visible on purpose; the first PR that touches the subsystem, or an owner answer, adds the rule.
 
 ## Provisional assignments
 
@@ -1600,6 +1596,7 @@ Columns: file · mode · reason (the reason names why a test has no mode, or wha
 | `packages/core/test/bin.test.ts` | T | plan P4-10 parity list |
 | `packages/core/test/capabilities-features.test.ts` | T | plan P4-10 parity list |
 | `packages/core/test/core-drain.test.ts` | T | plan P4-10 parity list |
+| `packages/core/test/core-front-door.test.ts` | T | plan P4-10 parity list |
 | `packages/core/test/core-run-acl.test.ts` | T | plan P4-10 parity list |
 | `packages/core/test/core-supervised.test.ts` | T | plan P4-10 parity list |
 | `packages/core/test/core.test.ts` | T | plan P4-10 parity list |
@@ -3243,6 +3240,7 @@ Columns: file · mode · reason (the reason names why a test has no mode, or wha
 | `packages/core/test/import/sealed-projection.test.ts` | V | mapper and plan outputs over the committed fixtures; the import may stay TypeScript for 0.1 (Q1) |
 | `packages/core/test/import/secret-migration.test.ts` | V | mapper and plan outputs over the committed fixtures; the import may stay TypeScript for 0.1 (Q1) |
 | `packages/core/test/import/service.test.ts` | V | mapper and plan outputs over the committed fixtures; the import may stay TypeScript for 0.1 (Q1) |
+| `packages/core/test/import/single-writer.test.ts` | V | mapper and plan outputs over the committed fixtures; the import may stay TypeScript for 0.1 (Q1) |
 | `packages/core/test/import/skills-hazards.test.ts` | V | mapper and plan outputs over the committed fixtures; the import may stay TypeScript for 0.1 (Q1) |
 | `packages/core/test/import/skills-import.test.ts` | V | mapper and plan outputs over the committed fixtures; the import may stay TypeScript for 0.1 (Q1) |
 | `packages/core/test/import/skills-lock.test.ts` | V | mapper and plan outputs over the committed fixtures; the import may stay TypeScript for 0.1 (Q1) |
@@ -3357,12 +3355,6 @@ Columns: file · mode · reason (the reason names why a test has no mode, or wha
 | `packages/core/test/engine-port-71820.test.ts` | — | tests the in-process Node engine contract; retired with engine.implementation=node (RE-11) |
 | `packages/core/test/engine-role-live.test.ts` | — | tests the in-process Node engine contract; retired with engine.implementation=node (RE-11) |
 | `packages/core/test/engine-role-test.test.ts` | — | tests the in-process Node engine contract; retired with engine.implementation=node (RE-11) |
-
-### unassigned
-
-| File | Mode | Reason |
-|---|---|---|
-| `packages/core/test/core-front-door.test.ts` | — | no rule matches |
 
 ### — — no package: stays as it is
 

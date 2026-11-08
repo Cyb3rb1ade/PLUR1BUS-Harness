@@ -189,7 +189,7 @@ export const TEST_RULES = [
   [rx(`${T}integration/wire-fixture\\.ts$`), "P4-43", "", "test support (recorded provider wire fixture)"],
   [rx(`${T}composition/(?:helpers|native-card-fixture)\\.ts$`), "P4-43", "", "test support"],
   // ---- packages/core/test, top level --------------------------------------------------------------------------------------
-  [rx(`${T}(?:core|core-drain|core-run-acl|core-supervised|bin|bin-entry|rpc-server|lock|paths|platform|platform-windows|principal|join|events-map|events-map-audit|event-audience-sse|activity|activity-audit|activity-history|activity-rpc|warmup|host|capabilities-features|engine-host-ports|logger)\\.test\\.ts$`), "P4-10", "T", "plan P4-10 parity list"],
+  [rx(`${T}(?:core|core-drain|core-run-acl|core-supervised|core-front-door|bin|bin-entry|rpc-server|lock|paths|platform|platform-windows|principal|join|events-map|events-map-audit|event-audience-sse|activity|activity-audit|activity-history|activity-rpc|warmup|host|capabilities-features|engine-host-ports|logger)\\.test\\.ts$`), "P4-10", "T", "plan P4-10 parity list"],
   [rx(`${T}acp-bin-entry\\.test\\.ts$`), "P4-71", "T", "plan P4-71 (acp-bin-entry)"],
   [rx(`${T}(?:config-load|config-load-hardening|config-source|config-disclosure-policy|config-disclosure-source|engine-config|engine-config-hardening|engine-config-parity|doctor-report)\\.test\\.ts$`), "P4-11", "V,T", "plan P4-11: config fixtures (V), doctor methods (T)"],
   [rx(`${T}budget-rpc\\.test\\.ts$`), "P4-24", "T", "plan P4-24 (budget-rpc)"],
