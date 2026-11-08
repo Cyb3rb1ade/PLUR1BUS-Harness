@@ -309,6 +309,85 @@ fn invalid_process_data() -> io::Error {
     )
 }
 
+/// Where a process comes from as Windows records it ([`origin`]): the pid of the process that created it and when it was
+/// created (100 ns intervals since 1601).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Origin {
+    /// The creator's pid. Windows keeps the number after the creator is gone, also once that pid is reused.
+    pub parent: u32,
+    /// The creation time.
+    pub created: u64,
+}
+
+/// Whether a process of `origin` is the child of the process `parent`, created at `parent_created` (re-review M-b): it
+/// names `parent` as its creator and was created no earlier than `parent`. A recorded creator whose pid was reused since
+/// is a younger process than its "child", so the number alone never binds them.
+pub fn is_child_of(origin: Origin, parent: u32, parent_created: u64) -> bool {
+    parent != 0 && origin.parent == parent && origin.created >= parent_created
+}
+
+/// The [`Origin`] of `pid` on Windows: `th32ParentProcessID` from a Toolhelp32 process snapshot and the creation time
+/// from `GetProcessTimes`. `None` when `pid` is not in the snapshot or cannot be opened. Hold a handle to `pid` while
+/// calling it (a pinned peer): otherwise the pid could be reused between the two reads.
+#[cfg(windows)]
+pub fn origin(pid: u32) -> Option<Origin> {
+    use windows_sys::Win32::{
+        Foundation::{CloseHandle, FILETIME, INVALID_HANDLE_VALUE},
+        System::{
+            Diagnostics::ToolHelp::{
+                CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
+                TH32CS_SNAPPROCESS,
+            },
+            Threading::{GetProcessTimes, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION},
+        },
+    };
+    // SAFETY: a new snapshot handle (closed below) or INVALID_HANDLE_VALUE.
+    let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
+    if snapshot == INVALID_HANDLE_VALUE {
+        return None;
+    }
+    // SAFETY: PROCESSENTRY32W is POD; dwSize is set as the API requires.
+    let mut entry: PROCESSENTRY32W = unsafe { std::mem::zeroed() };
+    entry.dwSize = u32::try_from(std::mem::size_of::<PROCESSENTRY32W>()).unwrap_or(u32::MAX);
+    let mut parent = None;
+    // SAFETY: the open snapshot and one writable entry with its size set.
+    let mut more = unsafe { Process32FirstW(snapshot, &mut entry) } != 0;
+    while more {
+        if entry.th32ProcessID == pid {
+            parent = Some(entry.th32ParentProcessID);
+            break;
+        }
+        // SAFETY: as above.
+        more = unsafe { Process32NextW(snapshot, &mut entry) } != 0;
+    }
+    // SAFETY: this function owns the snapshot handle and closes it once.
+    unsafe { CloseHandle(snapshot) };
+    let parent = parent?;
+    // SAFETY: OpenProcess returns an owned handle or null and does not modify the process.
+    let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
+    if handle.is_null() {
+        return None;
+    }
+    // SAFETY: FILETIME is POD; GetProcessTimes initializes the four outputs.
+    let mut times: [FILETIME; 4] = unsafe { std::mem::zeroed() };
+    // SAFETY: the open handle and four separate writable outputs.
+    let read = unsafe {
+        GetProcessTimes(
+            handle,
+            &mut times[0],
+            &mut times[1],
+            &mut times[2],
+            &mut times[3],
+        )
+    } != 0;
+    // SAFETY: this function owns the handle and closes it once.
+    unsafe { CloseHandle(handle) };
+    read.then(|| Origin {
+        parent,
+        created: (u64::from(times[0].dwHighDateTime) << 32) | u64::from(times[0].dwLowDateTime),
+    })
+}
+
 /// The parent of `pid` as the OS reports it now: Linux `/proc/<pid>/stat`, macOS `proc_pidinfo(PROC_PIDTBSDINFO)`.
 /// `None` when it cannot be read (no such process) and on Windows, which keeps no live parent link (callers fall back to
 /// another check there).
@@ -441,6 +520,52 @@ pub fn hostname() -> io::Result<String> {
 
 #[cfg(test)]
 mod tests {
+    /// Re-review M-b: the decision behind the Windows legacy lookup. A process is the child of `parent` only when it names
+    /// `parent` as its creator and was created no earlier than `parent` was; a creator whose pid was reused since (the
+    /// recorded number now belongs to a younger process) does not count, nor does any other creator.
+    #[test]
+    fn a_child_names_its_parent_and_was_created_after_it() {
+        #[cfg(windows)]
+        {
+            // The real reads: a child of this process names it and is younger.
+            let mut child = std::process::Command::new("cmd")
+                .args(["/C", "ping -n 3 127.0.0.1 > NUL"])
+                .spawn()
+                .unwrap();
+            let own = super::origin(std::process::id()).expect("this process's origin");
+            let of_child = super::origin(child.id());
+            let _ = child.kill();
+            let _ = child.wait();
+            let of_child = of_child.expect("the child's origin");
+            assert_eq!(of_child.parent, std::process::id());
+            assert!(super::is_child_of(
+                of_child,
+                std::process::id(),
+                own.created
+            ));
+        }
+        use super::{is_child_of, Origin};
+        let door = (4242, 1_000);
+        let child = |parent, created| Origin { parent, created };
+        assert!(
+            is_child_of(child(4242, 1_000), door.0, door.1),
+            "created in the same tick"
+        );
+        assert!(is_child_of(child(4242, 1_500), door.0, door.1));
+        assert!(
+            !is_child_of(child(4242, 999), door.0, door.1),
+            "created before the front door: its creator was an earlier process with that pid"
+        );
+        assert!(
+            !is_child_of(child(4243, 1_500), door.0, door.1),
+            "another creator"
+        );
+        assert!(
+            !is_child_of(child(0, 1_500), 0, 0),
+            "pid 0 is nobody's parent"
+        );
+    }
+
     use super::*;
 
     #[test]

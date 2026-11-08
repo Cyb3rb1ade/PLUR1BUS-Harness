@@ -515,6 +515,11 @@ impl Peer {
 /// that same instance, and, where the OS reports parents (Linux, macOS), that process is `front_door`'s child. Call it
 /// while the front door still lives: once it is gone, its child has another parent. Pinned like a core
 /// ([`Peer::open_at`], the pin on its own `core-legacy` address).
+///
+/// Windows keeps no live parent link (re-review M-b): there the pinned process must name `front_door` as its creator
+/// (Toolhelp32) and be younger than it ([`plur1bus_rpc::process::is_child_of`]), or the record is stale (its legacy core
+/// died and Windows may have given its pid to another process of the user). Such a record is removed and logged and
+/// nothing is killed; the job object, which kills on close, ends the real legacy core with its front door.
 pub fn legacy_core_of(layout: &Layout, front_door: u32) -> Option<Peer> {
     let record = |name: &str| -> Option<(u32, String)> {
         let text = std::fs::read_to_string(layout.run().join(name)).ok()?;
@@ -531,10 +536,30 @@ pub fn legacy_core_of(layout: &Layout, front_door: u32) -> Option<Peer> {
         return None;
     }
     let platform = if cfg!(windows) { "windows" } else { "posix" };
-    Some(Peer::open_at(
+    let peer = Peer::open_at(
         legacy,
         crate::paths::address(&layout.home, platform, "core-legacy"),
-    ))
+    );
+    // Read while the peer's handle pins `legacy`, so both reads are of the process a later TerminateProcess would end.
+    #[cfg(windows)]
+    {
+        use plur1bus_rpc::process::{is_child_of, origin};
+        let bound = !peer.pin_failed()
+            && origin(front_door)
+                .zip(origin(legacy))
+                .is_some_and(|(door, child)| is_child_of(child, front_door, door.created));
+        if !bound {
+            let path = layout.run().join("core-legacy.pid");
+            if record("core-legacy.pid").is_some_and(|(pid, _)| pid == legacy) {
+                let _ = std::fs::remove_file(&path);
+            }
+            eprintln!(
+                "plur1bus: run/core-legacy.pid names pid {legacy}, which is not the child of the front door {front_door}; not killed, the record is removed"
+            );
+            return None;
+        }
+    }
+    Some(peer)
 }
 
 /// `kill(-pid, sig)`: `sig` to the process group that `pid` leads, which for a core is the group the supervisor made it
