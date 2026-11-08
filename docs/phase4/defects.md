@@ -17,7 +17,7 @@ window that was not reproduced; the entry says which), `info` (a documented diff
 | P4D-3 | Before the handshake, a line with a lone surrogate escape is a parse error | `packages/module-api/src/rpc-server.ts` (reference) | info | P4-12 | open |
 | P4D-4 | The front door accepts at most 512 connections at once | `packages/core/src/core.ts` | info | P4-12 | open |
 | P4D-5 | After the front door dies abruptly, the old legacy core stops on its own while a new front door waits | `packages/core/src/core.ts` | low | P4-90 | mitigated in P4-10 (residual cases named) |
-| P4D-6 | The legacy core's Windows pipe keeps Node's default DACL (ADR-012 C2) | `packages/core/src/core.ts` | low | P4-90 | open, contained |
+| P4D-6 | The legacy core's Windows pipe keeps Node's default DACL (ADR-012 C2) | `packages/core/src/core.ts` | low | P4-90 | open; contained for credentials, not for availability |
 | P4D-7 | The front door's own diagnostics are plain stderr lines, not log-schema records in `logs/core.log` | `packages/core/src/logger.ts` | info | P4-11 | open |
 | P4D-8 | module-api's `validApiPrincipal` coerces `role` and `kind` with `String()`; the Rust port does not | `packages/module-api/src/api-principal.ts` (reference) | low | P4-12 | open, Rust strict |
 | P4D-11 | An accepted `core.shutdown`: the requester sees `core.state stopping` before the answer | `packages/core/src/core.ts` | info | P4-12 | open, intentional |
@@ -159,10 +159,20 @@ deviation C2 for `\\.\pipe\plur1bus-<hash>-core` with `core.impl: "rust"`. The l
 (`\\.\pipe\plur1bus-<hash>-core-legacy`) is created by Node and keeps its default security descriptor, as the TypeScript
 core's own pipe does today.
 
-- Containment: the legacy core refuses every `core.auth` without `frontDoor.token` (`run/core-legacy.token`, 32 random
-  bytes in the user-only run directory) and verifies the client's own credentials again; the front door checks that the
-  pipe's server process is the legacy core it started (`GetNamedPipeServerProcessId`) before it sends anything.
-- Fix: the pipe goes with the legacy core at P4-90 (no TypeScript patch, plan §4.2).
+- Contained for credentials and spoofing: the legacy core refuses every `core.auth` without `frontDoor.token`
+  (`run/core-legacy.token`, 32 random bytes in the user-only run directory) and verifies the client's own credentials
+  again; the front door checks that the pipe's server process is the legacy core it started
+  (`GetNamedPipeServerProcessId`) after it connects and before it sends anything, and opens the pipe with
+  `SECURITY_IDENTIFICATION`, so a squatter can neither read a credential nor impersonate the front door. Another account
+  gets only read access to the pipe (no `FILE_WRITE_DATA`, no `FILE_CREATE_PIPE_INSTANCE`) and the legacy core writes
+  nothing but replies.
+- Not contained for availability (P4-10 security review L4): Node's default security descriptor lets other local
+  accounts (and authenticated SMB clients; libuv passes no `PIPE_REJECT_REMOTE_CLIENTS`) hold any number of read-only
+  instances open against the legacy core, each costing it a socket and a 30 s handshake timer; and a process that
+  creates the predictable pipe name first makes the legacy core's first-instance bind fail, so the front door's start
+  fails (the squat class of ADR-012 C2, reopened for this second name). Node offers no option that narrows a pipe's DACL
+  (`readableAll`/`writableAll` only widen it).
+- Fix: the pipe goes with the legacy core at P4-90 (no TypeScript patch, plan §4.2); until then this is accepted.
 
 ## P4D-7 — the front door's own log lines
 
