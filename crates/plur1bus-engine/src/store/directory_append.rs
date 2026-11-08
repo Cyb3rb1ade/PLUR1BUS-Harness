@@ -131,7 +131,7 @@ fn open_child(directory: &TrustedDirectory, name: &str) -> Result<File, StoreErr
     Ok(file)
 }
 #[cfg(unix)]
-fn identity(file: &File) -> Result<(u64, u64), StoreError> {
+pub(crate) fn identity(file: &File) -> Result<(u64, u64), StoreError> {
     use std::os::unix::fs::MetadataExt;
     let metadata = file.metadata()?;
     if !metadata.is_file() || metadata.nlink() != 1 {
@@ -140,7 +140,7 @@ fn identity(file: &File) -> Result<(u64, u64), StoreError> {
     Ok((metadata.dev(), metadata.ino()))
 }
 #[cfg(windows)]
-fn identity(file: &File) -> Result<(u64, u64), StoreError> {
+pub(crate) fn identity(file: &File) -> Result<(u64, u64), StoreError> {
     use std::os::windows::io::AsRawHandle;
     use windows_sys::Win32::Storage::FileSystem::{
         GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,

@@ -525,6 +525,14 @@ impl LockGuard {
                 .is_ok_and(|row| Ownership::Nonce(self.nonce.clone()).matches(&row))
     }
 
+    /// Recheck a Neo directory lease before a mutation: the retained directory identity and
+    /// the exact owner record written by this guard must still match. This does not renew
+    /// the Node protocol's stale ceiling; callers still bound their critical section.
+    #[must_use]
+    pub fn is_neo_owned(&self) -> bool {
+        !self.released && self.neo.as_ref().is_some_and(|neo| neo.is_owned())
+    }
+
     /// Explicit long-running owner heartbeat on the opened, nonce-checked inode only.
     /// A replaced pathname never causes the replacement owner's inode to be touched.
     pub fn heartbeat(&self) -> Result<bool, StoreError> {

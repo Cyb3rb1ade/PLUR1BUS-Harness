@@ -13,6 +13,7 @@ use uuid::Uuid;
 use crate::contract::StoreError;
 use crate::text::json::{parse_json, TolerantJsonValue as Json};
 
+use super::directory::{regular_file_identity, TrustedDirectory};
 use super::paths::{assert_trusted_path, secure_dir};
 
 // Node executes these synchronous protocol mutations serially within one isolate.
@@ -322,9 +323,8 @@ fn create(path: &Path, context: &Context) -> Result<NeoGuard, io::Error> {
         proc_start: &context.incarnation,
         acquired_at: Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true),
     };
-    let result = serde_json::to_vec(&record)
-        .map_err(io::Error::other)
-        .and_then(|bytes| fs::write(path.join("owner.json"), bytes));
+    let owner_bytes = serde_json::to_vec(&record).map_err(io::Error::other)?;
+    let result = fs::write(path.join("owner.json"), &owner_bytes);
     if let Err(error) = result {
         remove_moved(path);
         return Err(error);
@@ -333,6 +333,8 @@ fn create(path: &Path, context: &Context) -> Result<NeoGuard, io::Error> {
         path: path.to_owned(),
         nonce,
         released: false,
+        directory: Some(TrustedDirectory::open(path).map_err(io::Error::other)?),
+        owner_bytes,
     })
 }
 
@@ -368,6 +370,8 @@ pub(crate) struct NeoGuard {
     path: PathBuf,
     nonce: String,
     released: bool,
+    directory: Option<TrustedDirectory>,
+    owner_bytes: Vec<u8>,
 }
 
 fn release_attempt(path: &Path, moved: &Path, nonce: &str) -> io::Result<()> {
@@ -393,11 +397,37 @@ impl NeoGuard {
     pub(crate) fn path(&self) -> &Path {
         &self.path
     }
+    pub(crate) fn is_owned(&self) -> bool {
+        self.check_ownership().unwrap_or(false)
+    }
+    fn check_ownership(&self) -> Result<bool, StoreError> {
+        use std::io::Read;
+        let Some(directory) = self.directory.as_ref().filter(|_| !self.released) else {
+            return Ok(false);
+        };
+        directory.assert_unchanged()?;
+        let file = directory.open_file("owner.json")?;
+        let identity = regular_file_identity(&file)?;
+        if file.metadata()?.len() != self.owner_bytes.len() as u64 {
+            return Ok(false);
+        }
+        // The only accepted bytes are the small owner record this guard actually wrote.
+        // Never read an unbounded replacement record or parse its fields as authority.
+        let mut bytes = Vec::with_capacity(self.owner_bytes.len());
+        file.take(self.owner_bytes.len() as u64 + 1)
+            .read_to_end(&mut bytes)?;
+        let current = directory.open_file("owner.json")?;
+        directory.assert_unchanged()?;
+        Ok(bytes == self.owner_bytes && regular_file_identity(&current)? == identity)
+    }
     pub(crate) fn release(&mut self) {
         if self.released {
             return;
         }
         self.released = true;
+        // Mutation checks have ended. Release the retained directory handle before the
+        // existing rename/remove protocol, including Windows directory deletion.
+        self.directory.take();
         let moved = suffix(&self.path, &format!(".rel-{}", self.nonce));
         #[cfg(not(windows))]
         {
