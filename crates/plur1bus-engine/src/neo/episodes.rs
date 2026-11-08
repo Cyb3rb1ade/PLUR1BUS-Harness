@@ -29,7 +29,7 @@ pub struct BuildOptions<'a> {
     /// Actual caller-bound mood snapshot. Absent uses legacy turn valence.
     pub mood: Option<&'a Json>,
 }
-fn time(v: &Json) -> Result<i64, StoreError> {
+pub(super) fn time(v: &Json) -> Result<i64, StoreError> {
     match v {
         Json::Number(n) => n
             .parse::<f64>()

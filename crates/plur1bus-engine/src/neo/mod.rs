@@ -6,6 +6,7 @@ mod capture_plan;
 pub mod derived;
 mod derived_fields;
 mod episode_emotion;
+pub mod episode_state;
 mod episode_text;
 mod episode_words;
 pub mod episodes;
