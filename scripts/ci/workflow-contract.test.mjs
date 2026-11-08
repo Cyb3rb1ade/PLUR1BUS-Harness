@@ -474,3 +474,16 @@ test('the front door Windows leg runs the front door suites on windows-2025 unde
   }
   assert.equal(classify({ event: 'pull_request', files: ['packages/web/src/app.tsx'] })['front-door'], false);
 });
+
+test('the P4-10 parity run is advisory and nightly or manual only, never on a pull request (P4-10 A3)', () => {
+  const jobs = jobBlocks(workflow());
+  const job = jobs['core-parity'];
+  assert(UNGATED.includes('core-parity') && !/\bcore-parity\b/.test(/^    needs: \[([^\]]+)\]/m.exec(jobs['ci-gate'])[1]));
+  const steps = stepsOf(job).split(/(?=^      - )/m);
+  const parity = steps.filter(step => /p4-10-parity|plur1bus-core|P4-10 parity/.test(step));
+  assert(parity.some(step => step.includes('tests/core-parity/p4-10-parity.ts --g1 --floor')), 'the run itself');
+  for (const step of parity) {
+    assert.match(step, /^        if: (?:always\(\) && )?\(?github\.event_name == 'schedule' \|\| github\.event_name == 'workflow_dispatch'\)?$/m, step);
+  }
+  assert.doesNotMatch(job, /pull_request/);
+});
