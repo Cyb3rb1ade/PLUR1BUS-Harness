@@ -9,6 +9,7 @@
 //! Modules (plan §2.1):
 //! - [`server`]: the listener, framing, back-pressure and the route table;
 //! - [`relay`]: the per-client links to `core-legacy`;
+//! - [`route`]: the method table (native, completed, bridge, relayed) and the native dispatch;
 //! - [`auth`]: the credentials, constant-time compares and the `core.auth` checks;
 //! - [`lock`]: the single-instance core lock (`state/core.lock`);
 //! - [`run_files`]: the run files and their modes;
@@ -33,6 +34,7 @@ pub mod legacy;
 pub mod lifecycle;
 pub mod lock;
 pub mod relay;
+pub mod route;
 pub mod run_files;
 pub mod server;
 

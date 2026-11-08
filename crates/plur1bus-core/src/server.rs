@@ -3,23 +3,24 @@
 //! (closing ADR-012 deviation C2 for the core's own pipe), NDJSON framing with 4 MiB lines, a 16 MiB back-pressure limit
 //! per client, the 30 s authentication deadline, and the route table that decides native or relay before any dispatch.
 //!
-//! Route table (P4-03 review §7):
-//! - before `core.auth`: everything is answered here, exactly as module-api's `RpcServer` answers it (API delegation,
-//!   request validation, `auth-required`);
-//! - `core.auth`: the front door verifies the client's credentials, then opens the client's link with them and the link
-//!   credential, and answers with its own `pid` and `instanceId` and the union of native and relayed methods as
-//!   capabilities;
+//! Before `core.auth` everything is answered here, exactly as module-api's `RpcServer` answers it (API delegation, request
+//! validation, `auth-required`). After it, the method table ([`crate::route`]) decides:
+//! - `core.auth` again (a re-authentication): the front door verifies the client's credentials, then opens the client's
+//!   link with them and the link credential, and answers with its own `pid` and `instanceId` and the union of native and
+//!   relayed methods as capabilities (the first handshake takes the same path);
 //! - `bridge.*`: native, for the legacy core's own connection only;
 //! - `core.status`, `core.adopt`, `core.shutdown`, `events.subscribe`, `events.unsubscribe`: relayed so the legacy core
 //!   still runs its admission and RBAC on them, and completed here: the status names the front door's process, an
 //!   adoption makes the client connection the front door's lifeline, an accepted shutdown stops the front door, and an
 //!   owner's subscriptions are kept for the front door's own `core.state`;
+//! - the native set (`route::NATIVE`, empty until P4-11): module-api's admission here, then the generated dispatcher;
 //! - everything else, known or unknown: relayed byte for byte on the client's link.
 use crate::auth::{self, Caller, Refusal, Secret};
 use crate::events::{self, Sub};
 use crate::frame::{self, Line, RpcErr, MAX_PENDING_BYTES};
 use crate::lifecycle::{self, relock, Event, Lifeline, ProcessState, Timings};
 use crate::relay::Link;
+use crate::route::{self, Kind, Route};
 use crate::run_files::{self, RunFiles};
 use plur1bus_rpc::server::{compile, findings, pruned_root, schema};
 use plur1bus_rpc::server_transport::{Accepted, Listener};
@@ -423,10 +424,22 @@ pub struct Conn {
 struct ConnState {
     authed: bool,
     caller: Option<Caller>,
+    /// An API connection's handshake delegation: every later request must carry the same principal and transport.
+    api: Option<ApiBinding>,
+    /// An engine connection's `engine.token`, verified again before every native call (module-api's rule).
+    engine_token: Option<Secret>,
     link: Option<Arc<Link>>,
     subs: Vec<Sub>,
     intercepts: HashMap<String, Intercept>,
     closing: bool,
+}
+
+/// What an API handshake bound to its connection (module-api's `c.api` and `c.apiTransport`).
+#[derive(Clone, Debug, PartialEq)]
+struct ApiBinding {
+    /// The delegation's `principal`, `null` without one.
+    principal: Value,
+    transport: Option<String>,
 }
 
 /// A relayed request whose answer the front door completes.
@@ -434,6 +447,8 @@ enum Intercept {
     Auth {
         id: Value,
         caller: Caller,
+        api: Option<ApiBinding>,
+        engine_token: Option<Secret>,
         done: Sender<bool>,
     },
     Status {
@@ -833,6 +848,26 @@ fn handle_auth(
     let Some(link) = link_of(front, conn) else {
         return conn.legacy_gone();
     };
+    // What the handshake binds to the connection for the native calls after it (module-api's `c.api`, `c.engineToken`).
+    let api = (caller == Caller::Api).then(|| {
+        let delegation = top_api
+            .clone()
+            .filter(|v| !v.is_null())
+            .or_else(|| p.get("api").cloned())
+            .unwrap_or(Value::Null);
+        ApiBinding {
+            principal: delegation.get("principal").cloned().unwrap_or(Value::Null),
+            transport: delegation
+                .get("transport")
+                .and_then(Value::as_str)
+                .map(str::to_owned),
+        }
+    });
+    let engine_token = (caller == Caller::Engine)
+        .then(|| p.get("engine").and_then(|e| e.get("token")))
+        .flatten()
+        .and_then(Value::as_str)
+        .map(|t| Secret::new(t.to_owned()));
     let link_id = link.next_id();
     let mut forwarded = p.clone();
     forwarded.insert(
@@ -853,6 +888,8 @@ fn handle_auth(
         Intercept::Auth {
             id: id.clone(),
             caller,
+            api,
+            engine_token,
             done,
         },
     );
@@ -916,8 +953,11 @@ fn post_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, bytes: Vec<u8>, msg: Valu
     if caller == Some(Caller::LegacyCore) {
         return bridge_call(front, conn, &id, &method, &msg);
     }
-    if method.starts_with("bridge.") {
-        return conn.error(&id, bridge_principal());
+    let route = route::route(&method);
+    match route {
+        Route::Bridge => return conn.error(&id, bridge_principal()),
+        Route::Native => return native(front, conn, &id, &method, msg),
+        Route::Complete(_) | Route::Relay => {}
     }
     // An API connection's every request carries its delegation: the front door checks it before relaying it.
     if caller == Some(Caller::Api) {
@@ -927,7 +967,10 @@ fn post_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, bytes: Vec<u8>, msg: Valu
             }
         }
     }
-    if method == "core.auth" {
+    let Route::Complete(kind) = route else {
+        return relay_raw(conn, bytes);
+    };
+    if kind == Kind::Auth {
         let auth_delegation = msg
             .get("params")
             .and_then(Value::as_object)
@@ -951,9 +994,10 @@ fn post_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, bytes: Vec<u8>, msg: Valu
         }
         return handle_auth(front, conn, &stripped, has_api, top_api);
     }
-    let intercept = match method.as_str() {
-        "core.status" => Some(Intercept::Status { id: id.clone() }),
-        "core.adopt" => {
+    let intercept = match kind {
+        Kind::Auth => None, // handled above
+        Kind::Status => Some(Intercept::Status { id: id.clone() }),
+        Kind::Adopt => {
             if front.is_stopping() {
                 return conn.error(
                     &id,
@@ -970,15 +1014,15 @@ fn post_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, bytes: Vec<u8>, msg: Valu
                 nonce,
             })
         }
-        "core.shutdown" => Some(Intercept::Shutdown {
+        Kind::Shutdown => Some(Intercept::Shutdown {
             id: id.clone(),
             budget: msg.pointer("/params/budgetMs").and_then(Value::as_u64),
         }),
-        "events.subscribe" => Some(Intercept::Subscribe {
+        Kind::Subscribe => Some(Intercept::Subscribe {
             id: id.clone(),
             params: msg.get("params").cloned().unwrap_or_else(|| json!({})),
         }),
-        "events.unsubscribe" => Some(Intercept::Unsubscribe {
+        Kind::Unsubscribe => Some(Intercept::Unsubscribe {
             id: id.clone(),
             sub: msg
                 .pointer("/params/subscriptionId")
@@ -986,7 +1030,6 @@ fn post_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, bytes: Vec<u8>, msg: Valu
                 .unwrap_or("")
                 .to_owned(),
         }),
-        _ => None,
     };
     // A request without a usable id is relayed as written: the legacy core answers it (invalid request).
     let intercept = intercept.filter(|_| !id.is_null());
@@ -1003,6 +1046,140 @@ fn post_auth(front: &Arc<FrontDoor>, conn: &Arc<Conn>, bytes: Vec<u8>, msg: Valu
     relock(&conn.state).intercepts.insert(link_id, intercept);
     if link.send(&frame::encode(&rewritten)).is_err() {
         conn.legacy_gone();
+    }
+}
+
+/// A method the front door serves itself (`route::NATIVE`), after module-api's admission in its `dispatch` order: a scoped
+/// client cannot delegate; a delegation on the request is verified, an API connection must carry one, and its principal
+/// and transport must be the handshake's; the request shape; an engine connection's token is verified again and it may
+/// call `host.*` only; a delegation needs an API handshake; a scoped client has no `events.*`. The method then decides on
+/// RBAC and a scoped client's per-call authorization from its [`route::CallContext`]. It is never relayed: a native
+/// method that answers `NotServed` is a route-table drift (`E_INTERNAL`, reason `route-table-drift`).
+fn native(front: &Arc<FrontDoor>, conn: &Arc<Conn>, id: &Value, method: &str, mut msg: Value) {
+    let caller = conn.caller().unwrap_or(Caller::Client);
+    let has_api = msg.get("api").is_some();
+    if caller == Caller::Client && (has_api || msg.pointer("/params/api").is_some()) {
+        return conn.error(
+            id,
+            RpcErr::new("E_DENIED", "scoped clients cannot delegate", None),
+        );
+    }
+    let mut api_principal = None;
+    if has_api {
+        let delegation = msg
+            .as_object_mut()
+            .and_then(|m| m.remove("api"))
+            .unwrap_or(Value::Null);
+        let transport = match auth::verify_api_delegation(&delegation, &front.api_token) {
+            Ok(transport) => transport,
+            Err(r) => return conn.error(id, refusal(r)),
+        };
+        let principal = delegation.get("principal").cloned().unwrap_or(Value::Null);
+        let bound = relock(&conn.state).api.clone();
+        if let Some(bound) = bound {
+            let same = |key: &str| bound.principal.get(key) == principal.get(key);
+            if !same("userId") || !same("kind") {
+                return conn.error(
+                    id,
+                    RpcErr::new(
+                        "E_UNAUTHORIZED",
+                        "API connection identity cannot change",
+                        Some("api-identity-change"),
+                    ),
+                );
+            }
+            if bound.transport != transport {
+                return conn.error(
+                    id,
+                    RpcErr::new(
+                        "E_UNAUTHORIZED",
+                        "API transport cannot change",
+                        Some("api-transport-change"),
+                    ),
+                );
+            }
+        }
+        api_principal = Some(principal);
+    } else if caller == Caller::Api {
+        return conn.error(
+            id,
+            RpcErr::new(
+                "E_UNAUTHORIZED",
+                "API principal required",
+                Some("api-principal-required"),
+            ),
+        );
+    }
+    let found = findings(&front.checks.request, &msg);
+    if !found.is_empty() {
+        return conn.error(
+            id,
+            RpcErr::new(
+                "E_INVALID_PARAMS",
+                "invalid request",
+                Some("invalid-request"),
+            )
+            .detail(found.join("; "))
+            .jsonrpc(-32600),
+        );
+    }
+    if caller == Caller::Engine {
+        let current = run_files::read_token(&front.files.engine_token)
+            .ok()
+            .flatten();
+        let still = {
+            let st = relock(&conn.state);
+            match (st.engine_token.as_ref(), current.as_ref()) {
+                (Some(held), Some(current)) => {
+                    auth::is_hex64(current.expose()) && current.matches(held.expose())
+                }
+                _ => false,
+            }
+        };
+        if !still {
+            return conn.error(id, refusal(auth::ENGINE_DELEGATION));
+        }
+        if !method.starts_with("host.")
+            && !["events.subscribe", "events.unsubscribe"].contains(&method)
+        {
+            return conn.error(
+                id,
+                RpcErr::new(
+                    "E_DENIED",
+                    "engine connection cannot call this method",
+                    Some("engine-method"),
+                ),
+            );
+        }
+    }
+    if has_api && caller != Caller::Api {
+        return conn.error(
+            id,
+            RpcErr::new(
+                "E_UNAUTHORIZED",
+                "delegate at handshake",
+                Some("api-handshake-required"),
+            ),
+        );
+    }
+    if caller == Caller::Client && method.starts_with("events.") {
+        return conn.error(
+            id,
+            RpcErr::new(
+                "E_DENIED",
+                "scoped client subscriptions are unavailable",
+                None,
+            ),
+        );
+    }
+    let params = msg.get("params").cloned().unwrap_or_else(|| json!({}));
+    let cx = route::CallContext {
+        caller,
+        api_principal,
+    };
+    match route::serve(&cx, method, params) {
+        Ok(result) => conn.send(&json!({"jsonrpc":"2.0","id":id,"result":result})),
+        Err(error) => conn.send(&json!({"jsonrpc":"2.0","id":id,"error":error})),
     }
 }
 
@@ -1098,7 +1275,13 @@ fn link_loop(front: &Arc<FrontDoor>, conn: &Arc<Conn>, link: &Arc<Link>, reader:
 fn complete(front: &Arc<FrontDoor>, conn: &Arc<Conn>, intercept: Intercept, msg: &mut Value) {
     let ok = msg.get("result").is_some();
     match intercept {
-        Intercept::Auth { id, caller, done } => {
+        Intercept::Auth {
+            id,
+            caller,
+            api,
+            engine_token,
+            done,
+        } => {
             msg["id"] = id;
             if ok {
                 let result = &mut msg["result"];
@@ -1122,6 +1305,8 @@ fn complete(front: &Arc<FrontDoor>, conn: &Arc<Conn>, intercept: Intercept, msg:
                 let mut st = relock(&conn.state);
                 st.authed = true;
                 st.caller = Some(caller);
+                st.api = api;
+                st.engine_token = engine_token;
             }
             conn.send(msg);
             let _ = done.send(ok);
