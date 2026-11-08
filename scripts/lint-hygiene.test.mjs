@@ -320,3 +320,21 @@ test('HYG-003 permits Rust test container mounts without per-file exceptions and
     assert.match(denied.stderr, /HYG-003/);
   }
 });
+
+
+test("RX5 historical probe error exemption is restricted to its exact fixture and line", () => {
+  const fixturePath = "crates/plur1bus-engine/tests/fixtures/ops/golden/reembedding-runtime-probe.json";
+  const recorded = JSON.parse(readFileSync(new URL("../crates/plur1bus-engine/tests/fixtures/ops/golden/reembedding-runtime-probe.json", import.meta.url), "utf8"));
+  const original = recorded.cases.find((c) => c.name === "selection-drift").error;
+  const allow = lintTree({ [fixturePath]: JSON.stringify({ error: original }, null, 2) });
+  assert.equal(allow.status, 0, allow.stdout + allow.stderr);
+  for (const [path, text] of [
+    [fixturePath, JSON.stringify({ error: original + " extra" }, null, 2)],
+    ["crates/plur1bus-engine/tests/fixtures/ops/golden/unrelated.json", JSON.stringify({ error: original }, null, 2)],
+    ["crates/plur1bus-engine/src/unrelated.rs", original],
+  ]) {
+    const reject = lintTree({ [path]: text });
+    assert.equal(reject.status, 1, reject.stdout + reject.stderr);
+    assert.match(reject.stderr, /\[HYG-001\]/);
+  }
+});

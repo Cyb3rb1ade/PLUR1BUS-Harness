@@ -97,6 +97,8 @@ const ALLOW_FILES = new Set([
 const ALLOW_DIRS = ["packages/core/src/import/", "packages/core/test/import/"];
 // Path -> regexes; a matching line is allowed only if it also matches one of these.
 const ALLOW = new Map([
+  // Preserve this exact frozen Node error in its recorded parity fixture only.
+  ["crates/plur1bus-engine/tests/fixtures/ops/golden/reembedding-runtime-probe.json", [/^\s*"error": "active generation selection drift after OpenClaw config mutation",?\s*$/]],
   ["packages/core/test/principal.test.ts", [/lib\/memory-request-context\.js/]],
   [
     "packages/core/package.json",
