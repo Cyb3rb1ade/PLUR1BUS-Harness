@@ -84,10 +84,10 @@ pub struct Record {
     /// Inline f64 values or losslessly widened float32 sidecar values.
     pub embedding: Option<Vec<f64>>,
 }
-struct Window {
-    rows: Vec<merged_order::Sourced>,
-    canonical: Option<TrustedDirectory>,
-    legacy: Option<TrustedDirectory>,
+pub(super) struct Window {
+    pub(super) rows: Vec<merged_order::Sourced>,
+    pub(super) canonical: Option<TrustedDirectory>,
+    pub(super) legacy: Option<TrustedDirectory>,
 }
 impl Window {
     fn empty() -> Self {
@@ -103,8 +103,8 @@ impl Window {
 /// The root must already exist. Retrieval/reconsolidation ledgers are intentionally excluded:
 /// their idempotency and watermark semantics are canonical-only, not merged metadata.
 pub struct MetadataReader {
-    root: TrustedDirectory,
-    layout: Layout,
+    pub(super) root: TrustedDirectory,
+    pub(super) layout: Layout,
 }
 impl MetadataReader {
     /// Bind a trusted existing Neo root and a host-proven workspace storage key.
@@ -149,7 +149,7 @@ impl MetadataReader {
         self.root.assert_unchanged()?;
         Ok(rows)
     }
-    fn window(
+    pub(super) fn window(
         &self,
         kind: RecordKind,
         limit: usize,

@@ -13,7 +13,7 @@ use std::{
     io::{Read, Seek, SeekFrom},
 };
 const MAX_BYTES: usize = 64 * 1024 * 1024;
-fn ordinary(file: &std::fs::File) -> Result<std::fs::Metadata, StoreError> {
+pub(super) fn ordinary(file: &std::fs::File) -> Result<std::fs::Metadata, StoreError> {
     let metadata = file.metadata()?;
     #[cfg(unix)]
     {
