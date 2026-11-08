@@ -1,4 +1,4 @@
-// Controller F3 (2026-11-08): explicit RE-D17 presentation exceptions.
+// Controller F3/F5 (2026-11-08): explicit RE-D17 presentation exceptions.
 // This transforms existing actual Node observations; it never edits the goldens.
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
@@ -40,9 +40,15 @@ trace.expected.forEach((limits, input) => limits.forEach((units, l) => {
   if (output !== text) previews.push({ input, limit: trace.limits[l], nodeUnits: units,
     rustUnits: Array.from({ length: output.length }, (_, i) => output.charCodeAt(i)) });
 }));
+const idBytes = readFileSync(new URL('./golden/runtime-trace-ids.json', import.meta.url));
+const canonicalIds = JSON.parse(idBytes).cases.flatMap((item, index) => {
+  const nodeId = String.fromCharCode(...item.nodeIdUnits);
+  const rustId = clean(nodeId);
+  return rustId === nodeId ? [] : [{ index, nodeUnits: item.nodeIdUnits, rustId }];
+});
 writeFileSync(new URL('./unicode-exceptions.json', import.meta.url), JSON.stringify({
-  ruling: 'RE-D17/F3', authority: 'Controller 2026-11-08 04:55',
-  reason: 'Visible UTF-16 budget cuts stop before a split pair; identity material is unchanged.',
-  traceGoldenSha256: sha256(traceBytes), cases, previews
+  ruling: 'RE-D17/F3/F5', authority: 'Controller 2026-11-08 04:55 / 05:45',
+  reason: 'Visible UTF-16 budget cuts and unhashed canonical diagnostic IDs stop before a split pair; actual hashes and persisted identities retain Node semantics.',
+  traceGoldenSha256: sha256(traceBytes), canonicalIdGoldenSha256: sha256(idBytes), cases, previews, canonicalIds
 }, null, 2) + '\n');
 console.log(`Explicit exceptions: ${cases.length} render cases, ${previews.length} previews`);

@@ -1,4 +1,4 @@
-//! Capped decision trace serialization, with lossless JavaScript UTF-16 previews.
+//! Capped decision traces with codepoint-safe previews and diagnostic IDs (RE-D17).
 
 use super::{
     namespace_trace::{NamespaceTrace, TraceLimits},
@@ -61,7 +61,7 @@ impl TracePolicy {
                 let id = entry["id"].as_str()?;
                 let heading = entry["preview"].as_str()?;
                 let mut units = "canonical:".encode_utf16().collect::<Vec<_>>();
-                units.extend(node_text_preview(&self.redact(heading), 40).into_utf16_units());
+                units.extend(text_preview(&self.redact(heading), 40).into_utf16_units());
                 Some((id.to_owned(), JsString::from_utf16_units(units)))
             })
             .collect::<std::collections::HashMap<_, _>>();
@@ -118,22 +118,16 @@ impl TracePolicy {
 
     fn trace_id(
         &self,
-        entry: &Value,
         id: &str,
         canonical_ids: &std::collections::HashMap<String, JsString>,
     ) -> Json {
         if let Some(id) = canonical_ids.get(id) {
             return Json::String(id.clone());
         }
-        if matches!(
-            entry["stage"].as_str(),
-            Some("canonical" | "namespace-canonical-dedup" | "namespace-canonical-cap")
-        ) {
-            if let Some(heading) = id.strip_prefix("canonical:") {
-                let mut units = "canonical:".encode_utf16().collect::<Vec<_>>();
-                units.extend(node_text_preview(&self.redact(heading), 40).into_utf16_units());
-                return Json::String(JsString::from_utf16_units(units));
-            }
+        if let Some(heading) = id.strip_prefix("canonical:") {
+            let mut units = "canonical:".encode_utf16().collect::<Vec<_>>();
+            units.extend(text_preview(&self.redact(heading), 40).into_utf16_units());
+            return Json::String(JsString::from_utf16_units(units));
         }
         string(&self.redact(id))
     }
@@ -204,7 +198,7 @@ impl TracePolicy {
             fields.push(((*field).to_owned(), {
                 let text = entry[field].as_str().unwrap_or(default);
                 if matches!(*field, "id" | "memoryId") {
-                    self.trace_id(entry, text, canonical_ids)
+                    self.trace_id(text, canonical_ids)
                 } else {
                     string(&self.redact(text))
                 }
@@ -213,13 +207,7 @@ impl TracePolicy {
         if matches!(kind, Kind::Guard) {
             fields.push(("passed".into(), Json::Bool(entry["passed"] == true)));
             if let Some(id) = entry["memoryId"].as_str() {
-                fields.push((
-                    "memoryId".into(),
-                    canonical_ids
-                        .get(id)
-                        .cloned()
-                        .map_or_else(|| string(&self.redact(id)), Json::String),
-                ));
+                fields.push(("memoryId".into(), self.trace_id(id, canonical_ids)));
             }
         }
         fields.push((
@@ -297,8 +285,8 @@ pub fn text_preview(value: &str, limit: usize) -> JsString {
     super::output_unicode::well_formed(node_text_preview(value, limit))
 }
 
-// Identity material remains Node-exact until the controller resolves F5's
-// unhashed canonical trace IDs; do not substitute visible text into an ID.
+// Retain the exact Node cut internally, then remove only unpaired units at the
+// presentation boundary. Hash/persistence helpers do not call this trace helper.
 fn node_text_preview(value: &str, limit: usize) -> JsString {
     let clean = value
         .chars()

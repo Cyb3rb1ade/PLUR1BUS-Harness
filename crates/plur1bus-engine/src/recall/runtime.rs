@@ -17,7 +17,7 @@ use super::{
     trace::{self, TracePolicy},
 };
 use crate::{
-    contract::{EngineError, StoreError},
+    contract::{EngineError, RecallResult, StoreError},
     store::{ledger::JsonlLedger, ledger_types::RetrievalLedgerLine, StoreRoutes},
     text::{
         js::JsString,
@@ -51,8 +51,7 @@ pub struct RuntimeRequest<'a> {
     pub reranker_requested: bool,
 }
 
-/// Internal result with codepoint-safe visible text under controller F3.
-/// Unhashed canonical trace IDs await F5; no raw-JSON RPC adapter is authorized.
+/// Internal result with codepoint-safe visible text and diagnostic IDs (F3/F5).
 pub struct RecallOutcome {
     /// T5 blocks and caller-owned maintenance intents.
     pub rendered: RenderedRecall,
@@ -60,7 +59,7 @@ pub struct RecallOutcome {
     pub degraded: Option<Value>,
     /// Request and independent table phase summaries.
     pub timing: Value,
-    /// Optional redacted, capped, UTF-16-preserving trace.
+    /// Optional redacted, capped, well-formed Unicode trace.
     pub trace: Option<Json>,
     /// Existing per-call contract diagnostics.
     pub diagnostics: Vec<Value>,
@@ -69,7 +68,12 @@ pub struct RecallOutcome {
 }
 
 impl RecallOutcome {
-    /// Emit the existing wire fields without passing block/preview text through Rust String.
+    /// Cross the frozen typed contract without a raw-JSON RPC adapter.
+    pub fn to_contract(&self) -> Result<RecallResult, EngineError> {
+        serde_json::from_str(&self.to_json_line()?).map_err(|_| malformed())
+    }
+
+    /// Emit the existing wire fields, preserving opaque internal JSON construction.
     pub fn to_json_line(&self) -> Result<String, EngineError> {
         let Json::Object(mut fields) =
             parse_json(&self.rendered.to_json_line()).map_err(|_| malformed())?

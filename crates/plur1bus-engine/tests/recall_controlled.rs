@@ -533,7 +533,7 @@ fn cancellation_inside_reranker_returns_partial_rows_without_retry_or_ledger_wri
 }
 
 #[test]
-fn canonical_ids_stay_lossless_after_candidate_and_global_canonical_caps() {
+fn canonical_ids_stay_consistent_after_candidate_and_global_canonical_caps() {
     let fixture = Fixture::new(false);
     let first = format!("{}😀 remainder", "a".repeat(39));
     let second = format!("{}😀 remainder", "b".repeat(39));
@@ -544,10 +544,22 @@ fn canonical_ids_stay_lossless_after_candidate_and_global_canonical_caps() {
     let result = plur1bus_engine::recall::runtime::run(request).unwrap();
     let wire = plur1bus_engine::text::json::write_json(result.trace.as_ref().unwrap());
     assert!(!wire.contains('�'));
-    assert!(
-        wire.matches("\\ud83d").count() >= 4,
-        "both child inclusions and global cap decisions keep the cut surrogate"
-    );
+    assert!(!wire.contains("\\ud83d"));
+    let trace: serde_json::Value = serde_json::from_str(&wire).unwrap();
+    for prefix in ["a", "b"] {
+        let expected = format!("canonical:{}…", prefix.repeat(39));
+        assert_eq!(
+            trace["decisions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|entry| entry["memoryId"] == expected)
+                .count(),
+            2,
+            "child inclusion and global cap refer to the same diagnostic ID"
+        );
+    }
+    assert!(result.to_contract().is_ok());
     assert!(!wire.contains("_traceCanonicalId"));
 }
 

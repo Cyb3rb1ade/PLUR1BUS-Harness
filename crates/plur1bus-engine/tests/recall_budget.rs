@@ -110,31 +110,75 @@ fn outer_result_has_codepoint_safe_visible_blocks_and_trace() {
     assert!(parse_json(&wire).is_ok());
     // Controller F3 preserves the frozen typed boundary without a raw JSON adapter.
     assert!(serde_json::from_str::<plur1bus_engine::contract::RecallResult>(&wire).is_ok());
+    assert!(result.to_contract().is_ok());
 }
 
 #[test]
-fn canonical_diagnostic_ids_are_rebuilt_losslessly_from_the_redacted_heading() {
+fn canonical_diagnostic_ids_share_the_codepoint_safe_preview_cut() {
     use plur1bus_engine::{
         recall::{namespace_trace::NamespaceTrace, trace::TracePolicy},
         text::json::write_json,
     };
-    let heading = format!("{}😀 rest", "z".repeat(39));
-    // T4's internal serde_json wrapper cannot hold the split high surrogate.
-    let legacy_id = format!("canonical:{}�…", "z".repeat(39));
-    let streams = NamespaceTrace {
-        candidates: vec![
-            serde_json::json!({"id":legacy_id,"source":"canonical","preview":heading}),
-        ],
-        decisions: vec![
-            serde_json::json!({"memoryId":legacy_id,"action":"inclusion","stage":"canonical"}),
-        ],
-        ..Default::default()
-    };
-    let trace = TracePolicy::new(&serde_json::json!({"maxTextPreviewChars":2}), &[])
-        .finish("", &streams, 0);
-    let wire = write_json(&trace);
-    assert!(!wire.contains('�'));
-    assert_eq!(wire.matches("\\ud83d").count(), 2);
+    use sha2::{Digest, Sha256};
+    let bytes = include_bytes!("fixtures/recall/golden/runtime-trace-ids.json");
+    let fixture: Value = serde_json::from_slice(bytes).unwrap();
+    let exceptions: Value =
+        serde_json::from_str(include_str!("fixtures/recall/unicode-exceptions.json")).unwrap();
+    assert_eq!(
+        format!("{:x}", Sha256::digest(bytes)),
+        exceptions["canonicalIdGoldenSha256"]
+    );
+    for (index, case) in fixture["cases"].as_array().unwrap().iter().enumerate() {
+        let heading = case["heading"].as_str().unwrap();
+        let original = format!("canonical:{heading}");
+        let node_units = case["nodeIdUnits"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|n| n.as_u64().unwrap() as u16)
+            .collect::<Vec<_>>();
+        for field in ["candidateIdUnits", "decisionIdUnits", "guardIdUnits"] {
+            assert_eq!(case[field], case["nodeIdUnits"]);
+        }
+        let expected = if let Some(exception) = exceptions["canonicalIds"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|e| e["index"] == index)
+        {
+            assert_eq!(exception["nodeUnits"], case["nodeIdUnits"]);
+            exception["rustId"].as_str().unwrap().to_owned()
+        } else {
+            String::from_utf16(&node_units).unwrap()
+        };
+        for retained in [true, false] {
+            let streams = NamespaceTrace {
+                candidates: if retained {
+                    vec![serde_json::json!({"id":original,"source":"canonical","preview":heading})]
+                } else {
+                    vec![]
+                },
+                decisions: vec![
+                    serde_json::json!({"memoryId":original,"action":"inclusion","stage":"canonical"}),
+                ],
+                guards: vec![
+                    serde_json::json!({"memoryId":original,"name":"canonical-test","passed":true}),
+                ],
+                store_decisions: vec![serde_json::json!({"memoryId":original,"action":"rejected"})],
+            };
+            let trace = TracePolicy::new(&serde_json::json!({"maxTextPreviewChars":2}), &[])
+                .finish("", &streams, 0);
+            let wire = write_json(&trace);
+            assert!(!wire.contains('�'));
+            let value: Value = serde_json::from_str(&wire).unwrap();
+            if retained {
+                assert_eq!(value["candidates"][0]["id"], expected);
+            }
+            for stream in ["decisions", "guards", "storeDecisions"] {
+                assert_eq!(value[stream][0]["memoryId"], expected, "{index} {stream}");
+            }
+        }
+    }
 }
 
 #[test]

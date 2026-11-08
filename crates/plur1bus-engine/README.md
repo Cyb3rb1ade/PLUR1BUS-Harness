@@ -73,10 +73,10 @@ receive the narrowed cancellation token; a cancellation cannot write the canonic
 ledger, retry a provider, or deliver maintenance effects. Borrowed collaborators must cooperate with
 their token: workers settle before return, and no detached thread may keep a store lease alive.
 
-`RecallOutcome::to_json_line` emits Unicode-safe blocks and trace previews under controller F3.
+`RecallOutcome::to_contract` crosses the frozen typed result boundary; `to_json_line` emits Unicode-safe blocks, trace previews and unhashed canonical IDs under controller F3/F5.
 The three affected renderer cases and four preview cases have explicit Rust expectations in
 `tests/fixtures/recall/unicode-exceptions.json`; the actual Node goldens remain unchanged.
-Internal identity/hash material keeps Node semantics; unhashed canonical trace IDs await F5. Trace
+Actual identity/hash material keeps Node semantics. Canonical diagnostic IDs use the same codepoint-safe preview cut in every stream, including when the originating candidate was evicted. These IDs do not enter the retrieval ledger (card UUIDs only), Knowledge-cache keys, audit linkage or recall-statistics keys; the pin uses them for request-local diagnosis and optional prompt annotations. Trace
 normalization uses the shared credential-pattern catalogue and host-registered secret values **before**
 preview cuts. The internal bounded candidate streams are not a diagnostic output format; expose only
 the final normalized trace. The renderer receives a preview-free metadata view. Stream suffix caps and
