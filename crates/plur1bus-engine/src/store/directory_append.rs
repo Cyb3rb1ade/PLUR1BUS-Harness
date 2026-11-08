@@ -10,6 +10,34 @@ use std::{
 };
 
 impl TrustedDirectory {
+    /// Drop only an incomplete final JSONL record under the caller's writer lease. Both lengths
+    /// come from a bounded, validated read of this same file; complete malformed lines are errors.
+    pub(crate) fn truncate_jsonl_tail(
+        &self,
+        name: &str,
+        expected: u64,
+        committed: u64,
+    ) -> Result<(), StoreError> {
+        if committed >= expected {
+            return Err(StoreError::InvalidInput);
+        }
+        let mut file = AppendFile::open(self, name)?;
+        if file.file.metadata()?.len() != expected {
+            return Err(StoreError::Unavailable);
+        }
+        if committed > 0 {
+            file.file.seek(SeekFrom::Start(committed - 1))?;
+            let mut last = [0];
+            file.file.read_exact(&mut last)?;
+            if last[0] != b'\n' {
+                return Err(StoreError::InvalidInput);
+            }
+        }
+        file.check()?;
+        file.file.set_len(committed)?;
+        file.file.sync_all()?;
+        file.check()
+    }
     /// Append one bounded ordered JSON record through this held directory and sync its file.
     /// The caller must hold the workspace writer lease and authorize the record first. This
     /// method supplies path integrity, not authorization or multi-record transaction semantics.
@@ -120,6 +148,7 @@ fn open_child(directory: &TrustedDirectory, name: &str) -> Result<File, StoreErr
     };
     let file = std::fs::OpenOptions::new()
         .read(true)
+        .write(true)
         .append(true)
         .create(true)
         .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)

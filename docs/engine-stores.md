@@ -20,6 +20,8 @@ reports legacy version `"0"`; an unreadable or unsupported marker is an error.
 | `behavior-cards.jsonl`, `retrieval-ledger.jsonl`, `reply-outcomes.jsonl`, `reconsolidation-events.jsonl`, `reaction-ledger.jsonl` | `store::ledger`, `store::ledger_types` | Node JSONL record shapes. |
 | `run-state.json`, `snapshot.json`, `.emotional-state.json`, `semantic-lens-index.json`, `hook-state.json`, re-embedding state | `store::state_file` | Tolerant JSON load and atomic replace. Invalid state remains a distinct failure; only an absent file returns no state. |
 | `workspaces/<canonical>/native-hook-state-<binding-sha256>.json` | `neo::session_store` | Native S2 checkpoint extension (RE-D60): exact ownership proof plus `agentEnd` session state. Principal/physical-workspace-bound, with held filesystem identities checked inside the envelope. Replacement/restore identity changes require explicit rebinding; they never silently reset progress. 4 MiB maximum, atomic fsync/replace. Never adopts ownerless Node `hook-state.json` implicitly. |
+| `workspaces/<canonical>/native-capture-pending-<binding-sha256>.json` | `neo::capture_journal` | Native frozen capture plan (RE-D62): physical root/workspace identities and canonical principal proof, plus the exact five journal batches. Atomic fsync before record writes; empty settled plan after journals and both indices are durable. Recovery reauthorizes the original principal; restore/replacement requires explicit rebinding. 64 MiB and 50,000 planned records maximum. |
+| `workspaces/<canonical>/.native-capture-leases/workspace.lock` | shared native kernel lease | Persistent kernel-held workspace lease plus the actual Node `.neo-write.lock`. Caller cancellation and a 300-second ceiling bound a call; every mutation rechecks both leases, physical identity, current host mapping and capture policy. |
 | `workspaces/<canonical>/.native-hook-leases/<state-file>.lock` | shared native kernel lease | Persistent inode; kernel-held exclusive lock, cancellation while waiting, no TTL takeover or unlink on release. Process death releases ownership. |
 | `.neo-write.lock/owner.json` | `store::lock` (private `neo_lock` implementation) | The existing Node directory-lock layout, with its own orphan grace and liveness rules below. |
 | Registry and job `.lock` files | `store::lock`, `plur1bus_rpc::process` | Exclusive creation and the Node nonce/process-incarnation ownership protocol described below. |
@@ -466,3 +468,25 @@ Inspection neither prepares nor downloads models and does not warm/probe the rea
 `ops::reembedding::confirmation` implements the C2 confirmation encoding, domain-separated SHA-256 proof/plan binding, closed persisted envelope and strict expiry. Production creation uses 32 bytes from OS entropy; only tests can supply deterministic entropy. The operator proof has explicit exposure and redacted Debug, but no Serialize implementation. The separately serializable persisted envelope contains schema version, proof hash, plan digest and expiry, matching Node exactly. Verification accepts the same JavaScript-safe integer semantics, rejects unknown fields and uses constant-time digest equality. Binding verification intentionally omits TTL for the coordinator's explicit-resume flow; normal verification requires `now < expiresAt`.
 
 Twelve creation and 31 binding/expiry vectors were recorded twice from the frozen #266 C2 source. Goldens store proof digests, persisted metadata and synthetic entropy inputs, never literal operator proofs. This primitive does not consume a confirmation or grant maintenance authority: F7 audit/authorization, atomic one-time state transitions, batch copying, validation, switch and rollback remain coordinator work.
+
+### Native Neo capture publication (RX6 / RE-D62)
+
+`CaptureJournal` consumes the existing role/content TurnRecord and explicit expected RequestContext.
+It creates no files for incognito, cancelled or policy-denied capture. Newly captured turns, candidates,
+reactions, behavior and embedding-queue entries carry canonical ownership and agent-private visibility;
+a workspace association does not authorize sharing. Same-ID foreign or ownerless records are refused,
+and candidate-content deduplication is restricted to the proved owner/agent/workspace.
+
+A frozen plan retains original timestamps across interruption. Complete JSONL records are individually
+fsynced; only an incomplete final line may be truncated during recovery under both writer leases.
+Malformed complete lines fail closed. The candidate index preserves older global history and chooses
+the newer revision before projection; the Node-compatible record index retains historical deduplication
+keys. Only after both indices are published is the pending plan settled. This is recoverable publication,
+not atomic multi-file visibility to concurrent readers. Reads/preflight refuse journals above 64 MiB or
+50,000 complete lines; no automatic retention or eviction of pending work is implied.
+
+The macOS tests include a killed process after one durable row, concurrent writers, revoked policy,
+physical replacement, corrupted plans, links and exact recorded Node file projections with declared
+D130 stamps. Native Windows durability acceptance remains pending. Runtime capture-hook activation,
+open-time enumeration of other pending principals, retention, embedding drain and episode/checkpoint
+coupling are separate remaining composition work.

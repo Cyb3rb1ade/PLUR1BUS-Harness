@@ -1,11 +1,15 @@
 //! Caller-bound working-memory state and derived-source authority.
 pub mod acl;
 pub mod candidate_index;
+pub mod capture_journal;
+mod capture_plan;
 pub mod derived;
 mod derived_fields;
 pub mod format;
 pub mod global;
 mod index;
+mod journal_index;
+mod journal_io;
 pub mod merged;
 mod merged_order;
 pub mod postprocessing;
