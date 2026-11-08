@@ -46,16 +46,29 @@ pub struct CaptureClassification {
     pub dynamics: CaptureDynamics,
 }
 
+/// One prepared capture item plus its original caller authority.
+/// This is an internal native port, separate from frozen Engine/HostServices contracts.
+pub struct ClassificationRequest<'a> {
+    /// Prepared text after summary/chunking.
+    pub text: &'a JsString,
+    /// Original message role.
+    pub role: &'a str,
+    /// Actual accepted turn carrying Principal and AgentContext.
+    pub turn: &'a TurnRecord,
+    /// Capture's already resolved context, rechecked by sensitive dependencies.
+    pub context: &'a RequestContext,
+    /// Captured row timestamp.
+    pub now: i64,
+    /// Effective caller cancellation.
+    pub cancel: &'a Cancel,
+}
+
 /// RE-05/T3 classification and post-store effects on the actual capture path.
 pub trait CaptureClassifier: Send + Sync {
     /// Classify one prepared item before its Lance commit; errors leave only that item incomplete.
     fn classify(
         &self,
-        text: &JsString,
-        role: &str,
-        context: &RequestContext,
-        now: i64,
-        cancel: &Cancel,
+        request: ClassificationRequest<'_>,
     ) -> Result<CaptureClassification, EngineError>;
 
     /// Best-effort speaker/reminder/emotional-state work after replay settlement.

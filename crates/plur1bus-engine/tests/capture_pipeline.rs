@@ -69,13 +69,10 @@ struct ClassificationFixture(BTreeMap<String, CaptureClassification>);
 impl CaptureClassifier for ClassificationFixture {
     fn classify(
         &self,
-        text: &JsString,
-        _role: &str,
-        _context: &context::RequestContext,
-        _now: i64,
-        cancel: &Cancel,
+        request: pipeline::ClassificationRequest<'_>,
     ) -> Result<CaptureClassification, EngineError> {
-        cancel.check()?;
+        request.cancel.check()?;
+        let text = request.text;
         self.0
             .get(&text.to_utf8_lossy())
             .cloned()
@@ -358,11 +355,7 @@ impl BoundaryClassifier {
 impl CaptureClassifier for BoundaryClassifier {
     fn classify(
         &self,
-        _: &JsString,
-        _: &str,
-        _: &context::RequestContext,
-        _: i64,
-        _: &Cancel,
+        _: pipeline::ClassificationRequest<'_>,
     ) -> Result<CaptureClassification, EngineError> {
         let index = self.calls.fetch_add(1, Ordering::SeqCst);
         self.checkpoint(if index == 0 {

@@ -30,14 +30,14 @@ use super::{batch, dedupe, row_builder};
 #[path = "pipeline_ports.rs"]
 mod ports;
 #[path = "pipeline_prepare.rs"]
-mod prepare;
+pub(super) mod prepare;
 #[path = "pipeline_routes.rs"]
 mod routes;
 #[path = "pipeline_row.rs"]
 mod row;
 pub use ports::{
     CaptureChunkDecider, CaptureClassification, CaptureClassifier, CaptureDynamics, CaptureSummary,
-    NeoCaptureHook,
+    ClassificationRequest, NeoCaptureHook,
 };
 pub use routes::{HostCaptureSummary, JevChunkDecider};
 

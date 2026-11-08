@@ -36,12 +36,24 @@ pub struct EmotionEngine {
     completion: Option<Arc<dyn LlmPort>>,
     tier2_enabled: bool,
     tier3_enabled: bool,
+    tier3_configured: bool,
     escalation: f64,
     timeout: Duration,
     clock: Arc<dyn Fn() -> i64 + Send + Sync>,
     previous: Json,
     counts: [u64; 3],
     elapsed: i64,
+}
+struct CompletionLease<'a> {
+    engine: &'a mut EmotionEngine,
+    previous: Option<Arc<dyn LlmPort>>,
+    enabled: bool,
+}
+impl Drop for CompletionLease<'_> {
+    fn drop(&mut self) {
+        self.engine.completion = self.previous.take();
+        self.engine.tier3_enabled = self.enabled;
+    }
 }
 impl EmotionEngine {
     /// Bind the already authorized host callback. Raw keys/direct clients are never accepted.
@@ -65,6 +77,7 @@ impl EmotionEngine {
             tier2_enabled: get(get(config, "tier2"), "enabled") != &Json::Bool(false),
             tier3_enabled: get(get(config, "tier3"), "enabled") != &Json::Bool(false)
                 && completion.is_some(),
+            tier3_configured: get(get(config, "tier3"), "enabled") != &Json::Bool(false),
             completion,
             escalation: numeric(get(config, "escalationConfidence"))
                 .filter(|n| n.is_finite())
@@ -79,6 +92,27 @@ impl EmotionEngine {
             elapsed: 0,
         })
     }
+    /// Use a fresh caller-bound callback for one analysis, restoring the prior binding even on error.
+    /// This permits a private emotional history to outlive an individual provider lease.
+    pub fn analyze_with_completion(
+        &mut self,
+        input: &JsString,
+        source: &str,
+        options: AnalysisOptions,
+        cancel: &Cancel,
+        completion: Option<Arc<dyn LlmPort>>,
+    ) -> Result<EmotionScore, EngineError> {
+        let enabled = self.tier3_enabled;
+        self.tier3_enabled = self.tier3_configured && completion.is_some();
+        let previous = std::mem::replace(&mut self.completion, completion);
+        let lease = CompletionLease {
+            engine: self,
+            previous,
+            enabled,
+        };
+        lease.engine.analyze(input, source, options, cancel)
+    }
+
     /// Analyze and advance the private context only after successful, non-cancelled completion.
     pub fn analyze(
         &mut self,

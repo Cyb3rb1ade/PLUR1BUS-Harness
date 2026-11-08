@@ -8,11 +8,11 @@ use crate::text::js::{is_js_whitespace, js_regex, JsString};
 use super::super::epistemic::is_injected_context;
 
 #[derive(Clone)]
-pub(super) struct CaptureItem {
-    pub(super) text: JsString,
-    pub(super) role: String,
-    pub(super) is_user_url: bool,
-    pub(super) source_url: JsString,
+pub(in crate::capture) struct CaptureItem {
+    pub(in crate::capture) text: JsString,
+    pub(in crate::capture) role: String,
+    pub(in crate::capture) is_user_url: bool,
+    pub(in crate::capture) source_url: JsString,
 }
 
 fn whitespace(unit: u16) -> bool {
@@ -61,7 +61,7 @@ fn strip_media_leading(text: &str) -> &str {
     tail.strip_prefix('\n').unwrap_or(tail)
 }
 
-pub(super) fn select_items(turn: &TurnRecord) -> Result<Vec<CaptureItem>, EngineError> {
+pub(in crate::capture) fn select_items(turn: &TurnRecord) -> Result<Vec<CaptureItem>, EngineError> {
     let mut items = Vec::new();
     for message in &turn.messages {
         if !matches!(message.role, MessageRole::User | MessageRole::Assistant)
@@ -113,7 +113,7 @@ pub(super) fn select_items(turn: &TurnRecord) -> Result<Vec<CaptureItem>, Engine
     Ok(selected)
 }
 
-pub(super) fn capture_origin(
+pub(in crate::capture) fn capture_origin(
     turn: &TurnRecord,
     items: &[CaptureItem],
 ) -> Result<&'static str, EngineError> {

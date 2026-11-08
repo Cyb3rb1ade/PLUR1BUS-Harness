@@ -88,3 +88,8 @@ pub mod continuity;
 
 /// Ordered lexical guards for explicit duplicate and merge decisions.
 pub mod merge_safety;
+
+/// Production classification and reminder effects for the actual capture worker.
+pub mod classify;
+/// Authenticated per-agent temperament and caller-owned mood pool.
+pub mod emotion_pool;

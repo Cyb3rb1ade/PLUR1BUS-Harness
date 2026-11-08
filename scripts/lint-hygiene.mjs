@@ -106,11 +106,11 @@ const ALLOW = new Map([
   ["crates/plur1bus-engine/tests/fixtures/capture/golden/accept.json", [
     /^\s*"lib\/(?:host-services\.js|setup\/(?:control-ui|feature-cron|obsidian-vault|reembedding|selftest|skill-workshop|workspace-policy)-plugin-runtime\.js)"\s*$/,
   ]],
-  // RX6 row recorder: exact verified import line and source provenance, never runtime imports.
-  ...["record-rows", "record-pipeline-boundaries"].map(name => [`crates/plur1bus-engine/tests/fixtures/capture/${name}.mjs`, [
+  // RX6 row/classifier recorders: exact verified test-host import and source provenance, never runtime imports.
+  ...["record-rows", "record-pipeline-boundaries", "record-classifier"].map(name => [`crates/plur1bus-engine/tests/fixtures/capture/${name}.mjs`, [
     /^\s*load\("engine\/create-engine\.js"\), load\("engine\/internals\.js"\), load\("lib\/host-services\.js"\),\s*$/,
   ]]),
-  ...["chunk-decider", "chunk-expansions", "chunk-plans", "dedupe", "rows", "schema-seed"].map(name => [
+  ...["chunk-decider", "chunk-expansions", "chunk-plans", "dedupe", "rows", "schema-seed", "classifier"].map(name => [
     `crates/plur1bus-engine/tests/fixtures/capture/golden/${name}.json`, [
       /^\s*"lib\/(?:host-services\.js|setup\/(?:control-ui|feature-cron|obsidian-vault|reembedding|selftest|skill-workshop|workspace-policy)-plugin-runtime\.js)"\s*$/,
     ],

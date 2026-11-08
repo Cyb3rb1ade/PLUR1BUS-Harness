@@ -32,9 +32,14 @@ impl CapturePipeline {
             now,
             cancel,
         } = request;
-        let classification =
-            self.classifier
-                .classify(&prep.text, &prep.item.role, context, now, cancel)?;
+        let classification = self.classifier.classify(super::ClassificationRequest {
+            text: &prep.text,
+            role: &prep.item.role,
+            turn,
+            context,
+            now,
+            cancel,
+        })?;
         let mut row = row_builder::schema_defaults(vector);
         row.id = id;
         row.text = super::super::output_unicode::external(&prep.text);
