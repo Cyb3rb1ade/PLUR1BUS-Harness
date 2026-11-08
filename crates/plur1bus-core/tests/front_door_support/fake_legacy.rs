@@ -334,6 +334,28 @@ fn serve(l: &Arc<Legacy>, conn: Accepted, mode: &str, control: bool) {
                     std::process::exit(0);
                 });
             }
+            // The legacy core stopping on its own (a signal of its own, a fatal error): its `core.state stopping` to every
+            // subscriber that takes it, then every connection ends at once and the process exits.
+            "fake.stop-self" => {
+                for (w, names) in l.subs.lock().unwrap().values() {
+                    if names
+                        .as_ref()
+                        .is_none_or(|n: &Vec<String>| n.iter().any(|x| x == "core.state"))
+                    {
+                        send(
+                            w,
+                            &json!({"jsonrpc":"2.0","method":"core.state","params":{"process":{"state":"stopping","since":1}}}),
+                        );
+                    }
+                }
+                for close in l.closers.lock().unwrap().iter() {
+                    close();
+                }
+                std::thread::spawn(|| {
+                    std::thread::sleep(Duration::from_millis(50));
+                    std::process::exit(0);
+                });
+            }
             "fake.accept" => send(
                 &writer,
                 &json!({"jsonrpc":"2.0","id":id,"result":{"accepted":true}}),

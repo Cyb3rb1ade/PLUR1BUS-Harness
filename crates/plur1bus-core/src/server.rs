@@ -1424,11 +1424,18 @@ fn link_loop(front: &Arc<FrontDoor>, conn: &Arc<Conn>, link: &Arc<Link>, reader:
                     }
                     false
                 }
-                // The front door's own process state is what an owner subscriber sees.
+                // The front door's own process state is what an owner subscriber sees. The legacy core's `stopping`
+                // puts the front door into `stopping` first (fix round 1b F7): the legacy core sends it on this link
+                // before it ends the link, and this link's lines are handled in order, so the front door's `stopping`
+                // is queued for every owner subscriber whose link has not ended yet, this one included.
                 None => {
-                    id.is_some()
-                        || conn.caller() != Some(Caller::Owner)
-                        || method.and_then(peek::string_lossy).as_deref() != Some("core.state")
+                    let legacy_state = id.is_none()
+                        && conn.caller() == Some(Caller::Owner)
+                        && method.and_then(peek::string_lossy).as_deref() == Some("core.state");
+                    if legacy_state && process_state(&text).as_deref() == Some("stopping") {
+                        front.enter_stopping();
+                    }
+                    !legacy_state
                 }
             }
         };
@@ -1449,6 +1456,13 @@ fn link_loop(front: &Arc<FrontDoor>, conn: &Arc<Conn>, link: &Arc<Link>, reader:
     if !relock(&conn.state).closing {
         conn.end(Duration::from_secs(1));
     }
+}
+
+/// `params.process.state` of a `core.state` notification.
+fn process_state(text: &str) -> Option<String> {
+    let [params] = peek::members(text, ["params"])?;
+    let process = peek::member(params?, "process")?;
+    peek::string_lossy(peek::member(process, "state")?)
 }
 
 /// Completes an intercepted request with the legacy core's answer `text` and sends it with the client's own id. What the

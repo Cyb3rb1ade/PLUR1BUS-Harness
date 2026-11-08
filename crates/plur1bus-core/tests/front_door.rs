@@ -137,6 +137,10 @@ fn main() {
             "a_flood_of_silent_sockets_cannot_end_a_handshake_in_flight",
             a_flood_of_silent_sockets_cannot_end_a_handshake_in_flight,
         ),
+        (
+            "the_legacy_cores_own_stopping_reaches_every_subscriber_before_the_end",
+            the_legacy_cores_own_stopping_reaches_every_subscriber_before_the_end,
+        ),
     ];
     let mut failed = Vec::new();
     for (name, test) in tests {
@@ -1541,4 +1545,45 @@ fn a_flood_of_silent_sockets_cannot_end_a_handshake_in_flight() {
         std::thread::sleep(Duration::from_millis(20));
     }
     drop(silent);
+}
+
+/// Fix round 1b F7: when the legacy core stops (here on its own, as after a signal that reached it directly), its
+/// `core.state stopping` on an owner subscriber's link puts the front door into `stopping` before that link's end is read,
+/// so every owner subscriber sees the front door's `stopping` before its connection ends, whichever link ends first. Lines
+/// on one link are handled in order; no thread timing is involved.
+fn the_legacy_cores_own_stopping_reaches_every_subscriber_before_the_end() {
+    let mut d = door(Opts::default());
+    let mut a = d.owner();
+    assert!(a.call("events.subscribe", json!({}))["result"]["subscriptionId"].is_string());
+    let mut b = d.owner();
+    assert!(
+        b.call("events.subscribe", json!({"names": ["core.state"]}))["result"]["subscriptionId"]
+            .is_string()
+    );
+    let mut trigger = d.owner();
+    trigger.send_line(r#"{"jsonrpc":"2.0","id":1,"method":"fake.stop-self","params":{}}"#);
+    for (name, s) in [("a", &mut a), ("b", &mut b)] {
+        assert!(s.closed(), "{name}: the connection ends");
+        let states: Vec<&str> = s
+            .notes
+            .iter()
+            .filter(|n| n["method"] == "core.state")
+            .filter_map(|n| n["params"]["process"]["state"].as_str())
+            .collect();
+        assert_eq!(
+            states,
+            ["stopping"],
+            "{name}: the front door's stopping, once, before the end"
+        );
+        assert!(
+            s.notes.iter().all(|n| n["params"]["process"]["since"] != 1),
+            "{name}: never the legacy core's own core.state"
+        );
+    }
+    assert!(trigger.closed());
+    assert_eq!(
+        d.wait(Duration::from_secs(10)),
+        Some(1),
+        "the legacy core exited on its own"
+    );
 }
