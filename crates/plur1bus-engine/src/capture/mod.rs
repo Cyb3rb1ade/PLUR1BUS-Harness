@@ -78,3 +78,7 @@ pub mod encoding;
 pub mod reminder_store;
 /// Deterministic relative-time reminder parsing and capture eligibility.
 pub mod reminders;
+/// Canonical diarization segments and contextual speaker-name proposals.
+pub mod speaker;
+/// Authenticated contextual speaker proposals over the existing SQLite mapping table.
+pub mod speaker_store;
