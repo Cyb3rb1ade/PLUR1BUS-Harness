@@ -1,0 +1,41 @@
+{
+  "provenance": {
+    "engine": "node",
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "node": "v24.21.0",
+    "sourceHashes": {
+      "lib/abort.js": "435016008fa477f7ed7d3215505324bb3e7159e123ea553b35fb8a14d5a4055d",
+      "lib/emotion-blends.js": "653021f8048772dc6a2c1da0e60bfef08250bcd61aacf45ba1a9bf379fa7ca29",
+      "lib/emotion-engine.js": "b8d4e60b785c9d19809b7f2bfe67e6d2871dfb1b4699bd96b6ee666391372557",
+      "lib/emotion-score.js": "4f5aff9b4bb80e9673c2d1d0a748bd69f12979e11241f946e0b43e48a0df3573",
+      "lib/emotion.js": "4fad4d37803bbee8bf95a8d3db11b5e2fdc3b195d617055a8af63a0d52780c27",
+      "lib/emotional-state.js": "be6ef22ee829618d5413c7aa3c4eed2457f4ccaa1245f91fa72b313f10ab4bdf",
+      "lib/encoding-llm.js": "0f90b70e2edfacb9589540ff6a1444fea77e48983cc67171773d811e15ddcd3d",
+      "lib/host-network.js": "360b692df2f2c3dc9761cfe73ca5165da4b5416f8b7778b5ec79b1dd253aaf69",
+      "lib/importance-status.js": "8b7ccd7f9dccdc02d7f157c4ba67e16545ac2953614e1a755cbe17a153082cdc",
+      "lib/memory-dynamics.js": "95c310c6446a168a48333a40d3ad6fcbdd6ce9a54b769a1f1eda04bc3d8495d5",
+      "lib/memory-fact-quality.js": "05b171bd3ff801f86c6702b65b174b32f45ed4441fe19166f0a30bad9c39e80c",
+      "lib/tier1-lexicon.js": "b4f0e03d727355e52806cda8761f4b38c3af3dc064a051f804ed99981b3d09f8",
+      "lib/tier2-transformer.js": "f928294f31e1cf5c69ffff8b3a8c98b42af8ccc4205877036895d35acc13a120",
+      "lib/tier3-llm.js": "7749de629deee9a0cc8cd01dc51cb7bbcc6e5a99256b5eb794abf0fd41ab0dc6"
+    }
+  },
+  "answers": {
+    "c6e6dbf9621d53a7ea6cafe93d87058ca467d874c9f787a220eb34003d3ce2c3": {
+      "promptLine": "[{\"role\":\"system\",\"content\":\"You are an expert emotion analyst. Analyze the emotional content of the user's message.\\nRespond ONLY with a JSON object containing these exact fields:\\n- valence: number in [-1, 1] (negative to positive)\\n- arousal: number in [-1, 1] (calm to excited)\\n- dominance: number in [-1, 1] (powerless to powerful)\\n- intensity: number in [0, 1] (strength of emotional signal)\\n- primary_emotion: string (one of: anger, disgust, fear, joy, neutral, sadness, surprise, trust, anticipation)\\n- secondary_emotion: string or null\\n- emotion_labels: object mapping emotion names to confidence scores (0-1)\\n- confidence: number in [0, 1] (your certainty in this analysis)\\n- language: \\\"de\\\", \\\"en\\\", or \\\"mixed\\\"\\n\\nKeep the JSON compact and valid. Do not include markdown formatting or explanations.\"},{\"role\":\"user\",\"content\":\"A public fixture needs an emotional judgment.\"}]",
+      "answer": "{\"valence\":0.5,\"arousal\":0.2,\"dominance\":0.1,\"intensity\":0.6,\"primary_emotion\":\"joy\",\"secondary_emotion\":\"trust\",\"emotion_labels\":{\"joy\":0.7,\"trust\":0.3},\"confidence\":0.92,\"language\":\"en\"}"
+    },
+    "94be4e43b75c7a088a639a1505d232788de5d01519c94d12d6b0bd3c6294a0ad": {
+      "promptLine": "[{\"role\":\"system\",\"content\":\"You are an expert emotion analyst. Analyze the emotional content of the user's message.\\nRespond ONLY with a JSON object containing these exact fields:\\n- valence: number in [-1, 1] (negative to positive)\\n- arousal: number in [-1, 1] (calm to excited)\\n- dominance: number in [-1, 1] (powerless to powerful)\\n- intensity: number in [0, 1] (strength of emotional signal)\\n- primary_emotion: string (one of: anger, disgust, fear, joy, neutral, sadness, surprise, trust, anticipation)\\n- secondary_emotion: string or null\\n- emotion_labels: object mapping emotion names to confidence scores (0-1)\\n- confidence: number in [0, 1] (your certainty in this analysis)\\n- language: \\\"de\\\", \\\"en\\\", or \\\"mixed\\\"\\n\\nKeep the JSON compact and valid. Do not include markdown formatting or explanations.\"},{\"role\":\"user\",\"content\":\"plain ordinary sentence\"}]",
+      "answer": "{\"valence\":0.5,\"arousal\":0.2,\"dominance\":0.1,\"intensity\":0.6,\"primary_emotion\":\"joy\",\"secondary_emotion\":\"trust\",\"emotion_labels\":{\"joy\":0.7,\"trust\":0.3},\"confidence\":0.92,\"language\":\"en\"}"
+    },
+    "9ee461a5647fbe0bff9cd0400161bc7b8d47e0134866b233ac6075ca2d7116d3": {
+      "promptLine": "[{\"role\":\"system\",\"content\":\"You are an expert emotion analyst. Analyze the emotional content of the user's message.\\nRespond ONLY with a JSON object containing these exact fields:\\n- valence: number in [-1, 1] (negative to positive)\\n- arousal: number in [-1, 1] (calm to excited)\\n- dominance: number in [-1, 1] (powerless to powerful)\\n- intensity: number in [0, 1] (strength of emotional signal)\\n- primary_emotion: string (one of: anger, disgust, fear, joy, neutral, sadness, surprise, trust, anticipation)\\n- secondary_emotion: string or null\\n- emotion_labels: object mapping emotion names to confidence scores (0-1)\\n- confidence: number in [0, 1] (your certainty in this analysis)\\n- language: \\\"de\\\", \\\"en\\\", or \\\"mixed\\\"\\n\\nKeep the JSON compact and valid. Do not include markdown formatting or explanations.\"},{\"role\":\"user\",\"content\":\"An ordinary public sentence for malformed response.\"}]",
+      "answer": "invalid fixture answer"
+    },
+    "09ffee62f0bde811336e6bf4a2229b059f06584efbeca60c92a195299ce658d3": {
+      "promptLine": "[{\"role\":\"system\",\"content\":\"You are an expert emotion analyst. Analyze the emotional content of the user's message.\\nRespond ONLY with a JSON object containing these exact fields:\\n- valence: number in [-1, 1] (negative to positive)\\n- arousal: number in [-1, 1] (calm to excited)\\n- dominance: number in [-1, 1] (powerless to powerful)\\n- intensity: number in [0, 1] (strength of emotional signal)\\n- primary_emotion: string (one of: anger, disgust, fear, joy, neutral, sadness, surprise, trust, anticipation)\\n- secondary_emotion: string or null\\n- emotion_labels: object mapping emotion names to confidence scores (0-1)\\n- confidence: number in [0, 1] (your certainty in this analysis)\\n- language: \\\"de\\\", \\\"en\\\", or \\\"mixed\\\"\\n\\nKeep the JSON compact and valid. Do not include markdown formatting or explanations.\"},{\"role\":\"user\",\"content\":\"An ordinary public sentence awaiting delayed fixture completion.\"}]",
+      "answer": "{\"valence\":0.5,\"arousal\":0.2,\"dominance\":0.1,\"intensity\":0.6,\"primary_emotion\":\"joy\",\"secondary_emotion\":\"trust\",\"emotion_labels\":{\"joy\":0.7,\"trust\":0.3},\"confidence\":0.92,\"language\":\"en\"}"
+    }
+  }
+}

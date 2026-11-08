@@ -1,0 +1,79 @@
+{
+  "provenance": {
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "node": "v24.21.0",
+    "sourceHashes": {
+      "lib/emotion.js": "4fad4d37803bbee8bf95a8d3db11b5e2fdc3b195d617055a8af63a0d52780c27",
+      "lib/emotion-engine.js": "b8d4e60b785c9d19809b7f2bfe67e6d2871dfb1b4699bd96b6ee666391372557",
+      "lib/emotion-score.js": "4f5aff9b4bb80e9673c2d1d0a748bd69f12979e11241f946e0b43e48a0df3573",
+      "lib/tier1-lexicon.js": "b4f0e03d727355e52806cda8761f4b38c3af3dc064a051f804ed99981b3d09f8",
+      "lib/tier2-transformer.js": "f928294f31e1cf5c69ffff8b3a8c98b42af8ccc4205877036895d35acc13a120",
+      "lib/tier3-llm.js": "7749de629deee9a0cc8cd01dc51cb7bbcc6e5a99256b5eb794abf0fd41ab0dc6",
+      "lib/host-network.js": "360b692df2f2c3dc9761cfe73ca5165da4b5416f8b7778b5ec79b1dd253aaf69",
+      "lib/emotion-blends.js": "653021f8048772dc6a2c1da0e60bfef08250bcd61aacf45ba1a9bf379fa7ca29",
+      "lib/abort.js": "435016008fa477f7ed7d3215505324bb3e7159e123ea553b35fb8a14d5a4055d"
+    }
+  },
+  "serialization": [
+    {
+      "input": {},
+      "output": ""
+    },
+    {
+      "input": {
+        "joy": 0.125,
+        "trust": 0.375,
+        "anticipation": 0.625,
+        "sadness": 0.875
+      },
+      "output": "joy:0.13,trust:0.38,anticipation:0.63,sadness:0.88"
+    },
+    {
+      "input": {
+        "joy": 0.005,
+        "trust": 0.015,
+        "anticipation": 0.025,
+        "sadness": 0.035,
+        "disgust": 0.045,
+        "anger": 0.055,
+        "fear": 0.065,
+        "surprise": 0.075
+      },
+      "output": "joy:0.01,trust:0.01,anticipation:0.03,sadness:0.04,disgust:0.04,anger:0.06,fear:0.07,surprise:0.07"
+    },
+    {
+      "input": {
+        "joy": 0.9999999999999999,
+        "trust": 1,
+        "anger": -0.1
+      },
+      "output": "joy:1.00,trust:1.00"
+    }
+  ],
+  "parsing": [
+    {
+      "input": "",
+      "line": "{\"joy\":0,\"trust\":0,\"anticipation\":0,\"sadness\":0,\"disgust\":0,\"anger\":0,\"fear\":0,\"surprise\":0}"
+    },
+    {
+      "input": "joy:0.125,joy:0.375,trust:0.625",
+      "line": "{\"joy\":0.375,\"trust\":0.625,\"anticipation\":0,\"sadness\":0,\"disgust\":0,\"anger\":0,\"fear\":0,\"surprise\":0}"
+    },
+    {
+      "input": "joy: 1e-1tail,trust:.5e+,anger:0x10",
+      "line": "{\"joy\":0.1,\"trust\":0.5,\"anticipation\":0,\"sadness\":0,\"disgust\":0,\"anger\":0,\"fear\":0,\"surprise\":0}"
+    },
+    {
+      "input": "joy:Infinity,trust:NaN,anger:1e99999,fear:-5,surprise:2",
+      "line": "{\"joy\":0,\"trust\":0,\"anticipation\":0,\"sadness\":0,\"disgust\":0,\"anger\":0,\"fear\":0,\"surprise\":1}"
+    },
+    {
+      "input": "alien:1,joy:word, trust:0.4,anger:+.25end",
+      "line": "{\"joy\":0,\"trust\":0,\"anticipation\":0,\"sadness\":0,\"disgust\":0,\"anger\":0.25,\"fear\":0,\"surprise\":0}"
+    },
+    {
+      "input": "joy:0.5:ignored,trust:1e-3x",
+      "line": "{\"joy\":0.5,\"trust\":0.001,\"anticipation\":0,\"sadness\":0,\"disgust\":0,\"anger\":0,\"fear\":0,\"surprise\":0}"
+    }
+  ]
+}

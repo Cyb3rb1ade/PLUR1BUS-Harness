@@ -51,3 +51,19 @@ pub mod pipeline;
 pub mod shared_scope;
 
 mod output_unicode;
+
+/// Ordered lexical blend and transition rules.
+pub mod emotion_blends;
+/// Stateful per-owner emotion tier routing.
+pub mod emotion_engine;
+mod emotion_json;
+/// Ordered legacy emotion columns and compact Lance string projection.
+pub mod emotion_legacy;
+/// Validated lexical/LLM emotional score with Node-order persistence.
+pub mod emotion_score;
+/// Curated English/German lexical emotional classification.
+pub mod tier1;
+/// Deterministic keyword-density second tier; no model is loaded.
+pub mod tier2;
+/// Caller-owned emotion LLM route and exact messages.
+pub mod tier3;
