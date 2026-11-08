@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { defaults } from "@plur1bus/config-schema";
 import { connect, unitAddress } from "@plur1bus/module-api";
 import { createCore } from "../src/core.ts";
+import { acquireCoreLock } from "../src/lock.ts";
 import { layout } from "../src/paths.ts";
 import { flatTestInternals } from "./helpers/flat-embedder.ts";
 import { tempDir } from "./helpers/temp-dir.ts";
@@ -58,4 +59,35 @@ describe("core behind the front door (P4-10 seam)", () => {
     assert.ok(existsSync(l.corePid), "stop leaves the front door's pid file");
     assert.ok(!existsSync(join(l.run, "core-legacy.pid")), "stop removes its own pid file");
   });
+
+  it("stops at once when its lifeline ends before it is ready, instead of finishing its start (security review M3)", async () => {
+    // The front door died while this core was starting: state/core.lock is free again, so every step of the start this
+    // core still took (migrations, the journal replay, the engine) would race the next writer on the stores.
+    const { home, l } = frontDoorHome();
+    const lifeline = new PassThrough();
+    const core = createCore({ home, testInternals: flatTestInternals(), dreams: { scheduler: false }, lifeline, behindFrontDoor: "standalone", onOrphanGraceExpired: () => {} });
+    const start = core.start();
+    lifeline.end();
+    try {
+      await assert.rejects(start, /front door is gone/, "the start is abandoned, never finished");
+    } finally {
+      await core.stop({ budgetMs: 5000 });
+    }
+    assert.equal(core.status().process.state, "stopped");
+    assert.ok(!existsSync(join(l.run, "core-legacy.pid")), "it never got as far as its pid file");
+    acquireCoreLock(join(l.run, "core-legacy.lock"), "next").release(); // and holds no lock: the next legacy core starts
+  });
 });
+
+/** A home as the front door leaves it before it spawns the legacy core. */
+function frontDoorHome(): { home: string; l: ReturnType<typeof layout> } {
+  const home = tempDir("p1b-front-door-");
+  const l = layout(home);
+  mkdirSync(l.run, { recursive: true, mode: 0o700 });
+  const cfg = defaults(); cfg.agents.bernd = {};
+  writeFileSync(l.configPath, JSON.stringify(cfg));
+  writeFileSync(join(l.run, "core-legacy.credentials"), JSON.stringify({ core: hex(), api: hex() }), { mode: 0o600 });
+  writeFileSync(join(l.run, "core-legacy.token"), hex(), { mode: 0o600 });
+  writeFileSync(l.corePid, "4242 7a3a4b2c-0d1e-4f50-9a6b-1c2d3e4f5a6b\n", { mode: 0o600 });
+  return { home, l };
+}

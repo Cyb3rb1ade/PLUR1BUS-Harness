@@ -16,7 +16,7 @@ window that was not reproduced; the entry says which), `info` (a documented diff
 | P4D-2 | An API subscriber does not see the front door's own `core.state` | `packages/core/src/events-map.ts` | low | P4-12 | open |
 | P4D-3 | Before the handshake, a line with a lone surrogate escape is a parse error | `packages/module-api/src/rpc-server.ts` (reference) | info | P4-12 | open |
 | P4D-4 | The front door accepts at most 512 connections at once | `packages/core/src/core.ts` | info | P4-12 | open |
-| P4D-5 | After the front door dies abruptly, the old legacy core stops on its own while a new front door waits; an offline writer could overlap it | `packages/core/src/core.ts` | low | P4-90 | open |
+| P4D-5 | After the front door dies abruptly, the old legacy core stops on its own while a new front door waits | `packages/core/src/core.ts` | low | P4-90 | mitigated in P4-10 (residual cases named) |
 | P4D-6 | The legacy core's Windows pipe keeps Node's default DACL (ADR-012 C2) | `packages/core/src/core.ts` | low | P4-90 | open, contained |
 | P4D-7 | The front door's own diagnostics are plain stderr lines, not log-schema records in `logs/core.log` | `packages/core/src/logger.ts` | info | P4-11 | open |
 | P4D-8 | module-api's `validApiPrincipal` coerces `role` and `kind` with `String()`; the Rust port does not | `packages/module-api/src/api-principal.ts` (reference) | low | P4-12 | open, Rust strict |
@@ -111,12 +111,35 @@ flight). A new front door started in that window takes `state/core.lock`, and it
 once (`run/core-legacy.lock`), and clients see the address refused as they do while a TypeScript core restarts
 (tests/system kill-soak SIGKILLs the front door and passes on the rust leg: no fact lost, none replayed twice).
 
-What the window does not cover: an offline writer that takes only `state/core.lock` (the import worker, a restore) and
-starts within the old legacy core's stop could overlap with it (two writers on the stores). It needs a crash or SIGKILL
-of the front door followed within seconds by such a writer; the supervisor stops the core gracefully before every
-import or restore, and a graceful stop of the front door waits for its legacy core. Not reproduced; severity `low` because
-it touches data safety. Fix options for the owner: the offline writers also take `run/core-legacy.lock` while a front
-door is configured, or the window ends with the legacy core (P4-90).
+Mitigated in P4-10 (security review M3, controller ruling S-M3). Until then every writer that is not the front door took
+only `state/core.lock`, which the kernel frees the moment the front door dies, so a stock TypeScript core (a `core.impl`
+switch to `ts` applies exactly at the restart after such a crash), the import and a restore could start beside the old
+legacy core while it still wrote the stores. Now:
+
+- Every other holder of `state/core.lock` also takes `run/core-legacy.lock`, after `state/core.lock` and without waiting
+  (the same order everywhere, so no two holders can deadlock), and refuses with its existing lock error while it is held:
+  the stock TypeScript core (`acquireCoreLock`, `E_LOCKED core-lock-held`, exit 3, retried by the supervisor), the
+  import's single writer (`withTargetLock`, `target-running`; it also probes `run/core-legacy.pid` like `run/core.pid`)
+  and with it the import's rollback, and `plur1bus backup restore` (`E_LOCKED core-running`, held for the whole swap).
+- The legacy core behind a front door gives up its start when its lifeline ends before it is ready: at the next of its
+  start steps (before its lock, after the engine opened, before it listens) the start fails and cleans up like any failed
+  start, instead of finishing it and then stopping.
+
+Residual cases:
+
+- The legacy core finishes the start step it is in when its front door dies (an engine open, a migration) and then the
+  drain of what was in flight; it holds `run/core-legacy.lock` throughout, so the writers above wait or refuse, and only
+  the next front door's start is delayed (its legacy core exits 3 and is retried for the shutdown budget plus 10 s).
+- The import takes `run/core-legacy.lock` only where `run/` exists and a restore only where the lock file exists (a
+  refused restore must leave the home byte for byte as it was): a legacy core creates both before it opens a store, so
+  only the very first legacy core on a home, in the moments between its spawn and its lock, is not excluded.
+- A legacy core that hangs keeps the lock, and with it every later start, until it is killed: the process binding of
+  P4-10 S-M4 (security review M4) covers that.
+
+Reproduction (now the regression tests): `packages/core/test/lock.test.ts` (a stock core refused while a legacy core
+holds its lock), `packages/core/test/import/single-writer.test.ts`, `packages/core/test/core-front-door.test.ts` (the
+abandoned start) and `crates/plur1bus/tests/backup.rs` `restore_refuses_while_a_legacy_core_still_holds_its_lock`. The
+window itself ends with the legacy core (P4-90).
 
 ## P4D-6 — the legacy core's pipe on Windows
 

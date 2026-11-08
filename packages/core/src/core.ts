@@ -599,6 +599,15 @@ export function createCore(o: CoreOptions): Core {
       log.warn("orphan grace expired, stopping", { graceMs: cfg().supervisor.graceMs });
       if (o.onOrphanGraceExpired) o.onOrphanGraceExpired(); else void stop();
     };
+    // P4-10 (security review M3): behind the front door, a lifeline lost before ready means the front door is gone and
+    // the kernel has freed its state/core.lock. This core then gives up its start at the next of these steps (before its
+    // lock, after the engine opened, before it listens) instead of finishing it: the start fails and cleans up like any
+    // failed start (bin.ts exits 1). A TypeScript core alone keeps the old rule (the grace is applied once it is ready).
+    const abandonIfFrontDoorGone = () => {
+      if (frontDoor && state.state === "starting" && orphans?.orphanedSince != null) {
+        throw new Error("the front door is gone (its lifeline ended before this core was ready): start abandoned");
+      }
+    };
     // Watched from the start (S4), so an adoption during the engine start replaces the spawner's stdin, never the reverse.
     if (o.lifeline) orphans.watchStream(o.lifeline);
     // Spec §6.1 live keys: applied as they arrive. `core.recall.*`, `core.capture.waitMs`, `core.shutdownBudgetMs` and
@@ -622,7 +631,10 @@ export function createCore(o: CoreOptions): Core {
       log.debug("live keys applied", { keys: plan.restart.live });
     });
     try {
-      lock = acquireCoreLock(coreLockPath, instanceId);
+      abandonIfFrontDoorGone();
+      // P4-10 (security review M3): a core that is not behind the front door also takes run/core-legacy.lock, so it
+      // never starts beside a legacy core that outlived its front door (see acquireCoreLock).
+      lock = frontDoor ? acquireCoreLock(coreLockPath, instanceId) : acquireCoreLock(coreLockPath, instanceId, { legacy: path.join(l.run, "core-legacy.lock") });
       assertNoPendingMaintenance(l.home);
       // Under the supervisor the agents follow its configuration; on its own the core follows config.json's edits.
       // Decided per call (M7): a core that fell back to the file and later re-watched switches over, and back.
@@ -667,6 +679,7 @@ export function createCore(o: CoreOptions): Core {
         canMutateConfig: () => cs.source === "supervisor",
       });
       o.inspectHost?.(host);
+      abandonIfFrontDoorGone();
       // A backup restore left rows that may hold memories forgotten since: re-apply the committed tombstones before the engine
       // is built and before the socket listens, so before the first recall. Never throws; a gap leaves the marker and a warning.
       await reapplyTombstonesAfterRestore({ layout: l, baseDbPath: String(engineConfig.baseDbPath), logger, ...(o.tombstoneReapply ? { load: o.tombstoneReapply } : {}) });
@@ -675,6 +688,7 @@ export function createCore(o: CoreOptions): Core {
       const eng = lifecycleEngine(selectedEngine, lifecycle); engine = eng;
       assertEngineContract(eng);
       const es = await eng.status();
+      abandonIfFrontDoorGone();
       cacheEngineStatus(es);
       storeSchema = es.storeSchema;
       if (storeSchema.current !== null && storeSchema.current !== storeSchema.expected) {
@@ -1291,6 +1305,7 @@ export function createCore(o: CoreOptions): Core {
         onCall: (method, result) => metrics.rpcCall(method, result),
       });
 
+      abandonIfFrontDoorGone();
       wroteRunFiles = true;
       if (!frontDoor) {
         writeFileSync(l.coreToken, token, { mode: 0o600 });
