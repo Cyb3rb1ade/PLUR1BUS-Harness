@@ -103,3 +103,6 @@ pub mod deferred_dynamics;
 
 /// Ordered model checks for authorized meaning overlays and factual memory texts.
 pub mod contradiction;
+
+/// Bounded, immutable plans for ordinary retroactive memory weakening.
+pub mod interference;

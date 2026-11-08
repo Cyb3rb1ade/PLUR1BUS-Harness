@@ -1,0 +1,1617 @@
+{
+  "pin": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+  "now": 1735689600000,
+  "sourcesSha256": {
+    "lib/retroactive-interference.js": "226e1d01fd6606683ba24df209ebef7cd0f27426fe3d571a35e8b44df057848f",
+    "lib/memory-dynamics.js": "95c310c6446a168a48333a40d3ad6fcbdd6ce9a54b769a1f1eda04bc3d8495d5"
+  },
+  "cases": [
+    {
+      "name": "ordinary",
+      "candidates": [
+        {
+          "id": "a",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "b",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        }
+      ],
+      "source": {
+        "id": "new",
+        "vector": [
+          1,
+          0
+        ]
+      },
+      "options": {},
+      "calls": [
+        {
+          "kind": "search",
+          "vector": [
+            1,
+            0
+          ],
+          "limit": 6,
+          "threshold": 0.65
+        },
+        {
+          "kind": "update",
+          "id": "a",
+          "patch": {
+            "memoryStrength": 0.7200000000000001,
+            "lastDynamicsAt": 1735689600000
+          }
+        },
+        {
+          "kind": "update",
+          "id": "b",
+          "patch": {
+            "memoryStrength": 0.7200000000000001,
+            "lastDynamicsAt": 1735689600000
+          }
+        }
+      ],
+      "result": {
+        "ok": true,
+        "affected": 2
+      }
+    },
+    {
+      "name": "self-and-missing",
+      "candidates": [
+        {
+          "id": "new",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {},
+        {
+          "id": "a",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        }
+      ],
+      "source": {
+        "id": "new",
+        "vector": [
+          1,
+          0
+        ]
+      },
+      "options": {},
+      "calls": [
+        {
+          "kind": "search",
+          "vector": [
+            1,
+            0
+          ],
+          "limit": 6,
+          "threshold": 0.65
+        },
+        {
+          "kind": "update",
+          "id": "a",
+          "patch": {
+            "memoryStrength": 0.7200000000000001,
+            "lastDynamicsAt": 1735689600000
+          }
+        }
+      ],
+      "result": {
+        "ok": true,
+        "affected": 1
+      }
+    },
+    {
+      "name": "core-markers",
+      "candidates": [
+        {
+          "id": "a",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000,
+          "memoryClass": "core"
+        },
+        {
+          "id": "b",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000,
+          "neverForget": true
+        },
+        {
+          "id": "c",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000,
+          "neverForget": 1
+        },
+        {
+          "id": "d",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000,
+          "neverForget": "1"
+        },
+        {
+          "id": "e",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000,
+          "memoryClass": "CORE"
+        },
+        {
+          "id": "f",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        }
+      ],
+      "source": {
+        "id": "new",
+        "vector": [
+          1,
+          0
+        ]
+      },
+      "options": {},
+      "calls": [
+        {
+          "kind": "search",
+          "vector": [
+            1,
+            0
+          ],
+          "limit": 6,
+          "threshold": 0.65
+        },
+        {
+          "kind": "update",
+          "id": "d",
+          "patch": {
+            "memoryStrength": 0.7200000000000001,
+            "lastDynamicsAt": 1735689600000
+          }
+        },
+        {
+          "kind": "update",
+          "id": "e",
+          "patch": {
+            "memoryStrength": 0.7200000000000001,
+            "lastDynamicsAt": 1735689600000
+          }
+        },
+        {
+          "kind": "update",
+          "id": "f",
+          "patch": {
+            "memoryStrength": 0.7200000000000001,
+            "lastDynamicsAt": 1735689600000
+          }
+        }
+      ],
+      "result": {
+        "ok": true,
+        "affected": 3
+      }
+    },
+    {
+      "name": "max-affected",
+      "candidates": [
+        {
+          "id": "a0",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "a1",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "a2",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "a3",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "a4",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "a5",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "a6",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "a7",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        }
+      ],
+      "options": {
+        "maxAffected": 3
+      },
+      "source": {
+        "id": "new",
+        "vector": [
+          1,
+          0
+        ]
+      },
+      "calls": [
+        {
+          "kind": "search",
+          "vector": [
+            1,
+            0
+          ],
+          "limit": 4,
+          "threshold": 0.65
+        },
+        {
+          "kind": "update",
+          "id": "a0",
+          "patch": {
+            "memoryStrength": 0.7200000000000001,
+            "lastDynamicsAt": 1735689600000
+          }
+        },
+        {
+          "kind": "update",
+          "id": "a1",
+          "patch": {
+            "memoryStrength": 0.7200000000000001,
+            "lastDynamicsAt": 1735689600000
+          }
+        },
+        {
+          "kind": "update",
+          "id": "a2",
+          "patch": {
+            "memoryStrength": 0.7200000000000001,
+            "lastDynamicsAt": 1735689600000
+          }
+        }
+      ],
+      "result": {
+        "ok": true,
+        "affected": 3
+      }
+    },
+    {
+      "name": "zero-affected",
+      "candidates": [
+        {
+          "id": "a",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        }
+      ],
+      "options": {
+        "maxAffected": 0
+      },
+      "source": {
+        "id": "new",
+        "vector": [
+          1,
+          0
+        ]
+      },
+      "calls": [
+        {
+          "kind": "search",
+          "vector": [
+            1,
+            0
+          ],
+          "limit": 1,
+          "threshold": 0.65
+        }
+      ],
+      "result": {
+        "ok": true,
+        "affected": 0
+      }
+    },
+    {
+      "name": "half-life",
+      "candidates": [
+        {
+          "id": "a",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1733097600000
+        },
+        {
+          "id": "b",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1730505600000
+        },
+        {
+          "id": "c",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 871689600000
+        }
+      ],
+      "source": {
+        "id": "new",
+        "vector": [
+          1,
+          0
+        ]
+      },
+      "options": {},
+      "calls": [
+        {
+          "kind": "search",
+          "vector": [
+            1,
+            0
+          ],
+          "limit": 6,
+          "threshold": 0.65
+        },
+        {
+          "kind": "update",
+          "id": "a",
+          "patch": {
+            "memoryStrength": 0.36000000000000004,
+            "lastDynamicsAt": 1735689600000
+          }
+        },
+        {
+          "kind": "update",
+          "id": "b",
+          "patch": {
+            "memoryStrength": 0.18000000000000002,
+            "lastDynamicsAt": 1735689600000
+          }
+        },
+        {
+          "kind": "update",
+          "id": "c",
+          "patch": {
+            "memoryStrength": 0.01,
+            "lastDynamicsAt": 1735689600000
+          }
+        }
+      ],
+      "result": {
+        "ok": true,
+        "affected": 3
+      }
+    },
+    {
+      "name": "strength-floor",
+      "candidates": [
+        {
+          "id": "a",
+          "memoryStrength": 0,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "b",
+          "memoryStrength": 0.01,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "c",
+          "memoryStrength": 1,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        }
+      ],
+      "source": {
+        "id": "new",
+        "vector": [
+          1,
+          0
+        ]
+      },
+      "options": {},
+      "calls": [
+        {
+          "kind": "search",
+          "vector": [
+            1,
+            0
+          ],
+          "limit": 6,
+          "threshold": 0.65
+        },
+        {
+          "kind": "update",
+          "id": "a",
+          "patch": {
+            "memoryStrength": 0.01,
+            "lastDynamicsAt": 1735689600000
+          }
+        },
+        {
+          "kind": "update",
+          "id": "b",
+          "patch": {
+            "memoryStrength": 0.01,
+            "lastDynamicsAt": 1735689600000
+          }
+        },
+        {
+          "kind": "update",
+          "id": "c",
+          "patch": {
+            "memoryStrength": 0.9,
+            "lastDynamicsAt": 1735689600000
+          }
+        }
+      ],
+      "result": {
+        "ok": true,
+        "affected": 3
+      }
+    },
+    {
+      "name": "custom-multiplier",
+      "candidates": [
+        {
+          "id": "a",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "b",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        }
+      ],
+      "options": {
+        "multiplier": 0.5,
+        "threshold": 0.8,
+        "maxAffected": 1
+      },
+      "source": {
+        "id": "new",
+        "vector": [
+          1,
+          0
+        ]
+      },
+      "calls": [
+        {
+          "kind": "search",
+          "vector": [
+            1,
+            0
+          ],
+          "limit": 2,
+          "threshold": 0.8
+        },
+        {
+          "kind": "update",
+          "id": "a",
+          "patch": {
+            "memoryStrength": 0.4,
+            "lastDynamicsAt": 1735689600000
+          }
+        }
+      ],
+      "result": {
+        "ok": true,
+        "affected": 1
+      }
+    },
+    {
+      "name": "zero-multiplier",
+      "candidates": [
+        {
+          "id": "a",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        }
+      ],
+      "options": {
+        "multiplier": 0
+      },
+      "source": {
+        "id": "new",
+        "vector": [
+          1,
+          0
+        ]
+      },
+      "calls": [
+        {
+          "kind": "search",
+          "vector": [
+            1,
+            0
+          ],
+          "limit": 6,
+          "threshold": 0.65
+        },
+        {
+          "kind": "update",
+          "id": "a",
+          "patch": {
+            "memoryStrength": 0.01,
+            "lastDynamicsAt": 1735689600000
+          }
+        }
+      ],
+      "result": {
+        "ok": true,
+        "affected": 1
+      }
+    },
+    {
+      "name": "no-candidates",
+      "candidates": [],
+      "source": {
+        "id": "new",
+        "vector": [
+          1,
+          0
+        ]
+      },
+      "options": {},
+      "calls": [
+        {
+          "kind": "search",
+          "vector": [
+            1,
+            0
+          ],
+          "limit": 6,
+          "threshold": 0.65
+        }
+      ],
+      "result": {
+        "ok": true,
+        "affected": 0
+      }
+    },
+    {
+      "name": "disabled",
+      "candidates": [
+        {
+          "id": "a",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        }
+      ],
+      "options": {
+        "enabled": false
+      },
+      "source": {
+        "id": "new",
+        "vector": [
+          1,
+          0
+        ]
+      },
+      "calls": [],
+      "result": {
+        "ok": true,
+        "affected": 0,
+        "skipped": true,
+        "reason": "disabled"
+      }
+    },
+    {
+      "name": "missing-id",
+      "source": {
+        "vector": [
+          1,
+          0
+        ]
+      },
+      "candidates": [
+        {
+          "id": "a",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        }
+      ],
+      "options": {},
+      "calls": [],
+      "result": {
+        "ok": true,
+        "affected": 0,
+        "skipped": true,
+        "reason": "missing_entry"
+      }
+    },
+    {
+      "name": "missing-vector",
+      "source": {
+        "id": "new"
+      },
+      "candidates": [
+        {
+          "id": "a",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        }
+      ],
+      "options": {},
+      "calls": [],
+      "result": {
+        "ok": true,
+        "affected": 0,
+        "skipped": true,
+        "reason": "missing_entry"
+      }
+    },
+    {
+      "name": "future-clock",
+      "candidates": [
+        {
+          "id": "a",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000,
+          "lastDynamicsAt": 1735776000000
+        }
+      ],
+      "source": {
+        "id": "new",
+        "vector": [
+          1,
+          0
+        ]
+      },
+      "options": {},
+      "calls": [
+        {
+          "kind": "search",
+          "vector": [
+            1,
+            0
+          ],
+          "limit": 6,
+          "threshold": 0.65
+        },
+        {
+          "kind": "update",
+          "id": "a",
+          "patch": {
+            "memoryStrength": 0.7200000000000001,
+            "lastDynamicsAt": 1735689600000
+          }
+        }
+      ],
+      "result": {
+        "ok": true,
+        "affected": 1
+      }
+    },
+    {
+      "name": "dynamics-clock",
+      "candidates": [
+        {
+          "id": "a",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000,
+          "lastDynamicsAt": 1735603200000,
+          "lastStrengthenedAt": 1735689600000
+        },
+        {
+          "id": "b",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000,
+          "lastStrengthenedAt": 1735603200000
+        },
+        {
+          "id": "c",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000,
+          "lastDynamicsAt": 0
+        }
+      ],
+      "source": {
+        "id": "new",
+        "vector": [
+          1,
+          0
+        ]
+      },
+      "options": {},
+      "calls": [
+        {
+          "kind": "search",
+          "vector": [
+            1,
+            0
+          ],
+          "limit": 6,
+          "threshold": 0.65
+        },
+        {
+          "kind": "update",
+          "id": "a",
+          "patch": {
+            "memoryStrength": 0.703555177272657,
+            "lastDynamicsAt": 1735689600000
+          }
+        },
+        {
+          "kind": "update",
+          "id": "b",
+          "patch": {
+            "memoryStrength": 0.703555177272657,
+            "lastDynamicsAt": 1735689600000
+          }
+        },
+        {
+          "kind": "update",
+          "id": "c",
+          "patch": {
+            "memoryStrength": 0.7200000000000001,
+            "lastDynamicsAt": 1735689600000
+          }
+        }
+      ],
+      "result": {
+        "ok": true,
+        "affected": 3
+      }
+    },
+    {
+      "name": "duplicates",
+      "candidates": [
+        {
+          "id": "a",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "a",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        }
+      ],
+      "source": {
+        "id": "new",
+        "vector": [
+          1,
+          0
+        ]
+      },
+      "options": {},
+      "calls": [
+        {
+          "kind": "search",
+          "vector": [
+            1,
+            0
+          ],
+          "limit": 6,
+          "threshold": 0.65
+        },
+        {
+          "kind": "update",
+          "id": "a",
+          "patch": {
+            "memoryStrength": 0.7200000000000001,
+            "lastDynamicsAt": 1735689600000
+          }
+        },
+        {
+          "kind": "update",
+          "id": "a",
+          "patch": {
+            "memoryStrength": 0.7200000000000001,
+            "lastDynamicsAt": 1735689600000
+          }
+        }
+      ],
+      "result": {
+        "ok": true,
+        "affected": 2
+      }
+    },
+    {
+      "name": "empty-vector",
+      "source": {
+        "id": "new",
+        "vector": []
+      },
+      "candidates": [
+        {
+          "id": "a",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        }
+      ],
+      "options": {},
+      "calls": [
+        {
+          "kind": "search",
+          "vector": [],
+          "limit": 6,
+          "threshold": 0.65
+        },
+        {
+          "kind": "update",
+          "id": "a",
+          "patch": {
+            "memoryStrength": 0.7200000000000001,
+            "lastDynamicsAt": 1735689600000
+          }
+        }
+      ],
+      "result": {
+        "ok": true,
+        "affected": 1
+      }
+    },
+    {
+      "name": "invalid-threshold",
+      "options": {
+        "threshold": 1.1
+      },
+      "candidates": [
+        {
+          "id": "a",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        }
+      ],
+      "source": {
+        "id": "new",
+        "vector": [
+          1,
+          0
+        ]
+      },
+      "calls": [
+        {
+          "kind": "search",
+          "vector": [
+            1,
+            0
+          ],
+          "limit": 6,
+          "threshold": 1.1
+        },
+        {
+          "kind": "update",
+          "id": "a",
+          "patch": {
+            "memoryStrength": 0.7200000000000001,
+            "lastDynamicsAt": 1735689600000
+          }
+        }
+      ],
+      "result": {
+        "ok": true,
+        "affected": 1
+      }
+    },
+    {
+      "name": "amplifying-multiplier",
+      "options": {
+        "multiplier": 2
+      },
+      "candidates": [
+        {
+          "id": "a",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        }
+      ],
+      "source": {
+        "id": "new",
+        "vector": [
+          1,
+          0
+        ]
+      },
+      "calls": [
+        {
+          "kind": "search",
+          "vector": [
+            1,
+            0
+          ],
+          "limit": 6,
+          "threshold": 0.65
+        },
+        {
+          "kind": "update",
+          "id": "a",
+          "patch": {
+            "memoryStrength": 1.6,
+            "lastDynamicsAt": 1735689600000
+          }
+        }
+      ],
+      "result": {
+        "ok": true,
+        "affected": 1
+      }
+    },
+    {
+      "name": "over-limit",
+      "options": {
+        "maxAffected": 65
+      },
+      "candidates": [],
+      "source": {
+        "id": "new",
+        "vector": [
+          1,
+          0
+        ]
+      },
+      "calls": [
+        {
+          "kind": "search",
+          "vector": [
+            1,
+            0
+          ],
+          "limit": 66,
+          "threshold": 0.65
+        }
+      ],
+      "result": {
+        "ok": true,
+        "affected": 0
+      }
+    },
+    {
+      "name": "oversized-candidates",
+      "candidates": [
+        {
+          "id": "v0",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v1",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v2",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v3",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v4",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v5",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v6",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v7",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v8",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v9",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v10",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v11",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v12",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v13",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v14",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v15",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v16",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v17",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v18",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v19",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v20",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v21",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v22",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v23",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v24",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v25",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v26",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v27",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v28",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v29",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v30",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v31",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v32",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v33",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v34",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v35",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v36",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v37",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v38",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v39",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v40",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v41",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v42",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v43",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v44",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v45",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v46",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v47",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v48",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v49",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v50",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v51",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v52",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v53",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v54",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v55",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v56",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v57",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v58",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v59",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v60",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v61",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v62",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v63",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v64",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "v65",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        }
+      ],
+      "source": {
+        "id": "new",
+        "vector": [
+          1,
+          0
+        ]
+      },
+      "options": {},
+      "calls": [
+        {
+          "kind": "search",
+          "vector": [
+            1,
+            0
+          ],
+          "limit": 6,
+          "threshold": 0.65
+        },
+        {
+          "kind": "update",
+          "id": "v0",
+          "patch": {
+            "memoryStrength": 0.7200000000000001,
+            "lastDynamicsAt": 1735689600000
+          }
+        },
+        {
+          "kind": "update",
+          "id": "v1",
+          "patch": {
+            "memoryStrength": 0.7200000000000001,
+            "lastDynamicsAt": 1735689600000
+          }
+        },
+        {
+          "kind": "update",
+          "id": "v2",
+          "patch": {
+            "memoryStrength": 0.7200000000000001,
+            "lastDynamicsAt": 1735689600000
+          }
+        },
+        {
+          "kind": "update",
+          "id": "v3",
+          "patch": {
+            "memoryStrength": 0.7200000000000001,
+            "lastDynamicsAt": 1735689600000
+          }
+        },
+        {
+          "kind": "update",
+          "id": "v4",
+          "patch": {
+            "memoryStrength": 0.7200000000000001,
+            "lastDynamicsAt": 1735689600000
+          }
+        }
+      ],
+      "result": {
+        "ok": true,
+        "affected": 5
+      }
+    },
+    {
+      "name": "search-failure",
+      "candidates": [],
+      "failSearch": true,
+      "source": {
+        "id": "new",
+        "vector": [
+          1,
+          0
+        ]
+      },
+      "options": {},
+      "calls": [
+        {
+          "kind": "search",
+          "vector": [
+            1,
+            0
+          ],
+          "limit": 6,
+          "threshold": 0.65
+        }
+      ],
+      "result": {
+        "ok": false,
+        "affected": 0,
+        "error": "synthetic failure"
+      }
+    },
+    {
+      "name": "first-update-failure",
+      "candidates": [
+        {
+          "id": "a",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "b",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        }
+      ],
+      "failUpdate": 0,
+      "source": {
+        "id": "new",
+        "vector": [
+          1,
+          0
+        ]
+      },
+      "options": {},
+      "calls": [
+        {
+          "kind": "search",
+          "vector": [
+            1,
+            0
+          ],
+          "limit": 6,
+          "threshold": 0.65
+        },
+        {
+          "kind": "update",
+          "id": "a",
+          "patch": {
+            "memoryStrength": 0.7200000000000001,
+            "lastDynamicsAt": 1735689600000
+          }
+        }
+      ],
+      "result": {
+        "ok": false,
+        "affected": 0,
+        "error": "synthetic failure"
+      }
+    },
+    {
+      "name": "partial-update-failure",
+      "candidates": [
+        {
+          "id": "a",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "b",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        },
+        {
+          "id": "c",
+          "memoryStrength": 0.8,
+          "halfLifeDays": 30,
+          "createdAt": 1735689600000
+        }
+      ],
+      "failUpdate": 1,
+      "source": {
+        "id": "new",
+        "vector": [
+          1,
+          0
+        ]
+      },
+      "options": {},
+      "calls": [
+        {
+          "kind": "search",
+          "vector": [
+            1,
+            0
+          ],
+          "limit": 6,
+          "threshold": 0.65
+        },
+        {
+          "kind": "update",
+          "id": "a",
+          "patch": {
+            "memoryStrength": 0.7200000000000001,
+            "lastDynamicsAt": 1735689600000
+          }
+        },
+        {
+          "kind": "update",
+          "id": "b",
+          "patch": {
+            "memoryStrength": 0.7200000000000001,
+            "lastDynamicsAt": 1735689600000
+          }
+        }
+      ],
+      "result": {
+        "ok": false,
+        "affected": 0,
+        "error": "synthetic failure"
+      }
+    }
+  ]
+}

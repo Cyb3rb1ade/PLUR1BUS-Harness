@@ -1023,3 +1023,22 @@ complete counting beyond Node's 1,000-line bootstrap. Existing goldens remain
 unchanged. This is post-store observation: pending candidates, MemoryOps.store
 and merge-hook composition, confirmed resolution and ProcessEngine activation
 remain open. Automatic resolver jobs stay in RE-06, outside RX's native primitive.
+
+
+## Frozen interference plans (RX6 / RE-D77)
+
+`capture::interference` separates the actual Node search shape from immutable
+strength patches. Its pure planner preserves candidate order, self/core
+exclusions, one captured clock, exponential decay, multiplier and 0.01 floor.
+Each planned patch carries the exact pre-change candidate snapshot for later
+revision checks. It neither reads nor writes stores and conveys no authority.
+
+Native bounds are 64 affected rows, 65 candidates and 32,768 finite vector
+components. Source and the aggregate candidate set each have a 50,000-node,
+depth-128 and 1,048,576-unit input budget. Duplicate target IDs, invalid options
+and empty vectors refuse. Twenty-four twice-recorded actual Node cases include
+six SHA-bound native refusals and preserve Node's partial-error evidence: a
+second update can fail after the first succeeded, while Node reports affected=0.
+No rollback or durable replay is inferred from a successfully computed plan.
+Actual authorized search, original-caller receipts, revision-checked application
+and MemoryOps.store composition remain separate unfinished work.
