@@ -147,6 +147,10 @@ pub enum StartError {
     Stopped,
 }
 
+/// `CREATE_NO_WINDOW`: the child gets a console of its own that has no window.
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
 /// Spawns the legacy core as the front door's `instance` and waits for its ready line, while `stop` is not set. The
 /// shared instance id is what binds `run/core-legacy.pid` to `run/core.pid` for the peers that check the core's pid
 /// (the tools service). The legacy core's stderr is inherited (it goes where the front door's goes: the supervisor's
@@ -167,6 +171,15 @@ pub fn start(
     // door ends, however it ends.
     #[cfg(unix)]
     plur1bus_rpc::process::die_with_parent(&mut cmd);
+    // Windows (re-review M-d): a console of its own, without a window (`CREATE_NO_WINDOW`), so the console events of
+    // `core run`'s console (Ctrl+C, Ctrl+Break, closing it) reach the front door alone, which stops the pair in order.
+    // Sharing it, Node would end at once on Ctrl+Break and on the close (no listener for SIGBREAK or SIGHUP in `bin.ts`),
+    // without a drain. The lifeline and the pipes are unchanged.
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
     let mut child = cmd.spawn().map_err(StartError::Spawn)?;
     let binding = Binding::of(&child);
     let pid = child.id();

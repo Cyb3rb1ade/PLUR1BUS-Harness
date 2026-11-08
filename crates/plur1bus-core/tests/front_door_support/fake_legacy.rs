@@ -163,10 +163,26 @@ pub fn run(args: &[String]) -> ! {
     // which way the front door stopped it (`shutdown` or `lifeline`), unless a shutdown came first. `hang`: a legacy core
     // whose event loop is stuck notices neither its lifeline nor SIGTERM (security review M4).
     let stopped = run.join("core-legacy.stopped");
-    // Windows: the console events of the front door's process group reach this process too; behind the front door it
-    // stops through the front door (`core.shutdown`, its lifeline), not on its own.
+    // Windows: as Node does for `bin.ts` (re-review M-d): Ctrl+C is SIGINT, which `bin.ts` handles (it stops, 130; a stuck
+    // event loop never runs the handler); Ctrl+Break (SIGBREAK) and closing the console (SIGHUP) have no listener and end
+    // the process at once, without a drain. The front door gives its legacy core a console of its own, so none of them
+    // should arrive here: if one does, the pair does not stop in order and `a_console_break_stops_the_pair_in_order` fails.
     #[cfg(windows)]
-    let _ = plur1bus_rpc::win::on_console_control(|_| true);
+    {
+        let (stopped, hang) = (stopped.clone(), mode == "hang");
+        let _ = plur1bus_rpc::win::on_console_control(move |event| match event {
+            0 if hang => true,
+            0 => {
+                if !stopped.exists() {
+                    let _ = std::fs::write(&stopped, "signal");
+                }
+                std::process::exit(130)
+            }
+            // STATUS_CONTROL_C_EXIT, the default handler's exit.
+            1 | 2 => std::process::exit(0xC000_013A_u32 as i32),
+            _ => false,
+        });
+    }
     if mode == "hang" {
         #[cfg(unix)]
         {

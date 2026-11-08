@@ -1893,6 +1893,8 @@ fn a_stop_without_the_control_link_ends_the_lifeline() {
 /// Task review L5 (Windows only, runs in the `front-door-windows` job): Ctrl+Break (and Ctrl+C, closing the console) on
 /// `plur1bus core run` takes the ordered stop, with SIGINT's code 130, instead of the default handler's instant exit
 /// that left `stopping`, the legacy core's drain and the run files behind. Unix has its signals (`sigterm_stops_the_pair`).
+/// Re-review M-d: the fake legacy core reacts to console events as Node does (Ctrl+Break ends it without a drain), so
+/// this holds only because the front door gives its legacy core a console of its own (`CREATE_NO_WINDOW`).
 fn a_console_break_stops_the_pair_in_order() {
     #[cfg(windows)]
     {
