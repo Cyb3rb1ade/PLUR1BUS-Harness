@@ -187,7 +187,20 @@ pub(super) fn number(value: &Json) -> f64 {
                         .unwrap_or(f64::NAN);
                 }
             }
-            text.parse().unwrap_or(f64::NAN)
+            if matches!(text, "Infinity" | "+Infinity") {
+                return f64::INFINITY;
+            }
+            if text == "-Infinity" {
+                return f64::NEG_INFINITY;
+            }
+            let number = text.parse::<f64>().unwrap_or(f64::NAN);
+            // Rust also accepts `inf` and case variants that ECMAScript Number rejects.
+            // Numeric overflow (e.g. 1e999) is still JavaScript Infinity.
+            if number.is_infinite() && !text.bytes().any(|byte| byte.is_ascii_digit()) {
+                f64::NAN
+            } else {
+                number
+            }
         }
     }
 }

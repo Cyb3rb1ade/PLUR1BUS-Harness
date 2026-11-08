@@ -54,3 +54,6 @@ pub mod memory_guards;
 
 /// S5 committed-tombstone reapplication against an explicitly selected generation.
 pub mod tombstone_reapply;
+
+/// Portable engine snapshot integrity checks and manifest format.
+pub mod snapshot;

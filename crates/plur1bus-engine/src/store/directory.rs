@@ -135,6 +135,55 @@ impl TrustedDirectory {
         child.assert_unchanged()?;
         Ok(child)
     }
+
+    /// Open one ordinary readonly file relative to the held directory, never following
+    /// a leaf link. The caller retains this directory and checks it after consuming bytes.
+    pub(crate) fn open_file(&self, name: &str) -> Result<File, StoreError> {
+        valid_child(name)?;
+        self.assert_unchanged()?;
+        #[cfg(unix)]
+        let file = {
+            use std::os::fd::{AsRawFd, FromRawFd};
+            let name = std::ffi::CString::new(name).map_err(|_| StoreError::InvalidInput)?;
+            // SAFETY: the directory descriptor is held, name is NUL-terminated and flags
+            // open only this child. NONBLOCK prevents a substituted FIFO from hanging.
+            let fd = unsafe {
+                libc::openat(
+                    self.anchor.as_raw_fd(),
+                    name.as_ptr(),
+                    libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_CLOEXEC | libc::O_NONBLOCK,
+                )
+            };
+            if fd < 0 {
+                return Err(directory_open_error(std::io::Error::last_os_error()));
+            }
+            // SAFETY: openat returned one newly owned descriptor.
+            unsafe { File::from_raw_fd(fd) }
+        };
+        #[cfg(windows)]
+        let file = {
+            use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
+            use windows_sys::Win32::Storage::FileSystem::{
+                FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_OPEN_REPARSE_POINT,
+            };
+            let file = OpenOptions::new()
+                .read(true)
+                .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
+                .open(self.physical.join(name))
+                .map_err(io_error)?;
+            if file.metadata().map_err(io_error)?.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT
+                != 0
+            {
+                return Err(StoreError::UntrustedPath);
+            }
+            file
+        };
+        if !file.metadata().map_err(io_error)?.is_file() {
+            return Err(StoreError::UntrustedPath);
+        }
+        self.assert_unchanged()?;
+        Ok(file)
+    }
 }
 
 #[cfg(unix)]
