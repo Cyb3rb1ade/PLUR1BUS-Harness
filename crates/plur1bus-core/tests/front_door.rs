@@ -229,6 +229,8 @@ fn spawn_door(home: &Path, o: &Opts<'_>) -> Child {
         use std::os::unix::process::CommandExt;
         cmd.process_group(0);
     }
+    #[cfg(not(unix))]
+    let _ = o.own_group; // no process groups to signal
     cmd.args(["serve", "--home"]).arg(home);
     if o.lifeline {
         cmd.args([
