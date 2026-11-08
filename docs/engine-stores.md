@@ -22,6 +22,8 @@ reports legacy version `"0"`; an unreadable or unsupported marker is an error.
 | `workspaces/<canonical>/native-hook-state-<binding-sha256>.json` | `neo::session_store` | Native S2 checkpoint extension (RE-D60): exact ownership proof plus `agentEnd` session state. Principal/physical-workspace-bound, with held filesystem identities checked inside the envelope. Replacement/restore identity changes require explicit rebinding; they never silently reset progress. 4 MiB maximum, atomic fsync/replace. Never adopts ownerless Node `hook-state.json` implicitly. |
 | `workspaces/<canonical>/native-capture-pending-<binding-sha256>.json` | `neo::capture_journal` | Native frozen capture plan (RE-D62): physical root/workspace identities and canonical principal proof, plus the exact five journal batches. Atomic fsync before record writes; empty settled plan after journals and both indices are durable. Recovery reauthorizes the original principal; restore/replacement requires explicit rebinding. 64 MiB and 50,000 planned records maximum. |
 | `workspaces/<canonical>/native-episode-pending-<binding-sha256>.json` | `neo::episode_store` | RE-D64 frozen episode rows, source/predecessor digests, session key and exact previous/next checkpoint. Same physical ownership proof as capture. Empty settlement only after durable episode publication and checkpoint commit; pending work is never evicted. |
+| `workspaces/<canonical>/native-embedding-pending-<binding-sha256>.json` | `neo::embedding_drain` | RE-D66 original caller, exact old/new queue and source revisions, vector manifest and binary prefix SHA256/suffix. Retained until durable publication and index refresh; recovered without provider inference. |
+| `workspaces/<canonical>/native-vector-space.json` | `neo::embedding_drain` | Private physical-workspace/model identity binding for the shared Node Float32 sidecar. Nonempty unbound legacy files require explicit migration; dimension alone does not establish model compatibility. |
 | `workspaces/<canonical>/.native-capture-leases/workspace.lock` | shared native kernel lease | Persistent kernel-held workspace lease plus the actual Node `.neo-write.lock`. Caller cancellation and a 300-second ceiling bound a call; every mutation rechecks both leases, physical identity, current host mapping and capture policy. |
 | `workspaces/<canonical>/.native-hook-leases/<state-file>.lock` | shared native kernel lease | Persistent inode; kernel-held exclusive lock, cancellation while waiting, no TTL takeover or unlink on release. Process death releases ownership. |
 | `.neo-write.lock/owner.json` | `store::lock` (private `neo_lock` implementation) | The existing Node directory-lock layout, with its own orphan grace and liveness rules below. |
@@ -590,3 +592,50 @@ Whole-turn recovery and composition of engine checkpoint/drain remain explicit T
 Eight real-file startup tests cover empty/read-only opening, prepared episodes, partial capture,
 two original principals, denied policy, misplaced filenames, orphan temporary files and waiting
 behind a held writer with a cancellation deadline. Existing real SIGKILL suites remain green.
+
+
+### Native embedding publication (RX6 / RE-D66)
+
+`EmbeddingDrain` performs synchronous, bounded Neo queue work through the existing
+`EmbeddingProvider`, `EpisodeStore`, original principal, actual Host and CapturePolicy.
+Both native kernel and actual Node Neo writer leases remain held through selection,
+inference and publication. Current exact queue/source revision and private authority are
+rechecked before each provider disclosure and before freezing the plan. Semantic revision
+ordering prevents a later physical row with an older timestamp from replacing a current
+source. Foreign queue entries are excluded before counts; inaccessible/deleted targets are
+reported as missing without sending their content to the provider.
+
+The caller chooses low/medium/high/critical/all impact. The default is low and 100 attempts;
+zero also selects 100, and more than 1000 refuses. Failed attempts consume the bound, unlike
+Node's success-only cap. Cancellation before plan persistence publishes no partial batch.
+Provider error text is replaced by fixed reasons. Inputs with non-UTF8 text/IDs refuse rather
+than silently embedding a lossy conversion. No LLM job or detached scheduler is created.
+
+A private frozen plan saves original caller/proof, old/new target and queue revisions,
+old/new model-space marker and manifest, complete binary prefix hash and exact appended
+Float32 bytes. Replay first reauthorizes the original caller and validates every source,
+metadata and binary precondition. It then resumes only an identical missing byte suffix,
+fsyncs the file/directory, publishes model binding and Node manifest, appends target revisions,
+then queue statuses, refreshes both indices, and clears the plan. Previously present complete
+bytes/rows are fsynced again before acknowledgement because the previous process might have
+died between write and sync. Vectors remain in Node's memory/behavior/turn grouping; existing
+manifest entries retain insertion order and unchanged offsets. Repeated targets keep all
+vector appends and only their final metadata revision. Old-manifest readers retain their
+unchanged vector prefix; atomic batch visibility across journals is not promised.
+
+The sidecar is workspace-wide. Another binding's open embedding plan blocks a new drain
+until that publication settles, preserving its frozen prefix. Capture of a binding with an
+open embedding plan waits for recovery. `EpisodeStore::recover_pending` now inventories and
+replays embedding plans after prepared episode work; `NativeNeoCaptureHook::open` and
+`EmbeddingDrain::new` finish that prepared work before admission without new inference.
+The low-level EpisodeStore constructor remains read-only. This does not replay the Lance WAL,
+recover unprepared capture work, activate ProcessEngine, automatically schedule drains or
+perform legacy model-space migration/compaction.
+
+Actual C4 Node recordings cover 32 scenarios twice. Native comparison checks 30 matching
+rounds plus explicitly SHA-bound exceptions. Real SIGKILL tests interrupt before binary write,
+after binary sync, after manifest, after target metadata and after queue append. Recovery is
+checked for no new provider calls and no duplicate vectors/rows; separate tests cover partial
+binary tails, source/plan corruption, model changes, revoked original chats, foreign principals,
+links, cancellation and competing pending publications. These are process-death tests, not
+physical power-loss or native Windows acceptance.

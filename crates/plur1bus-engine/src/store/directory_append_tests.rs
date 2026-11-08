@@ -127,3 +127,94 @@ fn a_leaf_replaced_after_open_is_detected_before_the_write() {
         b"replacement"
     );
 }
+
+#[test]
+fn binary_replay_appends_only_missing_suffix_after_an_exact_prefix() {
+    use crate::contract::Cancel;
+    use sha2::{Digest, Sha256};
+    let root = temp();
+    let path = root.path().canonicalize().unwrap();
+    let directory = TrustedDirectory::open(&path).unwrap();
+    let prefix = [1, 2, 3, 4];
+    let suffix = [5, 6, 7, 8];
+    let digest: [u8; 32] = Sha256::digest(prefix).into();
+    for partial in 0..=suffix.len() {
+        let expected = [prefix.as_slice(), suffix.as_slice()].concat();
+        fs::write(
+            path.join("vectors.0.f32"),
+            &expected[..prefix.len() + partial],
+        )
+        .unwrap();
+        let appended = directory
+            .append_binary_replay_durable(
+                "vectors.0.f32",
+                prefix.len() as u64,
+                &digest,
+                &suffix,
+                LIMIT,
+                &Cancel::never(),
+            )
+            .unwrap();
+        assert_eq!(appended, suffix.len() - partial);
+        assert_eq!(fs::read(path.join("vectors.0.f32")).unwrap(), expected);
+        assert_eq!(
+            directory
+                .append_binary_replay_durable(
+                    "vectors.0.f32",
+                    prefix.len() as u64,
+                    &digest,
+                    &suffix,
+                    LIMIT,
+                    &Cancel::never()
+                )
+                .unwrap(),
+            0
+        );
+    }
+}
+#[test]
+fn binary_replay_refuses_changed_prefix_tail_bounds_and_cancel() {
+    use crate::contract::Cancel;
+    use sha2::{Digest, Sha256};
+    let root = temp();
+    let path = root.path().canonicalize().unwrap();
+    let directory = TrustedDirectory::open(&path).unwrap();
+    let prefix = [1, 2, 3, 4];
+    let digest: [u8; 32] = Sha256::digest(prefix).into();
+    for content in [
+        vec![0, 2, 3, 4],
+        vec![1, 2, 3, 4, 9],
+        vec![1],
+        vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
+    ] {
+        fs::write(path.join("vectors.0.f32"), &content).unwrap();
+        assert!(directory
+            .append_binary_replay_durable(
+                "vectors.0.f32",
+                4,
+                &digest,
+                &[5, 6, 7, 8],
+                LIMIT,
+                &Cancel::never()
+            )
+            .is_err());
+        assert_eq!(fs::read(path.join("vectors.0.f32")).unwrap(), content);
+    }
+    let cancel = Cancel::never();
+    cancel.cancel();
+    assert!(directory
+        .append_binary_replay_durable(
+            "absent",
+            0,
+            &Sha256::digest([]).into(),
+            &[1],
+            LIMIT,
+            &cancel
+        )
+        .is_err());
+    assert!(!path.join("absent").exists());
+    assert!(directory
+        .append_binary_replay_durable("absent", 4, &digest, &[5], 4, &Cancel::never())
+        .is_err());
+    assert!(!path.join("absent").exists());
+}

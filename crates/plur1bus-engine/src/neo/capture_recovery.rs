@@ -8,15 +8,17 @@ use crate::text::json::parse_json;
 use std::{collections::HashSet, fs};
 const MAX_CALLERS: usize = 512;
 
-fn pending_kind(name: &str) -> Result<Option<bool>, StoreError> {
+fn pending_kind(name: &str) -> Result<Option<&'static str>, StoreError> {
     // Atomic-write temporary siblings are uncommitted and never recovery authority.
     if !name.ends_with(".json") {
         return Ok(None);
     }
-    let (suffix, episode) = if let Some(s) = name.strip_prefix("native-capture-pending-") {
-        (s, false)
+    let (suffix, prefix) = if let Some(s) = name.strip_prefix("native-capture-pending-") {
+        (s, "native-capture-pending-")
     } else if let Some(s) = name.strip_prefix("native-episode-pending-") {
-        (s, true)
+        (s, "native-episode-pending-")
+    } else if let Some(s) = name.strip_prefix("native-embedding-pending-") {
+        (s, "native-embedding-pending-")
     } else {
         return Ok(None);
     };
@@ -28,7 +30,7 @@ fn pending_kind(name: &str) -> Result<Option<bool>, StoreError> {
     {
         return Err(StoreError::Corrupt);
     }
-    Ok(Some(episode))
+    Ok(Some(prefix))
 }
 fn active_caller(value: &Json, episode: bool) -> Result<Option<Caller>, StoreError> {
     validate_object(value)?;
@@ -100,7 +102,7 @@ impl CaptureJournal {
                     .file_name()
                     .into_string()
                     .map_err(|_| StoreError::UntrustedPath)?;
-                let Some(episode) = pending_kind(&filename)? else {
+                let Some(prefix) = pending_kind(&filename)? else {
                     continue;
                 };
                 let bytes =
@@ -108,17 +110,12 @@ impl CaptureJournal {
                 let value =
                     parse_json(std::str::from_utf8(&bytes).map_err(|_| StoreError::Corrupt)?)
                         .map_err(|_| StoreError::Corrupt)?;
-                let Some(caller) = active_caller(&value, episode)? else {
+                let Some(caller) = active_caller(&value, prefix != "native-capture-pending-")?
+                else {
                     continue;
                 };
                 let binding = self.bind(&caller.principal, &caller.agent)?;
-                let expected = if episode {
-                    binding
-                        .file
-                        .replace("native-capture-pending-", "native-episode-pending-")
-                } else {
-                    binding.file.clone()
-                };
+                let expected = binding.file.replace("native-capture-pending-", prefix);
                 if binding.proof != *field(&value, "ownership")?
                     || binding.layout.canonical != name
                     || expected != filename

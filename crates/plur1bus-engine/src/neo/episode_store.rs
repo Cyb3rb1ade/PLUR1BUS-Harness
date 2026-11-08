@@ -19,6 +19,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[path = "episode_embedding.rs"]
+mod embedding;
 #[path = "episode_recovery.rs"]
 mod recovery;
 pub use recovery::RecoveryReport;

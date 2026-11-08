@@ -181,6 +181,10 @@ pub(super) fn replay(
         check()?;
         dir.append_jsonl_durable("episodes.jsonl", row, journal_io::MAX_BYTES)?;
     }
+    if !episode_plan::array(plan, "episodes")?.is_empty() {
+        check()?;
+        dir.sync_file_durable("episodes.jsonl")?;
+    }
     check()?;
     if !committed {
         checkpoint.commit(next.clone())?;

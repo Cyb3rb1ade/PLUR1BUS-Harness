@@ -10,6 +10,8 @@ pub struct RecoveryReport {
     pub capture_records: usize,
     /// Missing episode revisions appended; checkpoint-only completion can legitimately write zero.
     pub episode_revisions: usize,
+    /// Missing target/queue revisions resumed from prepared embedding plans, without inference.
+    pub embedding_revisions: usize,
 }
 impl EpisodeStore {
     /// Resume existing private plans without synthesizing messages or borrowing a current user.
@@ -37,6 +39,10 @@ impl EpisodeStore {
                 &|| Ok(()),
                 |dir, proof, name, check| self.resume_episode(dir, proof, name, check, &cancel),
             )?;
+            report.embedding_revisions +=
+                self.embedding_transaction(&caller.principal, &caller.agent, &cancel, |session| {
+                    crate::neo::embedding_publication::resume(&session, &cancel)
+                })?;
         }
         Ok(report)
     }

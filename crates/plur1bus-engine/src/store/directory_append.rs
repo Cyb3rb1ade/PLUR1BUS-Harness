@@ -10,6 +10,93 @@ use std::{
 };
 
 impl TrustedDirectory {
+    /// Resume only the exact frozen binary append. Caller owns the writer lease and authorizes
+    /// the payload; a complete prefix digest and every existing suffix byte must match first.
+    pub(crate) fn append_binary_replay_durable(
+        &self,
+        name: &str,
+        prefix_len: u64,
+        prefix_sha: &[u8; 32],
+        suffix: &[u8],
+        max_bytes: usize,
+        cancel: &crate::contract::Cancel,
+    ) -> Result<usize, crate::contract::EngineError> {
+        use sha2::{Digest, Sha256};
+        cancel.check()?;
+        valid_child(name)?;
+        let prefix = usize::try_from(prefix_len).map_err(|_| StoreError::InvalidInput)?;
+        let total = prefix
+            .checked_add(suffix.len())
+            .ok_or(StoreError::InvalidInput)?;
+        if total > max_bytes || (prefix == 0 && *prefix_sha != <[u8; 32]>::from(Sha256::digest([])))
+        {
+            return Err(StoreError::InvalidInput.into());
+        }
+        let mut file = AppendFile::open_mode(self, name, prefix == 0)?;
+        let current = usize::try_from(file.file.metadata().map_err(StoreError::from)?.len())
+            .map_err(|_| StoreError::Corrupt)?;
+        if current < prefix || current > total {
+            return Err(StoreError::Corrupt.into());
+        }
+        file.file
+            .seek(SeekFrom::Start(0))
+            .map_err(StoreError::from)?;
+        let mut buffer = [0; 65536];
+        let mut hashed = 0;
+        let mut sha = Sha256::new();
+        while hashed < prefix {
+            cancel.check()?;
+            let count = (prefix - hashed).min(buffer.len());
+            file.file
+                .read_exact(&mut buffer[..count])
+                .map_err(StoreError::from)?;
+            sha.update(&buffer[..count]);
+            hashed += count;
+        }
+        let digest: [u8; 32] = sha.finalize().into();
+        if &digest != prefix_sha {
+            return Err(StoreError::Corrupt.into());
+        }
+        let present = current - prefix;
+        let mut checked = 0;
+        while checked < present {
+            cancel.check()?;
+            let count = (present - checked).min(buffer.len());
+            file.file
+                .read_exact(&mut buffer[..count])
+                .map_err(StoreError::from)?;
+            if buffer[..count] != suffix[checked..checked + count] {
+                return Err(StoreError::Corrupt.into());
+            }
+            checked += count;
+        }
+        file.check()?;
+        if file.file.metadata().map_err(StoreError::from)?.len() != current as u64 {
+            return Err(StoreError::Unavailable.into());
+        }
+        cancel.check()?;
+        if present < suffix.len() {
+            file.file
+                .write_all(&suffix[present..])
+                .map_err(StoreError::from)?;
+        }
+        // Even a complete suffix may come from a process killed between write and fsync.
+        // Re-acknowledgement must sync it before a caller publishes its manifest.
+        file.file.sync_all().map_err(StoreError::from)?;
+        #[cfg(unix)]
+        self.anchor.sync_all().map_err(StoreError::from)?;
+        file.check()?;
+        Ok(suffix.len() - present)
+    }
+    /// Reconfirm an existing ordinary file's durability before acknowledging recovered rows.
+    pub(crate) fn sync_file_durable(&self, name: &str) -> Result<(), StoreError> {
+        let file = AppendFile::open_mode(self, name, false)?;
+        file.check()?;
+        file.file.sync_all()?;
+        #[cfg(unix)]
+        self.anchor.sync_all()?;
+        file.check()
+    }
     /// Drop only an incomplete final JSONL record under the caller's writer lease. Both lengths
     /// come from a bounded, validated read of this same file; complete malformed lines are errors.
     pub(crate) fn truncate_jsonl_tail(
@@ -22,7 +109,7 @@ impl TrustedDirectory {
             return Err(StoreError::InvalidInput);
         }
         let mut file = AppendFile::open(self, name)?;
-        if file.file.metadata()?.len() != expected {
+        if file.file.metadata().map_err(StoreError::from)?.len() != expected {
             return Err(StoreError::Unavailable);
         }
         if committed > 0 {
@@ -72,9 +159,16 @@ pub(super) struct AppendFile<'a> {
 }
 impl<'a> AppendFile<'a> {
     pub(super) fn open(directory: &'a TrustedDirectory, name: &'a str) -> Result<Self, StoreError> {
+        Self::open_mode(directory, name, true)
+    }
+    fn open_mode(
+        directory: &'a TrustedDirectory,
+        name: &'a str,
+        create: bool,
+    ) -> Result<Self, StoreError> {
         valid_child(name)?;
         directory.assert_unchanged()?;
-        let file = open_child(directory, name)?;
+        let file = open_child(directory, name, create)?;
         let identity = identity(&file)?;
         let out = Self {
             directory,
@@ -116,7 +210,7 @@ impl<'a> AppendFile<'a> {
 }
 
 #[cfg(unix)]
-fn open_child(directory: &TrustedDirectory, name: &str) -> Result<File, StoreError> {
+fn open_child(directory: &TrustedDirectory, name: &str, create: bool) -> Result<File, StoreError> {
     use std::os::fd::{AsRawFd, FromRawFd};
     let name = std::ffi::CString::new(name).map_err(|_| StoreError::InvalidInput)?;
     // SAFETY: both the held directory descriptor and NUL-terminated child name are live.
@@ -127,7 +221,7 @@ fn open_child(directory: &TrustedDirectory, name: &str) -> Result<File, StoreErr
             name.as_ptr(),
             libc::O_RDWR
                 | libc::O_APPEND
-                | libc::O_CREAT
+                | if create { libc::O_CREAT } else { 0 }
                 | libc::O_NOFOLLOW
                 | libc::O_CLOEXEC
                 | libc::O_NONBLOCK,
@@ -141,7 +235,7 @@ fn open_child(directory: &TrustedDirectory, name: &str) -> Result<File, StoreErr
     Ok(unsafe { File::from_raw_fd(fd) })
 }
 #[cfg(windows)]
-fn open_child(directory: &TrustedDirectory, name: &str) -> Result<File, StoreError> {
+fn open_child(directory: &TrustedDirectory, name: &str, create: bool) -> Result<File, StoreError> {
     use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
     use windows_sys::Win32::Storage::FileSystem::{
         FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_OPEN_REPARSE_POINT,
@@ -150,7 +244,7 @@ fn open_child(directory: &TrustedDirectory, name: &str) -> Result<File, StoreErr
         .read(true)
         .write(true)
         .append(true)
-        .create(true)
+        .create(create)
         .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
         .open(directory.path().join(name))
         .map_err(directory_open_error)?;

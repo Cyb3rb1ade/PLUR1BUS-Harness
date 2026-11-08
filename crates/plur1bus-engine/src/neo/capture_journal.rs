@@ -193,6 +193,15 @@ impl CaptureJournal {
                 };
                 self.replay(&binding, &directory, cancel, &check)?;
                 check()?;
+                // Prepared embedding metadata must settle before a new capture can change its
+                // sources. EpisodeStore/EmbeddingDrain startup recovery owns that ordering.
+                let pending = binding
+                    .file
+                    .replace("native-capture-pending-", "native-embedding-pending-");
+                if super::episode_io::read(&directory, &pending, &binding.proof, cancel)?.is_some()
+                {
+                    return Err(StoreError::Busy.into());
+                }
                 let now = Utc
                     .timestamp_millis_opt(self.host.now_ms())
                     .single()
@@ -371,6 +380,10 @@ impl CaptureJournal {
                     directory.append_jsonl_durable(FILES[index], row, journal_io::MAX_BYTES)?;
                     counts[index] += 1;
                 }
+            }
+            if !group.is_empty() {
+                check()?;
+                directory.sync_file_durable(FILES[index])?;
             }
         }
         // Rebuild from current authoritative candidates, never the stale plan's candidate snapshot.
