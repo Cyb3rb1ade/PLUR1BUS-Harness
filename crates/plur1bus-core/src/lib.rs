@@ -473,6 +473,8 @@ fn control_link(
         .spawn(move || {
             while let Ok(frame::Line::Data(_)) = frame::read_line(&mut reader) {}
             ended.store(true, Ordering::SeqCst);
+            // After the flag: once this line is out, a stop takes the lifeline path (task review L1, re-review M-e).
+            server::log("info", "the control link ended", Value::Null);
         })
         .map_err(|e| e.to_string())?;
     Ok((Control { link, gone }, contract))

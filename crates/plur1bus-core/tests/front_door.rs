@@ -358,6 +358,19 @@ impl Door {
     fn stderr(&self) -> String {
         self.stderr.lock().unwrap().clone()
     }
+    /// Waits until the front door's stderr contains `needle`; panics with the stderr when `within` passes first.
+    #[cfg(unix)]
+    fn await_stderr(&self, needle: &str, within: Duration) {
+        let until = Instant::now() + within;
+        while !self.stderr().contains(needle) {
+            assert!(
+                Instant::now() < until,
+                "no {needle:?} within {within:?}; stderr: {}",
+                self.stderr()
+            );
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    }
 }
 
 impl Drop for Door {
@@ -1859,7 +1872,9 @@ fn a_stop_without_the_control_link_ends_the_lifeline() {
             mode: "drop-control",
             ..Opts::default()
         });
-        std::thread::sleep(Duration::from_millis(600)); // the control link ends 300 ms after its handshake
+        // Re-review M-e: the control link ends 300 ms after its handshake; the stop begins once the front door has read
+        // its end (it logs that after setting the flag `stop` reads), not after a fixed sleep.
+        d.await_stderr("the control link ended", Duration::from_secs(5));
         kill(&d.pid().to_string(), "-TERM");
         assert_eq!(d.wait(Duration::from_secs(5)), Some(0), "{}", d.stderr());
         assert_eq!(d.token("core-legacy.stopped"), "lifeline");
