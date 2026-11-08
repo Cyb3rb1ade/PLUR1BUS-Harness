@@ -492,6 +492,8 @@ struct Gen {
     last_ok: Mutex<Instant>,
     /// `Some` for an adopted core (then `process` and `stdin` are `None`): the pid the OS named as its server.
     peer: Option<Peer>,
+    /// The core's home (the core slot only): a Rust front door's legacy core is killed with it ([`Gen::kill`]).
+    legacy_home: Option<Layout>,
     /// Adopted core: `control` still holds the lifeline connection.
     lifeline_in_control: AtomicBool,
     /// Adopted core: the lifeline failed (EOF, timeout, I/O error), so the waiter checks whether the process is gone.
@@ -516,13 +518,22 @@ impl Gen {
     /// SIGKILL / TerminateProcess, unless it has already exited. Unix: to the core's whole process group (the core
     /// leads one, `process_group(0)` in [`Monitor::spawn`]), so what the core started does not outlive it; the pid
     /// alone when no group signal could be sent. An adopted core only while the OS still names its pid as the core
-    /// socket's server ([`Peer::kill_tree`]). Windows: the process alone (no job object).
+    /// socket's server ([`Peer::kill_tree`]). Windows: the process alone (no job object of the supervisor's).
+    ///
+    /// Phase 4 (P4-10 security review M4): where the group does not reach a Rust front door's legacy core (an adopted
+    /// front door, and Windows), the legacy core `run/core-legacy.pid` names is killed too
+    /// ([`super::adopt::legacy_core_of`], looked up before the front door goes), so a hung one cannot outlive it.
     fn kill(&self) {
+        let legacy = if self.peer.is_some() || cfg!(windows) {
+            self.legacy_home
+                .as_ref()
+                .and_then(|home| super::adopt::legacy_core_of(home, self.pid))
+        } else {
+            None
+        };
         if let Some(p) = &self.peer {
             p.kill_tree();
-            return;
-        }
-        if let Some(c) = relock(&self.process).as_mut() {
+        } else if let Some(c) = relock(&self.process).as_mut() {
             // Not yet reaped (the lock is held, so only this call could reap it): its pid is still the group's id and
             // its leader. An exited one is swept by the waiter ([`sweep_group`]).
             #[cfg(unix)]
@@ -530,6 +541,9 @@ impl Gen {
                 signal_led_group(self.pid, libc::SIGKILL);
             }
             let _ = c.kill();
+        }
+        if let Some(legacy) = legacy {
+            legacy.kill();
         }
     }
     /// SIGTERM, unless it has already exited: to the core's process group like [`Gen::kill`]. The process is not
@@ -570,6 +584,11 @@ pub struct Monitor {
 }
 
 impl Monitor {
+    /// The home a generation of this slot kills a Rust front door's legacy core in ([`Gen::kill`]): the core slot's only.
+    fn legacy_home(&self) -> Option<Layout> {
+        (self.ctx.role.kind == RoleKind::Core).then(|| self.ctx.layout.clone())
+    }
+
     /// Spawns `role`'s child at once. The first process gets the spec's own `--instance`, each later one a fresh id.
     pub fn start(shared: Arc<Shared>, layout: &Layout, role: Role, spec: ChildSpec) -> Monitor {
         let mut m = Monitor::new(shared, layout, Some(spec), role);
@@ -622,6 +641,7 @@ impl Monitor {
             exited: AtomicBool::new(false),
             last_ok: Mutex::new(now),
             peer: Some(peer),
+            legacy_home: m.legacy_home(),
             lifeline_in_control: AtomicBool::new(true),
             lifeline_lost: AtomicBool::new(false),
             parked: Mutex::new(None),
@@ -930,6 +950,7 @@ impl Monitor {
             exited: AtomicBool::new(false),
             last_ok: Mutex::new(Instant::now()),
             peer: None,
+            legacy_home: self.legacy_home(),
             lifeline_in_control: AtomicBool::new(false),
             lifeline_lost: AtomicBool::new(false),
             parked: Mutex::new(None),
@@ -2336,6 +2357,7 @@ mod tests {
             exited: AtomicBool::new(false),
             last_ok: Mutex::new(Instant::now()),
             peer: None,
+            legacy_home: None,
             lifeline_in_control: AtomicBool::new(false),
             lifeline_lost: AtomicBool::new(false),
             parked: Mutex::new(None),

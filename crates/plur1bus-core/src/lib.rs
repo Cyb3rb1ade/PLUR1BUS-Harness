@@ -76,6 +76,9 @@ pub enum ServeError {
     AddressInUse(String),
     /// The legacy core exited before it was ready, with this status.
     LegacyExited(ExitStatus),
+    /// The legacy core kept exiting 3: an older legacy core still holds `run/core-legacy.lock` (`E_LOCKED`, exit 3); the
+    /// pid `run/core-legacy.pid` names, if any (security review M4).
+    LegacyLocked(Option<u32>),
     /// The legacy core could not be started or did not say it was ready properly.
     Legacy(String),
     /// Anything else that stopped the start (run files, schema, the listener).
@@ -89,7 +92,7 @@ impl ServeError {
     /// contract); the stop's code for a stop while starting; else 1.
     pub fn exit_code(&self) -> i32 {
         match self {
-            ServeError::Locked => 3,
+            ServeError::Locked | ServeError::LegacyLocked(_) => 3,
             ServeError::LegacyExited(s) => s.code().filter(|c| (2..=4).contains(c)).unwrap_or(1),
             ServeError::Stopped(code) => *code,
             _ => 1,
@@ -104,6 +107,14 @@ impl fmt::Display for ServeError {
             Self::Locked => write!(f, "another core holds the lock (database is locked)"),
             Self::AddressInUse(a) => write!(f, "address in use: {a}"),
             Self::LegacyExited(s) => write!(f, "the legacy core exited before it was ready ({s})"),
+            Self::LegacyLocked(Some(pid)) => write!(
+                f,
+                "another legacy core (pid {pid}, run/core-legacy.pid) holds run/core-legacy.lock (database is locked)"
+            ),
+            Self::LegacyLocked(None) => write!(
+                f,
+                "another legacy core holds run/core-legacy.lock (database is locked); run/core-legacy.pid names none"
+            ),
             Self::Legacy(e) => write!(f, "the legacy core did not start: {e}"),
             Self::Start(e) => write!(f, "start failed: {e}"),
             Self::Stopped(_) => write!(f, "stopped while starting"),
@@ -163,10 +174,12 @@ pub fn serve(plan: &ServePlan) -> Result<i32, ServeError> {
                 return Err(e);
             }
         };
+    // `binding` lives until the legacy core is gone: on Windows its drop would end it.
     let legacy::Legacy {
         child,
         pid: legacy_pid,
         lifeline,
+        binding,
         ..
     } = legacy;
     // Ready: the state, the ready line (the TypeScript core's shape), then connections and the lifeline.
@@ -225,6 +238,7 @@ pub fn serve(plan: &ServePlan) -> Result<i32, ServeError> {
         }
     };
     let code = stop(&front, &child, &control, lifeline, request);
+    binding.release();
     run_files::remove_owned(&files);
     drop(lock);
     Ok(code)
@@ -276,6 +290,7 @@ fn start(
     let spec = legacy::LegacySpec::from_env(&files.home, plan.lifeline);
     let retry_until = Instant::now() + timings.shutdown_budget + LEGACY_LOCK_RETRY_MARGIN;
     let mut stop_code = None;
+    let mut holder_reported = false;
     let mut legacy = loop {
         let mut stop_requested = || match events.try_recv() {
             Ok(Event::Stop { ok_code, .. }) => {
@@ -289,8 +304,22 @@ fn start(
             Err(legacy::StartError::Exited(status))
                 if status.code() == Some(3) && Instant::now() < retry_until =>
             {
-                // A legacy core of the previous front door is still stopping and holds its lock: wait for it.
+                // A legacy core of the previous front door is still stopping and holds its lock: wait for it, and say
+                // which one (security review M4: the lock is run/core-legacy.lock, not state/core.lock, held here).
+                if !std::mem::replace(&mut holder_reported, true) {
+                    let holder = legacy_holder(files);
+                    server::log(
+                        "warn",
+                        "an older legacy core holds run/core-legacy.lock; waiting for it to stop",
+                        json!({"lock": "run/core-legacy.lock", "holderPid": holder.as_ref().map(|h| h.0),
+                            "holderInstance": holder.as_ref().map(|h| h.1.clone()),
+                            "waitMs": u64::try_from(retry_until.saturating_duration_since(Instant::now()).as_millis()).unwrap_or(u64::MAX)}),
+                    );
+                }
                 std::thread::sleep(Duration::from_millis(500));
+            }
+            Err(legacy::StartError::Exited(status)) if status.code() == Some(3) => {
+                return Err(ServeError::LegacyLocked(legacy_holder(files).map(|h| h.0)))
             }
             Err(legacy::StartError::Exited(status)) => {
                 return Err(ServeError::LegacyExited(status))
@@ -344,6 +373,15 @@ fn start(
         capacity,
     ));
     Ok((front, listener, legacy, control.0))
+}
+
+/// The pid and instance `run/core-legacy.pid` records (the legacy core that holds `run/core-legacy.lock`, when another
+/// one's start exits 3).
+fn legacy_holder(files: &RunFiles) -> Option<(u32, String)> {
+    let text = std::fs::read_to_string(&files.legacy_pid).ok()?;
+    let mut fields = text.split_whitespace();
+    let pid = fields.next()?.parse().ok()?;
+    Some((pid, fields.next().unwrap_or_default().to_owned()))
 }
 
 /// The stale-socket probe (POSIX): a socket file nobody answers on is removed; one that answers refuses the start, as

@@ -8,7 +8,9 @@
 //! the front door's: it is in the front door's process group (the supervisor's group kill covers it), it stops at once
 //! when its lifeline closes, and an unexpected exit of it ends the front door too, so the supervisor restarts the pair
 //! with its existing backoff, adoption and hang handling unchanged. `plur1bus core run` gets the same pair without a
-//! supervisor.
+//! supervisor. A legacy core that hangs notices no lifeline, so the OS ties it to the front door as well (security
+//! review M4, [`Binding`]): Linux by a parent-death signal, Windows by a job object; on macOS the supervisor's and
+//! 1staid's kill paths also kill the pid in `run/core-legacy.pid`.
 use crate::lifecycle::relock;
 use std::ffi::OsString;
 use std::io::{self, BufRead, BufReader, Write};
@@ -86,6 +88,47 @@ pub struct Legacy {
     /// The write end of its stdin: its lifeline. Dropping it (or this process ending) orphans the legacy core, which
     /// then stops at once.
     pub lifeline: Option<ChildStdin>,
+    /// What ties its life to this process; keep it until the legacy core is gone (dropping it on Windows kills it).
+    pub binding: Binding,
+}
+
+/// What ties the legacy core's life to the front door's at the OS level (P4-10 security review M4), so a hung legacy
+/// core does not outlive a killed front door, holding `run/core-legacy.lock` and the stores: Linux arms
+/// `PR_SET_PDEATHSIG(SIGKILL)` in the child (`plur1bus_rpc::process::die_with_parent`), Windows assigns it to a job
+/// object that kills on close (this value holds it). macOS has neither; there the supervisor's and 1staid's kill paths
+/// also kill the pid in `run/core-legacy.pid`.
+pub struct Binding {
+    #[cfg(windows)]
+    _job: Option<plur1bus_rpc::win::KillOnClose>,
+}
+
+impl Binding {
+    /// Ends the binding once the legacy core is gone (Windows: closes the job, which ends anything still in it).
+    pub fn release(self) {
+        #[cfg(windows)]
+        drop(self._job);
+    }
+
+    fn of(child: &Child) -> Binding {
+        #[cfg(windows)]
+        {
+            let job = plur1bus_rpc::win::KillOnClose::assign(child)
+                .map_err(|e| {
+                    crate::server::log(
+                        "warn",
+                        "cannot bind the legacy core to the front door (job object); it may outlive a killed front door",
+                        serde_json::json!({"err": e.to_string()}),
+                    );
+                })
+                .ok();
+            Binding { _job: job }
+        }
+        #[cfg(not(windows))]
+        {
+            let _ = child;
+            Binding {}
+        }
+    }
 }
 
 /// Why the legacy core did not become ready.
@@ -113,13 +156,17 @@ pub fn start(
     stop: &mut dyn FnMut() -> bool,
 ) -> Result<Legacy, StartError> {
     let instance = instance.to_owned();
-    let mut child = Command::new(&spec.node)
-        .args(spec.args(&instance))
+    let mut cmd = Command::new(&spec.node);
+    cmd.args(spec.args(&instance))
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
-        .spawn()
-        .map_err(StartError::Spawn)?;
+        .stderr(Stdio::inherit());
+    // Called on the main thread (`serve`), which ends only with the process: the parent-death signal fires when the front
+    // door ends, however it ends.
+    #[cfg(unix)]
+    plur1bus_rpc::process::die_with_parent(&mut cmd);
+    let mut child = cmd.spawn().map_err(StartError::Spawn)?;
+    let binding = Binding::of(&child);
     let pid = child.id();
     let lifeline = child.stdin.take();
     let stdout = child.stdout.take();
@@ -151,6 +198,7 @@ pub fn start(
         pid,
         instance,
         lifeline,
+        binding,
     };
     loop {
         match rx.recv_timeout(Duration::from_millis(50)) {

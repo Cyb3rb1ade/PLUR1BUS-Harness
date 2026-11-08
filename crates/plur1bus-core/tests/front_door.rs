@@ -145,6 +145,14 @@ fn main() {
             "a_request_id_that_is_no_integer_or_string_is_an_invalid_request",
             a_request_id_that_is_no_integer_or_string_is_an_invalid_request,
         ),
+        (
+            "a_hung_legacy_core_dies_with_its_killed_front_door",
+            a_hung_legacy_core_dies_with_its_killed_front_door,
+        ),
+        (
+            "a_held_legacy_lock_is_reported_with_its_file_and_holder",
+            a_held_legacy_lock_is_reported_with_its_file_and_holder,
+        ),
     ];
     let mut failed = Vec::new();
     for (name, test) in tests {
@@ -1652,4 +1660,94 @@ fn a_request_id_that_is_no_integer_or_string_is_an_invalid_request() {
         c.call("core.status", json!({})).get("result").is_some(),
         "the connection stays"
     );
+}
+
+/// Security review M4: the legacy core lives no longer than its front door, also when the front door is killed and the
+/// legacy core is hung (it notices neither its lifeline nor SIGTERM, fake mode `hang`). Linux: `PR_SET_PDEATHSIG` in
+/// the legacy core's `pre_exec`; Windows: a job object that kills on close. macOS has neither: there the supervisor's
+/// and 1staid's kill paths kill the pid in `run/core-legacy.pid` (`crates/plur1bus` `adopt::legacy_core_of`), so this
+/// scenario does nothing on macOS (a named `cfg` gap; the Linux leg and the Windows job run it).
+fn a_hung_legacy_core_dies_with_its_killed_front_door() {
+    if !cfg!(any(target_os = "linux", windows)) {
+        println!("  (skipped: no parent-death binding on this OS)");
+        return;
+    }
+    let mut d = door(Opts {
+        mode: "hang",
+        ..Opts::default()
+    });
+    let legacy: u32 = d
+        .token("core-legacy.pid")
+        .split_whitespace()
+        .next()
+        .unwrap()
+        .parse()
+        .unwrap();
+    d.child.kill().unwrap(); // SIGKILL / TerminateProcess: no stop path of the front door runs
+    let _ = d.child.wait();
+    let until = Instant::now() + Duration::from_secs(1);
+    while plur1bus_rpc::process::alive(legacy) != plur1bus_rpc::process::Liveness::Gone {
+        assert!(
+            Instant::now() < until,
+            "the hung legacy core {legacy} outlived its front door by a second"
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    }
+}
+
+/// Security review M4: a legacy core that exits 3 finds `run/core-legacy.lock` held by an older legacy core. The front
+/// door names that file and the holder `run/core-legacy.pid` records, not `state/core.lock` (which it holds itself).
+fn a_held_legacy_lock_is_reported_with_its_file_and_holder() {
+    let home = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(home.path().join("run")).unwrap();
+    // The record of an older legacy core that outlived its front door (a live process: this test).
+    std::fs::write(
+        home.path().join("run/core-legacy.pid"),
+        format!(
+            "{} 5d0f6c1e-2b3a-4c5d-8e9f-0a1b2c3d4e5f\n",
+            std::process::id()
+        ),
+    )
+    .unwrap();
+    let mut child = spawn_door(
+        home.path(),
+        &Opts {
+            mode: "exit:3",
+            ..Opts::default()
+        },
+    );
+    let stderr = child.stderr.take().unwrap();
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        for line in BufReader::new(stderr).lines() {
+            let Ok(line) = line else { break };
+            if tx.send(line).is_err() {
+                break;
+            }
+        }
+    });
+    let until = Instant::now() + Duration::from_secs(10);
+    let mut seen = Vec::new();
+    let line = loop {
+        let left = until.saturating_duration_since(Instant::now());
+        match rx.recv_timeout(left) {
+            Ok(line) if line.contains("core-legacy.lock") => break line,
+            Ok(line) => seen.push(line),
+            Err(_) => {
+                let _ = child.kill();
+                panic!("no line names run/core-legacy.lock: {seen:?}");
+            }
+        }
+    };
+    let _ = child.kill();
+    let _ = child.wait();
+    assert!(
+        line.contains(&format!("\"holderPid\":{}", std::process::id())),
+        "{line}"
+    );
+    assert!(
+        line.contains("5d0f6c1e-2b3a-4c5d-8e9f-0a1b2c3d4e5f"),
+        "{line}"
+    );
+    assert!(!line.contains("state/core.lock"), "{line}");
 }

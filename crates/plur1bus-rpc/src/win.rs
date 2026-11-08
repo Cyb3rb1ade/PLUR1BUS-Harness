@@ -681,6 +681,82 @@ impl OverlappedPipe {
     }
 }
 
+/// A job object whose processes are terminated when its last handle closes (`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`): when
+/// this value is dropped or this process ends, abruptly (`TerminateProcess`) included. P4-10 security review M4: the
+/// legacy core behind the Rust front door dies with it. Keep the value for as long as the assigned process may live.
+pub struct KillOnClose {
+    /// Held, never read: closing it is what ends the job's processes.
+    _job: OwnedHandle,
+}
+
+impl KillOnClose {
+    /// A new job with that limit, `child` assigned to it (nested jobs need Windows 8; on failure the child is not
+    /// bound and keeps running).
+    pub fn assign(child: &std::process::Child) -> io::Result<KillOnClose> {
+        use windows_sys::Win32::System::JobObjects::{
+            AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
+            SetInformationJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+            JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+        };
+        // SAFETY: an anonymous job with the default security; a null handle is an error.
+        let job = unsafe { CreateJobObjectW(std::ptr::null(), std::ptr::null()) };
+        if job.is_null() {
+            return Err(io::Error::last_os_error());
+        }
+        // SAFETY: `job` is a new handle this value owns from here on.
+        let job = unsafe { OwnedHandle::from_raw_handle(job) };
+        // SAFETY: plain-old-data; all zero is "no limit" for every other field.
+        let mut limits: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = unsafe { std::mem::zeroed() };
+        limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        // SAFETY: `limits` is a live value of exactly the size passed, read only during the call.
+        let set = unsafe {
+            SetInformationJobObject(
+                job.as_raw_handle(),
+                JobObjectExtendedLimitInformation,
+                (&limits as *const JOBOBJECT_EXTENDED_LIMIT_INFORMATION).cast(),
+                std::mem::size_of_val(&limits) as u32,
+            )
+        };
+        if set == 0 {
+            return Err(io::Error::last_os_error());
+        }
+        // SAFETY: both handles are open for the call: the job is ours, the process handle the caller's child's.
+        if unsafe { AssignProcessToJobObject(job.as_raw_handle(), child.as_raw_handle()) } == 0 {
+            return Err(io::Error::last_os_error());
+        }
+        Ok(KillOnClose { _job: job })
+    }
+}
+
+#[cfg(test)]
+mod kill_on_close_tests {
+    use super::*;
+
+    /// Dropping the job (what the end of the holding process does) ends the process assigned to it at once.
+    #[test]
+    fn closing_the_job_ends_its_process() {
+        let mut child = std::process::Command::new("cmd")
+            .args(["/C", "ping -n 30 127.0.0.1 >NUL"])
+            .spawn()
+            .unwrap();
+        let job = KillOnClose::assign(&child).unwrap();
+        std::thread::sleep(Duration::from_millis(200));
+        assert!(
+            child.try_wait().unwrap().is_none(),
+            "running while the job is held"
+        );
+        drop(job);
+        let deadline = Instant::now() + Duration::from_secs(1);
+        while child.try_wait().unwrap().is_none() {
+            assert!(
+                Instant::now() < deadline,
+                "the process outlived its job by a second"
+            );
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    }
+}
+
 #[cfg(test)]
 mod strict_dacl_tests {
     use super::*;

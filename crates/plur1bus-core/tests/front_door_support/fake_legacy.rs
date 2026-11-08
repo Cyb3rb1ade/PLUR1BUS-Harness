@@ -159,15 +159,24 @@ pub fn run(args: &[String]) -> ! {
     .unwrap();
     out.flush().unwrap();
     // The lifeline: the front door holds stdin; behind a front door there is no grace. `run/core-legacy.stopped` says
-    // which way the front door stopped it (`shutdown` or `lifeline`), unless a shutdown came first.
+    // which way the front door stopped it (`shutdown` or `lifeline`), unless a shutdown came first. `hang`: a legacy core
+    // whose event loop is stuck notices neither its lifeline nor SIGTERM (security review M4).
     let stopped = run.join("core-legacy.stopped");
-    std::thread::spawn(move || {
-        let _ = std::io::copy(&mut std::io::stdin().lock(), &mut std::io::sink());
-        if !stopped.exists() {
-            let _ = std::fs::write(&stopped, "lifeline");
+    if mode == "hang" {
+        #[cfg(unix)]
+        {
+            let _ = signal_hook::flag::register(signal_hook::consts::SIGTERM, Default::default());
+            let _ = signal_hook::flag::register(signal_hook::consts::SIGINT, Default::default());
         }
-        std::process::exit(0);
-    });
+    } else {
+        std::thread::spawn(move || {
+            let _ = std::io::copy(&mut std::io::stdin().lock(), &mut std::io::sink());
+            if !stopped.exists() {
+                let _ = std::fs::write(&stopped, "lifeline");
+            }
+            std::process::exit(0);
+        });
+    }
     let mut listener = Some(listener);
     let mut accepted = 0_u32;
     loop {

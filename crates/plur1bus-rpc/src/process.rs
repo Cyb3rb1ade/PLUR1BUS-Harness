@@ -309,6 +309,87 @@ fn invalid_process_data() -> io::Error {
     )
 }
 
+/// The parent of `pid` as the OS reports it now: Linux `/proc/<pid>/stat`, macOS `proc_pidinfo(PROC_PIDTBSDINFO)`.
+/// `None` when it cannot be read (no such process) and on Windows, which keeps no live parent link (callers fall back to
+/// another check there).
+pub fn parent_pid(pid: u32) -> Option<u32> {
+    platform_parent(pid)
+}
+
+#[cfg(target_os = "linux")]
+fn platform_parent(pid: u32) -> Option<u32> {
+    let text = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
+    // `<pid> (<comm>) <state> <ppid> ...`; the command name may itself hold spaces and parentheses.
+    text.get(text.rfind(')')? + 1..)?
+        .split_whitespace()
+        .nth(1)?
+        .parse()
+        .ok()
+}
+
+#[cfg(target_os = "macos")]
+fn platform_parent(pid: u32) -> Option<u32> {
+    let pid = libc::c_int::try_from(pid).ok().filter(|p| *p > 0)?;
+    // SAFETY: zeroed POD filled by proc_pidinfo up to the supplied buffer size.
+    let mut info: libc::proc_bsdinfo = unsafe { std::mem::zeroed() };
+    let size = std::mem::size_of::<libc::proc_bsdinfo>() as libc::c_int;
+    // SAFETY: the writable local buffer is exactly `size` bytes long.
+    let read = unsafe {
+        libc::proc_pidinfo(
+            pid,
+            libc::PROC_PIDTBSDINFO,
+            0,
+            (&mut info as *mut libc::proc_bsdinfo).cast(),
+            size,
+        )
+    };
+    (read == size).then_some(info.pbi_ppid)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+fn platform_parent(_pid: u32) -> Option<u32> {
+    None
+}
+
+/// Ties the life of the process `cmd` starts to this process (P4-10 security review M4: the legacy core behind the Rust
+/// front door must not outlive it, also when the front door is killed). Linux: `PR_SET_PDEATHSIG(SIGKILL)` in the child
+/// before `exec`, so the kernel kills it when the thread that spawned it ends; spawn from the main thread, which ends
+/// only with the process. A child whose parent is already gone by then does not start. Other Unix systems have no such
+/// signal: nothing is changed (macOS relies on the kill paths of the supervisor and 1staid). Windows: see
+/// [`crate::win::KillOnClose`], which needs the spawned process.
+#[cfg(unix)]
+pub fn die_with_parent(cmd: &mut std::process::Command) {
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::unix::process::CommandExt;
+        // SAFETY: getpid(2) only reads an attribute of this process.
+        let parent = unsafe { libc::getpid() };
+        // SAFETY: the hook runs in the child between fork and exec. It calls only async-signal-safe functions (prctl,
+        // getppid) and allocates nothing (both error values are plain OS codes).
+        unsafe {
+            cmd.pre_exec(move || {
+                if libc::prctl(
+                    libc::PR_SET_PDEATHSIG,
+                    libc::SIGKILL as libc::c_ulong,
+                    0 as libc::c_ulong,
+                    0 as libc::c_ulong,
+                    0 as libc::c_ulong,
+                ) != 0
+                {
+                    return Err(io::Error::last_os_error());
+                }
+                // The parent died before the signal was armed: the child would be an orphan from the start.
+                if libc::getppid() != parent {
+                    return Err(io::Error::from_raw_os_error(libc::ESRCH));
+                }
+                Ok(())
+            });
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    let _ = cmd;
+}
+
 /// The OS hostname used by Node's registry-lock host comparison.
 pub fn hostname() -> io::Result<String> {
     #[cfg(unix)]
@@ -372,6 +453,55 @@ mod tests {
         assert_eq!(incarnation().unwrap(), first);
         assert!(first.mono > 0);
         assert!(!hostname().unwrap().is_empty());
+    }
+
+    #[test]
+    fn the_parent_of_a_child_is_this_process_where_the_os_says() {
+        #[cfg(unix)]
+        {
+            let mut child = std::process::Command::new("sleep")
+                .arg("5")
+                .spawn()
+                .unwrap();
+            let parent = parent_pid(child.id());
+            let _ = child.kill();
+            let _ = child.wait();
+            assert_eq!(parent, Some(std::process::id()));
+            assert_eq!(
+                parent_pid(std::process::id()),
+                Some(std::os::unix::process::parent_id())
+            );
+            assert_eq!(parent_pid(u32::MAX), None);
+        }
+        #[cfg(windows)]
+        assert_eq!(parent_pid(std::process::id()), None, "no live parent link");
+    }
+
+    /// Linux: a child started with [`die_with_parent`] gets SIGKILL when the thread that spawned it ends.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_bound_child_dies_with_the_thread_that_spawned_it() {
+        let pid = std::thread::spawn(|| {
+            let mut cmd = std::process::Command::new("sleep");
+            cmd.arg("30");
+            die_with_parent(&mut cmd);
+            let child = cmd.spawn().unwrap();
+            let pid = child.id();
+            std::mem::forget(child); // reaped below; the spawning thread ends here
+            pid
+        })
+        .join()
+        .unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(1);
+        while alive(pid) != Liveness::Gone {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "the bound child outlived its spawner"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        // SAFETY: reaps this test's own child.
+        unsafe { libc::waitpid(pid as libc::pid_t, std::ptr::null_mut(), 0) };
     }
 
     #[cfg(unix)]
