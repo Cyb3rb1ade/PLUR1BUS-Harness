@@ -1,5 +1,7 @@
 //! Caller-bound working-memory state and derived-source authority.
 pub mod acl;
+pub mod derived;
+mod derived_fields;
 pub mod format;
 pub mod global;
 mod index;
@@ -7,6 +9,7 @@ pub mod merged;
 mod merged_order;
 pub mod postprocessing;
 pub mod prelude;
+mod reactions;
 pub mod routing;
 pub mod session_store;
 pub mod status;

@@ -259,19 +259,25 @@ pub fn stable_turn_id(
     tool_ids: &[JsString],
     ordinal: u32,
 ) -> JsString {
-    let value = Json::Array(vec![
-        text("neo-stable-id-v1"),
-        text("turn"),
-        Json::String(or_default(workspace)),
-        Json::String(or_default(agent)),
-        Json::String(session.clone()),
-        text(role.as_str()),
-        Json::String(normalize_statement(content)),
-        Json::Array(tool_ids.iter().cloned().map(Json::String).collect()),
-        Json::Number(ordinal.to_string()),
-    ]);
+    stable_id(
+        "turn",
+        vec![
+            Json::String(or_default(workspace)),
+            Json::String(or_default(agent)),
+            Json::String(session.clone()),
+            text(role.as_str()),
+            Json::String(normalize_statement(content)),
+            Json::Array(tool_ids.iter().cloned().map(Json::String).collect()),
+            Json::Number(ordinal.to_string()),
+        ],
+    )
+}
+pub(super) fn stable_id(prefix: &str, parts: Vec<Json>) -> JsString {
+    let mut fields = vec![text("neo-stable-id-v1"), text(prefix)];
+    fields.extend(parts);
+    let value = Json::Array(fields);
     let hash = format!("{:x}", Sha256::digest(write_json(&value).as_bytes()));
-    JsString::from(format!("turn_{}", &hash[..STABLE_HASH_HEX_DIGITS]).as_str())
+    JsString::from(format!("{prefix}_{}", &hash[..STABLE_HASH_HEX_DIGITS]).as_str())
 }
 fn or_default(v: &JsString) -> JsString {
     if v.is_empty() {
