@@ -497,3 +497,9 @@ algorithm data, and speaker labels are display metadata only. No model, workspac
 is accessed. This constructor does not itself grant authority, continue an open episode, publish
 episodes or advance a checkpoint. Its timestamp boundary accepts ISO/RFC3339 strings and numeric
 epochs; nonstandard V8 date strings are not silently interpreted.
+
+`turn_batch::from_messages_since` selects episode work at a raw-message watermark after
+normalizing the complete prefix (RE-D63). This keeps repeated-content ordinals, assistant reply
+links and display positions identical to the full journal. A compacted history shorter than its
+watermark restarts selection at zero. Persistence must still look up the selected actual source
+rows under current authority and retain their durable timestamps; selection alone advances no state.

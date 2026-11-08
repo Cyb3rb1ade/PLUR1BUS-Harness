@@ -37,7 +37,26 @@ pub fn from_messages(
     options: &BatchOptions<'_>,
     cancel: &Cancel,
 ) -> Result<Vec<Json>, EngineError> {
+    from_messages_since(builder, messages, options, 0, cancel)
+}
+
+/// Normalize the full authenticated history, then select turns after the raw-message watermark.
+/// Prefix messages still establish duplicate ordinals, assistant reply links and display positions,
+/// so episodes refer to the exact full-journal identities (RE-D63). A watermark beyond the shorter
+/// history resets to zero, matching S2 compaction handling; no checkpoint is advanced here.
+pub fn from_messages_since(
+    builder: &TurnBuilder,
+    messages: &[Message],
+    options: &BatchOptions<'_>,
+    raw_message_start: usize,
+    cancel: &Cancel,
+) -> Result<Vec<Json>, EngineError> {
     cancel.check()?;
+    let start = if raw_message_start > messages.len() {
+        0
+    } else {
+        raw_message_start
+    };
     if options.created_at.is_empty() {
         return Err(StoreError::InvalidInput.into());
     }
@@ -54,7 +73,7 @@ pub fn from_messages(
     let mut ordinals: HashMap<JsString, u32> = HashMap::new();
     let mut previous_assistant = None;
     let mut events = Vec::new();
-    for message in messages {
+    for (message_index, message) in messages.iter().enumerate() {
         cancel.check()?;
         let role = match message.role {
             MessageRole::User => Role::User,
@@ -108,7 +127,9 @@ pub fn from_messages(
         if role == Role::Assistant {
             previous_assistant = Some(id);
         }
-        events.push(event);
+        if message_index >= start {
+            events.push(event);
+        }
         index += 1.;
     }
     cancel.check()?;
