@@ -54,3 +54,7 @@ The row and classification modes and their scenario matrices are extended by CA2
 ## RX6 post-turn isolation (RE-D48)
 
 `record-post-turn-isolation.mjs` verifies the pinned queue dependency closure and executes six synthetic cases twice. The recorded macOS filesystem aliases Alpha/alpha; the Rust regression checks the actual filesystem and also passes on case-sensitive systems. Original unsafe Node callbacks/removal are retained, while Rust explicitly refuses them. The oversized-entry regression is a native resource bound (64 MiB). Existing CA1 goldens are unchanged.
+
+## RX6 acknowledged capture WAL (RE-D49)
+
+`record-wal-failures.mjs` checks the four pinned replay source hashes and executes six Node cases twice: corruption, malformed pending, duplicate turn keys, failed write, pending TTL and pending capacity eviction. The native WAL refuses unsafe admission/writes, preserves incomplete plans and retains valid Node bytes. Existing goldens remain unchanged. Four valid scenarios additionally run through the productive durable adapter. Actual child-process kills test state/lock recovery before plan, after plan and after settlement; they do not claim Lance-row end-to-end recovery.

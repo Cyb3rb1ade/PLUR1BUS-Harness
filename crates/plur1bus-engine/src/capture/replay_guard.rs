@@ -2,7 +2,8 @@
 //!
 //! This is the capture WAL: planned row ids are durable before the first Lance write;
 //! settlement replaces that pending entry. It is distinct from Neo's turn-event journal.
-//! Read/write failures fail open, while the current process retains its in-memory guard.
+//! The historical compatibility constructor retains Node fail-open I/O for oracle tests.
+//! Productive CaptureRuntime requires `durable`, whose callbacks acknowledge writes or fail closed.
 
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -81,10 +82,10 @@ pub fn turn_key_of(turn: &TurnRecord) -> Result<String, EngineError> {
 }
 
 #[derive(Clone)]
-struct Entry {
-    key: JsString,
-    at: f64,
-    pending: Option<Vec<String>>,
+pub(super) struct Entry {
+    pub(super) key: JsString,
+    pub(super) at: f64,
+    pub(super) pending: Option<Vec<String>>,
 }
 
 #[derive(Default)]
@@ -95,6 +96,7 @@ struct State {
 }
 
 struct Inner {
+    durable: Option<super::wal::CaptureWal>,
     root: PathBuf,
     clock: Arc<dyn Fn() -> i64 + Send + Sync>,
     logger: Arc<dyn CaptureLogSink>,
@@ -107,7 +109,29 @@ struct Inner {
 pub struct ReplayGuard(Arc<Inner>);
 
 impl ReplayGuard {
-    /// Configure a guard without reading or writing any state file.
+    /// Productive fail-closed WAL. Construction remains read-only; invalid persisted state
+    /// refuses capture instead of reproducing Node's fail-open compatibility behavior.
+    pub fn durable(
+        root: PathBuf,
+        clock: Arc<dyn Fn() -> i64 + Send + Sync>,
+    ) -> Result<Self, StoreError> {
+        let durable = super::wal::CaptureWal::new(root.clone(), clock.clone())?;
+        Ok(Self(Arc::new(Inner {
+            durable: Some(durable),
+            root,
+            clock,
+            logger: Arc::new(StandardCaptureLog),
+            state: Mutex::new(State::default()),
+            changed: Condvar::new(),
+        })))
+    }
+
+    pub(super) fn is_durable(&self) -> bool {
+        self.0.durable.is_some()
+    }
+
+    /// Configure the historical Node-compatible adapter without state I/O.
+    /// Productive CaptureRuntime refuses this adapter; use `durable` for actual row writers.
     #[must_use]
     pub fn new(root: PathBuf, clock: Arc<dyn Fn() -> i64 + Send + Sync>) -> Self {
         Self::with_logger(root, clock, Arc::new(StandardCaptureLog))
@@ -121,6 +145,7 @@ impl ReplayGuard {
         logger: Arc<dyn CaptureLogSink>,
     ) -> Self {
         Self(Arc::new(Inner {
+            durable: None,
             root,
             clock,
             logger,
@@ -164,6 +189,26 @@ impl ReplayGuard {
         mut on_wait: impl FnMut(),
         work: impl FnOnce(ReplayRows) -> Result<CaptureResult, EngineError>,
     ) -> Result<CaptureResult, EngineError> {
+        if let Some(wal) = &self.0.durable {
+            let ticket = match wal.begin_with_wait(agent, key, cancel, on_wait)? {
+                super::wal::Admission::Completed => return Ok(skipped("duplicate-turn")),
+                super::wal::Admission::Pending(ticket) => ticket,
+            };
+            let rows = ReplayRows(Arc::new(RowsInner {
+                stale: ticket.pending_rows().to_vec(),
+                durable: Some(ticket),
+                cancel: cancel.clone(),
+                guard: self.clone(),
+                agent: agent.to_owned(),
+                key: key.to_owned(),
+                recorded: Mutex::new(false),
+            }));
+            let result = work(rows.clone());
+            if result.as_ref().is_ok_and(|result| result.reason.is_none()) {
+                rows.on_rows_settled()?;
+            }
+            return result;
+        }
         let rows = match self.enter(agent, key, cancel, &mut on_wait) {
             Admission::Done(reason) => return Ok(skipped(reason)),
             Admission::Run(rows) => rows,
@@ -174,7 +219,7 @@ impl ReplayGuard {
         };
         let result = work(rows.clone());
         if result.as_ref().is_ok_and(|result| result.reason.is_none()) {
-            rows.on_rows_settled();
+            rows.on_rows_settled()?;
         }
         result
     }
@@ -209,6 +254,8 @@ impl ReplayGuard {
                     .unwrap_or_default();
                 state.in_flight.insert(flight);
                 return Admission::Run(ReplayRows(Arc::new(RowsInner {
+                    durable: None,
+                    cancel: cancel.clone(),
                     guard: self.clone(),
                     agent: agent.to_owned(),
                     key: key.to_owned(),
@@ -326,6 +373,8 @@ enum Change {
 }
 
 struct RowsInner {
+    durable: Option<Box<super::wal::CaptureTicket>>,
+    cancel: Cancel,
     guard: ReplayGuard,
     agent: String,
     key: String,
@@ -345,10 +394,13 @@ impl ReplayRows {
     }
 
     /// Persist planned ids, unioned with stale ids, before writing any row.
-    pub fn on_rows_planned(&self, ids: &[String]) {
+    pub fn on_rows_planned(&self, ids: &[String]) -> Result<(), EngineError> {
+        if let Some(ticket) = &self.0.durable {
+            return ticket.plan(ids, &self.0.cancel);
+        }
         let recorded = lock(&self.0.recorded);
         if *recorded {
-            return;
+            return Ok(());
         }
         let mut combined = self.0.stale.clone();
         combined.extend(
@@ -362,28 +414,38 @@ impl ReplayRows {
         self.0
             .guard
             .record(&self.0.agent, &self.0.key, Change::Pending(combined));
+        Ok(())
     }
 
     /// Record successful row settlement exactly once, before post-store work.
-    pub fn on_rows_settled(&self) {
+    pub fn on_rows_settled(&self) -> Result<(), EngineError> {
+        // Once rows committed, finish the durable acknowledgement independently of caller abort.
+        if let Some(ticket) = &self.0.durable {
+            return ticket.settle(&Cancel::never());
+        }
         let mut recorded = lock(&self.0.recorded);
         if *recorded {
-            return;
+            return Ok(());
         }
         *recorded = true;
         self.0
             .guard
             .record(&self.0.agent, &self.0.key, Change::Settled);
+        Ok(())
     }
 
     /// Keep a partly stored capture's rows and remove its pending replay cleanup ids.
-    pub fn on_rows_kept(&self) {
+    pub fn on_rows_kept(&self) -> Result<(), EngineError> {
+        if let Some(ticket) = &self.0.durable {
+            return ticket.keep_partial(&Cancel::never());
+        }
         let recorded = lock(&self.0.recorded);
         if !*recorded {
             self.0
                 .guard
                 .record(&self.0.agent, &self.0.key, Change::Kept);
         }
+        Ok(())
     }
 }
 
@@ -427,7 +489,7 @@ fn valid_uuid(id: &str) -> bool {
         })
 }
 
-fn encode_component(value: &str) -> String {
+pub(super) fn encode_component(value: &str) -> String {
     use std::fmt::Write;
     let mut encoded = String::new();
     for byte in value.bytes() {
@@ -497,7 +559,7 @@ fn parse_entries(raw: &str) -> Option<Vec<Entry>> {
     )
 }
 
-fn encode_entries(entries: &[Entry]) -> String {
+pub(super) fn encode_entries(entries: &[Entry]) -> String {
     let entries = entries
         .iter()
         .map(|entry| {

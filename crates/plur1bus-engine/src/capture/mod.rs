@@ -24,6 +24,8 @@ pub mod queue;
 pub mod replay_guard;
 /// Node-order result projection without changes to generated contract types.
 pub mod result;
+/// Fail-closed, acknowledged capture WAL for productive row writers.
+pub mod wal;
 
 /// Shared row categorization.
 pub mod categorize;

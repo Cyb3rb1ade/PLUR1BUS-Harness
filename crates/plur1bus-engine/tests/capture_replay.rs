@@ -145,10 +145,10 @@ fn persisted_replay_states_are_raw_node_bytes_including_ttl_cap_pending_and_uri_
                                         );
                                         ids
                                     };
-                                    rows.on_rows_planned(&ids);
+                                    rows.on_rows_planned(&ids).unwrap();
                                 }
-                                "settled" => rows.on_rows_settled(),
-                                "kept" => rows.on_rows_kept(),
+                                "settled" => rows.on_rows_settled().unwrap(),
+                                "kept" => rows.on_rows_kept().unwrap(),
                                 other => panic!("unrecognized recorded action: {other}"),
                             }
                         }
@@ -249,7 +249,7 @@ fn a_failed_leader_releases_waiters_and_late_callbacks_survive_run_return() {
         .unwrap();
     assert_eq!(failure.reason.as_deref(), Some("timeout"));
     assert_eq!(raw_result(&failure), golden["beforeLate"].as_str().unwrap());
-    late.unwrap().on_rows_settled();
+    late.unwrap().on_rows_settled().unwrap();
     assert_eq!(
         guard
             .run("fixture", "late", &Cancel::never(), |_| panic!(

@@ -1,0 +1,106 @@
+{
+  "recordedFrom": {
+    "engine": "node",
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "node": "v24.21.0",
+    "sourcesSha256": {
+      "engine/capture/turn-replay-guard.js": "d7d7a035379582b3494d5ac5256fdfd029a79e906089ce9f8b9a114f303edc5d",
+      "lib/abort.js": "435016008fa477f7ed7d3215505324bb3e7159e123ea553b35fb8a14d5a4055d",
+      "lib/sql-safety.js": "a6b949df02d29d3ed0494964c004d861d718eeb90abd271410e22a489de1bc62",
+      "lib/log-redact.js": "f64f7d2e2fbf13684ad16fe045a1e43a9755c57be00ee7532479286eed0068e3"
+    }
+  },
+  "cases": [
+    {
+      "name": "corrupt",
+      "raw": "{",
+      "called": true,
+      "stale": [],
+      "result": {
+        "stored": 0,
+        "skipped": 1,
+        "reason": "aborted"
+      },
+      "warnings": 1,
+      "entryCount": 1,
+      "firstKey": "key",
+      "rustException": "durable-fail-closed-and-pending-retention"
+    },
+    {
+      "name": "invalid-pending",
+      "raw": "{\"v\":1,\"entries\":[{\"key\":\"key\",\"at\":1000,\"pending\":\"bad\"}]}",
+      "called": false,
+      "stale": null,
+      "result": {
+        "stored": 0,
+        "skipped": 1,
+        "reason": "duplicate-turn"
+      },
+      "warnings": 0,
+      "entryCount": 1,
+      "firstKey": "key",
+      "rustException": "durable-fail-closed-and-pending-retention"
+    },
+    {
+      "name": "duplicate-keys",
+      "raw": "{\"v\":1,\"entries\":[{\"key\":\"key\",\"at\":1000},{\"key\":\"key\",\"at\":1001}]}",
+      "called": false,
+      "stale": null,
+      "result": {
+        "stored": 0,
+        "skipped": 1,
+        "reason": "duplicate-turn"
+      },
+      "warnings": 0,
+      "entryCount": 2,
+      "firstKey": "key",
+      "rustException": "durable-fail-closed-and-pending-retention"
+    },
+    {
+      "name": "write-directory",
+      "directory": true,
+      "called": true,
+      "stale": [],
+      "result": {
+        "stored": 0,
+        "skipped": 1,
+        "reason": "aborted"
+      },
+      "warnings": 2,
+      "entryCount": null,
+      "firstKey": null,
+      "rustException": "durable-fail-closed-and-pending-retention"
+    },
+    {
+      "name": "expired-pending",
+      "raw": "{\"v\":1,\"entries\":[{\"key\":\"key\",\"at\":1,\"pending\":[\"11111111-1111-1111-1111-111111111111\"]}]}",
+      "now": 1000000000,
+      "called": true,
+      "stale": [],
+      "result": {
+        "stored": 0,
+        "skipped": 1,
+        "reason": "aborted"
+      },
+      "warnings": 0,
+      "entryCount": 1,
+      "firstKey": "key",
+      "rustException": "durable-fail-closed-and-pending-retention"
+    },
+    {
+      "name": "pending-capacity",
+      "full": true,
+      "called": true,
+      "stale": [],
+      "result": {
+        "stored": 0,
+        "skipped": 1,
+        "reason": "aborted"
+      },
+      "warnings": 0,
+      "entryCount": 512,
+      "firstKey": "pending-1",
+      "rustException": "durable-fail-closed-and-pending-retention"
+    }
+  ]
+}

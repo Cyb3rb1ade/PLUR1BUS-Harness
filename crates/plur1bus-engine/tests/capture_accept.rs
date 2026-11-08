@@ -45,12 +45,12 @@ impl CaptureWorker for Worker {
                 serde_json::from_value(json!({"stored":0,"skipped":1,"reason":"aborted"})).unwrap(),
             );
         }
-        replay.on_rows_planned(&[uuid::Uuid::new_v4().to_string()]);
+        replay.on_rows_planned(&[uuid::Uuid::new_v4().to_string()])?;
         self.rows
             .lock()
             .unwrap()
             .push(turn.run_id.clone().unwrap_or_default());
-        replay.on_rows_settled();
+        replay.on_rows_settled()?;
         Ok(serde_json::from_value(json!({"stored":1,"skipped":0})).unwrap())
     }
 }
@@ -163,7 +163,7 @@ fn fixture(block: bool) -> Fixture {
         )
         .unwrap(),
     );
-    let guard = ReplayGuard::new(dir.path().join("_capture-turns"), Arc::new(|| 0));
+    let guard = ReplayGuard::durable(dir.path().join("_capture-turns"), Arc::new(|| 0)).unwrap();
     let runtime = CaptureRuntime::new(host, worker, queue, guard, false).unwrap();
     Fixture {
         runtime,

@@ -65,6 +65,12 @@ impl CaptureRuntime {
         replay: ReplayGuard,
         scheduled: bool,
     ) -> Result<Self, EngineError> {
+        if !replay.is_durable() {
+            return Err(EngineError::Invalid {
+                field: "capture".into(),
+                message: "durable capture WAL required".into(),
+            });
+        }
         Ok(Self(Arc::new(Inner {
             host,
             worker,
