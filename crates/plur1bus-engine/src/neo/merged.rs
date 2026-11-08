@@ -27,20 +27,7 @@ impl Layout {
         } else {
             old_raw
         };
-        let mut slug = String::new();
-        let mut replacing = false;
-        for ch in raw.chars() {
-            if ch.is_ascii_alphanumeric() || ".-_".contains(ch) {
-                slug.push(ch);
-                replacing = false;
-            } else if !replacing {
-                slug.push('_');
-                replacing = true;
-            }
-        }
-        let slug = slug.trim_matches('_');
-        let slug = if slug.is_empty() { "default" } else { slug };
-        let slug: String = slug.chars().take(120).collect();
+        let slug = sanitize_path_part(raw);
         // These are UTF-8 strings and a fixed ordered array; serde emits Node-compatible JSON.
         let bytes = serde_json::json!(["neo-stable-id-v1", "workspace", raw]).to_string();
         let hash = format!("{:x}", Sha256::digest(bytes.as_bytes()));
@@ -220,4 +207,22 @@ pub(super) fn optional<T>(result: Result<T, StoreError>) -> Result<Option<T>, St
         }) => Ok(None),
         Err(error) => Err(error),
     }
+}
+
+pub(super) fn sanitize_path_part(value: &str) -> String {
+    let raw = js_trim(if value.is_empty() { "default" } else { value });
+    let mut slug = String::new();
+    let mut replacing = false;
+    for ch in raw.chars() {
+        if ch.is_ascii_alphanumeric() || ".-_".contains(ch) {
+            slug.push(ch);
+            replacing = false;
+        } else if !replacing {
+            slug.push('_');
+            replacing = true;
+        }
+    }
+    let slug = slug.trim_matches('_');
+    let slug = if slug.is_empty() { "default" } else { slug };
+    slug.chars().take(120).collect()
 }

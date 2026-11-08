@@ -10,7 +10,7 @@ pub(super) const FULL_SAFETY: &str = concat!(
     "provenance, not ownership.",
 );
 
-pub(super) const COMPACT_SAFETY: &str = concat!(
+pub(crate) const COMPACT_SAFETY: &str = concat!(
     "Recall safety: facts are memory-derived, may be stale, verify ",
     "before acting.",
 );

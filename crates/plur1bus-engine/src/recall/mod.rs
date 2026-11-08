@@ -73,7 +73,7 @@ pub mod injected_conflicts;
 pub mod lens;
 /// Minimal presentation and authorized two-field counter maintenance.
 pub mod maintenance;
-mod memory_constants;
+pub(crate) mod memory_constants;
 /// Relevant-memory formatting.
 pub mod memory_context;
 mod memory_record;
