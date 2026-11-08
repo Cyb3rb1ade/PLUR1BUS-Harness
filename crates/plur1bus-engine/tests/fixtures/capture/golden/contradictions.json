@@ -1,0 +1,3352 @@
+{
+  "provenance": {
+    "pin": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "node": "v24.21.0",
+    "sourcesSha256": {
+      "lib/abort.js": "435016008fa477f7ed7d3215505324bb3e7159e123ea553b35fb8a14d5a4055d",
+      "lib/contradiction-detector.js": "480a9fcf96bcaf1baf416da12cac81d560fceec37e5f8b64a4206375bee85f17",
+      "lib/llm-failure.js": "5b90ec7871063b9a102df39088dcacb7b4e76c4feec13b66b198eef83e9585a2",
+      "lib/log-redact.js": "f64f7d2e2fbf13684ad16fe045a1e43a9755c57be00ee7532479286eed0068e3",
+      "lib/safe-logging.js": "4a634fa3c4cce35d5c7cb29c7c2eb72378666ef400e79dc7869a4c50d2e2c0ac",
+      "lib/sql-safety.js": "a6b949df02d29d3ed0494964c004d861d718eeb90abd271410e22a489de1bc62",
+      "lib/with-timeout.js": "b22921f334c70485563e75c25ecda00382a12f40846f612fae202125836c54f4"
+    }
+  },
+  "now": 1735689600000,
+  "cases": [
+    {
+      "name": "answer:\"yes\"",
+      "method": "pair",
+      "input": [
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "meaning"
+        }
+      ],
+      "response": "yes",
+      "port": "present",
+      "constructorMaxPairs": 20,
+      "result": true,
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist geschlossen.\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "f54ce30744cac0c6a868873900745bc7f6113d90b05d13a5f742e1bd1ac69996"
+        }
+      ]
+    },
+    {
+      "name": "answer:\" YES\\n\"",
+      "method": "pair",
+      "input": [
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "meaning"
+        }
+      ],
+      "response": " YES\n",
+      "port": "present",
+      "constructorMaxPairs": 20,
+      "result": true,
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist geschlossen.\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "f54ce30744cac0c6a868873900745bc7f6113d90b05d13a5f742e1bd1ac69996"
+        }
+      ]
+    },
+    {
+      "name": "answer:\"yes, incompatible\"",
+      "method": "pair",
+      "input": [
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "meaning"
+        }
+      ],
+      "response": "yes, incompatible",
+      "port": "present",
+      "constructorMaxPairs": 20,
+      "result": true,
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist geschlossen.\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "f54ce30744cac0c6a868873900745bc7f6113d90b05d13a5f742e1bd1ac69996"
+        }
+      ]
+    },
+    {
+      "name": "answer:\"yesterday\"",
+      "method": "pair",
+      "input": [
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "meaning"
+        }
+      ],
+      "response": "yesterday",
+      "port": "present",
+      "constructorMaxPairs": 20,
+      "result": true,
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist geschlossen.\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "f54ce30744cac0c6a868873900745bc7f6113d90b05d13a5f742e1bd1ac69996"
+        }
+      ]
+    },
+    {
+      "name": "answer:\"no\"",
+      "method": "pair",
+      "input": [
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "meaning"
+        }
+      ],
+      "response": "no",
+      "port": "present",
+      "constructorMaxPairs": 20,
+      "result": false,
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist geschlossen.\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "f54ce30744cac0c6a868873900745bc7f6113d90b05d13a5f742e1bd1ac69996"
+        }
+      ]
+    },
+    {
+      "name": "answer:\"not yes\"",
+      "method": "pair",
+      "input": [
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "meaning"
+        }
+      ],
+      "response": "not yes",
+      "port": "present",
+      "constructorMaxPairs": 20,
+      "result": false,
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist geschlossen.\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "f54ce30744cac0c6a868873900745bc7f6113d90b05d13a5f742e1bd1ac69996"
+        }
+      ]
+    },
+    {
+      "name": "answer:\"```yes```\"",
+      "method": "pair",
+      "input": [
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "meaning"
+        }
+      ],
+      "response": "```yes```",
+      "port": "present",
+      "constructorMaxPairs": 20,
+      "result": false,
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist geschlossen.\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "f54ce30744cac0c6a868873900745bc7f6113d90b05d13a5f742e1bd1ac69996"
+        }
+      ]
+    },
+    {
+      "name": "answer:\"ja\"",
+      "method": "pair",
+      "input": [
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "meaning"
+        }
+      ],
+      "response": "ja",
+      "port": "present",
+      "constructorMaxPairs": 20,
+      "result": false,
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist geschlossen.\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "f54ce30744cac0c6a868873900745bc7f6113d90b05d13a5f742e1bd1ac69996"
+        }
+      ]
+    },
+    {
+      "name": "answer:\"\"",
+      "method": "pair",
+      "input": [
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "meaning"
+        }
+      ],
+      "response": "",
+      "port": "present",
+      "constructorMaxPairs": 20,
+      "result": false,
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist geschlossen.\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "f54ce30744cac0c6a868873900745bc7f6113d90b05d13a5f742e1bd1ac69996"
+        }
+      ]
+    },
+    {
+      "name": "answer:\"﻿yes \"",
+      "method": "pair",
+      "input": [
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "meaning"
+        }
+      ],
+      "response": "﻿yes ",
+      "port": "present",
+      "constructorMaxPairs": 20,
+      "result": true,
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist geschlossen.\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "f54ce30744cac0c6a868873900745bc7f6113d90b05d13a5f742e1bd1ac69996"
+        }
+      ]
+    },
+    {
+      "name": "missing-a",
+      "method": "pair",
+      "input": [
+        null,
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "meaning"
+        }
+      ],
+      "response": "yes",
+      "port": "present",
+      "constructorMaxPairs": 20,
+      "result": false,
+      "calls": []
+    },
+    {
+      "name": "different-target",
+      "method": "pair",
+      "input": [
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "c",
+          "targetMemoryId": "other",
+          "shiftDescription": "Unrelated interpretation",
+          "shiftType": "meaning"
+        }
+      ],
+      "response": "yes",
+      "port": "present",
+      "constructorMaxPairs": 20,
+      "result": false,
+      "calls": []
+    },
+    {
+      "name": "not-meaning",
+      "method": "pair",
+      "input": [
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "emotion"
+        }
+      ],
+      "response": "yes",
+      "port": "present",
+      "constructorMaxPairs": 20,
+      "result": false,
+      "calls": []
+    },
+    {
+      "name": "empty-description",
+      "method": "pair",
+      "input": [
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "",
+          "shiftType": "meaning"
+        }
+      ],
+      "response": "yes",
+      "port": "present",
+      "constructorMaxPairs": 20,
+      "result": false,
+      "calls": []
+    },
+    {
+      "name": "same-id",
+      "method": "pair",
+      "input": [
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "meaning"
+        }
+      ],
+      "response": "yes",
+      "port": "present",
+      "constructorMaxPairs": 20,
+      "result": true,
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist geschlossen.\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "f54ce30744cac0c6a868873900745bc7f6113d90b05d13a5f742e1bd1ac69996"
+        }
+      ]
+    },
+    {
+      "name": "undefined-targets",
+      "method": "pair",
+      "input": [
+        {
+          "id": "a",
+          "shiftType": "meaning",
+          "shiftDescription": "A"
+        },
+        {
+          "id": "b",
+          "shiftType": "meaning",
+          "shiftDescription": "B"
+        }
+      ],
+      "response": "yes",
+      "port": "present",
+      "constructorMaxPairs": 20,
+      "result": true,
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"A\"\nInterpretation 2: \"B\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "812bf9fe9600b339b403dbcccc30d4fb14aaf281ecf2827f6965bb46e1b8d5f0"
+        }
+      ]
+    },
+    {
+      "name": "pair:absent",
+      "method": "pair",
+      "input": [
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "meaning"
+        }
+      ],
+      "response": "yes",
+      "port": "absent",
+      "constructorMaxPairs": 20,
+      "result": false,
+      "calls": []
+    },
+    {
+      "name": "scan:absent",
+      "method": "overlays",
+      "input": [
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "meaning"
+        }
+      ],
+      "response": "yes",
+      "port": "absent",
+      "constructorMaxPairs": 20,
+      "result": [],
+      "calls": []
+    },
+    {
+      "name": "pair:reject",
+      "method": "pair",
+      "input": [
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "meaning"
+        }
+      ],
+      "response": "yes",
+      "port": "reject",
+      "constructorMaxPairs": 20,
+      "result": false,
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist geschlossen.\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "f54ce30744cac0c6a868873900745bc7f6113d90b05d13a5f742e1bd1ac69996"
+        }
+      ]
+    },
+    {
+      "name": "scan:reject",
+      "method": "overlays",
+      "input": [
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "meaning"
+        }
+      ],
+      "response": "yes",
+      "port": "reject",
+      "constructorMaxPairs": 20,
+      "result": [],
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist geschlossen.\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "f54ce30744cac0c6a868873900745bc7f6113d90b05d13a5f742e1bd1ac69996"
+        }
+      ]
+    },
+    {
+      "name": "overlays:0",
+      "method": "overlays",
+      "input": [
+        null,
+        {
+          "id": "c",
+          "targetMemoryId": "other",
+          "shiftDescription": "Unrelated interpretation",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "emotion"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "d",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Another interpretation",
+          "shiftType": "meaning"
+        }
+      ],
+      "response": "yes",
+      "port": "present",
+      "maxPairs": 0,
+      "constructorMaxPairs": 20,
+      "result": [],
+      "calls": []
+    },
+    {
+      "name": "new:0",
+      "method": "new",
+      "input": [
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        [
+          null,
+          {
+            "id": "c",
+            "targetMemoryId": "other",
+            "shiftDescription": "Unrelated interpretation",
+            "shiftType": "meaning"
+          },
+          {
+            "id": "a",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Die Tür ist offen. 🪟",
+            "shiftType": "meaning"
+          },
+          {
+            "id": "b",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Die Tür ist geschlossen.",
+            "shiftType": "emotion"
+          },
+          {
+            "id": "b",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Die Tür ist geschlossen.",
+            "shiftType": "meaning"
+          },
+          {
+            "id": "d",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Another interpretation",
+            "shiftType": "meaning"
+          }
+        ]
+      ],
+      "response": "yes",
+      "port": "present",
+      "maxPairs": 0,
+      "constructorMaxPairs": 20,
+      "result": [],
+      "calls": []
+    },
+    {
+      "name": "overlays:1",
+      "method": "overlays",
+      "input": [
+        null,
+        {
+          "id": "c",
+          "targetMemoryId": "other",
+          "shiftDescription": "Unrelated interpretation",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "emotion"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "d",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Another interpretation",
+          "shiftType": "meaning"
+        }
+      ],
+      "response": "yes",
+      "port": "present",
+      "maxPairs": 1,
+      "constructorMaxPairs": 20,
+      "result": [
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "a",
+          "overlayB": "b",
+          "descriptionA": "Die Tür ist offen. 🪟",
+          "descriptionB": "Die Tür ist geschlossen.",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        }
+      ],
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist geschlossen.\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "f54ce30744cac0c6a868873900745bc7f6113d90b05d13a5f742e1bd1ac69996"
+        }
+      ]
+    },
+    {
+      "name": "new:1",
+      "method": "new",
+      "input": [
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        [
+          null,
+          {
+            "id": "c",
+            "targetMemoryId": "other",
+            "shiftDescription": "Unrelated interpretation",
+            "shiftType": "meaning"
+          },
+          {
+            "id": "a",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Die Tür ist offen. 🪟",
+            "shiftType": "meaning"
+          },
+          {
+            "id": "b",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Die Tür ist geschlossen.",
+            "shiftType": "emotion"
+          },
+          {
+            "id": "b",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Die Tür ist geschlossen.",
+            "shiftType": "meaning"
+          },
+          {
+            "id": "d",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Another interpretation",
+            "shiftType": "meaning"
+          }
+        ]
+      ],
+      "response": "yes",
+      "port": "present",
+      "maxPairs": 1,
+      "constructorMaxPairs": 20,
+      "result": [
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "a",
+          "overlayB": "a",
+          "descriptionA": "Die Tür ist offen. 🪟",
+          "descriptionB": "Die Tür ist offen. 🪟",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        }
+      ],
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist offen. 🪟\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "36ab7b50b9e435994f6f4656f4372aa4950ea20bb6f38f06898326a3bde40840"
+        }
+      ]
+    },
+    {
+      "name": "overlays:1.5",
+      "method": "overlays",
+      "input": [
+        null,
+        {
+          "id": "c",
+          "targetMemoryId": "other",
+          "shiftDescription": "Unrelated interpretation",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "emotion"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "d",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Another interpretation",
+          "shiftType": "meaning"
+        }
+      ],
+      "response": "yes",
+      "port": "present",
+      "maxPairs": 1.5,
+      "constructorMaxPairs": 20,
+      "result": [
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "a",
+          "overlayB": "b",
+          "descriptionA": "Die Tür ist offen. 🪟",
+          "descriptionB": "Die Tür ist geschlossen.",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        }
+      ],
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist geschlossen.\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "f54ce30744cac0c6a868873900745bc7f6113d90b05d13a5f742e1bd1ac69996"
+        }
+      ]
+    },
+    {
+      "name": "new:1.5",
+      "method": "new",
+      "input": [
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        [
+          null,
+          {
+            "id": "c",
+            "targetMemoryId": "other",
+            "shiftDescription": "Unrelated interpretation",
+            "shiftType": "meaning"
+          },
+          {
+            "id": "a",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Die Tür ist offen. 🪟",
+            "shiftType": "meaning"
+          },
+          {
+            "id": "b",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Die Tür ist geschlossen.",
+            "shiftType": "emotion"
+          },
+          {
+            "id": "b",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Die Tür ist geschlossen.",
+            "shiftType": "meaning"
+          },
+          {
+            "id": "d",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Another interpretation",
+            "shiftType": "meaning"
+          }
+        ]
+      ],
+      "response": "yes",
+      "port": "present",
+      "maxPairs": 1.5,
+      "constructorMaxPairs": 20,
+      "result": [
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "a",
+          "overlayB": "a",
+          "descriptionA": "Die Tür ist offen. 🪟",
+          "descriptionB": "Die Tür ist offen. 🪟",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        }
+      ],
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist offen. 🪟\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "36ab7b50b9e435994f6f4656f4372aa4950ea20bb6f38f06898326a3bde40840"
+        }
+      ]
+    },
+    {
+      "name": "overlays:2",
+      "method": "overlays",
+      "input": [
+        null,
+        {
+          "id": "c",
+          "targetMemoryId": "other",
+          "shiftDescription": "Unrelated interpretation",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "emotion"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "d",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Another interpretation",
+          "shiftType": "meaning"
+        }
+      ],
+      "response": "yes",
+      "port": "present",
+      "maxPairs": 2,
+      "constructorMaxPairs": 20,
+      "result": [
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "a",
+          "overlayB": "b",
+          "descriptionA": "Die Tür ist offen. 🪟",
+          "descriptionB": "Die Tür ist geschlossen.",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        },
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "a",
+          "overlayB": "d",
+          "descriptionA": "Die Tür ist offen. 🪟",
+          "descriptionB": "Another interpretation",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        }
+      ],
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist geschlossen.\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "f54ce30744cac0c6a868873900745bc7f6113d90b05d13a5f742e1bd1ac69996"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Another interpretation\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "02408d19b7e5f1aaf070eb3984fa12e4bfdd50050784837fcaf3933ceede2088"
+        }
+      ]
+    },
+    {
+      "name": "new:2",
+      "method": "new",
+      "input": [
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        [
+          null,
+          {
+            "id": "c",
+            "targetMemoryId": "other",
+            "shiftDescription": "Unrelated interpretation",
+            "shiftType": "meaning"
+          },
+          {
+            "id": "a",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Die Tür ist offen. 🪟",
+            "shiftType": "meaning"
+          },
+          {
+            "id": "b",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Die Tür ist geschlossen.",
+            "shiftType": "emotion"
+          },
+          {
+            "id": "b",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Die Tür ist geschlossen.",
+            "shiftType": "meaning"
+          },
+          {
+            "id": "d",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Another interpretation",
+            "shiftType": "meaning"
+          }
+        ]
+      ],
+      "response": "yes",
+      "port": "present",
+      "maxPairs": 2,
+      "constructorMaxPairs": 20,
+      "result": [
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "a",
+          "overlayB": "a",
+          "descriptionA": "Die Tür ist offen. 🪟",
+          "descriptionB": "Die Tür ist offen. 🪟",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        },
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "a",
+          "overlayB": "b",
+          "descriptionA": "Die Tür ist offen. 🪟",
+          "descriptionB": "Die Tür ist geschlossen.",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        }
+      ],
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist offen. 🪟\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "36ab7b50b9e435994f6f4656f4372aa4950ea20bb6f38f06898326a3bde40840"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist geschlossen.\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "f54ce30744cac0c6a868873900745bc7f6113d90b05d13a5f742e1bd1ac69996"
+        }
+      ]
+    },
+    {
+      "name": "overlays:20",
+      "method": "overlays",
+      "input": [
+        null,
+        {
+          "id": "c",
+          "targetMemoryId": "other",
+          "shiftDescription": "Unrelated interpretation",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "emotion"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "d",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Another interpretation",
+          "shiftType": "meaning"
+        }
+      ],
+      "response": "yes",
+      "port": "present",
+      "maxPairs": 20,
+      "constructorMaxPairs": 20,
+      "result": [
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "a",
+          "overlayB": "b",
+          "descriptionA": "Die Tür ist offen. 🪟",
+          "descriptionB": "Die Tür ist geschlossen.",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        },
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "a",
+          "overlayB": "d",
+          "descriptionA": "Die Tür ist offen. 🪟",
+          "descriptionB": "Another interpretation",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        },
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "b",
+          "overlayB": "d",
+          "descriptionA": "Die Tür ist geschlossen.",
+          "descriptionB": "Another interpretation",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        }
+      ],
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist geschlossen.\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "f54ce30744cac0c6a868873900745bc7f6113d90b05d13a5f742e1bd1ac69996"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Another interpretation\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "02408d19b7e5f1aaf070eb3984fa12e4bfdd50050784837fcaf3933ceede2088"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist geschlossen.\"\nInterpretation 2: \"Another interpretation\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "b79e1f57a6e5273bb930cac0f0c893e31198426e2de75bf37b164b67a8f72b22"
+        }
+      ]
+    },
+    {
+      "name": "new:20",
+      "method": "new",
+      "input": [
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        [
+          null,
+          {
+            "id": "c",
+            "targetMemoryId": "other",
+            "shiftDescription": "Unrelated interpretation",
+            "shiftType": "meaning"
+          },
+          {
+            "id": "a",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Die Tür ist offen. 🪟",
+            "shiftType": "meaning"
+          },
+          {
+            "id": "b",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Die Tür ist geschlossen.",
+            "shiftType": "emotion"
+          },
+          {
+            "id": "b",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Die Tür ist geschlossen.",
+            "shiftType": "meaning"
+          },
+          {
+            "id": "d",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Another interpretation",
+            "shiftType": "meaning"
+          }
+        ]
+      ],
+      "response": "yes",
+      "port": "present",
+      "maxPairs": 20,
+      "constructorMaxPairs": 20,
+      "result": [
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "a",
+          "overlayB": "a",
+          "descriptionA": "Die Tür ist offen. 🪟",
+          "descriptionB": "Die Tür ist offen. 🪟",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        },
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "a",
+          "overlayB": "b",
+          "descriptionA": "Die Tür ist offen. 🪟",
+          "descriptionB": "Die Tür ist geschlossen.",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        },
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "a",
+          "overlayB": "d",
+          "descriptionA": "Die Tür ist offen. 🪟",
+          "descriptionB": "Another interpretation",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        }
+      ],
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist offen. 🪟\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "36ab7b50b9e435994f6f4656f4372aa4950ea20bb6f38f06898326a3bde40840"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist geschlossen.\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "f54ce30744cac0c6a868873900745bc7f6113d90b05d13a5f742e1bd1ac69996"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Another interpretation\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "02408d19b7e5f1aaf070eb3984fa12e4bfdd50050784837fcaf3933ceede2088"
+        }
+      ]
+    },
+    {
+      "name": "overlays:-1",
+      "method": "overlays",
+      "input": [
+        null,
+        {
+          "id": "c",
+          "targetMemoryId": "other",
+          "shiftDescription": "Unrelated interpretation",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "emotion"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "d",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Another interpretation",
+          "shiftType": "meaning"
+        }
+      ],
+      "response": "yes",
+      "port": "present",
+      "maxPairs": -1,
+      "constructorMaxPairs": 20,
+      "result": [
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "a",
+          "overlayB": "b",
+          "descriptionA": "Die Tür ist offen. 🪟",
+          "descriptionB": "Die Tür ist geschlossen.",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        },
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "a",
+          "overlayB": "d",
+          "descriptionA": "Die Tür ist offen. 🪟",
+          "descriptionB": "Another interpretation",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        },
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "b",
+          "overlayB": "d",
+          "descriptionA": "Die Tür ist geschlossen.",
+          "descriptionB": "Another interpretation",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        }
+      ],
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist geschlossen.\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "f54ce30744cac0c6a868873900745bc7f6113d90b05d13a5f742e1bd1ac69996"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Another interpretation\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "02408d19b7e5f1aaf070eb3984fa12e4bfdd50050784837fcaf3933ceede2088"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist geschlossen.\"\nInterpretation 2: \"Another interpretation\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "b79e1f57a6e5273bb930cac0f0c893e31198426e2de75bf37b164b67a8f72b22"
+        }
+      ]
+    },
+    {
+      "name": "new:-1",
+      "method": "new",
+      "input": [
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        [
+          null,
+          {
+            "id": "c",
+            "targetMemoryId": "other",
+            "shiftDescription": "Unrelated interpretation",
+            "shiftType": "meaning"
+          },
+          {
+            "id": "a",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Die Tür ist offen. 🪟",
+            "shiftType": "meaning"
+          },
+          {
+            "id": "b",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Die Tür ist geschlossen.",
+            "shiftType": "emotion"
+          },
+          {
+            "id": "b",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Die Tür ist geschlossen.",
+            "shiftType": "meaning"
+          },
+          {
+            "id": "d",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Another interpretation",
+            "shiftType": "meaning"
+          }
+        ]
+      ],
+      "response": "yes",
+      "port": "present",
+      "maxPairs": -1,
+      "constructorMaxPairs": 20,
+      "result": [
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "a",
+          "overlayB": "a",
+          "descriptionA": "Die Tür ist offen. 🪟",
+          "descriptionB": "Die Tür ist offen. 🪟",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        },
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "a",
+          "overlayB": "b",
+          "descriptionA": "Die Tür ist offen. 🪟",
+          "descriptionB": "Die Tür ist geschlossen.",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        },
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "a",
+          "overlayB": "d",
+          "descriptionA": "Die Tür ist offen. 🪟",
+          "descriptionB": "Another interpretation",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        }
+      ],
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist offen. 🪟\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "36ab7b50b9e435994f6f4656f4372aa4950ea20bb6f38f06898326a3bde40840"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist geschlossen.\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "f54ce30744cac0c6a868873900745bc7f6113d90b05d13a5f742e1bd1ac69996"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Another interpretation\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "02408d19b7e5f1aaf070eb3984fa12e4bfdd50050784837fcaf3933ceede2088"
+        }
+      ]
+    },
+    {
+      "name": "overlays:\"1\"",
+      "method": "overlays",
+      "input": [
+        null,
+        {
+          "id": "c",
+          "targetMemoryId": "other",
+          "shiftDescription": "Unrelated interpretation",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "emotion"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "d",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Another interpretation",
+          "shiftType": "meaning"
+        }
+      ],
+      "response": "yes",
+      "port": "present",
+      "maxPairs": "1",
+      "constructorMaxPairs": 20,
+      "result": [
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "a",
+          "overlayB": "b",
+          "descriptionA": "Die Tür ist offen. 🪟",
+          "descriptionB": "Die Tür ist geschlossen.",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        },
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "a",
+          "overlayB": "d",
+          "descriptionA": "Die Tür ist offen. 🪟",
+          "descriptionB": "Another interpretation",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        },
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "b",
+          "overlayB": "d",
+          "descriptionA": "Die Tür ist geschlossen.",
+          "descriptionB": "Another interpretation",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        }
+      ],
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist geschlossen.\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "f54ce30744cac0c6a868873900745bc7f6113d90b05d13a5f742e1bd1ac69996"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Another interpretation\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "02408d19b7e5f1aaf070eb3984fa12e4bfdd50050784837fcaf3933ceede2088"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist geschlossen.\"\nInterpretation 2: \"Another interpretation\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "b79e1f57a6e5273bb930cac0f0c893e31198426e2de75bf37b164b67a8f72b22"
+        }
+      ]
+    },
+    {
+      "name": "new:\"1\"",
+      "method": "new",
+      "input": [
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        [
+          null,
+          {
+            "id": "c",
+            "targetMemoryId": "other",
+            "shiftDescription": "Unrelated interpretation",
+            "shiftType": "meaning"
+          },
+          {
+            "id": "a",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Die Tür ist offen. 🪟",
+            "shiftType": "meaning"
+          },
+          {
+            "id": "b",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Die Tür ist geschlossen.",
+            "shiftType": "emotion"
+          },
+          {
+            "id": "b",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Die Tür ist geschlossen.",
+            "shiftType": "meaning"
+          },
+          {
+            "id": "d",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Another interpretation",
+            "shiftType": "meaning"
+          }
+        ]
+      ],
+      "response": "yes",
+      "port": "present",
+      "maxPairs": "1",
+      "constructorMaxPairs": 20,
+      "result": [
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "a",
+          "overlayB": "a",
+          "descriptionA": "Die Tür ist offen. 🪟",
+          "descriptionB": "Die Tür ist offen. 🪟",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        },
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "a",
+          "overlayB": "b",
+          "descriptionA": "Die Tür ist offen. 🪟",
+          "descriptionB": "Die Tür ist geschlossen.",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        },
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "a",
+          "overlayB": "d",
+          "descriptionA": "Die Tür ist offen. 🪟",
+          "descriptionB": "Another interpretation",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        }
+      ],
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist offen. 🪟\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "36ab7b50b9e435994f6f4656f4372aa4950ea20bb6f38f06898326a3bde40840"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist geschlossen.\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "f54ce30744cac0c6a868873900745bc7f6113d90b05d13a5f742e1bd1ac69996"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Another interpretation\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "02408d19b7e5f1aaf070eb3984fa12e4bfdd50050784837fcaf3933ceede2088"
+        }
+      ]
+    },
+    {
+      "name": "overlays:null",
+      "method": "overlays",
+      "input": [
+        null,
+        {
+          "id": "c",
+          "targetMemoryId": "other",
+          "shiftDescription": "Unrelated interpretation",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "emotion"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "d",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Another interpretation",
+          "shiftType": "meaning"
+        }
+      ],
+      "response": "yes",
+      "port": "present",
+      "maxPairs": null,
+      "constructorMaxPairs": 20,
+      "result": [
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "a",
+          "overlayB": "b",
+          "descriptionA": "Die Tür ist offen. 🪟",
+          "descriptionB": "Die Tür ist geschlossen.",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        },
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "a",
+          "overlayB": "d",
+          "descriptionA": "Die Tür ist offen. 🪟",
+          "descriptionB": "Another interpretation",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        },
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "b",
+          "overlayB": "d",
+          "descriptionA": "Die Tür ist geschlossen.",
+          "descriptionB": "Another interpretation",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        }
+      ],
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist geschlossen.\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "f54ce30744cac0c6a868873900745bc7f6113d90b05d13a5f742e1bd1ac69996"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Another interpretation\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "02408d19b7e5f1aaf070eb3984fa12e4bfdd50050784837fcaf3933ceede2088"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist geschlossen.\"\nInterpretation 2: \"Another interpretation\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "b79e1f57a6e5273bb930cac0f0c893e31198426e2de75bf37b164b67a8f72b22"
+        }
+      ]
+    },
+    {
+      "name": "new:null",
+      "method": "new",
+      "input": [
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        [
+          null,
+          {
+            "id": "c",
+            "targetMemoryId": "other",
+            "shiftDescription": "Unrelated interpretation",
+            "shiftType": "meaning"
+          },
+          {
+            "id": "a",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Die Tür ist offen. 🪟",
+            "shiftType": "meaning"
+          },
+          {
+            "id": "b",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Die Tür ist geschlossen.",
+            "shiftType": "emotion"
+          },
+          {
+            "id": "b",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Die Tür ist geschlossen.",
+            "shiftType": "meaning"
+          },
+          {
+            "id": "d",
+            "targetMemoryId": "memory",
+            "shiftDescription": "Another interpretation",
+            "shiftType": "meaning"
+          }
+        ]
+      ],
+      "response": "yes",
+      "port": "present",
+      "maxPairs": null,
+      "constructorMaxPairs": 20,
+      "result": [
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "a",
+          "overlayB": "a",
+          "descriptionA": "Die Tür ist offen. 🪟",
+          "descriptionB": "Die Tür ist offen. 🪟",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        },
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "a",
+          "overlayB": "b",
+          "descriptionA": "Die Tür ist offen. 🪟",
+          "descriptionB": "Die Tür ist geschlossen.",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        },
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "a",
+          "overlayB": "d",
+          "descriptionA": "Die Tür ist offen. 🪟",
+          "descriptionB": "Another interpretation",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        }
+      ],
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist offen. 🪟\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "36ab7b50b9e435994f6f4656f4372aa4950ea20bb6f38f06898326a3bde40840"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist geschlossen.\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "f54ce30744cac0c6a868873900745bc7f6113d90b05d13a5f742e1bd1ac69996"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Another interpretation\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "02408d19b7e5f1aaf070eb3984fa12e4bfdd50050784837fcaf3933ceede2088"
+        }
+      ]
+    },
+    {
+      "name": "constructor-fallback",
+      "method": "overlays",
+      "input": [
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "d",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Another interpretation",
+          "shiftType": "meaning"
+        }
+      ],
+      "response": "yes",
+      "port": "present",
+      "maxPairs": -1,
+      "constructorMaxPairs": 1,
+      "result": [
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "a",
+          "overlayB": "b",
+          "descriptionA": "Die Tür ist offen. 🪟",
+          "descriptionB": "Die Tür ist geschlossen.",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        }
+      ],
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist geschlossen.\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "f54ce30744cac0c6a868873900745bc7f6113d90b05d13a5f742e1bd1ac69996"
+        }
+      ]
+    },
+    {
+      "name": "constructor-fraction",
+      "method": "overlays",
+      "input": [
+        {
+          "id": "a",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist offen. 🪟",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "b",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Die Tür ist geschlossen.",
+          "shiftType": "meaning"
+        },
+        {
+          "id": "d",
+          "targetMemoryId": "memory",
+          "shiftDescription": "Another interpretation",
+          "shiftType": "meaning"
+        }
+      ],
+      "response": "yes",
+      "port": "present",
+      "constructorMaxPairs": 1.5,
+      "result": [
+        {
+          "id": "__UUID__",
+          "targetMemoryId": "memory",
+          "overlayA": "a",
+          "overlayB": "b",
+          "descriptionA": "Die Tür ist offen. 🪟",
+          "descriptionB": "Die Tür ist geschlossen.",
+          "detectedAt": "2025-01-01T00:00:00.000Z"
+        }
+      ],
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"Die Tür ist offen. 🪟\"\nInterpretation 2: \"Die Tür ist geschlossen.\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "f54ce30744cac0c6a868873900745bc7f6113d90b05d13a5f742e1bd1ac69996"
+        }
+      ]
+    },
+    {
+      "name": "texts:0",
+      "method": "texts",
+      "input": [
+        {
+          "id": "a",
+          "summary": "  summary A  ",
+          "text": "ignored"
+        },
+        {
+          "id": "a",
+          "text": "same id"
+        },
+        {
+          "id": "empty",
+          "text": "  "
+        },
+        {
+          "id": "b",
+          "text": "B 🪟"
+        },
+        {
+          "id": "c",
+          "text": "C"
+        },
+        {
+          "id": 42,
+          "text": "wrong id type"
+        }
+      ],
+      "response": "yes",
+      "port": "present",
+      "maxPairs": 0,
+      "constructorMaxPairs": 20,
+      "result": [],
+      "calls": []
+    },
+    {
+      "name": "texts:1",
+      "method": "texts",
+      "input": [
+        {
+          "id": "a",
+          "summary": "  summary A  ",
+          "text": "ignored"
+        },
+        {
+          "id": "a",
+          "text": "same id"
+        },
+        {
+          "id": "empty",
+          "text": "  "
+        },
+        {
+          "id": "b",
+          "text": "B 🪟"
+        },
+        {
+          "id": "c",
+          "text": "C"
+        },
+        {
+          "id": 42,
+          "text": "wrong id type"
+        }
+      ],
+      "response": "yes",
+      "port": "present",
+      "maxPairs": 1,
+      "constructorMaxPairs": 20,
+      "result": [],
+      "calls": []
+    },
+    {
+      "name": "texts:1.5",
+      "method": "texts",
+      "input": [
+        {
+          "id": "a",
+          "summary": "  summary A  ",
+          "text": "ignored"
+        },
+        {
+          "id": "a",
+          "text": "same id"
+        },
+        {
+          "id": "empty",
+          "text": "  "
+        },
+        {
+          "id": "b",
+          "text": "B 🪟"
+        },
+        {
+          "id": "c",
+          "text": "C"
+        },
+        {
+          "id": 42,
+          "text": "wrong id type"
+        }
+      ],
+      "response": "yes",
+      "port": "present",
+      "maxPairs": 1.5,
+      "constructorMaxPairs": 20,
+      "result": [],
+      "calls": []
+    },
+    {
+      "name": "texts:2",
+      "method": "texts",
+      "input": [
+        {
+          "id": "a",
+          "summary": "  summary A  ",
+          "text": "ignored"
+        },
+        {
+          "id": "a",
+          "text": "same id"
+        },
+        {
+          "id": "empty",
+          "text": "  "
+        },
+        {
+          "id": "b",
+          "text": "B 🪟"
+        },
+        {
+          "id": "c",
+          "text": "C"
+        },
+        {
+          "id": 42,
+          "text": "wrong id type"
+        }
+      ],
+      "response": "yes",
+      "port": "present",
+      "maxPairs": 2,
+      "constructorMaxPairs": 20,
+      "result": [],
+      "calls": []
+    },
+    {
+      "name": "texts:3",
+      "method": "texts",
+      "input": [
+        {
+          "id": "a",
+          "summary": "  summary A  ",
+          "text": "ignored"
+        },
+        {
+          "id": "a",
+          "text": "same id"
+        },
+        {
+          "id": "empty",
+          "text": "  "
+        },
+        {
+          "id": "b",
+          "text": "B 🪟"
+        },
+        {
+          "id": "c",
+          "text": "C"
+        },
+        {
+          "id": 42,
+          "text": "wrong id type"
+        }
+      ],
+      "response": "yes",
+      "port": "present",
+      "maxPairs": 3,
+      "constructorMaxPairs": 20,
+      "result": [
+        {
+          "id": "__UUID__",
+          "memoryA": "a",
+          "memoryB": "b",
+          "descriptionA": "  summary A  ",
+          "descriptionB": "B 🪟",
+          "detectedAt": "2025-01-01T00:00:00.000Z",
+          "recordType": "memory-text-contradiction"
+        }
+      ],
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"summary A\"\nInterpretation 2: \"B 🪟\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "bd0ec5f553e4046c58a5725be01c1717bcb1e28e84244e959086b0e9d662f693"
+        }
+      ]
+    },
+    {
+      "name": "texts:6",
+      "method": "texts",
+      "input": [
+        {
+          "id": "a",
+          "summary": "  summary A  ",
+          "text": "ignored"
+        },
+        {
+          "id": "a",
+          "text": "same id"
+        },
+        {
+          "id": "empty",
+          "text": "  "
+        },
+        {
+          "id": "b",
+          "text": "B 🪟"
+        },
+        {
+          "id": "c",
+          "text": "C"
+        },
+        {
+          "id": 42,
+          "text": "wrong id type"
+        }
+      ],
+      "response": "yes",
+      "port": "present",
+      "maxPairs": 6,
+      "constructorMaxPairs": 20,
+      "result": [
+        {
+          "id": "__UUID__",
+          "memoryA": "a",
+          "memoryB": "b",
+          "descriptionA": "  summary A  ",
+          "descriptionB": "B 🪟",
+          "detectedAt": "2025-01-01T00:00:00.000Z",
+          "recordType": "memory-text-contradiction"
+        },
+        {
+          "id": "__UUID__",
+          "memoryA": "a",
+          "memoryB": "c",
+          "descriptionA": "  summary A  ",
+          "descriptionB": "C",
+          "detectedAt": "2025-01-01T00:00:00.000Z",
+          "recordType": "memory-text-contradiction"
+        },
+        {
+          "id": "__UUID__",
+          "memoryA": "a",
+          "memoryB": "b",
+          "descriptionA": "same id",
+          "descriptionB": "B 🪟",
+          "detectedAt": "2025-01-01T00:00:00.000Z",
+          "recordType": "memory-text-contradiction"
+        }
+      ],
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"summary A\"\nInterpretation 2: \"B 🪟\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "bd0ec5f553e4046c58a5725be01c1717bcb1e28e84244e959086b0e9d662f693"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"summary A\"\nInterpretation 2: \"C\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "d23ea2712f6232d1a42725ae59ddb18f7bd58fa56c79c92b567b807134409bfd"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"same id\"\nInterpretation 2: \"B 🪟\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "9169aa1d336b386bb2106c8c101553e931e5af9e8cbb57f436eaad9736a17481"
+        }
+      ]
+    },
+    {
+      "name": "texts:20",
+      "method": "texts",
+      "input": [
+        {
+          "id": "a",
+          "summary": "  summary A  ",
+          "text": "ignored"
+        },
+        {
+          "id": "a",
+          "text": "same id"
+        },
+        {
+          "id": "empty",
+          "text": "  "
+        },
+        {
+          "id": "b",
+          "text": "B 🪟"
+        },
+        {
+          "id": "c",
+          "text": "C"
+        },
+        {
+          "id": 42,
+          "text": "wrong id type"
+        }
+      ],
+      "response": "yes",
+      "port": "present",
+      "maxPairs": 20,
+      "constructorMaxPairs": 20,
+      "result": [
+        {
+          "id": "__UUID__",
+          "memoryA": "a",
+          "memoryB": "b",
+          "descriptionA": "  summary A  ",
+          "descriptionB": "B 🪟",
+          "detectedAt": "2025-01-01T00:00:00.000Z",
+          "recordType": "memory-text-contradiction"
+        },
+        {
+          "id": "__UUID__",
+          "memoryA": "a",
+          "memoryB": "c",
+          "descriptionA": "  summary A  ",
+          "descriptionB": "C",
+          "detectedAt": "2025-01-01T00:00:00.000Z",
+          "recordType": "memory-text-contradiction"
+        },
+        {
+          "id": "__UUID__",
+          "memoryA": "a",
+          "memoryB": "b",
+          "descriptionA": "same id",
+          "descriptionB": "B 🪟",
+          "detectedAt": "2025-01-01T00:00:00.000Z",
+          "recordType": "memory-text-contradiction"
+        },
+        {
+          "id": "__UUID__",
+          "memoryA": "a",
+          "memoryB": "c",
+          "descriptionA": "same id",
+          "descriptionB": "C",
+          "detectedAt": "2025-01-01T00:00:00.000Z",
+          "recordType": "memory-text-contradiction"
+        },
+        {
+          "id": "__UUID__",
+          "memoryA": "b",
+          "memoryB": "c",
+          "descriptionA": "B 🪟",
+          "descriptionB": "C",
+          "detectedAt": "2025-01-01T00:00:00.000Z",
+          "recordType": "memory-text-contradiction"
+        }
+      ],
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"summary A\"\nInterpretation 2: \"B 🪟\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "bd0ec5f553e4046c58a5725be01c1717bcb1e28e84244e959086b0e9d662f693"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"summary A\"\nInterpretation 2: \"C\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "d23ea2712f6232d1a42725ae59ddb18f7bd58fa56c79c92b567b807134409bfd"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"same id\"\nInterpretation 2: \"B 🪟\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "9169aa1d336b386bb2106c8c101553e931e5af9e8cbb57f436eaad9736a17481"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"same id\"\nInterpretation 2: \"C\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "59c999ee31f0648b41b1f9c0a323a557ba004be84cce63f429a7a8c93b691400"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"B 🪟\"\nInterpretation 2: \"C\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "bf8fa8195702516f56b7e21cee777c6b61f29faa3ff2d24fc25945bd76875647"
+        }
+      ]
+    },
+    {
+      "name": "texts:-1",
+      "method": "texts",
+      "input": [
+        {
+          "id": "a",
+          "summary": "  summary A  ",
+          "text": "ignored"
+        },
+        {
+          "id": "a",
+          "text": "same id"
+        },
+        {
+          "id": "empty",
+          "text": "  "
+        },
+        {
+          "id": "b",
+          "text": "B 🪟"
+        },
+        {
+          "id": "c",
+          "text": "C"
+        },
+        {
+          "id": 42,
+          "text": "wrong id type"
+        }
+      ],
+      "response": "yes",
+      "port": "present",
+      "maxPairs": -1,
+      "constructorMaxPairs": 20,
+      "result": [
+        {
+          "id": "__UUID__",
+          "memoryA": "a",
+          "memoryB": "b",
+          "descriptionA": "  summary A  ",
+          "descriptionB": "B 🪟",
+          "detectedAt": "2025-01-01T00:00:00.000Z",
+          "recordType": "memory-text-contradiction"
+        },
+        {
+          "id": "__UUID__",
+          "memoryA": "a",
+          "memoryB": "c",
+          "descriptionA": "  summary A  ",
+          "descriptionB": "C",
+          "detectedAt": "2025-01-01T00:00:00.000Z",
+          "recordType": "memory-text-contradiction"
+        },
+        {
+          "id": "__UUID__",
+          "memoryA": "a",
+          "memoryB": "b",
+          "descriptionA": "same id",
+          "descriptionB": "B 🪟",
+          "detectedAt": "2025-01-01T00:00:00.000Z",
+          "recordType": "memory-text-contradiction"
+        },
+        {
+          "id": "__UUID__",
+          "memoryA": "a",
+          "memoryB": "c",
+          "descriptionA": "same id",
+          "descriptionB": "C",
+          "detectedAt": "2025-01-01T00:00:00.000Z",
+          "recordType": "memory-text-contradiction"
+        },
+        {
+          "id": "__UUID__",
+          "memoryA": "b",
+          "memoryB": "c",
+          "descriptionA": "B 🪟",
+          "descriptionB": "C",
+          "detectedAt": "2025-01-01T00:00:00.000Z",
+          "recordType": "memory-text-contradiction"
+        }
+      ],
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"summary A\"\nInterpretation 2: \"B 🪟\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "bd0ec5f553e4046c58a5725be01c1717bcb1e28e84244e959086b0e9d662f693"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"summary A\"\nInterpretation 2: \"C\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "d23ea2712f6232d1a42725ae59ddb18f7bd58fa56c79c92b567b807134409bfd"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"same id\"\nInterpretation 2: \"B 🪟\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "9169aa1d336b386bb2106c8c101553e931e5af9e8cbb57f436eaad9736a17481"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"same id\"\nInterpretation 2: \"C\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "59c999ee31f0648b41b1f9c0a323a557ba004be84cce63f429a7a8c93b691400"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"B 🪟\"\nInterpretation 2: \"C\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "bf8fa8195702516f56b7e21cee777c6b61f29faa3ff2d24fc25945bd76875647"
+        }
+      ]
+    },
+    {
+      "name": "texts:\"1\"",
+      "method": "texts",
+      "input": [
+        {
+          "id": "a",
+          "summary": "  summary A  ",
+          "text": "ignored"
+        },
+        {
+          "id": "a",
+          "text": "same id"
+        },
+        {
+          "id": "empty",
+          "text": "  "
+        },
+        {
+          "id": "b",
+          "text": "B 🪟"
+        },
+        {
+          "id": "c",
+          "text": "C"
+        },
+        {
+          "id": 42,
+          "text": "wrong id type"
+        }
+      ],
+      "response": "yes",
+      "port": "present",
+      "maxPairs": "1",
+      "constructorMaxPairs": 20,
+      "result": [
+        {
+          "id": "__UUID__",
+          "memoryA": "a",
+          "memoryB": "b",
+          "descriptionA": "  summary A  ",
+          "descriptionB": "B 🪟",
+          "detectedAt": "2025-01-01T00:00:00.000Z",
+          "recordType": "memory-text-contradiction"
+        },
+        {
+          "id": "__UUID__",
+          "memoryA": "a",
+          "memoryB": "c",
+          "descriptionA": "  summary A  ",
+          "descriptionB": "C",
+          "detectedAt": "2025-01-01T00:00:00.000Z",
+          "recordType": "memory-text-contradiction"
+        },
+        {
+          "id": "__UUID__",
+          "memoryA": "a",
+          "memoryB": "b",
+          "descriptionA": "same id",
+          "descriptionB": "B 🪟",
+          "detectedAt": "2025-01-01T00:00:00.000Z",
+          "recordType": "memory-text-contradiction"
+        },
+        {
+          "id": "__UUID__",
+          "memoryA": "a",
+          "memoryB": "c",
+          "descriptionA": "same id",
+          "descriptionB": "C",
+          "detectedAt": "2025-01-01T00:00:00.000Z",
+          "recordType": "memory-text-contradiction"
+        },
+        {
+          "id": "__UUID__",
+          "memoryA": "b",
+          "memoryB": "c",
+          "descriptionA": "B 🪟",
+          "descriptionB": "C",
+          "detectedAt": "2025-01-01T00:00:00.000Z",
+          "recordType": "memory-text-contradiction"
+        }
+      ],
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"summary A\"\nInterpretation 2: \"B 🪟\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "bd0ec5f553e4046c58a5725be01c1717bcb1e28e84244e959086b0e9d662f693"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"summary A\"\nInterpretation 2: \"C\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "d23ea2712f6232d1a42725ae59ddb18f7bd58fa56c79c92b567b807134409bfd"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"same id\"\nInterpretation 2: \"B 🪟\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "9169aa1d336b386bb2106c8c101553e931e5af9e8cbb57f436eaad9736a17481"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"same id\"\nInterpretation 2: \"C\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "59c999ee31f0648b41b1f9c0a323a557ba004be84cce63f429a7a8c93b691400"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"B 🪟\"\nInterpretation 2: \"C\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "bf8fa8195702516f56b7e21cee777c6b61f29faa3ff2d24fc25945bd76875647"
+        }
+      ]
+    },
+    {
+      "name": "texts:null",
+      "method": "texts",
+      "input": [
+        {
+          "id": "a",
+          "summary": "  summary A  ",
+          "text": "ignored"
+        },
+        {
+          "id": "a",
+          "text": "same id"
+        },
+        {
+          "id": "empty",
+          "text": "  "
+        },
+        {
+          "id": "b",
+          "text": "B 🪟"
+        },
+        {
+          "id": "c",
+          "text": "C"
+        },
+        {
+          "id": 42,
+          "text": "wrong id type"
+        }
+      ],
+      "response": "yes",
+      "port": "present",
+      "maxPairs": null,
+      "constructorMaxPairs": 20,
+      "result": [
+        {
+          "id": "__UUID__",
+          "memoryA": "a",
+          "memoryB": "b",
+          "descriptionA": "  summary A  ",
+          "descriptionB": "B 🪟",
+          "detectedAt": "2025-01-01T00:00:00.000Z",
+          "recordType": "memory-text-contradiction"
+        },
+        {
+          "id": "__UUID__",
+          "memoryA": "a",
+          "memoryB": "c",
+          "descriptionA": "  summary A  ",
+          "descriptionB": "C",
+          "detectedAt": "2025-01-01T00:00:00.000Z",
+          "recordType": "memory-text-contradiction"
+        },
+        {
+          "id": "__UUID__",
+          "memoryA": "a",
+          "memoryB": "b",
+          "descriptionA": "same id",
+          "descriptionB": "B 🪟",
+          "detectedAt": "2025-01-01T00:00:00.000Z",
+          "recordType": "memory-text-contradiction"
+        },
+        {
+          "id": "__UUID__",
+          "memoryA": "a",
+          "memoryB": "c",
+          "descriptionA": "same id",
+          "descriptionB": "C",
+          "detectedAt": "2025-01-01T00:00:00.000Z",
+          "recordType": "memory-text-contradiction"
+        },
+        {
+          "id": "__UUID__",
+          "memoryA": "b",
+          "memoryB": "c",
+          "descriptionA": "B 🪟",
+          "descriptionB": "C",
+          "detectedAt": "2025-01-01T00:00:00.000Z",
+          "recordType": "memory-text-contradiction"
+        }
+      ],
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"summary A\"\nInterpretation 2: \"B 🪟\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "bd0ec5f553e4046c58a5725be01c1717bcb1e28e84244e959086b0e9d662f693"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"summary A\"\nInterpretation 2: \"C\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "d23ea2712f6232d1a42725ae59ddb18f7bd58fa56c79c92b567b807134409bfd"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"same id\"\nInterpretation 2: \"B 🪟\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "9169aa1d336b386bb2106c8c101553e931e5af9e8cbb57f436eaad9736a17481"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"same id\"\nInterpretation 2: \"C\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "59c999ee31f0648b41b1f9c0a323a557ba004be84cce63f429a7a8c93b691400"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"B 🪟\"\nInterpretation 2: \"C\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "bf8fa8195702516f56b7e21cee777c6b61f29faa3ff2d24fc25945bd76875647"
+        }
+      ]
+    },
+    {
+      "name": "text-constructor-not-used",
+      "method": "texts",
+      "input": [
+        {
+          "id": "a",
+          "summary": "  summary A  ",
+          "text": "ignored"
+        },
+        {
+          "id": "a",
+          "text": "same id"
+        },
+        {
+          "id": "empty",
+          "text": "  "
+        },
+        {
+          "id": "b",
+          "text": "B 🪟"
+        },
+        {
+          "id": "c",
+          "text": "C"
+        },
+        {
+          "id": 42,
+          "text": "wrong id type"
+        }
+      ],
+      "response": "yes",
+      "port": "present",
+      "constructorMaxPairs": 0,
+      "result": [
+        {
+          "id": "__UUID__",
+          "memoryA": "a",
+          "memoryB": "b",
+          "descriptionA": "  summary A  ",
+          "descriptionB": "B 🪟",
+          "detectedAt": "2025-01-01T00:00:00.000Z",
+          "recordType": "memory-text-contradiction"
+        },
+        {
+          "id": "__UUID__",
+          "memoryA": "a",
+          "memoryB": "c",
+          "descriptionA": "  summary A  ",
+          "descriptionB": "C",
+          "detectedAt": "2025-01-01T00:00:00.000Z",
+          "recordType": "memory-text-contradiction"
+        },
+        {
+          "id": "__UUID__",
+          "memoryA": "a",
+          "memoryB": "b",
+          "descriptionA": "same id",
+          "descriptionB": "B 🪟",
+          "detectedAt": "2025-01-01T00:00:00.000Z",
+          "recordType": "memory-text-contradiction"
+        },
+        {
+          "id": "__UUID__",
+          "memoryA": "a",
+          "memoryB": "c",
+          "descriptionA": "same id",
+          "descriptionB": "C",
+          "detectedAt": "2025-01-01T00:00:00.000Z",
+          "recordType": "memory-text-contradiction"
+        },
+        {
+          "id": "__UUID__",
+          "memoryA": "b",
+          "memoryB": "c",
+          "descriptionA": "B 🪟",
+          "descriptionB": "C",
+          "detectedAt": "2025-01-01T00:00:00.000Z",
+          "recordType": "memory-text-contradiction"
+        }
+      ],
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"summary A\"\nInterpretation 2: \"B 🪟\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "bd0ec5f553e4046c58a5725be01c1717bcb1e28e84244e959086b0e9d662f693"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"summary A\"\nInterpretation 2: \"C\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "d23ea2712f6232d1a42725ae59ddb18f7bd58fa56c79c92b567b807134409bfd"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"same id\"\nInterpretation 2: \"B 🪟\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "9169aa1d336b386bb2106c8c101553e931e5af9e8cbb57f436eaad9736a17481"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"same id\"\nInterpretation 2: \"C\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "59c999ee31f0648b41b1f9c0a323a557ba004be84cce63f429a7a8c93b691400"
+        },
+        {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You decide whether two interpretations of the same memory contradict each other. Reply with exactly one word: \"yes\" if they are mutually incompatible, otherwise \"no\"."
+            },
+            {
+              "role": "user",
+              "content": "Interpretation 1: \"B 🪟\"\nInterpretation 2: \"C\"\nDo these contradict each other?"
+            }
+          ],
+          "sha256": "bf8fa8195702516f56b7e21cee777c6b61f29faa3ff2d24fc25945bd76875647"
+        }
+      ]
+    },
+    {
+      "name": "text-no-model",
+      "method": "texts",
+      "input": [
+        {
+          "id": "a",
+          "summary": "  summary A  ",
+          "text": "ignored"
+        },
+        {
+          "id": "a",
+          "text": "same id"
+        },
+        {
+          "id": "empty",
+          "text": "  "
+        },
+        {
+          "id": "b",
+          "text": "B 🪟"
+        },
+        {
+          "id": "c",
+          "text": "C"
+        },
+        {
+          "id": 42,
+          "text": "wrong id type"
+        }
+      ],
+      "response": "yes",
+      "port": "absent",
+      "constructorMaxPairs": 20,
+      "result": [],
+      "calls": []
+    }
+  ]
+}

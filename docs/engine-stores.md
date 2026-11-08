@@ -747,3 +747,29 @@ Worker resource/spawn failure restores the original callback and explicit drain
 reports unavailable for retry. Lanes retain insertion order and cumulative counters
 until queue disposal, so exhausting the distinct-agent cap requires a new independent
 queue; the process singleton remains closed once closed, matching Node.
+
+
+### Contradiction detection boundary (RX6 / RE-D69)
+
+`capture::contradiction::Detector` ports actual frozen Node meaning-overlay and
+memory-text pair selection through the existing `LlmPort`. It retains input order,
+same-target eligibility, the distinct pair-budget rules, summary-before-text selection,
+exact two-message prompts and the trimmed/lowercased `yes` prefix decision. Ordinary
+provider failures produce no conflict and a fixed content-free diagnostic; caller
+cancellation remains an error before and after the provider call. No provider is
+constructed, and the detector grants no source access or mutation authority.
+
+The actual Node recorder verifies all seven imported module hashes at pin
+`9f34008c143c5da87b2194b5a28442b407ff8ba7`, fixes only time and normalizes generated
+record UUIDs. Fifty cases were recorded twice byte-identically; Rust compares all
+results, call order, full messages and SHA-256 prompt bytes. New golden:
+`crates/plur1bus-engine/tests/fixtures/capture/golden/contradictions.json`.
+
+Native bounds are 512 input records, 1,000 model pairs and 65,536 UTF-16 units per
+selected description. Inputs exceeding the record/description bounds refuse before
+model egress; excessive configured pair counts are capped. An unpaired source UTF-16
+unit refuses because the frozen LLM contract accepts UTF-8: source content is not
+silently changed. This stage requires already authorized source snapshots from its
+native caller. Contradiction-ledger persistence, current-authority rechecks around
+productive effect composition, conflict resolution and complete T4 activation remain
+separate work; a positive model result does not resolve or discard either memory.

@@ -100,3 +100,6 @@ pub mod critical;
 
 /// Deferred reply-outcome reinforcement with per-agent FIFO lanes.
 pub mod deferred_dynamics;
+
+/// Ordered model checks for authorized meaning overlays and factual memory texts.
+pub mod contradiction;
