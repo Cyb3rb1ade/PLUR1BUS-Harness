@@ -10,3 +10,4 @@ pub mod routing;
 pub mod status;
 mod tail;
 mod vectors;
+pub mod watermark;
