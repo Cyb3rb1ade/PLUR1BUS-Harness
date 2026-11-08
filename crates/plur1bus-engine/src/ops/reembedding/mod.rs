@@ -15,3 +15,9 @@ pub mod validation;
     reason = "switch/recovery host composition follows in RX8; no wire adapter"
 )]
 mod switch;
+
+#[allow(
+    dead_code,
+    reason = "post-activation probe is private until RX8 host composition"
+)]
+mod runtime_probe;
