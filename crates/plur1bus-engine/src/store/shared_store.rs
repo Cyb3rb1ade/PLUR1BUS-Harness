@@ -123,6 +123,32 @@ impl Store {
             Ok(rows)
         })
     }
+    /// Any live shared copy prevents rollback of its origin, regardless of deleted-row prefixes.
+    /// Filter before limiting: an old tombstoned copy cannot hide a later active one.
+    pub fn has_live_shared_origin(&self, id: &str, agent: &str) -> Result<bool, StoreError> {
+        self.trusted()?;
+        if self.schema.field_with_name("sourceMemoryId").is_err() {
+            return Ok(false);
+        }
+        if self.schema.field_with_name("sourceAgentId").is_err() {
+            return Err(StoreError::Corrupt);
+        }
+        let table = self.table.clone();
+        let predicate=format!("sourceMemoryId = {} AND sourceAgentId = {} AND (status = 'active' OR status = '' OR status IS NULL)",crate::store::filter::sql_string(id),crate::store::filter::sql_string(agent));
+        self.executor.run(async move {
+            let rows = table
+                .query()
+                .only_if(predicate)
+                .limit(1)
+                .execute()
+                .await
+                .map_err(backend_error)?
+                .try_collect::<Vec<_>>()
+                .await
+                .map_err(backend_error)?;
+            Ok(rows.iter().any(|batch| batch.num_rows() > 0))
+        })
+    }
     /// Shared writes retain source provenance and recheck the original's tombstone registry.
     /// The registry root is the engine's configured base, never the physical shared-pool directory.
     pub fn upsert_shared(

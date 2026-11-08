@@ -91,6 +91,7 @@ fn unimport_generations_and_durable_sidecars_match_actual_node() {
                     .unwrap();
                 }
                 let receipt = UndoReceipt {
+                    generation: None,
                     card_id: op["cardId"].as_str().unwrap_or("").into(),
                     idempotency_key: op["idempotencyKey"].as_str().unwrap_or("").into(),
                     imported_at: op["importedAt"].as_f64().unwrap_or(0.),

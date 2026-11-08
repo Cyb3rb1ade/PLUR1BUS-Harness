@@ -28,6 +28,52 @@ pub(super) fn archive(
 ) -> Result<PathBuf, EngineError> {
     archive_value(&row.id, agent, state, now, &project(row)?)
 }
+// Unimport receives the authoritative database row, unlike human card projections.
+pub(super) fn raw(
+    row: &MemoryRow,
+    agent: &str,
+    state: &Path,
+    now: i64,
+) -> Result<PathBuf, EngineError> {
+    let raw =
+        parse_json(&serde_json::to_string(row).map_err(|_| error(MemoryOpErrorCode::Storage))?)
+            .map_err(|_| error(MemoryOpErrorCode::Storage))?;
+    archive_value(&row.id, agent, state, now, &raw)
+}
+/// Recover the full-row archive after an interrupted rollback. Never invent an audit path.
+pub(super) fn rollback_record(
+    state: &Path,
+    agent: &str,
+    id: &str,
+) -> Result<(PathBuf, MemoryRow), EngineError> {
+    let directory = state.join("memory/_archive").join(agent);
+    assert_trusted_path(&directory).map_err(|_| error(MemoryOpErrorCode::Storage))?;
+    let suffix = format!("-{id}.json");
+    let mut paths = Vec::new();
+    for entry in std::fs::read_dir(&directory).map_err(|_| error(MemoryOpErrorCode::Storage))? {
+        let path = entry.map_err(|_| error(MemoryOpErrorCode::Storage))?.path();
+        if path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .is_some_and(|n| n.ends_with(&suffix))
+        {
+            assert_trusted_path(&path).map_err(|_| error(MemoryOpErrorCode::Storage))?;
+            paths.push(path);
+        }
+    }
+    paths.sort();
+    let path = paths
+        .pop()
+        .ok_or_else(|| error(MemoryOpErrorCode::Storage))?;
+    let archived: MemoryRow = serde_json::from_slice(
+        &std::fs::read(&path).map_err(|_| error(MemoryOpErrorCode::Storage))?,
+    )
+    .map_err(|_| error(MemoryOpErrorCode::Storage))?;
+    if archived.id != id {
+        return Err(error(MemoryOpErrorCode::Storage));
+    }
+    Ok((path, archived))
+}
 fn archive_value(
     id: &str,
     agent: &str,

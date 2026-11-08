@@ -36,3 +36,7 @@ pub mod rebind_ledger;
 pub mod workspace_policy;
 /// Native caller-bound policy administration; contextless wire remains unavailable.
 pub mod workspace_policy_ops;
+
+/// Fenced caller-bound import rollback and preview.
+pub mod unimport;
+mod unimport_plan;

@@ -52,6 +52,10 @@ pub struct UnimportState {
     pub intents: HashSet<JsString>,
     /// Completed key-release markers with the same generation key.
     pub done: HashSet<JsString>,
+    /// Native repeated-import markers bind to the append-only receipt generation, not just time.
+    pub generation_intents: HashSet<(JsString, usize)>,
+    /// Matching completions; old time-only markers cannot complete a newer generation.
+    pub generation_done: HashSet<(JsString, usize)>,
 }
 /// The selected import generation, shared by intent and completion records.
 #[derive(Clone)]
@@ -60,8 +64,10 @@ pub struct UndoReceipt {
     pub card_id: JsString,
     /// Exact caller idempotency key; opaque UTF-16 stays lossless.
     pub idempotency_key: JsString,
-    /// Original import timestamp, distinguishing repeated imports under one run.
+    /// Original import timestamp, retained for legacy marker compatibility.
     pub imported_at: f64,
+    /// Second and later imports of this card carry their stable receipt ordinal (RE-D36).
+    pub generation: Option<usize>,
 }
 /// Non-creating handle. Every write requires the caller's import/unimport lease.
 pub struct UnimportLedger {
@@ -118,6 +124,18 @@ impl UnimportLedger {
                 Some("intent" | "done") => {
                     if let Some(Json::String(card)) = field(&row, "cardId") {
                         let key = marker_key(card, field(&row, "importedAt"));
+                        if let Some(Json::Number(n)) = field(&row, "importGeneration") {
+                            if let Ok(n) = n.parse::<usize>() {
+                                if n >= 2 {
+                                    let markers = if kind.as_deref() == Some("intent") {
+                                        &mut out.generation_intents
+                                    } else {
+                                        &mut out.generation_done
+                                    };
+                                    markers.insert((key.clone(), n));
+                                }
+                            }
+                        }
                         if kind.as_deref() == Some("intent") {
                             out.intents.insert(key);
                         } else {
@@ -175,7 +193,7 @@ impl UnimportLedger {
         now: i64,
         lease: &ImportLease,
     ) -> Result<(), EngineError> {
-        let row = Json::Object(vec![
+        let mut row = Json::Object(vec![
             ("v".into(), Json::Number("1".into())),
             ("kind".into(), Json::String("intent".into())),
             ("cardId".into(), Json::String(receipt.card_id.clone())),
@@ -186,6 +204,17 @@ impl UnimportLedger {
             ("importedAt".into(), time_json(receipt.imported_at)),
             ("archived".into(), Json::Bool(true)),
         ]);
+        if let Some(generation) = receipt.generation {
+            if generation < 2 {
+                return Err(error(MemoryOpErrorCode::InvalidInput));
+            }
+            if let Json::Object(fields) = &mut row {
+                fields.push((
+                    "importGeneration".into(),
+                    Json::Number(generation.to_string()),
+                ));
+            }
+        }
         self.append(agent, run, &row, now, lease)
     }
     /// The import receipt must free the key before this completion marker is appended.
@@ -197,12 +226,23 @@ impl UnimportLedger {
         now: i64,
         lease: &ImportLease,
     ) -> Result<(), EngineError> {
-        let row = Json::Object(vec![
+        let mut row = Json::Object(vec![
             ("v".into(), Json::Number("1".into())),
             ("kind".into(), Json::String("done".into())),
             ("cardId".into(), Json::String(receipt.card_id.clone())),
             ("importedAt".into(), time_json(receipt.imported_at)),
         ]);
+        if let Some(generation) = receipt.generation {
+            if generation < 2 {
+                return Err(error(MemoryOpErrorCode::InvalidInput));
+            }
+            if let Json::Object(fields) = &mut row {
+                fields.push((
+                    "importGeneration".into(),
+                    Json::Number(generation.to_string()),
+                ));
+            }
+        }
         self.append(agent, run, &row, now, lease)
     }
 }

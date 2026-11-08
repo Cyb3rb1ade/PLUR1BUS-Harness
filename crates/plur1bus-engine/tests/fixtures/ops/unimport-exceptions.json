@@ -1,0 +1,1469 @@
+{
+  "nodeGoldenSha256": "bfe37b3963fd4ad80c5560ef20f6b7be9eeb4edf9934f7e7406e93d9d8269556",
+  "ruling": "RX ruling 4 / D129 / D130 / RE-D36",
+  "cases": {
+    "reimport-other-run-same-time": {
+      "reason": "A current import from another run outranks an old done marker, including equal timestamps.",
+      "preview": {
+        "value": {
+          "agentId": "agent",
+          "importRunId": "run-1",
+          "dryRun": true,
+          "selected": 1,
+          "unimported": 0,
+          "keptModified": 1,
+          "alreadyForgotten": 0,
+          "alreadyUnimported": 0,
+          "missing": 0,
+          "failed": 0,
+          "remaining": 0,
+          "cards": [
+            {
+              "idempotencyKey": "key",
+              "id": "b23b2c4e-31af-5c5b-a816-4dd172ee79ec",
+              "outcome": "kept-modified",
+              "reason": "other-run"
+            }
+          ],
+          "derived": {
+            "jobsSinceImport": []
+          }
+        }
+      },
+      "results": [
+        {
+          "value": {
+            "agentId": "agent",
+            "importRunId": "run-1",
+            "dryRun": false,
+            "selected": 1,
+            "unimported": 0,
+            "keptModified": 1,
+            "alreadyForgotten": 0,
+            "alreadyUnimported": 0,
+            "missing": 0,
+            "failed": 0,
+            "remaining": 0,
+            "cards": [
+              {
+                "idempotencyKey": "key",
+                "id": "b23b2c4e-31af-5c5b-a816-4dd172ee79ec",
+                "outcome": "kept-modified",
+                "reason": "other-run"
+              }
+            ],
+            "derived": {
+              "jobsSinceImport": []
+            }
+          }
+        }
+      ],
+      "rows": [
+        {
+          "id": "b23b2c4e-31af-5c5b-a816-4dd172ee79ec",
+          "type": "memory",
+          "confirmed": false,
+          "text": "A new generation imported at the same clock tick.",
+          "summary": "A new generation imported at the same clock tick.",
+          "origin": "internal",
+          "vector": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "importance": 0.5,
+          "category": "conversation",
+          "createdAt": 1800000000000,
+          "mergedFrom": "[]",
+          "expiresAt": 0,
+          "agentId": "agent",
+          "storedBy": "agent",
+          "sourceTurnId": "",
+          "sourceMessageRole": "",
+          "sourceTimestamp": 1800000000000,
+          "sourceUrl": "fixture:second;run=other",
+          "evidenceQuote": "",
+          "scope": "agent-private",
+          "ownerUserId": "",
+          "emotionalValence": "",
+          "emotionalIntensity": 0,
+          "emotionalDominant": "neutral",
+          "moodContextAtCapture": "",
+          "emotionStatus": "final",
+          "importanceStatus": "final",
+          "replayCount": 0,
+          "lastReplayed": 0,
+          "retrievalCount": 0,
+          "lastRetrievedAt": 0,
+          "memoryStrength": 1,
+          "halfLifeDays": 180,
+          "lastStrengthenedAt": 0,
+          "lastDynamicsAt": 1800000000000,
+          "memoryClass": "standard",
+          "neverForget": 0,
+          "coreMemoryScore": 0,
+          "coreMemoryReason": "",
+          "versionNumber": 1,
+          "previousVersion": "",
+          "supersededBy": "",
+          "updateSource": "",
+          "updateEvidence": "",
+          "reconsolidationConfidence": 0,
+          "status": "active",
+          "versionCreatedAt": 1800000000000,
+          "updatedAt": 1800000000000,
+          "workspaceId": "",
+          "workspaceKey": "",
+          "memoryKind": "memory",
+          "reminderStatus": "",
+          "remindAt": 0,
+          "remindedAt": 0,
+          "dispatchedAt": 0,
+          "acknowledgedAt": 0,
+          "cancelledAt": 0,
+          "reminderKey": "",
+          "dispatchCount": 0,
+          "lastDispatchAttemptAt": 0,
+          "nextDispatchAttemptAt": 0,
+          "epistemicStatus": "untrusted",
+          "epistemicStatusUpdatedAt": 0,
+          "epistemicStatusActor": "",
+          "epistemicStatusReason": "",
+          "previousEpistemicStatus": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "chunkGroupId": ""
+        }
+      ],
+      "files": {
+        "state/memory/_archive/agent/2027-01-15T08-00-00-000Z-b23b2c4e-31af-5c5b-a816-4dd172ee79ec.json": "{\n  \"id\": \"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\n  \"type\": \"memory\",\n  \"confirmed\": false,\n  \"text\": \"Synthetic imported fact about durable storage.\",\n  \"summary\": \"Synthetic imported fact about durable storage.\",\n  \"origin\": \"internal\",\n  \"vector\": [\n    1,\n    0,\n    0,\n    0\n  ],\n  \"importance\": 0.65,\n  \"category\": \"conversation\",\n  \"createdAt\": 1800000000000,\n  \"mergedFrom\": \"[]\",\n  \"expiresAt\": 0,\n  \"agentId\": \"agent\",\n  \"storedBy\": \"agent\",\n  \"sourceTurnId\": \"\",\n  \"sourceMessageRole\": \"\",\n  \"sourceTimestamp\": 1800000000000,\n  \"sourceUrl\": \"fixture:source;run=run-1\",\n  \"evidenceQuote\": \"\",\n  \"scope\": \"agent-private\",\n  \"ownerUserId\": \"\",\n  \"emotionalValence\": \"\",\n  \"emotionalIntensity\": 0,\n  \"emotionalDominant\": \"neutral\",\n  \"moodContextAtCapture\": \"\",\n  \"emotionStatus\": \"final\",\n  \"importanceStatus\": \"final\",\n  \"replayCount\": 0,\n  \"lastReplayed\": 0,\n  \"retrievalCount\": 0,\n  \"lastRetrievedAt\": 0,\n  \"memoryStrength\": 1,\n  \"halfLifeDays\": 180,\n  \"lastStrengthenedAt\": 0,\n  \"lastDynamicsAt\": 1800000000000,\n  \"memoryClass\": \"standard\",\n  \"neverForget\": 0,\n  \"coreMemoryScore\": 0,\n  \"coreMemoryReason\": \"\",\n  \"versionNumber\": 1,\n  \"previousVersion\": \"\",\n  \"supersededBy\": \"\",\n  \"updateSource\": \"\",\n  \"updateEvidence\": \"\",\n  \"reconsolidationConfidence\": 0,\n  \"status\": \"active\",\n  \"versionCreatedAt\": 1800000000000,\n  \"updatedAt\": 1800000000000,\n  \"workspaceId\": \"\",\n  \"workspaceKey\": \"\",\n  \"memoryKind\": \"memory\",\n  \"reminderStatus\": \"\",\n  \"remindAt\": 0,\n  \"remindedAt\": 0,\n  \"dispatchedAt\": 0,\n  \"acknowledgedAt\": 0,\n  \"cancelledAt\": 0,\n  \"reminderKey\": \"\",\n  \"dispatchCount\": 0,\n  \"lastDispatchAttemptAt\": 0,\n  \"nextDispatchAttemptAt\": 0,\n  \"epistemicStatus\": \"untrusted\",\n  \"epistemicStatusUpdatedAt\": 0,\n  \"epistemicStatusActor\": \"\",\n  \"epistemicStatusReason\": \"\",\n  \"previousEpistemicStatus\": \"\",\n  \"validFrom\": 0,\n  \"validUntil\": 0,\n  \"chunkGroupId\": \"\"\n}",
+        "store/_imports/agent.jsonl": "{\"v\":1,\"idempotencyKey\":\"key\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importedAt\":1800000000000,\"sourceRef\":\"fixture:source;run=run-1\",\"importRunId\":\"run-1\",\"digest\":{\"content\":\"d444bd90bbd1d29f\",\"binding\":\"7dcba751ea8181c8\",\"meta\":\"801ddc1e42c2fba0\"}}\n{\"v\":1,\"kind\":\"unimported\",\"idempotencyKey\":\"key\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importRunId\":\"run-1\",\"at\":1800000000000}\n{\"v\":1,\"idempotencyKey\":\"key\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importedAt\":1800000000000,\"sourceRef\":\"fixture:second;run=other\",\"importRunId\":\"other\",\"digest\":{\"content\":\"70d4859c3c35c64a\",\"binding\":\"7dcba751ea8181c8\",\"meta\":\"f5ac18a276497b63\"}}\n",
+        "store/_unimports/agent/run-1.jsonl": "{\"v\":1,\"kind\":\"header\",\"agentId\":\"agent\",\"importRunId\":\"run-1\",\"createdAt\":1800000000000}\n{\"v\":1,\"kind\":\"intent\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"idempotencyKey\":\"key\",\"importedAt\":1800000000000,\"archived\":true}\n{\"v\":1,\"kind\":\"done\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importedAt\":1800000000000}\n",
+        "workspace/.adaptive-learning/destructive-ops.jsonl": "{\"event\":\"memory.unimported\",\"source\":\"memory_unimport\",\"agentId\":\"agent\",\"memoryId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importRunId\":\"run-1\",\"archivePath\":\"<work>/state/memory/_archive/agent/2027-01-15T08-00-00-000Z-b23b2c4e-31af-5c5b-a816-4dd172ee79ec.json\",\"forced\":\"\",\"result\":\"committed\",\"timestamp\":\"2027-01-15T08:00:00.000Z\"}\n"
+      }
+    },
+    "done-then-forgotten": {
+      "reason": "Committed human forget outranks old done markers.",
+      "preview": {
+        "value": {
+          "agentId": "agent",
+          "importRunId": "run-1",
+          "dryRun": true,
+          "selected": 1,
+          "unimported": 0,
+          "keptModified": 0,
+          "alreadyForgotten": 1,
+          "alreadyUnimported": 0,
+          "missing": 0,
+          "failed": 0,
+          "remaining": 0,
+          "cards": [
+            {
+              "idempotencyKey": "key",
+              "id": "b23b2c4e-31af-5c5b-a816-4dd172ee79ec",
+              "outcome": "already-forgotten"
+            }
+          ],
+          "derived": {
+            "jobsSinceImport": []
+          }
+        }
+      },
+      "results": [
+        {
+          "value": {
+            "agentId": "agent",
+            "importRunId": "run-1",
+            "dryRun": false,
+            "selected": 1,
+            "unimported": 0,
+            "keptModified": 0,
+            "alreadyForgotten": 1,
+            "alreadyUnimported": 0,
+            "missing": 0,
+            "failed": 0,
+            "remaining": 0,
+            "cards": [
+              {
+                "idempotencyKey": "key",
+                "id": "b23b2c4e-31af-5c5b-a816-4dd172ee79ec",
+                "outcome": "already-forgotten"
+              }
+            ],
+            "derived": {
+              "jobsSinceImport": []
+            }
+          }
+        }
+      ],
+      "rows": [
+        {
+          "id": "b23b2c4e-31af-5c5b-a816-4dd172ee79ec",
+          "type": "memory",
+          "confirmed": false,
+          "text": "Synthetic imported fact about durable storage.",
+          "summary": "Synthetic imported fact about durable storage.",
+          "origin": "internal",
+          "vector": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "importance": 0.65,
+          "category": "conversation",
+          "createdAt": 1800000000000,
+          "mergedFrom": "[]",
+          "expiresAt": 0,
+          "agentId": "agent",
+          "storedBy": "agent",
+          "sourceTurnId": "",
+          "sourceMessageRole": "",
+          "sourceTimestamp": 1800000000000,
+          "sourceUrl": "fixture:source;run=run-1",
+          "evidenceQuote": "",
+          "scope": "agent-private",
+          "ownerUserId": "",
+          "emotionalValence": "",
+          "emotionalIntensity": 0,
+          "emotionalDominant": "neutral",
+          "moodContextAtCapture": "",
+          "emotionStatus": "final",
+          "importanceStatus": "final",
+          "replayCount": 0,
+          "lastReplayed": 0,
+          "retrievalCount": 0,
+          "lastRetrievedAt": 0,
+          "memoryStrength": 1,
+          "halfLifeDays": 180,
+          "lastStrengthenedAt": 0,
+          "lastDynamicsAt": 1800000000000,
+          "memoryClass": "standard",
+          "neverForget": 0,
+          "coreMemoryScore": 0,
+          "coreMemoryReason": "",
+          "versionNumber": 1,
+          "previousVersion": "",
+          "supersededBy": "",
+          "updateSource": "",
+          "updateEvidence": "",
+          "reconsolidationConfidence": 0,
+          "status": "deleted",
+          "versionCreatedAt": 1800000000000,
+          "updatedAt": 1800000000000,
+          "workspaceId": "",
+          "workspaceKey": "",
+          "memoryKind": "memory",
+          "reminderStatus": "",
+          "remindAt": 0,
+          "remindedAt": 0,
+          "dispatchedAt": 0,
+          "acknowledgedAt": 0,
+          "cancelledAt": 0,
+          "reminderKey": "",
+          "dispatchCount": 0,
+          "lastDispatchAttemptAt": 0,
+          "nextDispatchAttemptAt": 0,
+          "epistemicStatus": "invalidated",
+          "epistemicStatusUpdatedAt": 0,
+          "epistemicStatusActor": "",
+          "epistemicStatusReason": "",
+          "previousEpistemicStatus": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "chunkGroupId": ""
+        }
+      ],
+      "files": {
+        "_tombstones/agent.jsonl": "{\"schemaVersion\":1,\"tombstoneId\":\"fixture-tombstone\",\"memoryId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"canonicalOriginId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"agentId\":\"agent\",\"scope\":\"agent-private\",\"workspaceId\":\"\",\"workspaceKey\":\"\",\"ownerUserId\":\"\",\"storedBy\":\"agent\",\"deletedAt\":\"2027-01-15T08:00:00.000Z\",\"actor\":\"principal:agent\",\"actorType\":\"human\",\"reason\":\"MemoryOps.forget\",\"sourceOp\":\"forget\",\"archiveRef\":\"fixture-archive\",\"previousVersion\":\"\",\"contentFingerprint\":\"6dc3c1d873d5f20b41b40ff00679ecc48e703f011eca9256bfa9196a127a20e8\",\"sourceFingerprint\":\"\",\"refs\":{},\"status\":\"committed\"}\n",
+        "state/memory/_archive/agent/2027-01-15T08-00-00-000Z-b23b2c4e-31af-5c5b-a816-4dd172ee79ec.json": "{\n  \"id\": \"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\n  \"type\": \"memory\",\n  \"confirmed\": false,\n  \"text\": \"Synthetic imported fact about durable storage.\",\n  \"summary\": \"Synthetic imported fact about durable storage.\",\n  \"origin\": \"internal\",\n  \"vector\": [\n    1,\n    0,\n    0,\n    0\n  ],\n  \"importance\": 0.65,\n  \"category\": \"conversation\",\n  \"createdAt\": 1800000000000,\n  \"mergedFrom\": \"[]\",\n  \"expiresAt\": 0,\n  \"agentId\": \"agent\",\n  \"storedBy\": \"agent\",\n  \"sourceTurnId\": \"\",\n  \"sourceMessageRole\": \"\",\n  \"sourceTimestamp\": 1800000000000,\n  \"sourceUrl\": \"fixture:source;run=run-1\",\n  \"evidenceQuote\": \"\",\n  \"scope\": \"agent-private\",\n  \"ownerUserId\": \"\",\n  \"emotionalValence\": \"\",\n  \"emotionalIntensity\": 0,\n  \"emotionalDominant\": \"neutral\",\n  \"moodContextAtCapture\": \"\",\n  \"emotionStatus\": \"final\",\n  \"importanceStatus\": \"final\",\n  \"replayCount\": 0,\n  \"lastReplayed\": 0,\n  \"retrievalCount\": 0,\n  \"lastRetrievedAt\": 0,\n  \"memoryStrength\": 1,\n  \"halfLifeDays\": 180,\n  \"lastStrengthenedAt\": 0,\n  \"lastDynamicsAt\": 1800000000000,\n  \"memoryClass\": \"standard\",\n  \"neverForget\": 0,\n  \"coreMemoryScore\": 0,\n  \"coreMemoryReason\": \"\",\n  \"versionNumber\": 1,\n  \"previousVersion\": \"\",\n  \"supersededBy\": \"\",\n  \"updateSource\": \"\",\n  \"updateEvidence\": \"\",\n  \"reconsolidationConfidence\": 0,\n  \"status\": \"active\",\n  \"versionCreatedAt\": 1800000000000,\n  \"updatedAt\": 1800000000000,\n  \"workspaceId\": \"\",\n  \"workspaceKey\": \"\",\n  \"memoryKind\": \"memory\",\n  \"reminderStatus\": \"\",\n  \"remindAt\": 0,\n  \"remindedAt\": 0,\n  \"dispatchedAt\": 0,\n  \"acknowledgedAt\": 0,\n  \"cancelledAt\": 0,\n  \"reminderKey\": \"\",\n  \"dispatchCount\": 0,\n  \"lastDispatchAttemptAt\": 0,\n  \"nextDispatchAttemptAt\": 0,\n  \"epistemicStatus\": \"untrusted\",\n  \"epistemicStatusUpdatedAt\": 0,\n  \"epistemicStatusActor\": \"\",\n  \"epistemicStatusReason\": \"\",\n  \"previousEpistemicStatus\": \"\",\n  \"validFrom\": 0,\n  \"validUntil\": 0,\n  \"chunkGroupId\": \"\"\n}",
+        "store/_imports/agent.jsonl": "{\"v\":1,\"idempotencyKey\":\"key\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importedAt\":1800000000000,\"sourceRef\":\"fixture:source;run=run-1\",\"importRunId\":\"run-1\",\"digest\":{\"content\":\"d444bd90bbd1d29f\",\"binding\":\"7dcba751ea8181c8\",\"meta\":\"801ddc1e42c2fba0\"}}\n{\"v\":1,\"kind\":\"unimported\",\"idempotencyKey\":\"key\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importRunId\":\"run-1\",\"at\":1800000000000}\n",
+        "store/_unimports/agent/run-1.jsonl": "{\"v\":1,\"kind\":\"header\",\"agentId\":\"agent\",\"importRunId\":\"run-1\",\"createdAt\":1800000000000}\n{\"v\":1,\"kind\":\"intent\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"idempotencyKey\":\"key\",\"importedAt\":1800000000000,\"archived\":true}\n{\"v\":1,\"kind\":\"done\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importedAt\":1800000000000}\n",
+        "workspace/.adaptive-learning/destructive-ops.jsonl": "{\"event\":\"memory.unimported\",\"source\":\"memory_unimport\",\"agentId\":\"agent\",\"memoryId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importRunId\":\"run-1\",\"archivePath\":\"<work>/state/memory/_archive/agent/2027-01-15T08-00-00-000Z-b23b2c4e-31af-5c5b-a816-4dd172ee79ec.json\",\"forced\":\"\",\"result\":\"committed\",\"timestamp\":\"2027-01-15T08:00:00.000Z\"}\n"
+      }
+    },
+    "missing-with-intent-forgotten": {
+      "reason": "Committed human forget outranks a missing-row recovery intent; never free the key.",
+      "preview": {
+        "value": {
+          "agentId": "agent",
+          "importRunId": "run-1",
+          "dryRun": true,
+          "selected": 1,
+          "unimported": 0,
+          "keptModified": 0,
+          "alreadyForgotten": 1,
+          "alreadyUnimported": 0,
+          "missing": 0,
+          "failed": 0,
+          "remaining": 0,
+          "cards": [
+            {
+              "idempotencyKey": "key",
+              "id": "b23b2c4e-31af-5c5b-a816-4dd172ee79ec",
+              "outcome": "already-forgotten"
+            }
+          ],
+          "derived": {
+            "jobsSinceImport": []
+          }
+        }
+      },
+      "results": [
+        {
+          "value": {
+            "agentId": "agent",
+            "importRunId": "run-1",
+            "dryRun": false,
+            "selected": 1,
+            "unimported": 0,
+            "keptModified": 0,
+            "alreadyForgotten": 1,
+            "alreadyUnimported": 0,
+            "missing": 0,
+            "failed": 0,
+            "remaining": 0,
+            "cards": [
+              {
+                "idempotencyKey": "key",
+                "id": "b23b2c4e-31af-5c5b-a816-4dd172ee79ec",
+                "outcome": "already-forgotten"
+              }
+            ],
+            "derived": {
+              "jobsSinceImport": []
+            }
+          }
+        }
+      ],
+      "rows": [],
+      "files": {
+        "_tombstones/agent.jsonl": "{\"schemaVersion\":1,\"tombstoneId\":\"fixture-tombstone\",\"memoryId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"canonicalOriginId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"agentId\":\"agent\",\"scope\":\"agent-private\",\"workspaceId\":\"\",\"workspaceKey\":\"\",\"ownerUserId\":\"\",\"storedBy\":\"agent\",\"deletedAt\":\"2027-01-15T08:00:00.000Z\",\"actor\":\"principal:agent\",\"actorType\":\"human\",\"reason\":\"MemoryOps.forget\",\"sourceOp\":\"forget\",\"archiveRef\":\"fixture-archive\",\"previousVersion\":\"\",\"contentFingerprint\":\"6dc3c1d873d5f20b41b40ff00679ecc48e703f011eca9256bfa9196a127a20e8\",\"sourceFingerprint\":\"\",\"refs\":{},\"status\":\"committed\"}\n",
+        "state/memory/_archive/agent/2027-01-15T08-00-00-000Z-b23b2c4e-31af-5c5b-a816-4dd172ee79ec.json": "{\n  \"id\": \"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\n  \"type\": \"memory\",\n  \"confirmed\": false,\n  \"text\": \"Synthetic imported fact about durable storage.\",\n  \"summary\": \"Synthetic imported fact about durable storage.\",\n  \"origin\": \"internal\",\n  \"vector\": [\n    1,\n    0,\n    0,\n    0\n  ],\n  \"importance\": 0.65,\n  \"category\": \"conversation\",\n  \"createdAt\": 1800000000000,\n  \"mergedFrom\": \"[]\",\n  \"expiresAt\": 0,\n  \"agentId\": \"agent\",\n  \"storedBy\": \"agent\",\n  \"sourceTurnId\": \"\",\n  \"sourceMessageRole\": \"\",\n  \"sourceTimestamp\": 1800000000000,\n  \"sourceUrl\": \"fixture:source;run=run-1\",\n  \"evidenceQuote\": \"\",\n  \"scope\": \"agent-private\",\n  \"ownerUserId\": \"\",\n  \"emotionalValence\": \"\",\n  \"emotionalIntensity\": 0,\n  \"emotionalDominant\": \"neutral\",\n  \"moodContextAtCapture\": \"\",\n  \"emotionStatus\": \"final\",\n  \"importanceStatus\": \"final\",\n  \"replayCount\": 0,\n  \"lastReplayed\": 0,\n  \"retrievalCount\": 0,\n  \"lastRetrievedAt\": 0,\n  \"memoryStrength\": 1,\n  \"halfLifeDays\": 180,\n  \"lastStrengthenedAt\": 0,\n  \"lastDynamicsAt\": 1800000000000,\n  \"memoryClass\": \"standard\",\n  \"neverForget\": 0,\n  \"coreMemoryScore\": 0,\n  \"coreMemoryReason\": \"\",\n  \"versionNumber\": 1,\n  \"previousVersion\": \"\",\n  \"supersededBy\": \"\",\n  \"updateSource\": \"\",\n  \"updateEvidence\": \"\",\n  \"reconsolidationConfidence\": 0,\n  \"status\": \"active\",\n  \"versionCreatedAt\": 1800000000000,\n  \"updatedAt\": 1800000000000,\n  \"workspaceId\": \"\",\n  \"workspaceKey\": \"\",\n  \"memoryKind\": \"memory\",\n  \"reminderStatus\": \"\",\n  \"remindAt\": 0,\n  \"remindedAt\": 0,\n  \"dispatchedAt\": 0,\n  \"acknowledgedAt\": 0,\n  \"cancelledAt\": 0,\n  \"reminderKey\": \"\",\n  \"dispatchCount\": 0,\n  \"lastDispatchAttemptAt\": 0,\n  \"nextDispatchAttemptAt\": 0,\n  \"epistemicStatus\": \"untrusted\",\n  \"epistemicStatusUpdatedAt\": 0,\n  \"epistemicStatusActor\": \"\",\n  \"epistemicStatusReason\": \"\",\n  \"previousEpistemicStatus\": \"\",\n  \"validFrom\": 0,\n  \"validUntil\": 0,\n  \"chunkGroupId\": \"\"\n}",
+        "store/_imports/agent.jsonl": "{\"v\":1,\"idempotencyKey\":\"key\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importedAt\":1800000000000,\"sourceRef\":\"fixture:source;run=run-1\",\"importRunId\":\"run-1\",\"digest\":{\"content\":\"d444bd90bbd1d29f\",\"binding\":\"7dcba751ea8181c8\",\"meta\":\"801ddc1e42c2fba0\"}}\n",
+        "store/_unimports/agent/run-1.jsonl": "{\"v\":1,\"kind\":\"header\",\"agentId\":\"agent\",\"importRunId\":\"run-1\",\"createdAt\":1800000000000}\n{\"v\":1,\"kind\":\"intent\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"idempotencyKey\":\"key\",\"importedAt\":1800000000000,\"archived\":true}\n"
+      }
+    },
+    "user-binding-missing": {
+      "reason": "Run provenance is not a proved user ACL binding (D130).",
+      "preview": {
+        "value": {
+          "agentId": "agent",
+          "importRunId": "run-1",
+          "dryRun": true,
+          "selected": 1,
+          "unimported": 0,
+          "keptModified": 1,
+          "alreadyForgotten": 0,
+          "alreadyUnimported": 0,
+          "missing": 0,
+          "failed": 0,
+          "remaining": 0,
+          "cards": [
+            {
+              "idempotencyKey": "key",
+              "id": "b23b2c4e-31af-5c5b-a816-4dd172ee79ec",
+              "outcome": "kept-modified",
+              "reason": "binding-changed"
+            }
+          ],
+          "derived": {
+            "jobsSinceImport": []
+          }
+        }
+      },
+      "results": [
+        {
+          "value": {
+            "agentId": "agent",
+            "importRunId": "run-1",
+            "dryRun": false,
+            "selected": 1,
+            "unimported": 0,
+            "keptModified": 1,
+            "alreadyForgotten": 0,
+            "alreadyUnimported": 0,
+            "missing": 0,
+            "failed": 0,
+            "remaining": 0,
+            "cards": [
+              {
+                "idempotencyKey": "key",
+                "id": "b23b2c4e-31af-5c5b-a816-4dd172ee79ec",
+                "outcome": "kept-modified",
+                "reason": "binding-changed"
+              }
+            ],
+            "derived": {
+              "jobsSinceImport": []
+            }
+          }
+        }
+      ],
+      "rows": [
+        {
+          "id": "b23b2c4e-31af-5c5b-a816-4dd172ee79ec",
+          "type": "memory",
+          "confirmed": false,
+          "text": "Synthetic imported fact about durable storage.",
+          "summary": "Synthetic imported fact about durable storage.",
+          "origin": "internal",
+          "vector": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "importance": 0.65,
+          "category": "conversation",
+          "createdAt": 1800000000000,
+          "mergedFrom": "[]",
+          "expiresAt": 0,
+          "agentId": "agent",
+          "storedBy": "agent",
+          "sourceTurnId": "",
+          "sourceMessageRole": "",
+          "sourceTimestamp": 1800000000000,
+          "sourceUrl": "fixture:source;run=run-1",
+          "evidenceQuote": "",
+          "scope": "user",
+          "ownerUserId": "user:v1:14b2e141bf7cc394d669faf2cec08637d1003fe849a08cf0c43b8066677aeb6e",
+          "emotionalValence": "",
+          "emotionalIntensity": 0,
+          "emotionalDominant": "neutral",
+          "moodContextAtCapture": "",
+          "emotionStatus": "final",
+          "importanceStatus": "final",
+          "replayCount": 0,
+          "lastReplayed": 0,
+          "retrievalCount": 0,
+          "lastRetrievedAt": 0,
+          "memoryStrength": 1,
+          "halfLifeDays": 180,
+          "lastStrengthenedAt": 0,
+          "lastDynamicsAt": 1800000000000,
+          "memoryClass": "standard",
+          "neverForget": 0,
+          "coreMemoryScore": 0,
+          "coreMemoryReason": "",
+          "versionNumber": 1,
+          "previousVersion": "",
+          "supersededBy": "",
+          "updateSource": "",
+          "updateEvidence": "",
+          "reconsolidationConfidence": 0,
+          "status": "active",
+          "versionCreatedAt": 1800000000000,
+          "updatedAt": 1800000000000,
+          "workspaceId": "",
+          "workspaceKey": "",
+          "memoryKind": "memory",
+          "reminderStatus": "",
+          "remindAt": 0,
+          "remindedAt": 0,
+          "dispatchedAt": 0,
+          "acknowledgedAt": 0,
+          "cancelledAt": 0,
+          "reminderKey": "",
+          "dispatchCount": 0,
+          "lastDispatchAttemptAt": 0,
+          "nextDispatchAttemptAt": 0,
+          "epistemicStatus": "untrusted",
+          "epistemicStatusUpdatedAt": 0,
+          "epistemicStatusActor": "",
+          "epistemicStatusReason": "",
+          "previousEpistemicStatus": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "chunkGroupId": ""
+        }
+      ],
+      "files": {
+        "store/_imports/agent.jsonl": "{\"v\":1,\"idempotencyKey\":\"key\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importedAt\":1800000000000,\"sourceRef\":\"fixture:source;run=run-1\",\"importRunId\":\"run-1\",\"digest\":{\"content\":\"d444bd90bbd1d29f\",\"binding\":\"3b61cd1be359c2dd\",\"meta\":\"801ddc1e42c2fba0\"}}\n"
+      }
+    },
+    "reimport-same-run-same-time": {
+      "reason": "The current import receipt proves a new generation despite the same millisecond timestamp; prior done/intent cannot suppress its rollback.",
+      "preview": {
+        "value": {
+          "agentId": "agent",
+          "importRunId": "run-1",
+          "dryRun": true,
+          "selected": 1,
+          "unimported": 1,
+          "keptModified": 0,
+          "alreadyForgotten": 0,
+          "alreadyUnimported": 0,
+          "missing": 0,
+          "failed": 0,
+          "remaining": 0,
+          "cards": [
+            {
+              "idempotencyKey": "key",
+              "id": "b23b2c4e-31af-5c5b-a816-4dd172ee79ec",
+              "outcome": "unimported"
+            }
+          ],
+          "derived": {
+            "jobsSinceImport": []
+          }
+        }
+      },
+      "results": [
+        {
+          "value": {
+            "agentId": "agent",
+            "importRunId": "run-1",
+            "dryRun": false,
+            "selected": 1,
+            "unimported": 1,
+            "keptModified": 0,
+            "alreadyForgotten": 0,
+            "alreadyUnimported": 0,
+            "missing": 0,
+            "failed": 0,
+            "remaining": 0,
+            "cards": [
+              {
+                "idempotencyKey": "key",
+                "id": "b23b2c4e-31af-5c5b-a816-4dd172ee79ec",
+                "outcome": "unimported"
+              }
+            ],
+            "derived": {
+              "jobsSinceImport": []
+            }
+          }
+        }
+      ],
+      "rows": [
+        {
+          "id": "b23b2c4e-31af-5c5b-a816-4dd172ee79ec",
+          "type": "memory",
+          "confirmed": false,
+          "text": "A new generation imported at the same clock tick.",
+          "summary": "A new generation imported at the same clock tick.",
+          "origin": "internal",
+          "vector": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "importance": 0.5,
+          "category": "conversation",
+          "createdAt": 1800000000000,
+          "mergedFrom": "[]",
+          "expiresAt": 0,
+          "agentId": "agent",
+          "storedBy": "agent",
+          "sourceTurnId": "",
+          "sourceMessageRole": "",
+          "sourceTimestamp": 1800000000000,
+          "sourceUrl": "fixture:second;run=run-1",
+          "evidenceQuote": "",
+          "scope": "agent-private",
+          "ownerUserId": "",
+          "emotionalValence": "",
+          "emotionalIntensity": 0,
+          "emotionalDominant": "neutral",
+          "moodContextAtCapture": "",
+          "emotionStatus": "final",
+          "importanceStatus": "final",
+          "replayCount": 0,
+          "lastReplayed": 0,
+          "retrievalCount": 0,
+          "lastRetrievedAt": 0,
+          "memoryStrength": 1,
+          "halfLifeDays": 180,
+          "lastStrengthenedAt": 0,
+          "lastDynamicsAt": 1800000000000,
+          "memoryClass": "standard",
+          "neverForget": 0,
+          "coreMemoryScore": 0,
+          "coreMemoryReason": "",
+          "versionNumber": 1,
+          "previousVersion": "",
+          "supersededBy": "",
+          "updateSource": "",
+          "updateEvidence": "",
+          "reconsolidationConfidence": 0,
+          "status": "deleted",
+          "versionCreatedAt": 1800000000000,
+          "updatedAt": 1800000000000,
+          "workspaceId": "",
+          "workspaceKey": "",
+          "memoryKind": "memory",
+          "reminderStatus": "",
+          "remindAt": 0,
+          "remindedAt": 0,
+          "dispatchedAt": 0,
+          "acknowledgedAt": 0,
+          "cancelledAt": 0,
+          "reminderKey": "",
+          "dispatchCount": 0,
+          "lastDispatchAttemptAt": 0,
+          "nextDispatchAttemptAt": 0,
+          "epistemicStatus": "invalidated",
+          "epistemicStatusUpdatedAt": 0,
+          "epistemicStatusActor": "",
+          "epistemicStatusReason": "",
+          "previousEpistemicStatus": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "chunkGroupId": ""
+        }
+      ],
+      "files": {
+        "state/memory/_archive/agent/2027-01-15T08-00-00-000Z-b23b2c4e-31af-5c5b-a816-4dd172ee79ec.json": "{\n  \"id\": \"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\n  \"type\": \"memory\",\n  \"confirmed\": false,\n  \"text\": \"A new generation imported at the same clock tick.\",\n  \"summary\": \"A new generation imported at the same clock tick.\",\n  \"origin\": \"internal\",\n  \"vector\": [\n    1,\n    0,\n    0,\n    0\n  ],\n  \"importance\": 0.5,\n  \"category\": \"conversation\",\n  \"createdAt\": 1800000000000,\n  \"mergedFrom\": \"[]\",\n  \"expiresAt\": 0,\n  \"agentId\": \"agent\",\n  \"storedBy\": \"agent\",\n  \"sourceTurnId\": \"\",\n  \"sourceMessageRole\": \"\",\n  \"sourceTimestamp\": 1800000000000,\n  \"sourceUrl\": \"fixture:second;run=run-1\",\n  \"evidenceQuote\": \"\",\n  \"scope\": \"agent-private\",\n  \"ownerUserId\": \"\",\n  \"emotionalValence\": \"\",\n  \"emotionalIntensity\": 0,\n  \"emotionalDominant\": \"neutral\",\n  \"moodContextAtCapture\": \"\",\n  \"emotionStatus\": \"final\",\n  \"importanceStatus\": \"final\",\n  \"replayCount\": 0,\n  \"lastReplayed\": 0,\n  \"retrievalCount\": 0,\n  \"lastRetrievedAt\": 0,\n  \"memoryStrength\": 1,\n  \"halfLifeDays\": 180,\n  \"lastStrengthenedAt\": 0,\n  \"lastDynamicsAt\": 1800000000000,\n  \"memoryClass\": \"standard\",\n  \"neverForget\": 0,\n  \"coreMemoryScore\": 0,\n  \"coreMemoryReason\": \"\",\n  \"versionNumber\": 1,\n  \"previousVersion\": \"\",\n  \"supersededBy\": \"\",\n  \"updateSource\": \"\",\n  \"updateEvidence\": \"\",\n  \"reconsolidationConfidence\": 0,\n  \"status\": \"active\",\n  \"versionCreatedAt\": 1800000000000,\n  \"updatedAt\": 1800000000000,\n  \"workspaceId\": \"\",\n  \"workspaceKey\": \"\",\n  \"memoryKind\": \"memory\",\n  \"reminderStatus\": \"\",\n  \"remindAt\": 0,\n  \"remindedAt\": 0,\n  \"dispatchedAt\": 0,\n  \"acknowledgedAt\": 0,\n  \"cancelledAt\": 0,\n  \"reminderKey\": \"\",\n  \"dispatchCount\": 0,\n  \"lastDispatchAttemptAt\": 0,\n  \"nextDispatchAttemptAt\": 0,\n  \"epistemicStatus\": \"untrusted\",\n  \"epistemicStatusUpdatedAt\": 0,\n  \"epistemicStatusActor\": \"\",\n  \"epistemicStatusReason\": \"\",\n  \"previousEpistemicStatus\": \"\",\n  \"validFrom\": 0,\n  \"validUntil\": 0,\n  \"chunkGroupId\": \"\"\n}",
+        "store/_imports/agent.jsonl": "{\"v\":1,\"idempotencyKey\":\"key\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importedAt\":1800000000000,\"sourceRef\":\"fixture:source;run=run-1\",\"importRunId\":\"run-1\",\"digest\":{\"content\":\"d444bd90bbd1d29f\",\"binding\":\"7dcba751ea8181c8\",\"meta\":\"801ddc1e42c2fba0\"}}\n{\"v\":1,\"kind\":\"unimported\",\"idempotencyKey\":\"key\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importRunId\":\"run-1\",\"at\":1800000000000}\n{\"v\":1,\"idempotencyKey\":\"key\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importedAt\":1800000000000,\"sourceRef\":\"fixture:second;run=run-1\",\"importRunId\":\"run-1\",\"digest\":{\"content\":\"70d4859c3c35c64a\",\"binding\":\"7dcba751ea8181c8\",\"meta\":\"f5ac18a276497b63\"}}\n{\"v\":1,\"kind\":\"unimported\",\"idempotencyKey\":\"key\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importRunId\":\"run-1\",\"at\":1800000000000}\n",
+        "store/_unimports/agent/run-1.jsonl": "{\"v\":1,\"kind\":\"header\",\"agentId\":\"agent\",\"importRunId\":\"run-1\",\"createdAt\":1800000000000}\n{\"v\":1,\"kind\":\"intent\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"idempotencyKey\":\"key\",\"importedAt\":1800000000000,\"archived\":true}\n{\"v\":1,\"kind\":\"done\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importedAt\":1800000000000}\n{\"v\":1,\"kind\":\"intent\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"idempotencyKey\":\"key\",\"importedAt\":1800000000000,\"archived\":true,\"importGeneration\":2}\n{\"v\":1,\"kind\":\"done\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importedAt\":1800000000000,\"importGeneration\":2}\n",
+        "workspace/.adaptive-learning/destructive-ops.jsonl": "{\"event\":\"memory.unimported\",\"source\":\"memory_unimport\",\"agentId\":\"agent\",\"memoryId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importRunId\":\"run-1\",\"archivePath\":\"<work>/state/memory/_archive/agent/2027-01-15T08-00-00-000Z-b23b2c4e-31af-5c5b-a816-4dd172ee79ec.json\",\"forced\":\"\",\"result\":\"committed\",\"timestamp\":\"2027-01-15T08:00:00.000Z\"}\n{\"event\":\"memory.unimported\",\"source\":\"memory_unimport\",\"agentId\":\"agent\",\"memoryId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importRunId\":\"run-1\",\"archivePath\":\"<work>/state/memory/_archive/agent/2027-01-15T08-00-00-000Z-b23b2c4e-31af-5c5b-a816-4dd172ee79ec.json\",\"forced\":\"\",\"result\":\"committed\",\"timestamp\":\"2027-01-15T08:00:00.000Z\"}\n"
+      }
+    },
+    "registry-only-after-archive": {
+      "reason": "Recheck external forget/shared-copy authorities after archive even when the row digest has not changed.",
+      "results": [
+        {
+          "value": {
+            "agentId": "agent",
+            "importRunId": "run-1",
+            "dryRun": false,
+            "selected": 1,
+            "unimported": 0,
+            "keptModified": 0,
+            "alreadyForgotten": 1,
+            "alreadyUnimported": 0,
+            "missing": 0,
+            "failed": 0,
+            "remaining": 0,
+            "cards": [
+              {
+                "idempotencyKey": "key",
+                "id": "b23b2c4e-31af-5c5b-a816-4dd172ee79ec",
+                "outcome": "already-forgotten"
+              }
+            ],
+            "derived": {
+              "jobsSinceImport": []
+            }
+          }
+        }
+      ],
+      "rows": [
+        {
+          "id": "b23b2c4e-31af-5c5b-a816-4dd172ee79ec",
+          "type": "memory",
+          "confirmed": false,
+          "text": "Synthetic imported fact about durable storage.",
+          "summary": "Synthetic imported fact about durable storage.",
+          "origin": "internal",
+          "vector": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "importance": 0.65,
+          "category": "conversation",
+          "createdAt": 1800000000000,
+          "mergedFrom": "[]",
+          "expiresAt": 0,
+          "agentId": "agent",
+          "storedBy": "agent",
+          "sourceTurnId": "",
+          "sourceMessageRole": "",
+          "sourceTimestamp": 1800000000000,
+          "sourceUrl": "fixture:source;run=run-1",
+          "evidenceQuote": "",
+          "scope": "agent-private",
+          "ownerUserId": "",
+          "emotionalValence": "",
+          "emotionalIntensity": 0,
+          "emotionalDominant": "neutral",
+          "moodContextAtCapture": "",
+          "emotionStatus": "final",
+          "importanceStatus": "final",
+          "replayCount": 0,
+          "lastReplayed": 0,
+          "retrievalCount": 0,
+          "lastRetrievedAt": 0,
+          "memoryStrength": 1,
+          "halfLifeDays": 180,
+          "lastStrengthenedAt": 0,
+          "lastDynamicsAt": 1800000000000,
+          "memoryClass": "standard",
+          "neverForget": 0,
+          "coreMemoryScore": 0,
+          "coreMemoryReason": "",
+          "versionNumber": 1,
+          "previousVersion": "",
+          "supersededBy": "",
+          "updateSource": "",
+          "updateEvidence": "",
+          "reconsolidationConfidence": 0,
+          "status": "active",
+          "versionCreatedAt": 1800000000000,
+          "updatedAt": 1800000000000,
+          "workspaceId": "",
+          "workspaceKey": "",
+          "memoryKind": "memory",
+          "reminderStatus": "",
+          "remindAt": 0,
+          "remindedAt": 0,
+          "dispatchedAt": 0,
+          "acknowledgedAt": 0,
+          "cancelledAt": 0,
+          "reminderKey": "",
+          "dispatchCount": 0,
+          "lastDispatchAttemptAt": 0,
+          "nextDispatchAttemptAt": 0,
+          "epistemicStatus": "untrusted",
+          "epistemicStatusUpdatedAt": 0,
+          "epistemicStatusActor": "",
+          "epistemicStatusReason": "",
+          "previousEpistemicStatus": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "chunkGroupId": ""
+        }
+      ],
+      "files": {
+        "_tombstones/agent.jsonl": "{\"schemaVersion\":1,\"tombstoneId\":\"fixture-tombstone\",\"memoryId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"canonicalOriginId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"agentId\":\"agent\",\"scope\":\"agent-private\",\"workspaceId\":\"\",\"workspaceKey\":\"\",\"ownerUserId\":\"\",\"storedBy\":\"agent\",\"deletedAt\":\"2027-01-15T08:00:00.000Z\",\"actor\":\"principal:agent\",\"actorType\":\"human\",\"reason\":\"MemoryOps.forget\",\"sourceOp\":\"forget\",\"archiveRef\":\"fixture-archive\",\"previousVersion\":\"\",\"contentFingerprint\":\"6dc3c1d873d5f20b41b40ff00679ecc48e703f011eca9256bfa9196a127a20e8\",\"sourceFingerprint\":\"\",\"refs\":{},\"status\":\"committed\"}\n",
+        "state/memory/_archive/agent/2027-01-15T08-00-00-000Z-b23b2c4e-31af-5c5b-a816-4dd172ee79ec.json": "{\n  \"id\": \"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\n  \"type\": \"memory\",\n  \"confirmed\": false,\n  \"text\": \"Synthetic imported fact about durable storage.\",\n  \"summary\": \"Synthetic imported fact about durable storage.\",\n  \"origin\": \"internal\",\n  \"vector\": [\n    1,\n    0,\n    0,\n    0\n  ],\n  \"importance\": 0.65,\n  \"category\": \"conversation\",\n  \"createdAt\": 1800000000000,\n  \"mergedFrom\": \"[]\",\n  \"expiresAt\": 0,\n  \"agentId\": \"agent\",\n  \"storedBy\": \"agent\",\n  \"sourceTurnId\": \"\",\n  \"sourceMessageRole\": \"\",\n  \"sourceTimestamp\": 1800000000000,\n  \"sourceUrl\": \"fixture:source;run=run-1\",\n  \"evidenceQuote\": \"\",\n  \"scope\": \"agent-private\",\n  \"ownerUserId\": \"\",\n  \"emotionalValence\": \"\",\n  \"emotionalIntensity\": 0,\n  \"emotionalDominant\": \"neutral\",\n  \"moodContextAtCapture\": \"\",\n  \"emotionStatus\": \"final\",\n  \"importanceStatus\": \"final\",\n  \"replayCount\": 0,\n  \"lastReplayed\": 0,\n  \"retrievalCount\": 0,\n  \"lastRetrievedAt\": 0,\n  \"memoryStrength\": 1,\n  \"halfLifeDays\": 180,\n  \"lastStrengthenedAt\": 0,\n  \"lastDynamicsAt\": 1800000000000,\n  \"memoryClass\": \"standard\",\n  \"neverForget\": 0,\n  \"coreMemoryScore\": 0,\n  \"coreMemoryReason\": \"\",\n  \"versionNumber\": 1,\n  \"previousVersion\": \"\",\n  \"supersededBy\": \"\",\n  \"updateSource\": \"\",\n  \"updateEvidence\": \"\",\n  \"reconsolidationConfidence\": 0,\n  \"status\": \"active\",\n  \"versionCreatedAt\": 1800000000000,\n  \"updatedAt\": 1800000000000,\n  \"workspaceId\": \"\",\n  \"workspaceKey\": \"\",\n  \"memoryKind\": \"memory\",\n  \"reminderStatus\": \"\",\n  \"remindAt\": 0,\n  \"remindedAt\": 0,\n  \"dispatchedAt\": 0,\n  \"acknowledgedAt\": 0,\n  \"cancelledAt\": 0,\n  \"reminderKey\": \"\",\n  \"dispatchCount\": 0,\n  \"lastDispatchAttemptAt\": 0,\n  \"nextDispatchAttemptAt\": 0,\n  \"epistemicStatus\": \"untrusted\",\n  \"epistemicStatusUpdatedAt\": 0,\n  \"epistemicStatusActor\": \"\",\n  \"epistemicStatusReason\": \"\",\n  \"previousEpistemicStatus\": \"\",\n  \"validFrom\": 0,\n  \"validUntil\": 0,\n  \"chunkGroupId\": \"\"\n}",
+        "store/_imports/agent.jsonl": "{\"v\":1,\"idempotencyKey\":\"key\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importedAt\":1800000000000,\"sourceRef\":\"fixture:source;run=run-1\",\"importRunId\":\"run-1\",\"digest\":{\"content\":\"d444bd90bbd1d29f\",\"binding\":\"7dcba751ea8181c8\",\"meta\":\"801ddc1e42c2fba0\"}}\n",
+        "store/_unimports/agent/run-1.jsonl": "{\"v\":1,\"kind\":\"header\",\"agentId\":\"agent\",\"importRunId\":\"run-1\",\"createdAt\":1800000000000}\n"
+      }
+    },
+    "shared-after-archive": {
+      "reason": "Recheck external forget/shared-copy authorities after archive even when the row digest has not changed.",
+      "results": [
+        {
+          "value": {
+            "agentId": "agent",
+            "importRunId": "run-1",
+            "dryRun": false,
+            "selected": 1,
+            "unimported": 0,
+            "keptModified": 1,
+            "alreadyForgotten": 0,
+            "alreadyUnimported": 0,
+            "missing": 0,
+            "failed": 0,
+            "remaining": 0,
+            "cards": [
+              {
+                "idempotencyKey": "key",
+                "id": "b23b2c4e-31af-5c5b-a816-4dd172ee79ec",
+                "outcome": "kept-modified",
+                "reason": "shared"
+              }
+            ],
+            "derived": {
+              "jobsSinceImport": []
+            }
+          }
+        }
+      ],
+      "rows": [
+        {
+          "id": "b23b2c4e-31af-5c5b-a816-4dd172ee79ec",
+          "type": "memory",
+          "confirmed": false,
+          "text": "Synthetic imported fact about durable storage.",
+          "summary": "Synthetic imported fact about durable storage.",
+          "origin": "internal",
+          "vector": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "importance": 0.65,
+          "category": "conversation",
+          "createdAt": 1800000000000,
+          "mergedFrom": "[]",
+          "expiresAt": 0,
+          "agentId": "agent",
+          "storedBy": "agent",
+          "sourceTurnId": "",
+          "sourceMessageRole": "",
+          "sourceTimestamp": 1800000000000,
+          "sourceUrl": "fixture:source;run=run-1",
+          "evidenceQuote": "",
+          "scope": "agent-private",
+          "ownerUserId": "",
+          "emotionalValence": "",
+          "emotionalIntensity": 0,
+          "emotionalDominant": "neutral",
+          "moodContextAtCapture": "",
+          "emotionStatus": "final",
+          "importanceStatus": "final",
+          "replayCount": 0,
+          "lastReplayed": 0,
+          "retrievalCount": 0,
+          "lastRetrievedAt": 0,
+          "memoryStrength": 1,
+          "halfLifeDays": 180,
+          "lastStrengthenedAt": 0,
+          "lastDynamicsAt": 1800000000000,
+          "memoryClass": "standard",
+          "neverForget": 0,
+          "coreMemoryScore": 0,
+          "coreMemoryReason": "",
+          "versionNumber": 1,
+          "previousVersion": "",
+          "supersededBy": "",
+          "updateSource": "",
+          "updateEvidence": "",
+          "reconsolidationConfidence": 0,
+          "status": "active",
+          "versionCreatedAt": 1800000000000,
+          "updatedAt": 1800000000000,
+          "workspaceId": "",
+          "workspaceKey": "",
+          "memoryKind": "memory",
+          "reminderStatus": "",
+          "remindAt": 0,
+          "remindedAt": 0,
+          "dispatchedAt": 0,
+          "acknowledgedAt": 0,
+          "cancelledAt": 0,
+          "reminderKey": "",
+          "dispatchCount": 0,
+          "lastDispatchAttemptAt": 0,
+          "nextDispatchAttemptAt": 0,
+          "epistemicStatus": "untrusted",
+          "epistemicStatusUpdatedAt": 0,
+          "epistemicStatusActor": "",
+          "epistemicStatusReason": "",
+          "previousEpistemicStatus": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "chunkGroupId": ""
+        }
+      ],
+      "files": {
+        "state/memory/_archive/agent/2027-01-15T08-00-00-000Z-b23b2c4e-31af-5c5b-a816-4dd172ee79ec.json": "{\n  \"id\": \"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\n  \"type\": \"memory\",\n  \"confirmed\": false,\n  \"text\": \"Synthetic imported fact about durable storage.\",\n  \"summary\": \"Synthetic imported fact about durable storage.\",\n  \"origin\": \"internal\",\n  \"vector\": [\n    1,\n    0,\n    0,\n    0\n  ],\n  \"importance\": 0.65,\n  \"category\": \"conversation\",\n  \"createdAt\": 1800000000000,\n  \"mergedFrom\": \"[]\",\n  \"expiresAt\": 0,\n  \"agentId\": \"agent\",\n  \"storedBy\": \"agent\",\n  \"sourceTurnId\": \"\",\n  \"sourceMessageRole\": \"\",\n  \"sourceTimestamp\": 1800000000000,\n  \"sourceUrl\": \"fixture:source;run=run-1\",\n  \"evidenceQuote\": \"\",\n  \"scope\": \"agent-private\",\n  \"ownerUserId\": \"\",\n  \"emotionalValence\": \"\",\n  \"emotionalIntensity\": 0,\n  \"emotionalDominant\": \"neutral\",\n  \"moodContextAtCapture\": \"\",\n  \"emotionStatus\": \"final\",\n  \"importanceStatus\": \"final\",\n  \"replayCount\": 0,\n  \"lastReplayed\": 0,\n  \"retrievalCount\": 0,\n  \"lastRetrievedAt\": 0,\n  \"memoryStrength\": 1,\n  \"halfLifeDays\": 180,\n  \"lastStrengthenedAt\": 0,\n  \"lastDynamicsAt\": 1800000000000,\n  \"memoryClass\": \"standard\",\n  \"neverForget\": 0,\n  \"coreMemoryScore\": 0,\n  \"coreMemoryReason\": \"\",\n  \"versionNumber\": 1,\n  \"previousVersion\": \"\",\n  \"supersededBy\": \"\",\n  \"updateSource\": \"\",\n  \"updateEvidence\": \"\",\n  \"reconsolidationConfidence\": 0,\n  \"status\": \"active\",\n  \"versionCreatedAt\": 1800000000000,\n  \"updatedAt\": 1800000000000,\n  \"workspaceId\": \"\",\n  \"workspaceKey\": \"\",\n  \"memoryKind\": \"memory\",\n  \"reminderStatus\": \"\",\n  \"remindAt\": 0,\n  \"remindedAt\": 0,\n  \"dispatchedAt\": 0,\n  \"acknowledgedAt\": 0,\n  \"cancelledAt\": 0,\n  \"reminderKey\": \"\",\n  \"dispatchCount\": 0,\n  \"lastDispatchAttemptAt\": 0,\n  \"nextDispatchAttemptAt\": 0,\n  \"epistemicStatus\": \"untrusted\",\n  \"epistemicStatusUpdatedAt\": 0,\n  \"epistemicStatusActor\": \"\",\n  \"epistemicStatusReason\": \"\",\n  \"previousEpistemicStatus\": \"\",\n  \"validFrom\": 0,\n  \"validUntil\": 0,\n  \"chunkGroupId\": \"\"\n}",
+        "store/_imports/agent.jsonl": "{\"v\":1,\"idempotencyKey\":\"key\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importedAt\":1800000000000,\"sourceRef\":\"fixture:source;run=run-1\",\"importRunId\":\"run-1\",\"digest\":{\"content\":\"d444bd90bbd1d29f\",\"binding\":\"7dcba751ea8181c8\",\"meta\":\"801ddc1e42c2fba0\"}}\n",
+        "store/_unimports/agent/run-1.jsonl": "{\"v\":1,\"kind\":\"header\",\"agentId\":\"agent\",\"importRunId\":\"run-1\",\"createdAt\":1800000000000}\n"
+      }
+    },
+    "cancel-after-archive": {
+      "reason": "Cancellation after archive prevents delete intent, store mutation, key release and completion.",
+      "results": [
+        {
+          "value": {
+            "agentId": "agent",
+            "importRunId": "run-1",
+            "dryRun": false,
+            "selected": 1,
+            "unimported": 0,
+            "keptModified": 0,
+            "alreadyForgotten": 0,
+            "alreadyUnimported": 0,
+            "missing": 0,
+            "failed": 0,
+            "remaining": 1,
+            "cards": [],
+            "derived": {
+              "jobsSinceImport": []
+            }
+          }
+        }
+      ],
+      "rows": [
+        {
+          "id": "b23b2c4e-31af-5c5b-a816-4dd172ee79ec",
+          "type": "memory",
+          "confirmed": false,
+          "text": "Synthetic imported fact about durable storage.",
+          "summary": "Synthetic imported fact about durable storage.",
+          "origin": "internal",
+          "vector": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "importance": 0.65,
+          "category": "conversation",
+          "createdAt": 1800000000000,
+          "mergedFrom": "[]",
+          "expiresAt": 0,
+          "agentId": "agent",
+          "storedBy": "agent",
+          "sourceTurnId": "",
+          "sourceMessageRole": "",
+          "sourceTimestamp": 1800000000000,
+          "sourceUrl": "fixture:source;run=run-1",
+          "evidenceQuote": "",
+          "scope": "agent-private",
+          "ownerUserId": "",
+          "emotionalValence": "",
+          "emotionalIntensity": 0,
+          "emotionalDominant": "neutral",
+          "moodContextAtCapture": "",
+          "emotionStatus": "final",
+          "importanceStatus": "final",
+          "replayCount": 0,
+          "lastReplayed": 0,
+          "retrievalCount": 0,
+          "lastRetrievedAt": 0,
+          "memoryStrength": 1,
+          "halfLifeDays": 180,
+          "lastStrengthenedAt": 0,
+          "lastDynamicsAt": 1800000000000,
+          "memoryClass": "standard",
+          "neverForget": 0,
+          "coreMemoryScore": 0,
+          "coreMemoryReason": "",
+          "versionNumber": 1,
+          "previousVersion": "",
+          "supersededBy": "",
+          "updateSource": "",
+          "updateEvidence": "",
+          "reconsolidationConfidence": 0,
+          "status": "active",
+          "versionCreatedAt": 1800000000000,
+          "updatedAt": 1800000000000,
+          "workspaceId": "",
+          "workspaceKey": "",
+          "memoryKind": "memory",
+          "reminderStatus": "",
+          "remindAt": 0,
+          "remindedAt": 0,
+          "dispatchedAt": 0,
+          "acknowledgedAt": 0,
+          "cancelledAt": 0,
+          "reminderKey": "",
+          "dispatchCount": 0,
+          "lastDispatchAttemptAt": 0,
+          "nextDispatchAttemptAt": 0,
+          "epistemicStatus": "untrusted",
+          "epistemicStatusUpdatedAt": 0,
+          "epistemicStatusActor": "",
+          "epistemicStatusReason": "",
+          "previousEpistemicStatus": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "chunkGroupId": ""
+        }
+      ],
+      "files": {
+        "store/_imports/agent.jsonl": "{\"v\":1,\"idempotencyKey\":\"key\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importedAt\":1800000000000,\"sourceRef\":\"fixture:source;run=run-1\",\"importRunId\":\"run-1\",\"digest\":{\"content\":\"d444bd90bbd1d29f\",\"binding\":\"7dcba751ea8181c8\",\"meta\":\"801ddc1e42c2fba0\"}}\n",
+        "state/memory/_archive/agent/2027-01-15T08-00-00-000Z-b23b2c4e-31af-5c5b-a816-4dd172ee79ec.json": "{\n  \"id\": \"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\n  \"type\": \"memory\",\n  \"confirmed\": false,\n  \"text\": \"Synthetic imported fact about durable storage.\",\n  \"summary\": \"Synthetic imported fact about durable storage.\",\n  \"origin\": \"internal\",\n  \"vector\": [\n    1,\n    0,\n    0,\n    0\n  ],\n  \"importance\": 0.65,\n  \"category\": \"conversation\",\n  \"createdAt\": 1800000000000,\n  \"mergedFrom\": \"[]\",\n  \"expiresAt\": 0,\n  \"agentId\": \"agent\",\n  \"storedBy\": \"agent\",\n  \"sourceTurnId\": \"\",\n  \"sourceMessageRole\": \"\",\n  \"sourceTimestamp\": 1800000000000,\n  \"sourceUrl\": \"fixture:source;run=run-1\",\n  \"evidenceQuote\": \"\",\n  \"scope\": \"agent-private\",\n  \"ownerUserId\": \"\",\n  \"emotionalValence\": \"\",\n  \"emotionalIntensity\": 0,\n  \"emotionalDominant\": \"neutral\",\n  \"moodContextAtCapture\": \"\",\n  \"emotionStatus\": \"final\",\n  \"importanceStatus\": \"final\",\n  \"replayCount\": 0,\n  \"lastReplayed\": 0,\n  \"retrievalCount\": 0,\n  \"lastRetrievedAt\": 0,\n  \"memoryStrength\": 1,\n  \"halfLifeDays\": 180,\n  \"lastStrengthenedAt\": 0,\n  \"lastDynamicsAt\": 1800000000000,\n  \"memoryClass\": \"standard\",\n  \"neverForget\": 0,\n  \"coreMemoryScore\": 0,\n  \"coreMemoryReason\": \"\",\n  \"versionNumber\": 1,\n  \"previousVersion\": \"\",\n  \"supersededBy\": \"\",\n  \"updateSource\": \"\",\n  \"updateEvidence\": \"\",\n  \"reconsolidationConfidence\": 0,\n  \"status\": \"active\",\n  \"versionCreatedAt\": 1800000000000,\n  \"updatedAt\": 1800000000000,\n  \"workspaceId\": \"\",\n  \"workspaceKey\": \"\",\n  \"memoryKind\": \"memory\",\n  \"reminderStatus\": \"\",\n  \"remindAt\": 0,\n  \"remindedAt\": 0,\n  \"dispatchedAt\": 0,\n  \"acknowledgedAt\": 0,\n  \"cancelledAt\": 0,\n  \"reminderKey\": \"\",\n  \"dispatchCount\": 0,\n  \"lastDispatchAttemptAt\": 0,\n  \"nextDispatchAttemptAt\": 0,\n  \"epistemicStatus\": \"untrusted\",\n  \"epistemicStatusUpdatedAt\": 0,\n  \"epistemicStatusActor\": \"\",\n  \"epistemicStatusReason\": \"\",\n  \"previousEpistemicStatus\": \"\",\n  \"validFrom\": 0,\n  \"validUntil\": 0,\n  \"chunkGroupId\": \"\"\n}"
+      }
+    },
+    "audit-failure": {
+      "reason": "D129: a failed required destructive audit returns storage, retaining the recovery intent and occupied key.",
+      "results": [
+        {
+          "error": "storage"
+        }
+      ],
+      "rows": [
+        {
+          "id": "b23b2c4e-31af-5c5b-a816-4dd172ee79ec",
+          "type": "memory",
+          "confirmed": false,
+          "text": "Synthetic imported fact about durable storage.",
+          "summary": "Synthetic imported fact about durable storage.",
+          "origin": "internal",
+          "vector": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "importance": 0.65,
+          "category": "conversation",
+          "createdAt": 1800000000000,
+          "mergedFrom": "[]",
+          "expiresAt": 0,
+          "agentId": "agent",
+          "storedBy": "agent",
+          "sourceTurnId": "",
+          "sourceMessageRole": "",
+          "sourceTimestamp": 1800000000000,
+          "sourceUrl": "fixture:source;run=run-1",
+          "evidenceQuote": "",
+          "scope": "agent-private",
+          "ownerUserId": "",
+          "emotionalValence": "",
+          "emotionalIntensity": 0,
+          "emotionalDominant": "neutral",
+          "moodContextAtCapture": "",
+          "emotionStatus": "final",
+          "importanceStatus": "final",
+          "replayCount": 0,
+          "lastReplayed": 0,
+          "retrievalCount": 0,
+          "lastRetrievedAt": 0,
+          "memoryStrength": 1,
+          "halfLifeDays": 180,
+          "lastStrengthenedAt": 0,
+          "lastDynamicsAt": 1800000000000,
+          "memoryClass": "standard",
+          "neverForget": 0,
+          "coreMemoryScore": 0,
+          "coreMemoryReason": "",
+          "versionNumber": 1,
+          "previousVersion": "",
+          "supersededBy": "",
+          "updateSource": "",
+          "updateEvidence": "",
+          "reconsolidationConfidence": 0,
+          "status": "deleted",
+          "versionCreatedAt": 1800000000000,
+          "updatedAt": 1800000000000,
+          "workspaceId": "",
+          "workspaceKey": "",
+          "memoryKind": "memory",
+          "reminderStatus": "",
+          "remindAt": 0,
+          "remindedAt": 0,
+          "dispatchedAt": 0,
+          "acknowledgedAt": 0,
+          "cancelledAt": 0,
+          "reminderKey": "",
+          "dispatchCount": 0,
+          "lastDispatchAttemptAt": 0,
+          "nextDispatchAttemptAt": 0,
+          "epistemicStatus": "invalidated",
+          "epistemicStatusUpdatedAt": 0,
+          "epistemicStatusActor": "",
+          "epistemicStatusReason": "",
+          "previousEpistemicStatus": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "chunkGroupId": ""
+        }
+      ],
+      "files": {
+        "state/memory/_archive/agent/2027-01-15T08-00-00-000Z-b23b2c4e-31af-5c5b-a816-4dd172ee79ec.json": "{\n  \"id\": \"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\n  \"type\": \"memory\",\n  \"confirmed\": false,\n  \"text\": \"Synthetic imported fact about durable storage.\",\n  \"summary\": \"Synthetic imported fact about durable storage.\",\n  \"origin\": \"internal\",\n  \"vector\": [\n    1,\n    0,\n    0,\n    0\n  ],\n  \"importance\": 0.65,\n  \"category\": \"conversation\",\n  \"createdAt\": 1800000000000,\n  \"mergedFrom\": \"[]\",\n  \"expiresAt\": 0,\n  \"agentId\": \"agent\",\n  \"storedBy\": \"agent\",\n  \"sourceTurnId\": \"\",\n  \"sourceMessageRole\": \"\",\n  \"sourceTimestamp\": 1800000000000,\n  \"sourceUrl\": \"fixture:source;run=run-1\",\n  \"evidenceQuote\": \"\",\n  \"scope\": \"agent-private\",\n  \"ownerUserId\": \"\",\n  \"emotionalValence\": \"\",\n  \"emotionalIntensity\": 0,\n  \"emotionalDominant\": \"neutral\",\n  \"moodContextAtCapture\": \"\",\n  \"emotionStatus\": \"final\",\n  \"importanceStatus\": \"final\",\n  \"replayCount\": 0,\n  \"lastReplayed\": 0,\n  \"retrievalCount\": 0,\n  \"lastRetrievedAt\": 0,\n  \"memoryStrength\": 1,\n  \"halfLifeDays\": 180,\n  \"lastStrengthenedAt\": 0,\n  \"lastDynamicsAt\": 1800000000000,\n  \"memoryClass\": \"standard\",\n  \"neverForget\": 0,\n  \"coreMemoryScore\": 0,\n  \"coreMemoryReason\": \"\",\n  \"versionNumber\": 1,\n  \"previousVersion\": \"\",\n  \"supersededBy\": \"\",\n  \"updateSource\": \"\",\n  \"updateEvidence\": \"\",\n  \"reconsolidationConfidence\": 0,\n  \"status\": \"active\",\n  \"versionCreatedAt\": 1800000000000,\n  \"updatedAt\": 1800000000000,\n  \"workspaceId\": \"\",\n  \"workspaceKey\": \"\",\n  \"memoryKind\": \"memory\",\n  \"reminderStatus\": \"\",\n  \"remindAt\": 0,\n  \"remindedAt\": 0,\n  \"dispatchedAt\": 0,\n  \"acknowledgedAt\": 0,\n  \"cancelledAt\": 0,\n  \"reminderKey\": \"\",\n  \"dispatchCount\": 0,\n  \"lastDispatchAttemptAt\": 0,\n  \"nextDispatchAttemptAt\": 0,\n  \"epistemicStatus\": \"untrusted\",\n  \"epistemicStatusUpdatedAt\": 0,\n  \"epistemicStatusActor\": \"\",\n  \"epistemicStatusReason\": \"\",\n  \"previousEpistemicStatus\": \"\",\n  \"validFrom\": 0,\n  \"validUntil\": 0,\n  \"chunkGroupId\": \"\"\n}",
+        "store/_imports/agent.jsonl": "{\"v\":1,\"idempotencyKey\":\"key\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importedAt\":1800000000000,\"sourceRef\":\"fixture:source;run=run-1\",\"importRunId\":\"run-1\",\"digest\":{\"content\":\"d444bd90bbd1d29f\",\"binding\":\"7dcba751ea8181c8\",\"meta\":\"801ddc1e42c2fba0\"}}\n",
+        "store/_unimports/agent/run-1.jsonl": "{\"v\":1,\"kind\":\"header\",\"agentId\":\"agent\",\"importRunId\":\"run-1\",\"createdAt\":1800000000000}\n{\"v\":1,\"kind\":\"intent\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"idempotencyKey\":\"key\",\"importedAt\":1800000000000,\"archived\":true}\n",
+        "workspace/.adaptive-learning": "blocked"
+      }
+    },
+    "done-binding-moved": {
+      "reason": "Completion markers never grant access to a changed ownership binding or its derived cleanup.",
+      "preview": {
+        "value": {
+          "agentId": "agent",
+          "importRunId": "run-1",
+          "dryRun": true,
+          "selected": 1,
+          "unimported": 0,
+          "keptModified": 1,
+          "alreadyForgotten": 0,
+          "alreadyUnimported": 0,
+          "missing": 0,
+          "failed": 0,
+          "remaining": 0,
+          "cards": [
+            {
+              "idempotencyKey": "key",
+              "id": "b23b2c4e-31af-5c5b-a816-4dd172ee79ec",
+              "outcome": "kept-modified",
+              "reason": "binding-changed"
+            }
+          ],
+          "derived": {
+            "jobsSinceImport": []
+          }
+        }
+      },
+      "results": [
+        {
+          "value": {
+            "agentId": "agent",
+            "importRunId": "run-1",
+            "dryRun": false,
+            "selected": 1,
+            "unimported": 0,
+            "keptModified": 1,
+            "alreadyForgotten": 0,
+            "alreadyUnimported": 0,
+            "missing": 0,
+            "failed": 0,
+            "remaining": 0,
+            "cards": [
+              {
+                "idempotencyKey": "key",
+                "id": "b23b2c4e-31af-5c5b-a816-4dd172ee79ec",
+                "outcome": "kept-modified",
+                "reason": "binding-changed"
+              }
+            ],
+            "derived": {
+              "jobsSinceImport": []
+            }
+          }
+        }
+      ],
+      "rows": [
+        {
+          "id": "b23b2c4e-31af-5c5b-a816-4dd172ee79ec",
+          "type": "memory",
+          "confirmed": false,
+          "text": "Synthetic imported fact about durable storage.",
+          "summary": "Synthetic imported fact about durable storage.",
+          "origin": "internal",
+          "vector": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "importance": 0.65,
+          "category": "conversation",
+          "createdAt": 1800000000000,
+          "mergedFrom": "[]",
+          "expiresAt": 0,
+          "agentId": "agent",
+          "storedBy": "agent",
+          "sourceTurnId": "",
+          "sourceMessageRole": "",
+          "sourceTimestamp": 1800000000000,
+          "sourceUrl": "fixture:source;run=run-1",
+          "evidenceQuote": "",
+          "scope": "workspace",
+          "ownerUserId": "",
+          "emotionalValence": "",
+          "emotionalIntensity": 0,
+          "emotionalDominant": "neutral",
+          "moodContextAtCapture": "",
+          "emotionStatus": "final",
+          "importanceStatus": "final",
+          "replayCount": 0,
+          "lastReplayed": 0,
+          "retrievalCount": 0,
+          "lastRetrievedAt": 0,
+          "memoryStrength": 1,
+          "halfLifeDays": 180,
+          "lastStrengthenedAt": 0,
+          "lastDynamicsAt": 1800000000000,
+          "memoryClass": "standard",
+          "neverForget": 0,
+          "coreMemoryScore": 0,
+          "coreMemoryReason": "",
+          "versionNumber": 1,
+          "previousVersion": "",
+          "supersededBy": "",
+          "updateSource": "",
+          "updateEvidence": "",
+          "reconsolidationConfidence": 0,
+          "status": "deleted",
+          "versionCreatedAt": 1800000000000,
+          "updatedAt": 1800000000000,
+          "workspaceId": "",
+          "workspaceKey": "",
+          "memoryKind": "memory",
+          "reminderStatus": "",
+          "remindAt": 0,
+          "remindedAt": 0,
+          "dispatchedAt": 0,
+          "acknowledgedAt": 0,
+          "cancelledAt": 0,
+          "reminderKey": "",
+          "dispatchCount": 0,
+          "lastDispatchAttemptAt": 0,
+          "nextDispatchAttemptAt": 0,
+          "epistemicStatus": "invalidated",
+          "epistemicStatusUpdatedAt": 0,
+          "epistemicStatusActor": "",
+          "epistemicStatusReason": "",
+          "previousEpistemicStatus": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "chunkGroupId": ""
+        }
+      ],
+      "files": {
+        "state/memory/_archive/agent/2027-01-15T08-00-00-000Z-b23b2c4e-31af-5c5b-a816-4dd172ee79ec.json": "{\n  \"id\": \"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\n  \"type\": \"memory\",\n  \"confirmed\": false,\n  \"text\": \"Synthetic imported fact about durable storage.\",\n  \"summary\": \"Synthetic imported fact about durable storage.\",\n  \"origin\": \"internal\",\n  \"vector\": [\n    1,\n    0,\n    0,\n    0\n  ],\n  \"importance\": 0.65,\n  \"category\": \"conversation\",\n  \"createdAt\": 1800000000000,\n  \"mergedFrom\": \"[]\",\n  \"expiresAt\": 0,\n  \"agentId\": \"agent\",\n  \"storedBy\": \"agent\",\n  \"sourceTurnId\": \"\",\n  \"sourceMessageRole\": \"\",\n  \"sourceTimestamp\": 1800000000000,\n  \"sourceUrl\": \"fixture:source;run=run-1\",\n  \"evidenceQuote\": \"\",\n  \"scope\": \"agent-private\",\n  \"ownerUserId\": \"\",\n  \"emotionalValence\": \"\",\n  \"emotionalIntensity\": 0,\n  \"emotionalDominant\": \"neutral\",\n  \"moodContextAtCapture\": \"\",\n  \"emotionStatus\": \"final\",\n  \"importanceStatus\": \"final\",\n  \"replayCount\": 0,\n  \"lastReplayed\": 0,\n  \"retrievalCount\": 0,\n  \"lastRetrievedAt\": 0,\n  \"memoryStrength\": 1,\n  \"halfLifeDays\": 180,\n  \"lastStrengthenedAt\": 0,\n  \"lastDynamicsAt\": 1800000000000,\n  \"memoryClass\": \"standard\",\n  \"neverForget\": 0,\n  \"coreMemoryScore\": 0,\n  \"coreMemoryReason\": \"\",\n  \"versionNumber\": 1,\n  \"previousVersion\": \"\",\n  \"supersededBy\": \"\",\n  \"updateSource\": \"\",\n  \"updateEvidence\": \"\",\n  \"reconsolidationConfidence\": 0,\n  \"status\": \"active\",\n  \"versionCreatedAt\": 1800000000000,\n  \"updatedAt\": 1800000000000,\n  \"workspaceId\": \"\",\n  \"workspaceKey\": \"\",\n  \"memoryKind\": \"memory\",\n  \"reminderStatus\": \"\",\n  \"remindAt\": 0,\n  \"remindedAt\": 0,\n  \"dispatchedAt\": 0,\n  \"acknowledgedAt\": 0,\n  \"cancelledAt\": 0,\n  \"reminderKey\": \"\",\n  \"dispatchCount\": 0,\n  \"lastDispatchAttemptAt\": 0,\n  \"nextDispatchAttemptAt\": 0,\n  \"epistemicStatus\": \"untrusted\",\n  \"epistemicStatusUpdatedAt\": 0,\n  \"epistemicStatusActor\": \"\",\n  \"epistemicStatusReason\": \"\",\n  \"previousEpistemicStatus\": \"\",\n  \"validFrom\": 0,\n  \"validUntil\": 0,\n  \"chunkGroupId\": \"\"\n}",
+        "store/_imports/agent.jsonl": "{\"v\":1,\"idempotencyKey\":\"key\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importedAt\":1800000000000,\"sourceRef\":\"fixture:source;run=run-1\",\"importRunId\":\"run-1\",\"digest\":{\"content\":\"d444bd90bbd1d29f\",\"binding\":\"7dcba751ea8181c8\",\"meta\":\"801ddc1e42c2fba0\"}}\n{\"v\":1,\"kind\":\"unimported\",\"idempotencyKey\":\"key\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importRunId\":\"run-1\",\"at\":1800000000000}\n",
+        "store/_unimports/agent/run-1.jsonl": "{\"v\":1,\"kind\":\"header\",\"agentId\":\"agent\",\"importRunId\":\"run-1\",\"createdAt\":1800000000000}\n{\"v\":1,\"kind\":\"intent\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"idempotencyKey\":\"key\",\"importedAt\":1800000000000,\"archived\":true}\n{\"v\":1,\"kind\":\"done\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importedAt\":1800000000000}\n",
+        "workspace/.adaptive-learning/destructive-ops.jsonl": "{\"event\":\"memory.unimported\",\"source\":\"memory_unimport\",\"agentId\":\"agent\",\"memoryId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importRunId\":\"run-1\",\"archivePath\":\"<work>/state/memory/_archive/agent/2027-01-15T08-00-00-000Z-b23b2c4e-31af-5c5b-a816-4dd172ee79ec.json\",\"forced\":\"\",\"result\":\"committed\",\"timestamp\":\"2027-01-15T08:00:00.000Z\"}\n"
+      }
+    },
+    "shared-behind-deleted-prefix": {
+      "reason": "Filter live shared origins before limiting; 17 deleted copies must not hide the active copy.",
+      "preview": {
+        "value": {
+          "agentId": "agent",
+          "importRunId": "run-1",
+          "dryRun": true,
+          "selected": 1,
+          "unimported": 0,
+          "keptModified": 1,
+          "alreadyForgotten": 0,
+          "alreadyUnimported": 0,
+          "missing": 0,
+          "failed": 0,
+          "remaining": 0,
+          "cards": [
+            {
+              "idempotencyKey": "key",
+              "id": "b23b2c4e-31af-5c5b-a816-4dd172ee79ec",
+              "outcome": "kept-modified",
+              "reason": "shared"
+            }
+          ],
+          "derived": {
+            "jobsSinceImport": []
+          }
+        }
+      },
+      "results": [
+        {
+          "value": {
+            "agentId": "agent",
+            "importRunId": "run-1",
+            "dryRun": false,
+            "selected": 1,
+            "unimported": 0,
+            "keptModified": 1,
+            "alreadyForgotten": 0,
+            "alreadyUnimported": 0,
+            "missing": 0,
+            "failed": 0,
+            "remaining": 0,
+            "cards": [
+              {
+                "idempotencyKey": "key",
+                "id": "b23b2c4e-31af-5c5b-a816-4dd172ee79ec",
+                "outcome": "kept-modified",
+                "reason": "shared"
+              }
+            ],
+            "derived": {
+              "jobsSinceImport": []
+            }
+          }
+        }
+      ],
+      "rows": [
+        {
+          "id": "b23b2c4e-31af-5c5b-a816-4dd172ee79ec",
+          "type": "memory",
+          "confirmed": false,
+          "text": "Synthetic imported fact about durable storage.",
+          "summary": "Synthetic imported fact about durable storage.",
+          "origin": "internal",
+          "vector": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "importance": 0.65,
+          "category": "conversation",
+          "createdAt": 1800000000000,
+          "mergedFrom": "[]",
+          "expiresAt": 0,
+          "agentId": "agent",
+          "storedBy": "agent",
+          "sourceTurnId": "",
+          "sourceMessageRole": "",
+          "sourceTimestamp": 1800000000000,
+          "sourceUrl": "fixture:source;run=run-1",
+          "evidenceQuote": "",
+          "scope": "agent-private",
+          "ownerUserId": "",
+          "emotionalValence": "",
+          "emotionalIntensity": 0,
+          "emotionalDominant": "neutral",
+          "moodContextAtCapture": "",
+          "emotionStatus": "final",
+          "importanceStatus": "final",
+          "replayCount": 0,
+          "lastReplayed": 0,
+          "retrievalCount": 0,
+          "lastRetrievedAt": 0,
+          "memoryStrength": 1,
+          "halfLifeDays": 180,
+          "lastStrengthenedAt": 0,
+          "lastDynamicsAt": 1800000000000,
+          "memoryClass": "standard",
+          "neverForget": 0,
+          "coreMemoryScore": 0,
+          "coreMemoryReason": "",
+          "versionNumber": 1,
+          "previousVersion": "",
+          "supersededBy": "",
+          "updateSource": "",
+          "updateEvidence": "",
+          "reconsolidationConfidence": 0,
+          "status": "active",
+          "versionCreatedAt": 1800000000000,
+          "updatedAt": 1800000000000,
+          "workspaceId": "",
+          "workspaceKey": "",
+          "memoryKind": "memory",
+          "reminderStatus": "",
+          "remindAt": 0,
+          "remindedAt": 0,
+          "dispatchedAt": 0,
+          "acknowledgedAt": 0,
+          "cancelledAt": 0,
+          "reminderKey": "",
+          "dispatchCount": 0,
+          "lastDispatchAttemptAt": 0,
+          "nextDispatchAttemptAt": 0,
+          "epistemicStatus": "untrusted",
+          "epistemicStatusUpdatedAt": 0,
+          "epistemicStatusActor": "",
+          "epistemicStatusReason": "",
+          "previousEpistemicStatus": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "chunkGroupId": ""
+        }
+      ],
+      "files": {
+        "store/_imports/agent.jsonl": "{\"v\":1,\"idempotencyKey\":\"key\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importedAt\":1800000000000,\"sourceRef\":\"fixture:source;run=run-1\",\"importRunId\":\"run-1\",\"digest\":{\"content\":\"d444bd90bbd1d29f\",\"binding\":\"7dcba751ea8181c8\",\"meta\":\"801ddc1e42c2fba0\"}}\n"
+      }
+    },
+    "missing-user-intent-without-binding": {
+      "reason": "A missing row is not an ACL bypass: its write-ahead intent must be backed by an accessible archived owner.",
+      "preview": {
+        "value": {
+          "agentId": "agent",
+          "importRunId": "run-1",
+          "dryRun": true,
+          "selected": 1,
+          "unimported": 0,
+          "keptModified": 1,
+          "alreadyForgotten": 0,
+          "alreadyUnimported": 0,
+          "missing": 0,
+          "failed": 0,
+          "remaining": 0,
+          "cards": [
+            {
+              "idempotencyKey": "key",
+              "id": "b23b2c4e-31af-5c5b-a816-4dd172ee79ec",
+              "outcome": "kept-modified",
+              "reason": "binding-changed"
+            }
+          ],
+          "derived": {
+            "jobsSinceImport": []
+          }
+        }
+      },
+      "results": [
+        {
+          "value": {
+            "agentId": "agent",
+            "importRunId": "run-1",
+            "dryRun": false,
+            "selected": 1,
+            "unimported": 0,
+            "keptModified": 1,
+            "alreadyForgotten": 0,
+            "alreadyUnimported": 0,
+            "missing": 0,
+            "failed": 0,
+            "remaining": 0,
+            "cards": [
+              {
+                "idempotencyKey": "key",
+                "id": "b23b2c4e-31af-5c5b-a816-4dd172ee79ec",
+                "outcome": "kept-modified",
+                "reason": "binding-changed"
+              }
+            ],
+            "derived": {
+              "jobsSinceImport": []
+            }
+          }
+        }
+      ],
+      "rows": [],
+      "files": {
+        "state/memory/_archive/agent/2027-01-15T08-00-00-000Z-b23b2c4e-31af-5c5b-a816-4dd172ee79ec.json": "{\n  \"id\": \"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\n  \"type\": \"memory\",\n  \"confirmed\": false,\n  \"text\": \"Synthetic imported fact about durable storage.\",\n  \"summary\": \"Synthetic imported fact about durable storage.\",\n  \"origin\": \"internal\",\n  \"vector\": [\n    1,\n    0,\n    0,\n    0\n  ],\n  \"importance\": 0.65,\n  \"category\": \"conversation\",\n  \"createdAt\": 1800000000000,\n  \"mergedFrom\": \"[]\",\n  \"expiresAt\": 0,\n  \"agentId\": \"agent\",\n  \"storedBy\": \"agent\",\n  \"sourceTurnId\": \"\",\n  \"sourceMessageRole\": \"\",\n  \"sourceTimestamp\": 1800000000000,\n  \"sourceUrl\": \"fixture:source;run=run-1\",\n  \"evidenceQuote\": \"\",\n  \"scope\": \"user\",\n  \"ownerUserId\": \"user:v1:14b2e141bf7cc394d669faf2cec08637d1003fe849a08cf0c43b8066677aeb6e\",\n  \"emotionalValence\": \"\",\n  \"emotionalIntensity\": 0,\n  \"emotionalDominant\": \"neutral\",\n  \"moodContextAtCapture\": \"\",\n  \"emotionStatus\": \"final\",\n  \"importanceStatus\": \"final\",\n  \"replayCount\": 0,\n  \"lastReplayed\": 0,\n  \"retrievalCount\": 0,\n  \"lastRetrievedAt\": 0,\n  \"memoryStrength\": 1,\n  \"halfLifeDays\": 180,\n  \"lastStrengthenedAt\": 0,\n  \"lastDynamicsAt\": 1800000000000,\n  \"memoryClass\": \"standard\",\n  \"neverForget\": 0,\n  \"coreMemoryScore\": 0,\n  \"coreMemoryReason\": \"\",\n  \"versionNumber\": 1,\n  \"previousVersion\": \"\",\n  \"supersededBy\": \"\",\n  \"updateSource\": \"\",\n  \"updateEvidence\": \"\",\n  \"reconsolidationConfidence\": 0,\n  \"status\": \"active\",\n  \"versionCreatedAt\": 1800000000000,\n  \"updatedAt\": 1800000000000,\n  \"workspaceId\": \"\",\n  \"workspaceKey\": \"\",\n  \"memoryKind\": \"memory\",\n  \"reminderStatus\": \"\",\n  \"remindAt\": 0,\n  \"remindedAt\": 0,\n  \"dispatchedAt\": 0,\n  \"acknowledgedAt\": 0,\n  \"cancelledAt\": 0,\n  \"reminderKey\": \"\",\n  \"dispatchCount\": 0,\n  \"lastDispatchAttemptAt\": 0,\n  \"nextDispatchAttemptAt\": 0,\n  \"epistemicStatus\": \"untrusted\",\n  \"epistemicStatusUpdatedAt\": 0,\n  \"epistemicStatusActor\": \"\",\n  \"epistemicStatusReason\": \"\",\n  \"previousEpistemicStatus\": \"\",\n  \"validFrom\": 0,\n  \"validUntil\": 0,\n  \"chunkGroupId\": \"\"\n}",
+        "store/_imports/agent.jsonl": "{\"v\":1,\"idempotencyKey\":\"key\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importedAt\":1800000000000,\"sourceRef\":\"fixture:source;run=run-1\",\"importRunId\":\"run-1\",\"digest\":{\"content\":\"d444bd90bbd1d29f\",\"binding\":\"3b61cd1be359c2dd\",\"meta\":\"801ddc1e42c2fba0\"}}\n",
+        "store/_unimports/agent/run-1.jsonl": "{\"v\":1,\"kind\":\"header\",\"agentId\":\"agent\",\"importRunId\":\"run-1\",\"createdAt\":1800000000000}\n{\"v\":1,\"kind\":\"intent\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"idempotencyKey\":\"key\",\"importedAt\":1800000000000,\"archived\":true}\n"
+      }
+    },
+    "missing-with-intent": {
+      "reason": "D129: finishing an interrupted delete writes a recovered audit before freeing the key, including a previously failed audit.",
+      "files": {
+        "state/memory/_archive/agent/2027-01-15T08-00-00-000Z-b23b2c4e-31af-5c5b-a816-4dd172ee79ec.json": "{\n  \"id\": \"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\n  \"type\": \"memory\",\n  \"confirmed\": false,\n  \"text\": \"Synthetic imported fact about durable storage.\",\n  \"summary\": \"Synthetic imported fact about durable storage.\",\n  \"origin\": \"internal\",\n  \"vector\": [\n    1,\n    0,\n    0,\n    0\n  ],\n  \"importance\": 0.65,\n  \"category\": \"conversation\",\n  \"createdAt\": 1800000000000,\n  \"mergedFrom\": \"[]\",\n  \"expiresAt\": 0,\n  \"agentId\": \"agent\",\n  \"storedBy\": \"agent\",\n  \"sourceTurnId\": \"\",\n  \"sourceMessageRole\": \"\",\n  \"sourceTimestamp\": 1800000000000,\n  \"sourceUrl\": \"fixture:source;run=run-1\",\n  \"evidenceQuote\": \"\",\n  \"scope\": \"agent-private\",\n  \"ownerUserId\": \"\",\n  \"emotionalValence\": \"\",\n  \"emotionalIntensity\": 0,\n  \"emotionalDominant\": \"neutral\",\n  \"moodContextAtCapture\": \"\",\n  \"emotionStatus\": \"final\",\n  \"importanceStatus\": \"final\",\n  \"replayCount\": 0,\n  \"lastReplayed\": 0,\n  \"retrievalCount\": 0,\n  \"lastRetrievedAt\": 0,\n  \"memoryStrength\": 1,\n  \"halfLifeDays\": 180,\n  \"lastStrengthenedAt\": 0,\n  \"lastDynamicsAt\": 1800000000000,\n  \"memoryClass\": \"standard\",\n  \"neverForget\": 0,\n  \"coreMemoryScore\": 0,\n  \"coreMemoryReason\": \"\",\n  \"versionNumber\": 1,\n  \"previousVersion\": \"\",\n  \"supersededBy\": \"\",\n  \"updateSource\": \"\",\n  \"updateEvidence\": \"\",\n  \"reconsolidationConfidence\": 0,\n  \"status\": \"active\",\n  \"versionCreatedAt\": 1800000000000,\n  \"updatedAt\": 1800000000000,\n  \"workspaceId\": \"\",\n  \"workspaceKey\": \"\",\n  \"memoryKind\": \"memory\",\n  \"reminderStatus\": \"\",\n  \"remindAt\": 0,\n  \"remindedAt\": 0,\n  \"dispatchedAt\": 0,\n  \"acknowledgedAt\": 0,\n  \"cancelledAt\": 0,\n  \"reminderKey\": \"\",\n  \"dispatchCount\": 0,\n  \"lastDispatchAttemptAt\": 0,\n  \"nextDispatchAttemptAt\": 0,\n  \"epistemicStatus\": \"untrusted\",\n  \"epistemicStatusUpdatedAt\": 0,\n  \"epistemicStatusActor\": \"\",\n  \"epistemicStatusReason\": \"\",\n  \"previousEpistemicStatus\": \"\",\n  \"validFrom\": 0,\n  \"validUntil\": 0,\n  \"chunkGroupId\": \"\"\n}",
+        "store/_imports/agent.jsonl": "{\"v\":1,\"idempotencyKey\":\"key\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importedAt\":1800000000000,\"sourceRef\":\"fixture:source;run=run-1\",\"importRunId\":\"run-1\",\"digest\":{\"content\":\"d444bd90bbd1d29f\",\"binding\":\"7dcba751ea8181c8\",\"meta\":\"801ddc1e42c2fba0\"}}\n{\"v\":1,\"kind\":\"unimported\",\"idempotencyKey\":\"key\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importRunId\":\"run-1\",\"at\":1800000000000}\n",
+        "store/_unimports/agent/run-1.jsonl": "{\"v\":1,\"kind\":\"header\",\"agentId\":\"agent\",\"importRunId\":\"run-1\",\"createdAt\":1800000000000}\n{\"v\":1,\"kind\":\"intent\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"idempotencyKey\":\"key\",\"importedAt\":1800000000000,\"archived\":true}\n{\"v\":1,\"kind\":\"done\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importedAt\":1800000000000}\n",
+        "workspace/.adaptive-learning/destructive-ops.jsonl": "{\"event\":\"memory.unimported\",\"source\":\"memory_unimport\",\"agentId\":\"agent\",\"memoryId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importRunId\":\"run-1\",\"archivePath\":\"<work>/state/memory/_archive/agent/2027-01-15T08-00-00-000Z-b23b2c4e-31af-5c5b-a816-4dd172ee79ec.json\",\"forced\":\"\",\"result\":\"committed\",\"recovered\":true,\"timestamp\":\"2027-01-15T08:00:00.000Z\"}\n"
+      }
+    },
+    "crash-afterTombstone": {
+      "reason": "D129: finishing an interrupted delete writes a recovered audit before freeing the key, including a previously failed audit.",
+      "files": {
+        "state/memory/_archive/agent/2027-01-15T08-00-00-000Z-b23b2c4e-31af-5c5b-a816-4dd172ee79ec.json": "{\n  \"id\": \"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\n  \"type\": \"memory\",\n  \"confirmed\": false,\n  \"text\": \"Synthetic imported fact about durable storage.\",\n  \"summary\": \"Synthetic imported fact about durable storage.\",\n  \"origin\": \"internal\",\n  \"vector\": [\n    1,\n    0,\n    0,\n    0\n  ],\n  \"importance\": 0.65,\n  \"category\": \"conversation\",\n  \"createdAt\": 1800000000000,\n  \"mergedFrom\": \"[]\",\n  \"expiresAt\": 0,\n  \"agentId\": \"agent\",\n  \"storedBy\": \"agent\",\n  \"sourceTurnId\": \"\",\n  \"sourceMessageRole\": \"\",\n  \"sourceTimestamp\": 1800000000000,\n  \"sourceUrl\": \"fixture:source;run=run-1\",\n  \"evidenceQuote\": \"\",\n  \"scope\": \"agent-private\",\n  \"ownerUserId\": \"\",\n  \"emotionalValence\": \"\",\n  \"emotionalIntensity\": 0,\n  \"emotionalDominant\": \"neutral\",\n  \"moodContextAtCapture\": \"\",\n  \"emotionStatus\": \"final\",\n  \"importanceStatus\": \"final\",\n  \"replayCount\": 0,\n  \"lastReplayed\": 0,\n  \"retrievalCount\": 0,\n  \"lastRetrievedAt\": 0,\n  \"memoryStrength\": 1,\n  \"halfLifeDays\": 180,\n  \"lastStrengthenedAt\": 0,\n  \"lastDynamicsAt\": 1800000000000,\n  \"memoryClass\": \"standard\",\n  \"neverForget\": 0,\n  \"coreMemoryScore\": 0,\n  \"coreMemoryReason\": \"\",\n  \"versionNumber\": 1,\n  \"previousVersion\": \"\",\n  \"supersededBy\": \"\",\n  \"updateSource\": \"\",\n  \"updateEvidence\": \"\",\n  \"reconsolidationConfidence\": 0,\n  \"status\": \"active\",\n  \"versionCreatedAt\": 1800000000000,\n  \"updatedAt\": 1800000000000,\n  \"workspaceId\": \"\",\n  \"workspaceKey\": \"\",\n  \"memoryKind\": \"memory\",\n  \"reminderStatus\": \"\",\n  \"remindAt\": 0,\n  \"remindedAt\": 0,\n  \"dispatchedAt\": 0,\n  \"acknowledgedAt\": 0,\n  \"cancelledAt\": 0,\n  \"reminderKey\": \"\",\n  \"dispatchCount\": 0,\n  \"lastDispatchAttemptAt\": 0,\n  \"nextDispatchAttemptAt\": 0,\n  \"epistemicStatus\": \"untrusted\",\n  \"epistemicStatusUpdatedAt\": 0,\n  \"epistemicStatusActor\": \"\",\n  \"epistemicStatusReason\": \"\",\n  \"previousEpistemicStatus\": \"\",\n  \"validFrom\": 0,\n  \"validUntil\": 0,\n  \"chunkGroupId\": \"\"\n}",
+        "store/_imports/agent.jsonl": "{\"v\":1,\"idempotencyKey\":\"key\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importedAt\":1800000000000,\"sourceRef\":\"fixture:source;run=run-1\",\"importRunId\":\"run-1\",\"digest\":{\"content\":\"d444bd90bbd1d29f\",\"binding\":\"7dcba751ea8181c8\",\"meta\":\"801ddc1e42c2fba0\"}}\n{\"v\":1,\"kind\":\"unimported\",\"idempotencyKey\":\"key\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importRunId\":\"run-1\",\"at\":1800000000000}\n",
+        "store/_unimports/agent/run-1.jsonl": "{\"v\":1,\"kind\":\"header\",\"agentId\":\"agent\",\"importRunId\":\"run-1\",\"createdAt\":1800000000000}\n{\"v\":1,\"kind\":\"intent\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"idempotencyKey\":\"key\",\"importedAt\":1800000000000,\"archived\":true}\n{\"v\":1,\"kind\":\"done\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importedAt\":1800000000000}\n",
+        "workspace/.adaptive-learning/destructive-ops.jsonl": "{\"event\":\"memory.unimported\",\"source\":\"memory_unimport\",\"agentId\":\"agent\",\"memoryId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importRunId\":\"run-1\",\"archivePath\":\"<work>/state/memory/_archive/agent/2027-01-15T08-00-00-000Z-b23b2c4e-31af-5c5b-a816-4dd172ee79ec.json\",\"forced\":\"\",\"result\":\"committed\",\"recovered\":true,\"timestamp\":\"2027-01-15T08:00:00.000Z\"}\n"
+      }
+    },
+    "crash-afterLedger": {
+      "reason": "D129: finishing an interrupted delete writes a recovered audit before freeing the key, including a previously failed audit.",
+      "files": {
+        "state/memory/_archive/agent/2027-01-15T08-00-00-000Z-b23b2c4e-31af-5c5b-a816-4dd172ee79ec.json": "{\n  \"id\": \"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\n  \"type\": \"memory\",\n  \"confirmed\": false,\n  \"text\": \"Synthetic imported fact about durable storage.\",\n  \"summary\": \"Synthetic imported fact about durable storage.\",\n  \"origin\": \"internal\",\n  \"vector\": [\n    1,\n    0,\n    0,\n    0\n  ],\n  \"importance\": 0.65,\n  \"category\": \"conversation\",\n  \"createdAt\": 1800000000000,\n  \"mergedFrom\": \"[]\",\n  \"expiresAt\": 0,\n  \"agentId\": \"agent\",\n  \"storedBy\": \"agent\",\n  \"sourceTurnId\": \"\",\n  \"sourceMessageRole\": \"\",\n  \"sourceTimestamp\": 1800000000000,\n  \"sourceUrl\": \"fixture:source;run=run-1\",\n  \"evidenceQuote\": \"\",\n  \"scope\": \"agent-private\",\n  \"ownerUserId\": \"\",\n  \"emotionalValence\": \"\",\n  \"emotionalIntensity\": 0,\n  \"emotionalDominant\": \"neutral\",\n  \"moodContextAtCapture\": \"\",\n  \"emotionStatus\": \"final\",\n  \"importanceStatus\": \"final\",\n  \"replayCount\": 0,\n  \"lastReplayed\": 0,\n  \"retrievalCount\": 0,\n  \"lastRetrievedAt\": 0,\n  \"memoryStrength\": 1,\n  \"halfLifeDays\": 180,\n  \"lastStrengthenedAt\": 0,\n  \"lastDynamicsAt\": 1800000000000,\n  \"memoryClass\": \"standard\",\n  \"neverForget\": 0,\n  \"coreMemoryScore\": 0,\n  \"coreMemoryReason\": \"\",\n  \"versionNumber\": 1,\n  \"previousVersion\": \"\",\n  \"supersededBy\": \"\",\n  \"updateSource\": \"\",\n  \"updateEvidence\": \"\",\n  \"reconsolidationConfidence\": 0,\n  \"status\": \"active\",\n  \"versionCreatedAt\": 1800000000000,\n  \"updatedAt\": 1800000000000,\n  \"workspaceId\": \"\",\n  \"workspaceKey\": \"\",\n  \"memoryKind\": \"memory\",\n  \"reminderStatus\": \"\",\n  \"remindAt\": 0,\n  \"remindedAt\": 0,\n  \"dispatchedAt\": 0,\n  \"acknowledgedAt\": 0,\n  \"cancelledAt\": 0,\n  \"reminderKey\": \"\",\n  \"dispatchCount\": 0,\n  \"lastDispatchAttemptAt\": 0,\n  \"nextDispatchAttemptAt\": 0,\n  \"epistemicStatus\": \"untrusted\",\n  \"epistemicStatusUpdatedAt\": 0,\n  \"epistemicStatusActor\": \"\",\n  \"epistemicStatusReason\": \"\",\n  \"previousEpistemicStatus\": \"\",\n  \"validFrom\": 0,\n  \"validUntil\": 0,\n  \"chunkGroupId\": \"\"\n}",
+        "store/_imports/agent.jsonl": "{\"v\":1,\"idempotencyKey\":\"key\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importedAt\":1800000000000,\"sourceRef\":\"fixture:source;run=run-1\",\"importRunId\":\"run-1\",\"digest\":{\"content\":\"d444bd90bbd1d29f\",\"binding\":\"7dcba751ea8181c8\",\"meta\":\"801ddc1e42c2fba0\"}}\n{\"v\":1,\"kind\":\"unimported\",\"idempotencyKey\":\"key\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importRunId\":\"run-1\",\"at\":1800000000000}\n",
+        "store/_unimports/agent/run-1.jsonl": "{\"v\":1,\"kind\":\"header\",\"agentId\":\"agent\",\"importRunId\":\"run-1\",\"createdAt\":1800000000000}\n{\"v\":1,\"kind\":\"intent\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"idempotencyKey\":\"key\",\"importedAt\":1800000000000,\"archived\":true}\n{\"v\":1,\"kind\":\"done\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importedAt\":1800000000000}\n",
+        "workspace/.adaptive-learning/destructive-ops.jsonl": "{\"event\":\"memory.unimported\",\"source\":\"memory_unimport\",\"agentId\":\"agent\",\"memoryId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importRunId\":\"run-1\",\"archivePath\":\"<work>/state/memory/_archive/agent/2027-01-15T08-00-00-000Z-b23b2c4e-31af-5c5b-a816-4dd172ee79ec.json\",\"forced\":\"\",\"result\":\"committed\",\"timestamp\":\"2027-01-15T08:00:00.000Z\"}\n{\"event\":\"memory.unimported\",\"source\":\"memory_unimport\",\"agentId\":\"agent\",\"memoryId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importRunId\":\"run-1\",\"archivePath\":\"<work>/state/memory/_archive/agent/2027-01-15T08-00-00-000Z-b23b2c4e-31af-5c5b-a816-4dd172ee79ec.json\",\"forced\":\"\",\"result\":\"committed\",\"recovered\":true,\"timestamp\":\"2027-01-15T08:00:00.000Z\"}\n"
+      }
+    },
+    "receipt-failure-retry": {
+      "reason": "D129: finishing an interrupted delete writes a recovered audit before freeing the key, including a previously failed audit.",
+      "files": {
+        "state/memory/_archive/agent/2027-01-15T08-00-00-000Z-b23b2c4e-31af-5c5b-a816-4dd172ee79ec.json": "{\n  \"id\": \"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\n  \"type\": \"memory\",\n  \"confirmed\": false,\n  \"text\": \"Synthetic imported fact about durable storage.\",\n  \"summary\": \"Synthetic imported fact about durable storage.\",\n  \"origin\": \"internal\",\n  \"vector\": [\n    1,\n    0,\n    0,\n    0\n  ],\n  \"importance\": 0.65,\n  \"category\": \"conversation\",\n  \"createdAt\": 1800000000000,\n  \"mergedFrom\": \"[]\",\n  \"expiresAt\": 0,\n  \"agentId\": \"agent\",\n  \"storedBy\": \"agent\",\n  \"sourceTurnId\": \"\",\n  \"sourceMessageRole\": \"\",\n  \"sourceTimestamp\": 1800000000000,\n  \"sourceUrl\": \"fixture:source;run=run-1\",\n  \"evidenceQuote\": \"\",\n  \"scope\": \"agent-private\",\n  \"ownerUserId\": \"\",\n  \"emotionalValence\": \"\",\n  \"emotionalIntensity\": 0,\n  \"emotionalDominant\": \"neutral\",\n  \"moodContextAtCapture\": \"\",\n  \"emotionStatus\": \"final\",\n  \"importanceStatus\": \"final\",\n  \"replayCount\": 0,\n  \"lastReplayed\": 0,\n  \"retrievalCount\": 0,\n  \"lastRetrievedAt\": 0,\n  \"memoryStrength\": 1,\n  \"halfLifeDays\": 180,\n  \"lastStrengthenedAt\": 0,\n  \"lastDynamicsAt\": 1800000000000,\n  \"memoryClass\": \"standard\",\n  \"neverForget\": 0,\n  \"coreMemoryScore\": 0,\n  \"coreMemoryReason\": \"\",\n  \"versionNumber\": 1,\n  \"previousVersion\": \"\",\n  \"supersededBy\": \"\",\n  \"updateSource\": \"\",\n  \"updateEvidence\": \"\",\n  \"reconsolidationConfidence\": 0,\n  \"status\": \"active\",\n  \"versionCreatedAt\": 1800000000000,\n  \"updatedAt\": 1800000000000,\n  \"workspaceId\": \"\",\n  \"workspaceKey\": \"\",\n  \"memoryKind\": \"memory\",\n  \"reminderStatus\": \"\",\n  \"remindAt\": 0,\n  \"remindedAt\": 0,\n  \"dispatchedAt\": 0,\n  \"acknowledgedAt\": 0,\n  \"cancelledAt\": 0,\n  \"reminderKey\": \"\",\n  \"dispatchCount\": 0,\n  \"lastDispatchAttemptAt\": 0,\n  \"nextDispatchAttemptAt\": 0,\n  \"epistemicStatus\": \"untrusted\",\n  \"epistemicStatusUpdatedAt\": 0,\n  \"epistemicStatusActor\": \"\",\n  \"epistemicStatusReason\": \"\",\n  \"previousEpistemicStatus\": \"\",\n  \"validFrom\": 0,\n  \"validUntil\": 0,\n  \"chunkGroupId\": \"\"\n}",
+        "store/_imports/agent.jsonl": "{\"v\":1,\"idempotencyKey\":\"key\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importedAt\":1800000000000,\"sourceRef\":\"fixture:source;run=run-1\",\"importRunId\":\"run-1\",\"digest\":{\"content\":\"d444bd90bbd1d29f\",\"binding\":\"7dcba751ea8181c8\",\"meta\":\"801ddc1e42c2fba0\"}}\n{\"v\":1,\"kind\":\"unimported\",\"idempotencyKey\":\"key\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importRunId\":\"run-1\",\"at\":1800000000000}\n",
+        "store/_unimports/agent/run-1.jsonl": "{\"v\":1,\"kind\":\"header\",\"agentId\":\"agent\",\"importRunId\":\"run-1\",\"createdAt\":1800000000000}\n{\"v\":1,\"kind\":\"intent\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"idempotencyKey\":\"key\",\"importedAt\":1800000000000,\"archived\":true}\n{\"v\":1,\"kind\":\"done\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importedAt\":1800000000000}\n",
+        "workspace/.adaptive-learning/destructive-ops.jsonl": "{\"event\":\"memory.unimported\",\"source\":\"memory_unimport\",\"agentId\":\"agent\",\"memoryId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importRunId\":\"run-1\",\"archivePath\":\"<work>/state/memory/_archive/agent/2027-01-15T08-00-00-000Z-b23b2c4e-31af-5c5b-a816-4dd172ee79ec.json\",\"forced\":\"\",\"result\":\"committed\",\"timestamp\":\"2027-01-15T08:00:00.000Z\"}\n{\"event\":\"memory.unimported\",\"source\":\"memory_unimport\",\"agentId\":\"agent\",\"memoryId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importRunId\":\"run-1\",\"archivePath\":\"<work>/state/memory/_archive/agent/2027-01-15T08-00-00-000Z-b23b2c4e-31af-5c5b-a816-4dd172ee79ec.json\",\"forced\":\"\",\"result\":\"committed\",\"recovered\":true,\"timestamp\":\"2027-01-15T08:00:00.000Z\"}\n"
+      }
+    },
+    "audit-failure-repair-retry": {
+      "reason": "D129: finishing an interrupted delete writes a recovered audit before freeing the key, including a previously failed audit.",
+      "files": {
+        "state/memory/_archive/agent/2027-01-15T08-00-00-000Z-b23b2c4e-31af-5c5b-a816-4dd172ee79ec.json": "{\n  \"id\": \"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\n  \"type\": \"memory\",\n  \"confirmed\": false,\n  \"text\": \"Synthetic imported fact about durable storage.\",\n  \"summary\": \"Synthetic imported fact about durable storage.\",\n  \"origin\": \"internal\",\n  \"vector\": [\n    1,\n    0,\n    0,\n    0\n  ],\n  \"importance\": 0.65,\n  \"category\": \"conversation\",\n  \"createdAt\": 1800000000000,\n  \"mergedFrom\": \"[]\",\n  \"expiresAt\": 0,\n  \"agentId\": \"agent\",\n  \"storedBy\": \"agent\",\n  \"sourceTurnId\": \"\",\n  \"sourceMessageRole\": \"\",\n  \"sourceTimestamp\": 1800000000000,\n  \"sourceUrl\": \"fixture:source;run=run-1\",\n  \"evidenceQuote\": \"\",\n  \"scope\": \"agent-private\",\n  \"ownerUserId\": \"\",\n  \"emotionalValence\": \"\",\n  \"emotionalIntensity\": 0,\n  \"emotionalDominant\": \"neutral\",\n  \"moodContextAtCapture\": \"\",\n  \"emotionStatus\": \"final\",\n  \"importanceStatus\": \"final\",\n  \"replayCount\": 0,\n  \"lastReplayed\": 0,\n  \"retrievalCount\": 0,\n  \"lastRetrievedAt\": 0,\n  \"memoryStrength\": 1,\n  \"halfLifeDays\": 180,\n  \"lastStrengthenedAt\": 0,\n  \"lastDynamicsAt\": 1800000000000,\n  \"memoryClass\": \"standard\",\n  \"neverForget\": 0,\n  \"coreMemoryScore\": 0,\n  \"coreMemoryReason\": \"\",\n  \"versionNumber\": 1,\n  \"previousVersion\": \"\",\n  \"supersededBy\": \"\",\n  \"updateSource\": \"\",\n  \"updateEvidence\": \"\",\n  \"reconsolidationConfidence\": 0,\n  \"status\": \"active\",\n  \"versionCreatedAt\": 1800000000000,\n  \"updatedAt\": 1800000000000,\n  \"workspaceId\": \"\",\n  \"workspaceKey\": \"\",\n  \"memoryKind\": \"memory\",\n  \"reminderStatus\": \"\",\n  \"remindAt\": 0,\n  \"remindedAt\": 0,\n  \"dispatchedAt\": 0,\n  \"acknowledgedAt\": 0,\n  \"cancelledAt\": 0,\n  \"reminderKey\": \"\",\n  \"dispatchCount\": 0,\n  \"lastDispatchAttemptAt\": 0,\n  \"nextDispatchAttemptAt\": 0,\n  \"epistemicStatus\": \"untrusted\",\n  \"epistemicStatusUpdatedAt\": 0,\n  \"epistemicStatusActor\": \"\",\n  \"epistemicStatusReason\": \"\",\n  \"previousEpistemicStatus\": \"\",\n  \"validFrom\": 0,\n  \"validUntil\": 0,\n  \"chunkGroupId\": \"\"\n}",
+        "store/_imports/agent.jsonl": "{\"v\":1,\"idempotencyKey\":\"key\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importedAt\":1800000000000,\"sourceRef\":\"fixture:source;run=run-1\",\"importRunId\":\"run-1\",\"digest\":{\"content\":\"d444bd90bbd1d29f\",\"binding\":\"7dcba751ea8181c8\",\"meta\":\"801ddc1e42c2fba0\"}}\n{\"v\":1,\"kind\":\"unimported\",\"idempotencyKey\":\"key\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importRunId\":\"run-1\",\"at\":1800000000000}\n",
+        "store/_unimports/agent/run-1.jsonl": "{\"v\":1,\"kind\":\"header\",\"agentId\":\"agent\",\"importRunId\":\"run-1\",\"createdAt\":1800000000000}\n{\"v\":1,\"kind\":\"intent\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"idempotencyKey\":\"key\",\"importedAt\":1800000000000,\"archived\":true}\n{\"v\":1,\"kind\":\"done\",\"cardId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importedAt\":1800000000000}\n",
+        "workspace/.adaptive-learning/destructive-ops.jsonl": "{\"event\":\"memory.unimported\",\"source\":\"memory_unimport\",\"agentId\":\"agent\",\"memoryId\":\"b23b2c4e-31af-5c5b-a816-4dd172ee79ec\",\"importRunId\":\"run-1\",\"archivePath\":\"<work>/state/memory/_archive/agent/2027-01-15T08-00-00-000Z-b23b2c4e-31af-5c5b-a816-4dd172ee79ec.json\",\"forced\":\"\",\"result\":\"committed\",\"recovered\":true,\"timestamp\":\"2027-01-15T08:00:00.000Z\"}\n"
+      },
+      "results": [
+        {
+          "error": "storage"
+        },
+        {
+          "value": {
+            "agentId": "agent",
+            "importRunId": "run-1",
+            "dryRun": false,
+            "selected": 1,
+            "unimported": 1,
+            "keptModified": 0,
+            "alreadyForgotten": 0,
+            "alreadyUnimported": 0,
+            "missing": 0,
+            "failed": 0,
+            "remaining": 0,
+            "cards": [
+              {
+                "idempotencyKey": "key",
+                "id": "b23b2c4e-31af-5c5b-a816-4dd172ee79ec",
+                "outcome": "unimported"
+              }
+            ],
+            "derived": {
+              "jobsSinceImport": []
+            }
+          }
+        }
+      ]
+    }
+  }
+}
