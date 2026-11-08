@@ -493,6 +493,13 @@ pub fn build_local_embedding(
 }
 
 impl EmbeddingProvider for LocalEmbedding {
+    fn model_selection(&self) -> super::model_selection::ModelSelection {
+        super::model_selection::ModelSelection::local(
+            self.profile,
+            &self.cache_dir,
+            super::model_selection::ModelRole::Embedding,
+        )
+    }
     fn identity(&self) -> &VectorSpaceIdentity {
         &self.identity
     }

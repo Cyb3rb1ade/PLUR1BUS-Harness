@@ -57,3 +57,6 @@ pub mod tombstone_reapply;
 
 /// Portable engine snapshot integrity checks and manifest format.
 pub mod snapshot;
+
+/// F8 native configured-model inventory, separate from readiness and warm-up.
+pub mod models;

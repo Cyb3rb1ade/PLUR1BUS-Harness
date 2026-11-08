@@ -449,6 +449,22 @@ impl EmbeddingService for Service {
     }
 }
 
+impl crate::ops::models::ModelInventory for Service {
+    fn inventory(
+        &self,
+        cancel: &Cancel,
+    ) -> Result<Vec<crate::ops::models::ModelRequirement>, EngineError> {
+        self.open()?;
+        let result = crate::ops::models::inventory(
+            self.provider.as_ref(),
+            self.reranker.as_deref(),
+            cancel,
+        )?;
+        self.open()?;
+        Ok(result)
+    }
+}
+
 impl ModelsService for Service {
     fn status(&self) -> ModelsStatus {
         let (attempt, warming) = self.embedding_probe.snapshot();

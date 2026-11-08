@@ -90,7 +90,9 @@ pub fn plan(..) -> Result<ReembedPlan, EngineError>; pub fn apply(..); pub fn re
 // the checkpoint file shape of lib/reembedding/state-store.js is kept so a migration started by the Node engine can be resumed by this one
 
 // src/ops/models.rs
-pub fn models(config: &EngineConfig, readiness: &dyn ModelsService) -> Vec<ModelInfo>;  // exactly the configured embedding and reranker identities with licence id and artifact status (CP-4b)
+// Controller F8 / RE-D42: actual host-created providers, separate from frozen ModelsService.
+pub fn inventory(embedding: &dyn EmbeddingProvider, reranker: Option<&dyn Reranker>, cancel: &Cancel) -> Result<Vec<ModelRequirement>, EngineError>;
+// Also exposed in-process through ModelInventory on Service and ProcessEngine; no wire change.
 ```
 
 ## Tasks

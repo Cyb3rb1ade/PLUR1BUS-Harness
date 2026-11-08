@@ -37,6 +37,15 @@ pub struct ProcessEngine {
     closed_degradation: Degraded,
 }
 
+impl crate::ops::models::ModelInventory for ProcessEngine {
+    fn inventory(
+        &self,
+        cancel: &Cancel,
+    ) -> Result<Vec<crate::ops::models::ModelRequirement>, EngineError> {
+        crate::ops::models::ModelInventory::inventory(&self.embedding, cancel)
+    }
+}
+
 impl ProcessEngine {
     /// Compose the real RE-03 providers or an explicitly selected embedding seam.
     /// Construction is lazy: it neither loads models nor opens memory stores.

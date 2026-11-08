@@ -271,6 +271,16 @@ impl<'a> OpenAiEmbeddingProvider<'a> {
     }
 }
 impl EmbeddingProvider for OpenAiEmbeddingProvider<'_> {
+    fn model_selection(&self) -> super::model_selection::ModelSelection {
+        super::model_selection::ModelSelection {
+            provider: self.identity.provider.clone(),
+            model: Some(self.model.clone()),
+            revision: None,
+            dtype: None,
+            role: super::model_selection::ModelRole::Embedding,
+            location: super::model_selection::ModelLocation::Remote,
+        }
+    }
     fn identity(&self) -> &VectorSpaceIdentity {
         &self.identity
     }

@@ -25,6 +25,9 @@ pub(crate) struct BoundEmbedder<'a> {
 }
 
 impl EmbeddingProvider for BoundEmbedder<'_> {
+    fn model_selection(&self) -> crate::embedding::model_selection::ModelSelection {
+        self.provider.model_selection()
+    }
     fn identity(&self) -> &VectorSpaceIdentity {
         self.provider.identity()
     }
@@ -48,6 +51,9 @@ pub(crate) struct BoundReranker<'a> {
     pub cancel: &'a Cancel,
 }
 impl Reranker for BoundReranker<'_> {
+    fn model_selections(&self) -> Vec<crate::embedding::model_selection::ModelSelection> {
+        self.provider.model_selections()
+    }
     fn rerank(
         &self,
         query: &str,

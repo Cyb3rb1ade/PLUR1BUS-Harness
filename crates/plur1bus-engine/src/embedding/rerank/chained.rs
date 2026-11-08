@@ -13,6 +13,16 @@ impl<'a> ChainedReranker<'a> {
     }
 }
 impl Reranker for ChainedReranker<'_> {
+    fn model_selections(&self) -> Vec<crate::embedding::model_selection::ModelSelection> {
+        let mut models = self.primary.model_selections();
+        if let Some(fallback) = &self.fallback {
+            models.extend(fallback.model_selections().into_iter().map(|mut selected| {
+                selected.role = crate::embedding::model_selection::ModelRole::RerankerFallback;
+                selected
+            }));
+        }
+        models
+    }
     fn invalidate_egress(&self) {
         self.primary.invalidate_egress();
         if let Some(fallback) = &self.fallback {

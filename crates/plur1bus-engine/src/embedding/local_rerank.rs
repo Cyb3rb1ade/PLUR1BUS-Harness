@@ -106,6 +106,13 @@ fn score_hits(logits: &[f32], top_n: usize) -> Result<Vec<RerankHit>, RerankErro
 }
 
 impl Reranker for LocalReranker {
+    fn model_selections(&self) -> Vec<super::model_selection::ModelSelection> {
+        vec![super::model_selection::ModelSelection::local(
+            self.profile,
+            &self.cache_dir,
+            super::model_selection::ModelRole::Reranker,
+        )]
+    }
     fn rerank(
         &self,
         query: &str,
