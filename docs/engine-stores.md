@@ -490,3 +490,10 @@ physical replacement, corrupted plans, links and exact recorded Node file projec
 D130 stamps. Native Windows durability acceptance remains pending. Runtime capture-hook activation,
 open-time enumeration of other pending principals, retention, embedding drain and episode/checkpoint
 coupling are separate remaining composition work.
+
+`neo::episodes` provides the deterministic C4 ordinary-capture builder and stable chronological
+grouping. IDs and time are explicit, topic/voice classification uses recorded Node Unicode17
+algorithm data, and speaker labels are display metadata only. No model, workspace file or journal
+is accessed. This constructor does not itself grant authority, continue an open episode, publish
+episodes or advance a checkpoint. Its timestamp boundary accepts ISO/RFC3339 strings and numeric
+epochs; nonstandard V8 date strings are not silently interpreted.
