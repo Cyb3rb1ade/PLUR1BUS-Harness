@@ -425,6 +425,26 @@ impl Store {
         limit: usize,
         filter: &RowFilter,
     ) -> Result<Vec<Scored<MemoryRow>>, StoreError> {
+        self.search_where(vector, limit, filter.to_sql())
+    }
+    /// Capture's exact duplicate acquisition. Ordinary search/filter semantics are unchanged.
+    pub fn search_capture_duplicates(
+        &self,
+        vector: &[f32],
+        limit: usize,
+    ) -> Result<Vec<Scored<MemoryRow>>, StoreError> {
+        self.search_where(
+            vector,
+            limit,
+            super::filter::CAPTURE_DUPLICATE_FILTER.to_owned(),
+        )
+    }
+    fn search_where(
+        &self,
+        vector: &[f32],
+        limit: usize,
+        filter: String,
+    ) -> Result<Vec<Scored<MemoryRow>>, StoreError> {
         if limit == 0 {
             return Ok(Vec::new());
         }
@@ -432,7 +452,6 @@ impl Store {
         self.validate_vector(vector)?;
         let table = self.table.clone();
         let vector = vector.to_vec();
-        let filter = filter.to_sql();
         self.executor.run(async move {
             let batches = table
                 .vector_search(vector)
@@ -574,6 +593,34 @@ impl Store {
             }
             Ok(deleted)
         })
+    }
+
+    /// Remove only a still-private row of the capture turn named by its durable plan.
+    /// The ownership predicates are evaluated by Lance at the deletion commit too.
+    pub(crate) fn delete_capture_replay_row(
+        &self,
+        id: &str,
+        agent: &str,
+        run: &str,
+    ) -> Result<(), StoreError> {
+        self.writable()?;
+        if !super::filter::uuid(id) || agent.is_empty() || run.is_empty() {
+            return Err(StoreError::InvalidInput);
+        }
+        let quote = super::filter::sql_string;
+        let filter = format!(
+            "id = {} AND storedBy = {} AND sourceTurnId = {} AND scope = 'agent-private' AND ownerUserId = '' AND agentId = '' AND workspaceId = '' AND workspaceKey = ''",
+            quote(id), quote(agent), quote(run),
+        );
+        let table = self.table.clone();
+        self.executor.run(async move {
+            table.delete(&filter).await.map_err(backend_error)?;
+            Ok(())
+        })?;
+        if self.get(id)?.is_some() {
+            return Err(StoreError::Corrupt);
+        }
+        Ok(())
     }
 
     /// Remove expired non-core rows that are not marked never-forget, as Node does.

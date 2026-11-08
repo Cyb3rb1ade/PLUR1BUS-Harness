@@ -1,6 +1,10 @@
 //! Typed predicates for the persisted memory columns.
 use crate::contract::MemoryScope;
 use crate::text::js;
+/// The pinned capture duplicate predicate differs from ordinary active-row listing.
+/// This fixed SQL is never constructed from caller text.
+pub const CAPTURE_DUPLICATE_FILTER: &str =
+    "(status = 'active' OR status IS NULL) AND epistemicStatus != 'invalidated'";
 /// Optional predicates, combined with AND; an empty filter includes every row.
 #[derive(Clone, Debug, Default)]
 pub struct RowFilter {

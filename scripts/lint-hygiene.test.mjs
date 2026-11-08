@@ -358,3 +358,28 @@ test("RX5 historical probe error exemption is restricted to its exact fixture an
     assert.match(reject.stderr, /\[HYG-001\]/);
   }
 });
+
+
+test("RX6 row oracle exemptions stay limited to exact imports and metadata lines", () => {
+  const base = "crates/plur1bus-engine/tests/fixtures/capture/";
+  const host = ["host", "services.js"].join("-");
+  const line = `  load("engine/create-engine.js"), load("engine/internals.js"), load("lib/${host}"),\n`;
+  const metadata = `    "lib/${host}"\n`;
+  for (const name of ["chunk-decider", "chunk-expansions", "chunk-plans", "dedupe", "rows", "schema-seed"]) {
+    const result = lintTree({[`${base}golden/${name}.json`]: metadata});
+    assert.equal(result.status, 0, result.stderr);
+  }
+  for (const name of ["record-rows", "record-pipeline-boundaries"]) {
+    assert.equal(lintTree({[`${base}${name}.mjs`]: line}).status, 0);
+  }
+  for (const files of [
+    {[`${base}record-rows.mjs`]: line.trimEnd() + " unexpected();\n"},
+    {[`${base}golden/rows.json`]: `import "lib/${host}";\n`},
+    {[`${base}golden/not-approved.json`]: metadata},
+    {"packages/core/src/not-an-oracle.ts": line},
+  ]) {
+    const result = lintTree(files);
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stderr, /HYG-004/);
+  }
+});

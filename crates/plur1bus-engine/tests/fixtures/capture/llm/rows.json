@@ -1,0 +1,85 @@
+{
+  "scopes": {
+    "single": {},
+    "over-max-chars": {},
+    "chunking-disabled": {},
+    "chunking-both": {},
+    "chunking-parts": {},
+    "chunk-decider-whole": {
+      "850770b693590a7127fc392dc7aedd58b53526eb48b4795cdeb8c9f8c95e85f9": {
+        "transport": "chunk-decider",
+        "requestJson": "{\"model\":\"jev-latest\",\"state\":\"- The staging database uses a dedicated replica.\\n- The release meeting happens on Thursday.\\n- The backup window begins at midnight.\\n- The support channel uses German messages.\",\"questions\":{\"structure\":{\"type\":\"choice\",\"instructions\":\"Is this message one coherent unit that should be kept together (e.g. a recipe, instructions, one explanation or argument), or a collection of independent statements or requests that each make sense on their own?\",\"criteria\":{\"coherent\":\"One topic or one connected piece: parts depend on each other and lose meaning when separated (recipe with ingredients and steps, how-to, single explanation).\",\"independent\":\"Several unrelated statements, facts or requests that each make sense alone.\",\"mixed\":\"Partly connected, partly independent.\"}}}}",
+        "resultJson": "{\"answers\":{\"structure\":{\"choice\":\"coherent\",\"confidence\":1}}}"
+      }
+    },
+    "duplicate": {},
+    "workspace-disabled": {},
+    "neo-disabled": {},
+    "neo-enabled": {},
+    "flat-default-threshold": {},
+    "flat-threshold-above-one": {},
+    "invalidated-row-is-not-a-duplicate": {},
+    "empty-status-is-not-active": {},
+    "invalidated-nearest-does-not-hide-active-next": {},
+    "oversized-text-is-summarized": {
+      "282f189b9172a49e097fde9ee49174a9c7b0f155eb121ac4a35dd08095ceb776": {
+        "messagesJson": "[{\"role\":\"user\",\"content\":\"Summarize this text into the most important facts, decisions, preferences, and actionable information. Keep all specific names, numbers, URLs, dates, technical details, and configuration values. Output ONLY the summary, no preamble. Target length: 8 characters.\\n\\nThe release planning meeting takes place every Thursday morning and uses the shared agenda for all service owners.\"}]",
+        "paramsJson": "{\"messages\":[{\"role\":\"user\",\"content\":\"Summarize this text into the most important facts, decisions, preferences, and actionable information. Keep all specific names, numbers, URLs, dates, technical details, and configuration values. Output ONLY the summary, no preamble. Target length: 8 characters.\\n\\nThe release planning meeting takes place every Thursday morning and uses the shared agenda for all service owners.\"}],\"purpose\":\"capture-summary\",\"maxTokens\":11,\"temperature\":0,\"signal\":{},\"model\":\"fixture-summary-model\"}",
+        "contractParamsJson": "{\"messages\":[{\"role\":\"user\",\"content\":\"Summarize this text into the most important facts, decisions, preferences, and actionable information. Keep all specific names, numbers, URLs, dates, technical details, and configuration values. Output ONLY the summary, no preamble. Target length: 8 characters.\\n\\nThe release planning meeting takes place every Thursday morning and uses the shared agenda for all service owners.\"}],\"maxTokens\":11,\"temperature\":0,\"model\":\"fixture-summary-model\"}",
+        "boundary": {
+          "purpose": "capture-summary",
+          "signal": "Cancel"
+        },
+        "resultJson": "{\"text\":\"Release planning takes place on Thursday and uses the shared agenda.\",\"provider\":\"fixture\",\"model\":\"fixture\",\"usage\":{}}"
+      }
+    },
+    "failed-summary-falls-back-to-truncation": {
+      "282f189b9172a49e097fde9ee49174a9c7b0f155eb121ac4a35dd08095ceb776": {
+        "messagesJson": "[{\"role\":\"user\",\"content\":\"Summarize this text into the most important facts, decisions, preferences, and actionable information. Keep all specific names, numbers, URLs, dates, technical details, and configuration values. Output ONLY the summary, no preamble. Target length: 8 characters.\\n\\nThe release planning meeting takes place every Thursday morning and uses the shared agenda for all service owners.\"}]",
+        "paramsJson": "{\"messages\":[{\"role\":\"user\",\"content\":\"Summarize this text into the most important facts, decisions, preferences, and actionable information. Keep all specific names, numbers, URLs, dates, technical details, and configuration values. Output ONLY the summary, no preamble. Target length: 8 characters.\\n\\nThe release planning meeting takes place every Thursday morning and uses the shared agenda for all service owners.\"}],\"purpose\":\"capture-summary\",\"maxTokens\":11,\"temperature\":0,\"signal\":{}}",
+        "contractParamsJson": "{\"messages\":[{\"role\":\"user\",\"content\":\"Summarize this text into the most important facts, decisions, preferences, and actionable information. Keep all specific names, numbers, URLs, dates, technical details, and configuration values. Output ONLY the summary, no preamble. Target length: 8 characters.\\n\\nThe release planning meeting takes place every Thursday morning and uses the shared agenda for all service owners.\"}],\"maxTokens\":11,\"temperature\":0}",
+        "boundary": {
+          "purpose": "capture-summary",
+          "signal": "Cancel"
+        },
+        "error": "unavailable"
+      }
+    },
+    "native-summary-cache-enabled-is-bypassed": {
+      "282f189b9172a49e097fde9ee49174a9c7b0f155eb121ac4a35dd08095ceb776": {
+        "messagesJson": "[{\"role\":\"user\",\"content\":\"Summarize this text into the most important facts, decisions, preferences, and actionable information. Keep all specific names, numbers, URLs, dates, technical details, and configuration values. Output ONLY the summary, no preamble. Target length: 8 characters.\\n\\nThe release planning meeting takes place every Thursday morning and uses the shared agenda for all service owners.\"}]",
+        "paramsJson": "{\"messages\":[{\"role\":\"user\",\"content\":\"Summarize this text into the most important facts, decisions, preferences, and actionable information. Keep all specific names, numbers, URLs, dates, technical details, and configuration values. Output ONLY the summary, no preamble. Target length: 8 characters.\\n\\nThe release planning meeting takes place every Thursday morning and uses the shared agenda for all service owners.\"}],\"purpose\":\"capture-summary\",\"maxTokens\":11,\"temperature\":0,\"signal\":{}}",
+        "contractParamsJson": "{\"messages\":[{\"role\":\"user\",\"content\":\"Summarize this text into the most important facts, decisions, preferences, and actionable information. Keep all specific names, numbers, URLs, dates, technical details, and configuration values. Output ONLY the summary, no preamble. Target length: 8 characters.\\n\\nThe release planning meeting takes place every Thursday morning and uses the shared agenda for all service owners.\"}],\"maxTokens\":11,\"temperature\":0}",
+        "boundary": {
+          "purpose": "capture-summary",
+          "signal": "Cancel"
+        },
+        "resultJson": "{\"text\":\"Release planning takes place on Thursday and uses the shared agenda.\",\"provider\":\"fixture\",\"model\":\"fixture\",\"usage\":{}}"
+      }
+    },
+    "native-summary-cache-disabled-is-bypassed": {
+      "282f189b9172a49e097fde9ee49174a9c7b0f155eb121ac4a35dd08095ceb776": {
+        "messagesJson": "[{\"role\":\"user\",\"content\":\"Summarize this text into the most important facts, decisions, preferences, and actionable information. Keep all specific names, numbers, URLs, dates, technical details, and configuration values. Output ONLY the summary, no preamble. Target length: 8 characters.\\n\\nThe release planning meeting takes place every Thursday morning and uses the shared agenda for all service owners.\"}]",
+        "paramsJson": "{\"messages\":[{\"role\":\"user\",\"content\":\"Summarize this text into the most important facts, decisions, preferences, and actionable information. Keep all specific names, numbers, URLs, dates, technical details, and configuration values. Output ONLY the summary, no preamble. Target length: 8 characters.\\n\\nThe release planning meeting takes place every Thursday morning and uses the shared agenda for all service owners.\"}],\"purpose\":\"capture-summary\",\"maxTokens\":11,\"temperature\":0,\"signal\":{}}",
+        "contractParamsJson": "{\"messages\":[{\"role\":\"user\",\"content\":\"Summarize this text into the most important facts, decisions, preferences, and actionable information. Keep all specific names, numbers, URLs, dates, technical details, and configuration values. Output ONLY the summary, no preamble. Target length: 8 characters.\\n\\nThe release planning meeting takes place every Thursday morning and uses the shared agenda for all service owners.\"}],\"maxTokens\":11,\"temperature\":0}",
+        "boundary": {
+          "purpose": "capture-summary",
+          "signal": "Cancel"
+        },
+        "resultJson": "{\"text\":\"Release planning takes place on Thursday and uses the shared agenda.\",\"provider\":\"fixture\",\"model\":\"fixture\",\"usage\":{}}"
+      }
+    },
+    "native-summary-cache-persistence-is-bypassed": {
+      "282f189b9172a49e097fde9ee49174a9c7b0f155eb121ac4a35dd08095ceb776": {
+        "messagesJson": "[{\"role\":\"user\",\"content\":\"Summarize this text into the most important facts, decisions, preferences, and actionable information. Keep all specific names, numbers, URLs, dates, technical details, and configuration values. Output ONLY the summary, no preamble. Target length: 8 characters.\\n\\nThe release planning meeting takes place every Thursday morning and uses the shared agenda for all service owners.\"}]",
+        "paramsJson": "{\"messages\":[{\"role\":\"user\",\"content\":\"Summarize this text into the most important facts, decisions, preferences, and actionable information. Keep all specific names, numbers, URLs, dates, technical details, and configuration values. Output ONLY the summary, no preamble. Target length: 8 characters.\\n\\nThe release planning meeting takes place every Thursday morning and uses the shared agenda for all service owners.\"}],\"purpose\":\"capture-summary\",\"maxTokens\":11,\"temperature\":0,\"signal\":{}}",
+        "contractParamsJson": "{\"messages\":[{\"role\":\"user\",\"content\":\"Summarize this text into the most important facts, decisions, preferences, and actionable information. Keep all specific names, numbers, URLs, dates, technical details, and configuration values. Output ONLY the summary, no preamble. Target length: 8 characters.\\n\\nThe release planning meeting takes place every Thursday morning and uses the shared agenda for all service owners.\"}],\"maxTokens\":11,\"temperature\":0}",
+        "boundary": {
+          "purpose": "capture-summary",
+          "signal": "Cancel"
+        },
+        "resultJson": "{\"text\":\"Release planning takes place on Thursday and uses the shared agenda.\",\"provider\":\"fixture\",\"model\":\"fixture\",\"usage\":{}}"
+      }
+    }
+  }
+}

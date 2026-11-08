@@ -106,6 +106,15 @@ const ALLOW = new Map([
   ["crates/plur1bus-engine/tests/fixtures/capture/golden/accept.json", [
     /^\s*"lib\/(?:host-services\.js|setup\/(?:control-ui|feature-cron|obsidian-vault|reembedding|selftest|skill-workshop|workspace-policy)-plugin-runtime\.js)"\s*$/,
   ]],
+  // RX6 row recorder: exact verified import line and source provenance, never runtime imports.
+  ...["record-rows", "record-pipeline-boundaries"].map(name => [`crates/plur1bus-engine/tests/fixtures/capture/${name}.mjs`, [
+    /^\s*load\("engine\/create-engine\.js"\), load\("engine\/internals\.js"\), load\("lib\/host-services\.js"\),\s*$/,
+  ]]),
+  ...["chunk-decider", "chunk-expansions", "chunk-plans", "dedupe", "rows", "schema-seed"].map(name => [
+    `crates/plur1bus-engine/tests/fixtures/capture/golden/${name}.json`, [
+      /^\s*"lib\/(?:host-services\.js|setup\/(?:control-ui|feature-cron|obsidian-vault|reembedding|selftest|skill-workshop|workspace-policy)-plugin-runtime\.js)"\s*$/,
+    ],
+  ]),
   // Preserve this exact frozen Node error in its recorded parity fixture only.
   ["crates/plur1bus-engine/tests/fixtures/ops/golden/reembedding-runtime-probe.json", [/^\s*"error": "active generation selection drift after OpenClaw config mutation",?\s*$/]],
   ["packages/core/test/principal.test.ts", [/lib\/memory-request-context\.js/]],

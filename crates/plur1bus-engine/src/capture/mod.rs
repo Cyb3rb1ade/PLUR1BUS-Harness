@@ -35,3 +35,19 @@ pub mod dynamics;
 pub mod fact_quality;
 /// Native schema defaults.
 pub mod row_defaults;
+
+/// Pure chunk-decider request/response projection.
+pub mod chunk_decider;
+/// Node-compatible sentence plans and capture expansion.
+pub mod chunking;
+/// Native Lance distance duplicate rule.
+pub mod dedupe;
+/// Exact persisted capture-row projection.
+pub mod row_builder;
+
+/// Acceptance-to-Lance capture worker with acknowledged replay boundaries.
+pub mod pipeline;
+/// Capture adapter for the canonical workspace policy.
+pub mod shared_scope;
+
+mod output_unicode;
