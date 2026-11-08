@@ -662,3 +662,56 @@ one. No detached/LLM job is introduced, and ProcessEngine activation remains sep
 Real Runtime → classifier → Lance → Neo tests cover eight configurations, two normal turns,
 empty following turns, provider failures retaining deferred work, and assertions that every
 Neo embedding follows a real Lance commit and receives only the reduced remaining budget.
+
+### Whole-capture admission recovery (RX6 / RE-D67)
+
+`CapturePipeline` retains each admitted original TurnRecord, Principal, AgentContext and
+CaptureOptions in a private `_capture-admissions/<sha256>.json` envelope before Neo or Lance
+work. The plan binds the effective config, vector-space identity, original caller, canonical
+workspace and physical workspace/admission directory. Its batch clock does not move on retry.
+The Node-compatible `_capture-turns` row-ID WAL remains unchanged; its turn lease is always
+acquired before the admission lease. Another authorized chat with the same Node replay key
+cannot borrow the original capture's pending input or rollback rows.
+
+`CaptureRuntime::new` first validates the bounded inventory and resumes original admissions
+before accepting new turns. Primary recovery preflights every surviving planned row, including
+its full fingerprint, before deleting any row. The final Lance delete compares every persisted
+column and the whole Float32 vector against that exact row; a later edit prevents deletion.
+The predicate is balanced to bound expression depth. Legacy ID-only WAL state has no original
+messages or principal and is not autonomously replayed; explicit host redelivery retains its
+existing narrower provenance checks.
+
+Before WAL settlement the admission switches durably to post-store, retaining original row
+order, fingerprints, counts and post-store reference time. A settled WAL therefore cannot
+hide unfinished classifier/Neo work, and post-store recovery cannot create primary rows again.
+Unknown effect implementations refuse crash reentry. The actual native classifier supplies
+recoverable reminder effects; NativeNeoCaptureHook uses its source-bound journal/episode CAS.
+Known partial primary outcomes retain their Node result/keep-partial behavior; recovery does
+not silently turn `capture-incomplete` into a successful full capture.
+
+Each selected-message reminder receipt freezes the chosen row, ID and deadline before its
+upsert. On replay the original time and source are checked again. Existing original lifecycle
+updates, including acknowledgement/cancellation, are retained without another insert. Changed
+body/vector/authority/time, a missing previously existing target or a tombstone refuses replay.
+The outer admission owns these receipts until classifier and Neo completion; there is no TTL
+that drops receipts while their capture is still pending. Completion atomically clears private
+payloads. An ordinary invocation that observes caller abort or timeout also clears its private
+recovery payload without new effect work; existing committed rows and legacy WAL retry semantics
+remain. The startup recovery budget is distinct: its expiry retains the original plan for retry. Pending work is never evicted. Limits are 512 active records, 64 MiB total inventory,
+10,000 primary row fingerprints, eight reminder receipts per capture, JSON depth 128 and
+50,000 directory entries. A shared capacity lease serializes admission growth.
+
+Typed Lance reads and capture records now parse numeric lexemes with correctly rounded Rust
+number conversion. The prior default JSON parser could turn `0.41733280085163044` into the
+adjacent Float64 value, defeating an exact before-write fingerprint. The unchanged classifier
+golden is read through the same exact numeric parser; no expected output bytes or tolerance
+were changed. Duplicate typed JSON fields, non-finite numbers and unpaired UTF-16 are refused;
+existing tolerant Node/Neo UTF-16 handling remains separate.
+
+Real SIGKILL tests cover row planning, a committed first row, row settlement and both sides of
+reminder publication. Reopening does not call `accept(turn)`. Tests also cover no run ID,
+changed clock, acknowledged/cancelled reminders, different authorized chats, policy revocation,
+changed config/model/physical workspace, edited rows, malformed/oversized records and links.
+This composes the native CaptureRuntime, not ProcessEngine/Core startup. It does not establish
+physical power-loss or native Windows acceptance, implement deferred dynamics/remaining T4
+side effects, or complete RX6 checkpoint/ProcessEngine composition.

@@ -20,6 +20,8 @@ pub mod adopt_probe;
 #[path = "migration_table.rs"]
 pub(crate) mod migration_table;
 
+#[path = "capture_compare.rs"]
+mod capture_compare;
 #[path = "memory_read.rs"]
 mod memory_read;
 #[path = "shared_store.rs"]

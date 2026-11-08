@@ -24,6 +24,12 @@ use super::result::counts;
 
 /// Row work supplied by the composed capture pipeline, not by the public contract.
 pub trait CaptureWorker: Send + Sync {
+    /// Recover durable original inputs before this runtime accepts new turns.
+    /// Stateless/foreign workers have no native admissions to resume.
+    fn recover(&self, _replay: &ReplayGuard) -> Result<(), EngineError> {
+        Ok(())
+    }
+
     /// Process a turn under its resolved identity; plan before writes and settle after commits.
     /// Returning a result with a reason leaves the turn eligible for replay unless already settled.
     fn capture(
@@ -56,7 +62,7 @@ fn lock<T>(value: &Mutex<T>) -> MutexGuard<'_, T> {
 }
 
 impl CaptureRuntime {
-    /// Compose host, pipeline worker, scheduler and WAL; no store is opened by construction.
+    /// Compose services and recover pending native captures before accepting new work.
     /// `scheduled` is the host's post-turn-refine scheduling capability (CA-R1).
     pub fn new(
         host: Arc<dyn HostServices>,
@@ -71,6 +77,7 @@ impl CaptureRuntime {
                 message: "durable capture WAL required".into(),
             });
         }
+        worker.recover(&replay)?;
         Ok(Self(Arc::new(Inner {
             host,
             worker,

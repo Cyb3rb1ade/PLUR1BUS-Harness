@@ -5,6 +5,7 @@
 
 /// Non-blocking receipt and capture-pipeline composition.
 pub mod accept;
+mod admission;
 /// Batch-embedding failure boundary with content-free diagnostics.
 pub mod batch;
 mod cancel_link;

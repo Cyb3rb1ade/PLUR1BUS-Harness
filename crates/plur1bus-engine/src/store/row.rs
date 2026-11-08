@@ -234,7 +234,15 @@ pub(super) fn json_rows(batch: &RecordBatch) -> Result<Vec<serde_json::Value>, S
     let mut writer = arrow_json::ArrayWriter::new(Vec::new());
     writer.write(batch).map_err(|_| StoreError::Corrupt)?;
     writer.finish().map_err(|_| StoreError::Corrupt)?;
-    serde_json::from_slice(&writer.into_inner()).map_err(|_| StoreError::Corrupt)
+    let bytes = writer.into_inner();
+    let value = crate::text::json::parse_exact(
+        std::str::from_utf8(&bytes).map_err(|_| StoreError::Corrupt)?,
+    )
+    .map_err(|_| StoreError::Corrupt)?;
+    let serde_json::Value::Array(rows) = value else {
+        return Err(StoreError::Corrupt);
+    };
+    Ok(rows)
 }
 
 pub(super) fn from_batches(batches: &[RecordBatch]) -> Result<Vec<MemoryRow>, StoreError> {

@@ -40,7 +40,10 @@ use std::{
 };
 const NOW: i64 = 1_710_000_000_000;
 fn fixture() -> Value {
-    serde_json::from_str(include_str!("fixtures/capture/golden/classifier.json")).unwrap()
+    plur1bus_engine::text::json::parse_exact(include_str!(
+        "fixtures/capture/golden/classifier.json"
+    ))
+    .unwrap()
 }
 struct Routes {
     provider: String,

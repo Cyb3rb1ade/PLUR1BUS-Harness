@@ -96,6 +96,17 @@ impl NeoCaptureHook for NativeNeoCaptureHook {
         }
         Ok(())
     }
+    fn post_store_recoverable(
+        &self,
+        turn: &TurnRecord,
+        context: &RequestContext,
+        options: &CaptureOptions,
+        _resuming: bool,
+        cancel: &Cancel,
+    ) -> Result<(), EngineError> {
+        self.post_store(turn, context, options, cancel)
+    }
+
     fn post_store(
         &self,
         turn: &TurnRecord,

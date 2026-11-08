@@ -19,6 +19,7 @@ pub struct Host {
     config: EngineConfig,
     platform: PlatformCapabilities,
     llm: Option<Arc<dyn LlmPort>>,
+    now: i64,
 }
 
 impl Host {
@@ -29,7 +30,12 @@ impl Host {
             config,
             platform: PlatformCapabilities::default(),
             llm: None,
+            now: 1_710_000_000_000,
         }
+    }
+    pub fn with_now(mut self, now: i64) -> Self {
+        self.now = now;
+        self
     }
     pub fn with_llm(mut self, llm: Arc<dyn LlmPort>) -> Self {
         self.llm = Some(llm);
@@ -58,7 +64,7 @@ impl HostServices for Host {
     }
     fn emit(&self, _event: &str, _payload: serde_json::Value) {}
     fn now_ms(&self) -> i64 {
-        1_710_000_000_000
+        self.now
     }
     fn platform(&self) -> &PlatformCapabilities {
         &self.platform

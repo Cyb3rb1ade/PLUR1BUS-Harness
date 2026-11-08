@@ -1,7 +1,36 @@
 //! Primary capture work precedes optional Neo queue maintenance on every exit path.
+use super::super::admission::{row_digest, Admission, Phase};
 use super::*;
 use std::time::{Duration, Instant};
 impl CaptureWorker for CapturePipeline {
+    fn recover(&self, replay: &super::super::replay_guard::ReplayGuard) -> Result<(), EngineError> {
+        let timeout = super::super::queue::RuntimeConfig::from_value(&self.config["runtime"])
+            .capture_timeout_ms;
+        let cancel = Cancel::never().limited_to(Instant::now() + Duration::from_millis(timeout));
+        // Inventory validates every original caller/proof before the first recovery mutation.
+        for record in self.admissions.inventory(&cancel)? {
+            cancel.check()?;
+            let turn = &record.turn;
+            let context = RequestContext::build(&turn.principal, &turn.agent, self.host.as_ref())?;
+            let key = super::super::replay_guard::turn_key_of(turn)?;
+            replay.recover(turn.agent_id.as_str(), &key, &cancel, |rows| {
+                if !self.admissions.pending(&record, &cancel)? {
+                    return Ok(());
+                }
+                let result =
+                    self.capture_attempt(turn, &context, &record.options, &rows, &cancel, true)?;
+                if self.admissions.pending(&record, &cancel)? {
+                    return Err(StoreError::Unavailable.into());
+                }
+                if result.reason.is_none() {
+                    rows.on_rows_settled()?;
+                }
+                Ok(())
+            })?;
+        }
+        Ok(())
+    }
+
     fn capture(
         &self,
         turn: &TurnRecord,
@@ -10,9 +39,47 @@ impl CaptureWorker for CapturePipeline {
         replay: ReplayRows,
         cancel: &Cancel,
     ) -> Result<CaptureResult, EngineError> {
+        self.capture_attempt(turn, context, options, &replay, cancel, false)
+    }
+}
+
+impl CapturePipeline {
+    fn capture_attempt(
+        &self,
+        turn: &TurnRecord,
+        context: &RequestContext,
+        options: &CaptureOptions,
+        replay: &ReplayRows,
+        cancel: &Cancel,
+        recovery: bool,
+    ) -> Result<CaptureResult, EngineError> {
         let started = Instant::now();
         let mut neo_started = false;
-        let result = self.capture_inner(turn, context, options, &replay, cancel, &mut neo_started);
+        if !self.policy.allowed(context).unwrap_or(false) {
+            return Ok(counts(0, 1, Some("not_captured")));
+        }
+        cancel.check()?;
+        let mut admission = self.admissions.begin(turn, context, options, cancel)?;
+        let result = if admission.record.phase == Phase::PostStore {
+            self.finish_post(turn, context, options, replay, &mut admission, cancel)
+        } else {
+            if replay.primary_settled()? {
+                return Err(StoreError::Corrupt.into());
+            }
+            self.capture_inner(
+                turn,
+                context,
+                replay,
+                cancel,
+                &mut neo_started,
+                &mut admission,
+            )
+        };
+        // Once an ordinary invocation observes abort/timeout, do not resurrect it on open.
+        // Startup's own bounded deadline instead leaves original work pending for retry.
+        if !recovery && (cancel.is_cancelled() || turn.cancel.is_cancelled()) {
+            admission.abandon()?;
+        }
         if neo_started && !cancel.is_cancelled() && !turn.cancel.is_cancelled() {
             if let Some(hook) = &self.neo {
                 let timeout =
@@ -29,17 +96,14 @@ impl CaptureWorker for CapturePipeline {
         }
         result
     }
-}
-
-impl CapturePipeline {
     fn capture_inner(
         &self,
         turn: &TurnRecord,
         context: &RequestContext,
-        options: &CaptureOptions,
         replay: &ReplayRows,
         cancel: &Cancel,
         neo_started: &mut bool,
+        admission: &mut Admission<'_>,
     ) -> Result<CaptureResult, EngineError> {
         if !self.policy.allowed(context).unwrap_or(false) {
             return Ok(counts(0, 1, Some("not_captured")));
@@ -62,17 +126,33 @@ impl CapturePipeline {
             }
         }
         if turn.messages.is_empty() {
+            replay.on_rows_settled()?;
+            admission.complete(cancel)?;
             return Ok(counts(0, 0, None));
         }
         let mut early_store = None;
-        if !replay.stale_row_ids().is_empty() {
+        let mut stale = replay.stale_row_ids().to_vec();
+        for id in admission.record.rows.keys() {
+            if !stale.contains(id) {
+                stale.push(id.clone());
+            }
+        }
+        if !stale.is_empty() {
             let store = self.store(context)?;
             let run = turn.run_id.as_deref().unwrap_or_default();
             // Validate the complete pending set before removing any existing row.
-            for id in replay.stale_row_ids() {
+            for id in &stale {
                 cancel.check()?;
                 if let Some(row) = store.get(id)? {
-                    if run.is_empty()
+                    if admission
+                        .record
+                        .rows
+                        .get(id)
+                        .is_some_and(|expected| row_digest(&row).as_ref() != Ok(expected))
+                    {
+                        return Err(StoreError::Corrupt.into());
+                    }
+                    if (run.is_empty() && !admission.record.rows.contains_key(id))
                         || row.stored_by != context.agent_id.as_str()
                         || row.source_turn_id != run
                         || row.scope != "agent-private"
@@ -85,20 +165,31 @@ impl CapturePipeline {
                     }
                 }
             }
-            for id in replay.stale_row_ids() {
-                cancel.check()?;
-                if store.get(id)?.is_some() {
-                    store.delete_capture_replay_row(id, context.agent_id.as_str(), run)?;
+            for id in &stale {
+                admission.check(cancel)?;
+                if let Some(row) = store.get(id)? {
+                    if let Some(expected) = admission.record.rows.get(id) {
+                        if row_digest(&row)? != *expected {
+                            return Err(StoreError::Corrupt.into());
+                        }
+                        store.delete_capture_admission_row(&row)?;
+                    } else {
+                        store.delete_capture_replay_row(id, context.agent_id.as_str(), run)?;
+                    }
                 }
             }
+            admission.record.rows.clear();
+            admission.save(cancel)?;
             early_store = Some(store);
         }
         let items = prepare::select_items(turn)?;
         if items.is_empty() {
+            replay.on_rows_settled()?;
+            admission.complete(cancel)?;
             return Ok(counts(0, 0, None));
         }
         let origin = prepare::capture_origin(turn, &items)?;
-        let now = self.host.now_ms();
+        let now = admission.record.at_ms;
         let (preps, mut failed) = self.prepare(items, context, cancel);
         if cancel.is_cancelled() {
             return Ok(aborted(0, 0));
@@ -173,25 +264,33 @@ impl CapturePipeline {
             if cancel.is_cancelled() {
                 return Ok(aborted(committed.len() as u64, skipped));
             }
-            let write = self
-                .row(
-                    id,
-                    &prep,
-                    vector,
-                    row::RowContext {
-                        turn,
-                        context,
-                        origin,
-                        now,
-                        cancel,
-                    },
-                )
-                .and_then(|row| {
+            let built = self.row(
+                id,
+                &prep,
+                vector,
+                row::RowContext {
+                    turn,
+                    context,
+                    origin,
+                    now,
+                    cancel,
+                },
+            );
+            let write = match built {
+                Ok(row) => {
                     cancel.check()?;
-                    // Every upsert is a completed Lance commit before this row becomes visible.
-                    store.upsert(std::slice::from_ref(&row))?;
-                    Ok(row)
-                });
+                    admission
+                        .record
+                        .rows
+                        .insert(row.id.clone(), row_digest(&row)?);
+                    admission.save(cancel)?;
+                    store
+                        .upsert(std::slice::from_ref(&row))
+                        .map(|()| row)
+                        .map_err(EngineError::from)
+                }
+                Err(error) => Err(error),
+            };
             match write {
                 Ok(row) => committed.push(row),
                 Err(_) if cancel.is_cancelled() => {
@@ -204,24 +303,8 @@ impl CapturePipeline {
                 }
             }
         }
-        if !committed.is_empty() && failed == 0 {
-            replay.on_rows_settled()?;
-        } else {
-            replay.on_rows_kept()?;
-        }
-        if let Err(error) = self
-            .classifier
-            .post_store(turn, context, &committed, cancel)
-        {
-            self.warn(&error, CaptureLogStage::CapturePipeline, 1);
-        }
-        if let Some(neo) = &self.neo {
-            if let Err(error) = neo.post_store(turn, context, options, cancel) {
-                self.warn(&error, CaptureLogStage::NeoCapture, 1);
-            }
-        }
         let stored = committed.len() as u64;
-        Ok(counts(
+        let result = counts(
             stored,
             if failed > 0 && stored == 0 {
                 skipped.max(1)
@@ -229,6 +312,80 @@ impl CapturePipeline {
                 skipped
             },
             (failed > 0).then_some("capture-incomplete"),
-        ))
+        );
+        admission.record.phase = Phase::PostStore;
+        admission.record.post_at_ms = Some(self.host.now_ms());
+        admission.record.result = Some(result);
+        admission.record.row_order = committed.iter().map(|row| row.id.clone()).collect();
+        admission.record.rows = committed
+            .iter()
+            .map(|row| Ok((row.id.clone(), row_digest(row)?)))
+            .collect::<Result<_, StoreError>>()?;
+        admission.save(cancel)?;
+        let options = admission.record.options.clone();
+        self.finish_post(turn, context, &options, replay, admission, cancel)
+    }
+
+    fn finish_post(
+        &self,
+        turn: &TurnRecord,
+        context: &RequestContext,
+        options: &CaptureOptions,
+        replay: &ReplayRows,
+        admission: &mut Admission<'_>,
+        cancel: &Cancel,
+    ) -> Result<CaptureResult, EngineError> {
+        let result = admission.record.result.clone().ok_or(StoreError::Corrupt)?;
+        let store = self.store(context)?;
+        let mut rows = Vec::new();
+        for id in &admission.record.row_order {
+            let expected = admission.record.rows.get(id).ok_or(StoreError::Corrupt)?;
+            admission.check(cancel)?;
+            let row = store.get(id)?.ok_or(StoreError::Corrupt)?;
+            if row_digest(&row)? != *expected {
+                return Err(StoreError::Corrupt.into());
+            }
+            rows.push(row);
+        }
+        admission.check(cancel)?;
+        if result.reason.is_none() {
+            replay.on_rows_settled()?;
+        } else {
+            replay.on_rows_kept()?;
+        }
+        if !admission.record.classifier_done {
+            let resuming = admission.record.classifier_started;
+            admission.record.classifier_started = true;
+            admission.save(cancel)?;
+            match self
+                .classifier
+                .post_store_recoverable(turn, context, &rows, admission, resuming, cancel)
+            {
+                Ok(()) => {
+                    admission.record.classifier_done = true;
+                    admission.save(cancel)?;
+                }
+                Err(error) => self.warn(&error, CaptureLogStage::CapturePipeline, 1),
+            }
+        }
+        if !admission.record.neo_done {
+            admission.check(cancel)?;
+            let resuming = admission.record.neo_started;
+            admission.record.neo_started = true;
+            admission.save(cancel)?;
+            match self.neo.as_ref().map_or(Ok(()), |neo| {
+                neo.post_store_recoverable(turn, context, options, resuming, cancel)
+            }) {
+                Ok(()) => {
+                    admission.record.neo_done = true;
+                    admission.save(cancel)?;
+                }
+                Err(error) => self.warn(&error, CaptureLogStage::NeoCapture, 1),
+            }
+        }
+        if admission.record.classifier_done && admission.record.neo_done {
+            admission.complete(cancel)?;
+        }
+        Ok(result)
     }
 }

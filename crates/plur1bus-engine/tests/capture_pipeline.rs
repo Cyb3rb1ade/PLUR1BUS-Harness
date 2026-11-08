@@ -2,7 +2,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 pub use plur1bus_engine::capture::{
-    accept, chunking, pipeline, replay_guard, result, row_builder, shared_scope,
+    accept, chunking, pipeline, queue, replay_guard, result, row_builder, shared_scope,
 };
 pub use plur1bus_engine::{config, context, contract, embedding, store, text, transport};
 mod capture_pipeline_support;
@@ -180,7 +180,8 @@ fn actual_acceptance_to_lance_rows_equal_node_without_replaying_fixture_rows() {
             directory.path().join("state"),
             workspace.clone(),
             serde_json::from_value(config).unwrap(),
-        );
+        )
+        .with_now(1_710_000_000_000);
         let llm_calls = Arc::new(AtomicUsize::new(0));
         if scenario["llm"] == true {
             let fixtures: serde_json::Value =
@@ -237,9 +238,9 @@ fn actual_acceptance_to_lance_rows_equal_node_without_replaying_fixture_rows() {
             worker = worker.with_decider(Arc::new(WholeDecision));
         }
         let queue = Arc::new(
-            plur1bus_engine::capture::queue::CaptureQueue::new(
-                plur1bus_engine::capture::queue::RuntimeConfig::from_value(&serde_json::json!({})),
-                Arc::new(plur1bus_engine::capture::queue::PressureSnapshot::disabled),
+            queue::CaptureQueue::new(
+                queue::RuntimeConfig::from_value(&serde_json::json!({})),
+                Arc::new(queue::PressureSnapshot::disabled),
             )
             .unwrap(),
         );
@@ -355,9 +356,18 @@ impl BoundaryClassifier {
 impl CaptureClassifier for BoundaryClassifier {
     fn classify(
         &self,
-        _: pipeline::ClassificationRequest<'_>,
+        request: pipeline::ClassificationRequest<'_>,
     ) -> Result<CaptureClassification, EngineError> {
         let index = self.calls.fetch_add(1, Ordering::SeqCst);
+        if self.phase == "expire-recovery" {
+            assert!(request.cancel.remaining().is_some());
+            while !request.cancel.is_cancelled() {
+                std::thread::sleep(Duration::from_millis(1));
+            }
+        }
+        if self.phase == "abort-after-first-row" && index == 1 {
+            request.cancel.cancel();
+        }
         self.checkpoint(if index == 0 {
             "after-plan"
         } else {
@@ -373,6 +383,17 @@ impl CaptureClassifier for BoundaryClassifier {
             384
         ])))
     }
+    fn post_store_recoverable(
+        &self,
+        turn: &TurnRecord,
+        context: &context::RequestContext,
+        rows: &[MemoryRow],
+        _: &mut dyn pipeline::CapturePostStore,
+        _: bool,
+        cancel: &Cancel,
+    ) -> Result<(), EngineError> {
+        self.post_store(turn, context, rows, cancel)
+    }
     fn post_store(
         &self,
         _: &TurnRecord,
@@ -386,6 +407,7 @@ impl CaptureClassifier for BoundaryClassifier {
     }
 }
 struct BoundaryFixture {
+    host: Arc<dyn contract::HostServices>,
     stores: Arc<store::StorePool>,
     worker: pipeline::CapturePipeline,
     replay: replay_guard::ReplayGuard,
@@ -419,7 +441,8 @@ impl BoundaryFixture {
             root.join("state"),
             workspace.clone(),
             serde_json::from_value(config).unwrap(),
-        );
+        )
+        .with_now(1_710_000_000_000);
         if let Some(llm) = llm {
             host = host.with_llm(llm);
         }
@@ -461,6 +484,7 @@ impl BoundaryFixture {
         let context =
             context::RequestContext::build(&turn.principal, &turn.agent, host.as_ref()).unwrap();
         Self {
+            host,
             stores,
             worker,
             replay,
@@ -605,7 +629,15 @@ fn pipeline_crash_child() {
         return;
     };
     let phase = std::env::var("PLUR1BUS_RX_CAPTURE_CRASH_PHASE").unwrap();
-    let fixture = BoundaryFixture::new(std::path::Path::new(&root), &phase);
+    let extra = if std::env::var_os("PLUR1BUS_RX_CAPTURE_SHORT_DEADLINE").is_some() {
+        serde_json::json!({"runtime":{"captureTimeoutMs":20}})
+    } else {
+        serde_json::json!({})
+    };
+    let mut fixture = BoundaryFixture::configured(std::path::Path::new(&root), &phase, extra, None);
+    if std::env::var_os("PLUR1BUS_RX_CAPTURE_WITHOUT_RUN").is_some() {
+        fixture.turn.run_id = None;
+    }
     fixture.run().unwrap();
 }
 
@@ -786,3 +818,6 @@ fn capture_external_unicode_obeys_f3_while_original_node_boundaries_remain_evide
         }
     }
 }
+
+#[path = "support/capture_open_recovery.rs"]
+mod open_recovery;

@@ -63,6 +63,34 @@ pub struct ClassificationRequest<'a> {
     pub cancel: &'a Cancel,
 }
 
+/// A prepared reminder effect retained until the complete capture finishes.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReminderEffect {
+    /// Exact original target; replay never allocates another reminder ID.
+    pub row: MemoryRow,
+    /// Whether this capture may insert the target if it is still absent.
+    pub create: bool,
+}
+
+/// Durable, caller-bound effect receipts owned by one capture admission.
+/// This internal native port does not alter the engine contract or RPC surface.
+pub trait CapturePostStore {
+    /// Frozen reference for relative reminder times across process restarts.
+    fn reference_time(&self) -> i64;
+    /// Read the exact previously prepared selected-message effect.
+    fn reminder(&self, position: usize) -> Option<ReminderEffect>;
+    /// Save before any reminder write. A failed save forbids the effect.
+    fn plan_reminder(
+        &mut self,
+        position: usize,
+        effect: ReminderEffect,
+        cancel: &Cancel,
+    ) -> Result<(), EngineError>;
+    /// Recheck original caller authority and the held durable admission.
+    fn check(&self, cancel: &Cancel) -> Result<(), EngineError>;
+}
+
 /// RE-05/T3 classification and post-store effects on the actual capture path.
 pub trait CaptureClassifier: Send + Sync {
     /// Classify one prepared item before its Lance commit; errors leave only that item incomplete.
@@ -70,6 +98,25 @@ pub trait CaptureClassifier: Send + Sync {
         &self,
         request: ClassificationRequest<'_>,
     ) -> Result<CaptureClassification, EngineError>;
+
+    /// Durable replay-aware post-store boundary. Unknown effect implementations refuse
+    /// re-entry after a crash rather than pretending their side effects are idempotent.
+    fn post_store_recoverable(
+        &self,
+        turn: &TurnRecord,
+        context: &RequestContext,
+        rows: &[MemoryRow],
+        _journal: &mut dyn CapturePostStore,
+        resuming: bool,
+        cancel: &Cancel,
+    ) -> Result<(), EngineError> {
+        if resuming {
+            return Err(EngineError::NotAvailable {
+                reason: "capture-post-store-recovery-unavailable".into(),
+            });
+        }
+        self.post_store(turn, context, rows, cancel)
+    }
 
     /// Best-effort speaker/reminder/emotional-state work after replay settlement.
     /// A failure cannot make an already committed capture run twice on host replay.
@@ -123,6 +170,23 @@ pub trait NeoCaptureHook: Send + Sync {
         _options: &CaptureOptions,
         _cancel: &Cancel,
     ) -> Result<(), EngineError>;
+
+    /// Re-enter only a hook whose implementation provides durable/idempotent post-store recovery.
+    fn post_store_recoverable(
+        &self,
+        turn: &TurnRecord,
+        context: &RequestContext,
+        options: &CaptureOptions,
+        resuming: bool,
+        cancel: &Cancel,
+    ) -> Result<(), EngineError> {
+        if resuming {
+            return Err(EngineError::NotAvailable {
+                reason: "neo-post-store-recovery-unavailable".into(),
+            });
+        }
+        self.post_store(turn, context, options, cancel)
+    }
 
     /// Optional queue maintenance after capture's primary work, including early-return paths.
     /// Called only after successful Neo recording; failures cannot undo already stored rows.

@@ -38,8 +38,8 @@ mod routes;
 #[path = "pipeline_row.rs"]
 mod row;
 pub use ports::{
-    CaptureChunkDecider, CaptureClassification, CaptureClassifier, CaptureDynamics, CaptureSummary,
-    ClassificationRequest, NeoCaptureHook,
+    CaptureChunkDecider, CaptureClassification, CaptureClassifier, CaptureDynamics,
+    CapturePostStore, CaptureSummary, ClassificationRequest, NeoCaptureHook, ReminderEffect,
 };
 pub use routes::{HostCaptureSummary, JevChunkDecider};
 
@@ -59,6 +59,7 @@ pub struct CapturePipeline {
     config: Value,
     base_db: PathBuf,
     cutoff_failed: bool,
+    admissions: super::admission::Admissions,
 }
 
 impl CapturePipeline {
@@ -93,7 +94,15 @@ impl CapturePipeline {
         } else {
             None
         };
+        let admissions = super::admission::Admissions::new(
+            &base_db,
+            host.clone(),
+            policy.clone(),
+            &config,
+            identity_id(embedder.identity())?,
+        )?;
         Ok(Self {
+            admissions,
             host,
             stores,
             embedder,

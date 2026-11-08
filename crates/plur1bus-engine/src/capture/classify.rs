@@ -222,6 +222,29 @@ impl CaptureClassifier for NativeCaptureClassifier {
         _rows: &[MemoryRow],
         cancel: &Cancel,
     ) -> Result<(), EngineError> {
+        self.post_store_inner(turn, context, None, cancel)
+    }
+
+    fn post_store_recoverable(
+        &self,
+        turn: &TurnRecord,
+        context: &RequestContext,
+        _rows: &[MemoryRow],
+        journal: &mut dyn super::pipeline::CapturePostStore,
+        _resuming: bool,
+        cancel: &Cancel,
+    ) -> Result<(), EngineError> {
+        self.post_store_inner(turn, context, Some(journal), cancel)
+    }
+}
+impl NativeCaptureClassifier {
+    fn post_store_inner(
+        &self,
+        turn: &TurnRecord,
+        context: &RequestContext,
+        mut journal: Option<&mut dyn super::pipeline::CapturePostStore>,
+        cancel: &Cancel,
+    ) -> Result<(), EngineError> {
         cancel.check()?;
         self.binding(turn, context)?;
         let mut failure = None;
@@ -238,16 +261,38 @@ impl CaptureClassifier for NativeCaptureClassifier {
             }
         }
         // Original selected items, not expanded rows: one reminder per source message.
-        for item in super::pipeline::prepare::select_items(turn)? {
+        for (position, item) in super::pipeline::prepare::select_items(turn)?
+            .into_iter()
+            .enumerate()
+        {
             cancel.check()?;
-            if let Err(error) = self.reminders.capture(
-                &item.text,
-                &item.role,
-                self.config["reminders"]["autoExtract"] != false,
-                &turn.principal,
-                &turn.agent,
-                cancel,
-            ) {
+            let result = if let Some(journal) = journal.as_deref_mut() {
+                self.reminders.capture_recoverable(
+                    super::reminder_store::ReminderInput {
+                        text: &item.text,
+                        role: &item.role,
+                        enabled: self.config["reminders"]["autoExtract"] != false,
+                        principal: &turn.principal,
+                        agent: &turn.agent,
+                    },
+                    position,
+                    journal,
+                    cancel,
+                )
+            } else {
+                self.reminders.capture(
+                    &item.text,
+                    &item.role,
+                    self.config["reminders"]["autoExtract"] != false,
+                    &turn.principal,
+                    &turn.agent,
+                    cancel,
+                )
+            };
+            if let Err(error) = result {
+                if journal.is_some() {
+                    return Err(error);
+                }
                 failure.get_or_insert(error);
             }
         }
@@ -255,6 +300,7 @@ impl CaptureClassifier for NativeCaptureClassifier {
         failure.map_or(Ok(()), Err)
     }
 }
+
 fn to_json(value: &Value) -> Result<Json, EngineError> {
     parse_json(&value.to_string()).map_err(|_| StoreError::InvalidInput.into())
 }

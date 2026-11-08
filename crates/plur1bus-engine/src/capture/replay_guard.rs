@@ -224,6 +224,29 @@ impl ReplayGuard {
         result
     }
 
+    /// Retain the same turn lease even when primary rows have already settled.
+    /// Only native admission recovery uses this path; ordinary duplicate turns stay skipped.
+    pub(super) fn recover(
+        &self,
+        agent: &str,
+        key: &str,
+        cancel: &Cancel,
+        work: impl FnOnce(ReplayRows) -> Result<(), EngineError>,
+    ) -> Result<(), EngineError> {
+        let wal = self.0.durable.as_ref().ok_or(StoreError::InvalidInput)?;
+        let ticket = wal.recover(agent, key, cancel)?;
+        let rows = ReplayRows(Arc::new(RowsInner {
+            stale: ticket.pending_rows().to_vec(),
+            durable: Some(ticket),
+            cancel: cancel.clone(),
+            guard: self.clone(),
+            agent: agent.into(),
+            key: key.into(),
+            recorded: Mutex::new(false),
+        }));
+        work(rows)
+    }
+
     fn enter(
         &self,
         agent: &str,
@@ -387,6 +410,13 @@ struct RowsInner {
 pub struct ReplayRows(Arc<RowsInner>);
 
 impl ReplayRows {
+    pub(super) fn primary_settled(&self) -> Result<bool, StoreError> {
+        self.0
+            .durable
+            .as_ref()
+            .map_or(Ok(false), |ticket| ticket.is_settled())
+    }
+
     /// Ids of rows planned by an earlier, uncompleted attempt, in Node order.
     #[must_use]
     pub fn stale_row_ids(&self) -> &[String] {

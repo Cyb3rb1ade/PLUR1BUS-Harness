@@ -83,7 +83,30 @@ impl CaptureWal {
         agent: &str,
         key: &str,
         cancel: &Cancel,
+        wait: impl FnMut(),
+    ) -> Result<Admission, EngineError> {
+        self.begin_mode(agent, key, cancel, wait, false)
+    }
+
+    pub(super) fn recover(
+        &self,
+        agent: &str,
+        key: &str,
+        cancel: &Cancel,
+    ) -> Result<Box<CaptureTicket>, EngineError> {
+        match self.begin_mode(agent, key, cancel, || {}, true)? {
+            Admission::Pending(ticket) => Ok(ticket),
+            Admission::Completed => Err(StoreError::Corrupt.into()),
+        }
+    }
+
+    fn begin_mode(
+        &self,
+        agent: &str,
+        key: &str,
+        cancel: &Cancel,
         mut wait: impl FnMut(),
+        recovery: bool,
     ) -> Result<Admission, EngineError> {
         if agent.is_empty()
             || agent.len() > 128
@@ -130,7 +153,8 @@ impl CaptureWal {
         let existing = entries
             .iter()
             .find(|entry| entry.key == JsString::from(key));
-        if existing.is_some_and(|entry| entry.pending.is_none() && fresh(entry.at, now)) {
+        let settled = existing.is_some_and(|entry| entry.pending.is_none() && fresh(entry.at, now));
+        if settled && !recovery {
             return Ok(Admission::Completed);
         }
         let stale = existing
@@ -144,7 +168,7 @@ impl CaptureWal {
             key: key.to_owned(),
             progress: Mutex::new(Progress {
                 rows: stale.clone(),
-                settled: false,
+                settled,
                 failed: false,
             }),
             stale,
@@ -154,6 +178,14 @@ impl CaptureWal {
 }
 
 impl CaptureTicket {
+    pub(super) fn is_settled(&self) -> Result<bool, StoreError> {
+        Ok(self
+            .progress
+            .lock()
+            .map_err(|_| StoreError::Corrupt)?
+            .settled)
+    }
+
     /// Row IDs from a prior incomplete attempt; never expose another turn's IDs.
     #[must_use]
     pub fn pending_rows(&self) -> &[String] {

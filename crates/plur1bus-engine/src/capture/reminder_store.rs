@@ -1,4 +1,5 @@
 //! Host-authorized reminder capture. Dispatch and acknowledgement belong to their later stages.
+use super::pipeline::{CapturePostStore, ReminderEffect};
 use super::{
     output_unicode::external,
     reminders::{self, ReminderPlan},
@@ -30,6 +31,25 @@ pub enum ReminderCapture {
         created: bool,
     },
 }
+/// Original selected message and authority for a recoverable reminder effect.
+#[derive(Clone, Copy)]
+pub struct ReminderInput<'a> {
+    /// Selected source text before chunk expansion.
+    pub text: &'a JsString,
+    /// Original message role.
+    pub role: &'a str,
+    /// Effective auto-extraction gate.
+    pub enabled: bool,
+    /// Original caller, revalidated on replay.
+    pub principal: &'a Principal,
+    /// Original agent execution context.
+    pub agent: &'a AgentContext,
+}
+struct Replay<'a> {
+    position: usize,
+    journal: &'a mut dyn CapturePostStore,
+}
+
 /// Real host, private agent store and embedding route; no fallback fixture metadata.
 pub struct ReminderStore {
     host: Arc<dyn HostServices>,
@@ -59,13 +79,53 @@ impl ReminderStore {
         a: &AgentContext,
         cancel: &Cancel,
     ) -> Result<ReminderCapture, EngineError> {
+        self.capture_inner(
+            ReminderInput {
+                text: input,
+                role,
+                enabled,
+                principal: p,
+                agent: a,
+            },
+            None,
+            cancel,
+        )
+    }
+    /// Preserve the first planned target and time through outer capture recovery.
+    pub fn capture_recoverable(
+        &self,
+        input: ReminderInput<'_>,
+        position: usize,
+        journal: &mut dyn CapturePostStore,
+        cancel: &Cancel,
+    ) -> Result<ReminderCapture, EngineError> {
+        self.capture_inner(input, Some(Replay { position, journal }), cancel)
+    }
+    fn capture_inner(
+        &self,
+        input: ReminderInput<'_>,
+        mut replay: Option<Replay<'_>>,
+        cancel: &Cancel,
+    ) -> Result<ReminderCapture, EngineError> {
+        let ReminderInput {
+            text: input,
+            role,
+            enabled,
+            principal: p,
+            agent: a,
+        } = input;
         cancel.check()?;
+        if let Some(replay) = &replay {
+            replay.journal.check(cancel)?;
+        }
         let first = self.host.workspace_dir(&p.agent_id)?;
         let context = RequestContext::build(p, a, self.host.as_ref())?;
         if first != self.host.workspace_dir(&p.agent_id)? {
             return Err(StoreError::InvalidInput.into());
         }
-        let now = self.host.now_ms();
+        let now = replay
+            .as_ref()
+            .map_or_else(|| self.host.now_ms(), |r| r.journal.reference_time());
         let plan = reminders::plan(input, role, enabled, now)?;
         let (intent, text) = match plan {
             ReminderPlan::Candidate { intent, text } => (intent, text),
@@ -98,6 +158,36 @@ impl ReminderStore {
             TrustedDirectory::open(&self.stores.agent_path(context.agent_id.as_str())?)?;
         let locks = directory.create_child(".reminder-leases")?;
         let lease = kernel_lock::acquire(&locks, &key, cancel, &mut || {})?;
+        if let Some(receipt) = replay.as_ref().and_then(|r| r.journal.reminder(r.position)) {
+            validate_receipt(&receipt.row, &context, &workspace, &key, &text, timestamp)?;
+            replay
+                .as_ref()
+                .ok_or(StoreError::Corrupt)?
+                .journal
+                .check(cancel)?;
+            crate::store::tombstone::assert_card_write_allowed(
+                directory.path().parent().ok_or(StoreError::InvalidInput)?,
+                &receipt.row,
+            )?;
+            if let Some(current) = store.get(&receipt.row.id)? {
+                validate_replay_row(&receipt.row, &current)?;
+                return Ok(ReminderCapture::Stored {
+                    row: Box::new(current),
+                    created: false,
+                });
+            }
+            if !receipt.create {
+                return Err(StoreError::Corrupt.into());
+            }
+            lease.check(&locks)?;
+            directory.assert_unchanged()?;
+            cancel.check()?;
+            store.upsert(std::slice::from_ref(&receipt.row))?;
+            return Ok(ReminderCapture::Stored {
+                row: Box::new(receipt.row),
+                created: true,
+            });
+        }
         let existing = store.capture_reminders(context.agent_id.as_str(), &workspace, &key)?;
         let mut active = existing
             .into_iter()
@@ -127,6 +217,16 @@ impl ReminderStore {
                 &row,
             )?;
             cancel.check()?;
+            if let Some(replay) = &mut replay {
+                replay.journal.plan_reminder(
+                    replay.position,
+                    ReminderEffect {
+                        row: row.clone(),
+                        create: false,
+                    },
+                    cancel,
+                )?;
+            }
             return Ok(ReminderCapture::Stored {
                 row: Box::new(row),
                 created: false,
@@ -161,6 +261,17 @@ impl ReminderStore {
         row.half_life_days = 30.into();
         // This writer omits an explicit capture trust decision in Node; the last-line store default is untrusted.
         row.epistemic_status = "untrusted".into();
+        if let Some(replay) = &mut replay {
+            replay.journal.plan_reminder(
+                replay.position,
+                ReminderEffect {
+                    row: row.clone(),
+                    create: true,
+                },
+                cancel,
+            )?;
+            replay.journal.check(cancel)?;
+        }
         lease.check(&locks)?;
         directory.assert_unchanged()?;
         cancel.check()?;
@@ -181,4 +292,59 @@ pub fn reminder_key(agent: &str, workspace: &str, text: &JsString, timestamp: i6
         )
     )[..32]
         .to_owned()
+}
+
+fn validate_receipt(
+    row: &MemoryRow,
+    ctx: &RequestContext,
+    workspace: &str,
+    key: &str,
+    text: &str,
+    timestamp: i64,
+) -> Result<(), StoreError> {
+    if row.id.len() != 36
+        || uuid::Uuid::parse_str(&row.id).is_err()
+        || row.stored_by != ctx.agent_id.as_str()
+        || row.scope != "agent-private"
+        || !row.owner_user_id.is_empty()
+        || !row.workspace_id.is_empty()
+        || (!row.agent_id.is_empty() && row.agent_id != ctx.agent_id.as_str())
+        || row.workspace_key != workspace
+        || row.reminder_key != key
+        || row.text != text
+        || row.remind_at.as_f64() != Some(timestamp as f64)
+        || row.memory_kind != "reminder"
+        || row.epistemic_status == "invalidated"
+    {
+        return Err(StoreError::Corrupt);
+    }
+    Ok(())
+}
+fn validate_replay_row(expected: &MemoryRow, current: &MemoryRow) -> Result<(), StoreError> {
+    let mut stable = current.clone();
+    // Only actual reminder lifecycle fields may evolve after the prepared effect.
+    // Body, vector, authority, provenance and scheduled time remain exact.
+    if matches!(
+        current.reminder_status.as_str(),
+        "scheduled" | "dispatched" | "acknowledged" | "cancelled"
+    ) {
+        stable.reminder_status = expected.reminder_status.clone();
+        stable.reminded_at = expected.reminded_at.clone();
+        stable.dispatched_at = expected.dispatched_at.clone();
+        stable.acknowledged_at = expected.acknowledged_at.clone();
+        stable.cancelled_at = expected.cancelled_at.clone();
+        stable.dispatch_count = expected.dispatch_count.clone();
+        stable.last_dispatch_attempt_at = expected.last_dispatch_attempt_at.clone();
+        stable.next_dispatch_attempt_at = expected.next_dispatch_attempt_at.clone();
+    }
+    if matches!(
+        current.status.as_str(),
+        "archived" | "deleted" | "superseded"
+    ) {
+        stable.status = expected.status.clone();
+    }
+    if super::admission::row_digest(&stable)? != super::admission::row_digest(expected)? {
+        return Err(StoreError::Corrupt);
+    }
+    Ok(())
 }

@@ -266,3 +266,97 @@ fn failed_identity_cancel_and_ineligible_items_do_not_create_a_store() {
         .is_err());
     assert!(!f.dir.path().join("stores").exists());
 }
+
+struct EffectJournal {
+    at: i64,
+    effects: std::collections::BTreeMap<usize, plur1bus_engine::capture::pipeline::ReminderEffect>,
+    stop_after_plan: bool,
+}
+impl plur1bus_engine::capture::pipeline::CapturePostStore for EffectJournal {
+    fn reference_time(&self) -> i64 {
+        self.at
+    }
+    fn reminder(
+        &self,
+        position: usize,
+    ) -> Option<plur1bus_engine::capture::pipeline::ReminderEffect> {
+        self.effects.get(&position).cloned()
+    }
+    fn plan_reminder(
+        &mut self,
+        position: usize,
+        effect: plur1bus_engine::capture::pipeline::ReminderEffect,
+        _: &Cancel,
+    ) -> Result<(), plur1bus_engine::contract::EngineError> {
+        self.effects.insert(position, effect);
+        if self.stop_after_plan {
+            return Err(plur1bus_engine::contract::StoreError::Unavailable.into());
+        }
+        Ok(())
+    }
+    fn check(&self, cancel: &Cancel) -> Result<(), plur1bus_engine::contract::EngineError> {
+        cancel.check()?;
+        Ok(())
+    }
+}
+#[test]
+fn prepared_reminder_replays_one_original_id_and_preserves_terminal_acknowledgement() {
+    for terminal in ["scheduled", "acknowledged", "cancelled"] {
+        let f = fixture();
+        let mut journal = EffectJournal {
+            at: NOW - 60_000,
+            effects: Default::default(),
+            stop_after_plan: true,
+        };
+        let call = |journal: &mut EffectJournal| {
+            f.service.capture_recoverable(
+                plur1bus_engine::capture::reminder_store::ReminderInput {
+                    text: &JsString::from(TEXT),
+                    role: "user",
+                    enabled: true,
+                    principal: &f.principal,
+                    agent: &agent(),
+                },
+                0,
+                journal,
+                &Cancel::never(),
+            )
+        };
+        assert!(call(&mut journal).is_err());
+        assert_eq!(
+            f.stores
+                .get("alpha")
+                .unwrap()
+                .count(&RowFilter::default())
+                .unwrap(),
+            0
+        );
+        let expected = journal.effects[&0].row.clone();
+        assert_eq!(expected.remind_at.as_i64(), Some(NOW + 60_000));
+        journal.stop_after_plan = false;
+        let (row, created) = stored(call(&mut journal).unwrap());
+        assert!(created);
+        assert_eq!(row.id, expected.id);
+        let mut current = row;
+        current.reminder_status = terminal.into();
+        if terminal == "acknowledged" {
+            current.acknowledged_at = (NOW + 5_000).into();
+        }
+        if terminal == "cancelled" {
+            current.cancelled_at = (NOW + 5_000).into();
+        }
+        f.stores.get("alpha").unwrap().upsert(&[current]).unwrap();
+        let (replayed, created) = stored(call(&mut journal).unwrap());
+        assert!(!created);
+        assert_eq!(replayed.id, expected.id);
+        assert_eq!(replayed.reminder_status, terminal);
+        assert_eq!(
+            f.stores
+                .get("alpha")
+                .unwrap()
+                .count(&RowFilter::default())
+                .unwrap(),
+            1
+        );
+    }
+}
