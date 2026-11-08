@@ -5,6 +5,7 @@ pub mod global;
 mod index;
 pub mod merged;
 mod merged_order;
+pub mod postprocessing;
 pub mod prelude;
 pub mod routing;
 pub mod session_store;
