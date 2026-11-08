@@ -54,6 +54,26 @@ const RULE_FIXTURES = [
   ["HYG-017", "packages/core/src/external-agents/discovery.ts"],
 ];
 
+test("pinned capture oracle exceptions cover only its verified stub import and provenance paths", () => {
+  const recorder = "crates/plur1bus-engine/tests/fixtures/capture/record-accept.mjs";
+  const golden = "crates/plur1bus-engine/tests/fixtures/capture/golden/accept.json";
+  const stub = ["host", "services.js"].join("-");
+  const runtime = ["control-ui", "plugin", "runtime.js"].join("-");
+  const line = `  load("engine/create-engine.js"), load("lib/${stub}"), load("tests/helpers/hash-embedder.js"),\n`;
+  const valid = lintTree({ [recorder]: line, [golden]: `        "lib/${stub}"\n        "lib/setup/${runtime}"\n` });
+  assert.equal(valid.status, 0, valid.stderr);
+  for (const files of [
+    { "packages/core/src/not-an-oracle.ts": line },
+    { [recorder]: `load("lib/setup/${runtime}");\n` },
+    { [golden]: `import "lib/${stub}";\n` },
+    { [golden]: `"lib/setup/unapproved-${["plugin", "runtime.js"].join("-")}"\n` },
+  ]) {
+    const invalid = lintTree(files);
+    assert.equal(invalid.status, 1, invalid.stdout + invalid.stderr);
+    assert.match(invalid.stderr, /HYG-004/);
+  }
+});
+
 for (const [id, rejectPath, allowPath = rejectPath] of RULE_FIXTURES) {
   test(`${id} detects its forbidden fixture and accepts its clean fixture`, () => {
     const reject = lintTree({ [rejectPath]: fixture(id, "reject") });

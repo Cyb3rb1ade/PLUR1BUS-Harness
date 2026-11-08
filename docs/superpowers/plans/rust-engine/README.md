@@ -130,3 +130,36 @@ Kept by the controller. A row changes when a task's PR opens or merges.
 | RE-12 | superseded 2026-11-07 (D129, D131 Q10); not done | — |
 | RE-13 | not started (Phase 2; decided 2026-10-24) | — |
 | RE-14 | P1–P4 and T1 merged 2026-10-26 (#781, #783, #784, #785, #786), T2a and T3 2026-10-27 (#788, #790); P5 (RE-D29 setting, default 1.0) merged 2026-10-28 (#800), its RPC/CLI surface and the split view in `budget.status` follow after RE-08's schema change; T2b (exact Gemma 4, DeepSeek V4, Qwen 3.8, GLM counts) waits for the original files and their licences, and may add the Kimi K3, Grok-2 and Gemma 3 files RE-D25 approved; T4 with RE-08, T5 with RE-10 | — |
+
+## Capture parity ruling CA-R1 (controller, 2026-11-01)
+
+For RE-05, pinned Node source `9f34008c143c5da87b2194b5a28442b407ff8ba7` and the frozen contract take
+precedence over contradictory brief text. Correct the brief in the implementation PR and report each correction;
+do not change the RPC surface, contract number or parity baseline to satisfy stale brief requirements. Stop and
+report when the pin itself exposes a security problem.
+
+`deferPostTurnLlm: true` defers light-dream and episode work only when `post-turn-refine` is scheduled by the host.
+With no scheduled job, Rust runs the work inline like Node, through `HostServices::llm()` with `Cancel`, and returns
+the existing `post-turn-refine-unscheduled` diagnostic with `fallback: "inline"`. Record both scheduling cases.
+Pending queued work is distinct from classification: new captures start with `importanceStatus: "pending"`;
+emotion independently uses `final` or `pending_t3`. New rows use the pin's `observed`/`untrusted` epistemic status,
+not the empty legacy value. These brief corrections do not change the contract.
+
+Das Brief-Verhalten („pending ohne Inline-LLM, Diagnose post-turn-refine-unscheduled“) ist ein möglicher Phase-2-Schritt (RE-10), sobald RE-06 die Refine-Jobs liefert.
+
+Further CA-R1 source corrections: capture replay uses `_capture-turns/<URI-agent>.json` pending/completed entries,
+not begin/commit lines in Neo's append-only turn journal. Duplicate capture filtering uses the native squared-L2
+distance score, not cosine. Agent-private capture retains the pin's empty ownership columns and its `storedBy`
+agent; request identity still controls policy and store routing. Deferred dynamics is a per-agent reply-outcome
+queue, kicked after recall with a ten-second fallback; it is not the post-turn-refine job.
+
+## Capture logging exception CA-R2 (controller, 2026-11-01, section C)
+
+At pin locations `engine/capture/capture-turn.js:622` and `lib/runtime-scheduler.js:575`, Rust emits only a fixed
+error class, code, stage and numeric counter. Input, provider-response and memory text never enter these logs.
+This is an approved logging-only security exception; persisted bytes, ledgers, contract and return values keep
+their pinned behavior. Both locations are recorded in RE-01's `schema/DRIFT.json` and have injected-private-error
+regressions. The handoff includes Node issue text for the controller to file; the Node repository remains read-only.
+
+
+RX6 recovery note: these historical rulings were recovered from commit `880e1bcdd5`; current RX rulings and D130 take precedence. The recovered admission library is not yet the productive capture pipeline.

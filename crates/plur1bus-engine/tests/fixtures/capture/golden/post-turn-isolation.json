@@ -1,0 +1,99 @@
+{
+  "recordedFrom": {
+    "engine": "node",
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "node": "v24.21.0",
+    "sourceHashes": {
+      "lib/bounded-operation-queue.js": "2eab692d9aa65b4aff5fb732866d01ff3d6efa92b174add4fa9bdc98e82c5c71",
+      "lib/event-loop-lag-snapshot.js": "c6e150c845be601d075e8496c83757a2eb79d0f468915c48a9ce4a26d8f78f3e",
+      "lib/job-lock.js": "aae2aae01aaabbe4f589aa115293f9196aa3ee303587926f6b1d62dc68c08328",
+      "lib/log-redact.js": "f64f7d2e2fbf13684ad16fe045a1e43a9755c57be00ee7532479286eed0068e3",
+      "lib/platform.js": "b210b81d3d27e65a4cd872d766d089ba7a96e9d9e7ebb65143e156d00a59ff61",
+      "lib/post-turn-detach.js": "41740172ee7eb0d9e6386aefd2695734635464eb81765bb82f5a163720f34fa6",
+      "lib/post-turn-queue.js": "3fce51202a2804cc91e2626989640a67c54c011c0d345f57d9437a589f4a3971",
+      "lib/recall-phase-timer.js": "f75d406e9fe375fa6e3094a26701430d383b8d95a2e5075dc669b055f46dcd0a",
+      "lib/registry-lock.js": "718791a188344b396e72db33c908fb2ef3d71a67dc1ac29a3b2b882c7b76a4e9",
+      "lib/runtime-pressure-gate.js": "100440d328af2db0c494f60bf6922fdbf84905069db96ab40c89b88285db8d42",
+      "lib/runtime-scheduler.js": "349dac591a4318d91049b89fc88f647fe8ffcb0f39dc50a52b61060f5fb3a1ac",
+      "lib/safe-logging.js": "4a634fa3c4cce35d5c7cb29c7c2eb72378666ef400e79dc7869a4c50d2e2c0ac",
+      "lib/sql-safety.js": "a6b949df02d29d3ed0494964c004d861d718eeb90abd271410e22a489de1bc62",
+      "lib/windows-acl-parse.js": "1241ba9d3a508f1e2be9c6ce840898f6f74a0aadca42feb4de35a8de44aa5da1"
+    },
+    "platform": "darwin",
+    "normalization": "UUID/file names omitted; no content emitted by callback"
+  },
+  "cases": [
+    {
+      "name": "foreign",
+      "payload": "{\"agentId\":\"beta\",\"turns\":[]}",
+      "aliases": false,
+      "count": 1,
+      "called": 1,
+      "observedAgent": "beta",
+      "processed": 1,
+      "remaining": false,
+      "outsideUnchanged": null,
+      "rustException": "exact-agent-and-ordinary-file"
+    },
+    {
+      "name": "missing",
+      "payload": "{\"turns\":[]}",
+      "aliases": false,
+      "count": 1,
+      "called": 1,
+      "observedAgent": null,
+      "processed": 1,
+      "remaining": false,
+      "outsideUnchanged": null,
+      "rustException": "exact-agent-and-ordinary-file"
+    },
+    {
+      "name": "duplicate-foreign-last",
+      "payload": "{\"agentId\":\"alpha\",\"agentId\":\"beta\"}",
+      "aliases": false,
+      "count": 1,
+      "called": 1,
+      "observedAgent": "beta",
+      "processed": 1,
+      "remaining": false,
+      "outsideUnchanged": null,
+      "rustException": "exact-agent-and-ordinary-file"
+    },
+    {
+      "name": "duplicate-owner-last",
+      "payload": "{\"agentId\":\"beta\",\"agentId\":\"alpha\"}",
+      "aliases": false,
+      "count": 1,
+      "called": 1,
+      "observedAgent": "alpha",
+      "processed": 1,
+      "remaining": false,
+      "outsideUnchanged": null,
+      "rustException": "exact-agent-and-ordinary-file"
+    },
+    {
+      "name": "link",
+      "payload": "{\"agentId\":\"alpha\",\"turns\":[\"synthetic private sentence\"]}",
+      "aliases": false,
+      "count": 1,
+      "called": 1,
+      "observedAgent": "alpha",
+      "processed": 1,
+      "remaining": false,
+      "outsideUnchanged": true,
+      "rustException": "exact-agent-and-ordinary-file"
+    },
+    {
+      "name": "case-alias",
+      "payload": null,
+      "aliases": true,
+      "count": 1,
+      "called": 1,
+      "observedAgent": "Alpha",
+      "processed": 1,
+      "remaining": false,
+      "outsideUnchanged": null,
+      "rustException": "exact-agent-and-ordinary-file"
+    }
+  ]
+}

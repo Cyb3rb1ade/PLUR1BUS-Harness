@@ -70,6 +70,28 @@
         ]
       },
       "reason": "Uncapped closed, warm, aborted and other early exits return Infinity in Node; JSON serializes it as null. Preserve null as the uncapped sentinel."
+    },
+    {
+      "id": "capture-batch-error-log-redaction",
+      "kind": "security-log-redaction",
+      "path": "engine/capture/capture-turn.js:622",
+      "sourceSha256": "5013e45b1ee71efa684ad86d03933adf08ed63e43c159411227e72bfed14d41d",
+      "ruling": "CA-R2, controller 2026-11-01 (section C)",
+      "nodeBehavior": "Formats the untrusted exception with String(error) in the log line.",
+      "rustBehavior": "Logs only fixed error class, code, stage and numeric count; no input, provider response or memory text.",
+      "unchanged": "Data formats, ledgers, contracts and return values retain pinned behavior.",
+      "reason": "An injected exception reflecting synthetic private input reaches the pinned log; the controller approved this logging-only security exception."
+    },
+    {
+      "id": "capture-late-error-log-redaction",
+      "kind": "security-log-redaction",
+      "path": "lib/runtime-scheduler.js:575",
+      "sourceSha256": "349dac591a4318d91049b89fc88f647fe8ffcb0f39dc50a52b61060f5fb3a1ac",
+      "ruling": "CA-R2, controller 2026-11-01 (section C)",
+      "nodeBehavior": "Formats the untrusted exception with String(error) in the log line.",
+      "rustBehavior": "Logs only fixed error class, code, stage and numeric count; no input, provider response or memory text.",
+      "unchanged": "Data formats, ledgers, contracts and return values retain pinned behavior.",
+      "reason": "An injected exception reflecting synthetic private input reaches the pinned log; the controller approved this logging-only security exception."
     }
   ],
   "acceptedManifestFields": [

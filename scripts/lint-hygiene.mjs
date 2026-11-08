@@ -97,6 +97,15 @@ const ALLOW_FILES = new Set([
 const ALLOW_DIRS = ["packages/core/src/import/", "packages/core/test/import/"];
 // Path -> regexes; a matching line is allowed only if it also matches one of these.
 const ALLOW = new Map([
+  // RE-05/T1's hash-verified Node oracle constructs the pinned public engine with its stub host.
+  // Only this exact recorder import and the golden's source-path metadata are exempt; runtime
+  // Harness imports and other adapter imports in the recorder remain forbidden.
+  ["crates/plur1bus-engine/tests/fixtures/capture/record-accept.mjs", [
+    /^\s*load\("engine\/create-engine\.js"\), load\("lib\/host-services\.js"\), load\("tests\/helpers\/hash-embedder\.js"\),\s*$/,
+  ]],
+  ["crates/plur1bus-engine/tests/fixtures/capture/golden/accept.json", [
+    /^\s*"lib\/(?:host-services\.js|setup\/(?:control-ui|feature-cron|obsidian-vault|reembedding|selftest|skill-workshop|workspace-policy)-plugin-runtime\.js)"\s*$/,
+  ]],
   // Preserve this exact frozen Node error in its recorded parity fixture only.
   ["crates/plur1bus-engine/tests/fixtures/ops/golden/reembedding-runtime-probe.json", [/^\s*"error": "active generation selection drift after OpenClaw config mutation",?\s*$/]],
   ["packages/core/test/principal.test.ts", [/lib\/memory-request-context\.js/]],

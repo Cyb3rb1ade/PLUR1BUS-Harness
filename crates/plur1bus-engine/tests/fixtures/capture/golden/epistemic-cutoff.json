@@ -1,0 +1,298 @@
+{
+  "provenance": {
+    "engine": "node",
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "node": "v24.21.0",
+    "flags": [
+      "--epistemic"
+    ],
+    "sourcesSha256": [
+      {
+        "pathParts": [
+          "lib/epistemic-cutoff.js"
+        ],
+        "sha256": "be5ede67057998ce0cfb9ad5684b193d962c356edb0faada8fda2853aaa999c1"
+      },
+      {
+        "pathParts": [
+          "lib/fsync-atomic.js"
+        ],
+        "sha256": "4032b362dc9d281d2314563427012d33626d4418fe256919ea807ea26e14b6cc"
+      },
+      {
+        "pathParts": [
+          "lib/atomic-file.js"
+        ],
+        "sha256": "871d6bf76d043ab950ba7d749cb326b2a62910a51abc2d0257af233223cb0cd0"
+      },
+      {
+        "pathParts": [
+          "lib/safe-logging.js"
+        ],
+        "sha256": "4a634fa3c4cce35d5c7cb29c7c2eb72378666ef400e79dc7869a4c50d2e2c0ac"
+      },
+      {
+        "pathParts": [
+          "lib/log-redact.js"
+        ],
+        "sha256": "f64f7d2e2fbf13684ad16fe045a1e43a9755c57be00ee7532479286eed0068e3"
+      },
+      {
+        "pathParts": [
+          "lib/epistemic-capture.js"
+        ],
+        "sha256": "c88bca3c1ac7a452b31d13b1b54aec6040d6fb76f72cc07724239f18de056351"
+      },
+      {
+        "pathParts": [
+          "lib/neo-arch.js"
+        ],
+        "sha256": "ec2aec625522af631d8764298f4a21ea51e6d437d7b73e495c4b7fe95b8c813f"
+      },
+      {
+        "pathParts": [
+          "lib/emotion.js"
+        ],
+        "sha256": "4fad4d37803bbee8bf95a8d3db11b5e2fdc3b195d617055a8af63a0d52780c27"
+      },
+      {
+        "pathParts": [
+          "lib/emotion-engine.js"
+        ],
+        "sha256": "b8d4e60b785c9d19809b7f2bfe67e6d2871dfb1b4699bd96b6ee666391372557"
+      },
+      {
+        "pathParts": [
+          "lib/emotion-score.js"
+        ],
+        "sha256": "4f5aff9b4bb80e9673c2d1d0a748bd69f12979e11241f946e0b43e48a0df3573"
+      },
+      {
+        "pathParts": [
+          "lib/tier1-lexicon.js"
+        ],
+        "sha256": "b4f0e03d727355e52806cda8761f4b38c3af3dc064a051f804ed99981b3d09f8"
+      },
+      {
+        "pathParts": [
+          "lib/tier2-transformer.js"
+        ],
+        "sha256": "f928294f31e1cf5c69ffff8b3a8c98b42af8ccc4205877036895d35acc13a120"
+      },
+      {
+        "pathParts": [
+          "lib/tier3-llm.js"
+        ],
+        "sha256": "7749de629deee9a0cc8cd01dc51cb7bbcc6e5a99256b5eb794abf0fd41ab0dc6"
+      },
+      {
+        "pathParts": [
+          "lib/host-network.js"
+        ],
+        "sha256": "360b692df2f2c3dc9761cfe73ca5165da4b5416f8b7778b5ec79b1dd253aaf69"
+      },
+      {
+        "pathParts": [
+          "lib/emotion-blends.js"
+        ],
+        "sha256": "653021f8048772dc6a2c1da0e60bfef08250bcd61aacf45ba1a9bf379fa7ca29"
+      },
+      {
+        "pathParts": [
+          "lib/abort.js"
+        ],
+        "sha256": "435016008fa477f7ed7d3215505324bb3e7159e123ea553b35fb8a14d5a4055d"
+      },
+      {
+        "pathParts": [
+          "lib/relevant-memory-context.js"
+        ],
+        "sha256": "021cb6e3e568915dbd12602f77ba924ac8c6f1cbc43fcb93cd8697156dca4c66"
+      },
+      {
+        "pathParts": [
+          "lib/memory-context-sanitize.js"
+        ],
+        "sha256": "476528aa230fcda996245aa22efee376153ea4bc9a6287ce77da62c1a54e2377"
+      },
+      {
+        "pathParts": [
+          "lib/pattern-surface.js"
+        ],
+        "sha256": "e65b2ec958b0564f44ae374579ee59f52f2c9b5be50e3a95e9bb33527b276b8b"
+      },
+      {
+        "pathParts": [
+          "lib/continuity-gate.js"
+        ],
+        "sha256": "74b57c98d4631c9d6d34ecc2c744b02f2f430584e270671f60b3ecadc2de84b6"
+      },
+      {
+        "pathParts": [
+          "lib/recall-decision-trace.js"
+        ],
+        "sha256": "cee6208fa0a91654adae11ccd17c3b44e86c84fdf9b30c1addfa1d299c96711d"
+      },
+      {
+        "pathParts": [
+          "lib/temporal-provenance.js"
+        ],
+        "sha256": "b15da5a91b134fddd99a8ff2448999b9b9e8da3f069b05dd73a2c1ae3a89cc60"
+      },
+      {
+        "pathParts": [
+          "lib/prompt-memory-fields.js"
+        ],
+        "sha256": "f20716b535734930677a4657ee62c01247679aa2ba2f0f6a3d7a6de62396bbda"
+      },
+      {
+        "pathParts": [
+          "lib/epistemic-status.js"
+        ],
+        "sha256": "552a71f9616c8caa2151b54feadd3e6ab19a470218022027425b11ccaf967fec"
+      },
+      {
+        "pathParts": [
+          "lib/inject-budget.js"
+        ],
+        "sha256": "5897fe0a629543e60997e4749f4692c841a8f21a66526c618d7ff3fc1f52d945"
+      },
+      {
+        "pathParts": [
+          "lib/registry-lock.js"
+        ],
+        "sha256": "718791a188344b396e72db33c908fb2ef3d71a67dc1ac29a3b2b882c7b76a4e9"
+      }
+    ],
+    "sourcePathJoiner": [
+      "open",
+      "claw"
+    ],
+    "disabledOptions": [],
+    "normalization": "none; state bytes are raw Node writes"
+  },
+  "cases": [
+    {
+      "name": "absent",
+      "seed": null,
+      "enabled": false,
+      "before": "{\"ok\":false,\"since\":0,\"enabled\":false,\"legacyOpen\":false,\"reason\":\"cutoff_absent\"}",
+      "result": "{\"ok\":true,\"since\":1000,\"enabled\":true,\"legacyOpen\":true,\"reason\":\"created\"}",
+      "again": "{\"ok\":true,\"since\":1000,\"enabled\":true,\"legacyOpen\":true,\"reason\":\"ok\"}",
+      "cutoff": "{\"since\":1000,\"createdAt\":1000}\n",
+      "marker": "1\n"
+    },
+    {
+      "name": "restored-missing",
+      "seed": null,
+      "enabled": true,
+      "before": "{\"ok\":false,\"since\":0,\"enabled\":true,\"legacyOpen\":false,\"reason\":\"cutoff_missing_after_upgrade\"}",
+      "result": "{\"ok\":false,\"since\":0,\"enabled\":true,\"legacyOpen\":false,\"reason\":\"cutoff_missing_after_upgrade\"}",
+      "again": "{\"ok\":false,\"since\":0,\"enabled\":true,\"legacyOpen\":false,\"reason\":\"cutoff_missing_after_upgrade\"}",
+      "cutoff": null,
+      "marker": "1\n"
+    },
+    {
+      "name": "existing",
+      "seed": "{\"since\":100,\"createdAt\":75}\n",
+      "enabled": false,
+      "before": "{\"ok\":true,\"since\":100,\"enabled\":false,\"legacyOpen\":true,\"reason\":\"ok\"}",
+      "result": "{\"ok\":true,\"since\":100,\"enabled\":false,\"legacyOpen\":true,\"reason\":\"ok\"}",
+      "again": "{\"ok\":true,\"since\":100,\"enabled\":false,\"legacyOpen\":true,\"reason\":\"ok\"}",
+      "cutoff": "{\"since\":100,\"createdAt\":75}\n",
+      "marker": null
+    },
+    {
+      "name": "corrupt",
+      "seed": "{broken",
+      "enabled": false,
+      "before": "{\"ok\":false,\"since\":0,\"enabled\":false,\"legacyOpen\":false,\"reason\":\"cutoff_read_error\"}",
+      "result": "{\"ok\":false,\"since\":0,\"enabled\":false,\"legacyOpen\":false,\"reason\":\"cutoff_read_error\"}",
+      "again": "{\"ok\":false,\"since\":0,\"enabled\":false,\"legacyOpen\":false,\"reason\":\"cutoff_read_error\"}",
+      "cutoff": "{broken",
+      "marker": null
+    },
+    {
+      "name": "invalid-since",
+      "seed": "{\"since\":0}\n",
+      "enabled": false,
+      "before": "{\"ok\":false,\"since\":0,\"enabled\":false,\"legacyOpen\":false,\"reason\":\"cutoff_read_error\"}",
+      "result": "{\"ok\":false,\"since\":0,\"enabled\":false,\"legacyOpen\":false,\"reason\":\"cutoff_read_error\"}",
+      "again": "{\"ok\":false,\"since\":0,\"enabled\":false,\"legacyOpen\":false,\"reason\":\"cutoff_read_error\"}",
+      "cutoff": "{\"since\":0}\n",
+      "marker": null
+    },
+    {
+      "name": "fractional-since",
+      "seed": "{\"since\":1.5}\n",
+      "enabled": true,
+      "before": "{\"ok\":false,\"since\":0,\"enabled\":true,\"legacyOpen\":false,\"reason\":\"cutoff_read_error\"}",
+      "result": "{\"ok\":false,\"since\":0,\"enabled\":true,\"legacyOpen\":false,\"reason\":\"cutoff_read_error\"}",
+      "again": "{\"ok\":false,\"since\":0,\"enabled\":true,\"legacyOpen\":false,\"reason\":\"cutoff_read_error\"}",
+      "cutoff": "{\"since\":1.5}\n",
+      "marker": "1\n"
+    }
+  ],
+  "bounds": [
+    {
+      "value": null,
+      "finite": null,
+      "before": false,
+      "after": false
+    },
+    {
+      "value": "100",
+      "finite": null,
+      "before": false,
+      "after": false
+    },
+    {
+      "value": 0,
+      "finite": 0,
+      "before": false,
+      "after": false
+    },
+    {
+      "value": -1,
+      "finite": -1,
+      "before": false,
+      "after": false
+    },
+    {
+      "value": 99,
+      "finite": 99,
+      "before": true,
+      "after": false
+    },
+    {
+      "value": 100,
+      "finite": 100,
+      "before": false,
+      "after": true
+    },
+    {
+      "value": 101,
+      "finite": 101,
+      "before": false,
+      "after": true
+    },
+    {
+      "value": 1.5,
+      "finite": null,
+      "before": false,
+      "after": false
+    },
+    {
+      "value": 9007199254740991,
+      "finite": 9007199254740991,
+      "before": false,
+      "after": true
+    },
+    {
+      "value": 9007199254740992,
+      "finite": null,
+      "before": false,
+      "after": false
+    }
+  ]
+}

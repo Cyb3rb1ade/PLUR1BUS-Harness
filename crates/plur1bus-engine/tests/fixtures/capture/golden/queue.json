@@ -1,0 +1,347 @@
+{
+  "schema": "capture-queue/1",
+  "recordedFrom": {
+    "engine": "node",
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "node": "v24.21.0",
+    "sourceHashes": {
+      "lib/bounded-operation-queue.js": "2eab692d9aa65b4aff5fb732866d01ff3d6efa92b174add4fa9bdc98e82c5c71",
+      "lib/event-loop-lag-snapshot.js": "c6e150c845be601d075e8496c83757a2eb79d0f468915c48a9ce4a26d8f78f3e",
+      "lib/job-lock.js": "aae2aae01aaabbe4f589aa115293f9196aa3ee303587926f6b1d62dc68c08328",
+      "lib/log-redact.js": "f64f7d2e2fbf13684ad16fe045a1e43a9755c57be00ee7532479286eed0068e3",
+      "lib/platform.js": "b210b81d3d27e65a4cd872d766d089ba7a96e9d9e7ebb65143e156d00a59ff61",
+      "lib/post-turn-detach.js": "41740172ee7eb0d9e6386aefd2695734635464eb81765bb82f5a163720f34fa6",
+      "lib/post-turn-queue.js": "3fce51202a2804cc91e2626989640a67c54c011c0d345f57d9437a589f4a3971",
+      "lib/recall-phase-timer.js": "f75d406e9fe375fa6e3094a26701430d383b8d95a2e5075dc669b055f46dcd0a",
+      "lib/registry-lock.js": "718791a188344b396e72db33c908fb2ef3d71a67dc1ac29a3b2b882c7b76a4e9",
+      "lib/runtime-pressure-gate.js": "100440d328af2db0c494f60bf6922fdbf84905069db96ab40c89b88285db8d42",
+      "lib/runtime-scheduler.js": "349dac591a4318d91049b89fc88f647fe8ffcb0f39dc50a52b61060f5fb3a1ac",
+      "lib/safe-logging.js": "4a634fa3c4cce35d5c7cb29c7c2eb72378666ef400e79dc7869a4c50d2e2c0ac",
+      "lib/sql-safety.js": "a6b949df02d29d3ed0494964c004d861d718eeb90abd271410e22a489de1bc62",
+      "lib/windows-acl-parse.js": "1241ba9d3a508f1e2be9c6ce840898f6f74a0aadca42feb4de35a8de44aa5da1"
+    },
+    "flags": {
+      "schedulerPressureGateEnabled": false,
+      "schedulerEventLoopLagSnapshot": false,
+      "pressureAdmissionGateEnabled": true,
+      "concurrentCaptureSlots": 2,
+      "pressureCasesOverrideMemoryUsage": true,
+      "timeoutCaseMs": 20,
+      "postTurnNowMs": 1790000000000
+    },
+    "excluded": [
+      "recall queue/cache (owned by RE-04)",
+      "AsyncLocalStorage identity detachment (host adapter only)"
+    ]
+  },
+  "results": {
+    "config": [
+      {
+        "name": "defaults",
+        "input": {},
+        "raw": "{\"captureTimeoutMs\":60000,\"maxConcurrentCapturePerAgent\":1,\"backgroundPriority\":\"low\",\"maxQueueDepthCapturePerAgent\":10,\"pressureGateEnabled\":true,\"rssWarningBytes\":3221225472,\"rssCriticalBytes\":4831838208}"
+      },
+      {
+        "name": "custom",
+        "input": {
+          "captureTimeoutMs": 27.9,
+          "maxConcurrentCapturePerAgent": 2,
+          "backgroundPriority": "normal",
+          "maxQueueDepthCapturePerAgent": 2,
+          "pressureGateEnabled": false,
+          "rssWarningBytes": 50,
+          "rssCriticalBytes": 100
+        },
+        "raw": "{\"captureTimeoutMs\":27,\"maxConcurrentCapturePerAgent\":2,\"backgroundPriority\":\"normal\",\"maxQueueDepthCapturePerAgent\":2,\"pressureGateEnabled\":false,\"rssWarningBytes\":50,\"rssCriticalBytes\":100}"
+      },
+      {
+        "name": "invalid",
+        "input": {
+          "captureTimeoutMs": 0,
+          "maxConcurrentCapturePerAgent": -1,
+          "backgroundPriority": "high",
+          "maxQueueDepthCapturePerAgent": null,
+          "pressureGateEnabled": 0,
+          "rssWarningBytes": "9",
+          "rssCriticalBytes": "bad"
+        },
+        "raw": "{\"captureTimeoutMs\":60000,\"maxConcurrentCapturePerAgent\":1,\"backgroundPriority\":\"low\",\"maxQueueDepthCapturePerAgent\":10,\"pressureGateEnabled\":true,\"rssWarningBytes\":9,\"rssCriticalBytes\":4831838208}"
+      },
+      {
+        "name": "fractional",
+        "input": {
+          "captureTimeoutMs": 0.5,
+          "maxConcurrentCapturePerAgent": 0.5,
+          "maxQueueDepthCapturePerAgent": 0.5,
+          "rssWarningBytes": 0.5,
+          "rssCriticalBytes": 0.5
+        },
+        "raw": "{\"captureTimeoutMs\":0,\"maxConcurrentCapturePerAgent\":0,\"backgroundPriority\":\"low\",\"maxQueueDepthCapturePerAgent\":0,\"pressureGateEnabled\":true,\"rssWarningBytes\":0,\"rssCriticalBytes\":0}"
+      }
+    ],
+    "pressure": [
+      {
+        "rss": 0,
+        "heap": 536870912,
+        "raw": "{\"level\":\"ok\",\"reason\":\"RSS 0.00 GiB below warning 3.00 GiB\",\"rssBytes\":0,\"heapUsedBytes\":536870912,\"thresholdBytes\":3221225472}"
+      },
+      {
+        "rss": 134217728,
+        "heap": 536870912,
+        "raw": "{\"level\":\"ok\",\"reason\":\"RSS 0.13 GiB below warning 3.00 GiB\",\"rssBytes\":134217728,\"heapUsedBytes\":536870912,\"thresholdBytes\":3221225472}"
+      },
+      {
+        "rss": 2281701376,
+        "heap": 536870912,
+        "raw": "{\"level\":\"ok\",\"reason\":\"RSS 2.13 GiB below warning 3.00 GiB\",\"rssBytes\":2281701376,\"heapUsedBytes\":536870912,\"thresholdBytes\":3221225472}"
+      },
+      {
+        "rss": 2147483648,
+        "heap": 536870912,
+        "raw": "{\"level\":\"ok\",\"reason\":\"RSS 2.00 GiB below warning 3.00 GiB\",\"rssBytes\":2147483648,\"heapUsedBytes\":536870912,\"thresholdBytes\":3221225472}"
+      },
+      {
+        "rss": 3221225472,
+        "heap": 536870912,
+        "raw": "{\"level\":\"warning\",\"reason\":\"RSS 3.00 GiB >= warning 3.00 GiB (heapUsed 0.50 GiB)\",\"rssBytes\":3221225472,\"heapUsedBytes\":536870912,\"thresholdBytes\":3221225472}"
+      },
+      {
+        "rss": 4831838208,
+        "heap": 536870912,
+        "raw": "{\"level\":\"critical\",\"reason\":\"RSS 4.50 GiB >= critical 4.50 GiB (heapUsed 0.50 GiB)\",\"rssBytes\":4831838208,\"heapUsedBytes\":536870912,\"thresholdBytes\":4831838208}"
+      },
+      {
+        "rss": 5368709120,
+        "heap": 536870912,
+        "raw": "{\"level\":\"critical\",\"reason\":\"RSS 5.00 GiB >= critical 4.50 GiB (heapUsed 0.50 GiB)\",\"rssBytes\":5368709120,\"heapUsedBytes\":536870912,\"thresholdBytes\":4831838208}"
+      }
+    ],
+    "bounded": [
+      {
+        "name": "evicts-oldest-background",
+        "depth": 2,
+        "items": [
+          {
+            "id": "a",
+            "background": true,
+            "priority": "low"
+          },
+          {
+            "id": "b",
+            "background": true,
+            "priority": "low"
+          },
+          {
+            "id": "c",
+            "background": true,
+            "priority": "low"
+          }
+        ],
+        "raw": "[{\"result\":{\"accepted\":true,\"evicted\":false,\"dropped\":false},\"ids\":[\"a\"],\"evicted\":[]},{\"result\":{\"accepted\":true,\"evicted\":false,\"dropped\":false},\"ids\":[\"a\",\"b\"],\"evicted\":[]},{\"result\":{\"accepted\":true,\"evicted\":true,\"dropped\":false},\"ids\":[\"b\",\"c\"],\"evicted\":[\"a\"]}]"
+      },
+      {
+        "name": "explicit-exceeds-soft-cap",
+        "depth": 2,
+        "items": [
+          {
+            "id": "a",
+            "background": false,
+            "priority": "normal"
+          },
+          {
+            "id": "b",
+            "background": true,
+            "priority": "normal"
+          },
+          {
+            "id": "c",
+            "background": false,
+            "priority": "high"
+          },
+          {
+            "id": "d",
+            "background": true,
+            "priority": "low"
+          }
+        ],
+        "raw": "[{\"result\":{\"accepted\":true,\"evicted\":false,\"dropped\":false},\"ids\":[\"a\"],\"evicted\":[]},{\"result\":{\"accepted\":true,\"evicted\":false,\"dropped\":false},\"ids\":[\"a\",\"b\"],\"evicted\":[]},{\"result\":{\"accepted\":true,\"evicted\":false,\"dropped\":false},\"ids\":[\"a\",\"b\",\"c\"],\"evicted\":[]},{\"result\":{\"accepted\":false,\"evicted\":false,\"dropped\":true},\"ids\":[\"a\",\"b\",\"c\"],\"evicted\":[]}]"
+      },
+      {
+        "name": "unbounded-zero-depth",
+        "depth": 0,
+        "items": [
+          {
+            "id": "a",
+            "background": true,
+            "priority": "low"
+          },
+          {
+            "id": "b",
+            "background": true,
+            "priority": "low"
+          }
+        ],
+        "raw": "[{\"result\":{\"accepted\":true,\"evicted\":false,\"dropped\":false},\"ids\":[\"a\"],\"evicted\":[]},{\"result\":{\"accepted\":true,\"evicted\":false,\"dropped\":false},\"ids\":[\"a\",\"b\"],\"evicted\":[]}]"
+      }
+    ],
+    "admission": [
+      {
+        "name": "ordinary-user",
+        "input": {
+          "event": {
+            "prompt": "I am dreaming about background colors and promotion"
+          },
+          "ctx": {}
+        },
+        "raw": "{\"background\":false,\"skip\":false}"
+      },
+      {
+        "name": "cron",
+        "input": {
+          "event": {
+            "origin": "cron",
+            "prompt": "/memory example"
+          },
+          "ctx": {}
+        },
+        "raw": "{\"background\":true,\"skip\":true}"
+      },
+      {
+        "name": "heartbeat",
+        "input": {
+          "event": {
+            "prompt": "HEARTBEAT_OK"
+          },
+          "ctx": {}
+        },
+        "raw": "{\"background\":true,\"skip\":true}"
+      },
+      {
+        "name": "active-memory",
+        "input": {
+          "event": {},
+          "ctx": {
+            "sessionKey": "agent:alpha:active-memory:1"
+          }
+        },
+        "raw": "{\"background\":false,\"skip\":true}"
+      },
+      {
+        "name": "background-session",
+        "input": {
+          "event": {},
+          "ctx": {
+            "sessionKey": "agent:alpha:background:1"
+          }
+        },
+        "raw": "{\"background\":false,\"skip\":true}"
+      },
+      {
+        "name": "manual-trigger",
+        "input": {
+          "event": {
+            "trigger": "manual"
+          },
+          "ctx": {}
+        },
+        "raw": "{\"background\":true,\"skip\":true}"
+      },
+      {
+        "name": "explicit-recall",
+        "input": {
+          "event": {
+            "origin": "cron",
+            "prompt": "/recall favorite food"
+          },
+          "ctx": {}
+        },
+        "raw": "{\"background\":true,\"skip\":true}"
+      },
+      {
+        "name": "magic",
+        "input": {
+          "magic": true
+        },
+        "raw": "{\"background\":false,\"skip\":true}"
+      }
+    ],
+    "order": {
+      "raw": "{\"order\":[\"active\",\"high\",\"normal\",\"low\"],\"results\":[{\"ok\":true,\"background\":false},{\"ok\":true,\"background\":true},{\"ok\":true,\"background\":false},{\"ok\":true,\"background\":false}],\"status\":{\"queuedAgents\":1,\"queuedTotal\":0,\"active\":0,\"completed\":4,\"timedOut\":0,\"failed\":0,\"skipped\":0,\"backgroundTimestampWritten\":true}}",
+      "resultLines": [
+        "{\"ok\":true,\"background\":false}",
+        "{\"ok\":true,\"background\":true}",
+        "{\"ok\":true,\"background\":false}",
+        "{\"ok\":true,\"background\":false}"
+      ],
+      "statusLine": "{\"queuedAgents\":1,\"queuedTotal\":0,\"active\":0,\"completed\":4,\"timedOut\":0,\"failed\":0,\"skipped\":0,\"backgroundTimestampWritten\":true}"
+    },
+    "concurrent": {
+      "order": [
+        "first",
+        "second",
+        "third"
+      ],
+      "heldLine": "{\"queuedAgents\":1,\"queuedTotal\":1,\"active\":2,\"completed\":0,\"timedOut\":0,\"failed\":0,\"skipped\":0,\"backgroundTimestampWritten\":false}",
+      "resultLines": [
+        "{\"ok\":true,\"background\":false}",
+        "{\"ok\":true,\"background\":false}",
+        "{\"ok\":true,\"background\":false}"
+      ],
+      "statusLine": "{\"queuedAgents\":1,\"queuedTotal\":0,\"active\":0,\"completed\":3,\"timedOut\":0,\"failed\":0,\"skipped\":0,\"backgroundTimestampWritten\":false}"
+    },
+    "timeout": {
+      "raw": "{\"timeoutResult\":{\"ok\":false,\"timedOut\":true,\"background\":false},\"timeoutState\":{\"queuedAgents\":1,\"queuedTotal\":1,\"active\":1,\"completed\":0,\"timedOut\":1,\"failed\":0,\"skipped\":0,\"backgroundTimestampWritten\":false},\"afterTimeout\":{\"ok\":true,\"background\":false},\"order\":[\"first-start\",\"first-end\",\"second-start\"],\"status\":{\"queuedAgents\":1,\"queuedTotal\":0,\"active\":0,\"completed\":1,\"timedOut\":1,\"failed\":0,\"skipped\":0,\"backgroundTimestampWritten\":false}}",
+      "timeoutResultLine": "{\"ok\":false,\"timedOut\":true,\"background\":false}",
+      "timeoutStateLine": "{\"queuedAgents\":1,\"queuedTotal\":1,\"active\":1,\"completed\":0,\"timedOut\":1,\"failed\":0,\"skipped\":0,\"backgroundTimestampWritten\":false}",
+      "statusLine": "{\"queuedAgents\":1,\"queuedTotal\":0,\"active\":0,\"completed\":1,\"timedOut\":1,\"failed\":0,\"skipped\":0,\"backgroundTimestampWritten\":false}"
+    },
+    "preAborted": {
+      "raw": "{\"ok\":false,\"aborted\":true,\"reason\":\"aborted\",\"background\":false}"
+    },
+    "queuedAbort": {
+      "raw": "{\"sawAborted\":true,\"result\":{\"ok\":true,\"background\":false},\"status\":{\"queuedAgents\":1,\"queuedTotal\":0,\"active\":0,\"completed\":2,\"timedOut\":0,\"failed\":0,\"skipped\":0,\"backgroundTimestampWritten\":false}}"
+    },
+    "pressureAdmission": [
+      {
+        "meta": {
+          "background": true
+        },
+        "raw": "{\"ok\":false,\"skipped\":true,\"reason\":\"RSS 5.00 GiB >= critical 4.50 GiB (heapUsed 0.50 GiB)\",\"pressure\":{\"level\":\"critical\",\"reason\":\"RSS 5.00 GiB >= critical 4.50 GiB (heapUsed 0.50 GiB)\",\"rssBytes\":5368709120,\"heapUsedBytes\":536870912,\"thresholdBytes\":4831838208},\"background\":true}"
+      },
+      {
+        "meta": {
+          "priority": "low"
+        },
+        "raw": "{\"ok\":false,\"skipped\":true,\"reason\":\"RSS 5.00 GiB >= critical 4.50 GiB (heapUsed 0.50 GiB)\",\"pressure\":{\"level\":\"critical\",\"reason\":\"RSS 5.00 GiB >= critical 4.50 GiB (heapUsed 0.50 GiB)\",\"rssBytes\":5368709120,\"heapUsedBytes\":536870912,\"thresholdBytes\":4831838208},\"background\":false}"
+      },
+      {
+        "meta": {
+          "priority": "high"
+        },
+        "raw": "{\"ok\":true,\"background\":false}"
+      },
+      {
+        "meta": {},
+        "raw": "{\"ok\":true,\"background\":false}"
+      }
+    ],
+    "postTurn": {
+      "raw": "{\"firstEntry\":\"{\\\"turns\\\":[{\\\"role\\\":\\\"user\\\",\\\"content\\\":\\\"A synthetic public fixture sentence.\\\"}],\\\"lightDream\\\":true,\\\"episodes\\\":false,\\\"id\\\":\\\"<uuid>\\\",\\\"agentId\\\":\\\"alpha\\\",\\\"enqueuedAt\\\":1790000000000,\\\"attempts\\\":0}\",\"failed\":[{\"result\":{\"processed\":0,\"failed\":1,\"dropped\":0,\"remaining\":2,\"deadlineHit\":false},\"resultLine\":\"{\\\"processed\\\":0,\\\"failed\\\":1,\\\"dropped\\\":0,\\\"remaining\\\":2,\\\"deadlineHit\\\":false}\",\"contents\":\"{\\\"turns\\\":[{\\\"role\\\":\\\"user\\\",\\\"content\\\":\\\"A synthetic public fixture sentence.\\\"}],\\\"lightDream\\\":true,\\\"episodes\\\":false,\\\"id\\\":\\\"<uuid>\\\",\\\"agentId\\\":\\\"alpha\\\",\\\"enqueuedAt\\\":1790000000000,\\\"attempts\\\":1}\"},{\"result\":{\"processed\":0,\"failed\":1,\"dropped\":0,\"remaining\":2,\"deadlineHit\":false},\"resultLine\":\"{\\\"processed\\\":0,\\\"failed\\\":1,\\\"dropped\\\":0,\\\"remaining\\\":2,\\\"deadlineHit\\\":false}\",\"contents\":\"{\\\"turns\\\":[{\\\"role\\\":\\\"user\\\",\\\"content\\\":\\\"A synthetic public fixture sentence.\\\"}],\\\"lightDream\\\":true,\\\"episodes\\\":false,\\\"id\\\":\\\"<uuid>\\\",\\\"agentId\\\":\\\"alpha\\\",\\\"enqueuedAt\\\":1790000000000,\\\"attempts\\\":2}\"}],\"droppedThenProcessed\":{\"processed\":1,\"failed\":1,\"dropped\":1,\"remaining\":0,\"deadlineHit\":false},\"reservedEntry\":\"{\\\"attempts\\\":0,\\\"id\\\":\\\"<uuid>\\\",\\\"agentId\\\":\\\"beta\\\",\\\"enqueuedAt\\\":1790000000002,\\\"extra\\\":true}\",\"locked\":{\"processed\":0,\"failed\":0,\"dropped\":0,\"remaining\":1,\"locked\":true},\"deadline\":{\"processed\":0,\"failed\":0,\"dropped\":0,\"remaining\":1,\"deadlineHit\":true},\"cap\":{\"dropped\":2,\"count\":200}}",
+      "droppedThenProcessedLine": "{\"processed\":1,\"failed\":1,\"dropped\":1,\"remaining\":0,\"deadlineHit\":false}",
+      "lockedLine": "{\"processed\":0,\"failed\":0,\"dropped\":0,\"remaining\":1,\"locked\":true}",
+      "deadlineLine": "{\"processed\":0,\"failed\":0,\"dropped\":0,\"remaining\":1,\"deadlineHit\":true}",
+      "payloadCases": [
+        {
+          "input": "{\"z\":true,\"2\":\"second\",\"1\":\"first\",\"statement\":\"cut \\ud83d\"}",
+          "now": 1790000000020,
+          "raw": "{\"1\":\"first\",\"2\":\"second\",\"z\":true,\"statement\":\"cut \\ud83d\",\"id\":\"<uuid>\",\"agentId\":\"codec\",\"enqueuedAt\":1790000000020,\"attempts\":0}"
+        },
+        {
+          "input": "{\"values\":[1.0,1e-7,1e21,1e20,-0],\"nested\":{\"2\":2,\"1\":1}}",
+          "now": 1790000000021,
+          "raw": "{\"values\":[1,1e-7,1e+21,100000000000000000000,0],\"nested\":{\"1\":1,\"2\":2},\"id\":\"<uuid>\",\"agentId\":\"codec\",\"enqueuedAt\":1790000000021,\"attempts\":0}"
+        }
+      ]
+    }
+  }
+}
