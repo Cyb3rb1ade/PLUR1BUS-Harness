@@ -1,0 +1,44 @@
+{
+  "authority": "RX Ruling 4 / D129",
+  "reason": "An audit write failure reports storage after the durable link receipt, instead of silent success. The retry sees the existing receipt; card data is unchanged.",
+  "nodeGoldenSha256": "bbf5e61e825582a2a675a9df555186c2fa3fe6bd718c8b50781409399b9e1c20",
+  "cases": [
+    {
+      "name": "audit-failure",
+      "nodeResults": [
+        {
+          "value": {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "linkId": "4c6c10eeeb619f3f2565f05fb4d28bcf",
+            "outcome": "linked",
+            "importRunId": "run-1",
+            "dryRun": false
+          }
+        },
+        {
+          "value": {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "linkId": "4c6c10eeeb619f3f2565f05fb4d28bcf",
+            "outcome": "already-linked",
+            "importRunId": "run-1",
+            "dryRun": false
+          }
+        }
+      ],
+      "rustResults": [
+        {
+          "error": "storage"
+        },
+        {
+          "value": {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "linkId": "4c6c10eeeb619f3f2565f05fb4d28bcf",
+            "outcome": "already-linked",
+            "importRunId": "run-1",
+            "dryRun": false
+          }
+        }
+      ]
+    }
+  ]
+}

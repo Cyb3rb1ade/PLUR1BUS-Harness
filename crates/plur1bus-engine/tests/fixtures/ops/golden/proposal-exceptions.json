@@ -1,0 +1,6 @@
+{
+  "goldenSha256": "8dfde877ef5122938059f595de5307282c81e58de1ef8496edb9edf7ba197d59",
+  "case": "corrupt-unrelated-counter",
+  "ruling": "D130/RX ruling 4: only provably authorized records may affect visible counters",
+  "rustUnreadable": 0
+}

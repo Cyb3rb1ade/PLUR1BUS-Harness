@@ -33,6 +33,7 @@ pub struct TestHost {
     config: EngineConfig,
     workspaces: Mutex<BTreeMap<String, PathBuf>>,
     platform: PlatformCapabilities,
+    pub events: Mutex<Vec<Value>>,
 }
 
 impl TestHost {
@@ -42,6 +43,7 @@ impl TestHost {
             config: serde_json::from_value(json!({})).unwrap(),
             workspaces: Mutex::new(BTreeMap::new()),
             platform: PlatformCapabilities::default(),
+            events: Mutex::new(Vec::new()),
         }
     }
 
@@ -83,7 +85,12 @@ impl HostServices for TestHost {
         self
     }
 
-    fn emit(&self, _event: &str, _payload: Value) {}
+    fn emit(&self, event: &str, payload: Value) {
+        self.events
+            .lock()
+            .unwrap()
+            .push(json!({"name":event,"payload":payload}));
+    }
 
     fn now_ms(&self) -> i64 {
         0

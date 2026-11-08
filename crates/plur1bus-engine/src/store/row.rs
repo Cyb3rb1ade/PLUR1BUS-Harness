@@ -108,8 +108,26 @@ pub fn arrow_schema(dim: usize) -> Result<SchemaRef, StoreError> {
 // Preserve that existing physical type while keeping the recorded bootstrap schema exact.
 pub(super) fn validate_schema(schema: &Schema, dim: usize) -> Result<(), StoreError> {
     let expected = arrow_schema(dim)?;
-    if schema.fields().len() != expected.fields().len() {
+    let extra = schema
+        .fields()
+        .len()
+        .checked_sub(expected.fields().len())
+        .ok_or(StoreError::Corrupt)?;
+    if extra != 0 && extra != super::shared_row::COLUMNS.len() {
         return Err(StoreError::Corrupt);
+    }
+    for (field, name) in schema
+        .fields()
+        .iter()
+        .skip(expected.fields().len())
+        .zip(super::shared_row::COLUMNS)
+    {
+        if field.name() != name
+            || field.is_nullable()
+            || !matches!(field.data_type(), DataType::Utf8 | DataType::LargeUtf8)
+        {
+            return Err(StoreError::Corrupt);
+        }
     }
     for (actual, expected) in schema.fields().iter().zip(expected.fields()) {
         let compatible = actual.data_type() == expected.data_type()
@@ -147,15 +165,23 @@ pub fn schema_text(schema: &Schema) -> String {
 }
 
 pub(super) fn to_batch(rows: &[MemoryRow], schema: SchemaRef) -> Result<RecordBatch, StoreError> {
-    use arrow_array::{
-        ArrayRef, BooleanArray, FixedSizeListArray, Float32Array, Float64Array, LargeStringArray,
-        StringArray,
-    };
     let values = rows
         .iter()
         .map(serde_json::to_value)
         .collect::<Result<Vec<_>, _>>()
         .map_err(|_| StoreError::Corrupt)?;
+    values_to_batch(rows, &values, schema)
+}
+
+pub(super) fn values_to_batch(
+    rows: &[MemoryRow],
+    values: &[serde_json::Value],
+    schema: SchemaRef,
+) -> Result<RecordBatch, StoreError> {
+    use arrow_array::{
+        ArrayRef, BooleanArray, FixedSizeListArray, Float32Array, Float64Array, LargeStringArray,
+        StringArray,
+    };
     let columns = schema
         .fields()
         .iter()
@@ -231,6 +257,11 @@ pub(super) fn decode_row(mut value: serde_json::Value) -> Result<MemoryRow, Stor
             let default = null_default(column, kind).ok_or(StoreError::Corrupt)?;
             row.insert((*column).to_owned(), default);
         }
+    }
+    // The frozen MemoryRow contract excludes share provenance. Its owning store
+    // exposes those four known persisted columns through MemoryRecord instead.
+    for column in super::shared_row::COLUMNS {
+        row.remove(column);
     }
     serde_json::from_value(value).map_err(|_| StoreError::Corrupt)
 }

@@ -15,6 +15,8 @@ pub mod pool;
 pub mod routes;
 pub mod row;
 pub mod schema_version;
+/// Node shared-copy columns outside the frozen MemoryRow contract.
+pub mod shared_row;
 pub mod sqlite;
 pub mod state_file;
 pub mod tombstone;

@@ -1,0 +1,1183 @@
+{
+  "recordedFrom": {
+    "engine": "node",
+    "source": {
+      "commit": "1878af0b6b7eeaeba657f9d98f01a7bae5da26d8",
+      "treeSha256": "0284e11e6320f4fd49b62839876bbc483d07daaea2da4a68417d828d88ce3eeb"
+    },
+    "node": "v24.21.0"
+  },
+  "now": 1800000000000,
+  "cases": [
+    {
+      "name": "deleted-commits",
+      "rowStatus": "deleted",
+      "age": 1,
+      "before": [
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000100",
+          "memoryId": "00000000-0000-4000-8000-000000000001",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000001",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:59:59.999Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "attempted"
+        }
+      ],
+      "report": {
+        "committed": [
+          {
+            "agent": "agent",
+            "memoryId": "00000000-0000-4000-8000-000000000001",
+            "tombstoneId": "00000000-0000-4000-8000-000000000100"
+          }
+        ],
+        "abandoned": [],
+        "pending": [],
+        "rowMissing": [],
+        "errors": [],
+        "registryErrors": []
+      },
+      "after": [
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000100",
+          "memoryId": "00000000-0000-4000-8000-000000000001",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000001",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:59:59.999Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "attempted"
+        },
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000100",
+          "memoryId": "00000000-0000-4000-8000-000000000001",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000001",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:59:59.999Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "committed"
+        }
+      ],
+      "second": {
+        "committed": [],
+        "abandoned": [],
+        "pending": [],
+        "rowMissing": [],
+        "errors": [],
+        "registryErrors": []
+      }
+    },
+    {
+      "name": "active-young-pending",
+      "rowStatus": "active",
+      "age": 599999,
+      "before": [
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000101",
+          "memoryId": "00000000-0000-4000-8000-000000000002",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000002",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:50:00.001Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "attempted"
+        }
+      ],
+      "report": {
+        "committed": [],
+        "abandoned": [],
+        "pending": [
+          {
+            "agent": "agent",
+            "memoryId": "00000000-0000-4000-8000-000000000002",
+            "tombstoneId": "00000000-0000-4000-8000-000000000101"
+          }
+        ],
+        "rowMissing": [],
+        "errors": [],
+        "registryErrors": []
+      },
+      "after": [
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000101",
+          "memoryId": "00000000-0000-4000-8000-000000000002",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000002",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:50:00.001Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "attempted"
+        }
+      ],
+      "second": {
+        "committed": [],
+        "abandoned": [],
+        "pending": [
+          {
+            "agent": "agent",
+            "memoryId": "00000000-0000-4000-8000-000000000002",
+            "tombstoneId": "00000000-0000-4000-8000-000000000101"
+          }
+        ],
+        "rowMissing": [],
+        "errors": [],
+        "registryErrors": []
+      }
+    },
+    {
+      "name": "active-boundary-failed",
+      "rowStatus": "active",
+      "age": 600000,
+      "before": [
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000102",
+          "memoryId": "00000000-0000-4000-8000-000000000003",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000003",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:50:00.000Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "attempted"
+        }
+      ],
+      "report": {
+        "committed": [],
+        "abandoned": [
+          {
+            "agent": "agent",
+            "memoryId": "00000000-0000-4000-8000-000000000003",
+            "tombstoneId": "00000000-0000-4000-8000-000000000102"
+          }
+        ],
+        "pending": [],
+        "rowMissing": [],
+        "errors": [],
+        "registryErrors": []
+      },
+      "after": [
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000102",
+          "memoryId": "00000000-0000-4000-8000-000000000003",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000003",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:50:00.000Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "attempted"
+        },
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000102",
+          "memoryId": "00000000-0000-4000-8000-000000000003",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000003",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:50:00.000Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "failed"
+        }
+      ],
+      "second": {
+        "committed": [],
+        "abandoned": [],
+        "pending": [],
+        "rowMissing": [],
+        "errors": [],
+        "registryErrors": []
+      }
+    },
+    {
+      "name": "active-old-failed",
+      "rowStatus": "active",
+      "age": 600001,
+      "before": [
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000103",
+          "memoryId": "00000000-0000-4000-8000-000000000004",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000004",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:49:59.999Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "attempted"
+        }
+      ],
+      "report": {
+        "committed": [],
+        "abandoned": [
+          {
+            "agent": "agent",
+            "memoryId": "00000000-0000-4000-8000-000000000004",
+            "tombstoneId": "00000000-0000-4000-8000-000000000103"
+          }
+        ],
+        "pending": [],
+        "rowMissing": [],
+        "errors": [],
+        "registryErrors": []
+      },
+      "after": [
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000103",
+          "memoryId": "00000000-0000-4000-8000-000000000004",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000004",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:49:59.999Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "attempted"
+        },
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000103",
+          "memoryId": "00000000-0000-4000-8000-000000000004",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000004",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:49:59.999Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "failed"
+        }
+      ],
+      "second": {
+        "committed": [],
+        "abandoned": [],
+        "pending": [],
+        "rowMissing": [],
+        "errors": [],
+        "registryErrors": []
+      }
+    },
+    {
+      "name": "missing-row",
+      "rowStatus": null,
+      "age": 600001,
+      "before": [
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000104",
+          "memoryId": "00000000-0000-4000-8000-000000000005",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000005",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:49:59.999Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "attempted"
+        }
+      ],
+      "report": {
+        "committed": [],
+        "abandoned": [],
+        "pending": [],
+        "rowMissing": [
+          {
+            "agent": "agent",
+            "memoryId": "00000000-0000-4000-8000-000000000005",
+            "tombstoneId": "00000000-0000-4000-8000-000000000104"
+          }
+        ],
+        "errors": [],
+        "registryErrors": []
+      },
+      "after": [
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000104",
+          "memoryId": "00000000-0000-4000-8000-000000000005",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000005",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:49:59.999Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "attempted"
+        }
+      ],
+      "second": {
+        "committed": [],
+        "abandoned": [],
+        "pending": [],
+        "rowMissing": [
+          {
+            "agent": "agent",
+            "memoryId": "00000000-0000-4000-8000-000000000005",
+            "tombstoneId": "00000000-0000-4000-8000-000000000104"
+          }
+        ],
+        "errors": [],
+        "registryErrors": []
+      }
+    },
+    {
+      "name": "missing-agent-store",
+      "missingStore": true,
+      "rowStatus": "deleted",
+      "age": 600001,
+      "before": [
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000105",
+          "memoryId": "00000000-0000-4000-8000-000000000006",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000006",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:49:59.999Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "attempted"
+        }
+      ],
+      "report": {
+        "committed": [],
+        "abandoned": [],
+        "pending": [],
+        "rowMissing": [
+          {
+            "agent": "agent",
+            "memoryId": "00000000-0000-4000-8000-000000000006"
+          }
+        ],
+        "errors": [],
+        "registryErrors": []
+      },
+      "after": [
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000105",
+          "memoryId": "00000000-0000-4000-8000-000000000006",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000006",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:49:59.999Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "attempted"
+        }
+      ],
+      "second": {
+        "committed": [],
+        "abandoned": [],
+        "pending": [],
+        "rowMissing": [
+          {
+            "agent": "agent",
+            "memoryId": "00000000-0000-4000-8000-000000000006"
+          }
+        ],
+        "errors": [],
+        "registryErrors": []
+      }
+    },
+    {
+      "name": "read-error",
+      "readError": true,
+      "age": 600001,
+      "before": [
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000106",
+          "memoryId": "00000000-0000-4000-8000-000000000007",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000007",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:49:59.999Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "attempted"
+        }
+      ],
+      "report": {
+        "committed": [],
+        "abandoned": [],
+        "pending": [],
+        "rowMissing": [],
+        "errors": [
+          {
+            "agent": "agent",
+            "memoryId": "00000000-0000-4000-8000-000000000007",
+            "tombstoneId": "00000000-0000-4000-8000-000000000106",
+            "error": "storage"
+          }
+        ],
+        "registryErrors": []
+      },
+      "after": [
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000106",
+          "memoryId": "00000000-0000-4000-8000-000000000007",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000007",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:49:59.999Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "attempted"
+        }
+      ],
+      "second": {
+        "committed": [],
+        "abandoned": [],
+        "pending": [],
+        "rowMissing": [],
+        "errors": [
+          {
+            "agent": "agent",
+            "memoryId": "00000000-0000-4000-8000-000000000007",
+            "tombstoneId": "00000000-0000-4000-8000-000000000106",
+            "error": "storage"
+          }
+        ],
+        "registryErrors": []
+      }
+    },
+    {
+      "name": "newer-committed-noop",
+      "rowStatus": "deleted",
+      "age": 1,
+      "later": "committed",
+      "before": [
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000107",
+          "memoryId": "00000000-0000-4000-8000-000000000008",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000008",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:59:59.999Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "attempted"
+        },
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000107",
+          "memoryId": "00000000-0000-4000-8000-000000000008",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000008",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:59:59.999Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "committed"
+        }
+      ],
+      "report": {
+        "committed": [],
+        "abandoned": [],
+        "pending": [],
+        "rowMissing": [],
+        "errors": [],
+        "registryErrors": []
+      },
+      "after": [
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000107",
+          "memoryId": "00000000-0000-4000-8000-000000000008",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000008",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:59:59.999Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "attempted"
+        },
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000107",
+          "memoryId": "00000000-0000-4000-8000-000000000008",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000008",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:59:59.999Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "committed"
+        }
+      ],
+      "second": {
+        "committed": [],
+        "abandoned": [],
+        "pending": [],
+        "rowMissing": [],
+        "errors": [],
+        "registryErrors": []
+      }
+    },
+    {
+      "name": "newer-failed-noop",
+      "rowStatus": "deleted",
+      "age": 1,
+      "later": "failed",
+      "before": [
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000108",
+          "memoryId": "00000000-0000-4000-8000-000000000009",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000009",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:59:59.999Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "attempted"
+        },
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000108",
+          "memoryId": "00000000-0000-4000-8000-000000000009",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000009",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:59:59.999Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "failed"
+        }
+      ],
+      "report": {
+        "committed": [],
+        "abandoned": [],
+        "pending": [],
+        "rowMissing": [],
+        "errors": [],
+        "registryErrors": []
+      },
+      "after": [
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000108",
+          "memoryId": "00000000-0000-4000-8000-000000000009",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000009",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:59:59.999Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "attempted"
+        },
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000108",
+          "memoryId": "00000000-0000-4000-8000-000000000009",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000009",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:59:59.999Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "failed"
+        }
+      ],
+      "second": {
+        "committed": [],
+        "abandoned": [],
+        "pending": [],
+        "rowMissing": [],
+        "errors": [],
+        "registryErrors": []
+      }
+    },
+    {
+      "name": "another-committed-suppresses-attempt",
+      "rowStatus": "deleted",
+      "age": 1,
+      "otherCommit": true,
+      "before": [
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000109",
+          "memoryId": "00000000-0000-4000-8000-000000000010",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000010",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:59:59.999Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "attempted"
+        },
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000209",
+          "memoryId": "00000000-0000-4000-8000-000000000010",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000010",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:59:59.999Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "committed"
+        }
+      ],
+      "report": {
+        "committed": [],
+        "abandoned": [],
+        "pending": [],
+        "rowMissing": [],
+        "errors": [],
+        "registryErrors": []
+      },
+      "after": [
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000109",
+          "memoryId": "00000000-0000-4000-8000-000000000010",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000010",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:59:59.999Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "attempted"
+        },
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000209",
+          "memoryId": "00000000-0000-4000-8000-000000000010",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000010",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:59:59.999Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "committed"
+        }
+      ],
+      "second": {
+        "committed": [],
+        "abandoned": [],
+        "pending": [],
+        "rowMissing": [],
+        "errors": [],
+        "registryErrors": []
+      }
+    },
+    {
+      "name": "invalid-date-abandoned",
+      "rowStatus": "active",
+      "age": 1,
+      "invalidDate": true,
+      "before": [
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000110",
+          "memoryId": "00000000-0000-4000-8000-000000000011",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000011",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "invalid",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "attempted"
+        }
+      ],
+      "report": {
+        "committed": [],
+        "abandoned": [
+          {
+            "agent": "agent",
+            "memoryId": "00000000-0000-4000-8000-000000000011",
+            "tombstoneId": "00000000-0000-4000-8000-000000000110"
+          }
+        ],
+        "pending": [],
+        "rowMissing": [],
+        "errors": [],
+        "registryErrors": []
+      },
+      "after": [
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000110",
+          "memoryId": "00000000-0000-4000-8000-000000000011",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000011",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "invalid",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "attempted"
+        },
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000110",
+          "memoryId": "00000000-0000-4000-8000-000000000011",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000011",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "invalid",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "failed"
+        }
+      ],
+      "second": {
+        "committed": [],
+        "abandoned": [],
+        "pending": [],
+        "rowMissing": [],
+        "errors": [],
+        "registryErrors": []
+      }
+    },
+    {
+      "name": "corrupt-line-refuses",
+      "rowStatus": "deleted",
+      "age": 1,
+      "corrupt": true,
+      "before": [
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000111",
+          "memoryId": "00000000-0000-4000-8000-000000000012",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000012",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:59:59.999Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "attempted"
+        }
+      ],
+      "report": {
+        "committed": [],
+        "abandoned": [],
+        "pending": [],
+        "rowMissing": [],
+        "errors": [],
+        "registryErrors": [
+          {
+            "agent": "agent",
+            "error": "corrupt registry lines: 1"
+          }
+        ]
+      },
+      "after": [
+        {
+          "schemaVersion": 1,
+          "tombstoneId": "00000000-0000-4000-8000-000000000111",
+          "memoryId": "00000000-0000-4000-8000-000000000012",
+          "canonicalOriginId": "00000000-0000-4000-8000-000000000012",
+          "agentId": "agent",
+          "scope": "agent-private",
+          "workspaceId": "",
+          "workspaceKey": "",
+          "ownerUserId": "",
+          "storedBy": "",
+          "deletedAt": "2027-01-15T07:59:59.999Z",
+          "actor": "",
+          "actorType": "human",
+          "reason": "",
+          "sourceOp": "forget",
+          "archiveRef": "",
+          "previousVersion": "",
+          "contentFingerprint": "383da4b02dd78dfaf0934220d3d68f8c1f9c36eec8b1c99077659d76188b5d47",
+          "sourceFingerprint": "",
+          "refs": {},
+          "status": "attempted"
+        }
+      ],
+      "second": {
+        "committed": [],
+        "abandoned": [],
+        "pending": [],
+        "rowMissing": [],
+        "errors": [],
+        "registryErrors": [
+          {
+            "agent": "agent",
+            "error": "corrupt registry lines: 1"
+          }
+        ]
+      }
+    }
+  ]
+}

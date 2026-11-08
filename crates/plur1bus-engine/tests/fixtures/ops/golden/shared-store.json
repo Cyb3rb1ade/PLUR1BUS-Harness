@@ -1,0 +1,549 @@
+{
+  "recordedFrom": {
+    "source": {
+      "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+      "treeSha256": "7def6824293d4cfb5f405ecbde1e5ac4e8ab83c9358e9f4d68bb7d428445781d"
+    },
+    "node": "v24.21.0"
+  },
+  "now": 1800000000000,
+  "context": {
+    "workspaceIdentity": "workspace:v1:fixture",
+    "userPrincipal": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f"
+  },
+  "expected": {
+    "original": {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "type": "memory",
+      "confirmed": false,
+      "text": "Synthetic original shared evidence",
+      "summary": "Synthetic shared summary",
+      "origin": "note",
+      "vector": [
+        1,
+        0,
+        0,
+        0
+      ],
+      "importance": 0.5,
+      "category": "fact",
+      "createdAt": 1799999999000,
+      "mergedFrom": "[]",
+      "expiresAt": 0,
+      "agentId": "agent",
+      "storedBy": "agent",
+      "sourceTurnId": "",
+      "sourceMessageRole": "",
+      "sourceTimestamp": 0,
+      "sourceUrl": "",
+      "evidenceQuote": "",
+      "scope": "agent-private",
+      "ownerUserId": "",
+      "emotionalValence": "",
+      "emotionalIntensity": 0,
+      "emotionalDominant": "neutral",
+      "moodContextAtCapture": "",
+      "emotionStatus": "final",
+      "importanceStatus": "final",
+      "replayCount": 0,
+      "lastReplayed": 0,
+      "retrievalCount": 0,
+      "lastRetrievedAt": 0,
+      "memoryStrength": 1,
+      "halfLifeDays": 30,
+      "lastStrengthenedAt": 0,
+      "lastDynamicsAt": 0,
+      "memoryClass": "standard",
+      "neverForget": 0,
+      "coreMemoryScore": 0,
+      "coreMemoryReason": "",
+      "versionNumber": 1,
+      "previousVersion": "",
+      "supersededBy": "",
+      "updateSource": "",
+      "updateEvidence": "",
+      "reconsolidationConfidence": 0,
+      "status": "active",
+      "versionCreatedAt": 0,
+      "updatedAt": 0,
+      "workspaceId": "",
+      "workspaceKey": "",
+      "memoryKind": "memory",
+      "reminderStatus": "",
+      "remindAt": 0,
+      "remindedAt": 0,
+      "dispatchedAt": 0,
+      "acknowledgedAt": 0,
+      "cancelledAt": 0,
+      "reminderKey": "",
+      "dispatchCount": 0,
+      "lastDispatchAttemptAt": 0,
+      "nextDispatchAttemptAt": 0,
+      "epistemicStatus": "observed",
+      "epistemicStatusUpdatedAt": 0,
+      "epistemicStatusActor": "",
+      "epistemicStatusReason": "",
+      "previousEpistemicStatus": "",
+      "validFrom": 0,
+      "validUntil": 0,
+      "chunkGroupId": ""
+    },
+    "schema": [
+      {
+        "name": "id",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "type",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "confirmed",
+        "type": "Bool",
+        "nullable": true
+      },
+      {
+        "name": "text",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "summary",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "origin",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "vector",
+        "type": "FixedSizeList[4]<Float32>",
+        "nullable": true
+      },
+      {
+        "name": "importance",
+        "type": "Float64",
+        "nullable": true
+      },
+      {
+        "name": "category",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "createdAt",
+        "type": "Float64",
+        "nullable": true
+      },
+      {
+        "name": "mergedFrom",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "expiresAt",
+        "type": "Float64",
+        "nullable": true
+      },
+      {
+        "name": "agentId",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "storedBy",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "sourceTurnId",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "sourceMessageRole",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "sourceTimestamp",
+        "type": "Float64",
+        "nullable": true
+      },
+      {
+        "name": "sourceUrl",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "evidenceQuote",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "scope",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "ownerUserId",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "emotionalValence",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "emotionalIntensity",
+        "type": "Float64",
+        "nullable": true
+      },
+      {
+        "name": "emotionalDominant",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "moodContextAtCapture",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "emotionStatus",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "importanceStatus",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "replayCount",
+        "type": "Float64",
+        "nullable": true
+      },
+      {
+        "name": "lastReplayed",
+        "type": "Float64",
+        "nullable": true
+      },
+      {
+        "name": "retrievalCount",
+        "type": "Float64",
+        "nullable": true
+      },
+      {
+        "name": "lastRetrievedAt",
+        "type": "Float64",
+        "nullable": true
+      },
+      {
+        "name": "memoryStrength",
+        "type": "Float64",
+        "nullable": true
+      },
+      {
+        "name": "halfLifeDays",
+        "type": "Float64",
+        "nullable": true
+      },
+      {
+        "name": "lastStrengthenedAt",
+        "type": "Float64",
+        "nullable": true
+      },
+      {
+        "name": "lastDynamicsAt",
+        "type": "Float64",
+        "nullable": true
+      },
+      {
+        "name": "memoryClass",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "neverForget",
+        "type": "Float64",
+        "nullable": true
+      },
+      {
+        "name": "coreMemoryScore",
+        "type": "Float64",
+        "nullable": true
+      },
+      {
+        "name": "coreMemoryReason",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "versionNumber",
+        "type": "Float64",
+        "nullable": true
+      },
+      {
+        "name": "previousVersion",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "supersededBy",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "updateSource",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "updateEvidence",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "reconsolidationConfidence",
+        "type": "Float64",
+        "nullable": true
+      },
+      {
+        "name": "status",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "versionCreatedAt",
+        "type": "Float64",
+        "nullable": true
+      },
+      {
+        "name": "updatedAt",
+        "type": "Float64",
+        "nullable": true
+      },
+      {
+        "name": "workspaceId",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "workspaceKey",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "memoryKind",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "reminderStatus",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "remindAt",
+        "type": "Float64",
+        "nullable": true
+      },
+      {
+        "name": "remindedAt",
+        "type": "Float64",
+        "nullable": true
+      },
+      {
+        "name": "dispatchedAt",
+        "type": "Float64",
+        "nullable": true
+      },
+      {
+        "name": "acknowledgedAt",
+        "type": "Float64",
+        "nullable": true
+      },
+      {
+        "name": "cancelledAt",
+        "type": "Float64",
+        "nullable": true
+      },
+      {
+        "name": "reminderKey",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "dispatchCount",
+        "type": "Float64",
+        "nullable": true
+      },
+      {
+        "name": "lastDispatchAttemptAt",
+        "type": "Float64",
+        "nullable": true
+      },
+      {
+        "name": "nextDispatchAttemptAt",
+        "type": "Float64",
+        "nullable": true
+      },
+      {
+        "name": "epistemicStatus",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "epistemicStatusUpdatedAt",
+        "type": "Float64",
+        "nullable": true
+      },
+      {
+        "name": "epistemicStatusActor",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "epistemicStatusReason",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "previousEpistemicStatus",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "validFrom",
+        "type": "Float64",
+        "nullable": true
+      },
+      {
+        "name": "validUntil",
+        "type": "Float64",
+        "nullable": true
+      },
+      {
+        "name": "chunkGroupId",
+        "type": "Utf8",
+        "nullable": true
+      },
+      {
+        "name": "sourceMemoryId",
+        "type": "Utf8",
+        "nullable": false
+      },
+      {
+        "name": "sourceAgentId",
+        "type": "Utf8",
+        "nullable": false
+      },
+      {
+        "name": "shareIdempotencyKey",
+        "type": "Utf8",
+        "nullable": false
+      },
+      {
+        "name": "shareProvenance",
+        "type": "Utf8",
+        "nullable": false
+      }
+    ],
+    "row": {
+      "id": "<shared-id>",
+      "type": "memory",
+      "confirmed": false,
+      "text": "Synthetic original shared evidence",
+      "summary": "Synthetic shared summary",
+      "origin": "note",
+      "vector": [
+        1,
+        0,
+        0,
+        0
+      ],
+      "importance": 0.5,
+      "category": "fact",
+      "createdAt": 1799999999000,
+      "mergedFrom": "[]",
+      "expiresAt": 0,
+      "agentId": "agent",
+      "storedBy": "agent",
+      "sourceTurnId": "",
+      "sourceMessageRole": "",
+      "sourceTimestamp": 0,
+      "sourceUrl": "",
+      "evidenceQuote": "",
+      "scope": "workspace",
+      "ownerUserId": "",
+      "emotionalValence": "",
+      "emotionalIntensity": 0,
+      "emotionalDominant": "neutral",
+      "moodContextAtCapture": "",
+      "emotionStatus": "final",
+      "importanceStatus": "final",
+      "replayCount": 0,
+      "lastReplayed": 0,
+      "retrievalCount": 0,
+      "lastRetrievedAt": 0,
+      "memoryStrength": 1,
+      "halfLifeDays": 30,
+      "lastStrengthenedAt": 0,
+      "lastDynamicsAt": 0,
+      "memoryClass": "standard",
+      "neverForget": 0,
+      "coreMemoryScore": 0,
+      "coreMemoryReason": "",
+      "versionNumber": 1,
+      "previousVersion": "",
+      "supersededBy": "",
+      "updateSource": "",
+      "updateEvidence": "",
+      "reconsolidationConfidence": 0,
+      "status": "active",
+      "versionCreatedAt": 0,
+      "updatedAt": 0,
+      "workspaceId": "workspace:v1:fixture",
+      "workspaceKey": "workspace:v1:fixture",
+      "memoryKind": "memory",
+      "reminderStatus": "",
+      "remindAt": 0,
+      "remindedAt": 0,
+      "dispatchedAt": 0,
+      "acknowledgedAt": 0,
+      "cancelledAt": 0,
+      "reminderKey": "",
+      "dispatchCount": 0,
+      "lastDispatchAttemptAt": 0,
+      "nextDispatchAttemptAt": 0,
+      "epistemicStatus": "observed",
+      "epistemicStatusUpdatedAt": 0,
+      "epistemicStatusActor": "",
+      "epistemicStatusReason": "",
+      "previousEpistemicStatus": "",
+      "validFrom": 0,
+      "validUntil": 0,
+      "chunkGroupId": "",
+      "sourceMemoryId": "00000000-0000-4000-8000-000000000001",
+      "sourceAgentId": "agent",
+      "shareIdempotencyKey": "27ffb7a70cb089d33959929cb2eb6c0ea8fa0fa7436923d99efdfe540b077f50",
+      "shareProvenance": "{\"schemaVersion\":1,\"action\":\"explicit_share\",\"targetScope\":\"workspace\",\"targetPrincipalHash\":\"3d6bdd7701e3131781914d64f9d328b4e456eef7917ec6bfe1f069caf3934b91\",\"sourceMemoryId\":\"00000000-0000-4000-8000-000000000001\",\"sourceAgentId\":\"agent\",\"sharedAt\":1800000000000}"
+    },
+    "result": {
+      "ok": true,
+      "id": "<shared-id>",
+      "shareIdempotencyKey": "27ffb7a70cb089d33959929cb2eb6c0ea8fa0fa7436923d99efdfe540b077f50"
+    },
+    "repeated": {
+      "ok": true,
+      "id": "<shared-id>",
+      "shareIdempotencyKey": "27ffb7a70cb089d33959929cb2eb6c0ea8fa0fa7436923d99efdfe540b077f50"
+    }
+  }
+}

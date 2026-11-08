@@ -13,6 +13,11 @@ use std::sync::mpsc;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
+#[path = "memory_read.rs"]
+mod memory_read;
+#[path = "shared_store.rs"]
+mod shared_store;
+
 /// Whether an opened handle permits mutations.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum OpenMode {

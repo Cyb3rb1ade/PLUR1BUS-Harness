@@ -33,6 +33,16 @@ impl<T: JsonRecord> JsonlLedger<T> {
     /// line Node wrote in between. A final line without its newline is closed in the same write.
     /// Like Node's append, it is not fsynced; a new file is private (`0600` on Unix).
     pub fn append(&self, value: &T) -> Result<(), StoreError> {
+        self.append_inner(value, false)
+    }
+
+    /// Import/link receipts require a durable file sync before reporting completion.
+    /// Parent directory sync is best-effort, matching Node on unsupported platforms.
+    pub fn append_durable(&self, value: &T) -> Result<(), StoreError> {
+        self.append_inner(value, true)
+    }
+
+    fn append_inner(&self, value: &T, durable: bool) -> Result<(), StoreError> {
         assert_trusted_path(&self.path)?;
         if let Some(parent) = self
             .path
@@ -49,7 +59,17 @@ impl<T: JsonRecord> JsonlLedger<T> {
         }
         record.extend_from_slice(line.as_bytes());
         record.push(b'\n');
-        file.write_all(&record).map_err(io_error)
+        file.write_all(&record).map_err(io_error)?;
+        if durable {
+            file.sync_all().map_err(io_error)?;
+            if let Some(parent) = self.path.parent() {
+                let _ = File::open(parent).and_then(|dir| dir.sync_all());
+                if let Some(parent) = parent.parent() {
+                    let _ = File::open(parent).and_then(|dir| dir.sync_all());
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Read a consistent snapshot. Empty lines are ignored, CRLF is accepted and malformed
@@ -69,7 +89,7 @@ impl<T: JsonRecord> JsonlLedger<T> {
         })
     }
 
-    fn snapshot(&self) -> Result<String, StoreError> {
+    pub(crate) fn snapshot(&self) -> Result<String, StoreError> {
         assert_trusted_path(&self.path)?;
         match fs::read_to_string(&self.path) {
             Ok(text) => Ok(text),

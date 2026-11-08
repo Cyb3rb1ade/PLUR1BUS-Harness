@@ -1,0 +1,4136 @@
+{
+  "recordedFrom": {
+    "source": {
+      "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+      "treeSha256": "7def6824293d4cfb5f405ecbde1e5ac4e8ab83c9358e9f4d68bb7d428445781d"
+    },
+    "node": "v24.21.0"
+  },
+  "now": 1800000000000,
+  "agent": {
+    "origin": "user",
+    "background": false
+  },
+  "cases": [
+    {
+      "name": "pending-repeat",
+      "repeat": true,
+      "original": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "type": "memory",
+        "confirmed": false,
+        "text": "Synthetic source for sharing",
+        "summary": "Shared source summary",
+        "origin": "note",
+        "vector": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "importance": 0.5,
+        "category": "fact",
+        "createdAt": 1799999999000,
+        "mergedFrom": "[]",
+        "expiresAt": 0,
+        "agentId": "agent",
+        "storedBy": "agent",
+        "sourceTurnId": "",
+        "sourceMessageRole": "",
+        "sourceTimestamp": 0,
+        "sourceUrl": "",
+        "evidenceQuote": "",
+        "scope": "agent-private",
+        "ownerUserId": "",
+        "emotionalValence": "",
+        "emotionalIntensity": 0,
+        "emotionalDominant": "neutral",
+        "moodContextAtCapture": "",
+        "emotionStatus": "final",
+        "importanceStatus": "final",
+        "replayCount": 0,
+        "lastReplayed": 0,
+        "retrievalCount": 0,
+        "lastRetrievedAt": 0,
+        "memoryStrength": 1,
+        "halfLifeDays": 30,
+        "lastStrengthenedAt": 0,
+        "lastDynamicsAt": 0,
+        "memoryClass": "standard",
+        "neverForget": 0,
+        "coreMemoryScore": 0,
+        "coreMemoryReason": "",
+        "versionNumber": 1,
+        "previousVersion": "",
+        "supersededBy": "",
+        "updateSource": "",
+        "updateEvidence": "",
+        "reconsolidationConfidence": 0,
+        "status": "active",
+        "versionCreatedAt": 0,
+        "updatedAt": 0,
+        "workspaceId": "",
+        "workspaceKey": "",
+        "memoryKind": "memory",
+        "reminderStatus": "",
+        "remindAt": 0,
+        "remindedAt": 0,
+        "dispatchedAt": 0,
+        "acknowledgedAt": 0,
+        "cancelledAt": 0,
+        "reminderKey": "",
+        "dispatchCount": 0,
+        "lastDispatchAttemptAt": 0,
+        "nextDispatchAttemptAt": 0,
+        "epistemicStatus": "observed",
+        "epistemicStatusUpdatedAt": 0,
+        "epistemicStatusActor": "",
+        "epistemicStatusReason": "",
+        "previousEpistemicStatus": "",
+        "validFrom": 0,
+        "validUntil": 0,
+        "chunkGroupId": ""
+      },
+      "principal": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "proposer": {
+        "agentId": "peer",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "resolver": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "results": [
+        {
+          "value": {
+            "proposalId": "proposal",
+            "sharedId": "old-shared",
+            "sharerAgentId": "agent"
+          }
+        },
+        {
+          "error": "conflict"
+        }
+      ],
+      "records": [
+        {
+          "id": "proposal",
+          "sharedId": "old-shared",
+          "sourceId": "00000000-0000-4000-8000-000000000001",
+          "target": "workspace",
+          "sharerAgentId": "agent",
+          "proposerAgentId": "peer",
+          "oldText": "Synthetic source for sharing",
+          "newText": "Proposal changes synthetic evidence",
+          "note": null,
+          "createdAt": 1800000000000,
+          "status": "pending",
+          "resolvedAt": null,
+          "resultId": null,
+          "resolutionNote": null,
+          "poolKey": "<workspace-pool>"
+        }
+      ],
+      "lists": {
+        "sharer": {
+          "agentId": "agent",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "pending",
+              "resolvedAt": null,
+              "resultId": null,
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "proposer": {
+          "agentId": "peer",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "pending",
+              "resolvedAt": null,
+              "resultId": null,
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "foreign": {
+          "agentId": "foreign",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "otherUser": {
+          "agentId": "agent",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "pending",
+              "resolvedAt": null,
+              "resultId": null,
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        }
+      },
+      "events": [
+        {
+          "name": "memory.proposal",
+          "payload": {
+            "proposalId": "proposal",
+            "status": "pending",
+            "sharerAgentId": "agent",
+            "proposerAgentId": "peer",
+            "sharedId": "old-shared"
+          }
+        }
+      ]
+    },
+    {
+      "name": "user-pending",
+      "target": "user",
+      "original": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "type": "memory",
+        "confirmed": false,
+        "text": "Synthetic source for sharing",
+        "summary": "Shared source summary",
+        "origin": "note",
+        "vector": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "importance": 0.5,
+        "category": "fact",
+        "createdAt": 1799999999000,
+        "mergedFrom": "[]",
+        "expiresAt": 0,
+        "agentId": "agent",
+        "storedBy": "agent",
+        "sourceTurnId": "",
+        "sourceMessageRole": "",
+        "sourceTimestamp": 0,
+        "sourceUrl": "",
+        "evidenceQuote": "",
+        "scope": "agent-private",
+        "ownerUserId": "",
+        "emotionalValence": "",
+        "emotionalIntensity": 0,
+        "emotionalDominant": "neutral",
+        "moodContextAtCapture": "",
+        "emotionStatus": "final",
+        "importanceStatus": "final",
+        "replayCount": 0,
+        "lastReplayed": 0,
+        "retrievalCount": 0,
+        "lastRetrievedAt": 0,
+        "memoryStrength": 1,
+        "halfLifeDays": 30,
+        "lastStrengthenedAt": 0,
+        "lastDynamicsAt": 0,
+        "memoryClass": "standard",
+        "neverForget": 0,
+        "coreMemoryScore": 0,
+        "coreMemoryReason": "",
+        "versionNumber": 1,
+        "previousVersion": "",
+        "supersededBy": "",
+        "updateSource": "",
+        "updateEvidence": "",
+        "reconsolidationConfidence": 0,
+        "status": "active",
+        "versionCreatedAt": 0,
+        "updatedAt": 0,
+        "workspaceId": "",
+        "workspaceKey": "",
+        "memoryKind": "memory",
+        "reminderStatus": "",
+        "remindAt": 0,
+        "remindedAt": 0,
+        "dispatchedAt": 0,
+        "acknowledgedAt": 0,
+        "cancelledAt": 0,
+        "reminderKey": "",
+        "dispatchCount": 0,
+        "lastDispatchAttemptAt": 0,
+        "nextDispatchAttemptAt": 0,
+        "epistemicStatus": "observed",
+        "epistemicStatusUpdatedAt": 0,
+        "epistemicStatusActor": "",
+        "epistemicStatusReason": "",
+        "previousEpistemicStatus": "",
+        "validFrom": 0,
+        "validUntil": 0,
+        "chunkGroupId": ""
+      },
+      "principal": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "proposer": {
+        "agentId": "peer",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "resolver": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "results": [
+        {
+          "value": {
+            "proposalId": "proposal",
+            "sharedId": "old-shared",
+            "sharerAgentId": "agent"
+          }
+        }
+      ],
+      "records": [
+        {
+          "id": "proposal",
+          "sharedId": "old-shared",
+          "sourceId": "00000000-0000-4000-8000-000000000001",
+          "target": "user",
+          "sharerAgentId": "agent",
+          "proposerAgentId": "peer",
+          "oldText": "Synthetic source for sharing",
+          "newText": "Proposal changes synthetic evidence",
+          "note": null,
+          "createdAt": 1800000000000,
+          "status": "pending",
+          "resolvedAt": null,
+          "resultId": null,
+          "resolutionNote": null,
+          "poolKey": "u-78c802ed86090473750acfbddfbcdf44c2caea85b553632170b6d7e8daab42"
+        }
+      ],
+      "lists": {
+        "sharer": {
+          "agentId": "agent",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "user",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "pending",
+              "resolvedAt": null,
+              "resultId": null,
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "proposer": {
+          "agentId": "peer",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "user",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "pending",
+              "resolvedAt": null,
+              "resultId": null,
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "foreign": {
+          "agentId": "foreign",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "otherUser": {
+          "agentId": "agent",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        }
+      },
+      "events": [
+        {
+          "name": "memory.proposal",
+          "payload": {
+            "proposalId": "proposal",
+            "status": "pending",
+            "sharerAgentId": "agent",
+            "proposerAgentId": "peer",
+            "sharedId": "old-shared"
+          }
+        }
+      ]
+    },
+    {
+      "name": "accept",
+      "resolve": "accept",
+      "original": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "type": "memory",
+        "confirmed": false,
+        "text": "Synthetic source for sharing",
+        "summary": "Shared source summary",
+        "origin": "note",
+        "vector": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "importance": 0.5,
+        "category": "fact",
+        "createdAt": 1799999999000,
+        "mergedFrom": "[]",
+        "expiresAt": 0,
+        "agentId": "agent",
+        "storedBy": "agent",
+        "sourceTurnId": "",
+        "sourceMessageRole": "",
+        "sourceTimestamp": 0,
+        "sourceUrl": "",
+        "evidenceQuote": "",
+        "scope": "agent-private",
+        "ownerUserId": "",
+        "emotionalValence": "",
+        "emotionalIntensity": 0,
+        "emotionalDominant": "neutral",
+        "moodContextAtCapture": "",
+        "emotionStatus": "final",
+        "importanceStatus": "final",
+        "replayCount": 0,
+        "lastReplayed": 0,
+        "retrievalCount": 0,
+        "lastRetrievedAt": 0,
+        "memoryStrength": 1,
+        "halfLifeDays": 30,
+        "lastStrengthenedAt": 0,
+        "lastDynamicsAt": 0,
+        "memoryClass": "standard",
+        "neverForget": 0,
+        "coreMemoryScore": 0,
+        "coreMemoryReason": "",
+        "versionNumber": 1,
+        "previousVersion": "",
+        "supersededBy": "",
+        "updateSource": "",
+        "updateEvidence": "",
+        "reconsolidationConfidence": 0,
+        "status": "active",
+        "versionCreatedAt": 0,
+        "updatedAt": 0,
+        "workspaceId": "",
+        "workspaceKey": "",
+        "memoryKind": "memory",
+        "reminderStatus": "",
+        "remindAt": 0,
+        "remindedAt": 0,
+        "dispatchedAt": 0,
+        "acknowledgedAt": 0,
+        "cancelledAt": 0,
+        "reminderKey": "",
+        "dispatchCount": 0,
+        "lastDispatchAttemptAt": 0,
+        "nextDispatchAttemptAt": 0,
+        "epistemicStatus": "observed",
+        "epistemicStatusUpdatedAt": 0,
+        "epistemicStatusActor": "",
+        "epistemicStatusReason": "",
+        "previousEpistemicStatus": "",
+        "validFrom": 0,
+        "validUntil": 0,
+        "chunkGroupId": ""
+      },
+      "principal": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "proposer": {
+        "agentId": "peer",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "resolver": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "results": [
+        {
+          "value": {
+            "proposalId": "proposal",
+            "sharedId": "old-shared",
+            "sharerAgentId": "agent"
+          }
+        },
+        {
+          "value": {
+            "proposalId": "proposal",
+            "id": "new-shared",
+            "sourceId": "new-source"
+          }
+        }
+      ],
+      "records": [
+        {
+          "id": "proposal",
+          "sharedId": "old-shared",
+          "sourceId": "00000000-0000-4000-8000-000000000001",
+          "target": "workspace",
+          "sharerAgentId": "agent",
+          "proposerAgentId": "peer",
+          "oldText": "Synthetic source for sharing",
+          "newText": "Proposal changes synthetic evidence",
+          "note": null,
+          "createdAt": 1800000000000,
+          "status": "accepted",
+          "resolvedAt": 1800000000000,
+          "resultId": "new-shared",
+          "resolutionNote": null,
+          "poolKey": "<workspace-pool>"
+        }
+      ],
+      "lists": {
+        "sharer": {
+          "agentId": "agent",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "accepted",
+              "resolvedAt": 1800000000000,
+              "resultId": "new-shared",
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "proposer": {
+          "agentId": "peer",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "accepted",
+              "resolvedAt": 1800000000000,
+              "resultId": "new-shared",
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "foreign": {
+          "agentId": "foreign",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "otherUser": {
+          "agentId": "agent",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "accepted",
+              "resolvedAt": 1800000000000,
+              "resultId": "new-shared",
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        }
+      },
+      "events": [
+        {
+          "name": "memory.proposal",
+          "payload": {
+            "proposalId": "proposal",
+            "status": "pending",
+            "sharerAgentId": "agent",
+            "proposerAgentId": "peer",
+            "sharedId": "old-shared"
+          }
+        },
+        {
+          "name": "memory.proposal",
+          "payload": {
+            "proposalId": "proposal",
+            "status": "accepted",
+            "sharerAgentId": "agent",
+            "proposerAgentId": "peer",
+            "sharedId": "old-shared"
+          }
+        }
+      ]
+    },
+    {
+      "name": "reject-repeat",
+      "resolve": "reject",
+      "repeatResolve": true,
+      "note": "synthetic note",
+      "original": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "type": "memory",
+        "confirmed": false,
+        "text": "Synthetic source for sharing",
+        "summary": "Shared source summary",
+        "origin": "note",
+        "vector": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "importance": 0.5,
+        "category": "fact",
+        "createdAt": 1799999999000,
+        "mergedFrom": "[]",
+        "expiresAt": 0,
+        "agentId": "agent",
+        "storedBy": "agent",
+        "sourceTurnId": "",
+        "sourceMessageRole": "",
+        "sourceTimestamp": 0,
+        "sourceUrl": "",
+        "evidenceQuote": "",
+        "scope": "agent-private",
+        "ownerUserId": "",
+        "emotionalValence": "",
+        "emotionalIntensity": 0,
+        "emotionalDominant": "neutral",
+        "moodContextAtCapture": "",
+        "emotionStatus": "final",
+        "importanceStatus": "final",
+        "replayCount": 0,
+        "lastReplayed": 0,
+        "retrievalCount": 0,
+        "lastRetrievedAt": 0,
+        "memoryStrength": 1,
+        "halfLifeDays": 30,
+        "lastStrengthenedAt": 0,
+        "lastDynamicsAt": 0,
+        "memoryClass": "standard",
+        "neverForget": 0,
+        "coreMemoryScore": 0,
+        "coreMemoryReason": "",
+        "versionNumber": 1,
+        "previousVersion": "",
+        "supersededBy": "",
+        "updateSource": "",
+        "updateEvidence": "",
+        "reconsolidationConfidence": 0,
+        "status": "active",
+        "versionCreatedAt": 0,
+        "updatedAt": 0,
+        "workspaceId": "",
+        "workspaceKey": "",
+        "memoryKind": "memory",
+        "reminderStatus": "",
+        "remindAt": 0,
+        "remindedAt": 0,
+        "dispatchedAt": 0,
+        "acknowledgedAt": 0,
+        "cancelledAt": 0,
+        "reminderKey": "",
+        "dispatchCount": 0,
+        "lastDispatchAttemptAt": 0,
+        "nextDispatchAttemptAt": 0,
+        "epistemicStatus": "observed",
+        "epistemicStatusUpdatedAt": 0,
+        "epistemicStatusActor": "",
+        "epistemicStatusReason": "",
+        "previousEpistemicStatus": "",
+        "validFrom": 0,
+        "validUntil": 0,
+        "chunkGroupId": ""
+      },
+      "principal": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "proposer": {
+        "agentId": "peer",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "resolver": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "results": [
+        {
+          "value": {
+            "proposalId": "proposal",
+            "sharedId": "old-shared",
+            "sharerAgentId": "agent"
+          }
+        },
+        {
+          "value": {
+            "proposalId": "proposal",
+            "status": "rejected"
+          }
+        },
+        {
+          "error": "conflict"
+        }
+      ],
+      "records": [
+        {
+          "id": "proposal",
+          "sharedId": "old-shared",
+          "sourceId": "00000000-0000-4000-8000-000000000001",
+          "target": "workspace",
+          "sharerAgentId": "agent",
+          "proposerAgentId": "peer",
+          "oldText": "Synthetic source for sharing",
+          "newText": "Proposal changes synthetic evidence",
+          "note": "synthetic note",
+          "createdAt": 1800000000000,
+          "status": "rejected",
+          "resolvedAt": 1800000000000,
+          "resultId": null,
+          "resolutionNote": "declined synthetic proposal",
+          "poolKey": "<workspace-pool>"
+        }
+      ],
+      "lists": {
+        "sharer": {
+          "agentId": "agent",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": "synthetic note",
+              "createdAt": 1800000000000,
+              "status": "rejected",
+              "resolvedAt": 1800000000000,
+              "resultId": null,
+              "resolutionNote": "declined synthetic proposal"
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "proposer": {
+          "agentId": "peer",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": "synthetic note",
+              "createdAt": 1800000000000,
+              "status": "rejected",
+              "resolvedAt": 1800000000000,
+              "resultId": null,
+              "resolutionNote": "declined synthetic proposal"
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "foreign": {
+          "agentId": "foreign",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "otherUser": {
+          "agentId": "agent",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": "synthetic note",
+              "createdAt": 1800000000000,
+              "status": "rejected",
+              "resolvedAt": 1800000000000,
+              "resultId": null,
+              "resolutionNote": "declined synthetic proposal"
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        }
+      },
+      "events": [
+        {
+          "name": "memory.proposal",
+          "payload": {
+            "proposalId": "proposal",
+            "status": "pending",
+            "sharerAgentId": "agent",
+            "proposerAgentId": "peer",
+            "sharedId": "old-shared"
+          }
+        },
+        {
+          "name": "memory.proposal",
+          "payload": {
+            "proposalId": "proposal",
+            "status": "rejected",
+            "sharerAgentId": "agent",
+            "proposerAgentId": "peer",
+            "sharedId": "old-shared"
+          }
+        }
+      ]
+    },
+    {
+      "name": "stale-changed",
+      "resolve": "accept",
+      "changed": true,
+      "original": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "type": "memory",
+        "confirmed": false,
+        "text": "Synthetic source for sharing",
+        "summary": "Shared source summary",
+        "origin": "note",
+        "vector": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "importance": 0.5,
+        "category": "fact",
+        "createdAt": 1799999999000,
+        "mergedFrom": "[]",
+        "expiresAt": 0,
+        "agentId": "agent",
+        "storedBy": "agent",
+        "sourceTurnId": "",
+        "sourceMessageRole": "",
+        "sourceTimestamp": 0,
+        "sourceUrl": "",
+        "evidenceQuote": "",
+        "scope": "agent-private",
+        "ownerUserId": "",
+        "emotionalValence": "",
+        "emotionalIntensity": 0,
+        "emotionalDominant": "neutral",
+        "moodContextAtCapture": "",
+        "emotionStatus": "final",
+        "importanceStatus": "final",
+        "replayCount": 0,
+        "lastReplayed": 0,
+        "retrievalCount": 0,
+        "lastRetrievedAt": 0,
+        "memoryStrength": 1,
+        "halfLifeDays": 30,
+        "lastStrengthenedAt": 0,
+        "lastDynamicsAt": 0,
+        "memoryClass": "standard",
+        "neverForget": 0,
+        "coreMemoryScore": 0,
+        "coreMemoryReason": "",
+        "versionNumber": 1,
+        "previousVersion": "",
+        "supersededBy": "",
+        "updateSource": "",
+        "updateEvidence": "",
+        "reconsolidationConfidence": 0,
+        "status": "active",
+        "versionCreatedAt": 0,
+        "updatedAt": 0,
+        "workspaceId": "",
+        "workspaceKey": "",
+        "memoryKind": "memory",
+        "reminderStatus": "",
+        "remindAt": 0,
+        "remindedAt": 0,
+        "dispatchedAt": 0,
+        "acknowledgedAt": 0,
+        "cancelledAt": 0,
+        "reminderKey": "",
+        "dispatchCount": 0,
+        "lastDispatchAttemptAt": 0,
+        "nextDispatchAttemptAt": 0,
+        "epistemicStatus": "observed",
+        "epistemicStatusUpdatedAt": 0,
+        "epistemicStatusActor": "",
+        "epistemicStatusReason": "",
+        "previousEpistemicStatus": "",
+        "validFrom": 0,
+        "validUntil": 0,
+        "chunkGroupId": ""
+      },
+      "principal": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "proposer": {
+        "agentId": "peer",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "resolver": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "results": [
+        {
+          "value": {
+            "proposalId": "proposal",
+            "sharedId": "old-shared",
+            "sharerAgentId": "agent"
+          }
+        },
+        {
+          "error": "conflict"
+        }
+      ],
+      "records": [
+        {
+          "id": "proposal",
+          "sharedId": "old-shared",
+          "sourceId": "00000000-0000-4000-8000-000000000001",
+          "target": "workspace",
+          "sharerAgentId": "agent",
+          "proposerAgentId": "peer",
+          "oldText": "Synthetic source for sharing",
+          "newText": "Proposal changes synthetic evidence",
+          "note": null,
+          "createdAt": 1800000000000,
+          "status": "stale",
+          "resolvedAt": 1800000000000,
+          "resultId": null,
+          "resolutionNote": null,
+          "poolKey": "<workspace-pool>"
+        }
+      ],
+      "lists": {
+        "sharer": {
+          "agentId": "agent",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "stale",
+              "resolvedAt": 1800000000000,
+              "resultId": null,
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "proposer": {
+          "agentId": "peer",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "stale",
+              "resolvedAt": 1800000000000,
+              "resultId": null,
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "foreign": {
+          "agentId": "foreign",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "otherUser": {
+          "agentId": "agent",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "stale",
+              "resolvedAt": 1800000000000,
+              "resultId": null,
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        }
+      },
+      "events": [
+        {
+          "name": "memory.proposal",
+          "payload": {
+            "proposalId": "proposal",
+            "status": "pending",
+            "sharerAgentId": "agent",
+            "proposerAgentId": "peer",
+            "sharedId": "old-shared"
+          }
+        },
+        {
+          "name": "memory.proposal",
+          "payload": {
+            "proposalId": "proposal",
+            "status": "stale",
+            "sharerAgentId": "agent",
+            "proposerAgentId": "peer",
+            "sharedId": "old-shared"
+          }
+        }
+      ]
+    },
+    {
+      "name": "stale-gone",
+      "resolve": "accept",
+      "gone": true,
+      "original": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "type": "memory",
+        "confirmed": false,
+        "text": "Synthetic source for sharing",
+        "summary": "Shared source summary",
+        "origin": "note",
+        "vector": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "importance": 0.5,
+        "category": "fact",
+        "createdAt": 1799999999000,
+        "mergedFrom": "[]",
+        "expiresAt": 0,
+        "agentId": "agent",
+        "storedBy": "agent",
+        "sourceTurnId": "",
+        "sourceMessageRole": "",
+        "sourceTimestamp": 0,
+        "sourceUrl": "",
+        "evidenceQuote": "",
+        "scope": "agent-private",
+        "ownerUserId": "",
+        "emotionalValence": "",
+        "emotionalIntensity": 0,
+        "emotionalDominant": "neutral",
+        "moodContextAtCapture": "",
+        "emotionStatus": "final",
+        "importanceStatus": "final",
+        "replayCount": 0,
+        "lastReplayed": 0,
+        "retrievalCount": 0,
+        "lastRetrievedAt": 0,
+        "memoryStrength": 1,
+        "halfLifeDays": 30,
+        "lastStrengthenedAt": 0,
+        "lastDynamicsAt": 0,
+        "memoryClass": "standard",
+        "neverForget": 0,
+        "coreMemoryScore": 0,
+        "coreMemoryReason": "",
+        "versionNumber": 1,
+        "previousVersion": "",
+        "supersededBy": "",
+        "updateSource": "",
+        "updateEvidence": "",
+        "reconsolidationConfidence": 0,
+        "status": "active",
+        "versionCreatedAt": 0,
+        "updatedAt": 0,
+        "workspaceId": "",
+        "workspaceKey": "",
+        "memoryKind": "memory",
+        "reminderStatus": "",
+        "remindAt": 0,
+        "remindedAt": 0,
+        "dispatchedAt": 0,
+        "acknowledgedAt": 0,
+        "cancelledAt": 0,
+        "reminderKey": "",
+        "dispatchCount": 0,
+        "lastDispatchAttemptAt": 0,
+        "nextDispatchAttemptAt": 0,
+        "epistemicStatus": "observed",
+        "epistemicStatusUpdatedAt": 0,
+        "epistemicStatusActor": "",
+        "epistemicStatusReason": "",
+        "previousEpistemicStatus": "",
+        "validFrom": 0,
+        "validUntil": 0,
+        "chunkGroupId": ""
+      },
+      "principal": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "proposer": {
+        "agentId": "peer",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "resolver": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "results": [
+        {
+          "value": {
+            "proposalId": "proposal",
+            "sharedId": "old-shared",
+            "sharerAgentId": "agent"
+          }
+        },
+        {
+          "error": "conflict"
+        }
+      ],
+      "records": [
+        {
+          "id": "proposal",
+          "sharedId": "old-shared",
+          "sourceId": "00000000-0000-4000-8000-000000000001",
+          "target": "workspace",
+          "sharerAgentId": "agent",
+          "proposerAgentId": "peer",
+          "oldText": "Synthetic source for sharing",
+          "newText": "Proposal changes synthetic evidence",
+          "note": null,
+          "createdAt": 1800000000000,
+          "status": "stale",
+          "resolvedAt": 1800000000000,
+          "resultId": null,
+          "resolutionNote": null,
+          "poolKey": "<workspace-pool>"
+        }
+      ],
+      "lists": {
+        "sharer": {
+          "agentId": "agent",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "stale",
+              "resolvedAt": 1800000000000,
+              "resultId": null,
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "proposer": {
+          "agentId": "peer",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "stale",
+              "resolvedAt": 1800000000000,
+              "resultId": null,
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "foreign": {
+          "agentId": "foreign",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "otherUser": {
+          "agentId": "agent",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "stale",
+              "resolvedAt": 1800000000000,
+              "resultId": null,
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        }
+      },
+      "events": [
+        {
+          "name": "memory.proposal",
+          "payload": {
+            "proposalId": "proposal",
+            "status": "pending",
+            "sharerAgentId": "agent",
+            "proposerAgentId": "peer",
+            "sharedId": "old-shared"
+          }
+        },
+        {
+          "name": "memory.proposal",
+          "payload": {
+            "proposalId": "proposal",
+            "status": "stale",
+            "sharerAgentId": "agent",
+            "proposerAgentId": "peer",
+            "sharedId": "old-shared"
+          }
+        }
+      ]
+    },
+    {
+      "name": "foreign-resolve",
+      "resolve": "accept",
+      "foreignResolve": true,
+      "original": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "type": "memory",
+        "confirmed": false,
+        "text": "Synthetic source for sharing",
+        "summary": "Shared source summary",
+        "origin": "note",
+        "vector": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "importance": 0.5,
+        "category": "fact",
+        "createdAt": 1799999999000,
+        "mergedFrom": "[]",
+        "expiresAt": 0,
+        "agentId": "agent",
+        "storedBy": "agent",
+        "sourceTurnId": "",
+        "sourceMessageRole": "",
+        "sourceTimestamp": 0,
+        "sourceUrl": "",
+        "evidenceQuote": "",
+        "scope": "agent-private",
+        "ownerUserId": "",
+        "emotionalValence": "",
+        "emotionalIntensity": 0,
+        "emotionalDominant": "neutral",
+        "moodContextAtCapture": "",
+        "emotionStatus": "final",
+        "importanceStatus": "final",
+        "replayCount": 0,
+        "lastReplayed": 0,
+        "retrievalCount": 0,
+        "lastRetrievedAt": 0,
+        "memoryStrength": 1,
+        "halfLifeDays": 30,
+        "lastStrengthenedAt": 0,
+        "lastDynamicsAt": 0,
+        "memoryClass": "standard",
+        "neverForget": 0,
+        "coreMemoryScore": 0,
+        "coreMemoryReason": "",
+        "versionNumber": 1,
+        "previousVersion": "",
+        "supersededBy": "",
+        "updateSource": "",
+        "updateEvidence": "",
+        "reconsolidationConfidence": 0,
+        "status": "active",
+        "versionCreatedAt": 0,
+        "updatedAt": 0,
+        "workspaceId": "",
+        "workspaceKey": "",
+        "memoryKind": "memory",
+        "reminderStatus": "",
+        "remindAt": 0,
+        "remindedAt": 0,
+        "dispatchedAt": 0,
+        "acknowledgedAt": 0,
+        "cancelledAt": 0,
+        "reminderKey": "",
+        "dispatchCount": 0,
+        "lastDispatchAttemptAt": 0,
+        "nextDispatchAttemptAt": 0,
+        "epistemicStatus": "observed",
+        "epistemicStatusUpdatedAt": 0,
+        "epistemicStatusActor": "",
+        "epistemicStatusReason": "",
+        "previousEpistemicStatus": "",
+        "validFrom": 0,
+        "validUntil": 0,
+        "chunkGroupId": ""
+      },
+      "principal": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "proposer": {
+        "agentId": "peer",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "resolver": {
+        "agentId": "peer",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "results": [
+        {
+          "value": {
+            "proposalId": "proposal",
+            "sharedId": "old-shared",
+            "sharerAgentId": "agent"
+          }
+        },
+        {
+          "error": "not-found"
+        }
+      ],
+      "records": [
+        {
+          "id": "proposal",
+          "sharedId": "old-shared",
+          "sourceId": "00000000-0000-4000-8000-000000000001",
+          "target": "workspace",
+          "sharerAgentId": "agent",
+          "proposerAgentId": "peer",
+          "oldText": "Synthetic source for sharing",
+          "newText": "Proposal changes synthetic evidence",
+          "note": null,
+          "createdAt": 1800000000000,
+          "status": "pending",
+          "resolvedAt": null,
+          "resultId": null,
+          "resolutionNote": null,
+          "poolKey": "<workspace-pool>"
+        }
+      ],
+      "lists": {
+        "sharer": {
+          "agentId": "agent",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "pending",
+              "resolvedAt": null,
+              "resultId": null,
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "proposer": {
+          "agentId": "peer",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "pending",
+              "resolvedAt": null,
+              "resultId": null,
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "foreign": {
+          "agentId": "foreign",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "otherUser": {
+          "agentId": "agent",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "pending",
+              "resolvedAt": null,
+              "resultId": null,
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        }
+      },
+      "events": [
+        {
+          "name": "memory.proposal",
+          "payload": {
+            "proposalId": "proposal",
+            "status": "pending",
+            "sharerAgentId": "agent",
+            "proposerAgentId": "peer",
+            "sharedId": "old-shared"
+          }
+        }
+      ]
+    },
+    {
+      "name": "other-user-resolve",
+      "target": "user",
+      "resolve": "accept",
+      "otherUser": true,
+      "original": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "type": "memory",
+        "confirmed": false,
+        "text": "Synthetic source for sharing",
+        "summary": "Shared source summary",
+        "origin": "note",
+        "vector": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "importance": 0.5,
+        "category": "fact",
+        "createdAt": 1799999999000,
+        "mergedFrom": "[]",
+        "expiresAt": 0,
+        "agentId": "agent",
+        "storedBy": "agent",
+        "sourceTurnId": "",
+        "sourceMessageRole": "",
+        "sourceTimestamp": 0,
+        "sourceUrl": "",
+        "evidenceQuote": "",
+        "scope": "agent-private",
+        "ownerUserId": "",
+        "emotionalValence": "",
+        "emotionalIntensity": 0,
+        "emotionalDominant": "neutral",
+        "moodContextAtCapture": "",
+        "emotionStatus": "final",
+        "importanceStatus": "final",
+        "replayCount": 0,
+        "lastReplayed": 0,
+        "retrievalCount": 0,
+        "lastRetrievedAt": 0,
+        "memoryStrength": 1,
+        "halfLifeDays": 30,
+        "lastStrengthenedAt": 0,
+        "lastDynamicsAt": 0,
+        "memoryClass": "standard",
+        "neverForget": 0,
+        "coreMemoryScore": 0,
+        "coreMemoryReason": "",
+        "versionNumber": 1,
+        "previousVersion": "",
+        "supersededBy": "",
+        "updateSource": "",
+        "updateEvidence": "",
+        "reconsolidationConfidence": 0,
+        "status": "active",
+        "versionCreatedAt": 0,
+        "updatedAt": 0,
+        "workspaceId": "",
+        "workspaceKey": "",
+        "memoryKind": "memory",
+        "reminderStatus": "",
+        "remindAt": 0,
+        "remindedAt": 0,
+        "dispatchedAt": 0,
+        "acknowledgedAt": 0,
+        "cancelledAt": 0,
+        "reminderKey": "",
+        "dispatchCount": 0,
+        "lastDispatchAttemptAt": 0,
+        "nextDispatchAttemptAt": 0,
+        "epistemicStatus": "observed",
+        "epistemicStatusUpdatedAt": 0,
+        "epistemicStatusActor": "",
+        "epistemicStatusReason": "",
+        "previousEpistemicStatus": "",
+        "validFrom": 0,
+        "validUntil": 0,
+        "chunkGroupId": ""
+      },
+      "principal": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "proposer": {
+        "agentId": "peer",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "resolver": {
+        "agentId": "agent",
+        "user": "user:v1:7d1a036e28034e0169d8c0290aafaf1e1d0e3be5ff4c2a677d316a4935d86292",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "results": [
+        {
+          "value": {
+            "proposalId": "proposal",
+            "sharedId": "old-shared",
+            "sharerAgentId": "agent"
+          }
+        },
+        {
+          "error": "not-found"
+        }
+      ],
+      "records": [
+        {
+          "id": "proposal",
+          "sharedId": "old-shared",
+          "sourceId": "00000000-0000-4000-8000-000000000001",
+          "target": "user",
+          "sharerAgentId": "agent",
+          "proposerAgentId": "peer",
+          "oldText": "Synthetic source for sharing",
+          "newText": "Proposal changes synthetic evidence",
+          "note": null,
+          "createdAt": 1800000000000,
+          "status": "pending",
+          "resolvedAt": null,
+          "resultId": null,
+          "resolutionNote": null,
+          "poolKey": "u-78c802ed86090473750acfbddfbcdf44c2caea85b553632170b6d7e8daab42"
+        }
+      ],
+      "lists": {
+        "sharer": {
+          "agentId": "agent",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "user",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "pending",
+              "resolvedAt": null,
+              "resultId": null,
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "proposer": {
+          "agentId": "peer",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "user",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "pending",
+              "resolvedAt": null,
+              "resultId": null,
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "foreign": {
+          "agentId": "foreign",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "otherUser": {
+          "agentId": "agent",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        }
+      },
+      "events": [
+        {
+          "name": "memory.proposal",
+          "payload": {
+            "proposalId": "proposal",
+            "status": "pending",
+            "sharerAgentId": "agent",
+            "proposerAgentId": "peer",
+            "sharedId": "old-shared"
+          }
+        }
+      ]
+    },
+    {
+      "name": "unsupported-accept",
+      "resolve": "accept",
+      "unsupported": true,
+      "original": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "type": "memory",
+        "confirmed": false,
+        "text": "Synthetic source for sharing",
+        "summary": "Shared source summary",
+        "origin": "note",
+        "vector": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "importance": 0.5,
+        "category": "fact",
+        "createdAt": 1799999999000,
+        "mergedFrom": "[]",
+        "expiresAt": 0,
+        "agentId": "agent",
+        "storedBy": "agent",
+        "sourceTurnId": "",
+        "sourceMessageRole": "",
+        "sourceTimestamp": 0,
+        "sourceUrl": "",
+        "evidenceQuote": "",
+        "scope": "agent-private",
+        "ownerUserId": "",
+        "emotionalValence": "",
+        "emotionalIntensity": 0,
+        "emotionalDominant": "neutral",
+        "moodContextAtCapture": "",
+        "emotionStatus": "final",
+        "importanceStatus": "final",
+        "replayCount": 0,
+        "lastReplayed": 0,
+        "retrievalCount": 0,
+        "lastRetrievedAt": 0,
+        "memoryStrength": 1,
+        "halfLifeDays": 30,
+        "lastStrengthenedAt": 0,
+        "lastDynamicsAt": 0,
+        "memoryClass": "standard",
+        "neverForget": 0,
+        "coreMemoryScore": 0,
+        "coreMemoryReason": "",
+        "versionNumber": 1,
+        "previousVersion": "",
+        "supersededBy": "",
+        "updateSource": "",
+        "updateEvidence": "",
+        "reconsolidationConfidence": 0,
+        "status": "active",
+        "versionCreatedAt": 0,
+        "updatedAt": 0,
+        "workspaceId": "",
+        "workspaceKey": "",
+        "memoryKind": "memory",
+        "reminderStatus": "",
+        "remindAt": 0,
+        "remindedAt": 0,
+        "dispatchedAt": 0,
+        "acknowledgedAt": 0,
+        "cancelledAt": 0,
+        "reminderKey": "",
+        "dispatchCount": 0,
+        "lastDispatchAttemptAt": 0,
+        "nextDispatchAttemptAt": 0,
+        "epistemicStatus": "observed",
+        "epistemicStatusUpdatedAt": 0,
+        "epistemicStatusActor": "",
+        "epistemicStatusReason": "",
+        "previousEpistemicStatus": "",
+        "validFrom": 0,
+        "validUntil": 0,
+        "chunkGroupId": ""
+      },
+      "principal": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "proposer": {
+        "agentId": "peer",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "resolver": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "results": [
+        {
+          "value": {
+            "proposalId": "proposal",
+            "sharedId": "old-shared",
+            "sharerAgentId": "agent"
+          }
+        },
+        {
+          "error": "unsupported",
+          "detail": {
+            "capability": "shared-memory",
+            "reason": "fixture"
+          }
+        }
+      ],
+      "records": [
+        {
+          "id": "proposal",
+          "sharedId": "old-shared",
+          "sourceId": "00000000-0000-4000-8000-000000000001",
+          "target": "workspace",
+          "sharerAgentId": "agent",
+          "proposerAgentId": "peer",
+          "oldText": "Synthetic source for sharing",
+          "newText": "Proposal changes synthetic evidence",
+          "note": null,
+          "createdAt": 1800000000000,
+          "status": "pending",
+          "resolvedAt": null,
+          "resultId": null,
+          "resolutionNote": null,
+          "poolKey": "<workspace-pool>"
+        }
+      ],
+      "lists": {
+        "sharer": {
+          "agentId": "agent",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "pending",
+              "resolvedAt": null,
+              "resultId": null,
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "proposer": {
+          "agentId": "peer",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "pending",
+              "resolvedAt": null,
+              "resultId": null,
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "foreign": {
+          "agentId": "foreign",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "otherUser": {
+          "agentId": "agent",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "pending",
+              "resolvedAt": null,
+              "resultId": null,
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        }
+      },
+      "events": [
+        {
+          "name": "memory.proposal",
+          "payload": {
+            "proposalId": "proposal",
+            "status": "pending",
+            "sharerAgentId": "agent",
+            "proposerAgentId": "peer",
+            "sharedId": "old-shared"
+          }
+        }
+      ]
+    },
+    {
+      "name": "refresh-failure",
+      "resolve": "accept",
+      "embedFailure": true,
+      "original": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "type": "memory",
+        "confirmed": false,
+        "text": "Synthetic source for sharing",
+        "summary": "Shared source summary",
+        "origin": "note",
+        "vector": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "importance": 0.5,
+        "category": "fact",
+        "createdAt": 1799999999000,
+        "mergedFrom": "[]",
+        "expiresAt": 0,
+        "agentId": "agent",
+        "storedBy": "agent",
+        "sourceTurnId": "",
+        "sourceMessageRole": "",
+        "sourceTimestamp": 0,
+        "sourceUrl": "",
+        "evidenceQuote": "",
+        "scope": "agent-private",
+        "ownerUserId": "",
+        "emotionalValence": "",
+        "emotionalIntensity": 0,
+        "emotionalDominant": "neutral",
+        "moodContextAtCapture": "",
+        "emotionStatus": "final",
+        "importanceStatus": "final",
+        "replayCount": 0,
+        "lastReplayed": 0,
+        "retrievalCount": 0,
+        "lastRetrievedAt": 0,
+        "memoryStrength": 1,
+        "halfLifeDays": 30,
+        "lastStrengthenedAt": 0,
+        "lastDynamicsAt": 0,
+        "memoryClass": "standard",
+        "neverForget": 0,
+        "coreMemoryScore": 0,
+        "coreMemoryReason": "",
+        "versionNumber": 1,
+        "previousVersion": "",
+        "supersededBy": "",
+        "updateSource": "",
+        "updateEvidence": "",
+        "reconsolidationConfidence": 0,
+        "status": "active",
+        "versionCreatedAt": 0,
+        "updatedAt": 0,
+        "workspaceId": "",
+        "workspaceKey": "",
+        "memoryKind": "memory",
+        "reminderStatus": "",
+        "remindAt": 0,
+        "remindedAt": 0,
+        "dispatchedAt": 0,
+        "acknowledgedAt": 0,
+        "cancelledAt": 0,
+        "reminderKey": "",
+        "dispatchCount": 0,
+        "lastDispatchAttemptAt": 0,
+        "nextDispatchAttemptAt": 0,
+        "epistemicStatus": "observed",
+        "epistemicStatusUpdatedAt": 0,
+        "epistemicStatusActor": "",
+        "epistemicStatusReason": "",
+        "previousEpistemicStatus": "",
+        "validFrom": 0,
+        "validUntil": 0,
+        "chunkGroupId": ""
+      },
+      "principal": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "proposer": {
+        "agentId": "peer",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "resolver": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "results": [
+        {
+          "value": {
+            "proposalId": "proposal",
+            "sharedId": "old-shared",
+            "sharerAgentId": "agent"
+          }
+        },
+        {
+          "error": "storage"
+        }
+      ],
+      "records": [
+        {
+          "id": "proposal",
+          "sharedId": "old-shared",
+          "sourceId": "00000000-0000-4000-8000-000000000001",
+          "target": "workspace",
+          "sharerAgentId": "agent",
+          "proposerAgentId": "peer",
+          "oldText": "Synthetic source for sharing",
+          "newText": "Proposal changes synthetic evidence",
+          "note": null,
+          "createdAt": 1800000000000,
+          "status": "pending",
+          "resolvedAt": null,
+          "resultId": null,
+          "resolutionNote": null,
+          "poolKey": "<workspace-pool>"
+        }
+      ],
+      "lists": {
+        "sharer": {
+          "agentId": "agent",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "pending",
+              "resolvedAt": null,
+              "resultId": null,
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "proposer": {
+          "agentId": "peer",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "pending",
+              "resolvedAt": null,
+              "resultId": null,
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "foreign": {
+          "agentId": "foreign",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "otherUser": {
+          "agentId": "agent",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "pending",
+              "resolvedAt": null,
+              "resultId": null,
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        }
+      },
+      "events": [
+        {
+          "name": "memory.proposal",
+          "payload": {
+            "proposalId": "proposal",
+            "status": "pending",
+            "sharerAgentId": "agent",
+            "proposerAgentId": "peer",
+            "sharedId": "old-shared"
+          }
+        }
+      ]
+    },
+    {
+      "name": "own-shared-invalid",
+      "own": true,
+      "original": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "type": "memory",
+        "confirmed": false,
+        "text": "Synthetic source for sharing",
+        "summary": "Shared source summary",
+        "origin": "note",
+        "vector": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "importance": 0.5,
+        "category": "fact",
+        "createdAt": 1799999999000,
+        "mergedFrom": "[]",
+        "expiresAt": 0,
+        "agentId": "agent",
+        "storedBy": "agent",
+        "sourceTurnId": "",
+        "sourceMessageRole": "",
+        "sourceTimestamp": 0,
+        "sourceUrl": "",
+        "evidenceQuote": "",
+        "scope": "agent-private",
+        "ownerUserId": "",
+        "emotionalValence": "",
+        "emotionalIntensity": 0,
+        "emotionalDominant": "neutral",
+        "moodContextAtCapture": "",
+        "emotionStatus": "final",
+        "importanceStatus": "final",
+        "replayCount": 0,
+        "lastReplayed": 0,
+        "retrievalCount": 0,
+        "lastRetrievedAt": 0,
+        "memoryStrength": 1,
+        "halfLifeDays": 30,
+        "lastStrengthenedAt": 0,
+        "lastDynamicsAt": 0,
+        "memoryClass": "standard",
+        "neverForget": 0,
+        "coreMemoryScore": 0,
+        "coreMemoryReason": "",
+        "versionNumber": 1,
+        "previousVersion": "",
+        "supersededBy": "",
+        "updateSource": "",
+        "updateEvidence": "",
+        "reconsolidationConfidence": 0,
+        "status": "active",
+        "versionCreatedAt": 0,
+        "updatedAt": 0,
+        "workspaceId": "",
+        "workspaceKey": "",
+        "memoryKind": "memory",
+        "reminderStatus": "",
+        "remindAt": 0,
+        "remindedAt": 0,
+        "dispatchedAt": 0,
+        "acknowledgedAt": 0,
+        "cancelledAt": 0,
+        "reminderKey": "",
+        "dispatchCount": 0,
+        "lastDispatchAttemptAt": 0,
+        "nextDispatchAttemptAt": 0,
+        "epistemicStatus": "observed",
+        "epistemicStatusUpdatedAt": 0,
+        "epistemicStatusActor": "",
+        "epistemicStatusReason": "",
+        "previousEpistemicStatus": "",
+        "validFrom": 0,
+        "validUntil": 0,
+        "chunkGroupId": ""
+      },
+      "principal": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "proposer": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "resolver": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "results": [
+        {
+          "error": "invalid-input"
+        }
+      ],
+      "records": [],
+      "lists": {
+        "sharer": {
+          "agentId": "agent",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "proposer": {
+          "agentId": "agent",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "foreign": {
+          "agentId": "foreign",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "otherUser": {
+          "agentId": "agent",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        }
+      },
+      "events": []
+    },
+    {
+      "name": "private-invalid",
+      "private": true,
+      "original": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "type": "memory",
+        "confirmed": false,
+        "text": "Synthetic source for sharing",
+        "summary": "Shared source summary",
+        "origin": "note",
+        "vector": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "importance": 0.5,
+        "category": "fact",
+        "createdAt": 1799999999000,
+        "mergedFrom": "[]",
+        "expiresAt": 0,
+        "agentId": "agent",
+        "storedBy": "agent",
+        "sourceTurnId": "",
+        "sourceMessageRole": "",
+        "sourceTimestamp": 0,
+        "sourceUrl": "",
+        "evidenceQuote": "",
+        "scope": "agent-private",
+        "ownerUserId": "",
+        "emotionalValence": "",
+        "emotionalIntensity": 0,
+        "emotionalDominant": "neutral",
+        "moodContextAtCapture": "",
+        "emotionStatus": "final",
+        "importanceStatus": "final",
+        "replayCount": 0,
+        "lastReplayed": 0,
+        "retrievalCount": 0,
+        "lastRetrievedAt": 0,
+        "memoryStrength": 1,
+        "halfLifeDays": 30,
+        "lastStrengthenedAt": 0,
+        "lastDynamicsAt": 0,
+        "memoryClass": "standard",
+        "neverForget": 0,
+        "coreMemoryScore": 0,
+        "coreMemoryReason": "",
+        "versionNumber": 1,
+        "previousVersion": "",
+        "supersededBy": "",
+        "updateSource": "",
+        "updateEvidence": "",
+        "reconsolidationConfidence": 0,
+        "status": "active",
+        "versionCreatedAt": 0,
+        "updatedAt": 0,
+        "workspaceId": "",
+        "workspaceKey": "",
+        "memoryKind": "memory",
+        "reminderStatus": "",
+        "remindAt": 0,
+        "remindedAt": 0,
+        "dispatchedAt": 0,
+        "acknowledgedAt": 0,
+        "cancelledAt": 0,
+        "reminderKey": "",
+        "dispatchCount": 0,
+        "lastDispatchAttemptAt": 0,
+        "nextDispatchAttemptAt": 0,
+        "epistemicStatus": "observed",
+        "epistemicStatusUpdatedAt": 0,
+        "epistemicStatusActor": "",
+        "epistemicStatusReason": "",
+        "previousEpistemicStatus": "",
+        "validFrom": 0,
+        "validUntil": 0,
+        "chunkGroupId": ""
+      },
+      "principal": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "proposer": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "resolver": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "results": [
+        {
+          "error": "invalid-input"
+        }
+      ],
+      "records": [],
+      "lists": {
+        "sharer": {
+          "agentId": "agent",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "proposer": {
+          "agentId": "agent",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "foreign": {
+          "agentId": "foreign",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "otherUser": {
+          "agentId": "agent",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        }
+      },
+      "events": []
+    },
+    {
+      "name": "same-text",
+      "same": true,
+      "original": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "type": "memory",
+        "confirmed": false,
+        "text": "Synthetic source for sharing",
+        "summary": "Shared source summary",
+        "origin": "note",
+        "vector": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "importance": 0.5,
+        "category": "fact",
+        "createdAt": 1799999999000,
+        "mergedFrom": "[]",
+        "expiresAt": 0,
+        "agentId": "agent",
+        "storedBy": "agent",
+        "sourceTurnId": "",
+        "sourceMessageRole": "",
+        "sourceTimestamp": 0,
+        "sourceUrl": "",
+        "evidenceQuote": "",
+        "scope": "agent-private",
+        "ownerUserId": "",
+        "emotionalValence": "",
+        "emotionalIntensity": 0,
+        "emotionalDominant": "neutral",
+        "moodContextAtCapture": "",
+        "emotionStatus": "final",
+        "importanceStatus": "final",
+        "replayCount": 0,
+        "lastReplayed": 0,
+        "retrievalCount": 0,
+        "lastRetrievedAt": 0,
+        "memoryStrength": 1,
+        "halfLifeDays": 30,
+        "lastStrengthenedAt": 0,
+        "lastDynamicsAt": 0,
+        "memoryClass": "standard",
+        "neverForget": 0,
+        "coreMemoryScore": 0,
+        "coreMemoryReason": "",
+        "versionNumber": 1,
+        "previousVersion": "",
+        "supersededBy": "",
+        "updateSource": "",
+        "updateEvidence": "",
+        "reconsolidationConfidence": 0,
+        "status": "active",
+        "versionCreatedAt": 0,
+        "updatedAt": 0,
+        "workspaceId": "",
+        "workspaceKey": "",
+        "memoryKind": "memory",
+        "reminderStatus": "",
+        "remindAt": 0,
+        "remindedAt": 0,
+        "dispatchedAt": 0,
+        "acknowledgedAt": 0,
+        "cancelledAt": 0,
+        "reminderKey": "",
+        "dispatchCount": 0,
+        "lastDispatchAttemptAt": 0,
+        "nextDispatchAttemptAt": 0,
+        "epistemicStatus": "observed",
+        "epistemicStatusUpdatedAt": 0,
+        "epistemicStatusActor": "",
+        "epistemicStatusReason": "",
+        "previousEpistemicStatus": "",
+        "validFrom": 0,
+        "validUntil": 0,
+        "chunkGroupId": ""
+      },
+      "principal": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "proposer": {
+        "agentId": "peer",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "resolver": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "results": [
+        {
+          "error": "invalid-input"
+        }
+      ],
+      "records": [],
+      "lists": {
+        "sharer": {
+          "agentId": "agent",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "proposer": {
+          "agentId": "peer",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "foreign": {
+          "agentId": "foreign",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "otherUser": {
+          "agentId": "agent",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        }
+      },
+      "events": []
+    },
+    {
+      "name": "blank",
+      "text": " ",
+      "original": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "type": "memory",
+        "confirmed": false,
+        "text": "Synthetic source for sharing",
+        "summary": "Shared source summary",
+        "origin": "note",
+        "vector": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "importance": 0.5,
+        "category": "fact",
+        "createdAt": 1799999999000,
+        "mergedFrom": "[]",
+        "expiresAt": 0,
+        "agentId": "agent",
+        "storedBy": "agent",
+        "sourceTurnId": "",
+        "sourceMessageRole": "",
+        "sourceTimestamp": 0,
+        "sourceUrl": "",
+        "evidenceQuote": "",
+        "scope": "agent-private",
+        "ownerUserId": "",
+        "emotionalValence": "",
+        "emotionalIntensity": 0,
+        "emotionalDominant": "neutral",
+        "moodContextAtCapture": "",
+        "emotionStatus": "final",
+        "importanceStatus": "final",
+        "replayCount": 0,
+        "lastReplayed": 0,
+        "retrievalCount": 0,
+        "lastRetrievedAt": 0,
+        "memoryStrength": 1,
+        "halfLifeDays": 30,
+        "lastStrengthenedAt": 0,
+        "lastDynamicsAt": 0,
+        "memoryClass": "standard",
+        "neverForget": 0,
+        "coreMemoryScore": 0,
+        "coreMemoryReason": "",
+        "versionNumber": 1,
+        "previousVersion": "",
+        "supersededBy": "",
+        "updateSource": "",
+        "updateEvidence": "",
+        "reconsolidationConfidence": 0,
+        "status": "active",
+        "versionCreatedAt": 0,
+        "updatedAt": 0,
+        "workspaceId": "",
+        "workspaceKey": "",
+        "memoryKind": "memory",
+        "reminderStatus": "",
+        "remindAt": 0,
+        "remindedAt": 0,
+        "dispatchedAt": 0,
+        "acknowledgedAt": 0,
+        "cancelledAt": 0,
+        "reminderKey": "",
+        "dispatchCount": 0,
+        "lastDispatchAttemptAt": 0,
+        "nextDispatchAttemptAt": 0,
+        "epistemicStatus": "observed",
+        "epistemicStatusUpdatedAt": 0,
+        "epistemicStatusActor": "",
+        "epistemicStatusReason": "",
+        "previousEpistemicStatus": "",
+        "validFrom": 0,
+        "validUntil": 0,
+        "chunkGroupId": ""
+      },
+      "principal": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "proposer": {
+        "agentId": "peer",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "resolver": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "results": [
+        {
+          "error": "invalid-input"
+        }
+      ],
+      "records": [],
+      "lists": {
+        "sharer": {
+          "agentId": "agent",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "proposer": {
+          "agentId": "peer",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "foreign": {
+          "agentId": "foreign",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "otherUser": {
+          "agentId": "agent",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        }
+      },
+      "events": []
+    },
+    {
+      "name": "oversize-note",
+      "note": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "original": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "type": "memory",
+        "confirmed": false,
+        "text": "Synthetic source for sharing",
+        "summary": "Shared source summary",
+        "origin": "note",
+        "vector": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "importance": 0.5,
+        "category": "fact",
+        "createdAt": 1799999999000,
+        "mergedFrom": "[]",
+        "expiresAt": 0,
+        "agentId": "agent",
+        "storedBy": "agent",
+        "sourceTurnId": "",
+        "sourceMessageRole": "",
+        "sourceTimestamp": 0,
+        "sourceUrl": "",
+        "evidenceQuote": "",
+        "scope": "agent-private",
+        "ownerUserId": "",
+        "emotionalValence": "",
+        "emotionalIntensity": 0,
+        "emotionalDominant": "neutral",
+        "moodContextAtCapture": "",
+        "emotionStatus": "final",
+        "importanceStatus": "final",
+        "replayCount": 0,
+        "lastReplayed": 0,
+        "retrievalCount": 0,
+        "lastRetrievedAt": 0,
+        "memoryStrength": 1,
+        "halfLifeDays": 30,
+        "lastStrengthenedAt": 0,
+        "lastDynamicsAt": 0,
+        "memoryClass": "standard",
+        "neverForget": 0,
+        "coreMemoryScore": 0,
+        "coreMemoryReason": "",
+        "versionNumber": 1,
+        "previousVersion": "",
+        "supersededBy": "",
+        "updateSource": "",
+        "updateEvidence": "",
+        "reconsolidationConfidence": 0,
+        "status": "active",
+        "versionCreatedAt": 0,
+        "updatedAt": 0,
+        "workspaceId": "",
+        "workspaceKey": "",
+        "memoryKind": "memory",
+        "reminderStatus": "",
+        "remindAt": 0,
+        "remindedAt": 0,
+        "dispatchedAt": 0,
+        "acknowledgedAt": 0,
+        "cancelledAt": 0,
+        "reminderKey": "",
+        "dispatchCount": 0,
+        "lastDispatchAttemptAt": 0,
+        "nextDispatchAttemptAt": 0,
+        "epistemicStatus": "observed",
+        "epistemicStatusUpdatedAt": 0,
+        "epistemicStatusActor": "",
+        "epistemicStatusReason": "",
+        "previousEpistemicStatus": "",
+        "validFrom": 0,
+        "validUntil": 0,
+        "chunkGroupId": ""
+      },
+      "principal": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "proposer": {
+        "agentId": "peer",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "resolver": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "results": [
+        {
+          "error": "invalid-input"
+        }
+      ],
+      "records": [],
+      "lists": {
+        "sharer": {
+          "agentId": "agent",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "proposer": {
+          "agentId": "peer",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "foreign": {
+          "agentId": "foreign",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "otherUser": {
+          "agentId": "agent",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        }
+      },
+      "events": []
+    },
+    {
+      "name": "missing-copy",
+      "missing": true,
+      "original": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "type": "memory",
+        "confirmed": false,
+        "text": "Synthetic source for sharing",
+        "summary": "Shared source summary",
+        "origin": "note",
+        "vector": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "importance": 0.5,
+        "category": "fact",
+        "createdAt": 1799999999000,
+        "mergedFrom": "[]",
+        "expiresAt": 0,
+        "agentId": "agent",
+        "storedBy": "agent",
+        "sourceTurnId": "",
+        "sourceMessageRole": "",
+        "sourceTimestamp": 0,
+        "sourceUrl": "",
+        "evidenceQuote": "",
+        "scope": "agent-private",
+        "ownerUserId": "",
+        "emotionalValence": "",
+        "emotionalIntensity": 0,
+        "emotionalDominant": "neutral",
+        "moodContextAtCapture": "",
+        "emotionStatus": "final",
+        "importanceStatus": "final",
+        "replayCount": 0,
+        "lastReplayed": 0,
+        "retrievalCount": 0,
+        "lastRetrievedAt": 0,
+        "memoryStrength": 1,
+        "halfLifeDays": 30,
+        "lastStrengthenedAt": 0,
+        "lastDynamicsAt": 0,
+        "memoryClass": "standard",
+        "neverForget": 0,
+        "coreMemoryScore": 0,
+        "coreMemoryReason": "",
+        "versionNumber": 1,
+        "previousVersion": "",
+        "supersededBy": "",
+        "updateSource": "",
+        "updateEvidence": "",
+        "reconsolidationConfidence": 0,
+        "status": "active",
+        "versionCreatedAt": 0,
+        "updatedAt": 0,
+        "workspaceId": "",
+        "workspaceKey": "",
+        "memoryKind": "memory",
+        "reminderStatus": "",
+        "remindAt": 0,
+        "remindedAt": 0,
+        "dispatchedAt": 0,
+        "acknowledgedAt": 0,
+        "cancelledAt": 0,
+        "reminderKey": "",
+        "dispatchCount": 0,
+        "lastDispatchAttemptAt": 0,
+        "nextDispatchAttemptAt": 0,
+        "epistemicStatus": "observed",
+        "epistemicStatusUpdatedAt": 0,
+        "epistemicStatusActor": "",
+        "epistemicStatusReason": "",
+        "previousEpistemicStatus": "",
+        "validFrom": 0,
+        "validUntil": 0,
+        "chunkGroupId": ""
+      },
+      "principal": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "proposer": {
+        "agentId": "peer",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "resolver": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "results": [
+        {
+          "error": "not-found"
+        }
+      ],
+      "records": [],
+      "lists": {
+        "sharer": {
+          "agentId": "agent",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "proposer": {
+          "agentId": "peer",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "foreign": {
+          "agentId": "foreign",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "otherUser": {
+          "agentId": "agent",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        }
+      },
+      "events": []
+    },
+    {
+      "name": "background-denied",
+      "background": true,
+      "original": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "type": "memory",
+        "confirmed": false,
+        "text": "Synthetic source for sharing",
+        "summary": "Shared source summary",
+        "origin": "note",
+        "vector": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "importance": 0.5,
+        "category": "fact",
+        "createdAt": 1799999999000,
+        "mergedFrom": "[]",
+        "expiresAt": 0,
+        "agentId": "agent",
+        "storedBy": "agent",
+        "sourceTurnId": "",
+        "sourceMessageRole": "",
+        "sourceTimestamp": 0,
+        "sourceUrl": "",
+        "evidenceQuote": "",
+        "scope": "agent-private",
+        "ownerUserId": "",
+        "emotionalValence": "",
+        "emotionalIntensity": 0,
+        "emotionalDominant": "neutral",
+        "moodContextAtCapture": "",
+        "emotionStatus": "final",
+        "importanceStatus": "final",
+        "replayCount": 0,
+        "lastReplayed": 0,
+        "retrievalCount": 0,
+        "lastRetrievedAt": 0,
+        "memoryStrength": 1,
+        "halfLifeDays": 30,
+        "lastStrengthenedAt": 0,
+        "lastDynamicsAt": 0,
+        "memoryClass": "standard",
+        "neverForget": 0,
+        "coreMemoryScore": 0,
+        "coreMemoryReason": "",
+        "versionNumber": 1,
+        "previousVersion": "",
+        "supersededBy": "",
+        "updateSource": "",
+        "updateEvidence": "",
+        "reconsolidationConfidence": 0,
+        "status": "active",
+        "versionCreatedAt": 0,
+        "updatedAt": 0,
+        "workspaceId": "",
+        "workspaceKey": "",
+        "memoryKind": "memory",
+        "reminderStatus": "",
+        "remindAt": 0,
+        "remindedAt": 0,
+        "dispatchedAt": 0,
+        "acknowledgedAt": 0,
+        "cancelledAt": 0,
+        "reminderKey": "",
+        "dispatchCount": 0,
+        "lastDispatchAttemptAt": 0,
+        "nextDispatchAttemptAt": 0,
+        "epistemicStatus": "observed",
+        "epistemicStatusUpdatedAt": 0,
+        "epistemicStatusActor": "",
+        "epistemicStatusReason": "",
+        "previousEpistemicStatus": "",
+        "validFrom": 0,
+        "validUntil": 0,
+        "chunkGroupId": ""
+      },
+      "principal": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "proposer": {
+        "agentId": "peer",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "resolver": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "results": [
+        {
+          "error": "denied"
+        }
+      ],
+      "records": [],
+      "lists": {
+        "sharer": {
+          "agentId": "agent",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "proposer": {
+          "agentId": "peer",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "foreign": {
+          "agentId": "foreign",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "otherUser": {
+          "agentId": "agent",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        }
+      },
+      "events": []
+    },
+    {
+      "name": "filing-audit-failure",
+      "auditFailure": true,
+      "original": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "type": "memory",
+        "confirmed": false,
+        "text": "Synthetic source for sharing",
+        "summary": "Shared source summary",
+        "origin": "note",
+        "vector": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "importance": 0.5,
+        "category": "fact",
+        "createdAt": 1799999999000,
+        "mergedFrom": "[]",
+        "expiresAt": 0,
+        "agentId": "agent",
+        "storedBy": "agent",
+        "sourceTurnId": "",
+        "sourceMessageRole": "",
+        "sourceTimestamp": 0,
+        "sourceUrl": "",
+        "evidenceQuote": "",
+        "scope": "agent-private",
+        "ownerUserId": "",
+        "emotionalValence": "",
+        "emotionalIntensity": 0,
+        "emotionalDominant": "neutral",
+        "moodContextAtCapture": "",
+        "emotionStatus": "final",
+        "importanceStatus": "final",
+        "replayCount": 0,
+        "lastReplayed": 0,
+        "retrievalCount": 0,
+        "lastRetrievedAt": 0,
+        "memoryStrength": 1,
+        "halfLifeDays": 30,
+        "lastStrengthenedAt": 0,
+        "lastDynamicsAt": 0,
+        "memoryClass": "standard",
+        "neverForget": 0,
+        "coreMemoryScore": 0,
+        "coreMemoryReason": "",
+        "versionNumber": 1,
+        "previousVersion": "",
+        "supersededBy": "",
+        "updateSource": "",
+        "updateEvidence": "",
+        "reconsolidationConfidence": 0,
+        "status": "active",
+        "versionCreatedAt": 0,
+        "updatedAt": 0,
+        "workspaceId": "",
+        "workspaceKey": "",
+        "memoryKind": "memory",
+        "reminderStatus": "",
+        "remindAt": 0,
+        "remindedAt": 0,
+        "dispatchedAt": 0,
+        "acknowledgedAt": 0,
+        "cancelledAt": 0,
+        "reminderKey": "",
+        "dispatchCount": 0,
+        "lastDispatchAttemptAt": 0,
+        "nextDispatchAttemptAt": 0,
+        "epistemicStatus": "observed",
+        "epistemicStatusUpdatedAt": 0,
+        "epistemicStatusActor": "",
+        "epistemicStatusReason": "",
+        "previousEpistemicStatus": "",
+        "validFrom": 0,
+        "validUntil": 0,
+        "chunkGroupId": ""
+      },
+      "principal": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "proposer": {
+        "agentId": "peer",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "resolver": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "results": [
+        {
+          "error": "storage"
+        }
+      ],
+      "records": [
+        {
+          "id": "proposal",
+          "sharedId": "old-shared",
+          "sourceId": "00000000-0000-4000-8000-000000000001",
+          "target": "workspace",
+          "sharerAgentId": "agent",
+          "proposerAgentId": "peer",
+          "oldText": "Synthetic source for sharing",
+          "newText": "Proposal changes synthetic evidence",
+          "note": null,
+          "createdAt": 1800000000000,
+          "status": "pending",
+          "resolvedAt": null,
+          "resultId": null,
+          "resolutionNote": null,
+          "poolKey": "<workspace-pool>"
+        }
+      ],
+      "lists": {
+        "sharer": {
+          "agentId": "agent",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "pending",
+              "resolvedAt": null,
+              "resultId": null,
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "proposer": {
+          "agentId": "peer",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "pending",
+              "resolvedAt": null,
+              "resultId": null,
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "foreign": {
+          "agentId": "foreign",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "otherUser": {
+          "agentId": "agent",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "pending",
+              "resolvedAt": null,
+              "resultId": null,
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        }
+      },
+      "events": []
+    },
+    {
+      "name": "reject-audit-failure",
+      "resolve": "reject",
+      "resolveAuditFailure": true,
+      "original": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "type": "memory",
+        "confirmed": false,
+        "text": "Synthetic source for sharing",
+        "summary": "Shared source summary",
+        "origin": "note",
+        "vector": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "importance": 0.5,
+        "category": "fact",
+        "createdAt": 1799999999000,
+        "mergedFrom": "[]",
+        "expiresAt": 0,
+        "agentId": "agent",
+        "storedBy": "agent",
+        "sourceTurnId": "",
+        "sourceMessageRole": "",
+        "sourceTimestamp": 0,
+        "sourceUrl": "",
+        "evidenceQuote": "",
+        "scope": "agent-private",
+        "ownerUserId": "",
+        "emotionalValence": "",
+        "emotionalIntensity": 0,
+        "emotionalDominant": "neutral",
+        "moodContextAtCapture": "",
+        "emotionStatus": "final",
+        "importanceStatus": "final",
+        "replayCount": 0,
+        "lastReplayed": 0,
+        "retrievalCount": 0,
+        "lastRetrievedAt": 0,
+        "memoryStrength": 1,
+        "halfLifeDays": 30,
+        "lastStrengthenedAt": 0,
+        "lastDynamicsAt": 0,
+        "memoryClass": "standard",
+        "neverForget": 0,
+        "coreMemoryScore": 0,
+        "coreMemoryReason": "",
+        "versionNumber": 1,
+        "previousVersion": "",
+        "supersededBy": "",
+        "updateSource": "",
+        "updateEvidence": "",
+        "reconsolidationConfidence": 0,
+        "status": "active",
+        "versionCreatedAt": 0,
+        "updatedAt": 0,
+        "workspaceId": "",
+        "workspaceKey": "",
+        "memoryKind": "memory",
+        "reminderStatus": "",
+        "remindAt": 0,
+        "remindedAt": 0,
+        "dispatchedAt": 0,
+        "acknowledgedAt": 0,
+        "cancelledAt": 0,
+        "reminderKey": "",
+        "dispatchCount": 0,
+        "lastDispatchAttemptAt": 0,
+        "nextDispatchAttemptAt": 0,
+        "epistemicStatus": "observed",
+        "epistemicStatusUpdatedAt": 0,
+        "epistemicStatusActor": "",
+        "epistemicStatusReason": "",
+        "previousEpistemicStatus": "",
+        "validFrom": 0,
+        "validUntil": 0,
+        "chunkGroupId": ""
+      },
+      "principal": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "proposer": {
+        "agentId": "peer",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "resolver": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "results": [
+        {
+          "value": {
+            "proposalId": "proposal",
+            "sharedId": "old-shared",
+            "sharerAgentId": "agent"
+          }
+        },
+        {
+          "error": "storage",
+          "detail": {
+            "proposalId": "proposal"
+          }
+        }
+      ],
+      "records": [
+        {
+          "id": "proposal",
+          "sharedId": "old-shared",
+          "sourceId": "00000000-0000-4000-8000-000000000001",
+          "target": "workspace",
+          "sharerAgentId": "agent",
+          "proposerAgentId": "peer",
+          "oldText": "Synthetic source for sharing",
+          "newText": "Proposal changes synthetic evidence",
+          "note": null,
+          "createdAt": 1800000000000,
+          "status": "rejected",
+          "resolvedAt": 1800000000000,
+          "resultId": null,
+          "resolutionNote": "declined synthetic proposal",
+          "poolKey": "<workspace-pool>"
+        }
+      ],
+      "lists": {
+        "sharer": {
+          "agentId": "agent",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "rejected",
+              "resolvedAt": 1800000000000,
+              "resultId": null,
+              "resolutionNote": "declined synthetic proposal"
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "proposer": {
+          "agentId": "peer",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "rejected",
+              "resolvedAt": 1800000000000,
+              "resultId": null,
+              "resolutionNote": "declined synthetic proposal"
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "foreign": {
+          "agentId": "foreign",
+          "items": [],
+          "truncated": false,
+          "unreadable": 0
+        },
+        "otherUser": {
+          "agentId": "agent",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "rejected",
+              "resolvedAt": 1800000000000,
+              "resultId": null,
+              "resolutionNote": "declined synthetic proposal"
+            }
+          ],
+          "truncated": false,
+          "unreadable": 0
+        }
+      },
+      "events": [
+        {
+          "name": "memory.proposal",
+          "payload": {
+            "proposalId": "proposal",
+            "status": "pending",
+            "sharerAgentId": "agent",
+            "proposerAgentId": "peer",
+            "sharedId": "old-shared"
+          }
+        }
+      ]
+    },
+    {
+      "name": "corrupt-unrelated-counter",
+      "corrupt": true,
+      "original": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "type": "memory",
+        "confirmed": false,
+        "text": "Synthetic source for sharing",
+        "summary": "Shared source summary",
+        "origin": "note",
+        "vector": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "importance": 0.5,
+        "category": "fact",
+        "createdAt": 1799999999000,
+        "mergedFrom": "[]",
+        "expiresAt": 0,
+        "agentId": "agent",
+        "storedBy": "agent",
+        "sourceTurnId": "",
+        "sourceMessageRole": "",
+        "sourceTimestamp": 0,
+        "sourceUrl": "",
+        "evidenceQuote": "",
+        "scope": "agent-private",
+        "ownerUserId": "",
+        "emotionalValence": "",
+        "emotionalIntensity": 0,
+        "emotionalDominant": "neutral",
+        "moodContextAtCapture": "",
+        "emotionStatus": "final",
+        "importanceStatus": "final",
+        "replayCount": 0,
+        "lastReplayed": 0,
+        "retrievalCount": 0,
+        "lastRetrievedAt": 0,
+        "memoryStrength": 1,
+        "halfLifeDays": 30,
+        "lastStrengthenedAt": 0,
+        "lastDynamicsAt": 0,
+        "memoryClass": "standard",
+        "neverForget": 0,
+        "coreMemoryScore": 0,
+        "coreMemoryReason": "",
+        "versionNumber": 1,
+        "previousVersion": "",
+        "supersededBy": "",
+        "updateSource": "",
+        "updateEvidence": "",
+        "reconsolidationConfidence": 0,
+        "status": "active",
+        "versionCreatedAt": 0,
+        "updatedAt": 0,
+        "workspaceId": "",
+        "workspaceKey": "",
+        "memoryKind": "memory",
+        "reminderStatus": "",
+        "remindAt": 0,
+        "remindedAt": 0,
+        "dispatchedAt": 0,
+        "acknowledgedAt": 0,
+        "cancelledAt": 0,
+        "reminderKey": "",
+        "dispatchCount": 0,
+        "lastDispatchAttemptAt": 0,
+        "nextDispatchAttemptAt": 0,
+        "epistemicStatus": "observed",
+        "epistemicStatusUpdatedAt": 0,
+        "epistemicStatusActor": "",
+        "epistemicStatusReason": "",
+        "previousEpistemicStatus": "",
+        "validFrom": 0,
+        "validUntil": 0,
+        "chunkGroupId": ""
+      },
+      "principal": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "proposer": {
+        "agentId": "peer",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "resolver": {
+        "agentId": "agent",
+        "user": "user:v1:d13a96877f2e264dbb95b7932b14a1656c0a205e16d894afbad22ed33085957f",
+        "channel": "telegram",
+        "accountId": "fixture",
+        "chat": {
+          "id": "fixture",
+          "kind": "direct"
+        },
+        "trust": "proved",
+        "workspace": "workspace-dir:v1:<work>/workspace"
+      },
+      "results": [
+        {
+          "value": {
+            "proposalId": "proposal",
+            "sharedId": "old-shared",
+            "sharerAgentId": "agent"
+          }
+        }
+      ],
+      "records": [
+        {
+          "id": "proposal",
+          "sharedId": "old-shared",
+          "sourceId": "00000000-0000-4000-8000-000000000001",
+          "target": "workspace",
+          "sharerAgentId": "agent",
+          "proposerAgentId": "peer",
+          "oldText": "Synthetic source for sharing",
+          "newText": "Proposal changes synthetic evidence",
+          "note": null,
+          "createdAt": 1800000000000,
+          "status": "pending",
+          "resolvedAt": null,
+          "resultId": null,
+          "resolutionNote": null,
+          "poolKey": "<workspace-pool>"
+        }
+      ],
+      "lists": {
+        "sharer": {
+          "agentId": "agent",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "pending",
+              "resolvedAt": null,
+              "resultId": null,
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 1
+        },
+        "proposer": {
+          "agentId": "peer",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "pending",
+              "resolvedAt": null,
+              "resultId": null,
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 1
+        },
+        "foreign": {
+          "agentId": "foreign",
+          "items": [],
+          "truncated": false,
+          "unreadable": 1
+        },
+        "otherUser": {
+          "agentId": "agent",
+          "items": [
+            {
+              "id": "proposal",
+              "sharedId": "old-shared",
+              "sourceId": "00000000-0000-4000-8000-000000000001",
+              "target": "workspace",
+              "sharerAgentId": "agent",
+              "proposerAgentId": "peer",
+              "oldText": "Synthetic source for sharing",
+              "newText": "Proposal changes synthetic evidence",
+              "note": null,
+              "createdAt": 1800000000000,
+              "status": "pending",
+              "resolvedAt": null,
+              "resultId": null,
+              "resolutionNote": null
+            }
+          ],
+          "truncated": false,
+          "unreadable": 1
+        }
+      },
+      "events": [
+        {
+          "name": "memory.proposal",
+          "payload": {
+            "proposalId": "proposal",
+            "status": "pending",
+            "sharerAgentId": "agent",
+            "proposerAgentId": "peer",
+            "sharedId": "old-shared"
+          }
+        }
+      ]
+    }
+  ]
+}
