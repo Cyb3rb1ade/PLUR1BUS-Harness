@@ -193,7 +193,11 @@ pub fn clear_leftovers(files: &RunFiles) -> Option<String> {
         let _ = fs::remove_file(temporary(path));
     }
     let _ = fs::remove_file(&files.legacy_credentials);
-    let record = fs::read_to_string(&files.legacy_pid).ok()?;
+    let Some(record) = read_record(&files.legacy_pid) else {
+        // Not a record this could read (a link, a FIFO, too large) or none at all: removing never follows a link.
+        let _ = fs::remove_file(&files.legacy_pid);
+        return None;
+    };
     let pid = record
         .split_whitespace()
         .next()
@@ -208,6 +212,25 @@ pub fn clear_leftovers(files: &RunFiles) -> Option<String> {
     }
     let _ = fs::remove_file(&files.legacy_pid);
     alive.then_some(record)
+}
+
+/// Reads the legacy record (final review FR-M2, read hardening; the pattern of the tools service's `read_private`): a regular
+/// file, not a link, at most 256 bytes. Anything else (a FIFO, whose open would block the start for good; a link; a device;
+/// a large file) is not read and gives `None` ([`clear_leftovers`] then removes it). The opened handle is checked again, so a file
+/// swapped for another kind between the check and the open is not read either.
+fn read_record(path: &Path) -> Option<String> {
+    const LIMIT: u64 = 256;
+    let meta = path.symlink_metadata().ok()?;
+    if meta.file_type().is_symlink() || !meta.is_file() || meta.len() > LIMIT {
+        return None;
+    }
+    let file = fs::File::open(path).ok()?;
+    if !file.metadata().ok()?.is_file() {
+        return None;
+    }
+    let mut text = String::new();
+    file.take(LIMIT).read_to_string(&mut text).ok()?;
+    Some(text)
 }
 
 fn temporary(path: &Path) -> PathBuf {
@@ -419,6 +442,33 @@ mod tests {
                 "the record of this process's own child stays"
             );
         }
+    }
+
+    /// Final review FR-M2 (read hardening): a link at `run/core-legacy.pid` is not followed. Its target names a live process
+    /// that is nobody's child; read through the link that would be returned as an older legacy core.
+    #[cfg(unix)]
+    #[test]
+    fn a_link_at_the_legacy_record_is_not_read() {
+        let dir = tempfile::tempdir().unwrap();
+        let files = RunFiles::new(dir.path());
+        prepare(&files).unwrap();
+        let target = dir.path().join("elsewhere");
+        let text = format!(
+            "{} 5d0f6c1e-2b3a-4c5d-8e9f-0a1b2c3d4e5f\n",
+            std::process::id()
+        );
+        fs::write(&target, &text).unwrap();
+        std::os::unix::fs::symlink(&target, &files.legacy_pid).unwrap();
+        assert_eq!(clear_leftovers(&files), None);
+        assert!(
+            files.legacy_pid.symlink_metadata().is_err(),
+            "the link is removed"
+        );
+        assert_eq!(
+            fs::read_to_string(&target).unwrap(),
+            text,
+            "its target is not"
+        );
     }
 
     /// P4-10 P4D-10 (security review I3): a home whose `run/core-legacy.sock` would not fit `sun_path` is refused with a

@@ -41,6 +41,14 @@ fn main() {
             ready_line_run_files_and_modes,
         ),
         (
+            "a_fifo_at_the_legacy_record_does_not_stop_the_start",
+            a_fifo_at_the_legacy_record_does_not_stop_the_start,
+        ),
+        (
+            "a_link_at_the_legacy_record_is_not_followed",
+            a_link_at_the_legacy_record_is_not_followed,
+        ),
+        (
             "owner_handshake_and_a_byte_exact_relay",
             owner_handshake_and_a_byte_exact_relay,
         ),
@@ -2080,3 +2088,59 @@ fn a_refused_start_removes_only_what_it_wrote() {
         );
     }
 }
+
+/// Final review FR-M2 (read hardening): `run/core-legacy.pid` is read as a regular file only. A FIFO there (no writer ever
+/// opens it) must neither block the start nor be read: the start reaches `ready`, and the record the legacy core writes
+/// replaces it.
+#[cfg(unix)]
+fn a_fifo_at_the_legacy_record_does_not_stop_the_start() {
+    let prepare = |home: &Path| {
+        std::fs::create_dir_all(home.join("run")).unwrap();
+        let made = Command::new("mkfifo")
+            .arg(home.join("run/core-legacy.pid"))
+            .status()
+            .unwrap();
+        assert!(made.success(), "mkfifo");
+    };
+    let d = door(Opts {
+        prepare: Some(&prepare),
+        ..Opts::default()
+    });
+    assert_eq!(d.ready["ready"], true);
+    let record = std::fs::metadata(d.path("run/core-legacy.pid")).unwrap();
+    assert!(
+        record.is_file(),
+        "the legacy core's own record replaced the FIFO"
+    );
+}
+
+#[cfg(not(unix))]
+fn a_fifo_at_the_legacy_record_does_not_stop_the_start() {}
+
+/// Final review FR-M2: a link at `run/core-legacy.pid` is never followed; the start reaches `ready` and the link's target
+/// is unchanged.
+#[cfg(unix)]
+fn a_link_at_the_legacy_record_is_not_followed() {
+    let target = tempfile::tempdir().unwrap();
+    let victim = target.path().join("victim");
+    let content = format!(
+        "{} 5d0f6c1e-2b3a-4c5d-8e9f-0a1b2c3d4e5f\n",
+        std::process::id()
+    );
+    std::fs::write(&victim, &content).unwrap();
+    let prepare = |home: &Path| {
+        std::fs::create_dir_all(home.join("run")).unwrap();
+        std::os::unix::fs::symlink(&victim, home.join("run/core-legacy.pid")).unwrap();
+    };
+    let d = door(Opts {
+        prepare: Some(&prepare),
+        ..Opts::default()
+    });
+    assert_eq!(d.ready["ready"], true);
+    assert_eq!(std::fs::read_to_string(&victim).unwrap(), content);
+    let record = std::fs::symlink_metadata(d.path("run/core-legacy.pid")).unwrap();
+    assert!(record.is_file(), "a regular record replaced the link");
+}
+
+#[cfg(not(unix))]
+fn a_link_at_the_legacy_record_is_not_followed() {}
