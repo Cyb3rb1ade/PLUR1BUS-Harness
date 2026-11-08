@@ -986,3 +986,40 @@ The inference itself is not exactly-once: interruption before durable preparatio
 may repeat a provider call. Recovery after preparation uses the frozen result.
 Host-specific provider routing/authorization and ProcessEngine activation remain
 open; this supplies the genuine capture hook path, not final RX activation.
+
+
+## Actual-source conflict ledger (RX6 / RE-D76)
+
+`ops::conflicts::ConflictLedger` binds an existing MemoryReader and CaptureJournal.
+Its foreground record operation revalidates both actual committed Lance records,
+including shared metadata, current owner/workspace, lifecycle and original caller
+policy under the shared Node/native operation writer. The new row must belong
+privately to this agent; the other row must be currently visible through real
+sharing. Both rows remain unchanged. The private derived observation includes
+real source IDs and the Node conflict fields; text cuts keep complete Unicode.
+A stable caller-scoped UUID accepts an identical retry and rejects a changed pair.
+
+The authoritative `.adaptive-learning/conflict-log.jsonl` is replaced through
+a private fsynced sibling and atomic rename. Complete old bytes are preserved.
+Bounds are 64 MiB, 50,000 nonblank records and 1 MiB per new record. Malformed or
+torn records, links/hardlinks, unsafe cache paths and exceeded bounds refuse;
+no automatic truncation or foreign-source cleanup occurs. Unix directory rights
+are restricted through the held directory handle; new files use mode 0600.
+Windows retains verified directory DACLs and has no directory-fsync claim.
+
+A per-caller `native-conflict-review-summary-<scope hash>.json` is derived after
+the primary commit. Failure at that stage may return an error with a durable
+primary row; retry repairs the cache without duplicating it. Summary reads
+recompute from the bounded authoritative log, filtering owner/agent/workspace
+before counts and bytes; a forged or stale cache supplies no result. Summary
+reads participate in the writer/pending fence and can create its lock metadata.
+Legacy Node's global summary remains untouched. No cross-file transaction is
+claimed; cost is O(log bytes) per operation plus repeated source validation.
+
+Sixteen twice-recorded actual Node cases preserve row fields and document the
+legacy summary behavior. Seven SHA-bound native expectations cover unordered
+timestamp extrema, UTF-8 byte counts, epoch zero, malformed/torn refusal and
+complete counting beyond Node's 1,000-line bootstrap. Existing goldens remain
+unchanged. This is post-store observation: pending candidates, MemoryOps.store
+and merge-hook composition, confirmed resolution and ProcessEngine activation
+remain open. Automatic resolver jobs stay in RE-06, outside RX's native primitive.

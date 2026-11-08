@@ -70,3 +70,8 @@ mod safe_update_row;
 
 /// Bounded caller-authorized version-chain reads.
 pub mod history;
+
+mod conflict_file;
+mod conflict_summary;
+/// Durable original-caller conflict observations over actual memory rows.
+pub mod conflicts;

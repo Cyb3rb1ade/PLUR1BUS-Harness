@@ -136,6 +136,21 @@ impl TrustedDirectory {
         Ok(())
     }
 
+    /// Restrict this explicitly selected state directory through its held handle on Unix.
+    /// Windows retains the already verified directory DACL; this does not repair ancestors.
+    pub(crate) fn restrict_private(&self) -> Result<(), StoreError> {
+        self.assert_unchanged()?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            self.anchor
+                .set_permissions(std::fs::Permissions::from_mode(0o700))
+                .map_err(io_error)?;
+            self.anchor.sync_all().map_err(io_error)?;
+        }
+        self.assert_unchanged()
+    }
+
     /// Open one directory segment relative to this capability; names cannot escape the parent.
     pub fn open_child(&self, name: &str) -> Result<Self, StoreError> {
         valid_child(name)?;

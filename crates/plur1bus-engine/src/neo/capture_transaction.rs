@@ -65,7 +65,7 @@ pub(super) fn guard_automatic_pending(
 }
 impl CaptureJournal {
     /// Human operations hold the same leases but must not replay automatic work with their policy.
-    pub(in crate::neo) fn with_operation_writer<T>(
+    pub(crate) fn with_operation_writer<T>(
         &self,
         principal: &Principal,
         agent: &AgentContext,
