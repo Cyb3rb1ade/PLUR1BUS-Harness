@@ -4,7 +4,7 @@ import { classify } from './changes.mjs';
 
 const selected = files => Object.entries(classify({ event: 'pull_request', files, enginePinChanged: false }))
   .filter(([, value]) => value).map(([name]) => name).sort();
-const full = ['documents', 'engine-pin', 'python', 'rust', 'ts-core', 'web', 'workflows'];
+const full = ['documents', 'engine-pin', 'front-door', 'python', 'rust', 'ts-core', 'web', 'workflows'];
 for (const [name, files, expected] of [
   ['documentation', ['docs/ci.md', 'README.md'], ['docs-only']],
   ['web only', ['packages/web/src/app.tsx'], ['web']],
@@ -12,7 +12,13 @@ for (const [name, files, expected] of [
   ['Cargo manifest', ['Cargo.toml'], ['rust', 'web']],
   ['Cargo lock', ['Cargo.lock'], full.filter(x => x !== 'engine-pin' && x !== 'workflows')],
   ['toolchain', ['rust-toolchain.toml'], ['rust', 'web']],
-  ['core (the served stack runs the built Core)', ['packages/core/src/core.ts'], ['ts-core', 'web']],
+  ['core (the served stack runs the built Core; a front door seam file)', ['packages/core/src/core.ts'], ['front-door', 'ts-core', 'web']],
+  ['another core file is no front door seam', ['packages/core/src/session/store.ts'], ['ts-core', 'web']],
+  ['front door seam tests', ['packages/core/test/core-front-door.test.ts', 'packages/core/test/bin-entry.test.ts'], ['front-door', 'ts-core', 'web']],
+  ['the front door crate', ['crates/plur1bus-core/src/server.rs'], ['front-door', 'rust', 'web']],
+  ['a crate the front door is built from', ['crates/plur1bus-audit/src/lock.rs'], ['front-door', 'rust', 'web']],
+  ['the supervisor that spawns it', ['crates/plur1bus/src/supervisor/child.rs'], ['front-door', 'rust', 'web']],
+  ['module API', ['packages/module-api/src/rpc-server.ts'], ['front-door', 'python', 'rust', 'ts-core', 'web']],
   ['Python', ['hosts/hermes/tests/x.py', 'clients/python/client.py'], ['python']],
   ['document rendering', ['packages/documents/src/render.ts'], ['documents', 'ts-core', 'web']],
   ['RPC schema', ['packages/rpc-schema/schema/rpc.schema.json'], ['python', 'rust', 'ts-core', 'web']],
@@ -53,7 +59,7 @@ test('an Engine pin change triggers every suite without claiming a workflow chan
 test('main, nightly, dispatch and merge_group always run all suites', () => {
   for (const event of ['push', 'schedule', 'workflow_dispatch', 'merge_group']) {
     const r = classify({ event, files: ['docs/a.md'], enginePinChanged: false });
-    for (const key of ['rust', 'ts-core', 'web', 'python', 'documents']) assert.equal(r[key], true, `${event}:${key}`);
+    for (const key of ['rust', 'ts-core', 'web', 'python', 'documents', 'front-door']) assert.equal(r[key], true, `${event}:${key}`);
     assert.equal(r['docs-only'], false);
   }
 });

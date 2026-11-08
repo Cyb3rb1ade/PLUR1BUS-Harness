@@ -1463,6 +1463,12 @@ fn a_squatted_legacy_address_gets_nothing() {
         assert_eq!(received, 0, "the squatter read nothing");
         assert!(d.stderr().contains("cannot open a link"), "{}", d.stderr());
     }
+    // P4-10 ruling A1/T-M4: a named gap on Windows. The fake legacy core's open control link keeps its `-core-legacy` pipe
+    // name alive, so a second process can only add pipe instances, and which instance a client meets is not
+    // deterministic. The check itself (`relay.rs`, `GetNamedPipeServerProcessId` on Windows) runs on every link opened in
+    // the other scenarios.
+    #[cfg(not(unix))]
+    println!("  (skipped: Unix only; the Windows squat is a named gap, see the comment)");
 }
 
 /// Security review M2: started with launchd's soft descriptor limit (256), the front door raises it as Node does, serves

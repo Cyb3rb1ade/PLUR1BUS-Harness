@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {evaluateGate, selections, UNGATED} from './gate.mjs';
 
 const flags = extra => ({proceed:'true', macos:'false', rust:'false', 'ts-core':'false', web:'false',
-  python:'false', documents:'false', workflows:'false', 'engine-pin':'false', 'docs-only':'true', ...extra});
+  python:'false', documents:'false', workflows:'false', 'engine-pin':'false', 'docs-only':'true', 'front-door':'false', ...extra});
 const needs = outputs => ({changes:{result:'success',outputs}, ...Object.fromEntries(
   Object.entries(selections(outputs)).map(([job,selected]) => [job,{result:selected?'success':'skipped'}]))});
 

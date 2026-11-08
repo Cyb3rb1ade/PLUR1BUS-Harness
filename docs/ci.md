@@ -30,13 +30,15 @@ invalid manifest fails the plan; unknown paths and empty diffs select the full s
 | Shared RPC/config/log schemas or module API | Rust, TypeScript, browser, Python and documentation/hygiene |
 | `hosts/**` or `clients/python/**` | Python/Hermes, WSL and documentation/hygiene |
 | `packages/documents/**` | TypeScript/runtime checks plus golden rendering |
+| `crates/plur1bus-{core,audit,tools,rpc}/**`, `crates/plur1bus/src/supervisor/**`, `packages/module-api/**`, and the front door's TypeScript seam in `packages/core` (`src/core.ts`, `src/bin.ts`, `src/lock.ts`, `test/core-front-door.test.ts`, `test/bin-entry.test.ts`) | Additionally the Rust front door's Windows leg `front-door-windows` (output `front-door`, P4-10 ruling A1) |
 | Engine pin, any Cargo lock, pnpm lock, workflow or unknown path | Full suite |
 
 The reader lists live in `TEST_READ` in `scripts/ci/changes.mjs`. Accepted gap: `error_codes_sync.rs` scans every other
 `docs/**/*.md` (except `docs/superpowers` and `docs/handoff`) for error-code words, so a documentation-only pull request
 that names an unknown code passes `ci-gate` and fails the Rust suite on the next push to `main`, which runs everything.
 
-The category outputs are `rust`, `ts-core`, `web`, `python`, `docs-only`, `workflows`, `engine-pin` and `documents`.
+The category outputs are `rust`, `ts-core`, `web`, `python`, `docs-only`, `workflows`, `engine-pin`, `documents` and
+`front-door`.
 The existing macOS label/path policy still selects the platform legs *within* each affected suite; it cannot turn a
 failed classifier into a successful skip. Main pushes, scheduled nightly and manual CI runs select all suites.
 `merge_group.checks_requested` starts the same workflow and selects all suites, including the full macOS policy and
@@ -55,7 +57,8 @@ retain their existing path rules. Their checks are not folded into this workflow
 `ci-gate` is THE gate of `ci.yml`: the one check to wait for (and, once branch protection is configured, the one to
 require). It runs with `always()` after the required reliable jobs: `docs-hygiene`, `unit` (the
 `unit (ubuntu-24.04)` leg), P5 `core-unit-shard` and `core-unit` when TypeScript is selected, `wsl` and `web-browser` (itself the aggregate over `web-browser-build` and the four shards, and
-the exact-partition check). It requires `changes` to succeed and all category outputs to be literal `true` or `false`.
+the exact-partition check), and `front-door-windows` when the `front-door` paths changed (P4-10 ruling A1: the Rust front
+door's Windows code runs nowhere else; when its paths did not change it is skipped, which the gate accepts). It requires `changes` to succeed and all category outputs to be literal `true` or `false`.
 Every selected required job must report `success`; `failure`, `cancelled`, `skipped`, an absent result or an unknown job in
 `needs` fail the gate. An unselected job may be `skipped` or may have succeeded, but never failed or cancelled. The gate
 reports even when the plan selected nothing, which is why a skipped `unit` matrix (never reports `unit (ubuntu-24.04)`)
@@ -294,6 +297,7 @@ so on) would stay pending on a PR that skips it; migrate to the aggregate `ci-ga
 | `unit` | Gated (ubuntu-24.04). Toolchain, fixture drift, lint, offline TypeScript tests outside Core, Rust fmt/clippy/tests |
 | `core-unit-shard`, `core-unit` | Gated. Three measured Ubuntu Core shards plus the exact-partition check; missing manifests, failure and cancellation block |
 | `unit-os` | Not gated; only under the full-platform policy. The same steps as `unit` on `macos-15` and `windows-2025`, check names `unit (macos-15)` and `unit (windows-2025)`: full offline TypeScript workspace tests on macOS, every package but Core on Windows |
+| `front-door-windows` | Gated when selected (output `front-door`; every full run). On `windows-2025`: the Rust tests of `plur1bus-core` (the whole `front_door` scenario binary), `plur1bus-audit`, `plur1bus-tools` and `plur1bus-rpc` (also `--features server`), the supervisor's core-slot spec, the `core` command and 1staid's legacy-core kill in `plur1bus`, and the TypeScript seam (`module-api` `front-door-link`, `core` `core-front-door` and `bin-entry`). Linux and macOS run the same tests in `unit` |
 | `core-unit-shard-windows`, `core-unit-windows` | Not gated; only under the full-platform policy. Core on `windows-2025` in the three measured Ubuntu shards (`core unit shard i/3 (windows-2025)`) plus their exact-partition check |
 | `web-browser-macos` | Not gated (since 2026-10-28). Runs for proceed + web + macos and reports its own check |
 | `web-browser` | Gated. Aggregate over `web-browser-build` and the four `web-browser shard i/4` jobs plus the exact-partition check |

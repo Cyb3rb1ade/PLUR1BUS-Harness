@@ -458,3 +458,19 @@ test('native installation and served-stack acceptance carry the required CLI and
   assert.match(release, /for binary in out\/plur1bus-darwin-arm64 out\/plur1bus-tools-darwin-arm64; do/);
   assert.match(release, /name: signed-darwin-arm64\n\s+path: \|\n\s+out\/plur1bus-darwin-arm64\n\s+out\/plur1bus-tools-darwin-arm64/);
 });
+
+test('the front door Windows leg runs the front door suites on windows-2025 under its own selection (P4-10 A1)', () => {
+  const job = jobBlocks(workflow())['front-door-windows'];
+  assert.match(job, /^    runs-on: windows-2025$/m);
+  assert.match(job, /^    if: needs\.changes\.outputs\.proceed == 'true' && needs\.changes\.outputs\.front-door == 'true'$/m);
+  const steps = stepsOf(job);
+  assert.match(steps, /cargo test --locked -p plur1bus-core -p plur1bus-audit -p plur1bus-tools -p plur1bus-rpc\n/);
+  assert.match(steps, /cargo test --locked -p plur1bus --bin plur1bus -- supervisor::child::tests::the_rust_core_spec_runs_the_front_door_with_the_lifeline_and_instance /);
+  for (const file of ['test/front-door-link.test.ts', 'test/core-front-door.test.ts', 'test/bin-entry.test.ts']) assert(steps.includes(file), file);
+  // A gate job must never run a test with the core binaries swapped (the core spec test returns early with them set).
+  assert.doesNotMatch(job, /PLUR1BUS_CORE_(?:JS|BIN)/);
+  for (const files of [['crates/plur1bus-core/src/lib.rs'], ['packages/module-api/src/rpc-server.ts'], ['packages/core/src/bin.ts']]) {
+    assert.equal(classify({ event: 'pull_request', files })['front-door'], true, String(files));
+  }
+  assert.equal(classify({ event: 'pull_request', files: ['packages/web/src/app.tsx'] })['front-door'], false);
+});
