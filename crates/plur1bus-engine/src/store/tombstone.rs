@@ -455,11 +455,29 @@ impl TombstoneRegistry {
         text: &str,
         context: TombstoneContext<'_>,
     ) -> Result<Option<TolerantJsonValue>, StoreError> {
+        self.find_blocking_inner(text, context, true)
+    }
+
+    /// Dry-run lookup never repairs a torn registry tail or creates a quarantine file.
+    pub fn find_blocking_readonly(
+        &self,
+        text: &str,
+        context: TombstoneContext<'_>,
+    ) -> Result<Option<TolerantJsonValue>, StoreError> {
+        self.find_blocking_inner(text, context, false)
+    }
+
+    fn find_blocking_inner(
+        &self,
+        text: &str,
+        context: TombstoneContext<'_>,
+        repair: bool,
+    ) -> Result<Option<TolerantJsonValue>, StoreError> {
         if text.is_empty() {
             return Ok(None);
         }
         let fingerprint = content_fingerprint(text);
-        Ok(self.valid_rows(true)?.into_iter().find(|row| {
+        Ok(self.valid_rows(repair)?.into_iter().find(|row| {
             string(row, "status").as_deref() == Some("committed")
                 && string(row, "contentFingerprint").as_deref() == Some(fingerprint.as_str())
                 && tombstone_blocks_capture(row, context)

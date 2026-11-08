@@ -34,6 +34,7 @@ pub struct TestHost {
     workspaces: Mutex<BTreeMap<String, PathBuf>>,
     platform: PlatformCapabilities,
     pub events: Mutex<Vec<Value>>,
+    pub time: std::sync::atomic::AtomicI64,
 }
 
 impl TestHost {
@@ -44,6 +45,7 @@ impl TestHost {
             workspaces: Mutex::new(BTreeMap::new()),
             platform: PlatformCapabilities::default(),
             events: Mutex::new(Vec::new()),
+            time: std::sync::atomic::AtomicI64::new(0),
         }
     }
 
@@ -93,7 +95,7 @@ impl HostServices for TestHost {
     }
 
     fn now_ms(&self) -> i64 {
-        0
+        self.time.load(std::sync::atomic::Ordering::SeqCst)
     }
 
     fn platform(&self) -> &PlatformCapabilities {

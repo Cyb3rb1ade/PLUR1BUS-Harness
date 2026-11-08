@@ -3,9 +3,12 @@ mod archive;
 pub mod context;
 pub mod correction;
 mod correction_dynamics;
+pub mod import;
 pub mod import_ledger;
 pub mod import_lock;
 pub mod import_primitives;
+/// Finished-card encoding policy shared with the capture rules.
+pub mod import_row;
 mod json_fields;
 mod ledgers;
 /// Import source links without card mutation.

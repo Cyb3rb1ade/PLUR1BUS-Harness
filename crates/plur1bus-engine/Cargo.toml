@@ -62,7 +62,8 @@ icu_collator = "2.3"
 icu_locale_core = "2.3"
 url = "2"
 chrono-tz.workspace = true
-regress.workspace = true
+# Preserve the Node classifier's legacy UCS-2 regex boundaries without new dependencies.
+regress = { workspace = true, features = ["utf16"] }
 tokenizers = { version = "=0.23.2", default-features = false, features = ["fancy-regex"] }
 # RE-03/T0: rc.14 (2026-10-12) is the newest release outside the two-week window.
 # Dynamic loading only: no build-time runtime downloads, static linkage, or second HTTP/TLS stack.
