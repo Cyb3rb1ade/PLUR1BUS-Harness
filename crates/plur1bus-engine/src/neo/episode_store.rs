@@ -93,13 +93,31 @@ impl EpisodeStore {
                 let mut recovered = 0;
                 if let Some(plan) = episode_io::read(dir, name, proof, &cancel)? {
                     let pending_session = str_field(&plan, "session")?;
+                    let caller = super::caller::decode(
+                        super::merged_order::field(&plan, "caller").ok_or(StoreError::Corrupt)?,
+                    )?;
+                    let original = self.journal.authorize_caller(&caller, proof, &cancel)?;
+                    let original_check = || -> Result<(), EngineError> {
+                        check()?;
+                        if self.journal.authorize_caller(&caller, proof, &cancel)? != original {
+                            return Err(StoreError::InvalidInput.into());
+                        }
+                        Ok(())
+                    };
+                    let recovery = Publication {
+                        dir,
+                        proof,
+                        name,
+                        ctx: &original,
+                        check: &original_check,
+                    };
                     recovered = self.sessions.transaction(
-                        &turn.principal,
-                        &turn.agent,
+                        &caller.principal,
+                        &caller.agent,
                         pending_session,
                         &cancel,
-                        check,
-                        |checkpoint| episode_io::replay(&publication, &plan, checkpoint, &cancel),
+                        &original_check,
+                        |checkpoint| episode_io::replay(&recovery, &plan, checkpoint, &cancel),
                     )?;
                 }
                 self.sessions.transaction(
@@ -134,9 +152,14 @@ impl EpisodeStore {
                         } else {
                             episode_plan::checkpoint_only(turn, checkpoint.state(), &session, &now)?
                         };
-                        let Some(plan) = plan else {
+                        let Some(mut plan) = plan else {
                             return Ok(recovered);
                         };
+                        super::derived_fields::set(
+                            &mut plan,
+                            "caller",
+                            super::caller::encode(&turn.principal, &turn.agent)?,
+                        )?;
                         let next =
                             super::merged_order::field(&plan, "next").ok_or(StoreError::Corrupt)?;
                         checkpoint.validate(next)?;

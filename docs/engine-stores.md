@@ -549,3 +549,19 @@ remains side-effect free. CaptureRuntime retains its explicit unscheduled inline
 `neo_capture_hook` runs CaptureRuntime, NativeCaptureClassifier, shared mood and actual Lance
 writes in four offline modes, including the deferred request. ProcessEngine activation and
 startup replay remain separate RX8/T6 gates.
+
+### Original caller during Neo recovery (RX6 / S2a / RE-D65)
+
+Private capture envelopes carry `caller: { principal, agent }`; episode plans carry the same
+metadata inside `plan`. These are the original typed Principal/AgentContext, not a reconstruction
+from ownerUserId. Caller JSON is bounded to 64 KiB, remains in the private fsynced plan and is
+cleared on successful settlement. No transport credential or extra host metadata is added.
+
+Recovery validates the original caller against current HostServices workspace resolution, the
+plan's canonical/physical ownership proof and CapturePolicy. Every mutation rechecks both the
+triggering request and original caller; a later allowed chat cannot revive a revoked original
+chat's work. Episode checkpoint leasing also uses that original identity. Missing, malformed,
+foreign and oversized original identity fail closed with the pending file preserved; there is
+no inferred owner or broader fallback. Older settled capture envelopes need no caller, while
+older active envelopes without one require explicit repair. Global startup enumeration remains
+separate from this per-plan identity restoration.

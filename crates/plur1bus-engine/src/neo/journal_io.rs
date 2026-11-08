@@ -119,12 +119,17 @@ pub(super) fn latest(rows: Vec<Json>) -> Result<Vec<Json>, StoreError> {
     Ok(result)
 }
 
+pub(super) struct CapturePlan {
+    pub records: Vec<Vec<Json>>,
+    pub caller: Json,
+}
+
 pub(super) fn read_plan(
     dir: &TrustedDirectory,
     name: &str,
     proof: &Json,
     cancel: &Cancel,
-) -> Result<Option<Vec<Vec<Json>>>, EngineError> {
+) -> Result<Option<CapturePlan>, EngineError> {
     let Some(bytes) = bytes(dir, name, cancel)? else {
         return Ok(None);
     };
@@ -155,16 +160,21 @@ pub(super) fn read_plan(
         }
         plan.push(rows.clone());
     }
-    Ok(Some(plan))
+    Ok(Some(CapturePlan {
+        records: plan,
+        caller: field(&value, "caller").cloned().unwrap_or(Json::Null),
+    }))
 }
 pub(super) fn write_plan(
     dir: &TrustedDirectory,
     name: &str,
     proof: &Json,
     plan: &[Vec<Json>],
+    caller: &Json,
 ) -> Result<(), StoreError> {
     let value = object(vec![
         ("ownership", proof.clone()),
+        ("caller", caller.clone()),
         (
             "records",
             Json::Array(plan.iter().cloned().map(Json::Array).collect()),

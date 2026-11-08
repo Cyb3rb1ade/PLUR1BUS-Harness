@@ -182,7 +182,7 @@ impl CaptureJournal {
             &turn.agent,
             cancel,
             |check| {
-                let check = || {
+                let check = || -> Result<(), EngineError> {
                     turn.cancel.check()?;
                     check()
                 };
@@ -205,7 +205,13 @@ impl CaptureJournal {
                 }
                 check()?;
                 preflight(&directory, &plan, &binding.ctx, cancel)?;
-                journal_io::write_plan(&directory, &binding.file, &binding.proof, &plan)?;
+                journal_io::write_plan(
+                    &directory,
+                    &binding.file,
+                    &binding.proof,
+                    &plan,
+                    &super::caller::encode(&turn.principal, &turn.agent)?,
+                )?;
                 self.replay(&binding, &directory, cancel, &check)
             },
         )
@@ -258,7 +264,7 @@ impl CaptureJournal {
             &turn.agent,
             cancel,
             |check| {
-                let check = || {
+                let check = || -> Result<(), EngineError> {
                     turn.cancel.check()?;
                     check()
                 };
@@ -270,6 +276,20 @@ impl CaptureJournal {
                 action(&directory, &binding.proof, &name, &check)
             },
         )
+    }
+    /// Restored metadata is only a candidate identity: current host binding/policy must prove it.
+    pub(super) fn authorize_caller(
+        &self,
+        caller: &super::caller::Caller,
+        proof: &Json,
+        cancel: &Cancel,
+    ) -> Result<RequestContext, EngineError> {
+        cancel.check()?;
+        let binding = self.bind(&caller.principal, &caller.agent)?;
+        if &binding.proof != proof {
+            return Err(StoreError::InvalidInput.into());
+        }
+        Ok(binding.ctx)
     }
     fn with_locks<T>(
         &self,
@@ -295,7 +315,7 @@ impl CaptureJournal {
             }
             std::thread::sleep(Duration::from_millis(5));
         };
-        let check = || {
+        let check = || -> Result<(), EngineError> {
             self.check(binding, principal, agent, &cancel)?;
             directory.assert_unchanged()?;
             locks.assert_unchanged()?;
@@ -319,10 +339,21 @@ impl CaptureJournal {
         else {
             return Ok(JournalResult::default());
         };
-        if plan.iter().all(Vec::is_empty) {
+        if plan.records.iter().all(Vec::is_empty) {
             return Ok(JournalResult::default());
         }
-        let existing = preflight(directory, &plan, &binding.ctx, cancel)?;
+        let caller = super::caller::decode(&plan.caller)?;
+        let original = self.authorize_caller(&caller, &binding.proof, cancel)?;
+        let check = || -> Result<(), EngineError> {
+            check()?;
+            if self.authorize_caller(&caller, &binding.proof, cancel)? != original {
+                return Err(StoreError::InvalidInput.into());
+            }
+            Ok(())
+        };
+        check()?;
+        let plan = plan.records;
+        let existing = preflight(directory, &plan, &original, cancel)?;
         let mut counts = [0; 5];
         for (index, group) in plan.iter().enumerate() {
             if let Some(bytes) = journal_io::bytes(directory, FILES[index], cancel)? {
@@ -390,6 +421,7 @@ impl CaptureJournal {
             &binding.file,
             &binding.proof,
             &vec![Vec::new(); FILES.len()],
+            &Json::Null,
         )?;
         Ok(JournalResult {
             turns: counts[0],
