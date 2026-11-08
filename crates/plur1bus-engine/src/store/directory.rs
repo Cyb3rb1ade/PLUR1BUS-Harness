@@ -13,6 +13,13 @@ use crate::contract::StoreError;
 
 use super::paths::assert_trusted_path;
 
+#[path = "directory_append.rs"]
+mod append;
+
+#[cfg(test)]
+#[path = "directory_append_tests.rs"]
+mod append_tests;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct DirectoryId(u64, u64);
 
