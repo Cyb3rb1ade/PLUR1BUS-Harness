@@ -629,8 +629,8 @@ open embedding plan waits for recovery. `EpisodeStore::recover_pending` now inve
 replays embedding plans after prepared episode work; `NativeNeoCaptureHook::open` and
 `EmbeddingDrain::new` finish that prepared work before admission without new inference.
 The low-level EpisodeStore constructor remains read-only. This does not replay the Lance WAL,
-recover unprepared capture work, activate ProcessEngine, automatically schedule drains or
-perform legacy model-space migration/compaction.
+recover unprepared capture work, activate ProcessEngine or perform legacy model-space
+migration/compaction. The actual capture-hook scheduling boundary is described below.
 
 Actual C4 Node recordings cover 32 scenarios twice. Native comparison checks 30 matching
 rounds plus explicitly SHA-bound exceptions. Real SIGKILL tests interrupt before binary write,
@@ -639,3 +639,26 @@ checked for no new provider calls and no duplicate vectors/rows; separate tests 
 binary tails, source/plan corruption, model changes, revoked original chats, foreign principals,
 links, cancellation and competing pending publications. These are process-death tests, not
 physical power-loss or native Windows acceptance.
+
+
+### Capture-hook automatic embedding drain
+
+`NativeNeoCaptureHook::with_embedder` binds the composition's existing provider. It does not
+construct a model or create a scheduler. Effective `neo.embeddingDrain` controls enabled,
+impact and maximum attempts (Node auto-drain default: enabled/low/250; native maximum: 1000).
+The internal optional `NeoCaptureHook::after_capture` runs only after successful Neo recording,
+after primary capture has returned, including empty-turn/early-return paths. A failure is
+reported through the existing content-free Neo diagnostic sink and cannot replace the
+primary capture result. Main row/episode work therefore precedes maintenance.
+
+The pipeline narrows the existing cancellation deadline to the configured capture budget
+measured from worker start; it never grants a new budget after primary capture. The hook
+then preserves Node's ten-second margin and requires at least three usable seconds. Missing
+budget, exhausted time, incognito, disabled configuration or cancellation does not invoke
+inference. Background episodes stay disabled as before; configured background Neo drain
+still processes the authenticated queue. Direct hook calls without a deadline do not invent
+one. No detached/LLM job is introduced, and ProcessEngine activation remains separate.
+
+Real Runtime → classifier → Lance → Neo tests cover eight configurations, two normal turns,
+empty following turns, provider failures retaining deferred work, and assertions that every
+Neo embedding follows a real Lance commit and receives only the reduced remaining budget.

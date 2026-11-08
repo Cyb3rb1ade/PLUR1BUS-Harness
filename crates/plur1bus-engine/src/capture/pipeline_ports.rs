@@ -123,4 +123,15 @@ pub trait NeoCaptureHook: Send + Sync {
         _options: &CaptureOptions,
         _cancel: &Cancel,
     ) -> Result<(), EngineError>;
+
+    /// Optional queue maintenance after capture's primary work, including early-return paths.
+    /// Called only after successful Neo recording; failures cannot undo already stored rows.
+    fn after_capture(
+        &self,
+        _turn: &TurnRecord,
+        _context: &RequestContext,
+        _cancel: &Cancel,
+    ) -> Result<(), EngineError> {
+        Ok(())
+    }
 }

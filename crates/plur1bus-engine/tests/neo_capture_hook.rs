@@ -35,12 +35,58 @@ impl CaptureEmotionRoutes for NoModel {
 }
 #[test]
 fn actual_capture_hook_publishes_private_sources_episodes_and_session_checkpoint() {
-    for (enabled, background, deferred) in [
-        (true, false, false),
-        (false, false, false),
-        (true, true, false),
-        (true, false, true),
-    ] {
+    exercise(&[
+        (true, false, false, false, false),
+        (false, false, false, false, false),
+        (true, true, false, false, false),
+        (true, false, true, false, false),
+    ]);
+}
+#[test]
+fn configured_auto_drain_runs_after_lance_capture_and_respects_disabled_and_background_modes() {
+    exercise(&[
+        (true, false, false, true, true),
+        (true, false, false, true, false),
+        (false, false, false, true, true),
+        (true, true, false, true, true),
+    ]);
+}
+struct AfterLance {
+    inner: Arc<dyn EmbeddingProvider>,
+    stores: Arc<StorePool>,
+    calls: std::sync::atomic::AtomicUsize,
+    fail: std::sync::atomic::AtomicBool,
+}
+impl EmbeddingProvider for AfterLance {
+    fn identity(&self) -> &plur1bus_engine::contract::VectorSpaceIdentity {
+        self.inner.identity()
+    }
+    fn embed(
+        &self,
+        texts: &[String],
+        kind: plur1bus_engine::contract::EmbedKind,
+        cancel: &Cancel,
+    ) -> Result<Vec<Vec<f32>>, plur1bus_engine::contract::EmbedError> {
+        assert!(!self
+            .stores
+            .get("alpha")
+            .unwrap()
+            .scan(&RowFilter::default(), 100)
+            .unwrap()
+            .is_empty());
+        assert!(cancel
+            .remaining()
+            .is_some_and(|v| v < Duration::from_secs(50)));
+        self.calls
+            .fetch_add(texts.len(), std::sync::atomic::Ordering::SeqCst);
+        if self.fail.load(std::sync::atomic::Ordering::SeqCst) {
+            return Err(plur1bus_engine::contract::EmbedError::Unavailable);
+        }
+        self.inner.embed(texts, kind, cancel)
+    }
+}
+fn exercise(cases: &[(bool, bool, bool, bool, bool)]) {
+    for &(enabled, background, deferred, bind, auto_enabled) in cases {
         let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
         let workspace = root.path().join("workspace");
         fs::create_dir(&workspace).unwrap();
@@ -49,7 +95,7 @@ fn actual_capture_hook_publishes_private_sources_episodes_and_session_checkpoint
         let base = root.path().join("stores");
         let config = json!({"baseDbPath":base,"embedding":{"provider":"local-transformers","local":{"dimensions":384}},
             "autoCapture":true,"autoRecall":false,"captureChunking":false,"duplicateThreshold":1.01,
-            "neo":{"enabled":enabled},"metaCognition":{"enabled":false},"merging":{"enabled":false},
+            "neo":{"enabled":enabled,"embeddingDrain":{"enabled":auto_enabled,"impact":"all","maxItems":250}},"metaCognition":{"enabled":false},"merging":{"enabled":false},
             "runtime":{"llmResultCacheEnabled":false,"llmResultCachePersist":false}});
         let host: Arc<dyn HostServices> = Arc::new(capture_pipeline_support::Host::new(
             root.path().join("state"),
@@ -72,8 +118,18 @@ fn actual_capture_hook_publishes_private_sources_episodes_and_session_checkpoint
                 .unwrap(),
         );
         let policy = Arc::new(WorkspaceCapturePolicy::new(base.clone()));
-        let hook =
-            Arc::new(NativeNeoCaptureHook::open(&neo, host.clone(), policy.clone(), mood).unwrap());
+        let observer = Arc::new(AfterLance {
+            inner: embedder.clone(),
+            stores: stores.clone(),
+            calls: Default::default(),
+            fail: Default::default(),
+        });
+        let hook = NativeNeoCaptureHook::open(&neo, host.clone(), policy.clone(), mood).unwrap();
+        let hook = Arc::new(if bind {
+            hook.with_embedder(observer.clone()).unwrap()
+        } else {
+            hook
+        });
         let worker =
             CapturePipeline::new(host.clone(), stores.clone(), embedder, classifier, policy)
                 .unwrap()
@@ -166,5 +222,65 @@ fn actual_capture_hook_publishes_private_sources_episodes_and_session_checkpoint
             assert!(!directory.join("episodes.jsonl").exists());
         }
         assert_eq!(directory.join("turn-journal.jsonl").exists(), enabled);
+        let should_drain = enabled && bind && auto_enabled;
+        assert_eq!(directory.join("vector-index.json").exists(), should_drain);
+        assert_eq!(
+            observer.calls.load(std::sync::atomic::Ordering::SeqCst) > 0,
+            should_drain
+        );
+        if should_drain {
+            let manifest: Value =
+                serde_json::from_slice(&fs::read(directory.join("vector-index.json")).unwrap())
+                    .unwrap();
+            assert!(manifest["entries"].as_object().unwrap().len() >= 5);
+            let queues: Vec<Value> = fs::read_to_string(directory.join("embedding-queue.jsonl"))
+                .unwrap()
+                .lines()
+                .map(|s| serde_json::from_str(s).unwrap())
+                .collect();
+            let mut latest = std::collections::HashMap::new();
+            for row in &queues {
+                latest.insert(row["id"].as_str().unwrap(), row);
+            }
+            assert!(latest.values().all(|row| row["status"] == "done"));
+            // Node's finally-stage maintenance also runs when the primary turn has no text.
+            // Requeue a real owned target and prove success/failure do not alter that capture result.
+            for fail in [false, true] {
+                use std::io::Write;
+                let mut pending = queues.last().unwrap().clone();
+                pending["status"] = json!("pending");
+                let mut file = fs::OpenOptions::new()
+                    .append(true)
+                    .open(directory.join("embedding-queue.jsonl"))
+                    .unwrap();
+                writeln!(file, "{pending}").unwrap();
+                file.sync_all().unwrap();
+                observer
+                    .fail
+                    .store(fail, std::sync::atomic::Ordering::SeqCst);
+                let calls = observer.calls.load(std::sync::atomic::Ordering::SeqCst);
+                let mut empty = make_turn(0);
+                empty.run_id = Some(format!("empty-{fail}"));
+                let receipt = runtime.0.accept(empty, Default::default()).unwrap();
+                let result = serde_json::to_value(
+                    receipt.done.recv_timeout(Duration::from_secs(20)).unwrap(),
+                )
+                .unwrap();
+                assert_eq!(result["stored"], 0);
+                assert_eq!(
+                    observer.calls.load(std::sync::atomic::Ordering::SeqCst),
+                    calls + 1
+                );
+                let last: Value = serde_json::from_str(
+                    fs::read_to_string(directory.join("embedding-queue.jsonl"))
+                        .unwrap()
+                        .lines()
+                        .last()
+                        .unwrap(),
+                )
+                .unwrap();
+                assert_eq!(last["status"], if fail { "deferred" } else { "done" });
+            }
+        }
     }
 }

@@ -203,3 +203,51 @@ fn repeated_target_keeps_vector_appends_but_only_the_final_metadata_revision() {
     assert_eq!(turns.len(), 4);
     assert_eq!(turns[2]["embeddingImpact"], "high");
 }
+
+#[test]
+fn capture_hook_reserves_budget_and_does_not_embed_incognito_or_cancelled_work() {
+    use plur1bus_engine::{
+        capture::{emotion_pool::EmotionalPool, pipeline::NeoCaptureHook},
+        neo::capture_hook::NativeNeoCaptureHook,
+    };
+    use std::time::{Duration, Instant};
+    let f = setup();
+    f.journal
+        .process(&f.turn, &f.context, &Cancel::never())
+        .unwrap();
+    let p = Arc::new(Embedder::new());
+    let hook = NativeNeoCaptureHook::open(
+        f.root.path(),
+        f.host.clone(),
+        f.policy.clone(),
+        Arc::new(EmotionalPool::new(f.host.clone(), json!({}))),
+    )
+    .unwrap()
+    .with_embedder(p.clone())
+    .unwrap();
+    for cancel in [
+        Cancel::never(),
+        Cancel::with_deadline(Instant::now() + Duration::from_secs(12)),
+    ] {
+        hook.after_capture(&f.turn, &f.context, &cancel).unwrap();
+    }
+    let mut private = f.turn.clone();
+    private.incognito = true;
+    hook.after_capture(
+        &private,
+        &f.context,
+        &Cancel::with_deadline(Instant::now() + Duration::from_secs(60)),
+    )
+    .unwrap();
+    let cancelled = Cancel::never();
+    cancelled.cancel();
+    hook.after_capture(&f.turn, &f.context, &cancelled).unwrap();
+    assert!(p.calls.lock().unwrap().is_empty());
+    hook.after_capture(
+        &f.turn,
+        &f.context,
+        &Cancel::with_deadline(Instant::now() + Duration::from_secs(60)),
+    )
+    .unwrap();
+    assert_eq!(p.calls.lock().unwrap().len(), 12);
+}
