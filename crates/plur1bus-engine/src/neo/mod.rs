@@ -11,6 +11,7 @@ pub mod routing;
 pub mod session_store;
 pub mod status;
 mod tail;
+pub mod turn_batch;
 mod turn_rules;
 pub mod turns;
 mod vectors;
