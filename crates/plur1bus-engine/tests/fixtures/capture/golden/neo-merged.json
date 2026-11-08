@@ -1,0 +1,2514 @@
+{
+  "provenance": {
+    "commit": "b097045b6f115275baa8b15016321c3ba080c812",
+    "node": "v24.21.0",
+    "sourceHashes": {
+      "lib/neo-arch.js": "8c6b87d7669d9ae041b4c661bb7d9d24465a75e3ff22333af0c653e6e17e4950",
+      "lib/emotion.js": "4fad4d37803bbee8bf95a8d3db11b5e2fdc3b195d617055a8af63a0d52780c27",
+      "lib/emotion-engine.js": "b8d4e60b785c9d19809b7f2bfe67e6d2871dfb1b4699bd96b6ee666391372557",
+      "lib/emotion-score.js": "4f5aff9b4bb80e9673c2d1d0a748bd69f12979e11241f946e0b43e48a0df3573",
+      "lib/tier1-lexicon.js": "b4f0e03d727355e52806cda8761f4b38c3af3dc064a051f804ed99981b3d09f8",
+      "lib/tier2-transformer.js": "f928294f31e1cf5c69ffff8b3a8c98b42af8ccc4205877036895d35acc13a120",
+      "lib/tier3-llm.js": "7749de629deee9a0cc8cd01dc51cb7bbcc6e5a99256b5eb794abf0fd41ab0dc6",
+      "lib/host-network.js": "360b692df2f2c3dc9761cfe73ca5165da4b5416f8b7778b5ec79b1dd253aaf69",
+      "lib/emotion-blends.js": "653021f8048772dc6a2c1da0e60bfef08250bcd61aacf45ba1a9bf379fa7ca29",
+      "lib/abort.js": "435016008fa477f7ed7d3215505324bb3e7159e123ea553b35fb8a14d5a4055d",
+      "lib/relevant-memory-context.js": "021cb6e3e568915dbd12602f77ba924ac8c6f1cbc43fcb93cd8697156dca4c66",
+      "lib/memory-context-sanitize.js": "476528aa230fcda996245aa22efee376153ea4bc9a6287ce77da62c1a54e2377",
+      "lib/pattern-surface.js": "e65b2ec958b0564f44ae374579ee59f52f2c9b5be50e3a95e9bb33527b276b8b",
+      "lib/continuity-gate.js": "74b57c98d4631c9d6d34ecc2c744b02f2f430584e270671f60b3ecadc2de84b6",
+      "lib/recall-decision-trace.js": "cee6208fa0a91654adae11ccd17c3b44e86c84fdf9b30c1addfa1d299c96711d",
+      "lib/temporal-provenance.js": "b15da5a91b134fddd99a8ff2448999b9b9e8da3f069b05dd73a2c1ae3a89cc60",
+      "lib/prompt-memory-fields.js": "f20716b535734930677a4657ee62c01247679aa2ba2f0f6a3d7a6de62396bbda",
+      "lib/epistemic-status.js": "552a71f9616c8caa2151b54feadd3e6ab19a470218022027425b11ccaf967fec",
+      "lib/inject-budget.js": "5897fe0a629543e60997e4749f4692c841a8f21a66526c618d7ff3fc1f52d945",
+      "lib/safe-logging.js": "4a634fa3c4cce35d5c7cb29c7c2eb72378666ef400e79dc7869a4c50d2e2c0ac",
+      "lib/log-redact.js": "f64f7d2e2fbf13684ad16fe045a1e43a9755c57be00ee7532479286eed0068e3",
+      "lib/registry-lock.js": "718791a188344b396e72db33c908fb2ef3d71a67dc1ac29a3b2b882c7b76a4e9"
+    }
+  },
+  "requester": {
+    "requesterAgentId": "alpha",
+    "agentId": "alpha",
+    "workspaceIdentity": "workspace:v1:one",
+    "requesterWorkspaceKey": "workspace:v1:one"
+  },
+  "cases": [
+    {
+      "name": "canonical",
+      "key": "workspace",
+      "limit": 1,
+      "canonicalLines": [
+        "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000001,\"statement\":\"synthetic a\"}",
+        "{\"id\":\"b\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000002,\"statement\":\"synthetic b\"}"
+      ],
+      "legacyLines": [],
+      "outputs": {
+        "patterns": [
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000002,
+            "statement": "synthetic b"
+          }
+        ],
+        "graph": [
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000002,
+            "statement": "synthetic b"
+          }
+        ],
+        "dreams": [
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000002,
+            "statement": "synthetic b"
+          }
+        ],
+        "episodes": [
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000002,
+            "statement": "synthetic b"
+          }
+        ],
+        "candidates": [
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000002,
+            "statement": "synthetic b"
+          }
+        ]
+      }
+    },
+    {
+      "name": "merged",
+      "key": "workspace",
+      "limit": 2,
+      "canonicalLines": [
+        "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000001,\"statement\":\"synthetic a\"}",
+        "{\"id\":\"b\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000003,\"statement\":\"synthetic b\"}"
+      ],
+      "legacyLines": [
+        "{\"id\":\"c\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000002,\"statement\":\"synthetic c\"}"
+      ],
+      "outputs": {
+        "patterns": [
+          {
+            "id": "c",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000002,
+            "statement": "synthetic c"
+          },
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000003,
+            "statement": "synthetic b"
+          }
+        ],
+        "graph": [
+          {
+            "id": "c",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000002,
+            "statement": "synthetic c"
+          },
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000003,
+            "statement": "synthetic b"
+          }
+        ],
+        "dreams": [
+          {
+            "id": "c",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000002,
+            "statement": "synthetic c"
+          },
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000003,
+            "statement": "synthetic b"
+          }
+        ],
+        "episodes": [
+          {
+            "id": "c",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000002,
+            "statement": "synthetic c"
+          },
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000003,
+            "statement": "synthetic b"
+          }
+        ],
+        "candidates": [
+          {
+            "id": "c",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000002,
+            "statement": "synthetic c"
+          },
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000003,
+            "statement": "synthetic b"
+          }
+        ]
+      }
+    },
+    {
+      "name": "legacy-newer",
+      "key": "workspace",
+      "limit": 2,
+      "canonicalLines": [
+        "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000001,\"statement\":\"synthetic a\"}"
+      ],
+      "legacyLines": [
+        "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000001,\"statement\":\"new legacy\",\"updatedAt\":1700000000010}"
+      ],
+      "outputs": {
+        "patterns": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "new legacy",
+            "updatedAt": 1700000000010
+          }
+        ],
+        "graph": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "new legacy",
+            "updatedAt": 1700000000010
+          }
+        ],
+        "dreams": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "new legacy",
+            "updatedAt": 1700000000010
+          }
+        ],
+        "episodes": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "new legacy",
+            "updatedAt": 1700000000010
+          }
+        ],
+        "candidates": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "new legacy",
+            "updatedAt": 1700000000010
+          }
+        ]
+      }
+    },
+    {
+      "name": "canonical-tie",
+      "key": "workspace",
+      "limit": 2,
+      "canonicalLines": [
+        "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000001,\"statement\":\"canonical\"}"
+      ],
+      "legacyLines": [
+        "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000001,\"statement\":\"legacy\"}"
+      ],
+      "outputs": {
+        "patterns": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "canonical"
+          }
+        ],
+        "graph": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "canonical"
+          }
+        ],
+        "dreams": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "canonical"
+          }
+        ],
+        "episodes": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "canonical"
+          }
+        ],
+        "candidates": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "canonical"
+          }
+        ]
+      }
+    },
+    {
+      "name": "canonical-revisions",
+      "key": "workspace",
+      "limit": 3,
+      "canonicalLines": [
+        "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000001,\"statement\":\"synthetic a\"}",
+        "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000001,\"statement\":\"new canonical\",\"updatedAt\":1700000000003}"
+      ],
+      "legacyLines": [],
+      "outputs": {
+        "patterns": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic a"
+          },
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "new canonical",
+            "updatedAt": 1700000000003
+          }
+        ],
+        "graph": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic a"
+          },
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "new canonical",
+            "updatedAt": 1700000000003
+          }
+        ],
+        "dreams": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic a"
+          },
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "new canonical",
+            "updatedAt": 1700000000003
+          }
+        ],
+        "episodes": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "new canonical",
+            "updatedAt": 1700000000003
+          }
+        ],
+        "candidates": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic a"
+          },
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "new canonical",
+            "updatedAt": 1700000000003
+          }
+        ]
+      }
+    },
+    {
+      "name": "canonical-revoked",
+      "key": "workspace",
+      "limit": 3,
+      "canonicalLines": [
+        "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000001,\"statement\":\"synthetic a\"}",
+        "{\"id\":\"a\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000001,\"statement\":\"synthetic a\",\"updatedAt\":1700000000003}"
+      ],
+      "legacyLines": [],
+      "outputs": {
+        "patterns": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic a"
+          }
+        ],
+        "graph": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic a"
+          }
+        ],
+        "dreams": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic a"
+          }
+        ],
+        "episodes": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic a"
+          }
+        ],
+        "candidates": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic a"
+          }
+        ]
+      }
+    },
+    {
+      "name": "legacy-revoked",
+      "key": "workspace",
+      "limit": 3,
+      "canonicalLines": [
+        "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000001,\"statement\":\"synthetic a\"}"
+      ],
+      "legacyLines": [
+        "{\"id\":\"a\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000001,\"statement\":\"synthetic a\",\"updatedAt\":1700000000003}"
+      ],
+      "outputs": {
+        "patterns": [],
+        "graph": [],
+        "dreams": [],
+        "episodes": [],
+        "candidates": []
+      }
+    },
+    {
+      "name": "fresh-old-record",
+      "key": "workspace",
+      "limit": 1,
+      "canonicalLines": [
+        "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000001,\"statement\":\"synthetic a\",\"updatedAt\":1700000000100}",
+        "{\"id\":\"b\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000002,\"statement\":\"synthetic b\"}",
+        "{\"id\":\"c\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000003,\"statement\":\"synthetic c\"}"
+      ],
+      "legacyLines": [],
+      "outputs": {
+        "patterns": [
+          {
+            "id": "c",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000003,
+            "statement": "synthetic c"
+          }
+        ],
+        "graph": [
+          {
+            "id": "c",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000003,
+            "statement": "synthetic c"
+          }
+        ],
+        "dreams": [
+          {
+            "id": "c",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000003,
+            "statement": "synthetic c"
+          }
+        ],
+        "episodes": [
+          {
+            "id": "c",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000003,
+            "statement": "synthetic c"
+          }
+        ],
+        "candidates": [
+          {
+            "id": "c",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000003,
+            "statement": "synthetic c"
+          }
+        ]
+      }
+    },
+    {
+      "name": "stable-times",
+      "key": "workspace",
+      "limit": 3,
+      "canonicalLines": [
+        "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000001,\"statement\":\"synthetic a\"}",
+        "{\"id\":\"b\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000001,\"statement\":\"synthetic b\"}"
+      ],
+      "legacyLines": [
+        "{\"id\":\"c\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000001,\"statement\":\"synthetic c\"}"
+      ],
+      "outputs": {
+        "patterns": [
+          {
+            "id": "c",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic c"
+          },
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic a"
+          },
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic b"
+          }
+        ],
+        "graph": [
+          {
+            "id": "c",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic c"
+          },
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic a"
+          },
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic b"
+          }
+        ],
+        "dreams": [
+          {
+            "id": "c",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic c"
+          },
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic a"
+          },
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic b"
+          }
+        ],
+        "episodes": [
+          {
+            "id": "c",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic c"
+          },
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic a"
+          },
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic b"
+          }
+        ],
+        "candidates": [
+          {
+            "id": "c",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic c"
+          },
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic a"
+          },
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic b"
+          }
+        ]
+      }
+    },
+    {
+      "name": "undated",
+      "key": "workspace",
+      "limit": 3,
+      "canonicalLines": [
+        "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":null,\"statement\":\"synthetic a\"}",
+        "{\"id\":\"b\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":\"invalid\",\"statement\":\"synthetic b\"}",
+        "{\"id\":\"c\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000003,\"statement\":\"synthetic c\"}"
+      ],
+      "legacyLines": [],
+      "outputs": {
+        "patterns": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": null,
+            "statement": "synthetic a"
+          },
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": "invalid",
+            "statement": "synthetic b"
+          },
+          {
+            "id": "c",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000003,
+            "statement": "synthetic c"
+          }
+        ],
+        "graph": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": null,
+            "statement": "synthetic a"
+          },
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": "invalid",
+            "statement": "synthetic b"
+          },
+          {
+            "id": "c",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000003,
+            "statement": "synthetic c"
+          }
+        ],
+        "dreams": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": null,
+            "statement": "synthetic a"
+          },
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": "invalid",
+            "statement": "synthetic b"
+          },
+          {
+            "id": "c",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000003,
+            "statement": "synthetic c"
+          }
+        ],
+        "episodes": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": null,
+            "statement": "synthetic a"
+          },
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": "invalid",
+            "statement": "synthetic b"
+          },
+          {
+            "id": "c",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000003,
+            "statement": "synthetic c"
+          }
+        ],
+        "candidates": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": null,
+            "statement": "synthetic a"
+          },
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": "invalid",
+            "statement": "synthetic b"
+          },
+          {
+            "id": "c",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000003,
+            "statement": "synthetic c"
+          }
+        ]
+      }
+    },
+    {
+      "name": "iso-times",
+      "key": "workspace",
+      "limit": 1,
+      "canonicalLines": [
+        "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":\"2026-01-02T00:00:00Z\",\"statement\":\"synthetic a\"}",
+        "{\"id\":\"b\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":\"2026-01-01\",\"statement\":\"synthetic b\",\"updatedAt\":\"2026-01-03T01:00:00+01:00\"}"
+      ],
+      "legacyLines": [],
+      "outputs": {
+        "patterns": [
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": "2026-01-01",
+            "statement": "synthetic b",
+            "updatedAt": "2026-01-03T01:00:00+01:00"
+          }
+        ],
+        "graph": [
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": "2026-01-01",
+            "statement": "synthetic b",
+            "updatedAt": "2026-01-03T01:00:00+01:00"
+          }
+        ],
+        "dreams": [
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": "2026-01-01",
+            "statement": "synthetic b",
+            "updatedAt": "2026-01-03T01:00:00+01:00"
+          }
+        ],
+        "episodes": [
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": "2026-01-01",
+            "statement": "synthetic b",
+            "updatedAt": "2026-01-03T01:00:00+01:00"
+          }
+        ],
+        "candidates": [
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": "2026-01-01",
+            "statement": "synthetic b",
+            "updatedAt": "2026-01-03T01:00:00+01:00"
+          }
+        ]
+      }
+    },
+    {
+      "name": "start-time",
+      "key": "workspace",
+      "limit": 2,
+      "canonicalLines": [
+        "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000001,\"statement\":\"synthetic a\",\"startTime\":1700000000005}",
+        "{\"id\":\"b\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000003,\"statement\":\"synthetic b\"}"
+      ],
+      "legacyLines": [],
+      "outputs": {
+        "patterns": [
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000003,
+            "statement": "synthetic b"
+          },
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic a",
+            "startTime": 1700000000005
+          }
+        ],
+        "graph": [
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000003,
+            "statement": "synthetic b"
+          },
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic a",
+            "startTime": 1700000000005
+          }
+        ],
+        "dreams": [
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000003,
+            "statement": "synthetic b"
+          },
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic a",
+            "startTime": 1700000000005
+          }
+        ],
+        "episodes": [
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000003,
+            "statement": "synthetic b"
+          },
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic a",
+            "startTime": 1700000000005
+          }
+        ],
+        "candidates": [
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000003,
+            "statement": "synthetic b"
+          },
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic a",
+            "startTime": 1700000000005
+          }
+        ]
+      }
+    },
+    {
+      "name": "malformed",
+      "key": "workspace",
+      "limit": 2,
+      "canonicalLines": [
+        "",
+        "{broken",
+        "null",
+        "false",
+        "  ",
+        "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000001,\"statement\":\"synthetic a\"}"
+      ],
+      "legacyLines": [],
+      "outputs": {
+        "patterns": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic a"
+          }
+        ],
+        "graph": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic a"
+          }
+        ],
+        "dreams": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic a"
+          }
+        ],
+        "episodes": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic a"
+          }
+        ],
+        "candidates": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic a"
+          }
+        ]
+      }
+    },
+    {
+      "name": "anonymous",
+      "key": "workspace",
+      "limit": 2,
+      "canonicalLines": [
+        "{\"id\":\"\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000001,\"statement\":\"synthetic \"}",
+        "{\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000002,\"statement\":\"synthetic b\"}"
+      ],
+      "legacyLines": [],
+      "outputs": {
+        "patterns": [
+          {
+            "id": "",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic "
+          },
+          {
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000002,
+            "statement": "synthetic b"
+          }
+        ],
+        "graph": [
+          {
+            "id": "",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic "
+          },
+          {
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000002,
+            "statement": "synthetic b"
+          }
+        ],
+        "dreams": [
+          {
+            "id": "",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic "
+          },
+          {
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000002,
+            "statement": "synthetic b"
+          }
+        ],
+        "episodes": [
+          {
+            "id": "",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic "
+          },
+          {
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000002,
+            "statement": "synthetic b"
+          }
+        ],
+        "candidates": [
+          {
+            "id": "",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic "
+          },
+          {
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000002,
+            "statement": "synthetic b"
+          }
+        ]
+      }
+    },
+    {
+      "name": "zero",
+      "key": "workspace",
+      "limit": 0,
+      "canonicalLines": [
+        "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000001,\"statement\":\"synthetic a\"}"
+      ],
+      "legacyLines": [],
+      "outputs": {
+        "patterns": [],
+        "graph": [],
+        "dreams": [],
+        "episodes": [],
+        "candidates": []
+      }
+    },
+    {
+      "name": "acl-tail-growth",
+      "key": "workspace",
+      "limit": 2,
+      "canonicalLines": [
+        "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000001,\"statement\":\"synthetic a\"}",
+        "{\"id\":\"b\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000002,\"statement\":\"synthetic b\"}",
+        "{\"id\":\"foreign-0\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000003,\"statement\":\"synthetic foreign-0\"}",
+        "{\"id\":\"foreign-1\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000004,\"statement\":\"synthetic foreign-1\"}",
+        "{\"id\":\"foreign-2\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000005,\"statement\":\"synthetic foreign-2\"}",
+        "{\"id\":\"foreign-3\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000006,\"statement\":\"synthetic foreign-3\"}",
+        "{\"id\":\"foreign-4\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000007,\"statement\":\"synthetic foreign-4\"}",
+        "{\"id\":\"foreign-5\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000008,\"statement\":\"synthetic foreign-5\"}",
+        "{\"id\":\"foreign-6\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000009,\"statement\":\"synthetic foreign-6\"}",
+        "{\"id\":\"foreign-7\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000010,\"statement\":\"synthetic foreign-7\"}",
+        "{\"id\":\"foreign-8\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000011,\"statement\":\"synthetic foreign-8\"}",
+        "{\"id\":\"foreign-9\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000012,\"statement\":\"synthetic foreign-9\"}",
+        "{\"id\":\"foreign-10\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000013,\"statement\":\"synthetic foreign-10\"}",
+        "{\"id\":\"foreign-11\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000014,\"statement\":\"synthetic foreign-11\"}",
+        "{\"id\":\"foreign-12\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000015,\"statement\":\"synthetic foreign-12\"}",
+        "{\"id\":\"foreign-13\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000016,\"statement\":\"synthetic foreign-13\"}",
+        "{\"id\":\"foreign-14\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000017,\"statement\":\"synthetic foreign-14\"}",
+        "{\"id\":\"foreign-15\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000018,\"statement\":\"synthetic foreign-15\"}",
+        "{\"id\":\"foreign-16\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000019,\"statement\":\"synthetic foreign-16\"}",
+        "{\"id\":\"foreign-17\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000020,\"statement\":\"synthetic foreign-17\"}",
+        "{\"id\":\"foreign-18\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000021,\"statement\":\"synthetic foreign-18\"}",
+        "{\"id\":\"foreign-19\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000022,\"statement\":\"synthetic foreign-19\"}",
+        "{\"id\":\"foreign-20\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000023,\"statement\":\"synthetic foreign-20\"}",
+        "{\"id\":\"foreign-21\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000024,\"statement\":\"synthetic foreign-21\"}",
+        "{\"id\":\"foreign-22\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000025,\"statement\":\"synthetic foreign-22\"}",
+        "{\"id\":\"foreign-23\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000026,\"statement\":\"synthetic foreign-23\"}",
+        "{\"id\":\"foreign-24\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000027,\"statement\":\"synthetic foreign-24\"}",
+        "{\"id\":\"foreign-25\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000028,\"statement\":\"synthetic foreign-25\"}",
+        "{\"id\":\"foreign-26\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000029,\"statement\":\"synthetic foreign-26\"}",
+        "{\"id\":\"foreign-27\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000030,\"statement\":\"synthetic foreign-27\"}",
+        "{\"id\":\"foreign-28\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000031,\"statement\":\"synthetic foreign-28\"}",
+        "{\"id\":\"foreign-29\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000032,\"statement\":\"synthetic foreign-29\"}",
+        "{\"id\":\"foreign-30\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000033,\"statement\":\"synthetic foreign-30\"}",
+        "{\"id\":\"foreign-31\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000034,\"statement\":\"synthetic foreign-31\"}",
+        "{\"id\":\"foreign-32\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000035,\"statement\":\"synthetic foreign-32\"}",
+        "{\"id\":\"foreign-33\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000036,\"statement\":\"synthetic foreign-33\"}",
+        "{\"id\":\"foreign-34\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000037,\"statement\":\"synthetic foreign-34\"}",
+        "{\"id\":\"foreign-35\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000038,\"statement\":\"synthetic foreign-35\"}",
+        "{\"id\":\"foreign-36\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000039,\"statement\":\"synthetic foreign-36\"}",
+        "{\"id\":\"foreign-37\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000040,\"statement\":\"synthetic foreign-37\"}",
+        "{\"id\":\"foreign-38\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000041,\"statement\":\"synthetic foreign-38\"}",
+        "{\"id\":\"foreign-39\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000042,\"statement\":\"synthetic foreign-39\"}",
+        "{\"id\":\"foreign-40\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000043,\"statement\":\"synthetic foreign-40\"}",
+        "{\"id\":\"foreign-41\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000044,\"statement\":\"synthetic foreign-41\"}",
+        "{\"id\":\"foreign-42\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000045,\"statement\":\"synthetic foreign-42\"}",
+        "{\"id\":\"foreign-43\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000046,\"statement\":\"synthetic foreign-43\"}",
+        "{\"id\":\"foreign-44\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000047,\"statement\":\"synthetic foreign-44\"}",
+        "{\"id\":\"foreign-45\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000048,\"statement\":\"synthetic foreign-45\"}",
+        "{\"id\":\"foreign-46\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000049,\"statement\":\"synthetic foreign-46\"}",
+        "{\"id\":\"foreign-47\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000050,\"statement\":\"synthetic foreign-47\"}",
+        "{\"id\":\"foreign-48\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000051,\"statement\":\"synthetic foreign-48\"}",
+        "{\"id\":\"foreign-49\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000052,\"statement\":\"synthetic foreign-49\"}",
+        "{\"id\":\"foreign-50\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000053,\"statement\":\"synthetic foreign-50\"}",
+        "{\"id\":\"foreign-51\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000054,\"statement\":\"synthetic foreign-51\"}",
+        "{\"id\":\"foreign-52\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000055,\"statement\":\"synthetic foreign-52\"}",
+        "{\"id\":\"foreign-53\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000056,\"statement\":\"synthetic foreign-53\"}",
+        "{\"id\":\"foreign-54\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000057,\"statement\":\"synthetic foreign-54\"}",
+        "{\"id\":\"foreign-55\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000058,\"statement\":\"synthetic foreign-55\"}",
+        "{\"id\":\"foreign-56\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000059,\"statement\":\"synthetic foreign-56\"}",
+        "{\"id\":\"foreign-57\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000060,\"statement\":\"synthetic foreign-57\"}",
+        "{\"id\":\"foreign-58\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000061,\"statement\":\"synthetic foreign-58\"}",
+        "{\"id\":\"foreign-59\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000062,\"statement\":\"synthetic foreign-59\"}",
+        "{\"id\":\"foreign-60\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000063,\"statement\":\"synthetic foreign-60\"}",
+        "{\"id\":\"foreign-61\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000064,\"statement\":\"synthetic foreign-61\"}",
+        "{\"id\":\"foreign-62\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000065,\"statement\":\"synthetic foreign-62\"}",
+        "{\"id\":\"foreign-63\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000066,\"statement\":\"synthetic foreign-63\"}",
+        "{\"id\":\"foreign-64\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000067,\"statement\":\"synthetic foreign-64\"}",
+        "{\"id\":\"foreign-65\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000068,\"statement\":\"synthetic foreign-65\"}",
+        "{\"id\":\"foreign-66\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000069,\"statement\":\"synthetic foreign-66\"}",
+        "{\"id\":\"foreign-67\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000070,\"statement\":\"synthetic foreign-67\"}",
+        "{\"id\":\"foreign-68\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000071,\"statement\":\"synthetic foreign-68\"}",
+        "{\"id\":\"foreign-69\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000072,\"statement\":\"synthetic foreign-69\"}",
+        "{\"id\":\"foreign-70\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000073,\"statement\":\"synthetic foreign-70\"}",
+        "{\"id\":\"foreign-71\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000074,\"statement\":\"synthetic foreign-71\"}",
+        "{\"id\":\"foreign-72\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000075,\"statement\":\"synthetic foreign-72\"}",
+        "{\"id\":\"foreign-73\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000076,\"statement\":\"synthetic foreign-73\"}",
+        "{\"id\":\"foreign-74\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000077,\"statement\":\"synthetic foreign-74\"}",
+        "{\"id\":\"foreign-75\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000078,\"statement\":\"synthetic foreign-75\"}",
+        "{\"id\":\"foreign-76\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000079,\"statement\":\"synthetic foreign-76\"}",
+        "{\"id\":\"foreign-77\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000080,\"statement\":\"synthetic foreign-77\"}",
+        "{\"id\":\"foreign-78\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000081,\"statement\":\"synthetic foreign-78\"}",
+        "{\"id\":\"foreign-79\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000082,\"statement\":\"synthetic foreign-79\"}",
+        "{\"id\":\"foreign-80\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000083,\"statement\":\"synthetic foreign-80\"}",
+        "{\"id\":\"foreign-81\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000084,\"statement\":\"synthetic foreign-81\"}",
+        "{\"id\":\"foreign-82\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000085,\"statement\":\"synthetic foreign-82\"}",
+        "{\"id\":\"foreign-83\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000086,\"statement\":\"synthetic foreign-83\"}",
+        "{\"id\":\"foreign-84\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000087,\"statement\":\"synthetic foreign-84\"}",
+        "{\"id\":\"foreign-85\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000088,\"statement\":\"synthetic foreign-85\"}",
+        "{\"id\":\"foreign-86\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000089,\"statement\":\"synthetic foreign-86\"}",
+        "{\"id\":\"foreign-87\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000090,\"statement\":\"synthetic foreign-87\"}",
+        "{\"id\":\"foreign-88\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000091,\"statement\":\"synthetic foreign-88\"}",
+        "{\"id\":\"foreign-89\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000092,\"statement\":\"synthetic foreign-89\"}",
+        "{\"id\":\"foreign-90\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000093,\"statement\":\"synthetic foreign-90\"}",
+        "{\"id\":\"foreign-91\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000094,\"statement\":\"synthetic foreign-91\"}",
+        "{\"id\":\"foreign-92\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000095,\"statement\":\"synthetic foreign-92\"}",
+        "{\"id\":\"foreign-93\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000096,\"statement\":\"synthetic foreign-93\"}",
+        "{\"id\":\"foreign-94\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000097,\"statement\":\"synthetic foreign-94\"}",
+        "{\"id\":\"foreign-95\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000098,\"statement\":\"synthetic foreign-95\"}",
+        "{\"id\":\"foreign-96\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000099,\"statement\":\"synthetic foreign-96\"}",
+        "{\"id\":\"foreign-97\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000100,\"statement\":\"synthetic foreign-97\"}",
+        "{\"id\":\"foreign-98\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000101,\"statement\":\"synthetic foreign-98\"}",
+        "{\"id\":\"foreign-99\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000102,\"statement\":\"synthetic foreign-99\"}",
+        "{\"id\":\"foreign-100\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000103,\"statement\":\"synthetic foreign-100\"}",
+        "{\"id\":\"foreign-101\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000104,\"statement\":\"synthetic foreign-101\"}",
+        "{\"id\":\"foreign-102\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000105,\"statement\":\"synthetic foreign-102\"}",
+        "{\"id\":\"foreign-103\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000106,\"statement\":\"synthetic foreign-103\"}",
+        "{\"id\":\"foreign-104\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000107,\"statement\":\"synthetic foreign-104\"}",
+        "{\"id\":\"foreign-105\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000108,\"statement\":\"synthetic foreign-105\"}",
+        "{\"id\":\"foreign-106\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000109,\"statement\":\"synthetic foreign-106\"}",
+        "{\"id\":\"foreign-107\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000110,\"statement\":\"synthetic foreign-107\"}",
+        "{\"id\":\"foreign-108\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000111,\"statement\":\"synthetic foreign-108\"}",
+        "{\"id\":\"foreign-109\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000112,\"statement\":\"synthetic foreign-109\"}",
+        "{\"id\":\"foreign-110\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000113,\"statement\":\"synthetic foreign-110\"}",
+        "{\"id\":\"foreign-111\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000114,\"statement\":\"synthetic foreign-111\"}",
+        "{\"id\":\"foreign-112\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000115,\"statement\":\"synthetic foreign-112\"}",
+        "{\"id\":\"foreign-113\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000116,\"statement\":\"synthetic foreign-113\"}",
+        "{\"id\":\"foreign-114\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000117,\"statement\":\"synthetic foreign-114\"}",
+        "{\"id\":\"foreign-115\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000118,\"statement\":\"synthetic foreign-115\"}",
+        "{\"id\":\"foreign-116\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000119,\"statement\":\"synthetic foreign-116\"}",
+        "{\"id\":\"foreign-117\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000120,\"statement\":\"synthetic foreign-117\"}",
+        "{\"id\":\"foreign-118\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000121,\"statement\":\"synthetic foreign-118\"}",
+        "{\"id\":\"foreign-119\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000122,\"statement\":\"synthetic foreign-119\"}",
+        "{\"id\":\"foreign-120\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000123,\"statement\":\"synthetic foreign-120\"}",
+        "{\"id\":\"foreign-121\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000124,\"statement\":\"synthetic foreign-121\"}",
+        "{\"id\":\"foreign-122\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000125,\"statement\":\"synthetic foreign-122\"}",
+        "{\"id\":\"foreign-123\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000126,\"statement\":\"synthetic foreign-123\"}",
+        "{\"id\":\"foreign-124\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000127,\"statement\":\"synthetic foreign-124\"}",
+        "{\"id\":\"foreign-125\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000128,\"statement\":\"synthetic foreign-125\"}",
+        "{\"id\":\"foreign-126\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000129,\"statement\":\"synthetic foreign-126\"}",
+        "{\"id\":\"foreign-127\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000130,\"statement\":\"synthetic foreign-127\"}",
+        "{\"id\":\"foreign-128\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000131,\"statement\":\"synthetic foreign-128\"}",
+        "{\"id\":\"foreign-129\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000132,\"statement\":\"synthetic foreign-129\"}",
+        "{\"id\":\"foreign-130\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000133,\"statement\":\"synthetic foreign-130\"}",
+        "{\"id\":\"foreign-131\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000134,\"statement\":\"synthetic foreign-131\"}",
+        "{\"id\":\"foreign-132\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000135,\"statement\":\"synthetic foreign-132\"}",
+        "{\"id\":\"foreign-133\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000136,\"statement\":\"synthetic foreign-133\"}",
+        "{\"id\":\"foreign-134\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000137,\"statement\":\"synthetic foreign-134\"}",
+        "{\"id\":\"foreign-135\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000138,\"statement\":\"synthetic foreign-135\"}",
+        "{\"id\":\"foreign-136\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000139,\"statement\":\"synthetic foreign-136\"}",
+        "{\"id\":\"foreign-137\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000140,\"statement\":\"synthetic foreign-137\"}",
+        "{\"id\":\"foreign-138\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000141,\"statement\":\"synthetic foreign-138\"}",
+        "{\"id\":\"foreign-139\",\"agentId\":\"foreign\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"foreign\"},\"createdAt\":1700000000142,\"statement\":\"synthetic foreign-139\"}"
+      ],
+      "legacyLines": [],
+      "outputs": {
+        "patterns": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic a"
+          },
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000002,
+            "statement": "synthetic b"
+          }
+        ],
+        "graph": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic a"
+          },
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000002,
+            "statement": "synthetic b"
+          }
+        ],
+        "dreams": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic a"
+          },
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000002,
+            "statement": "synthetic b"
+          }
+        ],
+        "episodes": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic a"
+          },
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000002,
+            "statement": "synthetic b"
+          }
+        ],
+        "candidates": [
+          {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic a"
+          },
+          {
+            "id": "b",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000002,
+            "statement": "synthetic b"
+          }
+        ]
+      }
+    },
+    {
+      "name": "canonical-revisions-starve",
+      "key": "workspace",
+      "limit": 2,
+      "canonicalLines": [
+        "{\"id\":\"older\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000001,\"statement\":\"synthetic older\"}",
+        "{\"id\":\"repeat\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000002,\"statement\":\"synthetic repeat\"}",
+        "{\"id\":\"repeat\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000003,\"statement\":\"synthetic repeat\"}",
+        "{\"id\":\"repeat\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000004,\"statement\":\"synthetic repeat\"}",
+        "{\"id\":\"repeat\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000005,\"statement\":\"synthetic repeat\"}",
+        "{\"id\":\"repeat\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000006,\"statement\":\"synthetic repeat\"}",
+        "{\"id\":\"repeat\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000007,\"statement\":\"synthetic repeat\"}",
+        "{\"id\":\"repeat\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000008,\"statement\":\"synthetic repeat\"}",
+        "{\"id\":\"repeat\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000009,\"statement\":\"synthetic repeat\"}",
+        "{\"id\":\"repeat\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000010,\"statement\":\"synthetic repeat\"}",
+        "{\"id\":\"repeat\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000011,\"statement\":\"synthetic repeat\"}",
+        "{\"id\":\"repeat\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000012,\"statement\":\"synthetic repeat\"}",
+        "{\"id\":\"repeat\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000013,\"statement\":\"synthetic repeat\"}",
+        "{\"id\":\"repeat\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000014,\"statement\":\"synthetic repeat\"}",
+        "{\"id\":\"repeat\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000015,\"statement\":\"synthetic repeat\"}",
+        "{\"id\":\"repeat\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000016,\"statement\":\"synthetic repeat\"}",
+        "{\"id\":\"repeat\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000017,\"statement\":\"synthetic repeat\"}",
+        "{\"id\":\"repeat\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000018,\"statement\":\"synthetic repeat\"}",
+        "{\"id\":\"repeat\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000019,\"statement\":\"synthetic repeat\"}",
+        "{\"id\":\"repeat\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000020,\"statement\":\"synthetic repeat\"}",
+        "{\"id\":\"repeat\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000021,\"statement\":\"synthetic repeat\"}",
+        "{\"id\":\"repeat\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000022,\"statement\":\"synthetic repeat\"}",
+        "{\"id\":\"repeat\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000023,\"statement\":\"synthetic repeat\"}",
+        "{\"id\":\"repeat\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000024,\"statement\":\"synthetic repeat\"}",
+        "{\"id\":\"repeat\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000025,\"statement\":\"synthetic repeat\"}",
+        "{\"id\":\"repeat\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000026,\"statement\":\"synthetic repeat\"}"
+      ],
+      "legacyLines": [],
+      "outputs": {
+        "patterns": [
+          {
+            "id": "repeat",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000025,
+            "statement": "synthetic repeat"
+          },
+          {
+            "id": "repeat",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000026,
+            "statement": "synthetic repeat"
+          }
+        ],
+        "graph": [
+          {
+            "id": "repeat",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000025,
+            "statement": "synthetic repeat"
+          },
+          {
+            "id": "repeat",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000026,
+            "statement": "synthetic repeat"
+          }
+        ],
+        "dreams": [
+          {
+            "id": "repeat",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000025,
+            "statement": "synthetic repeat"
+          },
+          {
+            "id": "repeat",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000026,
+            "statement": "synthetic repeat"
+          }
+        ],
+        "episodes": [
+          {
+            "id": "repeat",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000026,
+            "statement": "synthetic repeat"
+          }
+        ],
+        "candidates": [
+          {
+            "id": "repeat",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000025,
+            "statement": "synthetic repeat"
+          },
+          {
+            "id": "repeat",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000026,
+            "statement": "synthetic repeat"
+          }
+        ]
+      }
+    },
+    {
+      "name": "unsafe-legacy",
+      "key": "tenant/a",
+      "limit": 2,
+      "canonicalLines": [
+        "{\"id\":\"canonical\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000002,\"statement\":\"synthetic canonical\"}"
+      ],
+      "legacyLines": [
+        "{\"id\":\"legacy\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000001,\"statement\":\"synthetic legacy\"}"
+      ],
+      "outputs": {
+        "patterns": [
+          {
+            "id": "canonical",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000002,
+            "statement": "synthetic canonical"
+          }
+        ],
+        "graph": [
+          {
+            "id": "canonical",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000002,
+            "statement": "synthetic canonical"
+          }
+        ],
+        "dreams": [
+          {
+            "id": "canonical",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000002,
+            "statement": "synthetic canonical"
+          }
+        ],
+        "episodes": [
+          {
+            "id": "canonical",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000002,
+            "statement": "synthetic canonical"
+          }
+        ],
+        "candidates": [
+          {
+            "id": "canonical",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000002,
+            "statement": "synthetic canonical"
+          }
+        ]
+      }
+    },
+    {
+      "name": "dot-legacy",
+      "key": ".",
+      "limit": 2,
+      "canonicalLines": [],
+      "legacyLines": [
+        "{\"id\":\"legacy\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000001,\"statement\":\"synthetic legacy\"}"
+      ],
+      "outputs": {
+        "patterns": [
+          {
+            "id": "legacy",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic legacy"
+          }
+        ],
+        "graph": [
+          {
+            "id": "legacy",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic legacy"
+          }
+        ],
+        "dreams": [
+          {
+            "id": "legacy",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic legacy"
+          }
+        ],
+        "episodes": [
+          {
+            "id": "legacy",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic legacy"
+          }
+        ],
+        "candidates": [
+          {
+            "id": "legacy",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic legacy"
+          }
+        ]
+      }
+    },
+    {
+      "name": "dotdot-legacy",
+      "key": "..",
+      "limit": 2,
+      "canonicalLines": [],
+      "legacyLines": [
+        "{\"id\":\"legacy\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"createdAt\":1700000000001,\"statement\":\"synthetic legacy\"}"
+      ],
+      "outputs": {
+        "patterns": [
+          {
+            "id": "legacy",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic legacy"
+          }
+        ],
+        "graph": [
+          {
+            "id": "legacy",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic legacy"
+          }
+        ],
+        "dreams": [
+          {
+            "id": "legacy",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic legacy"
+          }
+        ],
+        "episodes": [
+          {
+            "id": "legacy",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic legacy"
+          }
+        ],
+        "candidates": [
+          {
+            "id": "legacy",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000001,
+            "statement": "synthetic legacy"
+          }
+        ]
+      }
+    }
+  ],
+  "layouts": [
+    {
+      "key": "workspace",
+      "canonical": "workspace--dc576e2752cc82a62413",
+      "legacy": "workspace"
+    },
+    {
+      "key": "tenant/a",
+      "canonical": "tenant_a--480278ed063090d460c5",
+      "legacy": "tenant_a"
+    },
+    {
+      "key": "tenant_a",
+      "canonical": "tenant_a--077737c14a55382bd44e",
+      "legacy": "tenant_a"
+    },
+    {
+      "key": ".",
+      "canonical": ".--4e1fa61a9c723692f95c",
+      "legacy": "workspaces"
+    },
+    {
+      "key": "..",
+      "canonical": "..--31292d6f1d4400be8626",
+      "legacy": "synthetic-root"
+    },
+    {
+      "key": "",
+      "canonical": "default--dab04cf4c31f1215b2fd",
+      "legacy": "default"
+    },
+    {
+      "key": "   ",
+      "canonical": "default--dab04cf4c31f1215b2fd",
+      "legacy": "default"
+    },
+    {
+      "key": "Ä🙂 Team",
+      "canonical": "Team--906d0b69a21a3d63a2dd",
+      "legacy": "Team"
+    },
+    {
+      "key": "a_Ä_b",
+      "canonical": "a___b--9c2d603195549a72bc8a",
+      "legacy": "a___b"
+    },
+    {
+      "key": "a🙂🙂b",
+      "canonical": "a_b--b5e7f065e870e1b7824b",
+      "legacy": "a_b"
+    },
+    {
+      "key": "__inner__",
+      "canonical": "inner--46b3874f7679a7034b8e",
+      "legacy": "inner"
+    },
+    {
+      "key": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "canonical": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx--083bc417cdc8a4a3deae",
+      "legacy": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    }
+  ]
+}

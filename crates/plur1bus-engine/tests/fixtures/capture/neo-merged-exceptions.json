@@ -1,0 +1,54 @@
+{
+  "decision": "RE-D57 / RX Ruling 4 / D130",
+  "nodeGoldenSha256": "33e8caabe57d1469ad04623b0fd3ddfc39251b6fb85e44763d8e6274bdd50e81",
+  "reason": "Deduplicate canonical-only revisions before ACL and result count; never resurrect an older visible revision after a newer hidden revision; repeat-heavy tails must expand for distinct results. Reject dot and dotdot legacy directory aliases. Node observations remain unchanged.",
+  "cases": {
+    "canonical-revisions": [
+      {
+        "id": "a",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private",
+          "agentId": "alpha"
+        },
+        "createdAt": 1700000000001,
+        "statement": "new canonical",
+        "updatedAt": 1700000000003
+      }
+    ],
+    "canonical-revoked": [],
+    "canonical-revisions-starve": [
+      {
+        "id": "older",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private",
+          "agentId": "alpha"
+        },
+        "createdAt": 1700000000001,
+        "statement": "synthetic older"
+      },
+      {
+        "id": "repeat",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private",
+          "agentId": "alpha"
+        },
+        "createdAt": 1700000000026,
+        "statement": "synthetic repeat"
+      }
+    ],
+    "dot-legacy": [],
+    "dotdot-legacy": []
+  }
+}

@@ -1,0 +1,140 @@
+//! Stable revision and creation ordering, preserving lossless UTF-16 record identities.
+use crate::text::{
+    js::JsString,
+    json::{parse_json, TolerantJsonValue as Json},
+};
+use std::collections::HashMap;
+fn field<'a>(value: &'a Json, name: &str) -> Option<&'a Json> {
+    let Json::Object(fields) = value else {
+        return None;
+    };
+    let key = JsString::from_utf8_str(name);
+    fields.iter().rev().find(|(k, _)| *k == key).map(|(_, v)| v)
+}
+fn truthy(value: &Json) -> bool {
+    match value {
+        Json::Null => false,
+        Json::Bool(v) => *v,
+        Json::Number(v) => v.parse::<f64>().is_ok_and(|n| n != 0. && !n.is_nan()),
+        Json::String(v) => !v.is_empty(),
+        _ => true,
+    }
+}
+fn string(value: &Json) -> JsString {
+    match value {
+        Json::String(s) => s.clone(),
+        Json::Array(items) => {
+            let mut units = Vec::new();
+            for (index, item) in items.iter().enumerate() {
+                if index > 0 {
+                    units.push(u16::from(b','));
+                }
+                if !matches!(item, Json::Null) {
+                    units.extend_from_slice(string(item).as_utf16_units());
+                }
+            }
+            JsString::from_utf16_units(units)
+        }
+        Json::Number(n) => JsString::from_utf8_str(
+            ryu_js::Buffer::new().format(n.parse::<f64>().unwrap_or(f64::NAN)),
+        ),
+        Json::Bool(v) => JsString::from_utf8_str(if *v { "true" } else { "false" }),
+        Json::Null => JsString::from_utf8_str("null"),
+        Json::Object(_) => JsString::from_utf8_str("[object Object]"),
+    }
+}
+fn date(value: &Json) -> f64 {
+    match value {
+        Json::Number(n) => n
+            .parse::<f64>()
+            .ok()
+            .filter(|n| n.is_finite())
+            .unwrap_or(f64::NEG_INFINITY),
+        Json::Bool(v) => {
+            if *v {
+                1.
+            } else {
+                0.
+            }
+        }
+        Json::String(s) => {
+            let s = s.to_utf8_lossy();
+            chrono::DateTime::parse_from_rfc3339(&s)
+                .ok()
+                .map(|d| d.timestamp_millis() as f64)
+                .or_else(|| {
+                    chrono::NaiveDate::parse_from_str(&s, "%Y-%m-%d")
+                        .ok()?
+                        .and_hms_opt(0, 0, 0)
+                        .map(|d| d.and_utc().timestamp_millis() as f64)
+                })
+                .unwrap_or(f64::NEG_INFINITY)
+        }
+        _ => f64::NEG_INFINITY,
+    }
+}
+fn time(row: &Json, revision: bool) -> f64 {
+    let names: &[&str] = if revision {
+        &["updatedAt", "startTime", "createdAt"]
+    } else {
+        &["startTime", "createdAt"]
+    };
+    names
+        .iter()
+        .find_map(|name| field(row, name).filter(|v| !matches!(v, Json::Null)))
+        .map_or(f64::NEG_INFINITY, date)
+}
+pub(super) fn merge(canonical: &[String], legacy: &[String]) -> Vec<Json> {
+    let mut rows: Vec<Json> = Vec::new();
+    let mut ids = HashMap::new();
+    let mut anonymous = Vec::new();
+    for line in legacy.iter().chain(canonical) {
+        let Ok(row) = parse_json(line) else {
+            continue;
+        };
+        if !truthy(&row) {
+            continue;
+        }
+        let Some(id) = field(&row, "id")
+            .filter(|v| truthy(v))
+            .map(string)
+            .filter(|s| !s.is_empty())
+        else {
+            anonymous.push(row);
+            continue;
+        };
+        if let Some(&index) = ids.get(&id) {
+            if time(&row, true) >= time(&rows[index], true) {
+                rows[index] = row;
+            }
+        } else {
+            ids.insert(id, rows.len());
+            rows.push(row);
+        }
+    }
+    rows.extend(anonymous);
+    rows.sort_by(|a, b| {
+        time(a, false)
+            .partial_cmp(&time(b, false))
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    rows
+}
+pub(super) fn select(rows: Vec<Json>, limit: usize) -> Vec<Json> {
+    if rows.len() <= limit {
+        return rows;
+    }
+    let mut indices: Vec<_> = (0..rows.len()).collect();
+    indices.sort_by(|a, b| {
+        time(&rows[*a], true)
+            .partial_cmp(&time(&rows[*b], true))
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(a.cmp(b))
+    });
+    let mut chosen = indices.split_off(indices.len() - limit);
+    chosen.sort_unstable();
+    rows.into_iter()
+        .enumerate()
+        .filter_map(|(i, row)| chosen.binary_search(&i).is_ok().then_some(row))
+        .collect()
+}
