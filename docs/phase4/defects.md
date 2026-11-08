@@ -82,7 +82,9 @@ start with Node's search (`plur1bus_rpc::limits::raise_open_files`), as Node doe
 256 is no longer its ceiling; an accepted socket holds one descriptor, a link three. Where the limit cannot be raised the
 connection limit follows it (`(limit - 64) / 4`, at most 512; 48 at 256). At most 64 connections (half the limit, if
 lower) wait for their handshake at once; a new one beyond that ends the oldest of them, so idle unauthenticated sockets
-cannot keep an owner from its handshake (logged once as `unauthenticated connections at their limit`). Running out of
+cannot keep an owner from its handshake (logged once as `unauthenticated connections at their limit`). Only connections
+that have not sent a single complete frame count and are ended (fix round 1b F5): a handshake under way is never ended to
+make room. At the connection limit the oldest such connection is ended instead of refusing the new one (F2). Running out of
 descriptors is logged once per burst with the limit in force (`openFiles`). The TypeScript server has neither cap; its
 30 s handshake deadline is the same.
 

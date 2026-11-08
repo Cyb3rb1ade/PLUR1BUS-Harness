@@ -8,7 +8,8 @@
 //! `FAKE_LEGACY_MODE`: `exit:<n>` exits at once with `n`; `bad-ready` prints a ready line naming another pid; `slow-stop`
 //! takes 300 ms to stop after `core.shutdown`; `one-link` takes the control link and then no connection;
 //! `slow-refuse-shutdown` refuses a client's `core.shutdown` after 1.5 s; `odd-results` answers `core.adopt` with a result
-//! that is no object; `close-on-shutdown` answers `core.shutdown` and ends every connection ~5 ms later.
+//! that is no object; `close-on-shutdown` answers `core.shutdown` and ends every connection ~5 ms later; `slow-auth`
+//! answers a client's link handshake after 1 s.
 use plur1bus_rpc::server_transport::{Accepted, Listener};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -246,6 +247,9 @@ fn serve(l: &Arc<Legacy>, conn: Accepted, mode: &str, control: bool) {
         let id = msg.get("id").cloned().unwrap_or(Value::Null);
         let method = msg["method"].as_str().unwrap_or("").to_owned();
         if method == "core.auth" {
+            if mode == "slow-auth" && !control {
+                std::thread::sleep(Duration::from_millis(1000));
+            }
             if msg["params"]["frontDoor"]["token"].as_str() != Some(l.link.as_str()) {
                 send(&writer, &error(&id, "E_UNAUTHORIZED", "front-door-link"));
                 break;

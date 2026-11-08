@@ -249,15 +249,17 @@ impl FrontDoor {
         true
     }
 
-    /// The connections still waiting for their handshake, oldest first. Every accepted connection is registered before
-    /// its thread starts, so the accept loop sees them all.
+    /// The connections that have not sent a single complete frame yet, oldest first: the only ones ended to make room
+    /// (fix round 1b F5). A connection whose handshake is under way, or that is past it, is never among them, so a flood
+    /// of silent sockets cannot end an owner's handshake while the legacy core verifies it. Every accepted connection is
+    /// registered before its thread starts, so the accept loop sees them all.
     fn waiting(&self) -> Vec<Arc<Conn>> {
         let mut waiting: Vec<Arc<Conn>> = self
             .connections()
             .into_iter()
             .filter(|c| {
                 let st = relock(&c.state);
-                !st.authed && !st.closing
+                !st.authed && !st.spoke && !st.closing
             })
             .collect();
         waiting.sort_by_key(|c| c.id);
@@ -594,6 +596,8 @@ pub struct Conn {
 #[derive(Default)]
 struct ConnState {
     authed: bool,
+    /// A complete frame arrived (fix round 1b F5): from then on the connection is never ended to make room for another.
+    spoke: bool,
     caller: Option<Caller>,
     /// An API connection's handshake delegation: every later request must carry the same principal and transport.
     api: Option<ApiBinding>,
@@ -824,7 +828,10 @@ fn serve_connection(front: &Arc<FrontDoor>, conn: &Arc<Conn>, accepted: Accepted
             }
         }
         match frame::read_line(&mut reader) {
-            Ok(Line::Data(bytes)) => handle_line(front, conn, &bytes),
+            Ok(Line::Data(bytes)) => {
+                relock(&conn.state).spoke = true;
+                handle_line(front, conn, &bytes);
+            }
             Ok(Line::TooLong(n)) => {
                 conn.reply_and_close(&RawId::null(), frame::line_too_long(n));
                 break;

@@ -133,6 +133,10 @@ fn main() {
             "a_finite_hard_descriptor_limit_is_taken_whole",
             a_finite_hard_descriptor_limit_is_taken_whole,
         ),
+        (
+            "a_flood_of_silent_sockets_cannot_end_a_handshake_in_flight",
+            a_flood_of_silent_sockets_cannot_end_a_handshake_in_flight,
+        ),
     ];
     let mut failed = Vec::new();
     for (name, test) in tests {
@@ -1503,4 +1507,38 @@ fn a_finite_hard_descriptor_limit_is_taken_whole() {
             d.stderr()
         );
     }
+}
+
+/// Fix round 1b F5: a connection that has sent a complete frame (its handshake is under way) is never the one ended to make
+/// room; only connections that have not sent a single frame are. A same-user loop of silent connections therefore cannot
+/// end an owner's handshake while the legacy core verifies it (here it takes a second), and the silent ones stay capped.
+/// No descriptor limit is set, so this runs on every platform (review I5).
+fn a_flood_of_silent_sockets_cannot_end_a_handshake_in_flight() {
+    let d = door(Opts {
+        mode: "slow-auth",
+        ..Opts::default()
+    });
+    let mut owner = d.client();
+    owner.send_line(
+        &json!({"jsonrpc":"2.0","id":1,"method":"core.auth","params":{"token": d.token("core.token")}})
+            .to_string(),
+    );
+    std::thread::sleep(Duration::from_millis(100)); // the handshake is with the legacy core now
+    let silent: Vec<Client> = (0..100).map(|_| d.client()).collect();
+    let r = owner.response(&json!(1));
+    assert!(r.get("result").is_some(), "{r}");
+    assert!(owner.call("core.status", json!({})).get("result").is_some());
+    let until = Instant::now() + Duration::from_secs(5);
+    while !d
+        .stderr()
+        .contains("unauthenticated connections at their limit")
+    {
+        assert!(
+            Instant::now() < until,
+            "the silent sockets are still capped: {}",
+            d.stderr()
+        );
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    drop(silent);
 }
