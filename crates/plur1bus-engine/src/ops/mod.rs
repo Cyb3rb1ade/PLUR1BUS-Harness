@@ -67,3 +67,6 @@ pub mod reembedding;
 /// Caller-bound non-destructive reconsolidation with persisted successors.
 pub mod safe_update;
 mod safe_update_row;
+
+/// Bounded caller-authorized version-chain reads.
+pub mod history;

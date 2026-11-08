@@ -289,7 +289,19 @@ impl MemoryReader {
         now: i64,
     ) -> Result<bool, EngineError> {
         let row = &record.row;
-        if !is_recall_entry_live(row, now, None) || acl::allowed(row, context).is_err() {
+        if !is_recall_entry_live(row, now, None) {
+            return Ok(false);
+        }
+        self.source_visible(record, context)
+    }
+    /// Ownership and deletion checks shared with authorized historical version reads.
+    pub(super) fn source_visible(
+        &self,
+        record: &MemoryRecord,
+        context: &RequestContext,
+    ) -> Result<bool, EngineError> {
+        let row = &record.row;
+        if acl::allowed(row, context).is_err() {
             return Ok(false);
         }
         let owner = if row.agent_id.is_empty() {
