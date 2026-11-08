@@ -293,8 +293,6 @@ struct Control {
     gone: Arc<AtomicBool>,
 }
 
-/// Everything between the lock and `ready`: run files, the legacy core, the control link, the listener.
-#[allow(clippy::too_many_arguments)]
 /// What one start knows besides its plan: the run files it has written ([`start`]) and the record of an older legacy core
 /// that was still alive at start ([`run_files::clear_leftovers`]).
 struct Attempt {
@@ -302,8 +300,11 @@ struct Attempt {
     older_legacy: Option<String>,
 }
 
+/// Everything between the lock and `ready`: run files, the legacy core, the control link, the listener.
+///
 /// Starts the legacy core and binds the address; every run file it writes goes into `attempt.written` first, so a failed
 /// start removes exactly those (the bound socket never needs it: nothing can fail after the bind).
+#[allow(clippy::too_many_arguments)]
 fn start(
     plan: &ServePlan,
     files: &RunFiles,
