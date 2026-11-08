@@ -10,6 +10,9 @@ import type {
 import { traceparent } from "./ids.ts";
 import { legacyCollabSettings, resolveCollabLimits, type CollabLimits } from './limits.ts';
 import type { CollaborationLimitsConfig } from '@plur1bus/config-schema';
+import { TeamStore } from './team/store.ts';
+import { logsRedactionPort, type RedactionPort } from './ports.ts';
+import type { TeamPolicy } from '@plur1bus/rpc-schema';
 
 export { SCHEMA_VERSION };
 
@@ -43,9 +46,10 @@ function toWorktree(r: Row): WorktreeRow {
 /** Ends task-scoped grants when a collab task reaches a terminal status (D109 §9.9). */
 export interface TaskGrantEnd { endTask(taskId: string, by?: string): number | void | Promise<number | void> }
 
-export interface StoreOptions { path: string; clock?: () => number; newId?: (prefix: string) => string; grants?: TaskGrantEnd; limits?: () => CollaborationLimitsConfig; logWarn?: (msg: string, fields?: { err?: unknown }) => void }
+export interface StoreOptions { path: string; clock?: () => number; newId?: (prefix: string) => string; grants?: TaskGrantEnd; limits?: () => CollaborationLimitsConfig; logWarn?: (msg: string, fields?: { err?: unknown }) => void; redact?: RedactionPort; teamPolicy?: () => TeamPolicy }
 
 export class CollabStore {
+  readonly team: TeamStore;
   readonly board: ProjectBoardStore;
   readonly #db: DatabaseSync;
   readonly #clock: () => number;
@@ -66,6 +70,7 @@ export class CollabStore {
       if (o.path !== ":memory:") this.#db.exec("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;");
       migrate(this.#db);
       this.board = new ProjectBoardStore(this.#db, id => this.getProject(id), () => this.now(), prefix => this.id(prefix));
+      this.team = new TeamStore(this.#db, id => this.getProject(id), () => this.now(), prefix => this.id(prefix), o.redact ?? logsRedactionPort(), o.teamPolicy);
     } catch (e) { this.#db.close(); throw e; }
     if (o.path !== ":memory:" && process.platform !== "win32") { try { chmodSync(o.path, 0o600); } catch { /* best effort */ } }
   }
@@ -155,7 +160,7 @@ export class CollabStore {
 
   addMember(projectId: string, userId: string, role: ProjectRole): Project {
     if (!userId) throw new CollabError("invalid", "userId is required", { reason: "userId" });
-    if (role !== "member" && role !== "lead") throw new CollabError("invalid", "role must be member or lead", { reason: "role" });
+    if (!["member", "lead", "worker", "reviewer"].includes(role)) throw new CollabError("invalid", "unknown project role", { reason: "role" });
     const now = this.#clock();
     return this.#tx(() => {
       const p = this.#live(projectId);
@@ -223,7 +228,7 @@ export class CollabStore {
     const baseBranch = r.base_branch as string | null;
     return {
       id: r.id as string, name: r.name as string, owner: r.owner as string, members, agents,
-      settings: legacyCollabSettings(resolveCollabLimits(this.#limits?.(), normalizedSettings(r.settings as string))),
+      settings: { ...legacyCollabSettings(resolveCollabLimits(this.#limits?.(), normalizedSettings(r.settings as string))), ...(normalizedSettings(r.settings as string).collaboration ? { collaboration: normalizedSettings(r.settings as string).collaboration! } : {}) },
       createdAt: r.created_at as number, updatedAt: r.updated_at as number,
       archivedAt: (r.archived_at as number | null) ?? null,
       ...(repoPath && baseBranch ? { repo: { repoPath, baseBranch } satisfies RepoBinding } : {}),

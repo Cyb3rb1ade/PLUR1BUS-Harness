@@ -1,4 +1,4 @@
-# RPC reference (rpc 1.23.0)
+# RPC reference (rpc 1.24.0)
 
 Generated from `packages/rpc-schema/schema/rpc.schema.json` by `scripts/gen-docs.mjs` — do not edit by hand; run `pnpm docs:gen`.
 JSON-RPC 2.0, one JSON value per line (NDJSON, max 4 MiB per line), on `run/core.sock` (POSIX) or the per-home named pipe
@@ -399,6 +399,19 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 - `memory.importText.apply`: experimental, since 1.22.0
 - `memory.importText.rollback`: experimental, since 1.22.0
 - `memory.exportText`: experimental, since 1.22.0
+- `team.get`: experimental, since 1.24.0
+- `team.list`: experimental, since 1.24.0
+- `team.create`: experimental, since 1.24.0
+- `team.composition.confirm`: experimental, since 1.24.0
+- `team.plan.approve`: experimental, since 1.24.0
+- `team.scope.extend`: experimental, since 1.24.0
+- `team.pause`: experimental, since 1.24.0
+- `team.resume`: experimental, since 1.24.0
+- `team.cancel`: experimental, since 1.24.0
+- `team.package.reassign`: experimental, since 1.24.0
+- `team.package.budget.set`: experimental, since 1.24.0
+- `team.budget.set`: experimental, since 1.24.0
+- `team.package.sync.set`: experimental, since 1.24.0
 
 ### supervisor server
 
@@ -515,6 +528,10 @@ Everything else is experimental and may change in any minor release (ADR-016 §4
 
 - `tools.hello`: experimental, since 1.15.0
 - `tools.health`: experimental, since 1.15.0
+- `tools.team.check`: experimental, since 1.24.0
+- `tools.team.diffcheck`: experimental, since 1.24.0
+- `tools.team.impact`: experimental, since 1.24.0
+- `tools.team.next`: experimental, since 1.24.0
 
 ## Methods
 
@@ -10521,7 +10538,9 @@ Authenticated project member.add using ADR-007 object rights.
     "role": {
       "enum": [
         "member",
-        "lead"
+        "lead",
+        "worker",
+        "reviewer"
       ]
     }
   },
@@ -10612,7 +10631,9 @@ Authenticated project member.role using ADR-007 object rights.
     "role": {
       "enum": [
         "member",
-        "lead"
+        "lead",
+        "worker",
+        "reviewer"
       ]
     }
   },
@@ -26342,6 +26363,960 @@ Export stored memories formatted for portable text import.
 }
 ```
 
+### `team.get`
+
+**Stability:** experimental · since 1.24.0
+
+**Served by:** core
+
+D124 team data and decisions. Execution is deferred to PT-4b.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "runId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    }
+  },
+  "required": [
+    "runId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "run": {
+      "$ref": "#/$defs/TeamRun"
+    }
+  },
+  "required": [
+    "run"
+  ]
+}
+```
+
+### `team.list`
+
+**Stability:** experimental · since 1.24.0
+
+**Served by:** core
+
+D124 team data and decisions. Execution is deferred to PT-4b.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    },
+    "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  },
+  "required": [
+    "projectId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "runs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamRun"
+      },
+      "maxItems": 100,
+      "minItems": 0
+    },
+    "nextOffset": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "runs",
+    "nextOffset"
+  ]
+}
+```
+
+### `team.create`
+
+**Stability:** experimental · since 1.24.0
+
+**Served by:** core
+
+D124 team data and decisions. Execution is deferred to PT-4b.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "objective": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "leadAgent": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "team",
+        "best-of-n"
+      ]
+    },
+    "cardId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "projectId",
+    "objective",
+    "leadAgent"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "run": {
+      "$ref": "#/$defs/TeamRun"
+    }
+  },
+  "required": [
+    "run"
+  ]
+}
+```
+
+### `team.composition.confirm`
+
+**Stability:** experimental · since 1.24.0
+
+**Served by:** core
+
+D124 team data and decisions. Execution is deferred to PT-4b.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "runId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "compositionHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "members": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamMember"
+      },
+      "maxItems": 64,
+      "minItems": 1
+    }
+  },
+  "required": [
+    "runId",
+    "compositionHash",
+    "members"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "run": {
+      "$ref": "#/$defs/TeamRun"
+    }
+  },
+  "required": [
+    "run"
+  ]
+}
+```
+
+### `team.plan.approve`
+
+**Stability:** experimental · since 1.24.0
+
+**Served by:** core
+
+D124 team data and decisions. Execution is deferred to PT-4b.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "runId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "planHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "checkHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "compositionHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "scope": {
+      "$ref": "#/$defs/TeamScope"
+    }
+  },
+  "required": [
+    "runId",
+    "planHash",
+    "checkHash",
+    "compositionHash",
+    "scope"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "run": {
+      "$ref": "#/$defs/TeamRun"
+    }
+  },
+  "required": [
+    "run"
+  ]
+}
+```
+
+### `team.scope.extend`
+
+**Stability:** experimental · since 1.24.0
+
+**Served by:** core
+
+D124 team data and decisions. Execution is deferred to PT-4b.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "runId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "planHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "checkHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "compositionHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "scope": {
+      "$ref": "#/$defs/TeamScope"
+    }
+  },
+  "required": [
+    "runId",
+    "planHash",
+    "checkHash",
+    "compositionHash",
+    "scope"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "run": {
+      "$ref": "#/$defs/TeamRun"
+    }
+  },
+  "required": [
+    "run"
+  ]
+}
+```
+
+### `team.pause`
+
+**Stability:** experimental · since 1.24.0
+
+**Served by:** core
+
+D124 team data and decisions. Execution is deferred to PT-4b.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "runId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    }
+  },
+  "required": [
+    "runId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "run": {
+      "$ref": "#/$defs/TeamRun"
+    }
+  },
+  "required": [
+    "run"
+  ]
+}
+```
+
+### `team.resume`
+
+**Stability:** experimental · since 1.24.0
+
+**Served by:** core
+
+D124 team data and decisions. Execution is deferred to PT-4b.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "runId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    }
+  },
+  "required": [
+    "runId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "run": {
+      "$ref": "#/$defs/TeamRun"
+    }
+  },
+  "required": [
+    "run"
+  ]
+}
+```
+
+### `team.cancel`
+
+**Stability:** experimental · since 1.24.0
+
+**Served by:** core
+
+D124 team data and decisions. Execution is deferred to PT-4b.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "runId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    }
+  },
+  "required": [
+    "runId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "run": {
+      "$ref": "#/$defs/TeamRun"
+    }
+  },
+  "required": [
+    "run"
+  ]
+}
+```
+
+### `team.package.reassign`
+
+**Stability:** experimental · since 1.24.0
+
+**Served by:** core
+
+D124 team data and decisions. Execution is deferred to PT-4b.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "runId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "packageId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "memberId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    }
+  },
+  "required": [
+    "runId",
+    "packageId",
+    "memberId"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "run": {
+      "$ref": "#/$defs/TeamRun"
+    }
+  },
+  "required": [
+    "run"
+  ]
+}
+```
+
+### `team.package.budget.set`
+
+**Stability:** experimental · since 1.24.0
+
+**Served by:** core
+
+D124 team data and decisions. Execution is deferred to PT-4b.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "runId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "packageId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "tokenBudget": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "wallBudgetMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  },
+  "required": [
+    "runId",
+    "packageId",
+    "tokenBudget",
+    "wallBudgetMs"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "run": {
+      "$ref": "#/$defs/TeamRun"
+    }
+  },
+  "required": [
+    "run"
+  ]
+}
+```
+
+### `team.budget.set`
+
+**Stability:** experimental · since 1.24.0
+
+**Served by:** core
+
+D124 team data and decisions. Execution is deferred to PT-4b.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "runId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "sectionId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "tokenBudget": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "wallBudgetMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  },
+  "required": [
+    "runId",
+    "tokenBudget",
+    "wallBudgetMs"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "run": {
+      "$ref": "#/$defs/TeamRun"
+    }
+  },
+  "required": [
+    "run"
+  ]
+}
+```
+
+### `team.package.sync.set`
+
+**Stability:** experimental · since 1.24.0
+
+**Served by:** core
+
+D124 team data and decisions. Execution is deferred to PT-4b.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "runId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "packageId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "notify-only",
+        "at-review"
+      ]
+    }
+  },
+  "required": [
+    "runId",
+    "packageId",
+    "mode"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "run": {
+      "$ref": "#/$defs/TeamRun"
+    }
+  },
+  "required": [
+    "run"
+  ]
+}
+```
+
+### `tools.team.check`
+
+**Stability:** experimental · since 1.24.0
+
+**Served by:** tools
+
+D124 pure Core-only team facts; no execution or filesystem access.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "plan": {
+      "$ref": "#/$defs/TeamPlan"
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamFile"
+      },
+      "maxItems": 4096
+    },
+    "workflows": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamWorkflow"
+      },
+      "maxItems": 256
+    },
+    "config": {
+      "$ref": "#/$defs/TeamPolicy"
+    },
+    "sectionBranchPattern": {
+      "$ref": "#/$defs/TeamGlob"
+    }
+  },
+  "required": [
+    "plan",
+    "files",
+    "workflows",
+    "config",
+    "sectionBranchPattern"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "$ref": "#/$defs/TeamPlanReport"
+}
+```
+
+### `tools.team.diffcheck`
+
+**Stability:** experimental · since 1.24.0
+
+**Served by:** tools
+
+D124 pure Core-only team facts; no execution or filesystem access.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "owns": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamOwnership"
+      },
+      "maxItems": 64
+    },
+    "interfaces": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamGlob"
+      },
+      "maxItems": 64
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      },
+      "maxItems": 4096
+    }
+  },
+  "required": [
+    "owns",
+    "interfaces",
+    "files"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "files": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamDiffEntry"
+      },
+      "maxItems": 4096
+    }
+  },
+  "required": [
+    "files"
+  ]
+}
+```
+
+### `tools.team.impact`
+
+**Stability:** experimental · since 1.24.0
+
+**Served by:** tools
+
+D124 pure Core-only team facts; no execution or filesystem access.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "merged": {
+      "$ref": "#/$defs/TeamMerged"
+    },
+    "running": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamImpactPackage"
+      },
+      "maxItems": 32
+    }
+  },
+  "required": [
+    "merged",
+    "running"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "affected": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamImpactResult"
+      },
+      "maxItems": 32
+    }
+  },
+  "required": [
+    "affected"
+  ]
+}
+```
+
+### `tools.team.next`
+
+**Stability:** experimental · since 1.24.0
+
+**Served by:** tools
+
+Pure D124 transition. Core supplies authenticated events and persists state plus outbox atomically; this method executes no actions.
+
+**params**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "state": {
+      "$ref": "#/$defs/TeamState"
+    },
+    "event": {
+      "$ref": "#/$defs/TeamEvent"
+    }
+  },
+  "required": [
+    "state",
+    "event"
+  ]
+}
+```
+
+**result**
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "state": {
+      "$ref": "#/$defs/TeamState"
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamAction"
+      },
+      "maxItems": 512
+    }
+  },
+  "required": [
+    "state",
+    "actions"
+  ]
+}
+```
+
 ## Notifications
 
 Core notifications are delivered on the same connection to clients that called `events.subscribe`. Engine transport notifications are delivered on authenticated engine connections.
@@ -33157,7 +34132,9 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "additionalProperties": {
         "enum": [
           "member",
-          "lead"
+          "lead",
+          "worker",
+          "reviewer"
         ]
       }
     },
@@ -41528,5 +42505,4754 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
       "maxLength": 500
     }
   }
+}
+```
+
+### `TeamGlob`
+
+```json
+{
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 256,
+  "pattern": "^(?:[A-Za-z0-9_.@+\\-]+|\\*|\\*\\*)(?:/(?:[A-Za-z0-9_.@+\\-]+|\\*|\\*\\*))*$"
+}
+```
+
+### `TeamScope`
+
+```json
+{
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "package"
+          ]
+        },
+        "package": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+        }
+      },
+      "required": [
+        "kind",
+        "package"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "section"
+          ]
+        },
+        "through": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+        }
+      },
+      "required": [
+        "kind",
+        "through"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "plan",
+            "auto"
+          ]
+        }
+      },
+      "required": [
+        "kind"
+      ]
+    }
+  ]
+}
+```
+
+### `TeamBudget`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "tokens": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "wallTimeMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  },
+  "required": [
+    "tokens",
+    "wallTimeMs"
+  ]
+}
+```
+
+### `TeamCheck`
+
+```json
+{
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "command"
+          ]
+        },
+        "criterion": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "argv": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "maxItems": 32,
+          "minItems": 1
+        },
+        "timeoutMs": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 120000
+        }
+      },
+      "required": [
+        "kind",
+        "criterion",
+        "argv",
+        "timeoutMs"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "tests"
+          ]
+        },
+        "criterion": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "tests": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "maxItems": 64,
+          "minItems": 1
+        }
+      },
+      "required": [
+        "kind",
+        "criterion",
+        "tests"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "paths"
+          ]
+        },
+        "criterion": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "paths": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TeamGlob"
+          },
+          "maxItems": 64,
+          "minItems": 1
+        }
+      },
+      "required": [
+        "kind",
+        "criterion",
+        "paths"
+      ]
+    }
+  ]
+}
+```
+
+### `TeamOwnership`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "glob": {
+      "$ref": "#/$defs/TeamGlob"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "own",
+        "interface",
+        "shared"
+      ]
+    },
+    "personReview": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "glob",
+    "mode"
+  ]
+}
+```
+
+### `TeamDependency`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "package": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "code",
+        "order"
+      ]
+    },
+    "carries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "file",
+              "symbol"
+            ]
+          },
+          "value": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "required": [
+          "kind",
+          "value"
+        ]
+      },
+      "maxItems": 32,
+      "minItems": 0
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  },
+  "required": [
+    "package",
+    "kind"
+  ]
+}
+```
+
+### `TeamMember`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "native",
+        "acp",
+        "a2a"
+      ]
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "writer",
+        "reviewer",
+        "helper",
+        "judge",
+        "lead"
+      ]
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "agentId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "peerId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "disclosure": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "maxItems": 16,
+      "minItems": 0
+    }
+  },
+  "required": [
+    "id",
+    "kind",
+    "role",
+    "model",
+    "disclosure"
+  ]
+}
+```
+
+### `TeamPackagePlan`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "key": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "section": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "objective": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "doneWhen": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      },
+      "maxItems": 32,
+      "minItems": 1
+    },
+    "taskClass": {
+      "type": "string",
+      "enum": [
+        "consult",
+        "research",
+        "review",
+        "code-small",
+        "code-large"
+      ]
+    },
+    "owns": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamOwnership"
+      },
+      "maxItems": 64,
+      "minItems": 1
+    },
+    "interfaces": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "provides": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "maxItems": 64,
+          "minItems": 0
+        },
+        "consumes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "maxItems": 64,
+          "minItems": 0
+        }
+      },
+      "required": [
+        "provides",
+        "consumes"
+      ]
+    },
+    "dependsOn": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamDependency"
+      },
+      "maxItems": 32,
+      "minItems": 0
+    },
+    "worker": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "native",
+            "acp",
+            "a2a"
+          ]
+        },
+        "member": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+        }
+      },
+      "required": [
+        "kind",
+        "member"
+      ]
+    },
+    "sync": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "notify-only",
+        "at-review"
+      ]
+    },
+    "estimate": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "changedLines": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "tokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "wallTimeMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "changedLines",
+        "tokens",
+        "wallTimeMs"
+      ]
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamCheck"
+      },
+      "maxItems": 64,
+      "minItems": 0
+    },
+    "dataDeletion": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "key",
+    "section",
+    "title",
+    "objective",
+    "doneWhen",
+    "taskClass",
+    "owns",
+    "interfaces",
+    "dependsOn",
+    "worker",
+    "sync",
+    "estimate",
+    "checks",
+    "dataDeletion"
+  ]
+}
+```
+
+### `TeamSectionPlan`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "key": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "goals": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      },
+      "maxItems": 32,
+      "minItems": 1
+    },
+    "budget": {
+      "$ref": "#/$defs/TeamBudget"
+    },
+    "mergeOrder": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+      },
+      "maxItems": 32,
+      "minItems": 1
+    }
+  },
+  "required": [
+    "key",
+    "title",
+    "goals",
+    "budget",
+    "mergeOrder"
+  ]
+}
+```
+
+### `TeamPlan`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "type": "string",
+      "enum": [
+        "plur1bus.teamplan/1"
+      ]
+    },
+    "goals": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      },
+      "maxItems": 32,
+      "minItems": 1
+    },
+    "targetBranch": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamSectionPlan"
+      },
+      "maxItems": 8,
+      "minItems": 1
+    },
+    "packages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamPackagePlan"
+      },
+      "maxItems": 32,
+      "minItems": 1
+    }
+  },
+  "required": [
+    "schema",
+    "goals",
+    "targetBranch",
+    "sections",
+    "packages"
+  ]
+}
+```
+
+### `TeamLane`
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "contained",
+    "wide",
+    "closed"
+  ]
+}
+```
+
+### `TeamFinding`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": [
+        "cycle",
+        "later-section",
+        "own-overlap",
+        "merge-order",
+        "missing-check",
+        "false-edge",
+        "invalid-plan"
+      ]
+    },
+    "package": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "other": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "detail": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "blocking": {
+      "type": "boolean"
+    },
+    "savedWallTimeMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  },
+  "required": [
+    "kind",
+    "package",
+    "detail",
+    "blocking"
+  ]
+}
+```
+
+### `TeamLaneResult`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "package": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "lane": {
+      "$ref": "#/$defs/TeamLane"
+    },
+    "reasons": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "maxItems": 64,
+      "minItems": 0
+    }
+  },
+  "required": [
+    "package",
+    "lane",
+    "reasons"
+  ]
+}
+```
+
+### `TeamPlanReport`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "planHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamFinding"
+      },
+      "maxItems": 2048,
+      "minItems": 0
+    },
+    "lanes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamLaneResult"
+      },
+      "maxItems": 32,
+      "minItems": 0
+    },
+    "overlapScore": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "criticalPathMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "policyHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "targetDeploys": {
+      "type": "boolean"
+    },
+    "targetDeployReasons": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1152
+      },
+      "maxItems": 384
+    }
+  },
+  "required": [
+    "planHash",
+    "findings",
+    "lanes",
+    "overlapScore",
+    "criticalPathMs",
+    "policyHash",
+    "targetDeploys",
+    "targetDeployReasons"
+  ]
+}
+```
+
+### `TeamPolicy`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "auto": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "auto"
+      ]
+    },
+    "closedPaths": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamGlob"
+      },
+      "maxItems": 128,
+      "minItems": 0
+    },
+    "deployBranches": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "maxItems": 128,
+      "minItems": 0
+    }
+  },
+  "required": [
+    "approval",
+    "closedPaths",
+    "deployBranches"
+  ]
+}
+```
+
+### `TeamApproval`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "planHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "checkHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "compositionHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "policyHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "scope": {
+      "$ref": "#/$defs/TeamScope"
+    },
+    "approvedBy": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "at": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  },
+  "required": [
+    "planHash",
+    "checkHash",
+    "compositionHash",
+    "policyHash",
+    "scope",
+    "approvedBy",
+    "at"
+  ]
+}
+```
+
+### `TeamRun`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "leadAgent": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "objective": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "team",
+        "best-of-n"
+      ]
+    },
+    "cardId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "proposing",
+        "awaiting-team",
+        "planning",
+        "awaiting-approval",
+        "running",
+        "paused",
+        "done",
+        "cancelled",
+        "failed"
+      ]
+    },
+    "stateVersion": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "plan": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TeamPlan"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "planHash": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "compositionHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "members": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamMember"
+      },
+      "maxItems": 64,
+      "minItems": 0
+    },
+    "checkHash": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "report": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TeamPlanReport"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "policy": {
+      "$ref": "#/$defs/TeamPolicy"
+    },
+    "approval": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TeamApproval"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "targetBranch": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "budget": {
+      "$ref": "#/$defs/TeamBudget"
+    },
+    "writersMax": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 128
+    },
+    "createdAt": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "updatedAt": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    }
+  },
+  "required": [
+    "id",
+    "projectId",
+    "leadAgent",
+    "objective",
+    "mode",
+    "cardId",
+    "state",
+    "stateVersion",
+    "plan",
+    "planHash",
+    "compositionHash",
+    "members",
+    "checkHash",
+    "report",
+    "policy",
+    "approval",
+    "targetBranch",
+    "budget",
+    "writersMax",
+    "createdAt",
+    "updatedAt"
+  ]
+}
+```
+
+### `TeamFile`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "section": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "path"
+  ]
+}
+```
+
+### `TeamWorkflow`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "content": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 262144
+    }
+  },
+  "required": [
+    "path",
+    "content"
+  ]
+}
+```
+
+### `TeamDiffEntry`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "classification": {
+      "type": "string",
+      "enum": [
+        "owned",
+        "interface",
+        "shared",
+        "foreign"
+      ]
+    }
+  },
+  "required": [
+    "path",
+    "classification"
+  ]
+}
+```
+
+### `TeamImpactPackage`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "section": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "owns": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamOwnership"
+      },
+      "maxItems": 64
+    },
+    "consumes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "maxItems": 64
+    },
+    "dependsOn": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "maxItems": 32
+    },
+    "lane": {
+      "$ref": "#/$defs/TeamLane"
+    },
+    "changedFiles": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      },
+      "maxItems": 4096
+    }
+  },
+  "required": [
+    "key",
+    "section",
+    "owns",
+    "consumes",
+    "dependsOn",
+    "lane"
+  ]
+}
+```
+
+### `TeamMerged`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "section": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      },
+      "maxItems": 4096
+    },
+    "provides": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "maxItems": 64
+    }
+  },
+  "required": [
+    "key",
+    "section",
+    "files",
+    "provides"
+  ]
+}
+```
+
+### `TeamImpactResult`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "package": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "reasons": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "dependency",
+          "interface",
+          "overlap"
+        ]
+      },
+      "maxItems": 3
+    },
+    "interfaceFiles": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      },
+      "maxItems": 4096
+    },
+    "lane": {
+      "$ref": "#/$defs/TeamLane"
+    }
+  },
+  "required": [
+    "package",
+    "reasons",
+    "interfaceFiles",
+    "lane"
+  ]
+}
+```
+
+### `TeamPackageStatus`
+
+```json
+{
+  "type": "string",
+  "enum": [
+    "planned",
+    "ready",
+    "writing",
+    "checking",
+    "reviewing",
+    "fixing",
+    "queued",
+    "merging",
+    "merged-to-section",
+    "syncing",
+    "holding",
+    "handover",
+    "needs-decision",
+    "blocked",
+    "interrupted",
+    "cancelled",
+    "failed",
+    "decided"
+  ]
+}
+```
+
+### `TeamCheckOutcome`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "checkIndex": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 63
+    },
+    "criterion": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 31
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "passed",
+        "failed",
+        "unavailable"
+      ]
+    }
+  },
+  "required": [
+    "checkIndex",
+    "criterion",
+    "status"
+  ]
+}
+```
+
+### `TeamHold`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "since": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "nextPollAt": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "handoverAt": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "resetAt": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "veto": {
+      "type": "boolean"
+    },
+    "keepUntil": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "allowHandover": {
+      "type": "boolean"
+    },
+    "pollPending": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "since",
+    "nextPollAt",
+    "handoverAt",
+    "resetAt",
+    "veto",
+    "keepUntil",
+    "allowHandover",
+    "pollPending"
+  ]
+}
+```
+
+### `TeamMergeConfirmation`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "treeHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "sectionHead": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "required": [
+    "treeHash",
+    "sectionHead"
+  ]
+}
+```
+
+### `TeamPackageState`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "status": {
+      "$ref": "#/$defs/TeamPackageStatus"
+    },
+    "writer": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "reviewer": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "activeRole": {
+      "type": "string",
+      "enum": [
+        "writer",
+        "reviewer"
+      ]
+    },
+    "acceptedFindings": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      },
+      "maxItems": 32
+    },
+    "writerEpoch": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "lane": {
+      "$ref": "#/$defs/TeamLane"
+    },
+    "budgetAvailable": {
+      "type": "boolean"
+    },
+    "worktreeReady": {
+      "type": "boolean"
+    },
+    "stopPending": {
+      "type": "boolean"
+    },
+    "retryAt": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "resumeAfterChecks": {
+      "type": "boolean"
+    },
+    "treeHash": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "checksTree": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "checksHead": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "reviewTree": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamCheckOutcome"
+      },
+      "maxItems": 64
+    },
+    "workerMet": {
+      "type": "array",
+      "items": {
+        "type": "boolean"
+      },
+      "maxItems": 32
+    },
+    "fixRounds": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "reviewRounds": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "disputes": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "lastFinding": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "sameFindingRounds": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "hadNeedsDecision": {
+      "type": "boolean"
+    },
+    "hasDispute": {
+      "type": "boolean"
+    },
+    "personPending": {
+      "type": "boolean"
+    },
+    "mergeConfirmation": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TeamMergeConfirmation"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "syncMode": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "notify-only",
+        "at-review"
+      ]
+    },
+    "syncPending": {
+      "type": "boolean"
+    },
+    "syncReturnStatus": {
+      "type": "string",
+      "enum": [
+        "writing",
+        "fixing",
+        "checking"
+      ]
+    },
+    "syncConflicts": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "retries": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "rateLimitExhaustions": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "crashRetries": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "hold": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TeamHold"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "handoverTo": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "handoverPhase": {
+      "type": "string",
+      "enum": [
+        "none",
+        "stopping",
+        "committing"
+      ]
+    },
+    "revertRate": {
+      "anyOf": [
+        {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "key",
+    "status",
+    "writer",
+    "reviewer",
+    "activeRole",
+    "acceptedFindings",
+    "writerEpoch",
+    "lane",
+    "budgetAvailable",
+    "worktreeReady",
+    "stopPending",
+    "retryAt",
+    "resumeAfterChecks",
+    "treeHash",
+    "checksTree",
+    "checksHead",
+    "reviewTree",
+    "checks",
+    "workerMet",
+    "fixRounds",
+    "reviewRounds",
+    "disputes",
+    "lastFinding",
+    "sameFindingRounds",
+    "hadNeedsDecision",
+    "hasDispute",
+    "personPending",
+    "mergeConfirmation",
+    "syncMode",
+    "syncPending",
+    "syncReturnStatus",
+    "syncConflicts",
+    "retries",
+    "rateLimitExhaustions",
+    "crashRetries",
+    "hold",
+    "handoverTo",
+    "handoverPhase",
+    "revertRate"
+  ]
+}
+```
+
+### `TeamSectionState`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "paused",
+        "summarizing",
+        "awaiting-merge",
+        "merging",
+        "merged"
+      ]
+    },
+    "head": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "targetHead": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "summaryTree": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "confirmation": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "treeHash": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "targetHead": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          "required": [
+            "treeHash",
+            "targetHead"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "budgetAvailable": {
+      "type": "boolean"
+    },
+    "personPending": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "key",
+    "status",
+    "head",
+    "targetHead",
+    "summaryTree",
+    "confirmation",
+    "budgetAvailable",
+    "personPending"
+  ]
+}
+```
+
+### `TeamRuntimeMember`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "roles": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "writer",
+          "reviewer",
+          "lead"
+        ]
+      },
+      "maxItems": 3
+    },
+    "available": {
+      "type": "boolean"
+    },
+    "eligiblePackages": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "maxItems": 32
+    }
+  },
+  "required": [
+    "id",
+    "roles",
+    "available",
+    "eligiblePackages"
+  ]
+}
+```
+
+### `TeamState`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "plur1bus.teamstate/1",
+      "type": "string"
+    },
+    "lead": {
+      "$ref": "#/$defs/TeamLeadState"
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "awaiting-approval",
+            "running",
+            "paused",
+            "done",
+            "cancelled",
+            "failed"
+          ]
+        },
+        "planHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "checkHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "compositionHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "policyHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "approved": {
+          "type": "boolean"
+        },
+        "manualPaused": {
+          "type": "boolean"
+        },
+        "autoAllowed": {
+          "type": "boolean"
+        },
+        "budgetAvailable": {
+          "type": "boolean"
+        },
+        "scope": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TeamScope"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lastEventSeq": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "now": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "targetDeploys": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "status",
+        "planHash",
+        "checkHash",
+        "compositionHash",
+        "policyHash",
+        "approved",
+        "manualPaused",
+        "autoAllowed",
+        "budgetAvailable",
+        "scope",
+        "lastEventSeq",
+        "now",
+        "targetDeploys"
+      ]
+    },
+    "plan": {
+      "$ref": "#/$defs/TeamPlan"
+    },
+    "members": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamRuntimeMember"
+      },
+      "maxItems": 64
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamSectionState"
+      },
+      "maxItems": 8
+    },
+    "packages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TeamPackageState"
+      },
+      "maxItems": 32
+    },
+    "mergeQueue": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "maxItems": 32
+    },
+    "capacity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "maxWriters": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "computedWriters": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        }
+      },
+      "required": [
+        "maxWriters",
+        "computedWriters"
+      ]
+    },
+    "disk": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "freeBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "minFreeBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "freeBytes",
+        "minFreeBytes"
+      ]
+    },
+    "timers": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "pollIntervalMs": {
+          "type": "integer",
+          "minimum": 60000,
+          "maximum": 86400000
+        },
+        "handoverAfterMs": {
+          "type": "integer",
+          "minimum": 60000,
+          "maximum": 604800000
+        },
+        "retryLimit": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 16
+        }
+      },
+      "required": [
+        "pollIntervalMs",
+        "handoverAfterMs",
+        "retryLimit"
+      ]
+    },
+    "counters": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "actions": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "transitions": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "personPending": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "actions",
+        "transitions",
+        "personPending"
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "lead",
+    "run",
+    "plan",
+    "members",
+    "sections",
+    "packages",
+    "mergeQueue",
+    "capacity",
+    "disk",
+    "timers",
+    "counters"
+  ]
+}
+```
+
+### `TeamEvent`
+
+```json
+{
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "plan.approved",
+          "type": "string"
+        },
+        "actor": {
+          "const": "person",
+          "type": "string"
+        },
+        "by": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "planHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "checkHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "compositionHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "policyHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "scope": {
+          "$ref": "#/$defs/TeamScope"
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "actor",
+        "by",
+        "planHash",
+        "checkHash",
+        "compositionHash",
+        "policyHash",
+        "scope"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "scope.extended",
+          "type": "string"
+        },
+        "actor": {
+          "const": "person",
+          "type": "string"
+        },
+        "by": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "planHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "checkHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "compositionHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "policyHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "scope": {
+          "$ref": "#/$defs/TeamScope"
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "actor",
+        "by",
+        "planHash",
+        "checkHash",
+        "compositionHash",
+        "policyHash",
+        "scope"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "team.pause",
+          "type": "string"
+        },
+        "actor": {
+          "const": "person",
+          "type": "string"
+        },
+        "by": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "actor",
+        "by"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "team.resume",
+          "type": "string"
+        },
+        "actor": {
+          "const": "person",
+          "type": "string"
+        },
+        "by": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "actor",
+        "by"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "team.cancel",
+          "type": "string"
+        },
+        "actor": {
+          "const": "person",
+          "type": "string"
+        },
+        "by": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "actor",
+        "by"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "worktree.ready",
+          "type": "string"
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "writerEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "package",
+        "writerEpoch"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "worktree.unavailable",
+          "type": "string"
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "writerEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "package",
+        "writerEpoch"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "worker.returned",
+          "type": "string"
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "writerEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "treeHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "met": {
+          "type": "array",
+          "items": {
+            "type": "boolean"
+          },
+          "maxItems": 32
+        },
+        "committedClean": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "package",
+        "writerEpoch",
+        "treeHash",
+        "met",
+        "committedClean"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "checks.finished",
+          "type": "string"
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "writerEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "sectionHead": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "treeHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TeamCheckOutcome"
+          },
+          "maxItems": 64
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "package",
+        "writerEpoch",
+        "sectionHead",
+        "treeHash",
+        "checks"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "review.verdict",
+          "type": "string"
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "writerEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "treeHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "pass",
+            "changes-requested"
+          ]
+        },
+        "findingHash": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "disputed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "package",
+        "writerEpoch",
+        "treeHash",
+        "verdict",
+        "findingHash",
+        "disputed"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "package.merge.done",
+          "type": "string"
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "writerEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "treeHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "sectionHead": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "affected": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "maxItems": 32
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "package",
+        "writerEpoch",
+        "treeHash",
+        "sectionHead",
+        "affected"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "package.merge.conflict",
+          "type": "string"
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "writerEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "package",
+        "writerEpoch"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "safe-point",
+          "type": "string"
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "writerEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "committedClean": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "package",
+        "writerEpoch",
+        "committedClean"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "sync.finished",
+          "type": "string"
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "writerEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "treeHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "changed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "package",
+        "writerEpoch",
+        "treeHash",
+        "changed"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "sync.conflict",
+          "type": "string"
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "writerEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "outsideOwns": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "package",
+        "writerEpoch",
+        "outsideOwns"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "person.decided",
+          "type": "string"
+        },
+        "actor": {
+          "const": "person",
+          "type": "string"
+        },
+        "by": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "writerEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "decision": {
+          "type": "string",
+          "enum": [
+            "retry",
+            "cancel",
+            "accept-residual",
+            "resume"
+          ]
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "actor",
+        "by",
+        "package",
+        "writerEpoch",
+        "decision",
+        "note"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "team.merge.confirm",
+          "type": "string"
+        },
+        "actor": {
+          "const": "person",
+          "type": "string"
+        },
+        "by": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "writerEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "treeHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "sectionHead": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "actor",
+        "by",
+        "package",
+        "writerEpoch",
+        "treeHash",
+        "sectionHead"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "section.summary",
+          "type": "string"
+        },
+        "section": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "treeHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "section",
+        "treeHash"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "team.section.merge",
+          "type": "string"
+        },
+        "actor": {
+          "const": "person",
+          "type": "string"
+        },
+        "by": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "section": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "treeHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "targetHead": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "actor",
+        "by",
+        "section",
+        "treeHash",
+        "targetHead"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "section.merge.done",
+          "type": "string"
+        },
+        "section": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "treeHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "targetHead": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "section",
+        "treeHash",
+        "targetHead"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "section.merge.conflict",
+          "type": "string"
+        },
+        "section": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "section"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "budget.refused",
+          "type": "string"
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "run",
+            "section",
+            "package",
+            "agent",
+            "user",
+            "global",
+            "project"
+          ]
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "resetAt": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "scope",
+        "target",
+        "resetAt"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "budget.changed",
+          "type": "string"
+        },
+        "actor": {
+          "const": "person",
+          "type": "string"
+        },
+        "by": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "run",
+            "section",
+            "package"
+          ]
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "available": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "actor",
+        "by",
+        "scope",
+        "target",
+        "available"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "disk.measured",
+          "type": "string"
+        },
+        "freeBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "freeBytes"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "capacity.changed",
+          "type": "string"
+        },
+        "maxWriters": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "computedWriters": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "maxWriters",
+        "computedWriters"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "failure",
+          "type": "string"
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "writerEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "class": {
+          "type": "string",
+          "enum": [
+            "quota",
+            "transient",
+            "deterministic",
+            "permission",
+            "auth",
+            "crash",
+            "rate-limit"
+          ]
+        },
+        "retryAfterMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "retryBudgetExhausted": {
+          "type": "boolean"
+        },
+        "canContinue": {
+          "type": "boolean"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "writer",
+            "reviewer"
+          ]
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "package",
+        "writerEpoch",
+        "class",
+        "retryAfterMs",
+        "retryBudgetExhausted",
+        "canContinue",
+        "role"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "lead.failure",
+          "type": "string"
+        },
+        "leadEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "class": {
+          "type": "string",
+          "enum": [
+            "quota",
+            "transient",
+            "deterministic",
+            "permission",
+            "auth",
+            "crash"
+          ]
+        },
+        "retryAfterMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "leadEpoch",
+        "class",
+        "retryAfterMs"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "lead.stopped",
+          "type": "string"
+        },
+        "leadEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "leadEpoch"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "lead.quota.result",
+          "type": "string"
+        },
+        "leadEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "available": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "leadEpoch",
+        "available"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "lead.handover.committed",
+          "type": "string"
+        },
+        "leadEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "leadEpoch"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "lead.hold",
+          "type": "string"
+        },
+        "actor": {
+          "const": "person",
+          "type": "string"
+        },
+        "by": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "leadEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "until": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "actor",
+        "by",
+        "leadEpoch",
+        "until"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "lead.reassign",
+          "type": "string"
+        },
+        "actor": {
+          "const": "person",
+          "type": "string"
+        },
+        "by": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "leadEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "member": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "actor",
+        "by",
+        "leadEpoch",
+        "member"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "timer",
+          "type": "string"
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "quota.result",
+          "type": "string"
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "writerEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "available": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "package",
+        "writerEpoch",
+        "available"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "person.hold",
+          "type": "string"
+        },
+        "actor": {
+          "const": "person",
+          "type": "string"
+        },
+        "by": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "writerEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "until": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "actor",
+        "by",
+        "package",
+        "writerEpoch",
+        "until"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "person.reassign",
+          "type": "string"
+        },
+        "actor": {
+          "const": "person",
+          "type": "string"
+        },
+        "by": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "writerEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "member": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "actor",
+        "by",
+        "package",
+        "writerEpoch",
+        "member"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "writer.stopped",
+          "type": "string"
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "writerEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "package",
+        "writerEpoch"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "handover.committed",
+          "type": "string"
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "writerEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "package",
+        "writerEpoch"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "restart",
+          "type": "string"
+        },
+        "livePackages": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "maxItems": 32
+        },
+        "reconciled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "livePackages",
+        "reconciled"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "kind": {
+          "const": "package.sync.set",
+          "type": "string"
+        },
+        "actor": {
+          "const": "person",
+          "type": "string"
+        },
+        "by": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "writerEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "notify-only",
+            "at-review"
+          ]
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "kind",
+        "actor",
+        "by",
+        "package",
+        "writerEpoch",
+        "mode"
+      ]
+    }
+  ]
+}
+```
+
+### `TeamAction`
+
+```json
+{
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "kind": {
+          "const": "create-worktree",
+          "type": "string"
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "writerEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "package",
+        "writerEpoch"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "kind": {
+          "const": "remove-worktree",
+          "type": "string"
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "writerEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "package",
+        "writerEpoch"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "kind": {
+          "const": "run-checks",
+          "type": "string"
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "writerEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "package",
+        "writerEpoch"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "kind": {
+          "const": "sync-worktree",
+          "type": "string"
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "writerEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "package",
+        "writerEpoch"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "kind": {
+          "const": "commit-handover",
+          "type": "string"
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "writerEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "package",
+        "writerEpoch"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "kind": {
+          "const": "poll-quota",
+          "type": "string"
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "writerEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "package",
+        "writerEpoch"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "kind": {
+          "const": "stop-worker",
+          "type": "string"
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "writerEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "stopEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "member": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "writer",
+            "reviewer"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "package",
+        "writerEpoch",
+        "stopEpoch",
+        "member",
+        "role"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "kind": {
+          "const": "start-review",
+          "type": "string"
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "writerEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "member": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "package",
+        "writerEpoch",
+        "member"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "kind": {
+          "const": "start-worker",
+          "type": "string"
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "writerEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "member": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "resume": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "package",
+        "writerEpoch",
+        "member",
+        "resume"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "kind": {
+          "const": "merge-into-section",
+          "type": "string"
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "writerEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "treeHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "sectionHead": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "package",
+        "writerEpoch",
+        "treeHash",
+        "sectionHead"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "kind": {
+          "const": "merge-section",
+          "type": "string"
+        },
+        "section": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "treeHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "targetHead": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "section",
+        "treeHash",
+        "targetHead"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "kind": {
+          "const": "ask-person",
+          "type": "string"
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "target",
+        "reason"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "kind": {
+          "const": "notify",
+          "type": "string"
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "target",
+        "reason"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "kind": {
+          "const": "post-message",
+          "type": "string"
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "target",
+        "reason"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "kind": {
+          "const": "lead-turn",
+          "type": "string"
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "target",
+        "reason"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "kind": {
+          "const": "stop-lead",
+          "type": "string"
+        },
+        "leadEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "member": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "leadEpoch",
+        "member"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "kind": {
+          "const": "poll-lead",
+          "type": "string"
+        },
+        "leadEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "member": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "leadEpoch",
+        "member"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "kind": {
+          "const": "commit-lead-handover",
+          "type": "string"
+        },
+        "leadEpoch": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "member": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "leadEpoch",
+        "member"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "kind": {
+          "const": "pause",
+          "type": "string"
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "target"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "kind": {
+          "const": "cancel",
+          "type": "string"
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "target"
+      ]
+    }
+  ]
+}
+```
+
+### `TeamLeadState`
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "member": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "epoch": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "holding",
+        "handover",
+        "needs-decision"
+      ]
+    },
+    "stopPending": {
+      "type": "boolean"
+    },
+    "handoverTo": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "handoverPhase": {
+      "type": "string",
+      "enum": [
+        "none",
+        "stopping",
+        "committing"
+      ]
+    },
+    "hold": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TeamHold"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "retryAt": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "retrying": {
+      "type": "boolean"
+    },
+    "retries": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "crashRetries": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "personPending": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "member",
+    "epoch",
+    "status",
+    "stopPending",
+    "handoverTo",
+    "handoverPhase",
+    "hold",
+    "retryAt",
+    "retrying",
+    "retries",
+    "crashRetries",
+    "personPending"
+  ]
 }
 ```

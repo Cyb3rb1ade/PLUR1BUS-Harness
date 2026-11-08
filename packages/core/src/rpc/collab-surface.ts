@@ -5,6 +5,7 @@ import type { Principal, ProjectRight } from "../rbac/types.ts";
 import { authorize } from "../rbac/authorize.ts";
 import type { Collab } from "../collab/service.ts";
 import { surfaceError } from "./surface-errors.ts";
+import { buildTeamSurface } from './team-surface.ts';
 
 export function buildCollabSurface(
   service: () => Collab | null,
@@ -46,6 +47,7 @@ export function buildCollabSurface(
     return t;
   };
   return {
+    ...buildTeamSurface(service),
     "collab.session.replay": bind((s, p, a) => { trace(s, a, p.traceId); return s.replay(a, p.traceId, p.spanId); }),
     "project.create": bind((s, p, a) => s.createProject(a, { name: p.name })),
     "project.get": bind((s, p, a) => read(s, a, p.projectId)),

@@ -1,0 +1,42 @@
+{
+  "source": ".github/workflows/ci.yml",
+  "sha256": "10da558ff75b94493e82a836cb1ef2f27f6905a3e3f8b0c39a637db26d0e3b90",
+  "projection": "Job bodies omitted; trigger and root metadata retained from parsed source.",
+  "workflow": {
+    "name": "ci",
+    "on": {
+      "push": {
+        "branches": [
+          "main"
+        ]
+      },
+      "pull_request": {
+        "types": [
+          "opened",
+          "synchronize",
+          "reopened",
+          "labeled"
+        ]
+      },
+      "merge_group": {
+        "types": [
+          "checks_requested"
+        ]
+      },
+      "schedule": [
+        {
+          "cron": "29 3 * * *"
+        }
+      ],
+      "workflow_dispatch": ""
+    },
+    "concurrency": {
+      "group": "${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}${{ github.event.action == 'labeled' && github.event.label.name != 'ci:macos' && '-noop' || '' }}",
+      "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"
+    },
+    "permissions": {
+      "contents": "read"
+    },
+    "jobs": {}
+  }
+}

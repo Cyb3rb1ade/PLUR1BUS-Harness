@@ -11,7 +11,7 @@ export interface Project {
   id: string;
   name: string;
   owner: string;
-  members: { userId: string; role: "member" | "lead" }[];
+  members: { userId: string; role: "member" | "lead" | "worker" | "reviewer" }[];
   agents: string[];
   archivedAt: number | null;
 }

@@ -64,6 +64,13 @@ Today `doneWhen` is a list of text criteria, and the agent reports `met` and `ev
 
 ### 2.4 Closed lanes by reversibility (K4; amends D124 §6.9, §6.14, §8)
 
+**2026-11-07 (Owner):** Die Deploy-Sperre gilt für den Merge, der deployt
+(Section→Ziel; Pakete nur bei Deploy auf Section-Branches). Workflows werden als
+JSON übergeben. `merge_group` sperrt nur das Ziel; Section-Branches werden lokal
+und ohne Branch-Protection oder Merge-Queue-Regel angelegt. Direkte Merge-Trigger
+(`push`, PR/PR-target `closed`) und deren `workflow_run`-Ketten gelten auch dort.
+
+
 1. **Every package gets a lane,** computed by `tools.team.check`/`tools.team.impact` from its `owns` paths, its contract and the target.
    - **`contained`:** an isolated change with test coverage. Autonomous as today.
    - **`wide`:** a shared utility, a schema or an interface with many consumers (impact fan-out ≥ 5 packages or files outside its section; judgement value). Autonomous inside the scope only when:
