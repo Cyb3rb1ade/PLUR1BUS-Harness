@@ -51,3 +51,6 @@ pub mod migrate;
 
 /// Shared C7 validation, TTL and query-forget decisions for native adapters.
 pub mod memory_guards;
+
+/// S5 committed-tombstone reapplication against an explicitly selected generation.
+pub mod tombstone_reapply;

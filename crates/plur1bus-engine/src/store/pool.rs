@@ -84,6 +84,21 @@ impl StorePool {
         agent_id: &str,
         expected: Option<&VectorSpaceIdentity>,
     ) -> Result<Arc<Store>, StoreError> {
+        self.get_configured(agent_id, expected, true)
+    }
+
+    /// Maintenance may mutate an existing table, but must never manufacture a missing
+    /// table while inspecting a restored store or recovering a deletion.
+    pub(crate) fn get_existing(&self, agent_id: &str) -> Result<Arc<Store>, StoreError> {
+        self.get_configured(agent_id, self.expected.as_ref(), false)
+    }
+
+    fn get_configured(
+        &self,
+        agent_id: &str,
+        expected: Option<&VectorSpaceIdentity>,
+        create_missing: bool,
+    ) -> Result<Arc<Store>, StoreError> {
         let path = self.agent_path(agent_id)?;
         let mut cache = self.cache.lock().map_err(|_| StoreError::Unavailable)?;
         cache.clock = cache.clock.saturating_add(1);
@@ -104,7 +119,7 @@ impl StorePool {
         };
         let store = if exists {
             Store::open(&path, self.mode, expected)?
-        } else if self.mode == OpenMode::ReadWrite {
+        } else if create_missing && self.mode == OpenMode::ReadWrite {
             let identity = expected.ok_or(StoreError::Unavailable)?;
             let dimension = identity
                 .dimension
