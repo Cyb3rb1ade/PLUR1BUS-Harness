@@ -42,3 +42,6 @@ pub mod status;
 /// Fenced caller-bound import rollback and preview.
 pub mod unimport;
 mod unimport_plan;
+
+/// Copied-store schema and embedding identity inspection.
+pub mod adopt;

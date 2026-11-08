@@ -13,6 +13,10 @@ use std::sync::mpsc;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
+/// Bounded read-only vector inspection for copied legacy tables.
+#[path = "adopt_probe.rs"]
+pub mod adopt_probe;
+
 #[path = "memory_read.rs"]
 mod memory_read;
 #[path = "shared_store.rs"]

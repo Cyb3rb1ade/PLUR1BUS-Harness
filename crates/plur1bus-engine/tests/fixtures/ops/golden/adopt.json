@@ -1,0 +1,1257 @@
+{
+  "recordedFrom": {
+    "source": {
+      "engineCommit": "1f0daec472b72755d851712968157a89ca3a7687",
+      "treeSha256": "cdfdf8bb4881773d2d492969cd5a5ade44ccb62bd0db019abfedce45202e96ed"
+    },
+    "node": "v24.21.0"
+  },
+  "identity": {
+    "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "provider": "local-transformers",
+    "model": "synthetic",
+    "dimensions": 4
+  },
+  "cases": [
+    {
+      "name": "normal",
+      "table": "normal",
+      "result": {
+        "verdict": "ok",
+        "dryRun": true,
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "probe"
+      },
+      "calls": [
+        {
+          "texts": [
+            "alpha",
+            "beta"
+          ],
+          "concurrency": 8,
+          "options": {
+            "purpose": "adopt-probe"
+          }
+        }
+      ]
+    },
+    {
+      "name": "null-empty-active-status",
+      "table": "statuses",
+      "result": {
+        "verdict": "ok",
+        "dryRun": true,
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "probe"
+      },
+      "calls": [
+        {
+          "texts": [
+            "active",
+            "null-status",
+            "empty-status"
+          ],
+          "concurrency": 8,
+          "options": {
+            "purpose": "adopt-probe"
+          }
+        }
+      ]
+    },
+    {
+      "name": "round-robin-detect-second",
+      "table": "many",
+      "second": "second",
+      "embed": "uniform",
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "identity-mismatch",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "probe"
+      },
+      "calls": [
+        {
+          "texts": [
+            "many-0",
+            "second",
+            "many-1",
+            "many-2",
+            "many-3",
+            "many-4",
+            "many-5",
+            "many-6",
+            "many-7",
+            "many-8",
+            "many-9",
+            "many-10",
+            "many-11",
+            "many-12",
+            "many-13",
+            "many-14"
+          ],
+          "concurrency": 8,
+          "options": {
+            "purpose": "adopt-probe"
+          }
+        }
+      ]
+    },
+    {
+      "name": "eight-finite-scores",
+      "table": "many",
+      "embed": "half",
+      "result": {
+        "verdict": "ok",
+        "dryRun": true,
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "probe"
+      },
+      "calls": [
+        {
+          "texts": [
+            "many-0",
+            "many-1",
+            "many-2",
+            "many-3",
+            "many-4",
+            "many-5",
+            "many-6",
+            "many-7",
+            "many-8",
+            "many-9",
+            "many-10",
+            "many-11",
+            "many-12",
+            "many-13",
+            "many-14",
+            "many-15"
+          ],
+          "concurrency": 8,
+          "options": {
+            "purpose": "adopt-probe"
+          }
+        }
+      ]
+    },
+    {
+      "name": "seven-finite-scores",
+      "table": "many",
+      "embed": "seven",
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "identity-unverifiable",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "probe"
+      },
+      "calls": [
+        {
+          "texts": [
+            "many-0",
+            "many-1",
+            "many-2",
+            "many-3",
+            "many-4",
+            "many-5",
+            "many-6",
+            "many-7",
+            "many-8",
+            "many-9",
+            "many-10",
+            "many-11",
+            "many-12",
+            "many-13",
+            "many-14",
+            "many-15"
+          ],
+          "concurrency": 8,
+          "options": {
+            "purpose": "adopt-probe"
+          }
+        }
+      ]
+    },
+    {
+      "name": "normal-apply",
+      "table": "normal",
+      "dryRun": false,
+      "result": {
+        "verdict": "ok",
+        "dryRun": false,
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "probe"
+      },
+      "calls": [
+        {
+          "texts": [
+            "alpha",
+            "beta"
+          ],
+          "concurrency": 8,
+          "options": {
+            "purpose": "adopt-probe"
+          }
+        }
+      ]
+    },
+    {
+      "name": "legacy-status",
+      "table": "legacy",
+      "result": {
+        "verdict": "ok",
+        "dryRun": true,
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "probe"
+      },
+      "calls": [
+        {
+          "texts": [
+            "legacy"
+          ],
+          "concurrency": 8,
+          "options": {
+            "purpose": "adopt-probe"
+          }
+        }
+      ]
+    },
+    {
+      "name": "paging-invalid-prefix",
+      "table": "paged",
+      "result": {
+        "verdict": "ok",
+        "dryRun": true,
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "probe"
+      },
+      "calls": [
+        {
+          "texts": [
+            "after-page"
+          ],
+          "concurrency": 8,
+          "options": {
+            "purpose": "adopt-probe"
+          }
+        }
+      ]
+    },
+    {
+      "name": "zero-empty-nan",
+      "table": "invalid",
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "identity-unverifiable",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "probe"
+      },
+      "calls": []
+    },
+    {
+      "name": "deleted",
+      "table": "deleted",
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "identity-unverifiable",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "probe"
+      },
+      "calls": []
+    },
+    {
+      "name": "wrong-stored-dimension",
+      "table": "wrongdim",
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "dimension-mismatch",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "probe"
+      },
+      "calls": []
+    },
+    {
+      "name": "empty",
+      "table": "empty",
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "identity-unverifiable",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "probe"
+      },
+      "calls": []
+    },
+    {
+      "name": "round-robin",
+      "table": "many",
+      "second": "second",
+      "result": {
+        "verdict": "ok",
+        "dryRun": true,
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "probe"
+      },
+      "calls": [
+        {
+          "texts": [
+            "many-0",
+            "second",
+            "many-1",
+            "many-2",
+            "many-3",
+            "many-4",
+            "many-5",
+            "many-6",
+            "many-7",
+            "many-8",
+            "many-9",
+            "many-10",
+            "many-11",
+            "many-12",
+            "many-13",
+            "many-14"
+          ],
+          "concurrency": 8,
+          "options": {
+            "purpose": "adopt-probe"
+          }
+        }
+      ]
+    },
+    {
+      "name": "named-layout",
+      "table": "normal",
+      "namespace": "named",
+      "result": {
+        "verdict": "ok",
+        "dryRun": true,
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "probe"
+      },
+      "calls": [
+        {
+          "texts": [
+            "alpha",
+            "beta"
+          ],
+          "concurrency": 8,
+          "options": {
+            "purpose": "adopt-probe"
+          }
+        }
+      ]
+    },
+    {
+      "name": "leading-hyphen-agent",
+      "table": "normal",
+      "agent": "-agent",
+      "result": {
+        "verdict": "ok",
+        "dryRun": true,
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "probe"
+      },
+      "calls": [
+        {
+          "texts": [
+            "alpha",
+            "beta"
+          ],
+          "concurrency": 8,
+          "options": {
+            "purpose": "adopt-probe"
+          }
+        }
+      ]
+    },
+    {
+      "name": "dot-agent-skipped",
+      "table": "normal",
+      "agent": "agent.dot",
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "identity-unverifiable",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "probe"
+      },
+      "calls": []
+    },
+    {
+      "name": "symlink-agent-skipped",
+      "table": "normal",
+      "linkAgent": true,
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "identity-unverifiable",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "probe"
+      },
+      "calls": []
+    },
+    {
+      "name": "missing",
+      "missing": true,
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "path-unreadable"
+      },
+      "calls": []
+    },
+    {
+      "name": "empty-directory",
+      "noSchema": true,
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "not-a-store"
+      },
+      "calls": []
+    },
+    {
+      "name": "schema-zero",
+      "schema": "0",
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "schema-mismatch",
+        "storeSchema": {
+          "current": "0",
+          "expected": "1"
+        }
+      },
+      "calls": []
+    },
+    {
+      "name": "schema-seven",
+      "schema": "7",
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "schema-mismatch",
+        "storeSchema": {
+          "current": "7",
+          "expected": "1"
+        }
+      },
+      "calls": []
+    },
+    {
+      "name": "schema-bad",
+      "schema": "bad",
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "schema-unreadable",
+        "storeSchema": {
+          "current": null,
+          "expected": "1"
+        }
+      },
+      "calls": []
+    },
+    {
+      "name": "schema-malformed",
+      "schemaRaw": "{",
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "schema-unreadable",
+        "storeSchema": {
+          "current": null,
+          "expected": "1"
+        }
+      },
+      "calls": []
+    },
+    {
+      "name": "marker-directory",
+      "markerDirectory": true,
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "schema-unreadable",
+        "storeSchema": {
+          "current": null,
+          "expected": "1"
+        }
+      },
+      "calls": []
+    },
+    {
+      "name": "table-without-marker",
+      "table": "normal",
+      "noSchema": true,
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "schema-mismatch",
+        "storeSchema": {
+          "current": "0",
+          "expected": "1"
+        }
+      },
+      "calls": []
+    },
+    {
+      "name": "provider-no-identity",
+      "noIdentity": true,
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "identity-unverifiable",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": null
+      },
+      "calls": []
+    },
+    {
+      "name": "provider-zero-dimension",
+      "engine": {
+        "dimensions": 0
+      },
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "identity-unverifiable",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 0
+        }
+      },
+      "calls": []
+    },
+    {
+      "name": "provider-dimension",
+      "engine": {
+        "dimensions": 3
+      },
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "dimension-mismatch",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 3
+        }
+      },
+      "calls": []
+    },
+    {
+      "name": "provider-fingerprint",
+      "engine": {
+        "fingerprintId": "different"
+      },
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "identity-mismatch",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "different",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "probe"
+      },
+      "calls": []
+    },
+    {
+      "name": "probe-throws",
+      "table": "normal",
+      "embed": "throws",
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "identity-unverifiable",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "probe"
+      },
+      "calls": [
+        {
+          "texts": [
+            "alpha",
+            "beta"
+          ],
+          "concurrency": 8,
+          "options": {
+            "purpose": "adopt-probe"
+          }
+        }
+      ]
+    },
+    {
+      "name": "probe-count",
+      "table": "normal",
+      "embed": "count",
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "identity-unverifiable",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "probe"
+      },
+      "calls": [
+        {
+          "texts": [
+            "alpha",
+            "beta"
+          ],
+          "concurrency": 8,
+          "options": {
+            "purpose": "adopt-probe"
+          }
+        }
+      ]
+    },
+    {
+      "name": "probe-dimension",
+      "table": "normal",
+      "embed": "dimension",
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "dimension-mismatch",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "probe"
+      },
+      "calls": [
+        {
+          "texts": [
+            "alpha",
+            "beta"
+          ],
+          "concurrency": 8,
+          "options": {
+            "purpose": "adopt-probe"
+          }
+        }
+      ]
+    },
+    {
+      "name": "probe-zero",
+      "table": "normal",
+      "embed": "zero",
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "identity-unverifiable",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "probe"
+      },
+      "calls": [
+        {
+          "texts": [
+            "alpha",
+            "beta"
+          ],
+          "concurrency": 8,
+          "options": {
+            "purpose": "adopt-probe"
+          }
+        }
+      ]
+    },
+    {
+      "name": "probe-nan",
+      "table": "normal",
+      "embed": "nan",
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "identity-unverifiable",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "probe"
+      },
+      "calls": [
+        {
+          "texts": [
+            "alpha",
+            "beta"
+          ],
+          "concurrency": 8,
+          "options": {
+            "purpose": "adopt-probe"
+          }
+        }
+      ]
+    },
+    {
+      "name": "probe-mismatch",
+      "table": "normal",
+      "embed": "other",
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "identity-mismatch",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "probe"
+      },
+      "calls": [
+        {
+          "texts": [
+            "alpha",
+            "beta"
+          ],
+          "concurrency": 8,
+          "options": {
+            "purpose": "adopt-probe"
+          }
+        }
+      ]
+    },
+    {
+      "name": "median-floor",
+      "table": "normal",
+      "embed": "median",
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "identity-mismatch",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "probe"
+      },
+      "calls": [
+        {
+          "texts": [
+            "alpha",
+            "beta"
+          ],
+          "concurrency": 8,
+          "options": {
+            "purpose": "adopt-probe"
+          }
+        }
+      ]
+    },
+    {
+      "name": "minimum-floor",
+      "table": "normal",
+      "embed": "minimum",
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "identity-mismatch",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "probe"
+      },
+      "calls": [
+        {
+          "texts": [
+            "alpha",
+            "beta"
+          ],
+          "concurrency": 8,
+          "options": {
+            "purpose": "adopt-probe"
+          }
+        }
+      ]
+    },
+    {
+      "name": "manifest-empty",
+      "generation": true,
+      "result": {
+        "verdict": "ok",
+        "dryRun": true,
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "manifest"
+      },
+      "calls": []
+    },
+    {
+      "name": "manifest-table",
+      "generation": true,
+      "genTable": "normal",
+      "result": {
+        "verdict": "ok",
+        "dryRun": true,
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "probe"
+      },
+      "calls": [
+        {
+          "texts": [
+            "alpha",
+            "beta"
+          ],
+          "concurrency": 8,
+          "options": {
+            "purpose": "adopt-probe"
+          }
+        }
+      ]
+    },
+    {
+      "name": "manifest-incorrect-schema",
+      "generation": {
+        "schemaVersion": 2
+      },
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "identity-unreadable",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "manifest"
+      },
+      "calls": []
+    },
+    {
+      "name": "manifest-missing-tables",
+      "generation": {
+        "tables": null
+      },
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "identity-unreadable",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "manifest"
+      },
+      "calls": []
+    },
+    {
+      "name": "manifest-wrong-fingerprint",
+      "generation": {
+        "fingerprintId": "different"
+      },
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "identity-mismatch",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "different",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "manifest"
+      },
+      "calls": []
+    },
+    {
+      "name": "manifest-wrong-dimension",
+      "generation": {
+        "dimensions": 3
+      },
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "dimension-mismatch",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 3
+        },
+        "identitySource": "manifest"
+      },
+      "calls": []
+    },
+    {
+      "name": "manifest-malformed",
+      "generationRaw": "{",
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "reason": "identity-unreadable",
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        }
+      },
+      "calls": []
+    },
+    {
+      "name": "manifest-provider-conflict",
+      "generation": true,
+      "engine": {
+        "fingerprintId": "different"
+      },
+      "result": {
+        "verdict": "ok",
+        "dryRun": true,
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "different",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "manifest"
+      },
+      "calls": []
+    },
+    {
+      "name": "manifest-invalid-table",
+      "generation": true,
+      "genTable": "invalid",
+      "result": {
+        "verdict": "ok",
+        "dryRun": true,
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "manifest"
+      },
+      "calls": []
+    },
+    {
+      "name": "invalid-dimension",
+      "request": {
+        "expectedIdentity": {
+          "fingerprintId": "embedding:v1:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 0
+        }
+      },
+      "result": {
+        "error": "invalid-input"
+      },
+      "calls": []
+    },
+    {
+      "name": "path-relative",
+      "relative": true,
+      "result": {
+        "error": "invalid-input"
+      },
+      "calls": []
+    },
+    {
+      "name": "path-traversal",
+      "traversal": true,
+      "result": {
+        "error": "invalid-input"
+      },
+      "calls": []
+    },
+    {
+      "name": "unsafe-host",
+      "unsafe": true,
+      "result": {
+        "error": "invalid-input"
+      },
+      "calls": []
+    },
+    {
+      "name": "symlink-root",
+      "symlink": true,
+      "result": {
+        "error": "invalid-input"
+      },
+      "calls": []
+    }
+  ]
+}
