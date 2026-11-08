@@ -1,0 +1,5933 @@
+{
+  "recordedFrom": {
+    "engine": "node",
+    "source": {
+      "commit": "088ba31e441c170b47dfa41d97bd78c5265e6f69",
+      "treeSha256": "83172f93354fc16837375db5f3e405815bf3ae5ce7b63c8c5d321a7d988561ff",
+      "paths": [
+        "engine/**/*.js",
+        "lib/**/*.js"
+      ],
+      "purpose": "C2 reembedding hardening from engine PR 266; validate facade and empty-agent acceptance additionally use pin 9f34008c"
+    },
+    "node": "v24.21.0"
+  },
+  "proofSeed": 9,
+  "cases": [
+    {
+      "name": "target-completes",
+      "steps": [
+        {
+          "op": "switch"
+        },
+        {
+          "op": "recover",
+          "active": "target-generation"
+        }
+      ],
+      "initial": {
+        "id": "migration-switch",
+        "state": "ready_to_switch",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "confirmation": {
+          "schemaVersion": 1,
+          "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+          "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expiresAt": 10000
+        },
+        "source": {
+          "generation": "source-generation",
+          "selection": {
+            "mode": "legacy"
+          },
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-source",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "source-id",
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_SOURCE_KEY"
+          },
+          "tables": [],
+          "configRevision": "config-a"
+        },
+        "target": {
+          "generation": "target-generation",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-target",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "target-id"
+        },
+        "cursor": {
+          "tableIndex": 0,
+          "offset": 0,
+          "completedRows": 0,
+          "providerCalls": 0,
+          "bytes": 0
+        },
+        "receipts": {
+          "validation": {
+            "semanticRecall": true
+          }
+        },
+        "revision": 5,
+        "createdAt": "1970-01-01T00:00:01.000Z",
+        "updatedAt": "1970-01-01T00:00:01.000Z"
+      },
+      "results": [
+        {
+          "value": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 6,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z"
+          },
+          "calls": [
+            {
+              "kind": "enter"
+            },
+            {
+              "kind": "source-check"
+            },
+            {
+              "kind": "mutate",
+              "selection": {
+                "generation": "target-generation",
+                "fingerprint": {
+                  "schemaVersion": 1,
+                  "provider": "openai",
+                  "model": "synthetic-target",
+                  "dimensions": 3,
+                  "artifacts": []
+                },
+                "fingerprintId": "target-id"
+              }
+            },
+            {
+              "kind": "exit"
+            }
+          ],
+          "state": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 6,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z"
+          }
+        },
+        {
+          "value": {
+            "id": "migration-switch",
+            "state": "completed",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              },
+              "switch": {
+                "readiness": true,
+                "store": true,
+                "recall": true,
+                "generation": "target-generation"
+              }
+            },
+            "revision": 7,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": null
+          },
+          "calls": [
+            {
+              "kind": "probe",
+              "request": {
+                "expectedGeneration": "target-generation",
+                "fingerprint": {
+                  "schemaVersion": 1,
+                  "provider": "openai",
+                  "model": "synthetic-target",
+                  "dimensions": 3,
+                  "artifacts": []
+                },
+                "migrationId": "migration-switch",
+                "rollback": false
+              }
+            }
+          ],
+          "state": {
+            "id": "migration-switch",
+            "state": "completed",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              },
+              "switch": {
+                "readiness": true,
+                "store": true,
+                "recall": true,
+                "generation": "target-generation"
+              }
+            },
+            "revision": 7,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "source-drift",
+      "steps": [
+        {
+          "op": "switch",
+          "drift": true
+        }
+      ],
+      "initial": {
+        "id": "migration-switch",
+        "state": "ready_to_switch",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "confirmation": {
+          "schemaVersion": 1,
+          "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+          "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expiresAt": 10000
+        },
+        "source": {
+          "generation": "source-generation",
+          "selection": {
+            "mode": "legacy"
+          },
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-source",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "source-id",
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_SOURCE_KEY"
+          },
+          "tables": [],
+          "configRevision": "config-a"
+        },
+        "target": {
+          "generation": "target-generation",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-target",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "target-id"
+        },
+        "cursor": {
+          "tableIndex": 0,
+          "offset": 0,
+          "completedRows": 0,
+          "providerCalls": 0,
+          "bytes": 0
+        },
+        "receipts": {
+          "validation": {
+            "semanticRecall": true
+          }
+        },
+        "revision": 5,
+        "createdAt": "1970-01-01T00:00:01.000Z",
+        "updatedAt": "1970-01-01T00:00:01.000Z"
+      },
+      "results": [
+        {
+          "error": "synthetic source drift",
+          "calls": [
+            {
+              "kind": "enter"
+            },
+            {
+              "kind": "source-check"
+            },
+            {
+              "kind": "exit"
+            }
+          ],
+          "state": {
+            "id": "migration-switch",
+            "state": "ready_to_switch",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 5,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z"
+          }
+        }
+      ]
+    },
+    {
+      "name": "mutation-fails",
+      "steps": [
+        {
+          "op": "switch",
+          "mutationFails": true
+        },
+        {
+          "op": "recover",
+          "active": null
+        }
+      ],
+      "initial": {
+        "id": "migration-switch",
+        "state": "ready_to_switch",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "confirmation": {
+          "schemaVersion": 1,
+          "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+          "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expiresAt": 10000
+        },
+        "source": {
+          "generation": "source-generation",
+          "selection": {
+            "mode": "legacy"
+          },
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-source",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "source-id",
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_SOURCE_KEY"
+          },
+          "tables": [],
+          "configRevision": "config-a"
+        },
+        "target": {
+          "generation": "target-generation",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-target",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "target-id"
+        },
+        "cursor": {
+          "tableIndex": 0,
+          "offset": 0,
+          "completedRows": 0,
+          "providerCalls": 0,
+          "bytes": 0
+        },
+        "receipts": {
+          "validation": {
+            "semanticRecall": true
+          }
+        },
+        "revision": 5,
+        "createdAt": "1970-01-01T00:00:01.000Z",
+        "updatedAt": "1970-01-01T00:00:01.000Z"
+      },
+      "results": [
+        {
+          "error": "synthetic config mutation failed",
+          "calls": [
+            {
+              "kind": "enter"
+            },
+            {
+              "kind": "source-check"
+            },
+            {
+              "kind": "mutate",
+              "selection": {
+                "generation": "target-generation",
+                "fingerprint": {
+                  "schemaVersion": 1,
+                  "provider": "openai",
+                  "model": "synthetic-target",
+                  "dimensions": 3,
+                  "artifacts": []
+                },
+                "fingerprintId": "target-id"
+              }
+            },
+            {
+              "kind": "exit"
+            }
+          ],
+          "state": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 7,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": {
+              "code": "switch_config_mutation_failed",
+              "rollbackRestored": false
+            }
+          }
+        },
+        {
+          "value": {
+            "id": "migration-switch",
+            "state": "failed",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 8,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": {
+              "code": "switch_target_not_activated",
+              "rollbackRestored": true
+            }
+          },
+          "calls": [
+            {
+              "kind": "probe",
+              "request": {
+                "expectedGeneration": null,
+                "fingerprint": {
+                  "schemaVersion": 1,
+                  "provider": "openai",
+                  "model": "synthetic-source",
+                  "dimensions": 3,
+                  "artifacts": []
+                },
+                "secretRef": {
+                  "source": "env",
+                  "provider": "default",
+                  "id": "SYNTHETIC_SOURCE_KEY"
+                },
+                "migrationId": "migration-switch",
+                "rollback": true
+              }
+            }
+          ],
+          "state": {
+            "id": "migration-switch",
+            "state": "failed",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 8,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": {
+              "code": "switch_target_not_activated",
+              "rollbackRestored": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "gate-enter-fails",
+      "steps": [
+        {
+          "op": "switch",
+          "enterFails": true
+        }
+      ],
+      "initial": {
+        "id": "migration-switch",
+        "state": "ready_to_switch",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "confirmation": {
+          "schemaVersion": 1,
+          "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+          "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expiresAt": 10000
+        },
+        "source": {
+          "generation": "source-generation",
+          "selection": {
+            "mode": "legacy"
+          },
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-source",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "source-id",
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_SOURCE_KEY"
+          },
+          "tables": [],
+          "configRevision": "config-a"
+        },
+        "target": {
+          "generation": "target-generation",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-target",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "target-id"
+        },
+        "cursor": {
+          "tableIndex": 0,
+          "offset": 0,
+          "completedRows": 0,
+          "providerCalls": 0,
+          "bytes": 0
+        },
+        "receipts": {
+          "validation": {
+            "semanticRecall": true
+          }
+        },
+        "revision": 5,
+        "createdAt": "1970-01-01T00:00:01.000Z",
+        "updatedAt": "1970-01-01T00:00:01.000Z"
+      },
+      "results": [
+        {
+          "error": "synthetic gate enter failed",
+          "calls": [
+            {
+              "kind": "enter"
+            }
+          ],
+          "state": {
+            "id": "migration-switch",
+            "state": "ready_to_switch",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 5,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z"
+          }
+        }
+      ]
+    },
+    {
+      "name": "gate-exit-fails",
+      "steps": [
+        {
+          "op": "switch",
+          "exitFails": true
+        }
+      ],
+      "initial": {
+        "id": "migration-switch",
+        "state": "ready_to_switch",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "confirmation": {
+          "schemaVersion": 1,
+          "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+          "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expiresAt": 10000
+        },
+        "source": {
+          "generation": "source-generation",
+          "selection": {
+            "mode": "legacy"
+          },
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-source",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "source-id",
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_SOURCE_KEY"
+          },
+          "tables": [],
+          "configRevision": "config-a"
+        },
+        "target": {
+          "generation": "target-generation",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-target",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "target-id"
+        },
+        "cursor": {
+          "tableIndex": 0,
+          "offset": 0,
+          "completedRows": 0,
+          "providerCalls": 0,
+          "bytes": 0
+        },
+        "receipts": {
+          "validation": {
+            "semanticRecall": true
+          }
+        },
+        "revision": 5,
+        "createdAt": "1970-01-01T00:00:01.000Z",
+        "updatedAt": "1970-01-01T00:00:01.000Z"
+      },
+      "results": [
+        {
+          "error": "synthetic gate exit failed",
+          "calls": [
+            {
+              "kind": "enter"
+            },
+            {
+              "kind": "source-check"
+            },
+            {
+              "kind": "mutate",
+              "selection": {
+                "generation": "target-generation",
+                "fingerprint": {
+                  "schemaVersion": 1,
+                  "provider": "openai",
+                  "model": "synthetic-target",
+                  "dimensions": 3,
+                  "artifacts": []
+                },
+                "fingerprintId": "target-id"
+              }
+            },
+            {
+              "kind": "exit"
+            }
+          ],
+          "state": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 6,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z"
+          }
+        }
+      ]
+    },
+    {
+      "name": "wrong-proof",
+      "steps": [
+        {
+          "op": "switch",
+          "wrongProof": true
+        }
+      ],
+      "initial": {
+        "id": "migration-switch",
+        "state": "ready_to_switch",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "confirmation": {
+          "schemaVersion": 1,
+          "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+          "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expiresAt": 10000
+        },
+        "source": {
+          "generation": "source-generation",
+          "selection": {
+            "mode": "legacy"
+          },
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-source",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "source-id",
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_SOURCE_KEY"
+          },
+          "tables": [],
+          "configRevision": "config-a"
+        },
+        "target": {
+          "generation": "target-generation",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-target",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "target-id"
+        },
+        "cursor": {
+          "tableIndex": 0,
+          "offset": 0,
+          "completedRows": 0,
+          "providerCalls": 0,
+          "bytes": 0
+        },
+        "receipts": {
+          "validation": {
+            "semanticRecall": true
+          }
+        },
+        "revision": 5,
+        "createdAt": "1970-01-01T00:00:01.000Z",
+        "updatedAt": "1970-01-01T00:00:01.000Z"
+      },
+      "results": [
+        {
+          "error": "invalid or expired reembedding confirmation",
+          "calls": [],
+          "state": {
+            "id": "migration-switch",
+            "state": "ready_to_switch",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 5,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z"
+          }
+        }
+      ]
+    },
+    {
+      "name": "remote-source-without-reference",
+      "omitReference": true,
+      "steps": [
+        {
+          "op": "switch"
+        }
+      ],
+      "initial": {
+        "id": "migration-switch",
+        "state": "ready_to_switch",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "confirmation": {
+          "schemaVersion": 1,
+          "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+          "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expiresAt": 10000
+        },
+        "source": {
+          "generation": "source-generation",
+          "selection": {
+            "mode": "legacy"
+          },
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-source",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "source-id",
+          "tables": [],
+          "configRevision": "config-a"
+        },
+        "target": {
+          "generation": "target-generation",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-target",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "target-id"
+        },
+        "cursor": {
+          "tableIndex": 0,
+          "offset": 0,
+          "completedRows": 0,
+          "providerCalls": 0,
+          "bytes": 0
+        },
+        "receipts": {
+          "validation": {
+            "semanticRecall": true
+          }
+        },
+        "revision": 5,
+        "createdAt": "1970-01-01T00:00:01.000Z",
+        "updatedAt": "1970-01-01T00:00:01.000Z"
+      },
+      "results": [
+        {
+          "error": "a persistable rollback credential reference is required for the remote source provider",
+          "calls": [],
+          "state": {
+            "id": "migration-switch",
+            "state": "ready_to_switch",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 5,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z"
+          }
+        }
+      ]
+    },
+    {
+      "name": "missing-validation",
+      "omitValidation": true,
+      "steps": [
+        {
+          "op": "switch"
+        }
+      ],
+      "initial": {
+        "id": "migration-switch",
+        "state": "ready_to_switch",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "confirmation": {
+          "schemaVersion": 1,
+          "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+          "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expiresAt": 10000
+        },
+        "source": {
+          "generation": "source-generation",
+          "selection": {
+            "mode": "legacy"
+          },
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-source",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "source-id",
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_SOURCE_KEY"
+          },
+          "tables": [],
+          "configRevision": "config-a"
+        },
+        "target": {
+          "generation": "target-generation",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-target",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "target-id"
+        },
+        "cursor": {
+          "tableIndex": 0,
+          "offset": 0,
+          "completedRows": 0,
+          "providerCalls": 0,
+          "bytes": 0
+        },
+        "receipts": {},
+        "revision": 5,
+        "createdAt": "1970-01-01T00:00:01.000Z",
+        "updatedAt": "1970-01-01T00:00:01.000Z"
+      },
+      "results": [
+        {
+          "error": "reembedding switch requires a semantic recall validation receipt",
+          "calls": [],
+          "state": {
+            "id": "migration-switch",
+            "state": "ready_to_switch",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {},
+            "revision": 5,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z"
+          }
+        }
+      ]
+    },
+    {
+      "name": "early-switch",
+      "initial": {
+        "id": "migration-switch",
+        "state": "planned",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "confirmation": {
+          "schemaVersion": 1,
+          "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+          "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expiresAt": 10000
+        },
+        "source": {
+          "generation": "source-generation",
+          "selection": {
+            "mode": "legacy"
+          },
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-source",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "source-id",
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_SOURCE_KEY"
+          },
+          "tables": [],
+          "configRevision": "config-a"
+        },
+        "target": {
+          "generation": "target-generation",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-target",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "target-id"
+        },
+        "cursor": {
+          "tableIndex": 0,
+          "offset": 0,
+          "completedRows": 0,
+          "providerCalls": 0,
+          "bytes": 0
+        },
+        "receipts": {
+          "validation": {
+            "semanticRecall": true
+          }
+        },
+        "revision": 1,
+        "createdAt": "1970-01-01T00:00:01.000Z",
+        "updatedAt": "1970-01-01T00:00:01.000Z"
+      },
+      "steps": [
+        {
+          "op": "switch"
+        }
+      ],
+      "results": [
+        {
+          "error": "reembedding switch requires ready_to_switch state; found planned",
+          "calls": [],
+          "state": {
+            "id": "migration-switch",
+            "state": "planned",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 1,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z"
+          }
+        }
+      ]
+    },
+    {
+      "name": "empty-recovery",
+      "steps": [
+        {
+          "op": "recover",
+          "active": "target-generation"
+        }
+      ],
+      "initial": {
+        "id": "migration-switch",
+        "state": "ready_to_switch",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "confirmation": {
+          "schemaVersion": 1,
+          "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+          "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expiresAt": 10000
+        },
+        "source": {
+          "generation": "source-generation",
+          "selection": {
+            "mode": "legacy"
+          },
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-source",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "source-id",
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_SOURCE_KEY"
+          },
+          "tables": [],
+          "configRevision": "config-a"
+        },
+        "target": {
+          "generation": "target-generation",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-target",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "target-id"
+        },
+        "cursor": {
+          "tableIndex": 0,
+          "offset": 0,
+          "completedRows": 0,
+          "providerCalls": 0,
+          "bytes": 0
+        },
+        "receipts": {
+          "validation": {
+            "semanticRecall": true
+          }
+        },
+        "revision": 5,
+        "createdAt": "1970-01-01T00:00:01.000Z",
+        "updatedAt": "1970-01-01T00:00:01.000Z"
+      },
+      "results": [
+        {
+          "value": null,
+          "calls": [],
+          "state": {
+            "id": "migration-switch",
+            "state": "ready_to_switch",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 5,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z"
+          }
+        }
+      ]
+    },
+    {
+      "name": "target-probe-rollback",
+      "steps": [
+        {
+          "op": "switch"
+        },
+        {
+          "op": "recover",
+          "active": "target-generation",
+          "probeFails": true
+        },
+        {
+          "op": "recover",
+          "active": null
+        }
+      ],
+      "initial": {
+        "id": "migration-switch",
+        "state": "ready_to_switch",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "confirmation": {
+          "schemaVersion": 1,
+          "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+          "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expiresAt": 10000
+        },
+        "source": {
+          "generation": "source-generation",
+          "selection": {
+            "mode": "legacy"
+          },
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-source",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "source-id",
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_SOURCE_KEY"
+          },
+          "tables": [],
+          "configRevision": "config-a"
+        },
+        "target": {
+          "generation": "target-generation",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-target",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "target-id"
+        },
+        "cursor": {
+          "tableIndex": 0,
+          "offset": 0,
+          "completedRows": 0,
+          "providerCalls": 0,
+          "bytes": 0
+        },
+        "receipts": {
+          "validation": {
+            "semanticRecall": true
+          }
+        },
+        "revision": 5,
+        "createdAt": "1970-01-01T00:00:01.000Z",
+        "updatedAt": "1970-01-01T00:00:01.000Z"
+      },
+      "results": [
+        {
+          "value": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 6,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z"
+          },
+          "calls": [
+            {
+              "kind": "enter"
+            },
+            {
+              "kind": "source-check"
+            },
+            {
+              "kind": "mutate",
+              "selection": {
+                "generation": "target-generation",
+                "fingerprint": {
+                  "schemaVersion": 1,
+                  "provider": "openai",
+                  "model": "synthetic-target",
+                  "dimensions": 3,
+                  "artifacts": []
+                },
+                "fingerprintId": "target-id"
+              }
+            },
+            {
+              "kind": "exit"
+            }
+          ],
+          "state": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 6,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z"
+          }
+        },
+        {
+          "value": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 7,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": {
+              "code": "switch_probe_failed_pending_rollback",
+              "rollbackRestored": false
+            }
+          },
+          "calls": [
+            {
+              "kind": "probe",
+              "request": {
+                "expectedGeneration": "target-generation",
+                "fingerprint": {
+                  "schemaVersion": 1,
+                  "provider": "openai",
+                  "model": "synthetic-target",
+                  "dimensions": 3,
+                  "artifacts": []
+                },
+                "migrationId": "migration-switch",
+                "rollback": false
+              }
+            },
+            {
+              "kind": "mutate",
+              "selection": {
+                "generation": null,
+                "fingerprint": {
+                  "schemaVersion": 1,
+                  "provider": "openai",
+                  "model": "synthetic-source",
+                  "dimensions": 3,
+                  "artifacts": []
+                },
+                "fingerprintId": "source-id",
+                "secretRef": {
+                  "source": "env",
+                  "provider": "default",
+                  "id": "SYNTHETIC_SOURCE_KEY"
+                }
+              }
+            }
+          ],
+          "state": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 7,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": {
+              "code": "switch_probe_failed_pending_rollback",
+              "rollbackRestored": false
+            }
+          }
+        },
+        {
+          "value": {
+            "id": "migration-switch",
+            "state": "failed",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 8,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": {
+              "code": "switch_probe_failed",
+              "rollbackRestored": true
+            }
+          },
+          "calls": [
+            {
+              "kind": "probe",
+              "request": {
+                "expectedGeneration": null,
+                "fingerprint": {
+                  "schemaVersion": 1,
+                  "provider": "openai",
+                  "model": "synthetic-source",
+                  "dimensions": 3,
+                  "artifacts": []
+                },
+                "secretRef": {
+                  "source": "env",
+                  "provider": "default",
+                  "id": "SYNTHETIC_SOURCE_KEY"
+                },
+                "migrationId": "migration-switch",
+                "rollback": true
+              }
+            }
+          ],
+          "state": {
+            "id": "migration-switch",
+            "state": "failed",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 8,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": {
+              "code": "switch_probe_failed",
+              "rollbackRestored": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "target-probe-mutation-fails",
+      "steps": [
+        {
+          "op": "switch"
+        },
+        {
+          "op": "recover",
+          "active": "target-generation",
+          "probeFails": true,
+          "mutationFails": true
+        },
+        {
+          "op": "recover",
+          "active": "target-generation"
+        },
+        {
+          "op": "recover",
+          "active": null
+        }
+      ],
+      "initial": {
+        "id": "migration-switch",
+        "state": "ready_to_switch",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "confirmation": {
+          "schemaVersion": 1,
+          "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+          "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expiresAt": 10000
+        },
+        "source": {
+          "generation": "source-generation",
+          "selection": {
+            "mode": "legacy"
+          },
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-source",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "source-id",
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_SOURCE_KEY"
+          },
+          "tables": [],
+          "configRevision": "config-a"
+        },
+        "target": {
+          "generation": "target-generation",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-target",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "target-id"
+        },
+        "cursor": {
+          "tableIndex": 0,
+          "offset": 0,
+          "completedRows": 0,
+          "providerCalls": 0,
+          "bytes": 0
+        },
+        "receipts": {
+          "validation": {
+            "semanticRecall": true
+          }
+        },
+        "revision": 5,
+        "createdAt": "1970-01-01T00:00:01.000Z",
+        "updatedAt": "1970-01-01T00:00:01.000Z"
+      },
+      "results": [
+        {
+          "value": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 6,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z"
+          },
+          "calls": [
+            {
+              "kind": "enter"
+            },
+            {
+              "kind": "source-check"
+            },
+            {
+              "kind": "mutate",
+              "selection": {
+                "generation": "target-generation",
+                "fingerprint": {
+                  "schemaVersion": 1,
+                  "provider": "openai",
+                  "model": "synthetic-target",
+                  "dimensions": 3,
+                  "artifacts": []
+                },
+                "fingerprintId": "target-id"
+              }
+            },
+            {
+              "kind": "exit"
+            }
+          ],
+          "state": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 6,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z"
+          }
+        },
+        {
+          "error": "reembedding target probe and rollback config mutation failed",
+          "calls": [
+            {
+              "kind": "probe",
+              "request": {
+                "expectedGeneration": "target-generation",
+                "fingerprint": {
+                  "schemaVersion": 1,
+                  "provider": "openai",
+                  "model": "synthetic-target",
+                  "dimensions": 3,
+                  "artifacts": []
+                },
+                "migrationId": "migration-switch",
+                "rollback": false
+              }
+            },
+            {
+              "kind": "mutate",
+              "selection": {
+                "generation": null,
+                "fingerprint": {
+                  "schemaVersion": 1,
+                  "provider": "openai",
+                  "model": "synthetic-source",
+                  "dimensions": 3,
+                  "artifacts": []
+                },
+                "fingerprintId": "source-id",
+                "secretRef": {
+                  "source": "env",
+                  "provider": "default",
+                  "id": "SYNTHETIC_SOURCE_KEY"
+                }
+              }
+            }
+          ],
+          "state": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 8,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": {
+              "code": "switch_rollback_config_mutation_failed",
+              "rollbackRestored": false
+            }
+          }
+        },
+        {
+          "value": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 8,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": {
+              "code": "switch_rollback_config_mutation_failed",
+              "rollbackRestored": false
+            }
+          },
+          "calls": [
+            {
+              "kind": "mutate",
+              "selection": {
+                "generation": null,
+                "fingerprint": {
+                  "schemaVersion": 1,
+                  "provider": "openai",
+                  "model": "synthetic-source",
+                  "dimensions": 3,
+                  "artifacts": []
+                },
+                "fingerprintId": "source-id",
+                "secretRef": {
+                  "source": "env",
+                  "provider": "default",
+                  "id": "SYNTHETIC_SOURCE_KEY"
+                }
+              }
+            }
+          ],
+          "state": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 8,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": {
+              "code": "switch_rollback_config_mutation_failed",
+              "rollbackRestored": false
+            }
+          }
+        },
+        {
+          "value": {
+            "id": "migration-switch",
+            "state": "failed",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 9,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": {
+              "code": "switch_probe_failed",
+              "rollbackRestored": true
+            }
+          },
+          "calls": [
+            {
+              "kind": "probe",
+              "request": {
+                "expectedGeneration": null,
+                "fingerprint": {
+                  "schemaVersion": 1,
+                  "provider": "openai",
+                  "model": "synthetic-source",
+                  "dimensions": 3,
+                  "artifacts": []
+                },
+                "secretRef": {
+                  "source": "env",
+                  "provider": "default",
+                  "id": "SYNTHETIC_SOURCE_KEY"
+                },
+                "migrationId": "migration-switch",
+                "rollback": true
+              }
+            }
+          ],
+          "state": {
+            "id": "migration-switch",
+            "state": "failed",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 9,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": {
+              "code": "switch_probe_failed",
+              "rollbackRestored": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "source-not-activated",
+      "steps": [
+        {
+          "op": "switch"
+        },
+        {
+          "op": "recover",
+          "active": null
+        }
+      ],
+      "initial": {
+        "id": "migration-switch",
+        "state": "ready_to_switch",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "confirmation": {
+          "schemaVersion": 1,
+          "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+          "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expiresAt": 10000
+        },
+        "source": {
+          "generation": "source-generation",
+          "selection": {
+            "mode": "legacy"
+          },
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-source",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "source-id",
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_SOURCE_KEY"
+          },
+          "tables": [],
+          "configRevision": "config-a"
+        },
+        "target": {
+          "generation": "target-generation",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-target",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "target-id"
+        },
+        "cursor": {
+          "tableIndex": 0,
+          "offset": 0,
+          "completedRows": 0,
+          "providerCalls": 0,
+          "bytes": 0
+        },
+        "receipts": {
+          "validation": {
+            "semanticRecall": true
+          }
+        },
+        "revision": 5,
+        "createdAt": "1970-01-01T00:00:01.000Z",
+        "updatedAt": "1970-01-01T00:00:01.000Z"
+      },
+      "results": [
+        {
+          "value": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 6,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z"
+          },
+          "calls": [
+            {
+              "kind": "enter"
+            },
+            {
+              "kind": "source-check"
+            },
+            {
+              "kind": "mutate",
+              "selection": {
+                "generation": "target-generation",
+                "fingerprint": {
+                  "schemaVersion": 1,
+                  "provider": "openai",
+                  "model": "synthetic-target",
+                  "dimensions": 3,
+                  "artifacts": []
+                },
+                "fingerprintId": "target-id"
+              }
+            },
+            {
+              "kind": "exit"
+            }
+          ],
+          "state": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 6,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z"
+          }
+        },
+        {
+          "value": {
+            "id": "migration-switch",
+            "state": "failed",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 7,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": {
+              "code": "switch_target_not_activated",
+              "rollbackRestored": true
+            }
+          },
+          "calls": [
+            {
+              "kind": "probe",
+              "request": {
+                "expectedGeneration": null,
+                "fingerprint": {
+                  "schemaVersion": 1,
+                  "provider": "openai",
+                  "model": "synthetic-source",
+                  "dimensions": 3,
+                  "artifacts": []
+                },
+                "secretRef": {
+                  "source": "env",
+                  "provider": "default",
+                  "id": "SYNTHETIC_SOURCE_KEY"
+                },
+                "migrationId": "migration-switch",
+                "rollback": true
+              }
+            }
+          ],
+          "state": {
+            "id": "migration-switch",
+            "state": "failed",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 7,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": {
+              "code": "switch_target_not_activated",
+              "rollbackRestored": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "source-probe-fails",
+      "steps": [
+        {
+          "op": "switch"
+        },
+        {
+          "op": "recover",
+          "active": null,
+          "probeFails": true
+        },
+        {
+          "op": "recover",
+          "active": null
+        }
+      ],
+      "initial": {
+        "id": "migration-switch",
+        "state": "ready_to_switch",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "confirmation": {
+          "schemaVersion": 1,
+          "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+          "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expiresAt": 10000
+        },
+        "source": {
+          "generation": "source-generation",
+          "selection": {
+            "mode": "legacy"
+          },
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-source",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "source-id",
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_SOURCE_KEY"
+          },
+          "tables": [],
+          "configRevision": "config-a"
+        },
+        "target": {
+          "generation": "target-generation",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-target",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "target-id"
+        },
+        "cursor": {
+          "tableIndex": 0,
+          "offset": 0,
+          "completedRows": 0,
+          "providerCalls": 0,
+          "bytes": 0
+        },
+        "receipts": {
+          "validation": {
+            "semanticRecall": true
+          }
+        },
+        "revision": 5,
+        "createdAt": "1970-01-01T00:00:01.000Z",
+        "updatedAt": "1970-01-01T00:00:01.000Z"
+      },
+      "results": [
+        {
+          "value": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 6,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z"
+          },
+          "calls": [
+            {
+              "kind": "enter"
+            },
+            {
+              "kind": "source-check"
+            },
+            {
+              "kind": "mutate",
+              "selection": {
+                "generation": "target-generation",
+                "fingerprint": {
+                  "schemaVersion": 1,
+                  "provider": "openai",
+                  "model": "synthetic-target",
+                  "dimensions": 3,
+                  "artifacts": []
+                },
+                "fingerprintId": "target-id"
+              }
+            },
+            {
+              "kind": "exit"
+            }
+          ],
+          "state": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 6,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z"
+          }
+        },
+        {
+          "error": "synthetic runtime probe failed",
+          "calls": [
+            {
+              "kind": "probe",
+              "request": {
+                "expectedGeneration": null,
+                "fingerprint": {
+                  "schemaVersion": 1,
+                  "provider": "openai",
+                  "model": "synthetic-source",
+                  "dimensions": 3,
+                  "artifacts": []
+                },
+                "secretRef": {
+                  "source": "env",
+                  "provider": "default",
+                  "id": "SYNTHETIC_SOURCE_KEY"
+                },
+                "migrationId": "migration-switch",
+                "rollback": true
+              }
+            }
+          ],
+          "state": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 7,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": {
+              "code": "switch_rollback_probe_failed",
+              "rollbackRestored": false
+            }
+          }
+        },
+        {
+          "value": {
+            "id": "migration-switch",
+            "state": "failed",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 8,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": {
+              "code": "switch_target_not_activated",
+              "rollbackRestored": true
+            }
+          },
+          "calls": [
+            {
+              "kind": "probe",
+              "request": {
+                "expectedGeneration": null,
+                "fingerprint": {
+                  "schemaVersion": 1,
+                  "provider": "openai",
+                  "model": "synthetic-source",
+                  "dimensions": 3,
+                  "artifacts": []
+                },
+                "secretRef": {
+                  "source": "env",
+                  "provider": "default",
+                  "id": "SYNTHETIC_SOURCE_KEY"
+                },
+                "migrationId": "migration-switch",
+                "rollback": true
+              }
+            }
+          ],
+          "state": {
+            "id": "migration-switch",
+            "state": "failed",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 8,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": {
+              "code": "switch_target_not_activated",
+              "rollbackRestored": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "active-selection-drift",
+      "steps": [
+        {
+          "op": "switch"
+        },
+        {
+          "op": "recover",
+          "active": "unrelated-generation"
+        }
+      ],
+      "initial": {
+        "id": "migration-switch",
+        "state": "ready_to_switch",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "confirmation": {
+          "schemaVersion": 1,
+          "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+          "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expiresAt": 10000
+        },
+        "source": {
+          "generation": "source-generation",
+          "selection": {
+            "mode": "legacy"
+          },
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-source",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "source-id",
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_SOURCE_KEY"
+          },
+          "tables": [],
+          "configRevision": "config-a"
+        },
+        "target": {
+          "generation": "target-generation",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-target",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "target-id"
+        },
+        "cursor": {
+          "tableIndex": 0,
+          "offset": 0,
+          "completedRows": 0,
+          "providerCalls": 0,
+          "bytes": 0
+        },
+        "receipts": {
+          "validation": {
+            "semanticRecall": true
+          }
+        },
+        "revision": 5,
+        "createdAt": "1970-01-01T00:00:01.000Z",
+        "updatedAt": "1970-01-01T00:00:01.000Z"
+      },
+      "results": [
+        {
+          "value": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 6,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z"
+          },
+          "calls": [
+            {
+              "kind": "enter"
+            },
+            {
+              "kind": "source-check"
+            },
+            {
+              "kind": "mutate",
+              "selection": {
+                "generation": "target-generation",
+                "fingerprint": {
+                  "schemaVersion": 1,
+                  "provider": "openai",
+                  "model": "synthetic-target",
+                  "dimensions": 3,
+                  "artifacts": []
+                },
+                "fingerprintId": "target-id"
+              }
+            },
+            {
+              "kind": "exit"
+            }
+          ],
+          "state": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 6,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z"
+          }
+        },
+        {
+          "error": "active generation selection drift during durable reembedding switch recovery",
+          "calls": [],
+          "state": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 6,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z"
+          }
+        }
+      ]
+    },
+    {
+      "name": "invalid-probe-receipt",
+      "steps": [
+        {
+          "op": "switch"
+        },
+        {
+          "op": "recover",
+          "active": "target-generation",
+          "probe": {
+            "readiness": true,
+            "store": true,
+            "recall": false
+          }
+        },
+        {
+          "op": "recover",
+          "active": null
+        }
+      ],
+      "initial": {
+        "id": "migration-switch",
+        "state": "ready_to_switch",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "confirmation": {
+          "schemaVersion": 1,
+          "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+          "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expiresAt": 10000
+        },
+        "source": {
+          "generation": "source-generation",
+          "selection": {
+            "mode": "legacy"
+          },
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-source",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "source-id",
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_SOURCE_KEY"
+          },
+          "tables": [],
+          "configRevision": "config-a"
+        },
+        "target": {
+          "generation": "target-generation",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-target",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "target-id"
+        },
+        "cursor": {
+          "tableIndex": 0,
+          "offset": 0,
+          "completedRows": 0,
+          "providerCalls": 0,
+          "bytes": 0
+        },
+        "receipts": {
+          "validation": {
+            "semanticRecall": true
+          }
+        },
+        "revision": 5,
+        "createdAt": "1970-01-01T00:00:01.000Z",
+        "updatedAt": "1970-01-01T00:00:01.000Z"
+      },
+      "results": [
+        {
+          "value": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 6,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z"
+          },
+          "calls": [
+            {
+              "kind": "enter"
+            },
+            {
+              "kind": "source-check"
+            },
+            {
+              "kind": "mutate",
+              "selection": {
+                "generation": "target-generation",
+                "fingerprint": {
+                  "schemaVersion": 1,
+                  "provider": "openai",
+                  "model": "synthetic-target",
+                  "dimensions": 3,
+                  "artifacts": []
+                },
+                "fingerprintId": "target-id"
+              }
+            },
+            {
+              "kind": "exit"
+            }
+          ],
+          "state": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 6,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z"
+          }
+        },
+        {
+          "value": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 7,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": {
+              "code": "switch_probe_failed_pending_rollback",
+              "rollbackRestored": false
+            }
+          },
+          "calls": [
+            {
+              "kind": "probe",
+              "request": {
+                "expectedGeneration": "target-generation",
+                "fingerprint": {
+                  "schemaVersion": 1,
+                  "provider": "openai",
+                  "model": "synthetic-target",
+                  "dimensions": 3,
+                  "artifacts": []
+                },
+                "migrationId": "migration-switch",
+                "rollback": false
+              }
+            },
+            {
+              "kind": "mutate",
+              "selection": {
+                "generation": null,
+                "fingerprint": {
+                  "schemaVersion": 1,
+                  "provider": "openai",
+                  "model": "synthetic-source",
+                  "dimensions": 3,
+                  "artifacts": []
+                },
+                "fingerprintId": "source-id",
+                "secretRef": {
+                  "source": "env",
+                  "provider": "default",
+                  "id": "SYNTHETIC_SOURCE_KEY"
+                }
+              }
+            }
+          ],
+          "state": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 7,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": {
+              "code": "switch_probe_failed_pending_rollback",
+              "rollbackRestored": false
+            }
+          }
+        },
+        {
+          "value": {
+            "id": "migration-switch",
+            "state": "failed",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 8,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": {
+              "code": "switch_probe_failed",
+              "rollbackRestored": true
+            }
+          },
+          "calls": [
+            {
+              "kind": "probe",
+              "request": {
+                "expectedGeneration": null,
+                "fingerprint": {
+                  "schemaVersion": 1,
+                  "provider": "openai",
+                  "model": "synthetic-source",
+                  "dimensions": 3,
+                  "artifacts": []
+                },
+                "secretRef": {
+                  "source": "env",
+                  "provider": "default",
+                  "id": "SYNTHETIC_SOURCE_KEY"
+                },
+                "migrationId": "migration-switch",
+                "rollback": true
+              }
+            }
+          ],
+          "state": {
+            "id": "migration-switch",
+            "state": "failed",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 8,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": {
+              "code": "switch_probe_failed",
+              "rollbackRestored": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "generation-source",
+      "generationSource": true,
+      "steps": [
+        {
+          "op": "switch"
+        },
+        {
+          "op": "recover",
+          "active": "source-generation"
+        }
+      ],
+      "initial": {
+        "id": "migration-switch",
+        "state": "ready_to_switch",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "confirmation": {
+          "schemaVersion": 1,
+          "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+          "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expiresAt": 10000
+        },
+        "source": {
+          "generation": "source-generation",
+          "selection": {
+            "mode": "generation",
+            "generation": "source-generation"
+          },
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-source",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "source-id",
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_SOURCE_KEY"
+          },
+          "tables": [],
+          "configRevision": "config-a"
+        },
+        "target": {
+          "generation": "target-generation",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-target",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "target-id"
+        },
+        "cursor": {
+          "tableIndex": 0,
+          "offset": 0,
+          "completedRows": 0,
+          "providerCalls": 0,
+          "bytes": 0
+        },
+        "receipts": {
+          "validation": {
+            "semanticRecall": true
+          }
+        },
+        "revision": 5,
+        "createdAt": "1970-01-01T00:00:01.000Z",
+        "updatedAt": "1970-01-01T00:00:01.000Z"
+      },
+      "results": [
+        {
+          "value": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "generation",
+                "generation": "source-generation"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 6,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z"
+          },
+          "calls": [
+            {
+              "kind": "enter"
+            },
+            {
+              "kind": "source-check"
+            },
+            {
+              "kind": "mutate",
+              "selection": {
+                "generation": "target-generation",
+                "fingerprint": {
+                  "schemaVersion": 1,
+                  "provider": "openai",
+                  "model": "synthetic-target",
+                  "dimensions": 3,
+                  "artifacts": []
+                },
+                "fingerprintId": "target-id"
+              }
+            },
+            {
+              "kind": "exit"
+            }
+          ],
+          "state": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "generation",
+                "generation": "source-generation"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 6,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z"
+          }
+        },
+        {
+          "value": {
+            "id": "migration-switch",
+            "state": "failed",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "generation",
+                "generation": "source-generation"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 7,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": {
+              "code": "switch_target_not_activated",
+              "rollbackRestored": true
+            }
+          },
+          "calls": [
+            {
+              "kind": "probe",
+              "request": {
+                "expectedGeneration": "source-generation",
+                "fingerprint": {
+                  "schemaVersion": 1,
+                  "provider": "openai",
+                  "model": "synthetic-source",
+                  "dimensions": 3,
+                  "artifacts": []
+                },
+                "secretRef": {
+                  "source": "env",
+                  "provider": "default",
+                  "id": "SYNTHETIC_SOURCE_KEY"
+                },
+                "migrationId": "migration-switch",
+                "rollback": true
+              }
+            }
+          ],
+          "state": {
+            "id": "migration-switch",
+            "state": "failed",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "generation",
+                "generation": "source-generation"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 7,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": {
+              "code": "switch_target_not_activated",
+              "rollbackRestored": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "manual-reverse",
+      "steps": [
+        {
+          "op": "switch"
+        },
+        {
+          "op": "recover",
+          "active": "target-generation"
+        },
+        {
+          "op": "manual",
+          "newId": "reverse-migration"
+        }
+      ],
+      "initial": {
+        "id": "migration-switch",
+        "state": "ready_to_switch",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "confirmation": {
+          "schemaVersion": 1,
+          "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+          "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expiresAt": 10000
+        },
+        "source": {
+          "generation": "source-generation",
+          "selection": {
+            "mode": "legacy"
+          },
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-source",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "source-id",
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_SOURCE_KEY"
+          },
+          "tables": [],
+          "configRevision": "config-a"
+        },
+        "target": {
+          "generation": "target-generation",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-target",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "target-id"
+        },
+        "cursor": {
+          "tableIndex": 0,
+          "offset": 0,
+          "completedRows": 0,
+          "providerCalls": 0,
+          "bytes": 0
+        },
+        "receipts": {
+          "validation": {
+            "semanticRecall": true
+          }
+        },
+        "revision": 5,
+        "createdAt": "1970-01-01T00:00:01.000Z",
+        "updatedAt": "1970-01-01T00:00:01.000Z"
+      },
+      "results": [
+        {
+          "value": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 6,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z"
+          },
+          "calls": [
+            {
+              "kind": "enter"
+            },
+            {
+              "kind": "source-check"
+            },
+            {
+              "kind": "mutate",
+              "selection": {
+                "generation": "target-generation",
+                "fingerprint": {
+                  "schemaVersion": 1,
+                  "provider": "openai",
+                  "model": "synthetic-target",
+                  "dimensions": 3,
+                  "artifacts": []
+                },
+                "fingerprintId": "target-id"
+              }
+            },
+            {
+              "kind": "exit"
+            }
+          ],
+          "state": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 6,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z"
+          }
+        },
+        {
+          "value": {
+            "id": "migration-switch",
+            "state": "completed",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              },
+              "switch": {
+                "readiness": true,
+                "store": true,
+                "recall": true,
+                "generation": "target-generation"
+              }
+            },
+            "revision": 7,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": null
+          },
+          "calls": [
+            {
+              "kind": "probe",
+              "request": {
+                "expectedGeneration": "target-generation",
+                "fingerprint": {
+                  "schemaVersion": 1,
+                  "provider": "openai",
+                  "model": "synthetic-target",
+                  "dimensions": 3,
+                  "artifacts": []
+                },
+                "migrationId": "migration-switch",
+                "rollback": false
+              }
+            }
+          ],
+          "state": {
+            "id": "migration-switch",
+            "state": "completed",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              },
+              "switch": {
+                "readiness": true,
+                "store": true,
+                "recall": true,
+                "generation": "target-generation"
+              }
+            },
+            "revision": 7,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": null
+          }
+        },
+        {
+          "value": {
+            "id": "reverse-migration",
+            "sourceGeneration": "target-generation",
+            "targetGeneration": "rollback-d97cc205d1c9eff53f49224eb8af348cb0e5dffcc4ad25bd",
+            "target": {
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              }
+            },
+            "reverseOf": "migration-switch"
+          },
+          "calls": [],
+          "state": {
+            "id": "migration-switch",
+            "state": "completed",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              },
+              "switch": {
+                "readiness": true,
+                "store": true,
+                "recall": true,
+                "generation": "target-generation"
+              }
+            },
+            "revision": 7,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "manual-before-completion",
+      "steps": [
+        {
+          "op": "manual",
+          "newId": "reverse-migration"
+        }
+      ],
+      "initial": {
+        "id": "migration-switch",
+        "state": "ready_to_switch",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "confirmation": {
+          "schemaVersion": 1,
+          "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+          "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expiresAt": 10000
+        },
+        "source": {
+          "generation": "source-generation",
+          "selection": {
+            "mode": "legacy"
+          },
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-source",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "source-id",
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_SOURCE_KEY"
+          },
+          "tables": [],
+          "configRevision": "config-a"
+        },
+        "target": {
+          "generation": "target-generation",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-target",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "target-id"
+        },
+        "cursor": {
+          "tableIndex": 0,
+          "offset": 0,
+          "completedRows": 0,
+          "providerCalls": 0,
+          "bytes": 0
+        },
+        "receipts": {
+          "validation": {
+            "semanticRecall": true
+          }
+        },
+        "revision": 5,
+        "createdAt": "1970-01-01T00:00:01.000Z",
+        "updatedAt": "1970-01-01T00:00:01.000Z"
+      },
+      "results": [
+        {
+          "error": "manual rollback requires a completed migration",
+          "calls": [],
+          "state": {
+            "id": "migration-switch",
+            "state": "ready_to_switch",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 5,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z"
+          }
+        }
+      ]
+    },
+    {
+      "name": "manual-invalid-id",
+      "steps": [
+        {
+          "op": "switch"
+        },
+        {
+          "op": "recover",
+          "active": "target-generation"
+        },
+        {
+          "op": "manual",
+          "newId": "../invalid"
+        }
+      ],
+      "initial": {
+        "id": "migration-switch",
+        "state": "ready_to_switch",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "confirmation": {
+          "schemaVersion": 1,
+          "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+          "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expiresAt": 10000
+        },
+        "source": {
+          "generation": "source-generation",
+          "selection": {
+            "mode": "legacy"
+          },
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-source",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "source-id",
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_SOURCE_KEY"
+          },
+          "tables": [],
+          "configRevision": "config-a"
+        },
+        "target": {
+          "generation": "target-generation",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "synthetic-target",
+            "dimensions": 3,
+            "artifacts": []
+          },
+          "fingerprintId": "target-id"
+        },
+        "cursor": {
+          "tableIndex": 0,
+          "offset": 0,
+          "completedRows": 0,
+          "providerCalls": 0,
+          "bytes": 0
+        },
+        "receipts": {
+          "validation": {
+            "semanticRecall": true
+          }
+        },
+        "revision": 5,
+        "createdAt": "1970-01-01T00:00:01.000Z",
+        "updatedAt": "1970-01-01T00:00:01.000Z"
+      },
+      "results": [
+        {
+          "value": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 6,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z"
+          },
+          "calls": [
+            {
+              "kind": "enter"
+            },
+            {
+              "kind": "source-check"
+            },
+            {
+              "kind": "mutate",
+              "selection": {
+                "generation": "target-generation",
+                "fingerprint": {
+                  "schemaVersion": 1,
+                  "provider": "openai",
+                  "model": "synthetic-target",
+                  "dimensions": 3,
+                  "artifacts": []
+                },
+                "fingerprintId": "target-id"
+              }
+            },
+            {
+              "kind": "exit"
+            }
+          ],
+          "state": {
+            "id": "migration-switch",
+            "state": "switching",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              }
+            },
+            "revision": 6,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z"
+          }
+        },
+        {
+          "value": {
+            "id": "migration-switch",
+            "state": "completed",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              },
+              "switch": {
+                "readiness": true,
+                "store": true,
+                "recall": true,
+                "generation": "target-generation"
+              }
+            },
+            "revision": 7,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": null
+          },
+          "calls": [
+            {
+              "kind": "probe",
+              "request": {
+                "expectedGeneration": "target-generation",
+                "fingerprint": {
+                  "schemaVersion": 1,
+                  "provider": "openai",
+                  "model": "synthetic-target",
+                  "dimensions": 3,
+                  "artifacts": []
+                },
+                "migrationId": "migration-switch",
+                "rollback": false
+              }
+            }
+          ],
+          "state": {
+            "id": "migration-switch",
+            "state": "completed",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              },
+              "switch": {
+                "readiness": true,
+                "store": true,
+                "recall": true,
+                "generation": "target-generation"
+              }
+            },
+            "revision": 7,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": null
+          }
+        },
+        {
+          "error": "invalid reverse migration id",
+          "calls": [],
+          "state": {
+            "id": "migration-switch",
+            "state": "completed",
+            "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "confirmation": {
+              "schemaVersion": 1,
+              "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+              "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expiresAt": 10000
+            },
+            "source": {
+              "generation": "source-generation",
+              "selection": {
+                "mode": "legacy"
+              },
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-source",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "source-id",
+              "secretRef": {
+                "source": "env",
+                "provider": "default",
+                "id": "SYNTHETIC_SOURCE_KEY"
+              },
+              "tables": [],
+              "configRevision": "config-a"
+            },
+            "target": {
+              "generation": "target-generation",
+              "fingerprint": {
+                "schemaVersion": 1,
+                "provider": "openai",
+                "model": "synthetic-target",
+                "dimensions": 3,
+                "artifacts": []
+              },
+              "fingerprintId": "target-id"
+            },
+            "cursor": {
+              "tableIndex": 0,
+              "offset": 0,
+              "completedRows": 0,
+              "providerCalls": 0,
+              "bytes": 0
+            },
+            "receipts": {
+              "validation": {
+                "semanticRecall": true
+              },
+              "switch": {
+                "readiness": true,
+                "store": true,
+                "recall": true,
+                "generation": "target-generation"
+              }
+            },
+            "revision": 7,
+            "createdAt": "1970-01-01T00:00:01.000Z",
+            "updatedAt": "1970-01-01T00:00:01.000Z",
+            "error": null
+          }
+        }
+      ]
+    }
+  ]
+}

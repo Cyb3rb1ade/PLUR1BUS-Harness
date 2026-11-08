@@ -8,3 +8,10 @@ pub mod projection;
 pub mod state;
 mod state_json;
 pub mod validation;
+
+// Private host mechanics only; RX8 supplies the authorized Core composition. F7 is unchanged.
+#[allow(
+    dead_code,
+    reason = "switch/recovery host composition follows in RX8; no wire adapter"
+)]
+mod switch;
