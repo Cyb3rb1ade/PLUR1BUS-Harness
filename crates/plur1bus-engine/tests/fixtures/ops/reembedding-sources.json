@@ -1,0 +1,9 @@
+{
+  "commit": "088ba31e441c170b47dfa41d97bd78c5265e6f69",
+  "treeSha256": "83172f93354fc16837375db5f3e405815bf3ae5ce7b63c8c5d321a7d988561ff",
+  "paths": [
+    "engine/**/*.js",
+    "lib/**/*.js"
+  ],
+  "purpose": "C2 reembedding hardening from engine PR 266; validate facade and empty-agent acceptance additionally use pin 9f34008c"
+}

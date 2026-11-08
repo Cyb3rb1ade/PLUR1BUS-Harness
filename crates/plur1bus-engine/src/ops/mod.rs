@@ -60,3 +60,6 @@ pub mod snapshot;
 
 /// F8 native configured-model inventory, separate from readiness and warm-up.
 pub mod models;
+
+/// Copy-on-write reembedding migration and confirmation binding.
+pub mod reembedding;
