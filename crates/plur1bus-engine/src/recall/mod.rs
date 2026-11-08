@@ -9,8 +9,12 @@
 pub mod acl;
 /// Tier budget and `resolveRecallBudget`.
 pub mod budget;
+/// Production namespace workers sharing one request deadline.
+pub mod budgeted_pipeline;
 /// One hydrated recall row shared by budget, dedupe and finalisation.
 pub mod candidate;
+/// Request cancellation and soft-budget fast paths.
+pub mod control;
 /// Jaccard dedupe and chunk-group caps.
 pub mod dedupe;
 /// Optional pre-rerank document filter.
@@ -51,6 +55,11 @@ pub mod score;
 pub mod stages;
 /// CreatedAt parser and the safe temporal filter.
 pub mod temporal;
+/// Monotonic request and per-namespace phase timing.
+pub mod timing;
+/// Bounded, redacted, lossless recall decision traces.
+pub mod trace;
+mod trace_redaction;
 
 /// Lossless prompt blocks and serialized results.
 pub mod blocks;
@@ -91,6 +100,8 @@ mod render_compression;
 mod render_date;
 mod render_projection;
 mod render_value;
+/// Request-level time budgets, diagnostics and lossless result envelope.
+pub mod runtime;
 /// Pure mood style text.
 pub mod style;
 mod style_constants;

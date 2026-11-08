@@ -30,6 +30,16 @@ impl Cancel {
         }
     }
 
+    /// Share caller cancellation while narrowing, never extending, the deadline.
+    /// Expiry is local to the returned token; it does not cancel its parent.
+    #[must_use]
+    pub fn limited_to(&self, at: Instant) -> Cancel {
+        Self {
+            deadline: Some(self.deadline.map_or(at, |existing| existing.min(at))),
+            flag: self.flag.clone(),
+        }
+    }
+
     /// Cancel this token and every clone made from it.
     pub fn cancel(&self) {
         self.flag.store(true, Ordering::Release);

@@ -81,7 +81,27 @@ pub fn search_canonical(
     top_n: usize,
     persist: bool,
 ) -> Vec<CanonicalHit> {
-    let chunks = knowledge_chunks(workspace, embedder, persist);
+    search_canonical_with_cancel(
+        workspace,
+        query_vector,
+        embedder,
+        min_score,
+        top_n,
+        persist,
+        &Cancel::never(),
+    )
+}
+
+pub(crate) fn search_canonical_with_cancel(
+    workspace: &Path,
+    query_vector: &[f32],
+    embedder: &dyn EmbeddingProvider,
+    min_score: f64,
+    top_n: usize,
+    persist: bool,
+    cancel: &Cancel,
+) -> Vec<CanonicalHit> {
+    let chunks = knowledge_chunks(workspace, embedder, persist, cancel);
     let mut scored = chunks
         .into_iter()
         .map(|chunk| CanonicalHit {
@@ -116,6 +136,7 @@ fn knowledge_chunks(
     workspace: &Path,
     embedder: &dyn EmbeddingProvider,
     persist: bool,
+    cancel: &Cancel,
 ) -> Vec<Chunk> {
     let path = workspace.join("memory").join("KNOWLEDGE.md");
     let Some(mtime) = mtime_ms(&path) else {
@@ -133,8 +154,11 @@ fn knowledge_chunks(
     }
     let mut chunks = Vec::new();
     for section in &sections {
+        if cancel.is_cancelled() {
+            break;
+        }
         let text = utf16_slice(&section.text, 0, 4000).to_utf8_lossy();
-        let embedded = embedder.embed(&[text], EmbedKind::Passage, &Cancel::never());
+        let embedded = embedder.embed(&[text], EmbedKind::Passage, cancel);
         if let Ok(vectors) = embedded {
             if let Some(vector) = vectors.into_iter().next() {
                 chunks.push(Chunk {
@@ -146,7 +170,7 @@ fn knowledge_chunks(
             }
         }
     }
-    if persist && chunks.len() == sections.len() {
+    if persist && chunks.len() == sections.len() && !cancel.is_cancelled() {
         write_cache(workspace, mtime, &chunks);
     }
     chunks

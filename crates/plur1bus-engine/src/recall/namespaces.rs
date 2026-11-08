@@ -155,7 +155,10 @@ pub fn recall(request: &NamespaceRequest<'_>) -> Result<NamespaceOutput, Namespa
     })
 }
 
-fn retrieval_line(request: &NamespaceRequest<'_>, result: &NamespaceResult) -> RetrievalLedgerLine {
+pub(crate) fn retrieval_line(
+    request: &NamespaceRequest<'_>,
+    result: &NamespaceResult,
+) -> RetrievalLedgerLine {
     let nullable = |value: &str| (!value.is_empty()).then(|| JsString::from(value));
     let hash = (!request.query.is_empty()).then(|| {
         JsString::from(format!("{:x}", Sha256::digest(request.query.as_bytes())).as_str())

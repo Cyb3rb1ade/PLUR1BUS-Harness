@@ -144,7 +144,10 @@ fn select_canonical(
         note(
             replay,
             &candidate,
-            format!("canonical:{}", preview(&title, 40)),
+            candidate.item["_traceCanonicalId"]
+                .as_str()
+                .map(str::to_owned)
+                .unwrap_or_else(|| format!("canonical:{}", preview(&title, 40))),
             stage,
             reason.to_owned(),
         );

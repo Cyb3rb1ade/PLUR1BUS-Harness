@@ -9,10 +9,13 @@ one process under the harness supervisor (plan `docs/superpowers/plans/2026-10-2
 `docs/superpowers/plans/rust-engine/`). It replaces the pinned Node engine package step by step; until Phase 3 the
 Node engine stays the default.
 
-**State: library implementation through RE-04/T5.** Contracts, stores, embeddings, recall stages and
-post-selection rendering are implemented as library boundaries. Namespace fusion (T4, #850) is reviewed
-separately; budget/timing/trace orchestration (T6) and process composition (RE-08) remain separate tasks.
-The executable's `serve` entry remains a placeholder.
+**State: T6 budget/trace orchestration is in draft package RX [#903](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/903).**
+Contracts, stores, embeddings, namespace recall and post-selection rendering are implemented as library
+boundaries. `recall::runtime::run` adds cooperative request deadlines, independent namespace clocks,
+structured timeout/abort results and per-call reranker diagnostics. The process server exists; full
+production composition remains RE-08. Its frozen `RecallResult` uses Rust `String`, so the lossless
+UTF-16 result adapter at the process boundary remains a controller decision (RX question F3).
+No replacement-character conversion or wire-schema change is hidden in this library implementation.
 
 `recall::render::assemble_context` forwards the configured recall limit and summary word limit to a
 `SelectedRecallPipeline`, then renders the original six blocks. `inject_budget::plan` produces the
@@ -31,7 +34,7 @@ is unchanged; default/on/off Lens settings all retain the authorized base and om
 | Target | Name | What it is |
 |---|---|---|
 | library | `plur1bus_engine` | Contracts, store and provider ports, recall selection/rendering, `cache_profiles`, and `tokens` counting/calibration; production composition remains RE-08 |
-| binary | `plur1bus-engine` | `--version`; the hidden placeholder `serve`, which RE-08 fills (`plur1bus-engine serve --home <dir> ...`). Today `serve` exits 2 with `E_NOT_AVAILABLE reason=not-implemented`; a usage error exits 2 (clap), as `docs/errors.md` says |
+| binary | `plur1bus-engine` | `--version` and authenticated `serve --home <dir>` with supervisor lifeline; operation composition remains RE-08 T4/T5. A usage error exits 2 (clap), as `docs/errors.md` says |
 
 ## Build and test
 
@@ -53,9 +56,29 @@ through its matching provider, merges/fuses, optionally reranks and applies the 
 retrieval line. Only a declared foreign identity without a provider reports `embedding-unavailable`; it never
 uses the active vector by dimension. Child failures are reported after all started workers have settled.
 `namespace_pipeline::Pipeline` composes the existing ACL-aware stages with scalar entry projection and stage-local
-observations. Prompt assembly, complete trace serialization and phase deadlines remain T5/T6; runtime wiring is RE-08.
+observations. `budgeted_pipeline::BudgetedPipeline` adds one shared hard deadline and a separate monotonic clock per table. `runtime::run` composes this selection with T5 rendering; process-facade wiring remains RE-08.
 See [Engine stores](../../docs/engine-stores.md) and the
 [recording protocol](tests/fixtures/recall/README.md) for ownership, source pins and byte-parity checks.
+
+### Recall budgets and trace (RE-04/T6 / RX2)
+
+`RecallBudget::resolve` keeps soft/hard milliseconds separate from character caps and the automatic
+item budget. `resolve_runtime_recall_budget` is checked against 3,120 calls to the actual pinned Node
+export, including fractional/non-finite ceilings, ASCII project signals and UTF-16 prompt lengths.
+A soft exit applies strength once and retains only authorized candidates; `softBudgetFallback: false`
+keeps the hard limit. Required store/identity errors still fail the entire request. Provider calls
+receive the narrowed cancellation token; a cancellation cannot write the canonical cache or retrieval
+ledger, retry a provider, or deliver maintenance effects. Borrowed collaborators must cooperate with
+their token: workers settle before return, and no detached thread may keep a store lease alive.
+
+`RecallOutcome::to_json_line` preserves cut surrogate units in blocks and trace previews. Trace
+normalization uses the shared credential-pattern catalogue and host-registered secret values **before**
+preview cuts. The internal bounded candidate streams are not a diagnostic output format; expose only
+the final normalized trace. The renderer receives a preview-free metadata view. Stream suffix caps and
+summary counts match Node; nested textual trace metadata is also capped at the configured preview
+length. Like Node, a shortened preview adds one ellipsis beyond its configured UTF-16 prefix cap.
+Warm recall keeps the separate T5 read-only port; this foreground runtime does not accept warm requests.
+RE-08 supplies host credentials and authorized auxiliary sources, and retains the opt-in Rust engine.
 
 ### Token counting (RE-14/T2)
 

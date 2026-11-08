@@ -149,3 +149,23 @@ share that workspace. This prevents a completed first capture from leaving a
 knowledge cache in the second capture. C1's first failed embed therefore records
 no cache, while its successful retry records a complete cache. Namespace results
 now retain the fused reranker score and order through the final budget and ledger.
+
+## RX2: runtime budget and trace oracles
+
+`record-runtime-budget.mjs` calls the pinned `resolveRuntimeRecallBudget` export 3,120 times and
+compares two captures. `record-trace.mjs` records 64 `textPreview` cases as UTF-16 units (including
+split surrogate pairs), plus the actual capped candidate/decision/guard/store streams and their
+recomputed counters. Trace IDs and clock stamps are the only normalized fields in the trace comparison.
+It imports the harness system-redaction markers and encodings from their owning fixture.
+
+Both recorders verify immutable source hashes before imports, require Node 24.21.0 and write new
+`golden/runtime-item-budget.json` and `golden/runtime-trace.json`; existing T2–T5 goldens are unchanged.
+Use `PLUR1BUS_ENGINE_SRC` at `9f34008c143c5da87b2194b5a28442b407ff8ba7`. The budget export's
+imports require the Linux oracle environment described above. The trace helper is pure and runs
+locally with `node --experimental-strip-types .../record-trace.mjs`.
+
+Secret normalization is an intentional security layer over Node's preview helper: registered values
+and their standard encodings are removed before cuts, credential patterns use the shared schema, and
+nested textual metadata follows the configured preview cap. The trace itself stays separate from
+memory text. Lossless internal JSON tests expose the frozen generated `String` result mismatch; they
+do not claim process/CLI acceptance before controller ruling F3 and RE-08 wiring.

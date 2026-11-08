@@ -206,44 +206,189 @@ pub fn run_observed_stage_7(
     trace: Option<TraceLimits>,
     emotion: Option<&dyn score::EmotionalRecallState>,
 ) -> Result<StageSnapshot, StageError> {
-    let mut rejections = Vec::new();
-    let mut observations = Observations::new(trace);
-    let query_vector = embed_query(input)?;
-    let mut hits = search_hits(input, &query_vector, sink, &mut rejections)?;
-    observations.rejections(&rejections);
-    let candidate_ids = hits.iter().map(|hit| hit.id.clone()).collect();
-    observe_vectors(&mut observations, &hits);
-    if input.flags.query_refiner && should_refine_query(&hits, input.limits.recall_min_score) {
-        return Err(StageError::RefinementUnavailable);
+    run_controlled_stage_7(
+        input,
+        sink,
+        trace,
+        emotion,
+        &mut super::control::RecallControl::unbounded(),
+    )
+}
+
+/// Run the production stages with a request budget, keeping only authorized partial rows.
+/// The control's stop classification distinguishes a soft fast path from timeout/abort.
+pub fn run_controlled_stage_7(
+    input: &StageInput<'_>,
+    sink: &dyn DenialSink,
+    trace: Option<TraceLimits>,
+    emotion: Option<&dyn score::EmotionalRecallState>,
+    control: &mut super::control::RecallControl,
+) -> Result<StageSnapshot, StageError> {
+    let cancel = control.cancel.clone();
+    let embedder = super::control::BoundEmbedder {
+        provider: input.embedder,
+        cancel: &cancel,
+    };
+    let bounded = StageInput {
+        embedder: &embedder,
+        limits: input.limits.clone(),
+        flags: input.flags.clone(),
+        clocks: input.clocks.clone(),
+        ..*input
+    };
+    run_stages(&bounded, sink, trace, emotion, control)
+}
+
+#[derive(Default)]
+struct Progress {
+    hits: Vec<Hit>,
+    vector: Vec<f32>,
+    candidates: Vec<String>,
+    canonical: Vec<CanonicalHit>,
+    rejections: Vec<Rejection>,
+    scored: bool,
+}
+
+fn run_stages(
+    input: &StageInput<'_>,
+    sink: &dyn DenialSink,
+    trace: Option<TraceLimits>,
+    emotion: Option<&dyn score::EmotionalRecallState>,
+    control: &mut super::control::RecallControl,
+) -> Result<StageSnapshot, StageError> {
+    let mut state = Progress::default();
+    let mut observations = Observations::new(trace, control.trace_policy.clone());
+    macro_rules! phase {
+        ($name:literal, $soft:literal, $body:expr) => {{
+            if !control.checkpoint($soft) {
+                return Ok(finish_progress(input, sink, state, observations, control));
+            }
+            control.timer.start($name);
+            let result = stage_result(|| $body);
+            control.timer.end($name);
+            if let Err(error) = result {
+                control.timer.fail($name);
+                // Only cancellation becomes partial success. Store/identity failures still fail closed.
+                if matches!(error, StageError::Embed(EmbedError::Cancelled(_)))
+                    && !control.checkpoint(false) {
+                    return Ok(finish_progress(input, sink, state, observations, control));
+                }
+                return Err(error);
+            }
+        }};
     }
-    hits = apply_temporal(input, &mut hits, &mut rejections)?;
-    observations.rejections(&rejections);
-    let canonical = canonical_hits(input, &query_vector);
-    for hit in &canonical {
-        observations.canonical(hit);
+    phase!("embedding", false, {
+        state.vector = embed_query(input)?;
+        Ok(())
+    });
+    phase!("vector_search", false, {
+        state.hits = search_hits(input, &state.vector, sink, &mut state.rejections)?;
+        observations.rejections(&state.rejections);
+        state.candidates = state.hits.iter().map(|hit| hit.id.clone()).collect();
+        observe_vectors(&mut observations, &state.hits);
+        Ok(())
+    });
+    phase!("query_refinement", true, {
+        if input.flags.query_refiner
+            && should_refine_query(&state.hits, input.limits.recall_min_score)
+        {
+            return Err(StageError::RefinementUnavailable);
+        }
+        Ok(())
+    });
+    phase!("temporal", true, {
+        state.hits = apply_temporal(input, &mut state.hits, &mut state.rejections)?;
+        observations.rejections(&state.rejections);
+        Ok(())
+    });
+    phase!("canonical", true, {
+        state.canonical = canonical_hits(input, &state.vector, &control.cancel);
+        for hit in &state.canonical {
+            observations.canonical(hit);
+        }
+        Ok(())
+    });
+    phase!("scoring", true, {
+        state.hits = score_hits(std::mem::take(&mut state.hits), emotion);
+        state.scored = true;
+        observations.scoring(
+            state
+                .hits
+                .iter()
+                .filter_map(|hit| hit.row.as_ref().map(|row| (row, hit.score))),
+            emotion.is_some(),
+        );
+        reject_inactive(input, &mut state.hits, &mut state.rejections);
+        observations.rejections(&state.rejections);
+        Ok(())
+    });
+    phase!("graph", true, {
+        state.hits = spread_graph(
+            input,
+            std::mem::take(&mut state.hits),
+            sink,
+            &mut state.rejections,
+            &mut observations,
+        )?;
+        Ok(())
+    });
+    phase!("graph_hydration", true, {
+        state.hits = hydrate(
+            input,
+            std::mem::take(&mut state.hits),
+            &state.vector,
+            sink,
+            &mut state.rejections,
+        )?;
+        observations.rejections(&state.rejections);
+        Ok(())
+    });
+    control.checkpoint(true);
+    Ok(finish_progress(input, sink, state, observations, control))
+}
+
+// Capture `?` inside the phase so timing is closed before propagating its failure.
+fn stage_result(run: impl FnOnce() -> Result<(), StageError>) -> Result<(), StageError> {
+    run()
+}
+
+fn finish_progress(
+    input: &StageInput<'_>,
+    sink: &dyn DenialSink,
+    mut state: Progress,
+    mut observations: Observations,
+    control: &super::control::RecallControl,
+) -> StageSnapshot {
+    if control.stopped().is_some() && !state.scored {
+        // The pinned early exit applies strength once, without later emotion/epistemic stages.
+        for hit in &mut state.hits {
+            if let Some(row) = &hit.row {
+                hit.score += score::strength_adjustment(lifecycle::number(&row.memory_strength));
+            }
+        }
+        state
+            .hits
+            .sort_by(|left, right| right.score.total_cmp(&left.score));
     }
-    hits = score_hits(hits, emotion);
-    observations.scoring(
-        hits.iter()
-            .filter_map(|hit| hit.row.as_ref().map(|row| (row, hit.score))),
-        emotion.is_some(),
-    );
-    reject_inactive(input, &mut hits, &mut rejections);
-    observations.rejections(&rejections);
-    hits = spread_graph(input, hits, sink, &mut rejections, &mut observations)?;
-    hits = hydrate(input, hits, &query_vector, sink, &mut rejections)?;
-    observations.rejections(&rejections);
-    hits.truncate(slice_limit(input));
-    hits.retain(|hit| acl_allows(input, hit, "acl", sink, &mut rejections));
-    observations.rejections(&rejections);
-    Ok(snapshot(
-        hits,
-        query_vector,
-        candidate_ids,
-        canonical,
-        rejections,
+    state
+        .hits
+        .retain(|hit| acl_allows(input, hit, "acl", sink, &mut state.rejections));
+    state.hits.truncate(slice_limit(input));
+    observations.rejections(&state.rejections);
+    if control.stopped() == Some(super::control::Stop::SoftBudget) {
+        observations.guard("soft-budget", false, "soft_budget_fallback", None);
+        if let Some(guard) = observations.trace.guards.last_mut() {
+            guard["phaseSummary"] = control.timer.summary();
+        }
+    }
+    snapshot(
+        state.hits,
+        state.vector,
+        state.candidates,
+        state.canonical,
+        state.rejections,
         observations.trace,
-    ))
+    )
 }
 
 fn snapshot(
@@ -407,20 +552,25 @@ fn resolve_anchor(
     Ok(range_from_anchor(epoch(&row.row.created_at)))
 }
 
-fn canonical_hits(input: &StageInput<'_>, query_vector: &[f32]) -> Vec<CanonicalHit> {
+fn canonical_hits(
+    input: &StageInput<'_>,
+    query_vector: &[f32],
+    cancel: &Cancel,
+) -> Vec<CanonicalHit> {
     if !input.flags.canonical {
         return Vec::new();
     }
     let Some(workspace) = input.workspace_dir else {
         return Vec::new();
     };
-    knowledge::search_canonical(
+    knowledge::search_canonical_with_cancel(
         workspace,
         query_vector,
         input.embedder,
         input.limits.canonical_min_score,
         input.limits.canonical_max_items,
         input.flags.persist_knowledge,
+        cancel,
     )
 }
 

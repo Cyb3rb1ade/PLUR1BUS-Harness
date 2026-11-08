@@ -77,6 +77,20 @@ impl TableRecall for Pipeline<'_> {
         canonical: CanonicalSource,
         queries: &RequestQueries,
     ) -> Result<NamespaceResult, NamespaceError> {
+        self.recall_controlled(namespace, store, canonical, queries, None, None)
+    }
+}
+
+impl Pipeline<'_> {
+    pub(super) fn recall_controlled(
+        &self,
+        namespace: Option<&str>,
+        store: &Store,
+        canonical: CanonicalSource,
+        queries: &RequestQueries,
+        mut control: Option<&mut super::control::RecallControl>,
+        filter: Option<&dyn super::filter::CandidateFilter>,
+    ) -> Result<NamespaceResult, NamespaceError> {
         let identity = queries
             .identity_for_namespace(namespace)
             .or_else(|| store.identity());
@@ -88,31 +102,37 @@ impl TableRecall for Pipeline<'_> {
                 "EMBEDDER_UNAVAILABLE",
             ));
         };
-        let snapshot = match self.snapshot(store, canonical, queries, provider) {
-            Ok(snapshot) => snapshot,
-            Err(stages::StageError::Embed(error))
-                if queries.is_multi_identity()
-                    && !matches!(error, crate::embedding::EmbedError::Cancelled(_)) =>
-            {
-                return Ok(namespace_identity::unavailable(
-                    namespace,
-                    routed.identity,
-                    namespace_identity::failure_code(&error),
-                ));
-            }
-            Err(error) => return Err(NamespaceError::Stage(error)),
-        };
-        self.complete(namespace, routed.identity, snapshot, queries)
+        let snapshot =
+            match self.snapshot(store, canonical, queries, provider, control.as_deref_mut()) {
+                Ok(snapshot) => snapshot,
+                Err(stages::StageError::Embed(error))
+                    if queries.is_multi_identity()
+                        && !matches!(error, crate::embedding::EmbedError::Cancelled(_)) =>
+                {
+                    return Ok(namespace_identity::unavailable(
+                        namespace,
+                        routed.identity,
+                        namespace_identity::failure_code(&error),
+                    ));
+                }
+                Err(error) => return Err(NamespaceError::Stage(error)),
+            };
+        self.complete(
+            namespace,
+            routed.identity,
+            snapshot,
+            queries,
+            control,
+            filter,
+        )
     }
-}
-
-impl Pipeline<'_> {
     fn snapshot(
         &self,
         store: &Store,
         canonical: CanonicalSource,
         queries: &RequestQueries,
         provider: &dyn EmbeddingProvider,
+        control: Option<&mut super::control::RecallControl>,
     ) -> Result<stages::StageSnapshot, stages::StageError> {
         let embedder = queries.wrap(provider);
         let mut flags = self.flags.clone();
@@ -120,22 +140,32 @@ impl Pipeline<'_> {
         flags.defer_final_cap = true;
         let mut limits = self.limits.clone();
         limits.candidate_hard_limit = super::namespaces::CANDIDATE_HARD_LIMIT;
-        stages::run_observed_stage_7(
-            &StageInput {
-                query: queries.query(),
-                store,
-                embedder: &embedder,
-                context: self.context,
-                workspace_dir: self.workspace_dir,
-                edges: self.edges,
-                limits,
-                flags,
-                clocks: self.clocks.clone(),
-            },
-            self.denials,
-            queries.trace_limits(),
-            self.emotion,
-        )
+        let input = StageInput {
+            query: queries.query(),
+            store,
+            embedder: &embedder,
+            context: self.context,
+            workspace_dir: self.workspace_dir,
+            edges: self.edges,
+            limits,
+            flags,
+            clocks: self.clocks.clone(),
+        };
+        match control {
+            Some(control) => stages::run_controlled_stage_7(
+                &input,
+                self.denials,
+                queries.trace_limits(),
+                self.emotion,
+                control,
+            ),
+            None => stages::run_observed_stage_7(
+                &input,
+                self.denials,
+                queries.trace_limits(),
+                self.emotion,
+            ),
+        }
     }
 
     fn complete(
@@ -144,6 +174,8 @@ impl Pipeline<'_> {
         identity: Option<String>,
         snapshot: stages::StageSnapshot,
         queries: &RequestQueries,
+        mut control: Option<&mut super::control::RecallControl>,
+        filter: Option<&dyn super::filter::CandidateFilter>,
     ) -> Result<NamespaceResult, NamespaceError> {
         let candidates = snapshot
             .hydrated
@@ -153,23 +185,53 @@ impl Pipeline<'_> {
         let mut limits = self.finalise_limits;
         limits.defer_final_cap = true;
         limits.candidate_hard_limit = super::namespaces::CANDIDATE_HARD_LIMIT as f64;
-        let finalised = finalise::apply(
-            &FinaliseRequest {
-                query: queries.query(),
-                rows: &candidates,
-                context: self.context,
-                reranker: if queries.is_multi_identity() {
-                    None
-                } else {
-                    self.reranker
-                },
-                filter: None,
-                cancel: self.cancel,
-                limits,
-                leaked: &[],
+        let stopped = control
+            .as_mut()
+            .is_some_and(|control| !control.checkpoint(true));
+        let cancel = control
+            .as_ref()
+            .map_or_else(|| self.cancel.clone(), |control| control.cancel.clone());
+        let bounded_reranker = self.reranker.filter(|_| control.is_some()).map(|provider| {
+            super::control::BoundReranker {
+                provider,
+                cancel: &cancel,
+            }
+        });
+        let reranker = bounded_reranker
+            .as_ref()
+            .map(|provider| provider as &dyn Reranker)
+            .or(self.reranker);
+        let mut request = FinaliseRequest {
+            query: queries.query(),
+            rows: &candidates,
+            context: self.context,
+            reranker: if queries.is_multi_identity() || stopped {
+                None
+            } else {
+                reranker
             },
+            filter,
+            cancel: &cancel,
+            limits,
+            leaked: &[],
+        };
+        let output = finalise::apply_timed(
+            &request,
             self.denials,
-        )
+            control.as_mut().map(|control| &mut control.timer),
+        );
+        // A provider may cooperate by returning cancellation. Preserve the already authorized rows,
+        // never retry the provider or reinterpret an ordinary provider/store error as timeout.
+        let finalised = if control.is_some() && cancel.is_cancelled() {
+            if let Some(control) = control.as_mut() {
+                control.checkpoint(false);
+            }
+            request.reranker = None;
+            request.filter = None;
+            finalise::apply(&request, self.denials)
+        } else {
+            output
+        }
         .map_err(|failure| NamespaceError::Finalise(failure.error))?;
         let memories = wrappers(&snapshot.hydrated, &finalised);
         let mut trace = snapshot.trace;
@@ -178,7 +240,12 @@ impl Pipeline<'_> {
             identity_id: identity, namespace: namespace.map(str::to_owned),
             source_kind: Some("private".to_owned()), query_vector: Some(snapshot.query_vector),
             memories, trace: Some(trace), canonical: snapshot.canonical.iter().map(|c| {
-                json!({"heading":c.heading,"text":c.text,"score":c.score,"mtimeMs":c.mtime_ms})
+                let mut value = json!({"heading":c.heading,"text":c.text,"score":c.score,"mtimeMs":c.mtime_ms});
+                if let Some(policy) = control.as_ref().and_then(|control| control.trace_policy.as_ref()) {
+                    // Private intermediate metadata: preserve the heading until T6's UTF-16 cut.
+                    value["_traceCanonicalId"] = json!(format!("canonical:{}", policy.redact(&c.heading)));
+                }
+                value
             }).collect(), ..NamespaceResult::default()
         })
     }

@@ -164,9 +164,17 @@ pub fn apply(
     request: &FinaliseRequest<'_>,
     sink: &dyn DenialSink,
 ) -> Result<FinaliseOutput, Box<FinaliseFailure>> {
+    apply_timed(request, sink, None)
+}
+
+pub(crate) fn apply_timed(
+    request: &FinaliseRequest<'_>,
+    sink: &dyn DenialSink,
+    mut timer: Option<&mut super::timing::PhaseTimer>,
+) -> Result<FinaliseOutput, Box<FinaliseFailure>> {
     let mut trace = Trace::default();
     let boosted = provider_filter(request.rows, request.context, sink, &mut trace);
-    let ranked = match rerank_stage(request, &boosted) {
+    let ranked = match measured(&mut timer, "rerank", || rerank_stage(request, &boosted)) {
         Ok(ranked) => ranked,
         Err(abort) => {
             return Err(Box::new(failure(
@@ -181,11 +189,34 @@ pub fn apply(
     if ranked.guard {
         trace.guards.push(rerank_guard());
     }
-    let budgeted = budget_stage(&ranked.ordered, request, ranked.applied, &mut trace);
-    let mut finished = dedupe_stage(&budgeted, request, &mut trace);
+    let budgeted = measured(&mut timer, "budget", || {
+        budget_stage(&ranked.ordered, request, ranked.applied, &mut trace)
+    });
+    let mut finished = measured(&mut timer, "dedup", || {
+        dedupe_stage(&budgeted, request, &mut trace)
+    });
     finished.extend(request.leaked.iter().cloned());
-    let (rows, acl_removed) = final_acl(&finished, request.context, sink, &mut trace);
-    Ok(output_of(&rows, ranked.saw, trace, acl_removed))
+    let (rows, acl_removed) = measured(&mut timer, "acl", || {
+        final_acl(&finished, request.context, sink, &mut trace)
+    });
+    Ok(measured(&mut timer, "finalize", || {
+        output_of(&rows, ranked.saw, trace, acl_removed)
+    }))
+}
+
+fn measured<T>(
+    timer: &mut Option<&mut super::timing::PhaseTimer>,
+    name: &'static str,
+    run: impl FnOnce() -> T,
+) -> T {
+    if let Some(timer) = timer.as_mut() {
+        timer.start(name);
+    }
+    let result = run();
+    if let Some(timer) = timer.as_mut() {
+        timer.end(name);
+    }
+    result
 }
 
 fn provider_filter(

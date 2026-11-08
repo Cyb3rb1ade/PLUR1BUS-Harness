@@ -75,6 +75,12 @@ read-only legacy table is skipped without creating its directory. As in Node, a 
 delivery does not replace successful recall results; `NamespaceOutput.ledger_error` retains
 the bounded delivery diagnostic for the runtime caller.
 
+RE-04/T6's foreground `recall::runtime::run` suppresses the child-wrapper ledger callback and
+appends the same typed final-selection record only after rendering while the request token is live.
+A hard timeout or caller cancellation preserves authorized partial blocks but clears maintenance
+intents and appends no retrieval line. A soft-budget fast path may append its completed selection.
+The separate T5 warm-only path has no ledger writer and performs no persistent recall maintenance.
+
 All store paths reject symlinks, including Windows junctions. `TrustedDirectory` holds the namespace directory
 handle for the lifetime of the Lance connection. Unix namespace children use descriptor-relative `openat` with
 `O_NOFOLLOW`; Lance receives a verified `/proc/self/fd` or `/dev/fd` alias where available. On hosts without a working
