@@ -182,12 +182,32 @@ fn private_dir(dir: &Path) -> io::Result<()> {
 
 /// Removes what a front door that was killed may have left in `run/` (security review L6): the temporary file of every
 /// file it writes (a link there is removed, never followed) and the legacy core's credentials file. Called at start,
-/// under the core lock, before anything is written.
-pub fn clear_leftovers(files: &RunFiles) {
+/// under the core lock, before anything is written and before the legacy core starts.
+///
+/// Also a `run/core-legacy.pid` whose process is gone or is no child of this process (final review FR-M2): nothing else
+/// removes a dead front door's legacy record on a home that goes back to `ts`, and a reused pid in it would refuse the
+/// import as `target-running`. A record whose process still lives is returned: an older legacy core, still stopping,
+/// that the next legacy start may find holding `run/core-legacy.lock` (the holder that start then names).
+pub fn clear_leftovers(files: &RunFiles) -> Option<String> {
     for path in files.owned() {
         let _ = fs::remove_file(temporary(path));
     }
     let _ = fs::remove_file(&files.legacy_credentials);
+    let record = fs::read_to_string(&files.legacy_pid).ok()?;
+    let pid = record
+        .split_whitespace()
+        .next()
+        .and_then(|p| p.parse::<u32>().ok())
+        .filter(|&p| p != 0);
+    let alive = pid
+        .is_some_and(|p| plur1bus_rpc::process::alive(p) != plur1bus_rpc::process::Liveness::Gone);
+    let ours =
+        pid.is_some_and(|p| plur1bus_rpc::process::parent_pid(p) == Some(std::process::id()));
+    if alive && ours {
+        return None;
+    }
+    let _ = fs::remove_file(&files.legacy_pid);
+    alive.then_some(record)
 }
 
 fn temporary(path: &Path) -> PathBuf {
@@ -347,6 +367,58 @@ mod tests {
         );
         write_private(&files.token, "fresh").unwrap();
         assert_eq!(fs::read_to_string(&files.token).unwrap(), "fresh");
+    }
+
+    /// Final review FR-M2: a `run/core-legacy.pid` whose process is gone, or is no child of this process, is removed at
+    /// start (a home that goes back to `ts` would keep it until the pid is reused and the import refuses as
+    /// `target-running`). A live one is handed back: it names the older legacy core the next legacy start may find holding
+    /// `run/core-legacy.lock`. Only a record of this process's own child stays.
+    #[test]
+    fn a_legacy_record_that_is_not_this_processs_childs_is_cleared_at_start() {
+        let dir = tempfile::tempdir().unwrap();
+        let files = RunFiles::new(dir.path());
+        prepare(&files).unwrap();
+        let record = |pid: u32| format!("{pid} 5d0f6c1e-2b3a-4c5d-8e9f-0a1b2c3d4e5f\n");
+        let mut child = std::process::Command::new(std::env::current_exe().unwrap())
+            .arg("--list")
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+        let dead = child.id();
+        child.wait().unwrap();
+        fs::write(&files.legacy_pid, record(dead)).unwrap();
+        assert_eq!(
+            clear_leftovers(&files),
+            None,
+            "a dead holder is nobody to name"
+        );
+        assert!(
+            !files.legacy_pid.exists(),
+            "the record of a gone process is removed"
+        );
+        // A live process that is not this one's child (this process itself: its parent is the test runner).
+        fs::write(&files.legacy_pid, record(std::process::id())).unwrap();
+        assert_eq!(clear_leftovers(&files), Some(record(std::process::id())));
+        assert!(
+            !files.legacy_pid.exists(),
+            "the record of another process's child is removed"
+        );
+        #[cfg(unix)]
+        {
+            let mut child = std::process::Command::new("sleep")
+                .arg("5")
+                .spawn()
+                .unwrap();
+            fs::write(&files.legacy_pid, record(child.id())).unwrap();
+            let kept = clear_leftovers(&files);
+            let _ = child.kill();
+            let _ = child.wait();
+            assert_eq!(kept, None);
+            assert!(
+                files.legacy_pid.exists(),
+                "the record of this process's own child stays"
+            );
+        }
     }
 
     /// P4-10 P4D-10 (security review I3): a home whose `run/core-legacy.sock` would not fit `sun_path` is refused with a

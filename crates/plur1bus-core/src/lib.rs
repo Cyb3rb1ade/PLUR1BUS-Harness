@@ -166,13 +166,17 @@ pub fn serve(plan: &ServePlan) -> Result<i32, ServeError> {
     // Something answers on the address (a squatter, a fixture that takes no lock): refused before this start touches a
     // run file, so whatever answers keeps its files and socket (final review FR-M1; the TypeScript core's `wroteRunFiles`).
     probe_address(&files.address)?;
-    // Under the lock, before anything is written: what a killed front door left behind (security review L6).
-    run_files::clear_leftovers(&files);
+    // Under the lock, before anything is written: what a killed front door left behind (security review L6), its legacy
+    // core's record included unless that is still alive (final review FR-M2: then it is the holder named below).
+    let older_legacy = run_files::clear_leftovers(&files);
     let timings = Timings::read(&files.config);
     let (events_tx, events) = mpsc::channel::<Event>();
     lifecycle::watch_signals(events_tx.clone())
         .map_err(|e| ServeError::Start(format!("signal handlers: {e}")))?;
-    let mut written = Vec::new();
+    let mut attempt = Attempt {
+        written: Vec::new(),
+        older_legacy,
+    };
     let (front, listener, legacy, control) = match start(
         plan,
         &files,
@@ -180,13 +184,13 @@ pub fn serve(plan: &ServePlan) -> Result<i32, ServeError> {
         timings,
         capacity,
         (&events_tx, &events),
-        &mut written,
+        &mut attempt,
     ) {
         Ok(parts) => parts,
         Err(e) => {
             // A failed start removes what it wrote and nothing else (an earlier core's stale tokens stay, as the
             // TypeScript core leaves them; final review FR-M1); the lock goes last.
-            for path in &written {
+            for path in &attempt.written {
                 let _ = std::fs::remove_file(path);
             }
             drop(lock);
@@ -291,8 +295,15 @@ struct Control {
 
 /// Everything between the lock and `ready`: run files, the legacy core, the control link, the listener.
 #[allow(clippy::too_many_arguments)]
-/// Starts the legacy core and binds the address; every run file it writes goes into `written` first, so a failed start
-/// removes exactly those (the bound socket never needs it: nothing can fail after the bind).
+/// What one start knows besides its plan: the run files it has written ([`start`]) and the record of an older legacy core
+/// that was still alive at start ([`run_files::clear_leftovers`]).
+struct Attempt {
+    written: Vec<std::path::PathBuf>,
+    older_legacy: Option<String>,
+}
+
+/// Starts the legacy core and binds the address; every run file it writes goes into `attempt.written` first, so a failed
+/// start removes exactly those (the bound socket never needs it: nothing can fail after the bind).
 fn start(
     plan: &ServePlan,
     files: &RunFiles,
@@ -300,8 +311,12 @@ fn start(
     timings: Timings,
     capacity: server::Capacity,
     (events_tx, events): (&mpsc::Sender<Event>, &mpsc::Receiver<Event>),
-    written: &mut Vec<std::path::PathBuf>,
+    attempt: &mut Attempt,
 ) -> Result<Started, ServeError> {
+    let Attempt {
+        written,
+        older_legacy,
+    } = attempt;
     let fresh = || Secret::fresh().map_err(|e| ServeError::Start(e.to_string()));
     let credentials = server::Credentials {
         core: fresh()?,
@@ -348,7 +363,7 @@ fn start(
                 // A legacy core of the previous front door is still stopping and holds its lock: wait for it, and say
                 // which one (security review M4: the lock is run/core-legacy.lock, not state/core.lock, held here).
                 if !std::mem::replace(&mut holder_reported, true) {
-                    let holder = legacy_holder(files);
+                    let holder = legacy_holder(files, older_legacy.as_deref());
                     server::log(
                         "warn",
                         "an older legacy core holds run/core-legacy.lock; waiting for it to stop",
@@ -360,7 +375,9 @@ fn start(
                 std::thread::sleep(Duration::from_millis(500));
             }
             Err(legacy::StartError::Exited(status)) if status.code() == Some(3) => {
-                return Err(ServeError::LegacyLocked(legacy_holder(files).map(|h| h.0)))
+                return Err(ServeError::LegacyLocked(
+                    legacy_holder(files, older_legacy.as_deref()).map(|h| h.0),
+                ))
             }
             Err(legacy::StartError::Exited(status)) => {
                 return Err(ServeError::LegacyExited(status))
@@ -416,9 +433,11 @@ fn start(
 }
 
 /// The pid and instance `run/core-legacy.pid` records (the legacy core that holds `run/core-legacy.lock`, when another
-/// one's start exits 3).
-fn legacy_holder(files: &RunFiles) -> Option<(u32, String)> {
-    let text = std::fs::read_to_string(&files.legacy_pid).ok()?;
+/// one's start exits 3), or else `older`, the live record the start cleared ([`run_files::clear_leftovers`]).
+fn legacy_holder(files: &RunFiles, older: Option<&str>) -> Option<(u32, String)> {
+    let text = std::fs::read_to_string(&files.legacy_pid)
+        .ok()
+        .or_else(|| older.map(str::to_owned))?;
     let mut fields = text.split_whitespace();
     let pid = fields.next()?.parse().ok()?;
     Some((pid, fields.next().unwrap_or_default().to_owned()))
