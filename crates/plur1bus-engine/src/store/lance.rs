@@ -353,12 +353,27 @@ impl Store {
     }
     /// Read committed rows up to the requested limit.
     pub fn scan(&self, filter: &RowFilter, limit: usize) -> Result<Vec<MemoryRow>, StoreError> {
+        self.scan_where(filter.to_sql(), limit)
+    }
+
+    /// Pinned reminder-key lookup. Caller-bound capture code authenticates returned row ownership.
+    pub(crate) fn capture_reminders(
+        &self,
+        agent: &str,
+        workspace: &str,
+        key: &str,
+    ) -> Result<Vec<MemoryRow>, StoreError> {
+        use super::filter::sql_string;
+        self.scan_where(format!("memoryKind = 'reminder' AND storedBy = {} AND workspaceKey = {} AND reminderKey = {}",
+            sql_string(agent), sql_string(workspace), sql_string(key)), 20)
+    }
+
+    fn scan_where(&self, filter: String, limit: usize) -> Result<Vec<MemoryRow>, StoreError> {
         self.trusted()?;
         if limit == 0 {
             return Ok(Vec::new());
         }
         let table = self.table.clone();
-        let filter = filter.to_sql();
         self.executor.run(async move {
             let batches = table
                 .query()

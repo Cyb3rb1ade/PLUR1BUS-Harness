@@ -74,3 +74,7 @@ pub mod emotion_state;
 pub mod emotion_store;
 /// Host-only joint importance/emotion encoding and deterministic refinement patches.
 pub mod encoding;
+/// Caller-bound reminder capture into the actual agent Lance store.
+pub mod reminder_store;
+/// Deterministic relative-time reminder parsing and capture eligibility.
+pub mod reminders;

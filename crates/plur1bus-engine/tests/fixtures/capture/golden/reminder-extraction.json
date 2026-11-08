@@ -1,0 +1,2068 @@
+{
+  "provenance": {
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "node": "v24.21.0",
+    "sourceHashes": {
+      "lib/reminder-parser.js": "be2ce3f0ce459b68c285751402fcecbc2b4fa588603fc96678c6e87769a01150",
+      "lib/reminder-extraction.js": "752749319d075e9b9abf6058a5691f588b8bda29b02bddf354f0b6a7e5778606"
+    }
+  },
+  "intents": [
+    {
+      "text": "Bitte Testbericht in 2 minuten prüfen.",
+      "line": "{\"remindAt\":1710000120000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 minuten\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 minute prüfen.",
+      "line": "{\"remindAt\":1710000120000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 minute\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 min prüfen.",
+      "line": "{\"remindAt\":1710000120000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 min\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 stunden prüfen.",
+      "line": "{\"remindAt\":1710007200000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 stunden\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 stunde prüfen.",
+      "line": "{\"remindAt\":1710007200000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 stunde\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 std prüfen.",
+      "line": "{\"remindAt\":1710007200000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 std\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 h prüfen.",
+      "line": "{\"remindAt\":1710007200000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 h\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 tagen prüfen.",
+      "line": "{\"remindAt\":1710172800000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 tagen\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 tage prüfen.",
+      "line": "{\"remindAt\":1710172800000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 tage\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 tag prüfen.",
+      "line": "{\"remindAt\":1710172800000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 tag\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 d prüfen.",
+      "line": "{\"remindAt\":1710172800000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 d\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 minutes prüfen.",
+      "line": "{\"remindAt\":1710000120000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 minutes\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 hours prüfen.",
+      "line": "{\"remindAt\":1710007200000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 hours\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 hour prüfen.",
+      "line": "{\"remindAt\":1710007200000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 hour\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 days prüfen.",
+      "line": "{\"remindAt\":1710172800000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 days\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 day prüfen.",
+      "line": "{\"remindAt\":1710172800000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 day\"}"
+    },
+    {
+      "text": "Bitte Testbericht in einer halben Stunde prüfen.",
+      "line": "{\"remindAt\":1710001800000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in einer halben Stunde\"}"
+    },
+    {
+      "text": "Bitte Testbericht in halben Stunde prüfen.",
+      "line": "{\"remindAt\":1710001800000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in einer halben Stunde\"}"
+    },
+    {
+      "text": "Review the fixture in half an hour.",
+      "line": "{\"remindAt\":1710001800000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in half an hour\"}"
+    },
+    {
+      "text": "Bitte Testbericht in einer Stunde prüfen.",
+      "line": "{\"remindAt\":1710003600000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 1 stunde\"}"
+    },
+    {
+      "text": "Bitte Testbericht in eine Minute prüfen.",
+      "line": "{\"remindAt\":1710000060000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 1 minute\"}"
+    },
+    {
+      "text": "Bitte Testbericht in einem Tag prüfen.",
+      "line": "{\"remindAt\":null,\"timePrecision\":\"none\",\"requiresConfirmation\":false,\"evidence\":\"\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 0 Minuten prüfen.",
+      "line": "{\"remindAt\":1710000000000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 0 minuten\"}"
+    },
+    {
+      "text": "In 10 Minuten.",
+      "line": "{\"remindAt\":1710000600000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 10 minuten\"}"
+    },
+    {
+      "text": "in 10 minuten",
+      "line": "{\"remindAt\":1710000600000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 10 minuten\"}"
+    },
+    {
+      "text": "In 10 Minutes 1 23 a.",
+      "line": "{\"remindAt\":1710000600000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 10 minutes\"}"
+    },
+    {
+      "text": "Review in 2 widgets and in 10 minutes.",
+      "line": "{\"remindAt\":null,\"timePrecision\":\"none\",\"requiresConfirmation\":false,\"evidence\":\"\"}"
+    },
+    {
+      "text": "Review in 1 constructor.",
+      "line": "{\"remindAt\":null,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 1 constructor\"}"
+    },
+    {
+      "text": "Review in 1 __proto__.",
+      "line": "{\"remindAt\":null,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 1 __proto__\"}"
+    },
+    {
+      "text": "Baldrian hilft später. Morgen um 9 Uhr.",
+      "line": "{\"remindAt\":null,\"timePrecision\":\"none\",\"requiresConfirmation\":false,\"evidence\":\"\"}"
+    },
+    {
+      "text": "in -2 Minuten Bericht prüfen",
+      "line": "{\"remindAt\":null,\"timePrecision\":\"none\",\"requiresConfirmation\":false,\"evidence\":\"\"}"
+    },
+    {
+      "text": "in 1.5 hours review fixture",
+      "line": "{\"remindAt\":null,\"timePrecision\":\"none\",\"requiresConfirmation\":false,\"evidence\":\"\"}"
+    },
+    {
+      "text": "in 2h review fixture",
+      "line": "{\"remindAt\":1710007200000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 h\"}"
+    },
+    {
+      "text": "Vorher erledigt! Bitte Testbericht in 2 Minuten prüfen. Danach abschließen.",
+      "line": "{\"remindAt\":1710000120000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 minuten\"}"
+    },
+    {
+      "text": "<reminder-nudge>Bericht in 1 Minute prüfen.</reminder-nudge>",
+      "line": "{\"remindAt\":1710000060000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 1 minute\"}"
+    },
+    {
+      "text": "<REMINDER-NUDGE>Bericht in 1 Minute prüfen.</REMINDER-NUDGE> Review fixture in 2 hours.",
+      "line": "{\"remindAt\":1710000060000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 1 minute\"}"
+    },
+    {
+      "text": "İstanbul. Bitte Testbericht in 2 Minuten prüfen.",
+      "line": "{\"remindAt\":1710000120000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 minuten\"}"
+    },
+    {
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx in 2 minutes yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "line": "{\"remindAt\":1710000120000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 minutes\"}"
+    },
+    {
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx😀 in 2 minutes prüfen.",
+      "line": "{\"remindAt\":1710000120000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 minutes\"}"
+    },
+    {
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\ud83d in 2 minutes prüfen.",
+      "line": "{\"remindAt\":1710000120000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 minutes\"}"
+    },
+    {
+      "text": "Review in 9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999 minutes.",
+      "line": "{\"remindAt\":null,\"timePrecision\":\"none\",\"requiresConfirmation\":false,\"evidence\":\"\"}"
+    }
+  ],
+  "plans": [
+    {
+      "text": "Bitte Testbericht in 2 minuten prüfen.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":false,\"parsed\":{\"remindAt\":1710000120000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 minuten\"},\"reminderText\":\"Bitte Testbericht in 2 minuten prüfen.\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 minuten prüfen.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 minuten prüfen.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 minute prüfen.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":false,\"parsed\":{\"remindAt\":1710000120000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 minute\"},\"reminderText\":\"Bitte Testbericht in 2 minute prüfen.\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 minute prüfen.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 minute prüfen.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 min prüfen.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":false,\"parsed\":{\"remindAt\":1710000120000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 min\"},\"reminderText\":\"Bitte Testbericht in 2 min prüfen.\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 min prüfen.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 min prüfen.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 stunden prüfen.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":false,\"parsed\":{\"remindAt\":1710007200000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 stunden\"},\"reminderText\":\"Bitte Testbericht in 2 stunden prüfen.\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 stunden prüfen.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 stunden prüfen.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 stunde prüfen.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":false,\"parsed\":{\"remindAt\":1710007200000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 stunde\"},\"reminderText\":\"Bitte Testbericht in 2 stunde prüfen.\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 stunde prüfen.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 stunde prüfen.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 std prüfen.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":false,\"parsed\":{\"remindAt\":1710007200000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 std\"},\"reminderText\":\"Bitte Testbericht in 2 std prüfen.\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 std prüfen.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 std prüfen.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 h prüfen.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":false,\"parsed\":{\"remindAt\":1710007200000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 h\"},\"reminderText\":\"Bitte Testbericht in 2 h prüfen.\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 h prüfen.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 h prüfen.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 tagen prüfen.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":false,\"parsed\":{\"remindAt\":1710172800000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 tagen\"},\"reminderText\":\"Bitte Testbericht in 2 tagen prüfen.\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 tagen prüfen.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 tagen prüfen.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 tage prüfen.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":false,\"parsed\":{\"remindAt\":1710172800000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 tage\"},\"reminderText\":\"Bitte Testbericht in 2 tage prüfen.\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 tage prüfen.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 tage prüfen.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 tag prüfen.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":false,\"parsed\":{\"remindAt\":1710172800000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 tag\"},\"reminderText\":\"Bitte Testbericht in 2 tag prüfen.\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 tag prüfen.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 tag prüfen.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 d prüfen.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":false,\"parsed\":{\"remindAt\":1710172800000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 d\"},\"reminderText\":\"Bitte Testbericht in 2 d prüfen.\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 d prüfen.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 d prüfen.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 minutes prüfen.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":false,\"parsed\":{\"remindAt\":1710000120000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 minutes\"},\"reminderText\":\"Bitte Testbericht in 2 minutes prüfen.\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 minutes prüfen.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 minutes prüfen.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 hours prüfen.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":false,\"parsed\":{\"remindAt\":1710007200000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 hours\"},\"reminderText\":\"Bitte Testbericht in 2 hours prüfen.\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 hours prüfen.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 hours prüfen.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 hour prüfen.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":false,\"parsed\":{\"remindAt\":1710007200000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 hour\"},\"reminderText\":\"Bitte Testbericht in 2 hour prüfen.\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 hour prüfen.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 hour prüfen.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 days prüfen.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":false,\"parsed\":{\"remindAt\":1710172800000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 days\"},\"reminderText\":\"Bitte Testbericht in 2 days prüfen.\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 days prüfen.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 days prüfen.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 day prüfen.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":false,\"parsed\":{\"remindAt\":1710172800000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 day\"},\"reminderText\":\"Bitte Testbericht in 2 day prüfen.\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 day prüfen.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 2 day prüfen.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "Bitte Testbericht in einer halben Stunde prüfen.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":false,\"parsed\":{\"remindAt\":1710001800000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in einer halben Stunde\"},\"reminderText\":\"Bitte Testbericht in einer halben Stunde prüfen.\"}"
+    },
+    {
+      "text": "Bitte Testbericht in einer halben Stunde prüfen.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "Bitte Testbericht in einer halben Stunde prüfen.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "Bitte Testbericht in halben Stunde prüfen.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"no_topic\"}"
+    },
+    {
+      "text": "Bitte Testbericht in halben Stunde prüfen.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "Bitte Testbericht in halben Stunde prüfen.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "Review the fixture in half an hour.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":false,\"parsed\":{\"remindAt\":1710001800000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in half an hour\"},\"reminderText\":\"Review the fixture in half an hour.\"}"
+    },
+    {
+      "text": "Review the fixture in half an hour.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "Review the fixture in half an hour.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "Bitte Testbericht in einer Stunde prüfen.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"no_topic\"}"
+    },
+    {
+      "text": "Bitte Testbericht in einer Stunde prüfen.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "Bitte Testbericht in einer Stunde prüfen.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "Bitte Testbericht in eine Minute prüfen.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"no_topic\"}"
+    },
+    {
+      "text": "Bitte Testbericht in eine Minute prüfen.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "Bitte Testbericht in eine Minute prüfen.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "Bitte Testbericht in einem Tag prüfen.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"no_time\"}"
+    },
+    {
+      "text": "Bitte Testbericht in einem Tag prüfen.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "Bitte Testbericht in einem Tag prüfen.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 0 Minuten prüfen.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":false,\"parsed\":{\"remindAt\":1710000000000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 0 minuten\"},\"reminderText\":\"Bitte Testbericht in 0 Minuten prüfen.\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 0 Minuten prüfen.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "Bitte Testbericht in 0 Minuten prüfen.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "In 10 Minuten.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"no_topic\"}"
+    },
+    {
+      "text": "In 10 Minuten.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "In 10 Minuten.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "in 10 minuten",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"no_topic\"}"
+    },
+    {
+      "text": "in 10 minuten",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "in 10 minuten",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "In 10 Minutes 1 23 a.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"no_topic\"}"
+    },
+    {
+      "text": "In 10 Minutes 1 23 a.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "In 10 Minutes 1 23 a.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "Review in 2 widgets and in 10 minutes.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"no_time\"}"
+    },
+    {
+      "text": "Review in 2 widgets and in 10 minutes.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "Review in 2 widgets and in 10 minutes.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "Review in 1 constructor.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"no_time\"}"
+    },
+    {
+      "text": "Review in 1 constructor.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "Review in 1 constructor.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "Review in 1 __proto__.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"no_time\"}"
+    },
+    {
+      "text": "Review in 1 __proto__.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "Review in 1 __proto__.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "Baldrian hilft später. Morgen um 9 Uhr.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"no_time\"}"
+    },
+    {
+      "text": "Baldrian hilft später. Morgen um 9 Uhr.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "Baldrian hilft später. Morgen um 9 Uhr.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "in -2 Minuten Bericht prüfen",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"no_time\"}"
+    },
+    {
+      "text": "in -2 Minuten Bericht prüfen",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "in -2 Minuten Bericht prüfen",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "in 1.5 hours review fixture",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"no_time\"}"
+    },
+    {
+      "text": "in 1.5 hours review fixture",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "in 1.5 hours review fixture",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "in 2h review fixture",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"no_topic\"}"
+    },
+    {
+      "text": "in 2h review fixture",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "in 2h review fixture",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "Vorher erledigt! Bitte Testbericht in 2 Minuten prüfen. Danach abschließen.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":false,\"parsed\":{\"remindAt\":1710000120000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 minuten\"},\"reminderText\":\"Bitte Testbericht in 2 Minuten prüfen.\"}"
+    },
+    {
+      "text": "Vorher erledigt! Bitte Testbericht in 2 Minuten prüfen. Danach abschließen.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "Vorher erledigt! Bitte Testbericht in 2 Minuten prüfen. Danach abschließen.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "<reminder-nudge>Bericht in 1 Minute prüfen.</reminder-nudge>",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"no_time\"}"
+    },
+    {
+      "text": "<reminder-nudge>Bericht in 1 Minute prüfen.</reminder-nudge>",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "<reminder-nudge>Bericht in 1 Minute prüfen.</reminder-nudge>",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "<REMINDER-NUDGE>Bericht in 1 Minute prüfen.</REMINDER-NUDGE> Review fixture in 2 hours.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":false,\"parsed\":{\"remindAt\":1710007200000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 hours\"},\"reminderText\":\"Review fixture in 2 hours.\"}"
+    },
+    {
+      "text": "<REMINDER-NUDGE>Bericht in 1 Minute prüfen.</REMINDER-NUDGE> Review fixture in 2 hours.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "<REMINDER-NUDGE>Bericht in 1 Minute prüfen.</REMINDER-NUDGE> Review fixture in 2 hours.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "İstanbul. Bitte Testbericht in 2 Minuten prüfen.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":false,\"parsed\":{\"remindAt\":1710000120000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 minuten\"},\"reminderText\":\"Bitte Testbericht in 2 Minuten prüfen.\"}"
+    },
+    {
+      "text": "İstanbul. Bitte Testbericht in 2 Minuten prüfen.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "İstanbul. Bitte Testbericht in 2 Minuten prüfen.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx in 2 minutes yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":false,\"parsed\":{\"remindAt\":1710000120000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 minutes\"},\"reminderText\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx in 2 minutes…\"}"
+    },
+    {
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx in 2 minutes yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx in 2 minutes yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx😀 in 2 minutes prüfen.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":false,\"parsed\":{\"remindAt\":1710000120000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 minutes\"},\"reminderText\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\ud83d…\"}"
+    },
+    {
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx😀 in 2 minutes prüfen.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx😀 in 2 minutes prüfen.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\ud83d in 2 minutes prüfen.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":false,\"parsed\":{\"remindAt\":1710000120000,\"timePrecision\":\"relative\",\"requiresConfirmation\":false,\"evidence\":\"in 2 minutes\"},\"reminderText\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\ud83d…\"}"
+    },
+    {
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\ud83d in 2 minutes prüfen.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\ud83d in 2 minutes prüfen.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    },
+    {
+      "text": "Review in 9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999 minutes.",
+      "role": "user",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"no_time\"}"
+    },
+    {
+      "text": "Review in 9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999 minutes.",
+      "role": "assistant",
+      "enabled": true,
+      "line": "{\"skip\":true,\"reason\":\"not_user_role\"}"
+    },
+    {
+      "text": "Review in 9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999 minutes.",
+      "role": "user",
+      "enabled": false,
+      "line": "{\"skip\":true,\"reason\":\"disabled\"}"
+    }
+  ],
+  "texts": [
+    {
+      "text": "Bitte Testbericht in 2 minuten prüfen.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 minuten prüfen.",
+      "evidence": "in 2 Minuten",
+      "line": "\"Bitte Testbericht in 2 minuten prüfen.\"",
+      "topic": true
+    },
+    {
+      "text": "Bitte Testbericht in 2 minuten prüfen.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 minuten prüfen.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 minute prüfen.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 minute prüfen.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 minute prüfen.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 minute prüfen.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 min prüfen.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 min prüfen.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 min prüfen.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 min prüfen.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 stunden prüfen.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 stunden prüfen.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 stunden prüfen.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 stunden prüfen.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 stunde prüfen.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 stunde prüfen.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 stunde prüfen.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 stunde prüfen.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 std prüfen.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 std prüfen.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 std prüfen.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 std prüfen.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 h prüfen.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 h prüfen.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 h prüfen.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 h prüfen.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 tagen prüfen.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 tagen prüfen.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 tagen prüfen.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 tagen prüfen.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 tage prüfen.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 tage prüfen.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 tage prüfen.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 tage prüfen.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 tag prüfen.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 tag prüfen.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 tag prüfen.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 tag prüfen.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 d prüfen.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 d prüfen.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 d prüfen.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 d prüfen.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 minutes prüfen.",
+      "evidence": "in 2 minutes",
+      "line": "\"Bitte Testbericht in 2 minutes prüfen.\"",
+      "topic": true
+    },
+    {
+      "text": "Bitte Testbericht in 2 minutes prüfen.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 minutes prüfen.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 minutes prüfen.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 hours prüfen.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 hours prüfen.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 hours prüfen.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 hours prüfen.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 hour prüfen.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 hour prüfen.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 hour prüfen.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 hour prüfen.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 days prüfen.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 days prüfen.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 days prüfen.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 days prüfen.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 day prüfen.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 day prüfen.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 day prüfen.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 2 day prüfen.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in einer halben Stunde prüfen.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in einer halben Stunde prüfen.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in einer halben Stunde prüfen.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in einer halben Stunde prüfen.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in halben Stunde prüfen.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in halben Stunde prüfen.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in halben Stunde prüfen.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in halben Stunde prüfen.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "Review the fixture in half an hour.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "Review the fixture in half an hour.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "Review the fixture in half an hour.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "Review the fixture in half an hour.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in einer Stunde prüfen.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in einer Stunde prüfen.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in einer Stunde prüfen.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in einer Stunde prüfen.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in eine Minute prüfen.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in eine Minute prüfen.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in eine Minute prüfen.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in eine Minute prüfen.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in einem Tag prüfen.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in einem Tag prüfen.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in einem Tag prüfen.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in einem Tag prüfen.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 0 Minuten prüfen.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 0 Minuten prüfen.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 0 Minuten prüfen.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "Bitte Testbericht in 0 Minuten prüfen.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "In 10 Minuten.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "In 10 Minuten.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "In 10 Minuten.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "In 10 Minuten.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "in 10 minuten",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "in 10 minuten",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "in 10 minuten",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "in 10 minuten",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "In 10 Minutes 1 23 a.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "In 10 Minutes 1 23 a.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "In 10 Minutes 1 23 a.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "In 10 Minutes 1 23 a.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "Review in 2 widgets and in 10 minutes.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "Review in 2 widgets and in 10 minutes.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "Review in 2 widgets and in 10 minutes.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "Review in 2 widgets and in 10 minutes.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "Review in 1 constructor.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "Review in 1 constructor.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "Review in 1 constructor.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "Review in 1 constructor.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "Review in 1 __proto__.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "Review in 1 __proto__.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "Review in 1 __proto__.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "Review in 1 __proto__.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "Baldrian hilft später. Morgen um 9 Uhr.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "Baldrian hilft später. Morgen um 9 Uhr.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "Baldrian hilft später. Morgen um 9 Uhr.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "Baldrian hilft später. Morgen um 9 Uhr.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "in -2 Minuten Bericht prüfen",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "in -2 Minuten Bericht prüfen",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "in -2 Minuten Bericht prüfen",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "in -2 Minuten Bericht prüfen",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "in 1.5 hours review fixture",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "in 1.5 hours review fixture",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "in 1.5 hours review fixture",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "in 1.5 hours review fixture",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "in 2h review fixture",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "in 2h review fixture",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "in 2h review fixture",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "in 2h review fixture",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "Vorher erledigt! Bitte Testbericht in 2 Minuten prüfen. Danach abschließen.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "Vorher erledigt! Bitte Testbericht in 2 Minuten prüfen. Danach abschließen.",
+      "evidence": "in 2 Minuten",
+      "line": "\"Bitte Testbericht in 2 Minuten prüfen.\"",
+      "topic": true
+    },
+    {
+      "text": "Vorher erledigt! Bitte Testbericht in 2 Minuten prüfen. Danach abschließen.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "Vorher erledigt! Bitte Testbericht in 2 Minuten prüfen. Danach abschließen.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "<reminder-nudge>Bericht in 1 Minute prüfen.</reminder-nudge>",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "<reminder-nudge>Bericht in 1 Minute prüfen.</reminder-nudge>",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "<reminder-nudge>Bericht in 1 Minute prüfen.</reminder-nudge>",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "<reminder-nudge>Bericht in 1 Minute prüfen.</reminder-nudge>",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "<REMINDER-NUDGE>Bericht in 1 Minute prüfen.</REMINDER-NUDGE> Review fixture in 2 hours.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "<REMINDER-NUDGE>Bericht in 1 Minute prüfen.</REMINDER-NUDGE> Review fixture in 2 hours.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "<REMINDER-NUDGE>Bericht in 1 Minute prüfen.</REMINDER-NUDGE> Review fixture in 2 hours.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "<REMINDER-NUDGE>Bericht in 1 Minute prüfen.</REMINDER-NUDGE> Review fixture in 2 hours.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "İstanbul. Bitte Testbericht in 2 Minuten prüfen.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "İstanbul. Bitte Testbericht in 2 Minuten prüfen.",
+      "evidence": "in 2 Minuten",
+      "line": "\"Bitte Testbericht in 2 Minuten prüfen.\"",
+      "topic": true
+    },
+    {
+      "text": "İstanbul. Bitte Testbericht in 2 Minuten prüfen.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "İstanbul. Bitte Testbericht in 2 Minuten prüfen.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx in 2 minutes yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "evidence": "in 2 minutes",
+      "line": "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx in 2 minutes…\"",
+      "topic": true
+    },
+    {
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx in 2 minutes yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx in 2 minutes yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx in 2 minutes yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx😀 in 2 minutes prüfen.",
+      "evidence": "in 2 minutes",
+      "line": "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\ud83d…\"",
+      "topic": true
+    },
+    {
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx😀 in 2 minutes prüfen.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx😀 in 2 minutes prüfen.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx😀 in 2 minutes prüfen.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\ud83d in 2 minutes prüfen.",
+      "evidence": "in 2 minutes",
+      "line": "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\ud83d…\"",
+      "topic": true
+    },
+    {
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\ud83d in 2 minutes prüfen.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\ud83d in 2 minutes prüfen.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\ud83d in 2 minutes prüfen.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    },
+    {
+      "text": "Review in 9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999 minutes.",
+      "evidence": "in 2 minutes",
+      "line": "\"in 2 minutes\"",
+      "topic": false
+    },
+    {
+      "text": "Review in 9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999 minutes.",
+      "evidence": "in 2 Minuten",
+      "line": "\"in 2 Minuten\"",
+      "topic": false
+    },
+    {
+      "text": "Review in 9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999 minutes.",
+      "evidence": "missing phrase",
+      "line": "\"missing phrase\"",
+      "topic": false
+    },
+    {
+      "text": "Review in 9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999 minutes.",
+      "evidence": "",
+      "line": "\"\"",
+      "topic": false
+    }
+  ],
+  "stripped": [
+    {
+      "text": "Bitte Testbericht in 2 minuten prüfen.",
+      "line": "\"Bitte Testbericht in 2 minuten prüfen.\""
+    },
+    {
+      "text": "Bitte Testbericht in 2 minute prüfen.",
+      "line": "\"Bitte Testbericht in 2 minute prüfen.\""
+    },
+    {
+      "text": "Bitte Testbericht in 2 min prüfen.",
+      "line": "\"Bitte Testbericht in 2 min prüfen.\""
+    },
+    {
+      "text": "Bitte Testbericht in 2 stunden prüfen.",
+      "line": "\"Bitte Testbericht in 2 stunden prüfen.\""
+    },
+    {
+      "text": "Bitte Testbericht in 2 stunde prüfen.",
+      "line": "\"Bitte Testbericht in 2 stunde prüfen.\""
+    },
+    {
+      "text": "Bitte Testbericht in 2 std prüfen.",
+      "line": "\"Bitte Testbericht in 2 std prüfen.\""
+    },
+    {
+      "text": "Bitte Testbericht in 2 h prüfen.",
+      "line": "\"Bitte Testbericht in 2 h prüfen.\""
+    },
+    {
+      "text": "Bitte Testbericht in 2 tagen prüfen.",
+      "line": "\"Bitte Testbericht in 2 tagen prüfen.\""
+    },
+    {
+      "text": "Bitte Testbericht in 2 tage prüfen.",
+      "line": "\"Bitte Testbericht in 2 tage prüfen.\""
+    },
+    {
+      "text": "Bitte Testbericht in 2 tag prüfen.",
+      "line": "\"Bitte Testbericht in 2 tag prüfen.\""
+    },
+    {
+      "text": "Bitte Testbericht in 2 d prüfen.",
+      "line": "\"Bitte Testbericht in 2 d prüfen.\""
+    },
+    {
+      "text": "Bitte Testbericht in 2 minutes prüfen.",
+      "line": "\"Bitte Testbericht in 2 minutes prüfen.\""
+    },
+    {
+      "text": "Bitte Testbericht in 2 hours prüfen.",
+      "line": "\"Bitte Testbericht in 2 hours prüfen.\""
+    },
+    {
+      "text": "Bitte Testbericht in 2 hour prüfen.",
+      "line": "\"Bitte Testbericht in 2 hour prüfen.\""
+    },
+    {
+      "text": "Bitte Testbericht in 2 days prüfen.",
+      "line": "\"Bitte Testbericht in 2 days prüfen.\""
+    },
+    {
+      "text": "Bitte Testbericht in 2 day prüfen.",
+      "line": "\"Bitte Testbericht in 2 day prüfen.\""
+    },
+    {
+      "text": "Bitte Testbericht in einer halben Stunde prüfen.",
+      "line": "\"Bitte Testbericht in einer halben Stunde prüfen.\""
+    },
+    {
+      "text": "Bitte Testbericht in halben Stunde prüfen.",
+      "line": "\"Bitte Testbericht in halben Stunde prüfen.\""
+    },
+    {
+      "text": "Review the fixture in half an hour.",
+      "line": "\"Review the fixture in half an hour.\""
+    },
+    {
+      "text": "Bitte Testbericht in einer Stunde prüfen.",
+      "line": "\"Bitte Testbericht in einer Stunde prüfen.\""
+    },
+    {
+      "text": "Bitte Testbericht in eine Minute prüfen.",
+      "line": "\"Bitte Testbericht in eine Minute prüfen.\""
+    },
+    {
+      "text": "Bitte Testbericht in einem Tag prüfen.",
+      "line": "\"Bitte Testbericht in einem Tag prüfen.\""
+    },
+    {
+      "text": "Bitte Testbericht in 0 Minuten prüfen.",
+      "line": "\"Bitte Testbericht in 0 Minuten prüfen.\""
+    },
+    {
+      "text": "In 10 Minuten.",
+      "line": "\"In 10 Minuten.\""
+    },
+    {
+      "text": "in 10 minuten",
+      "line": "\"in 10 minuten\""
+    },
+    {
+      "text": "In 10 Minutes 1 23 a.",
+      "line": "\"In 10 Minutes 1 23 a.\""
+    },
+    {
+      "text": "Review in 2 widgets and in 10 minutes.",
+      "line": "\"Review in 2 widgets and in 10 minutes.\""
+    },
+    {
+      "text": "Review in 1 constructor.",
+      "line": "\"Review in 1 constructor.\""
+    },
+    {
+      "text": "Review in 1 __proto__.",
+      "line": "\"Review in 1 __proto__.\""
+    },
+    {
+      "text": "Baldrian hilft später. Morgen um 9 Uhr.",
+      "line": "\"Baldrian hilft später. Morgen um 9 Uhr.\""
+    },
+    {
+      "text": "in -2 Minuten Bericht prüfen",
+      "line": "\"in -2 Minuten Bericht prüfen\""
+    },
+    {
+      "text": "in 1.5 hours review fixture",
+      "line": "\"in 1.5 hours review fixture\""
+    },
+    {
+      "text": "in 2h review fixture",
+      "line": "\"in 2h review fixture\""
+    },
+    {
+      "text": "Vorher erledigt! Bitte Testbericht in 2 Minuten prüfen. Danach abschließen.",
+      "line": "\"Vorher erledigt! Bitte Testbericht in 2 Minuten prüfen. Danach abschließen.\""
+    },
+    {
+      "text": "<reminder-nudge>Bericht in 1 Minute prüfen.</reminder-nudge>",
+      "line": "\" \""
+    },
+    {
+      "text": "<REMINDER-NUDGE>Bericht in 1 Minute prüfen.</REMINDER-NUDGE> Review fixture in 2 hours.",
+      "line": "\"  Review fixture in 2 hours.\""
+    },
+    {
+      "text": "İstanbul. Bitte Testbericht in 2 Minuten prüfen.",
+      "line": "\"İstanbul. Bitte Testbericht in 2 Minuten prüfen.\""
+    },
+    {
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx in 2 minutes yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "line": "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx in 2 minutes yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\""
+    },
+    {
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx😀 in 2 minutes prüfen.",
+      "line": "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx😀 in 2 minutes prüfen.\""
+    },
+    {
+      "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\ud83d in 2 minutes prüfen.",
+      "line": "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\ud83d in 2 minutes prüfen.\""
+    },
+    {
+      "text": "Review in 9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999 minutes.",
+      "line": "\"Review in 9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999 minutes.\""
+    }
+  ]
+}
