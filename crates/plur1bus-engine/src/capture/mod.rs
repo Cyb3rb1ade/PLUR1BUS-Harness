@@ -93,3 +93,6 @@ pub mod merge_safety;
 pub mod classify;
 /// Authenticated per-agent temperament and caller-owned mood pool.
 pub mod emotion_pool;
+
+/// Critical type classification and source eligibility, without push delivery.
+pub mod critical;
