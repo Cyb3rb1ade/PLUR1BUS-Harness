@@ -20,6 +20,7 @@ window that was not reproduced; the entry says which), `info` (a documented diff
 | P4D-6 | The legacy core's Windows pipe keeps Node's default DACL (ADR-012 C2) | `packages/core/src/core.ts` | low | P4-90 | open, contained |
 | P4D-7 | The front door's own diagnostics are plain stderr lines, not log-schema records in `logs/core.log` | `packages/core/src/logger.ts` | info | P4-11 | open |
 | P4D-8 | module-api's `validApiPrincipal` coerces `role` and `kind` with `String()`; the Rust port does not | `packages/module-api/src/api-principal.ts` (reference) | low | P4-12 | open, Rust strict |
+| P4D-11 | An accepted `core.shutdown`: the requester sees `core.state stopping` before the answer | `packages/core/src/core.ts` | info | P4-12 | open, intentional |
 
 ## P4D-1 — migration step read outside the write lock
 
@@ -144,3 +145,17 @@ sends the lax shape. The Rust side stays strict (fail closed); the TypeScript ch
   (`principal-role-in-an-array`, `principal-kind-in-an-array`, `principal-role-in-nested-arrays`); every other case gives
   module-api's verdict on both sides (`auth::tests::the_ported_checks_give_module_apis_verdicts`).
 - Fix: P4-12, where the API principal moves to Rust, keeps the strict check and records it as the contract.
+
+## P4D-11 — `stopping` before the answer to an accepted `core.shutdown`
+
+(P4D-9 and P4D-10 are taken by fix round 1, part 2.) When the legacy core accepts a client's `core.shutdown`, the front
+door enters `stopping` and queues `core.state stopping` to every owner subscriber before it forwards the accepted answer
+(P4-10 task review M2, ADR-012 §3 G17: no subscriber may lose `stopping` to a link the legacy core ends right after its
+answer). On the requester's own connection, when it is an owner subscriber too, `core.state stopping` therefore arrives
+before the answer; a TypeScript core answers first and stops on the next turn (`core.ts`, `setImmediate`). Intentional:
+the G17 order over the answer order. Both arrive, no content differs, and core-parity compares a connection's
+notifications as a multiset, so no gate sees it.
+
+- Reproduction: `crates/plur1bus-core/tests/front_door.rs`
+  `a_client_shutdown_reaches_every_subscriber_as_stopping_first`, the assertion on `first` (the requester's first line).
+- Owner: P4-12, which owns the process state in Rust, keeps or reverses the order and records it.
