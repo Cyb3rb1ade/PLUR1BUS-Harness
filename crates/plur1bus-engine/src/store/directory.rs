@@ -136,6 +136,70 @@ impl TrustedDirectory {
         Ok(child)
     }
 
+    /// Create or open one private directory segment without following a leaf link.
+    pub(crate) fn create_child(&self, name: &str) -> Result<Self, StoreError> {
+        valid_child(name)?;
+        self.assert_unchanged()?;
+        #[cfg(unix)]
+        {
+            use std::os::fd::AsRawFd;
+            let child = std::ffi::CString::new(name).map_err(|_| StoreError::InvalidInput)?;
+            // SAFETY: the parent fd is held and the child name is NUL-terminated.
+            let status = unsafe { libc::mkdirat(self.anchor.as_raw_fd(), child.as_ptr(), 0o700) };
+            if status != 0 {
+                let error = std::io::Error::last_os_error();
+                if error.kind() != std::io::ErrorKind::AlreadyExists {
+                    return Err(io_error(error));
+                }
+            }
+        }
+        #[cfg(windows)]
+        if let Err(error) = fs::create_dir(self.physical.join(name)) {
+            if error.kind() != std::io::ErrorKind::AlreadyExists {
+                return Err(io_error(error));
+            }
+        }
+        self.open_child(name)
+    }
+
+    /// Create a new private ordinary file relative to this held directory. Existing
+    /// files, symlinks and special files all fail; this never truncates a target.
+    pub(crate) fn create_file(&self, name: &str) -> Result<File, StoreError> {
+        valid_child(name)?;
+        self.assert_unchanged()?;
+        #[cfg(unix)]
+        let file = {
+            use std::os::fd::{AsRawFd, FromRawFd};
+            let child = std::ffi::CString::new(name).map_err(|_| StoreError::InvalidInput)?;
+            // SAFETY: the directory and name are live; EXCL refuses any existing leaf.
+            let fd = unsafe {
+                libc::openat(
+                    self.anchor.as_raw_fd(),
+                    child.as_ptr(),
+                    libc::O_WRONLY
+                        | libc::O_CREAT
+                        | libc::O_EXCL
+                        | libc::O_NOFOLLOW
+                        | libc::O_CLOEXEC,
+                    0o600,
+                )
+            };
+            if fd < 0 {
+                return Err(directory_open_error(std::io::Error::last_os_error()));
+            }
+            // SAFETY: openat returned a newly owned descriptor.
+            unsafe { File::from_raw_fd(fd) }
+        };
+        #[cfg(windows)]
+        let file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(self.physical.join(name))
+            .map_err(io_error)?;
+        self.assert_unchanged()?;
+        Ok(file)
+    }
+
     /// Open one ordinary readonly file relative to the held directory, never following
     /// a leaf link. The caller retains this directory and checks it after consuming bytes.
     pub(crate) fn open_file(&self, name: &str) -> Result<File, StoreError> {

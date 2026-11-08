@@ -15,6 +15,9 @@ use std::{
 
 /// Exact on-disk engine snapshot schema.
 pub const SNAPSHOT_SCHEMA: &str = "plur1bus.snapshot/1";
+#[path = "snapshot_copy.rs"]
+mod snapshot_copy;
+
 const MAX_MANIFEST_BYTES: u64 = 64 * 1024 * 1024;
 
 /// Content-free snapshot failure categories; no parser/backend message escapes.
@@ -26,6 +29,10 @@ pub enum SnapshotError {
     DigestMismatch,
     /// A path escapes the snapshot or violates the trusted physical path boundary.
     UnsafePath,
+    /// A Lance table kept changing during all three copy attempts.
+    SourceBusy,
+    /// Caller cancellation or deadline, before snapshot publication.
+    Cancelled,
     /// Other filesystem failures.
     Storage,
 }
@@ -37,6 +44,8 @@ impl SnapshotError {
             Self::DigestMismatch => "digest-mismatch",
             Self::UnsafePath => "unsafe-path",
             Self::Storage => "storage",
+            Self::SourceBusy => "source-busy",
+            Self::Cancelled => "cancelled",
         }
     }
 }
