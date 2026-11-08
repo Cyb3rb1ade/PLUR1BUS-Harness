@@ -329,3 +329,73 @@ fn index_links_fail_and_hidden_or_ineligible_rows_never_open_sidecars() {
         assert!(out.hits.is_empty());
     }
 }
+
+#[test]
+fn cached_index_rechecks_callers_and_rewrites_even_with_restored_mtime() {
+    let root = support::canonical_tempdir();
+    let host = support::TestHost::new(root.path().join("state"));
+    let ctx = context(&host);
+    let principal: Principal = serde_json::from_value(json!({"agentId":"beta","workspace":"workspace:v1:one","channel":"telegram","accountId":"fixture-account","chat":{"id":"fixture-chat","kind":"direct"},"trust":"proved"})).unwrap();
+    let agent: AgentContext =
+        serde_json::from_value(json!({"origin":"user","background":false})).unwrap();
+    let other = RequestContext::build(&principal, &agent, &host).unwrap();
+    let dir = setup(root.path());
+    let path = dir.join("candidate-index.jsonl");
+    let reader = MetadataReader::open(root.path(), "workspace").unwrap();
+    let original = "{\"id\":\"a\",\"agentId\":\"alpha\"}\n";
+    fs::write(&path, original).unwrap();
+    let stamp = fs::metadata(&path).unwrap().modified().unwrap();
+    assert_eq!(
+        reader
+            .search_global(&options(), &ctx, &Cancel::never())
+            .unwrap()
+            .unique,
+        1
+    );
+    assert_eq!(
+        reader
+            .search_global(&options(), &other, &Cancel::never())
+            .unwrap()
+            .unique,
+        0
+    );
+    // Same length and exact mtime, but the old principal has lost access.
+    fs::write(&path, "{\"id\":\"a\",\"agentId\":\"gamma\"}\n").unwrap();
+    fs::File::open(&path).unwrap().set_modified(stamp).unwrap();
+    assert_eq!(fs::metadata(&path).unwrap().len(), original.len() as u64);
+    assert_eq!(
+        reader
+            .search_global(&options(), &ctx, &Cancel::never())
+            .unwrap()
+            .unique,
+        0
+    );
+    // A larger rewritten file is not an append of the cached prefix.
+    fs::write(
+        &path,
+        "{\"id\":\"b\",\"agentId\":\"alpha\"}\n{\"id\":\"c\",\"agentId\":\"alpha\"}\n",
+    )
+    .unwrap();
+    assert_eq!(
+        reader
+            .search_global(&options(), &ctx, &Cancel::never())
+            .unwrap()
+            .unique,
+        2
+    );
+    // Missing means journal fallback, never the previous cached index.
+    fs::remove_file(&path).unwrap();
+    let missing = reader
+        .search_global(&options(), &ctx, &Cancel::never())
+        .unwrap();
+    assert!(!missing.from_index);
+    assert_eq!(missing.unique, 0);
+    fs::write(&path, original).unwrap();
+    assert_eq!(
+        reader
+            .search_global(&options(), &ctx, &Cancel::never())
+            .unwrap()
+            .unique,
+        1
+    );
+}

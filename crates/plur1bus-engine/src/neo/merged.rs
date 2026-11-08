@@ -8,7 +8,7 @@ use crate::{
     text::{js::js_trim, json::TolerantJsonValue as Json},
 };
 use sha2::{Digest, Sha256};
-use std::path::Path;
+use std::{path::Path, sync::Mutex};
 
 /// Canonical hashed workspace directory plus an unambiguous old directory, when safe.
 #[derive(Debug, Clone)]
@@ -105,6 +105,7 @@ impl Window {
 pub struct MetadataReader {
     pub(super) root: TrustedDirectory,
     pub(super) layout: Layout,
+    pub(super) index_cache: Mutex<super::index::Cache>,
 }
 impl MetadataReader {
     /// Bind a trusted existing Neo root and a host-proven workspace storage key.
@@ -112,6 +113,7 @@ impl MetadataReader {
         Ok(Self {
             root: TrustedDirectory::open(root)?,
             layout: Layout::for_key(key),
+            index_cache: Mutex::new(super::index::Cache::default()),
         })
     }
     /// Read the newest distinct accessible metadata in stable creation-time order.

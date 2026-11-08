@@ -97,7 +97,8 @@ fn cosine(query: &[f64], vector: &[f64], typed: bool) -> f64 {
 }
 impl MetadataReader {
     /// Search actual persisted metadata and vectors without creating indexes or warming writes.
-    /// The index read is a bounded full snapshot (64 MiB/50,000 IDs), not yet an incremental cache.
+    /// Each bounded snapshot (64 MiB/50,000 IDs) validates the cached complete prefix;
+    /// only appended complete lines are reparsed. Full file reads remain necessary to detect rewrites.
     /// Filter latest revisions by D130 before budgets and counts (RE-D59); sidecars are read only
     /// for eligible visible rows. Caller cancellation is never converted to empty success.
     pub fn search_global(

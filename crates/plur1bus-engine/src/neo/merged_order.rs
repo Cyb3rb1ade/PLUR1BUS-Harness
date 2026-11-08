@@ -90,6 +90,7 @@ pub(super) fn record_id(row: &Json) -> Option<JsString> {
         .map(string)
         .filter(|s| !s.is_empty())
 }
+#[derive(Clone)]
 pub(super) struct Sourced {
     pub metadata: Json,
     pub legacy: bool,
