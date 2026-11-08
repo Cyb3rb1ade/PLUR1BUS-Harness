@@ -9,6 +9,7 @@ pub mod acl;
 pub mod capabilities;
 pub mod client;
 pub mod error;
+pub mod limits;
 pub mod process;
 #[cfg(feature = "server")]
 pub mod server;

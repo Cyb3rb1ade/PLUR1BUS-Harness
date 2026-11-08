@@ -40,8 +40,50 @@ const FRONT_DOOR_ID_PREFIX: &str = "fd-";
 
 /// An unauthenticated connection is closed after this long (`authIdleMs`).
 pub const AUTH_IDLE: Duration = Duration::from_secs(30);
-/// At most this many client connections at once; more are closed on accept (each costs threads, not a Node socket).
+/// At most this many client connections at once; more are closed on accept (each costs threads, not a Node socket). The
+/// descriptors can lower it ([`Capacity`]).
 pub const MAX_CONNECTIONS: usize = 512;
+/// At most this many connections wait for their handshake at once; the oldest is ended to make room for a new one.
+pub const MAX_UNAUTHENTICATED: usize = 64;
+/// Descriptors an authenticated client holds in the front door: its socket, and its link's three (writer, reader,
+/// closer).
+const DESCRIPTORS_PER_CLIENT: u64 = 4;
+/// Descriptors kept for everything else: stdio, the listener, the lock, the control link, the legacy core's pipes, the
+/// signal pipe, run files being written.
+const RESERVED_DESCRIPTORS: u64 = 64;
+
+/// How many client connections the front door takes at once (P4-10 security review M2), from its open-file limit
+/// (raised to the hard limit at start, as Node raises it for the TypeScript core).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Capacity {
+    /// Connections at once, at most [`MAX_CONNECTIONS`].
+    pub connections: usize,
+    /// Of those, connections still before their handshake; a new one beyond it ends the oldest of them.
+    pub unauthenticated: usize,
+    /// The soft open-file limit it is derived from; `None` where there is none (Windows).
+    pub open_files: Option<u64>,
+}
+
+impl Capacity {
+    /// The capacity a soft open-file limit allows.
+    pub fn for_open_files(open_files: Option<u64>) -> Capacity {
+        let connections = open_files.map_or(MAX_CONNECTIONS, |limit| {
+            usize::try_from(limit.saturating_sub(RESERVED_DESCRIPTORS) / DESCRIPTORS_PER_CLIENT)
+                .unwrap_or(usize::MAX)
+                .clamp(1, MAX_CONNECTIONS)
+        });
+        Capacity {
+            connections,
+            unauthenticated: MAX_UNAUTHENTICATED.min(connections / 2).max(1),
+            open_files,
+        }
+    }
+}
+
+/// Whether an error is the descriptor table being full (`EMFILE`, `ENFILE`).
+fn out_of_descriptors(e: &io::Error) -> bool {
+    cfg!(unix) && matches!(e.raw_os_error(), Some(23 | 24))
+}
 /// The longest a handshake waits for the legacy core's answer.
 const LINK_AUTH_TIMEOUT: Duration = Duration::from_secs(30);
 const THREAD_STACK: usize = 512 * 1024;
@@ -127,6 +169,12 @@ pub struct FrontDoor {
     events: Mutex<Sender<Event>>,
     /// The timings read at start.
     pub timings: Timings,
+    /// How many connections it takes.
+    pub capacity: Capacity,
+    /// Out of descriptors since the last accepted connection (logged once per burst).
+    exhausted: AtomicBool,
+    /// Unauthenticated connections at their cap since it was last below it (logged once per burst).
+    crowded: AtomicBool,
 }
 
 /// The credentials the front door wrote into `run/`.
@@ -152,6 +200,7 @@ impl FrontDoor {
         events: Sender<Event>,
         timings: Timings,
         stdin_lifeline: bool,
+        capacity: Capacity,
     ) -> FrontDoor {
         FrontDoor {
             files,
@@ -177,7 +226,53 @@ impl FrontDoor {
             }),
             events: Mutex::new(events),
             timings,
+            capacity,
+            exhausted: AtomicBool::new(false),
+            crowded: AtomicBool::new(false),
         }
+    }
+
+    /// Logs a descriptor shortage once per burst (until a connection is accepted again), with the limit in force.
+    fn log_exhaustion(&self, what: &str, e: &io::Error) -> bool {
+        if !out_of_descriptors(e) {
+            return false;
+        }
+        if !self.exhausted.swap(true, Ordering::SeqCst) {
+            log(
+                "warn",
+                what,
+                json!({"err": e.to_string(), "openFiles": self.capacity.open_files, "maxConnections": self.capacity.connections}),
+            );
+        }
+        true
+    }
+
+    /// Keeps the connections before their handshake under their cap (security review M2): when it is reached, the oldest
+    /// of them ends to make room for the one just accepted, so idle sockets cannot keep an owner from its handshake.
+    fn make_room_for_unauthenticated(&self) {
+        let waiting: Vec<Arc<Conn>> = self
+            .connections()
+            .into_iter()
+            .filter(|c| {
+                let st = relock(&c.state);
+                !st.authed && !st.closing
+            })
+            .collect();
+        if waiting.len() < self.capacity.unauthenticated {
+            self.crowded.store(false, Ordering::SeqCst);
+            return;
+        }
+        let Some(oldest) = waiting.into_iter().min_by_key(|c| c.id) else {
+            return;
+        };
+        if !self.crowded.swap(true, Ordering::SeqCst) {
+            log(
+                "warn",
+                "unauthenticated connections at their limit, ending the oldest",
+                json!({"limit": self.capacity.unauthenticated}),
+            );
+        }
+        oldest.evict();
     }
 
     /// The current process state.
@@ -345,6 +440,7 @@ pub fn accept_loop(front: &Arc<FrontDoor>, listener: &Listener) {
         let accepted = match listener.accept_timeout(Duration::from_millis(25)) {
             Ok(Some(a)) => {
                 failures = 0;
+                front.exhausted.store(false, Ordering::SeqCst);
                 a
             }
             Ok(None) => continue,
@@ -354,14 +450,14 @@ pub fn accept_loop(front: &Arc<FrontDoor>, listener: &Listener) {
                     log(
                         "warn",
                         "accept failed",
-                        json!({"err": e.to_string(), "consecutive": failures}),
+                        json!({"err": e.to_string(), "consecutive": failures, "openFiles": front.capacity.open_files}),
                     );
                 }
                 std::thread::sleep(Duration::from_millis(50).saturating_mul(failures.min(20)));
                 continue;
             }
         };
-        if front.live.fetch_add(1, Ordering::SeqCst) >= MAX_CONNECTIONS {
+        if front.live.fetch_add(1, Ordering::SeqCst) >= front.capacity.connections {
             front.live.fetch_sub(1, Ordering::SeqCst);
             log(
                 "warn",
@@ -371,6 +467,7 @@ pub fn accept_loop(front: &Arc<FrontDoor>, listener: &Listener) {
             (accepted.closer)();
             continue;
         }
+        front.make_room_for_unauthenticated();
         let f = front.clone();
         let spawned = std::thread::Builder::new()
             .name("core-conn".into())
@@ -592,6 +689,12 @@ impl Conn {
         }
         self.error(id, e);
         self.end(Duration::from_secs(1));
+    }
+
+    /// Ends a connection that has not authenticated at once (nothing is queued for it that matters).
+    fn evict(&self) {
+        relock(&self.state).closing = true;
+        (self.closer)();
     }
 
     /// Ends the connection after its queued bytes are written; destroys it after `grace`.
@@ -993,11 +1096,13 @@ fn link_of(front: &Arc<FrontDoor>, conn: &Arc<Conn>) -> Option<Arc<Link>> {
     let (link, reader) = match Link::connect(&front.files.legacy_address, front.legacy_pid) {
         Ok(pair) => pair,
         Err(e) => {
-            log(
-                "warn",
-                "cannot open a link to the legacy core",
-                json!({"err": e.to_string(), "connectionId": conn.id}),
-            );
+            if !front.log_exhaustion("cannot open a link to the legacy core", &e) {
+                log(
+                    "warn",
+                    "cannot open a link to the legacy core",
+                    json!({"err": e.to_string(), "connectionId": conn.id}),
+                );
+            }
             return None;
         }
     };
@@ -1582,6 +1687,32 @@ mod tests {
         assert!(!out.push(vec![b'y']), "the byte past 16 MiB disconnects");
         assert!(relock(&out.inner).dead);
         assert!(!out.push(vec![b'z']), "nothing is queued for a dead client");
+    }
+
+    #[test]
+    fn the_connection_capacity_follows_the_descriptors() {
+        let at = |limit| {
+            let c = Capacity::for_open_files(limit);
+            (c.connections, c.unauthenticated)
+        };
+        assert_eq!(
+            at(None),
+            (MAX_CONNECTIONS, MAX_UNAUTHENTICATED),
+            "no such limit"
+        );
+        assert_eq!(
+            at(Some(184_320)),
+            (512, 64),
+            "a raised limit: the fixed caps"
+        );
+        assert_eq!(
+            at(Some(256)),
+            (48, 24),
+            "launchd's 256 when it cannot be raised"
+        );
+        assert_eq!(at(Some(1024)), (240, 64));
+        assert_eq!(at(Some(10)), (1, 1), "never none");
+        assert_eq!(Capacity::for_open_files(Some(256)).open_files, Some(256));
     }
 
     #[test]

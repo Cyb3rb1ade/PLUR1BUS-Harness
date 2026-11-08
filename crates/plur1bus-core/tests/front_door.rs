@@ -121,6 +121,14 @@ fn main() {
             "a_squatted_legacy_address_gets_nothing",
             a_squatted_legacy_address_gets_nothing,
         ),
+        (
+            "two_hundred_owners_under_the_launchd_descriptor_limit",
+            two_hundred_owners_under_the_launchd_descriptor_limit,
+        ),
+        (
+            "idle_sockets_cannot_crowd_out_an_owner_under_a_hard_limit",
+            idle_sockets_cannot_crowd_out_an_owner_under_a_hard_limit,
+        ),
     ];
     let mut failed = Vec::new();
     for (name, test) in tests {
@@ -158,10 +166,28 @@ struct Opts<'a> {
     lifeline: bool,
     instance: Option<&'a str>,
     prepare: Option<&'a dyn Fn(&Path)>,
+    /// Starts the front door with this soft `RLIMIT_NOFILE` (Unix), as launchd starts processes with 256.
+    open_files: Option<u64>,
+    /// With `open_files`: the hard limit too, so the front door cannot raise it.
+    open_files_hard: bool,
 }
 
 fn spawn_door(home: &Path, o: &Opts<'_>) -> Child {
-    let mut cmd = Command::new(env!("CARGO_BIN_EXE_plur1bus-core"));
+    let bin = env!("CARGO_BIN_EXE_plur1bus-core");
+    let mut cmd = match o.open_files {
+        Some(n) => {
+            let mut sh = Command::new("/bin/sh");
+            sh.arg("-c")
+                .arg(if o.open_files_hard {
+                    format!(r#"ulimit -Sn {n} && ulimit -Hn {n} && exec "$0" "$@""#)
+                } else {
+                    format!(r#"ulimit -Sn {n} && exec "$0" "$@""#)
+                })
+                .arg(bin);
+            sh
+        }
+        None => Command::new(bin),
+    };
     cmd.args(["serve", "--home"]).arg(home);
     if o.lifeline {
         cmd.args([
@@ -1355,5 +1381,98 @@ fn a_squatted_legacy_address_gets_nothing() {
             .expect("the front door connected to the squatter and checked it");
         assert_eq!(received, 0, "the squatter read nothing");
         assert!(d.stderr().contains("cannot open a link"), "{}", d.stderr());
+    }
+}
+
+/// Security review M2: started with launchd's soft descriptor limit (256), the front door raises it as Node does, serves
+/// 200 authenticated owners at once, and 100 idle unauthenticated sockets do not keep an owner from its handshake (they
+/// are capped; the oldest is ended to make room).
+fn two_hundred_owners_under_the_launchd_descriptor_limit() {
+    #[cfg(unix)]
+    {
+        // This test process holds two descriptors per client.
+        plur1bus_rpc::limits::raise_open_files();
+        let d = door(Opts {
+            open_files: Some(256),
+            ..Opts::default()
+        });
+        let idle: Vec<Client> = (0..100).map(|_| d.client()).collect();
+        let owners: Vec<Client> = (0..200)
+            .map(|i| {
+                let mut c = d.client();
+                let r = c
+                    .try_call("core.auth", json!({"token": d.token("core.token")}))
+                    .unwrap_or_else(|| panic!("owner {i} was cut off; stderr: {}", d.stderr()));
+                assert!(r.get("result").is_some(), "owner {i}: {r}");
+                c
+            })
+            .collect();
+        let more_idle: Vec<Client> = (0..100).map(|_| d.client()).collect();
+        let mut late = d.client();
+        let r = late
+            .try_call("core.auth", json!({"token": d.token("core.token")}))
+            .expect("an owner gets through 100 idle sockets");
+        assert!(r.get("result").is_some(), "{r}");
+        for (i, mut c) in owners.into_iter().enumerate().step_by(40) {
+            assert!(
+                c.call("core.status", json!({})).get("result").is_some(),
+                "owner {i} is still served"
+            );
+        }
+        assert!(
+            !d.stderr().contains("Too many open files"),
+            "{}",
+            d.stderr()
+        );
+        assert!(
+            d.stderr()
+                .contains("unauthenticated connections at their limit"),
+            "the idle sockets were capped: {}",
+            d.stderr()
+        );
+        drop((idle, more_idle));
+    }
+}
+
+/// Security review M2, where the limit cannot be raised (hard 256): the front door sizes its connections to the
+/// descriptors (48 at 256) and keeps at most half of them for connections before their handshake, ending the oldest, so
+/// 100 idle sockets (which used to exhaust the 256 descriptors on their own) neither exhaust it nor keep an owner out.
+fn idle_sockets_cannot_crowd_out_an_owner_under_a_hard_limit() {
+    #[cfg(unix)]
+    {
+        plur1bus_rpc::limits::raise_open_files();
+        let d = door(Opts {
+            open_files: Some(256),
+            open_files_hard: true,
+            ..Opts::default()
+        });
+        let until = Instant::now() + Duration::from_secs(5);
+        while !d.stderr().contains("core ready") {
+            assert!(Instant::now() < until, "{}", d.stderr());
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert!(
+            d.stderr().contains(r#""maxConnections":48"#)
+                && d.stderr().contains(r#""openFiles":256"#),
+            "{}",
+            d.stderr()
+        );
+        let idle: Vec<Client> = (0..100).map(|_| d.client()).collect();
+        std::thread::sleep(Duration::from_millis(300));
+        let owners: Vec<Client> = (0..20).map(|_| d.owner()).collect();
+        let more_idle: Vec<Client> = (0..100).map(|_| d.client()).collect();
+        std::thread::sleep(Duration::from_millis(300));
+        let mut late = d.client();
+        let r = late
+            .try_call("core.auth", json!({"token": d.token("core.token")}))
+            .unwrap_or_else(|| panic!("an owner gets through idle sockets: {}", d.stderr()));
+        assert!(r.get("result").is_some(), "{r}");
+        assert!(late.call("core.status", json!({})).get("result").is_some());
+        assert!(
+            !d.stderr().contains("Too many open files"),
+            "{}",
+            d.stderr()
+        );
+        drop((idle, owners, more_idle));
     }
 }

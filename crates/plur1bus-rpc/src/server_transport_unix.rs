@@ -1,15 +1,34 @@
 //! Owner-only Unix sockets with bounded, interruptible accept waits.
 use super::Accepted;
-use std::io;
+use std::io::{self, Read, Write};
 use std::net::Shutdown;
 use std::os::fd::AsRawFd;
 use std::os::unix::fs::PermissionsExt;
-use std::os::unix::net::UnixListener;
+use std::os::unix::net::{UnixListener, UnixStream};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 /// An owner-only Unix socket. The caller owns the socket path's cleanup.
 pub struct Listener(UnixListener);
+
+/// A socket shared by the halves of one connection; reads and writes go through `&UnixStream` (a socket is duplex).
+struct Shared(Arc<UnixStream>);
+
+impl Read for Shared {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        (&*self.0).read(buf)
+    }
+}
+
+impl Write for Shared {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        (&*self.0).write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        (&*self.0).flush()
+    }
+}
 
 impl Listener {
     /// Creates a new socket and makes it `0600`; an existing socket path is never removed.
@@ -39,13 +58,15 @@ impl Listener {
                     // Accepted sockets remain blocking even though the listener polls nonblocking.
                     stream.set_nonblocking(false)?;
                     let peer_pid = crate::transport::unix_peer_pid(&stream);
-                    let reader = stream.try_clone()?;
-                    let closer = stream.try_clone()?;
-                    let timer = stream.try_clone()?;
+                    // One descriptor per connection (P4-10 security review M2): the reader, writer, closer and timer
+                    // share the socket; it is closed when the last of them is dropped.
+                    let socket = Arc::new(stream);
+                    let closer = socket.clone();
+                    let timer = socket.clone();
                     return Ok(Some(Accepted {
                         peer_pid,
-                        reader: Box::new(reader),
-                        writer: Box::new(stream),
+                        reader: Box::new(Shared(socket.clone())),
+                        writer: Box::new(Shared(socket)),
                         closer: Arc::new(move || {
                             let _ = closer.shutdown(Shutdown::Both);
                         }),

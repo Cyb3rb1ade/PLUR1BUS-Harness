@@ -137,6 +137,9 @@ const CONTROL_AUTH_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Serves the core until it is stopped; returns the process exit code. See [`lifecycle`] for the drain order.
 pub fn serve(plan: &ServePlan) -> Result<i32, ServeError> {
+    // Every client costs descriptors: lift launchd's 256 to the hard limit as Node does (security review M2); the legacy
+    // core inherits it.
+    let capacity = server::Capacity::for_open_files(plur1bus_rpc::limits::raise_open_files());
     let files = plan.run_files.clone();
     let checks = server::Checks::new().map_err(ServeError::Start)?;
     run_files::prepare(&files).map_err(|e| ServeError::Start(e.to_string()))?;
@@ -150,7 +153,7 @@ pub fn serve(plan: &ServePlan) -> Result<i32, ServeError> {
     lifecycle::watch_signals(events_tx.clone(), timings.shutdown_budget)
         .map_err(|e| ServeError::Start(format!("signal handlers: {e}")))?;
     let (front, listener, legacy, control) =
-        match start(plan, &files, checks, timings, &events_tx, &events) {
+        match start(plan, &files, checks, timings, capacity, &events_tx, &events) {
             Ok(parts) => parts,
             Err(e) => {
                 // A refused or failed start leaves no run file behind; the lock goes last.
@@ -175,7 +178,8 @@ pub fn serve(plan: &ServePlan) -> Result<i32, ServeError> {
     server::log(
         "info",
         "core ready",
-        json!({"instanceId": front.instance, "address": files.address, "supervised": plan.lifeline, "legacyPid": legacy_pid}),
+        json!({"instanceId": front.instance, "address": files.address, "supervised": plan.lifeline, "legacyPid": legacy_pid,
+            "openFiles": capacity.open_files, "maxConnections": capacity.connections}),
     );
     {
         let f = front.clone();
@@ -233,11 +237,13 @@ type Started = (
 );
 
 /// Everything between the lock and `ready`: run files, the legacy core, the control link, the listener.
+#[allow(clippy::too_many_arguments)]
 fn start(
     plan: &ServePlan,
     files: &RunFiles,
     checks: server::Checks,
     timings: Timings,
+    capacity: server::Capacity,
     events_tx: &mpsc::Sender<Event>,
     events: &mpsc::Receiver<Event>,
 ) -> Result<Started, ServeError> {
@@ -334,6 +340,7 @@ fn start(
         events_tx.clone(),
         timings,
         plan.lifeline,
+        capacity,
     ));
     Ok((front, listener, legacy, control.0))
 }

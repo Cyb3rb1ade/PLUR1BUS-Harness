@@ -76,6 +76,15 @@ The front door serves each connection on a thread of its own and closes a new co
 `connection limit reached`). The TypeScript server has no limit. No shipped client opens more than a handful of
 connections. P4-12 sets the limit for the Rust core for good (the async server of the full port) and documents it.
 
+Descriptors (P4-10 fix round, security review M2): the front door raises its soft `RLIMIT_NOFILE` to the hard limit at
+start with Node's search (`plur1bus_rpc::limits::raise_open_files`), as Node does for the TypeScript core, so launchd's
+256 is no longer its ceiling; an accepted socket holds one descriptor, a link three. Where the limit cannot be raised the
+connection limit follows it (`(limit - 64) / 4`, at most 512; 48 at 256). At most 64 connections (half the limit, if
+lower) wait for their handshake at once; a new one beyond that ends the oldest of them, so idle unauthenticated sockets
+cannot keep an owner from its handshake (logged once as `unauthenticated connections at their limit`). Running out of
+descriptors is logged once per burst with the limit in force (`openFiles`). The TypeScript server has neither cap; its
+30 s handshake deadline is the same.
+
 ## P4D-5 — the old legacy core outlives an abruptly stopped front door
 
 When the front door is killed, its lock (`state/core.lock`) is released at once, but the legacy core behind it runs until
