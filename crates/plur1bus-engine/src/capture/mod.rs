@@ -85,3 +85,6 @@ pub mod speaker_store;
 
 /// Shared continuity taste gate for capture/recall composition.
 pub mod continuity;
+
+/// Ordered lexical guards for explicit duplicate and merge decisions.
+pub mod merge_safety;

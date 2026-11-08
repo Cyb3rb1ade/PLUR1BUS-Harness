@@ -1,0 +1,1845 @@
+{
+  "provenance": {
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "node": "v24.21.0",
+    "sourceHashes": {
+      "lib/memory-merge-safety.js": "6eaaff54e851fec18bdddb3736e127016e5bd9819ad050861291f22c929a8dfc"
+    }
+  },
+  "vocabularySha256": "a908602b1a87bfe3d45c8e56f0baf0cca948879c59a6fd01064914863e153c52",
+  "terms": [
+    {
+      "input": "Erik überweist Eva 50€",
+      "normalizedLine": "\"erik überweist eva 50\"",
+      "line": "{\"numbers\":[\"50\"],\"versions\":[\"eva 50\"],\"entities\":[\"erik\",\"eva\"],\"technologies\":[],\"databases\":[],\"contentTerms\":[\"erik\",\"überweist\",\"eva\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Eva überweist Erik 50€",
+      "normalizedLine": "\"eva überweist erik 50\"",
+      "line": "{\"numbers\":[\"50\"],\"versions\":[\"erik 50\"],\"entities\":[\"eva\",\"erik\"],\"technologies\":[],\"databases\":[],\"contentTerms\":[\"eva\",\"überweist\",\"erik\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Eva liebt Erik",
+      "normalizedLine": "\"eva liebt erik\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[\"eva\",\"erik\"],\"technologies\":[],\"databases\":[],\"contentTerms\":[\"eva\",\"liebt\",\"erik\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Erik liebt Eva",
+      "normalizedLine": "\"erik liebt eva\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[\"erik\",\"eva\"],\"technologies\":[],\"databases\":[],\"contentTerms\":[\"erik\",\"liebt\",\"eva\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Projekt Alpha nutzt Auth-Service",
+      "normalizedLine": "\"projekt alpha nutzt auth service\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[\"alpha\"],\"technologies\":[\"auth\",\"auth service\"],\"databases\":[],\"contentTerms\":[\"alpha\",\"auth\",\"service\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Projekt Alpha nutzt den Auth-Service",
+      "normalizedLine": "\"projekt alpha nutzt den auth service\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[\"alpha\"],\"technologies\":[\"auth\",\"auth service\"],\"databases\":[],\"contentTerms\":[\"alpha\",\"auth\",\"service\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Projekt Alpha nutzt Node 20.",
+      "normalizedLine": "\"projekt alpha nutzt node 20\"",
+      "line": "{\"numbers\":[\"20\"],\"versions\":[\"node 20\"],\"entities\":[\"alpha\"],\"technologies\":[\"node\"],\"databases\":[],\"contentTerms\":[\"alpha\",\"node\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Projekt Alpha nutzt Node.js 20.",
+      "normalizedLine": "\"projekt alpha nutzt node js 20\"",
+      "line": "{\"numbers\":[\"20\"],\"versions\":[\"js 20\"],\"entities\":[\"alpha\"],\"technologies\":[\"node\"],\"databases\":[],\"contentTerms\":[\"alpha\",\"node\",\"js\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Projekt Alpha nutzt den Auth-Service.",
+      "normalizedLine": "\"projekt alpha nutzt den auth service\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[\"alpha\"],\"technologies\":[\"auth\",\"auth service\"],\"databases\":[],\"contentTerms\":[\"alpha\",\"auth\",\"service\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Projekt Beta nutzt den Auth-Service.",
+      "normalizedLine": "\"projekt beta nutzt den auth service\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[\"beta\"],\"technologies\":[\"auth\",\"auth service\"],\"databases\":[],\"contentTerms\":[\"beta\",\"auth\",\"service\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "User mag React.",
+      "normalizedLine": "\"user mag react\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[],\"technologies\":[\"react\"],\"databases\":[],\"contentTerms\":[\"react\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "User mag Vue.",
+      "normalizedLine": "\"user mag vue\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[],\"technologies\":[\"vue\"],\"databases\":[],\"contentTerms\":[\"vue\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Wir nutzen Postgres.",
+      "normalizedLine": "\"wir nutzen postgres\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[\"wir\"],\"technologies\":[\"postgres\"],\"databases\":[\"postgres\"],\"contentTerms\":[\"wir\",\"postgre\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Wir nutzen MySQL.",
+      "normalizedLine": "\"wir nutzen mysql\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[\"wir\"],\"technologies\":[\"mysql\"],\"databases\":[\"mysql\"],\"contentTerms\":[\"wir\",\"mysql\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Deployment läuft auf Node 20.",
+      "normalizedLine": "\"deployment läuft auf node 20\"",
+      "line": "{\"numbers\":[\"20\"],\"versions\":[\"node 20\"],\"entities\":[],\"technologies\":[\"node\"],\"databases\":[],\"contentTerms\":[\"läuft\",\"node\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Deployment läuft auf Node 22.",
+      "normalizedLine": "\"deployment läuft auf node 22\"",
+      "line": "{\"numbers\":[\"22\"],\"versions\":[\"node 22\"],\"entities\":[],\"technologies\":[\"node\"],\"databases\":[],\"contentTerms\":[\"läuft\",\"node\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Dreamdale ist ein Festival.",
+      "normalizedLine": "\"dreamdale ist ein festival\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[\"dreamdale\",\"festival\"],\"technologies\":[],\"databases\":[],\"contentTerms\":[\"dreamdale\",\"festival\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Dreamdale ist eine fiktive Stadt.",
+      "normalizedLine": "\"dreamdale ist eine fiktive stadt\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[\"dreamdale\",\"stadt\"],\"technologies\":[],\"databases\":[],\"contentTerms\":[\"dreamdale\",\"fiktive\",\"stadt\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "User prefers concise answers.",
+      "normalizedLine": "\"user prefers concise answers\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[],\"technologies\":[],\"databases\":[],\"contentTerms\":[\"concise\",\"answer\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "The user prefers concise answers.",
+      "normalizedLine": "\"the user prefers concise answers\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[],\"technologies\":[],\"databases\":[],\"contentTerms\":[\"concise\",\"answer\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "User mag React nicht mehr.",
+      "normalizedLine": "\"user mag react nicht mehr\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[],\"technologies\":[\"react\"],\"databases\":[],\"contentTerms\":[\"react\",\"nicht\",\"mehr\"],\"hasNegation\":true,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Früher nutzten wir Postgres.",
+      "normalizedLine": "\"früher nutzten wir postgres\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[\"früher\"],\"technologies\":[\"postgres\"],\"databases\":[\"postgres\"],\"contentTerms\":[\"früher\",\"nutzten\",\"wir\",\"postgre\"],\"hasNegation\":false,\"hasTemporalMarker\":true}"
+    },
+    {
+      "input": "Projekt Alpha nutzt den Auth-Service intern.",
+      "normalizedLine": "\"projekt alpha nutzt den auth service intern\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[\"alpha\"],\"technologies\":[\"auth\",\"auth service\"],\"databases\":[],\"contentTerms\":[\"alpha\",\"auth\",\"service\",\"intern\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Projekt Alpha nutzt den Auth-Service extern.",
+      "normalizedLine": "\"projekt alpha nutzt den auth service extern\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[\"alpha\"],\"technologies\":[\"auth\",\"auth service\"],\"databases\":[],\"contentTerms\":[\"alpha\",\"auth\",\"service\",\"extern\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Original fact about cats",
+      "normalizedLine": "\"original fact about cats\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[],\"technologies\":[],\"databases\":[],\"contentTerms\":[\"fact\",\"about\",\"cat\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Additional cat fact",
+      "normalizedLine": "\"additional cat fact\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[],\"technologies\":[],\"databases\":[],\"contentTerms\":[\"cat\",\"fact\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Wir nutzen PostgreSQL.",
+      "normalizedLine": "\"wir nutzen postgresql\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[\"wir\"],\"technologies\":[\"postgresql\"],\"databases\":[\"postgresql\"],\"contentTerms\":[\"wir\",\"postgresql\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Constructor guides Alpha",
+      "normalizedLine": "\"constructor guides alpha\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[\"constructor\",\"alpha\"],\"technologies\":[],\"databases\":[],\"contentTerms\":[\"constructor\",\"guide\",\"alpha\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Beta guides Alpha",
+      "normalizedLine": "\"beta guides alpha\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[\"beta\",\"alpha\"],\"technologies\":[],\"databases\":[],\"contentTerms\":[\"beta\",\"guide\",\"alpha\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "constructor guides Alpha",
+      "normalizedLine": "\"constructor guides alpha\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[\"alpha\"],\"technologies\":[],\"databases\":[],\"contentTerms\":[\"constructor\",\"guide\",\"alpha\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Node 2.4.1",
+      "normalizedLine": "\"node 2 4 1\"",
+      "line": "{\"numbers\":[\"2\",\"4\",\"1\"],\"versions\":[\"node 2\",\"2 4\",\"4 1\"],\"entities\":[],\"technologies\":[\"node\"],\"databases\":[],\"contentTerms\":[\"node\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Node 24.1",
+      "normalizedLine": "\"node 24 1\"",
+      "line": "{\"numbers\":[\"24\",\"1\"],\"versions\":[\"node 24\",\"24 1\"],\"entities\":[],\"technologies\":[\"node\"],\"databases\":[],\"contentTerms\":[\"node\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Node ٢٤",
+      "normalizedLine": "\"node ٢٤\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[],\"technologies\":[\"node\"],\"databases\":[],\"contentTerms\":[\"node\",\"٢٤\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Node 24",
+      "normalizedLine": "\"node 24\"",
+      "line": "{\"numbers\":[\"24\"],\"versions\":[\"node 24\"],\"entities\":[],\"technologies\":[\"node\"],\"databases\":[],\"contentTerms\":[\"node\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Ömer nutzt Grün",
+      "normalizedLine": "\"ömer nutzt grün\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[\"ömer\",\"grün\"],\"technologies\":[],\"databases\":[],\"contentTerms\":[\"ömer\",\"grün\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Ömer nutzt Grün",
+      "normalizedLine": "\"o mer nutzt gru n\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[\"omer\",\"grun\"],\"technologies\":[],\"databases\":[],\"contentTerms\":[\"mer\",\"gru\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Auth-Service ist bereit",
+      "normalizedLine": "\"auth service ist bereit\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[],\"technologies\":[\"auth\",\"auth service\"],\"databases\":[],\"contentTerms\":[\"auth\",\"service\",\"bereit\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Auth Service ist bereit",
+      "normalizedLine": "\"auth service ist bereit\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[\"service\"],\"technologies\":[\"auth\",\"auth service\"],\"databases\":[],\"contentTerms\":[\"auth\",\"service\",\"bereit\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "loss bus address cats",
+      "normalizedLine": "\"loss bus address cats\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[],\"technologies\":[],\"databases\":[],\"contentTerms\":[\"loss\",\"bus\",\"address\",\"cat\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "loss bus address cat",
+      "normalizedLine": "\"loss bus address cat\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[],\"technologies\":[],\"databases\":[],\"contentTerms\":[\"loss\",\"bus\",\"address\",\"cat\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "a b c d e f g h i j",
+      "normalizedLine": "\"a b c d e f g h i j\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[],\"technologies\":[],\"databases\":[],\"contentTerms\":[],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "a b c d e f g h i k",
+      "normalizedLine": "\"a b c d e f g h i k\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[],\"technologies\":[],\"databases\":[],\"contentTerms\":[],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "one two three four five six seven eight nine ten",
+      "normalizedLine": "\"one two three four five six seven eight nine ten\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[],\"technologies\":[],\"databases\":[],\"contentTerms\":[\"one\",\"two\",\"three\",\"four\",\"five\",\"six\",\"seven\",\"eight\",\"nine\",\"ten\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "one two three four five six seven eight nine",
+      "normalizedLine": "\"one two three four five six seven eight nine\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[],\"technologies\":[],\"databases\":[],\"contentTerms\":[\"one\",\"two\",\"three\",\"four\",\"five\",\"six\",\"seven\",\"eight\",\"nine\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "",
+      "normalizedLine": "\"\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[],\"technologies\":[],\"databases\":[],\"contentTerms\":[],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "x\ud83d",
+      "normalizedLine": "\"x\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[],\"technologies\":[],\"databases\":[],\"contentTerms\":[],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "x�",
+      "normalizedLine": "\"x\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[],\"technologies\":[],\"databases\":[],\"contentTerms\":[],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "New 𞛐abc １２",
+      "normalizedLine": "\"new 𞛐abc １２\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[],\"technologies\":[],\"databases\":[],\"contentTerms\":[\"𞛐abc\",\"１２\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "New 𞛐abc 12",
+      "normalizedLine": "\"new 𞛐abc 12\"",
+      "line": "{\"numbers\":[\"12\"],\"versions\":[\"𞛐abc 12\"],\"entities\":[],\"technologies\":[],\"databases\":[],\"contentTerms\":[\"𞛐abc\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": " Hello, World! ",
+      "normalizedLine": "\"hello world\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[\"hello\",\"hello world\",\"world\"],\"technologies\":[],\"databases\":[],\"contentTerms\":[\"hello\",\"world\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Node﻿20tail",
+      "normalizedLine": "\"node 20 tail\"",
+      "line": "{\"numbers\":[\"20\"],\"versions\":[\"node 20\"],\"entities\":[],\"technologies\":[\"node\"],\"databases\":[],\"contentTerms\":[\"node\",\"tail\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "A   B  C",
+      "normalizedLine": "\"a b c\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[],\"technologies\":[],\"databases\":[],\"contentTerms\":[],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "Alice Bob Carol",
+      "normalizedLine": "\"alice bob carol\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[\"alice\",\"alice bob\",\"bob\",\"bob carol\",\"carol\"],\"technologies\":[],\"databases\":[],\"contentTerms\":[\"alice\",\"bob\",\"carol\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "NASA and ÄÖÜ Ömer",
+      "normalizedLine": "\"nasa and äöü ömer\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[\"ömer\"],\"technologies\":[],\"databases\":[],\"contentTerms\":[\"nasa\",\"äöü\",\"ömer\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "foo_bar foo-bar foo.bar",
+      "normalizedLine": "\"foo bar foo bar foo bar\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[],\"technologies\":[],\"databases\":[],\"contentTerms\":[\"foo\",\"bar\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "007 0.2 -4 1e3",
+      "normalizedLine": "\"007 0 2 4 1e3\"",
+      "line": "{\"numbers\":[\"007\",\"0\",\"2\",\"4\"],\"versions\":[\"007 0\",\"0 2\",\"2 4\"],\"entities\":[],\"technologies\":[],\"databases\":[],\"contentTerms\":[\"1e3\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "constructor",
+      "normalizedLine": "\"constructor\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[],\"technologies\":[],\"databases\":[],\"contentTerms\":[\"constructor\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    },
+    {
+      "input": "__proto__",
+      "normalizedLine": "\"proto\"",
+      "line": "{\"numbers\":[],\"versions\":[],\"entities\":[],\"technologies\":[],\"databases\":[],\"contentTerms\":[\"proto\"],\"hasNegation\":false,\"hasTemporalMarker\":false}"
+    }
+  ],
+  "comparisons": [
+    {
+      "a": "Erik überweist Eva 50€",
+      "b": "Eva überweist Erik 50€",
+      "differencesLine": "[]",
+      "meaningful": true,
+      "duplicate": false
+    },
+    {
+      "a": "Eva überweist Erik 50€",
+      "b": "Erik überweist Eva 50€",
+      "differencesLine": "[]",
+      "meaningful": true,
+      "duplicate": false
+    },
+    {
+      "a": "Erik überweist Eva 50€",
+      "b": "Erik überweist Eva 50€",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "Eva liebt Erik",
+      "b": "Erik liebt Eva",
+      "differencesLine": "[]",
+      "meaningful": true,
+      "duplicate": false
+    },
+    {
+      "a": "Erik liebt Eva",
+      "b": "Eva liebt Erik",
+      "differencesLine": "[]",
+      "meaningful": true,
+      "duplicate": false
+    },
+    {
+      "a": "Eva liebt Erik",
+      "b": "Eva liebt Erik",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "Projekt Alpha nutzt Auth-Service",
+      "b": "Projekt Alpha nutzt den Auth-Service",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "Projekt Alpha nutzt den Auth-Service",
+      "b": "Projekt Alpha nutzt Auth-Service",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "Projekt Alpha nutzt Auth-Service",
+      "b": "Projekt Alpha nutzt Auth-Service",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "Projekt Alpha nutzt Node 20.",
+      "b": "Projekt Alpha nutzt Node.js 20.",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": false
+    },
+    {
+      "a": "Projekt Alpha nutzt Node.js 20.",
+      "b": "Projekt Alpha nutzt Node 20.",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": false
+    },
+    {
+      "a": "Projekt Alpha nutzt Node 20.",
+      "b": "Projekt Alpha nutzt Node 20.",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "Projekt Alpha nutzt den Auth-Service.",
+      "b": "Projekt Beta nutzt den Auth-Service.",
+      "differencesLine": "[{\"type\":\"entity\",\"values\":[\"alpha\"],\"side\":\"a\"},{\"type\":\"entity\",\"values\":[\"beta\"],\"side\":\"b\"}]",
+      "meaningful": true,
+      "duplicate": false
+    },
+    {
+      "a": "Projekt Beta nutzt den Auth-Service.",
+      "b": "Projekt Alpha nutzt den Auth-Service.",
+      "differencesLine": "[{\"type\":\"entity\",\"values\":[\"beta\"],\"side\":\"a\"},{\"type\":\"entity\",\"values\":[\"alpha\"],\"side\":\"b\"}]",
+      "meaningful": true,
+      "duplicate": false
+    },
+    {
+      "a": "Projekt Alpha nutzt den Auth-Service.",
+      "b": "Projekt Alpha nutzt den Auth-Service.",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "User mag React.",
+      "b": "User mag Vue.",
+      "differencesLine": "[{\"type\":\"technology\",\"value\":\"react\",\"side\":\"a\"},{\"type\":\"technology\",\"value\":\"vue\",\"side\":\"b\"}]",
+      "meaningful": true,
+      "duplicate": false
+    },
+    {
+      "a": "User mag Vue.",
+      "b": "User mag React.",
+      "differencesLine": "[{\"type\":\"technology\",\"value\":\"vue\",\"side\":\"a\"},{\"type\":\"technology\",\"value\":\"react\",\"side\":\"b\"}]",
+      "meaningful": true,
+      "duplicate": false
+    },
+    {
+      "a": "User mag React.",
+      "b": "User mag React.",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "Wir nutzen Postgres.",
+      "b": "Wir nutzen MySQL.",
+      "differencesLine": "[{\"type\":\"technology\",\"value\":\"postgres\",\"side\":\"a\"},{\"type\":\"technology\",\"value\":\"mysql\",\"side\":\"b\"},{\"type\":\"shared_entity_divergent_facts\"}]",
+      "meaningful": true,
+      "duplicate": false
+    },
+    {
+      "a": "Wir nutzen MySQL.",
+      "b": "Wir nutzen Postgres.",
+      "differencesLine": "[{\"type\":\"technology\",\"value\":\"mysql\",\"side\":\"a\"},{\"type\":\"technology\",\"value\":\"postgres\",\"side\":\"b\"},{\"type\":\"shared_entity_divergent_facts\"}]",
+      "meaningful": true,
+      "duplicate": false
+    },
+    {
+      "a": "Wir nutzen Postgres.",
+      "b": "Wir nutzen Postgres.",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "Deployment läuft auf Node 20.",
+      "b": "Deployment läuft auf Node 22.",
+      "differencesLine": "[{\"type\":\"number\",\"value\":\"20\",\"side\":\"a\"},{\"type\":\"number\",\"value\":\"22\",\"side\":\"b\"}]",
+      "meaningful": true,
+      "duplicate": false
+    },
+    {
+      "a": "Deployment läuft auf Node 22.",
+      "b": "Deployment läuft auf Node 20.",
+      "differencesLine": "[{\"type\":\"number\",\"value\":\"22\",\"side\":\"a\"},{\"type\":\"number\",\"value\":\"20\",\"side\":\"b\"}]",
+      "meaningful": true,
+      "duplicate": false
+    },
+    {
+      "a": "Deployment läuft auf Node 20.",
+      "b": "Deployment läuft auf Node 20.",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "Dreamdale ist ein Festival.",
+      "b": "Dreamdale ist eine fiktive Stadt.",
+      "differencesLine": "[{\"type\":\"entity\",\"values\":[\"festival\"],\"side\":\"a\"},{\"type\":\"entity\",\"values\":[\"stadt\"],\"side\":\"b\"},{\"type\":\"shared_entity_divergent_facts\"}]",
+      "meaningful": true,
+      "duplicate": false
+    },
+    {
+      "a": "Dreamdale ist eine fiktive Stadt.",
+      "b": "Dreamdale ist ein Festival.",
+      "differencesLine": "[{\"type\":\"entity\",\"values\":[\"stadt\"],\"side\":\"a\"},{\"type\":\"entity\",\"values\":[\"festival\"],\"side\":\"b\"},{\"type\":\"shared_entity_divergent_facts\"}]",
+      "meaningful": true,
+      "duplicate": false
+    },
+    {
+      "a": "Dreamdale ist ein Festival.",
+      "b": "Dreamdale ist ein Festival.",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "User prefers concise answers.",
+      "b": "The user prefers concise answers.",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "The user prefers concise answers.",
+      "b": "User prefers concise answers.",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "User prefers concise answers.",
+      "b": "User prefers concise answers.",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "User mag React.",
+      "b": "User mag React nicht mehr.",
+      "differencesLine": "[{\"type\":\"negation\"}]",
+      "meaningful": true,
+      "duplicate": false
+    },
+    {
+      "a": "User mag React nicht mehr.",
+      "b": "User mag React.",
+      "differencesLine": "[{\"type\":\"negation\"}]",
+      "meaningful": true,
+      "duplicate": false
+    },
+    {
+      "a": "User mag React.",
+      "b": "User mag React.",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "Wir nutzen Postgres.",
+      "b": "Früher nutzten wir Postgres.",
+      "differencesLine": "[{\"type\":\"entity\",\"values\":[\"wir\"],\"side\":\"a\"},{\"type\":\"entity\",\"values\":[\"früher\"],\"side\":\"b\"},{\"type\":\"temporal\"}]",
+      "meaningful": true,
+      "duplicate": false
+    },
+    {
+      "a": "Früher nutzten wir Postgres.",
+      "b": "Wir nutzen Postgres.",
+      "differencesLine": "[{\"type\":\"entity\",\"values\":[\"früher\"],\"side\":\"a\"},{\"type\":\"entity\",\"values\":[\"wir\"],\"side\":\"b\"},{\"type\":\"temporal\"}]",
+      "meaningful": true,
+      "duplicate": false
+    },
+    {
+      "a": "Wir nutzen Postgres.",
+      "b": "Wir nutzen Postgres.",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "Projekt Alpha nutzt den Auth-Service intern.",
+      "b": "Projekt Alpha nutzt den Auth-Service extern.",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": false
+    },
+    {
+      "a": "Projekt Alpha nutzt den Auth-Service extern.",
+      "b": "Projekt Alpha nutzt den Auth-Service intern.",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": false
+    },
+    {
+      "a": "Projekt Alpha nutzt den Auth-Service intern.",
+      "b": "Projekt Alpha nutzt den Auth-Service intern.",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "Original fact about cats",
+      "b": "Additional cat fact",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": false
+    },
+    {
+      "a": "Additional cat fact",
+      "b": "Original fact about cats",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": false
+    },
+    {
+      "a": "Original fact about cats",
+      "b": "Original fact about cats",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "Wir nutzen Postgres.",
+      "b": "Wir nutzen PostgreSQL.",
+      "differencesLine": "[{\"type\":\"shared_entity_divergent_facts\"}]",
+      "meaningful": true,
+      "duplicate": true
+    },
+    {
+      "a": "Wir nutzen PostgreSQL.",
+      "b": "Wir nutzen Postgres.",
+      "differencesLine": "[{\"type\":\"shared_entity_divergent_facts\"}]",
+      "meaningful": true,
+      "duplicate": true
+    },
+    {
+      "a": "Wir nutzen Postgres.",
+      "b": "Wir nutzen Postgres.",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "Constructor guides Alpha",
+      "b": "Beta guides Alpha",
+      "differencesLine": "[{\"type\":\"entity\",\"values\":[null],\"side\":\"a\"},{\"type\":\"entity\",\"values\":[\"beta\"],\"side\":\"b\"}]",
+      "meaningful": true,
+      "duplicate": false
+    },
+    {
+      "a": "Beta guides Alpha",
+      "b": "Constructor guides Alpha",
+      "differencesLine": "[{\"type\":\"entity\",\"values\":[\"beta\"],\"side\":\"a\"},{\"type\":\"entity\",\"values\":[null],\"side\":\"b\"}]",
+      "meaningful": true,
+      "duplicate": false
+    },
+    {
+      "a": "Constructor guides Alpha",
+      "b": "Constructor guides Alpha",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "Constructor guides Alpha",
+      "b": "constructor guides Alpha",
+      "differencesLine": "[{\"type\":\"entity\",\"values\":[null],\"side\":\"a\"}]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "constructor guides Alpha",
+      "b": "Constructor guides Alpha",
+      "differencesLine": "[{\"type\":\"entity\",\"values\":[null],\"side\":\"b\"}]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "Constructor guides Alpha",
+      "b": "Constructor guides Alpha",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "Node 2.4.1",
+      "b": "Node 24.1",
+      "differencesLine": "[{\"type\":\"number\",\"value\":\"2\",\"side\":\"a\"},{\"type\":\"number\",\"value\":\"4\",\"side\":\"a\"},{\"type\":\"number\",\"value\":\"24\",\"side\":\"b\"}]",
+      "meaningful": true,
+      "duplicate": false
+    },
+    {
+      "a": "Node 24.1",
+      "b": "Node 2.4.1",
+      "differencesLine": "[{\"type\":\"number\",\"value\":\"24\",\"side\":\"a\"},{\"type\":\"number\",\"value\":\"2\",\"side\":\"b\"},{\"type\":\"number\",\"value\":\"4\",\"side\":\"b\"}]",
+      "meaningful": true,
+      "duplicate": false
+    },
+    {
+      "a": "Node 2.4.1",
+      "b": "Node 2.4.1",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "Node ٢٤",
+      "b": "Node 24",
+      "differencesLine": "[{\"type\":\"number\",\"value\":\"24\",\"side\":\"b\"}]",
+      "meaningful": true,
+      "duplicate": false
+    },
+    {
+      "a": "Node 24",
+      "b": "Node ٢٤",
+      "differencesLine": "[{\"type\":\"number\",\"value\":\"24\",\"side\":\"a\"}]",
+      "meaningful": true,
+      "duplicate": false
+    },
+    {
+      "a": "Node ٢٤",
+      "b": "Node ٢٤",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "Ömer nutzt Grün",
+      "b": "Ömer nutzt Grün",
+      "differencesLine": "[{\"type\":\"entity\",\"values\":[\"ömer\",\"grün\"],\"side\":\"a\"},{\"type\":\"entity\",\"values\":[\"omer\",\"grun\"],\"side\":\"b\"}]",
+      "meaningful": true,
+      "duplicate": false
+    },
+    {
+      "a": "Ömer nutzt Grün",
+      "b": "Ömer nutzt Grün",
+      "differencesLine": "[{\"type\":\"entity\",\"values\":[\"omer\",\"grun\"],\"side\":\"a\"},{\"type\":\"entity\",\"values\":[\"ömer\",\"grün\"],\"side\":\"b\"}]",
+      "meaningful": true,
+      "duplicate": false
+    },
+    {
+      "a": "Ömer nutzt Grün",
+      "b": "Ömer nutzt Grün",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "Auth-Service ist bereit",
+      "b": "Auth Service ist bereit",
+      "differencesLine": "[{\"type\":\"entity\",\"values\":[\"service\"],\"side\":\"b\"}]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "Auth Service ist bereit",
+      "b": "Auth-Service ist bereit",
+      "differencesLine": "[{\"type\":\"entity\",\"values\":[\"service\"],\"side\":\"a\"}]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "Auth-Service ist bereit",
+      "b": "Auth-Service ist bereit",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "loss bus address cats",
+      "b": "loss bus address cat",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": false
+    },
+    {
+      "a": "loss bus address cat",
+      "b": "loss bus address cats",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": false
+    },
+    {
+      "a": "loss bus address cats",
+      "b": "loss bus address cats",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "a b c d e f g h i j",
+      "b": "a b c d e f g h i k",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": false
+    },
+    {
+      "a": "a b c d e f g h i k",
+      "b": "a b c d e f g h i j",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": false
+    },
+    {
+      "a": "a b c d e f g h i j",
+      "b": "a b c d e f g h i j",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "one two three four five six seven eight nine ten",
+      "b": "one two three four five six seven eight nine",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "one two three four five six seven eight nine",
+      "b": "one two three four five six seven eight nine ten",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "one two three four five six seven eight nine ten",
+      "b": "one two three four five six seven eight nine ten",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "",
+      "b": "",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "",
+      "b": "",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "",
+      "b": "",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "x\ud83d",
+      "b": "x�",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "x�",
+      "b": "x\ud83d",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "x\ud83d",
+      "b": "x\ud83d",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    },
+    {
+      "a": "New 𞛐abc １２",
+      "b": "New 𞛐abc 12",
+      "differencesLine": "[{\"type\":\"number\",\"value\":\"12\",\"side\":\"b\"}]",
+      "meaningful": true,
+      "duplicate": false
+    },
+    {
+      "a": "New 𞛐abc 12",
+      "b": "New 𞛐abc １２",
+      "differencesLine": "[{\"type\":\"number\",\"value\":\"12\",\"side\":\"a\"}]",
+      "meaningful": true,
+      "duplicate": false
+    },
+    {
+      "a": "New 𞛐abc １２",
+      "b": "New 𞛐abc １２",
+      "differencesLine": "[]",
+      "meaningful": false,
+      "duplicate": true
+    }
+  ],
+  "merges": [
+    {
+      "a": "Erik überweist Eva 50€",
+      "b": "Eva überweist Erik 50€",
+      "merged": "Erik überweist Eva 50€",
+      "preserves": true
+    },
+    {
+      "a": "Erik überweist Eva 50€",
+      "b": "Eva überweist Erik 50€",
+      "merged": "Eva überweist Erik 50€",
+      "preserves": true
+    },
+    {
+      "a": "Erik überweist Eva 50€",
+      "b": "Eva überweist Erik 50€",
+      "merged": "Erik überweist Eva 50€ Eva überweist Erik 50€",
+      "preserves": true
+    },
+    {
+      "a": "Erik überweist Eva 50€",
+      "b": "Eva überweist Erik 50€",
+      "merged": "",
+      "preserves": false
+    },
+    {
+      "a": "Erik überweist Eva 50€",
+      "b": "Eva überweist Erik 50€",
+      "merged": "Unrelated fact",
+      "preserves": false
+    },
+    {
+      "a": "Erik überweist Eva 50€",
+      "b": "Eva überweist Erik 50€",
+      "merged": "Erik überweist Eva 50€ not now",
+      "preserves": true
+    },
+    {
+      "a": "Eva liebt Erik",
+      "b": "Erik liebt Eva",
+      "merged": "Eva liebt Erik",
+      "preserves": true
+    },
+    {
+      "a": "Eva liebt Erik",
+      "b": "Erik liebt Eva",
+      "merged": "Erik liebt Eva",
+      "preserves": true
+    },
+    {
+      "a": "Eva liebt Erik",
+      "b": "Erik liebt Eva",
+      "merged": "Eva liebt Erik Erik liebt Eva",
+      "preserves": true
+    },
+    {
+      "a": "Eva liebt Erik",
+      "b": "Erik liebt Eva",
+      "merged": "",
+      "preserves": false
+    },
+    {
+      "a": "Eva liebt Erik",
+      "b": "Erik liebt Eva",
+      "merged": "Unrelated fact",
+      "preserves": false
+    },
+    {
+      "a": "Eva liebt Erik",
+      "b": "Erik liebt Eva",
+      "merged": "Eva liebt Erik not now",
+      "preserves": true
+    },
+    {
+      "a": "Projekt Alpha nutzt Auth-Service",
+      "b": "Projekt Alpha nutzt den Auth-Service",
+      "merged": "Projekt Alpha nutzt Auth-Service",
+      "preserves": true
+    },
+    {
+      "a": "Projekt Alpha nutzt Auth-Service",
+      "b": "Projekt Alpha nutzt den Auth-Service",
+      "merged": "Projekt Alpha nutzt den Auth-Service",
+      "preserves": true
+    },
+    {
+      "a": "Projekt Alpha nutzt Auth-Service",
+      "b": "Projekt Alpha nutzt den Auth-Service",
+      "merged": "Projekt Alpha nutzt Auth-Service Projekt Alpha nutzt den Auth-Service",
+      "preserves": true
+    },
+    {
+      "a": "Projekt Alpha nutzt Auth-Service",
+      "b": "Projekt Alpha nutzt den Auth-Service",
+      "merged": "",
+      "preserves": false
+    },
+    {
+      "a": "Projekt Alpha nutzt Auth-Service",
+      "b": "Projekt Alpha nutzt den Auth-Service",
+      "merged": "Unrelated fact",
+      "preserves": false
+    },
+    {
+      "a": "Projekt Alpha nutzt Auth-Service",
+      "b": "Projekt Alpha nutzt den Auth-Service",
+      "merged": "Projekt Alpha nutzt Auth-Service not now",
+      "preserves": true
+    },
+    {
+      "a": "Projekt Alpha nutzt Node 20.",
+      "b": "Projekt Alpha nutzt Node.js 20.",
+      "merged": "Projekt Alpha nutzt Node 20.",
+      "preserves": false
+    },
+    {
+      "a": "Projekt Alpha nutzt Node 20.",
+      "b": "Projekt Alpha nutzt Node.js 20.",
+      "merged": "Projekt Alpha nutzt Node.js 20.",
+      "preserves": true
+    },
+    {
+      "a": "Projekt Alpha nutzt Node 20.",
+      "b": "Projekt Alpha nutzt Node.js 20.",
+      "merged": "Projekt Alpha nutzt Node 20. Projekt Alpha nutzt Node.js 20.",
+      "preserves": true
+    },
+    {
+      "a": "Projekt Alpha nutzt Node 20.",
+      "b": "Projekt Alpha nutzt Node.js 20.",
+      "merged": "",
+      "preserves": false
+    },
+    {
+      "a": "Projekt Alpha nutzt Node 20.",
+      "b": "Projekt Alpha nutzt Node.js 20.",
+      "merged": "Unrelated fact",
+      "preserves": false
+    },
+    {
+      "a": "Projekt Alpha nutzt Node 20.",
+      "b": "Projekt Alpha nutzt Node.js 20.",
+      "merged": "Projekt Alpha nutzt Node 20. not now",
+      "preserves": false
+    },
+    {
+      "a": "Projekt Alpha nutzt den Auth-Service.",
+      "b": "Projekt Beta nutzt den Auth-Service.",
+      "merged": "Projekt Alpha nutzt den Auth-Service.",
+      "preserves": false
+    },
+    {
+      "a": "Projekt Alpha nutzt den Auth-Service.",
+      "b": "Projekt Beta nutzt den Auth-Service.",
+      "merged": "Projekt Beta nutzt den Auth-Service.",
+      "preserves": false
+    },
+    {
+      "a": "Projekt Alpha nutzt den Auth-Service.",
+      "b": "Projekt Beta nutzt den Auth-Service.",
+      "merged": "Projekt Alpha nutzt den Auth-Service. Projekt Beta nutzt den Auth-Service.",
+      "preserves": true
+    },
+    {
+      "a": "Projekt Alpha nutzt den Auth-Service.",
+      "b": "Projekt Beta nutzt den Auth-Service.",
+      "merged": "",
+      "preserves": false
+    },
+    {
+      "a": "Projekt Alpha nutzt den Auth-Service.",
+      "b": "Projekt Beta nutzt den Auth-Service.",
+      "merged": "Unrelated fact",
+      "preserves": false
+    },
+    {
+      "a": "Projekt Alpha nutzt den Auth-Service.",
+      "b": "Projekt Beta nutzt den Auth-Service.",
+      "merged": "Projekt Alpha nutzt den Auth-Service. not now",
+      "preserves": false
+    },
+    {
+      "a": "User mag React.",
+      "b": "User mag Vue.",
+      "merged": "User mag React.",
+      "preserves": false
+    },
+    {
+      "a": "User mag React.",
+      "b": "User mag Vue.",
+      "merged": "User mag Vue.",
+      "preserves": false
+    },
+    {
+      "a": "User mag React.",
+      "b": "User mag Vue.",
+      "merged": "User mag React. User mag Vue.",
+      "preserves": true
+    },
+    {
+      "a": "User mag React.",
+      "b": "User mag Vue.",
+      "merged": "",
+      "preserves": false
+    },
+    {
+      "a": "User mag React.",
+      "b": "User mag Vue.",
+      "merged": "Unrelated fact",
+      "preserves": false
+    },
+    {
+      "a": "User mag React.",
+      "b": "User mag Vue.",
+      "merged": "User mag React. not now",
+      "preserves": false
+    },
+    {
+      "a": "Wir nutzen Postgres.",
+      "b": "Wir nutzen MySQL.",
+      "merged": "Wir nutzen Postgres.",
+      "preserves": false
+    },
+    {
+      "a": "Wir nutzen Postgres.",
+      "b": "Wir nutzen MySQL.",
+      "merged": "Wir nutzen MySQL.",
+      "preserves": false
+    },
+    {
+      "a": "Wir nutzen Postgres.",
+      "b": "Wir nutzen MySQL.",
+      "merged": "Wir nutzen Postgres. Wir nutzen MySQL.",
+      "preserves": true
+    },
+    {
+      "a": "Wir nutzen Postgres.",
+      "b": "Wir nutzen MySQL.",
+      "merged": "",
+      "preserves": false
+    },
+    {
+      "a": "Wir nutzen Postgres.",
+      "b": "Wir nutzen MySQL.",
+      "merged": "Unrelated fact",
+      "preserves": false
+    },
+    {
+      "a": "Wir nutzen Postgres.",
+      "b": "Wir nutzen MySQL.",
+      "merged": "Wir nutzen Postgres. not now",
+      "preserves": false
+    },
+    {
+      "a": "Deployment läuft auf Node 20.",
+      "b": "Deployment läuft auf Node 22.",
+      "merged": "Deployment läuft auf Node 20.",
+      "preserves": false
+    },
+    {
+      "a": "Deployment läuft auf Node 20.",
+      "b": "Deployment läuft auf Node 22.",
+      "merged": "Deployment läuft auf Node 22.",
+      "preserves": false
+    },
+    {
+      "a": "Deployment läuft auf Node 20.",
+      "b": "Deployment läuft auf Node 22.",
+      "merged": "Deployment läuft auf Node 20. Deployment läuft auf Node 22.",
+      "preserves": true
+    },
+    {
+      "a": "Deployment läuft auf Node 20.",
+      "b": "Deployment läuft auf Node 22.",
+      "merged": "",
+      "preserves": false
+    },
+    {
+      "a": "Deployment läuft auf Node 20.",
+      "b": "Deployment läuft auf Node 22.",
+      "merged": "Unrelated fact",
+      "preserves": false
+    },
+    {
+      "a": "Deployment läuft auf Node 20.",
+      "b": "Deployment läuft auf Node 22.",
+      "merged": "Deployment läuft auf Node 20. not now",
+      "preserves": false
+    },
+    {
+      "a": "Dreamdale ist ein Festival.",
+      "b": "Dreamdale ist eine fiktive Stadt.",
+      "merged": "Dreamdale ist ein Festival.",
+      "preserves": false
+    },
+    {
+      "a": "Dreamdale ist ein Festival.",
+      "b": "Dreamdale ist eine fiktive Stadt.",
+      "merged": "Dreamdale ist eine fiktive Stadt.",
+      "preserves": false
+    },
+    {
+      "a": "Dreamdale ist ein Festival.",
+      "b": "Dreamdale ist eine fiktive Stadt.",
+      "merged": "Dreamdale ist ein Festival. Dreamdale ist eine fiktive Stadt.",
+      "preserves": true
+    },
+    {
+      "a": "Dreamdale ist ein Festival.",
+      "b": "Dreamdale ist eine fiktive Stadt.",
+      "merged": "",
+      "preserves": false
+    },
+    {
+      "a": "Dreamdale ist ein Festival.",
+      "b": "Dreamdale ist eine fiktive Stadt.",
+      "merged": "Unrelated fact",
+      "preserves": false
+    },
+    {
+      "a": "Dreamdale ist ein Festival.",
+      "b": "Dreamdale ist eine fiktive Stadt.",
+      "merged": "Dreamdale ist ein Festival. not now",
+      "preserves": false
+    },
+    {
+      "a": "User prefers concise answers.",
+      "b": "The user prefers concise answers.",
+      "merged": "User prefers concise answers.",
+      "preserves": true
+    },
+    {
+      "a": "User prefers concise answers.",
+      "b": "The user prefers concise answers.",
+      "merged": "The user prefers concise answers.",
+      "preserves": true
+    },
+    {
+      "a": "User prefers concise answers.",
+      "b": "The user prefers concise answers.",
+      "merged": "User prefers concise answers. The user prefers concise answers.",
+      "preserves": true
+    },
+    {
+      "a": "User prefers concise answers.",
+      "b": "The user prefers concise answers.",
+      "merged": "",
+      "preserves": false
+    },
+    {
+      "a": "User prefers concise answers.",
+      "b": "The user prefers concise answers.",
+      "merged": "Unrelated fact",
+      "preserves": false
+    },
+    {
+      "a": "User prefers concise answers.",
+      "b": "The user prefers concise answers.",
+      "merged": "User prefers concise answers. not now",
+      "preserves": true
+    },
+    {
+      "a": "User mag React.",
+      "b": "User mag React nicht mehr.",
+      "merged": "User mag React.",
+      "preserves": false
+    },
+    {
+      "a": "User mag React.",
+      "b": "User mag React nicht mehr.",
+      "merged": "User mag React nicht mehr.",
+      "preserves": true
+    },
+    {
+      "a": "User mag React.",
+      "b": "User mag React nicht mehr.",
+      "merged": "User mag React. User mag React nicht mehr.",
+      "preserves": true
+    },
+    {
+      "a": "User mag React.",
+      "b": "User mag React nicht mehr.",
+      "merged": "",
+      "preserves": false
+    },
+    {
+      "a": "User mag React.",
+      "b": "User mag React nicht mehr.",
+      "merged": "Unrelated fact",
+      "preserves": false
+    },
+    {
+      "a": "User mag React.",
+      "b": "User mag React nicht mehr.",
+      "merged": "User mag React. not now",
+      "preserves": false
+    },
+    {
+      "a": "Wir nutzen Postgres.",
+      "b": "Früher nutzten wir Postgres.",
+      "merged": "Wir nutzen Postgres.",
+      "preserves": false
+    },
+    {
+      "a": "Wir nutzen Postgres.",
+      "b": "Früher nutzten wir Postgres.",
+      "merged": "Früher nutzten wir Postgres.",
+      "preserves": false
+    },
+    {
+      "a": "Wir nutzen Postgres.",
+      "b": "Früher nutzten wir Postgres.",
+      "merged": "Wir nutzen Postgres. Früher nutzten wir Postgres.",
+      "preserves": true
+    },
+    {
+      "a": "Wir nutzen Postgres.",
+      "b": "Früher nutzten wir Postgres.",
+      "merged": "",
+      "preserves": false
+    },
+    {
+      "a": "Wir nutzen Postgres.",
+      "b": "Früher nutzten wir Postgres.",
+      "merged": "Unrelated fact",
+      "preserves": false
+    },
+    {
+      "a": "Wir nutzen Postgres.",
+      "b": "Früher nutzten wir Postgres.",
+      "merged": "Wir nutzen Postgres. not now",
+      "preserves": false
+    },
+    {
+      "a": "Projekt Alpha nutzt den Auth-Service intern.",
+      "b": "Projekt Alpha nutzt den Auth-Service extern.",
+      "merged": "Projekt Alpha nutzt den Auth-Service intern.",
+      "preserves": false
+    },
+    {
+      "a": "Projekt Alpha nutzt den Auth-Service intern.",
+      "b": "Projekt Alpha nutzt den Auth-Service extern.",
+      "merged": "Projekt Alpha nutzt den Auth-Service extern.",
+      "preserves": false
+    },
+    {
+      "a": "Projekt Alpha nutzt den Auth-Service intern.",
+      "b": "Projekt Alpha nutzt den Auth-Service extern.",
+      "merged": "Projekt Alpha nutzt den Auth-Service intern. Projekt Alpha nutzt den Auth-Service extern.",
+      "preserves": true
+    },
+    {
+      "a": "Projekt Alpha nutzt den Auth-Service intern.",
+      "b": "Projekt Alpha nutzt den Auth-Service extern.",
+      "merged": "",
+      "preserves": false
+    },
+    {
+      "a": "Projekt Alpha nutzt den Auth-Service intern.",
+      "b": "Projekt Alpha nutzt den Auth-Service extern.",
+      "merged": "Unrelated fact",
+      "preserves": false
+    },
+    {
+      "a": "Projekt Alpha nutzt den Auth-Service intern.",
+      "b": "Projekt Alpha nutzt den Auth-Service extern.",
+      "merged": "Projekt Alpha nutzt den Auth-Service intern. not now",
+      "preserves": false
+    },
+    {
+      "a": "Original fact about cats",
+      "b": "Additional cat fact",
+      "merged": "Original fact about cats",
+      "preserves": true
+    },
+    {
+      "a": "Original fact about cats",
+      "b": "Additional cat fact",
+      "merged": "Additional cat fact",
+      "preserves": false
+    },
+    {
+      "a": "Original fact about cats",
+      "b": "Additional cat fact",
+      "merged": "Original fact about cats Additional cat fact",
+      "preserves": true
+    },
+    {
+      "a": "Original fact about cats",
+      "b": "Additional cat fact",
+      "merged": "",
+      "preserves": false
+    },
+    {
+      "a": "Original fact about cats",
+      "b": "Additional cat fact",
+      "merged": "Unrelated fact",
+      "preserves": false
+    },
+    {
+      "a": "Original fact about cats",
+      "b": "Additional cat fact",
+      "merged": "Original fact about cats not now",
+      "preserves": true
+    },
+    {
+      "a": "Wir nutzen Postgres.",
+      "b": "Wir nutzen PostgreSQL.",
+      "merged": "Wir nutzen Postgres.",
+      "preserves": false
+    },
+    {
+      "a": "Wir nutzen Postgres.",
+      "b": "Wir nutzen PostgreSQL.",
+      "merged": "Wir nutzen PostgreSQL.",
+      "preserves": false
+    },
+    {
+      "a": "Wir nutzen Postgres.",
+      "b": "Wir nutzen PostgreSQL.",
+      "merged": "Wir nutzen Postgres. Wir nutzen PostgreSQL.",
+      "preserves": true
+    },
+    {
+      "a": "Wir nutzen Postgres.",
+      "b": "Wir nutzen PostgreSQL.",
+      "merged": "",
+      "preserves": false
+    },
+    {
+      "a": "Wir nutzen Postgres.",
+      "b": "Wir nutzen PostgreSQL.",
+      "merged": "Unrelated fact",
+      "preserves": false
+    },
+    {
+      "a": "Wir nutzen Postgres.",
+      "b": "Wir nutzen PostgreSQL.",
+      "merged": "Wir nutzen Postgres. not now",
+      "preserves": false
+    },
+    {
+      "a": "Constructor guides Alpha",
+      "b": "Beta guides Alpha",
+      "merged": "Constructor guides Alpha",
+      "preserves": false
+    },
+    {
+      "a": "Constructor guides Alpha",
+      "b": "Beta guides Alpha",
+      "merged": "Beta guides Alpha",
+      "preserves": false
+    },
+    {
+      "a": "Constructor guides Alpha",
+      "b": "Beta guides Alpha",
+      "merged": "Constructor guides Alpha Beta guides Alpha",
+      "preserves": true
+    },
+    {
+      "a": "Constructor guides Alpha",
+      "b": "Beta guides Alpha",
+      "merged": "",
+      "preserves": false
+    },
+    {
+      "a": "Constructor guides Alpha",
+      "b": "Beta guides Alpha",
+      "merged": "Unrelated fact",
+      "preserves": false
+    },
+    {
+      "a": "Constructor guides Alpha",
+      "b": "Beta guides Alpha",
+      "merged": "Constructor guides Alpha not now",
+      "preserves": false
+    },
+    {
+      "a": "Constructor guides Alpha",
+      "b": "constructor guides Alpha",
+      "merged": "Constructor guides Alpha",
+      "preserves": true
+    },
+    {
+      "a": "Constructor guides Alpha",
+      "b": "constructor guides Alpha",
+      "merged": "constructor guides Alpha",
+      "preserves": false
+    },
+    {
+      "a": "Constructor guides Alpha",
+      "b": "constructor guides Alpha",
+      "merged": "Constructor guides Alpha constructor guides Alpha",
+      "preserves": true
+    },
+    {
+      "a": "Constructor guides Alpha",
+      "b": "constructor guides Alpha",
+      "merged": "",
+      "preserves": false
+    },
+    {
+      "a": "Constructor guides Alpha",
+      "b": "constructor guides Alpha",
+      "merged": "Unrelated fact",
+      "preserves": false
+    },
+    {
+      "a": "Constructor guides Alpha",
+      "b": "constructor guides Alpha",
+      "merged": "Constructor guides Alpha not now",
+      "preserves": true
+    },
+    {
+      "a": "Node 2.4.1",
+      "b": "Node 24.1",
+      "merged": "Node 2.4.1",
+      "preserves": false
+    },
+    {
+      "a": "Node 2.4.1",
+      "b": "Node 24.1",
+      "merged": "Node 24.1",
+      "preserves": false
+    },
+    {
+      "a": "Node 2.4.1",
+      "b": "Node 24.1",
+      "merged": "Node 2.4.1 Node 24.1",
+      "preserves": true
+    },
+    {
+      "a": "Node 2.4.1",
+      "b": "Node 24.1",
+      "merged": "",
+      "preserves": false
+    },
+    {
+      "a": "Node 2.4.1",
+      "b": "Node 24.1",
+      "merged": "Unrelated fact",
+      "preserves": false
+    },
+    {
+      "a": "Node 2.4.1",
+      "b": "Node 24.1",
+      "merged": "Node 2.4.1 not now",
+      "preserves": false
+    },
+    {
+      "a": "Node ٢٤",
+      "b": "Node 24",
+      "merged": "Node ٢٤",
+      "preserves": false
+    },
+    {
+      "a": "Node ٢٤",
+      "b": "Node 24",
+      "merged": "Node 24",
+      "preserves": false
+    },
+    {
+      "a": "Node ٢٤",
+      "b": "Node 24",
+      "merged": "Node ٢٤ Node 24",
+      "preserves": true
+    },
+    {
+      "a": "Node ٢٤",
+      "b": "Node 24",
+      "merged": "",
+      "preserves": false
+    },
+    {
+      "a": "Node ٢٤",
+      "b": "Node 24",
+      "merged": "Unrelated fact",
+      "preserves": false
+    },
+    {
+      "a": "Node ٢٤",
+      "b": "Node 24",
+      "merged": "Node ٢٤ not now",
+      "preserves": false
+    },
+    {
+      "a": "Ömer nutzt Grün",
+      "b": "Ömer nutzt Grün",
+      "merged": "Ömer nutzt Grün",
+      "preserves": false
+    },
+    {
+      "a": "Ömer nutzt Grün",
+      "b": "Ömer nutzt Grün",
+      "merged": "Ömer nutzt Grün",
+      "preserves": false
+    },
+    {
+      "a": "Ömer nutzt Grün",
+      "b": "Ömer nutzt Grün",
+      "merged": "Ömer nutzt Grün Ömer nutzt Grün",
+      "preserves": true
+    },
+    {
+      "a": "Ömer nutzt Grün",
+      "b": "Ömer nutzt Grün",
+      "merged": "",
+      "preserves": false
+    },
+    {
+      "a": "Ömer nutzt Grün",
+      "b": "Ömer nutzt Grün",
+      "merged": "Unrelated fact",
+      "preserves": false
+    },
+    {
+      "a": "Ömer nutzt Grün",
+      "b": "Ömer nutzt Grün",
+      "merged": "Ömer nutzt Grün not now",
+      "preserves": false
+    },
+    {
+      "a": "Auth-Service ist bereit",
+      "b": "Auth Service ist bereit",
+      "merged": "Auth-Service ist bereit",
+      "preserves": false
+    },
+    {
+      "a": "Auth-Service ist bereit",
+      "b": "Auth Service ist bereit",
+      "merged": "Auth Service ist bereit",
+      "preserves": true
+    },
+    {
+      "a": "Auth-Service ist bereit",
+      "b": "Auth Service ist bereit",
+      "merged": "Auth-Service ist bereit Auth Service ist bereit",
+      "preserves": true
+    },
+    {
+      "a": "Auth-Service ist bereit",
+      "b": "Auth Service ist bereit",
+      "merged": "",
+      "preserves": false
+    },
+    {
+      "a": "Auth-Service ist bereit",
+      "b": "Auth Service ist bereit",
+      "merged": "Unrelated fact",
+      "preserves": false
+    },
+    {
+      "a": "Auth-Service ist bereit",
+      "b": "Auth Service ist bereit",
+      "merged": "Auth-Service ist bereit not now",
+      "preserves": false
+    },
+    {
+      "a": "loss bus address cats",
+      "b": "loss bus address cat",
+      "merged": "loss bus address cats",
+      "preserves": true
+    },
+    {
+      "a": "loss bus address cats",
+      "b": "loss bus address cat",
+      "merged": "loss bus address cat",
+      "preserves": true
+    },
+    {
+      "a": "loss bus address cats",
+      "b": "loss bus address cat",
+      "merged": "loss bus address cats loss bus address cat",
+      "preserves": true
+    },
+    {
+      "a": "loss bus address cats",
+      "b": "loss bus address cat",
+      "merged": "",
+      "preserves": false
+    },
+    {
+      "a": "loss bus address cats",
+      "b": "loss bus address cat",
+      "merged": "Unrelated fact",
+      "preserves": false
+    },
+    {
+      "a": "loss bus address cats",
+      "b": "loss bus address cat",
+      "merged": "loss bus address cats not now",
+      "preserves": true
+    },
+    {
+      "a": "a b c d e f g h i j",
+      "b": "a b c d e f g h i k",
+      "merged": "a b c d e f g h i j",
+      "preserves": true
+    },
+    {
+      "a": "a b c d e f g h i j",
+      "b": "a b c d e f g h i k",
+      "merged": "a b c d e f g h i k",
+      "preserves": true
+    },
+    {
+      "a": "a b c d e f g h i j",
+      "b": "a b c d e f g h i k",
+      "merged": "a b c d e f g h i j a b c d e f g h i k",
+      "preserves": true
+    },
+    {
+      "a": "a b c d e f g h i j",
+      "b": "a b c d e f g h i k",
+      "merged": "",
+      "preserves": false
+    },
+    {
+      "a": "a b c d e f g h i j",
+      "b": "a b c d e f g h i k",
+      "merged": "Unrelated fact",
+      "preserves": true
+    },
+    {
+      "a": "a b c d e f g h i j",
+      "b": "a b c d e f g h i k",
+      "merged": "a b c d e f g h i j not now",
+      "preserves": true
+    },
+    {
+      "a": "one two three four five six seven eight nine ten",
+      "b": "one two three four five six seven eight nine",
+      "merged": "one two three four five six seven eight nine ten",
+      "preserves": true
+    },
+    {
+      "a": "one two three four five six seven eight nine ten",
+      "b": "one two three four five six seven eight nine",
+      "merged": "one two three four five six seven eight nine",
+      "preserves": false
+    },
+    {
+      "a": "one two three four five six seven eight nine ten",
+      "b": "one two three four five six seven eight nine",
+      "merged": "one two three four five six seven eight nine ten one two three four five six seven eight nine",
+      "preserves": true
+    },
+    {
+      "a": "one two three four five six seven eight nine ten",
+      "b": "one two three four five six seven eight nine",
+      "merged": "",
+      "preserves": false
+    },
+    {
+      "a": "one two three four five six seven eight nine ten",
+      "b": "one two three four five six seven eight nine",
+      "merged": "Unrelated fact",
+      "preserves": false
+    },
+    {
+      "a": "one two three four five six seven eight nine ten",
+      "b": "one two three four five six seven eight nine",
+      "merged": "one two three four five six seven eight nine ten not now",
+      "preserves": true
+    },
+    {
+      "a": "",
+      "b": "",
+      "merged": "",
+      "preserves": false
+    },
+    {
+      "a": "",
+      "b": "",
+      "merged": "",
+      "preserves": false
+    },
+    {
+      "a": "",
+      "b": "",
+      "merged": " ",
+      "preserves": false
+    },
+    {
+      "a": "",
+      "b": "",
+      "merged": "",
+      "preserves": false
+    },
+    {
+      "a": "",
+      "b": "",
+      "merged": "Unrelated fact",
+      "preserves": true
+    },
+    {
+      "a": "",
+      "b": "",
+      "merged": " not now",
+      "preserves": true
+    },
+    {
+      "a": "x\ud83d",
+      "b": "x�",
+      "merged": "x\ud83d",
+      "preserves": true
+    },
+    {
+      "a": "x\ud83d",
+      "b": "x�",
+      "merged": "x�",
+      "preserves": true
+    },
+    {
+      "a": "x\ud83d",
+      "b": "x�",
+      "merged": "x\ud83d x�",
+      "preserves": true
+    },
+    {
+      "a": "x\ud83d",
+      "b": "x�",
+      "merged": "",
+      "preserves": false
+    },
+    {
+      "a": "x\ud83d",
+      "b": "x�",
+      "merged": "Unrelated fact",
+      "preserves": true
+    },
+    {
+      "a": "x\ud83d",
+      "b": "x�",
+      "merged": "x\ud83d not now",
+      "preserves": true
+    },
+    {
+      "a": "New 𞛐abc １２",
+      "b": "New 𞛐abc 12",
+      "merged": "New 𞛐abc １２",
+      "preserves": false
+    },
+    {
+      "a": "New 𞛐abc １２",
+      "b": "New 𞛐abc 12",
+      "merged": "New 𞛐abc 12",
+      "preserves": false
+    },
+    {
+      "a": "New 𞛐abc １２",
+      "b": "New 𞛐abc 12",
+      "merged": "New 𞛐abc １２ New 𞛐abc 12",
+      "preserves": true
+    },
+    {
+      "a": "New 𞛐abc １２",
+      "b": "New 𞛐abc 12",
+      "merged": "",
+      "preserves": false
+    },
+    {
+      "a": "New 𞛐abc １２",
+      "b": "New 𞛐abc 12",
+      "merged": "Unrelated fact",
+      "preserves": false
+    },
+    {
+      "a": "New 𞛐abc １２",
+      "b": "New 𞛐abc 12",
+      "merged": "New 𞛐abc １２ not now",
+      "preserves": false
+    }
+  ]
+}

@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 #[path = "fact_quality_lexicon.rs"]
 mod lexicon;
 #[path = "fact_quality_text.rs"]
-mod matching;
+pub(super) mod matching;
 
 use lexicon::{
     ARCHITECTURE_WORDS, DURABLE_MARKERS, EMOTION_ONLY_WORDS, NEGATION_MARKERS, PREFERENCE_VERBS,
