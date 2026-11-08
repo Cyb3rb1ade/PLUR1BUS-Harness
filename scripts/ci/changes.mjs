@@ -21,9 +21,11 @@ const testRead = file => TEST_READ.find(([re]) => re.test(file))?.[1];
 // P4-10 ruling A1: what the Rust front door's Windows leg (`front-door-windows`) covers: the front door and the crates it is
 // built from, the supervisor that spawns it, module-api and the TypeScript seam it runs behind.
 const FRONT_DOOR = [
-  /^crates\/plur1bus-(?:core|audit|tools|rpc)\//,
+  /^crates\/plur1bus-(?:core|audit|tools|rpc|config)\//,
   /^crates\/plur1bus\/src\/supervisor\//,
   /^crates\/plur1bus\/src\/(?:commands\/core\.rs|repair\/)/, // the core command and 1staid, which the Windows leg tests
+  /^crates\/plur1bus\/src\/paths\.rs$/, // the path rules the CLI and the front door share
+  /^crates\/plur1bus\/tests\/fixtures\/fake-(?:core|legacy-hang)\.mjs$/, // fakes the front door's tests start
   /^packages\/module-api\//,
   /^packages\/core\/(?:src\/(?:core|bin|lock)\.ts|test\/(?:core-front-door|bin-entry)\.test\.ts)$/,
 ];
