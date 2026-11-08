@@ -1,0 +1,57 @@
+{
+  "recordedFrom": {
+    "engine": "node",
+    "pin": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "source": "engine/create-engine.js",
+    "sourceSha256": "616601790f1859fee2a61494bfd2ed8cd82874bdc759c37b8e5295c183028ed6",
+    "node": "v24.21.0"
+  },
+  "cases": [
+    {
+      "name": "ready",
+      "count": 2,
+      "mode": "flat",
+      "queries": 1,
+      "error": null,
+      "state": "ready_to_switch",
+      "validation": {
+        "semanticRecall": true,
+        "rows": 2,
+        "validationMemoryIdPresent": true,
+        "validationTable": "anna/memories"
+      }
+    },
+    {
+      "name": "empty",
+      "count": 0,
+      "mode": "error",
+      "queries": 0,
+      "error": null,
+      "state": "ready_to_switch",
+      "validation": {
+        "semanticRecall": true,
+        "rows": 0,
+        "validationMemoryIdPresent": false,
+        "validationTable": null
+      }
+    },
+    {
+      "name": "query-error",
+      "count": 1,
+      "mode": "error",
+      "queries": 1,
+      "error": "synthetic query failed",
+      "state": "validating",
+      "validation": null
+    },
+    {
+      "name": "recall-miss",
+      "count": 6,
+      "mode": "miss",
+      "queries": 1,
+      "error": "reembedding target generation did not recall the source validation memory",
+      "state": "validating",
+      "validation": null
+    }
+  ]
+}

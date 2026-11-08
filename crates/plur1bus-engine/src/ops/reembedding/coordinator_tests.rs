@@ -16,6 +16,9 @@ struct Live {
     provider_close_fails: bool,
     backend_close_fails: bool,
     wrong_identity: bool,
+    validation_mode: String,
+    queries: usize,
+    axes: BTreeMap<String, usize>,
     semantic: bool,
     created: bool,
     crashed: bool,
@@ -178,11 +181,57 @@ impl MigrationProvider for Provider {
     fn embed(
         &self,
         texts: &[String],
-        _: EmbedKind,
+        kind: EmbedKind,
         _: &Cancel,
     ) -> Result<Vec<Vec<f64>>, CoordinatorError> {
         let mut l = self.live.lock().unwrap();
         l.calls.push("embed".into());
+        if !l.validation_mode.is_empty() {
+            if matches!(kind, EmbedKind::Query) {
+                l.queries += 1;
+                if l.validation_mode == "error" {
+                    return Err(CoordinatorError::Provider);
+                }
+                if l.validation_mode == "miss" {
+                    return Ok(texts
+                        .iter()
+                        .map(|text| {
+                            let others = l
+                                .axes
+                                .iter()
+                                .filter(|(t, _)| *t != text)
+                                .map(|(_, a)| *a)
+                                .collect::<Vec<_>>();
+                            (0..8)
+                                .map(|i| {
+                                    if others.contains(&i) {
+                                        1.0 / (others.len() as f64).sqrt()
+                                    } else {
+                                        0.0
+                                    }
+                                })
+                                .collect()
+                        })
+                        .collect());
+                }
+            }
+            return Ok(texts
+                .iter()
+                .map(|text| {
+                    let next = l.axes.len();
+                    let axis = *l.axes.entry(text.clone()).or_insert(next);
+                    (0..8)
+                        .map(|i| {
+                            if i == if l.validation_mode == "miss" { axis } else { 0 } {
+                                1.0
+                            } else {
+                                0.0
+                            }
+                        })
+                        .collect()
+                })
+                .collect());
+        }
         Ok(if l.bad_provider {
             vec![]
         } else {
@@ -214,6 +263,9 @@ impl MigrationRuntime for Boundary {
     }
     fn plan_probe(&self, _: &Json, _: &Cancel) -> Result<Vec<f64>, CoordinatorError> {
         self.call("plan-probe");
+        if !self.live.lock().unwrap().validation_mode.is_empty() {
+            return Ok(vec![1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+        }
         Ok(vec![0.25, 0.5, 0.75])
     }
     fn create_provider(
@@ -238,23 +290,14 @@ impl MigrationRuntime for Boundary {
     }
     fn validate_probes(
         &self,
-        _: &Json,
-        _: &dyn MigrationProvider,
-        _: &Cancel,
+        record: &Json,
+        provider: &dyn MigrationProvider,
+        cancel: &Cancel,
     ) -> Result<Json, CoordinatorError> {
         self.call("validation-probe");
         if let Some(backend) = &self.real_backend {
-            let rows = backend.search(
-                "target",
-                "agent-a/memories",
-                &[0.25, 0.5, 0.75],
-                5,
-                &Cancel::never(),
-            )?;
-            return Ok(obj(vec![(
-                "semanticRecall",
-                Json::Bool(rows.len() == 1 && rows[0]["text"].is_string()),
-            )]));
+            let value = super::super::validation::validate(record, backend, provider, cancel)?;
+            return parse_json(&value.to_string()).map_err(|_| CoordinatorError::Host);
         }
         Ok(obj(vec![(
             "semanticRecall",
@@ -868,4 +911,112 @@ fn migration_started_and_written_by_actual_node_resumes_in_rust() {
     assert_eq!(backend.validate("target", &cancel).unwrap()["rows"], 1);
     assert_eq!(file_hashes(&root.path().join("active")), before);
     coordinator.shutdown().unwrap();
+}
+
+#[test]
+fn actual_engine_validation_scenarios_match_against_real_lance() {
+    use super::super::backend::{BackendConfig, GenerationBackend};
+    use crate::store::lance::migration_table::MigrationAccess;
+    use arrow_schema::{DataType, Field, Schema};
+    let cases: Value = serde_json::from_str(include_str!(
+        "../../../tests/fixtures/ops/golden/reembedding-validation.json"
+    ))
+    .unwrap();
+    let fixtures = fixture();
+    let base = &array(f(&fixtures, "cases")).unwrap()[0];
+    for case in cases["cases"].as_array().unwrap() {
+        let root = root();
+        let active = root.path().join("active");
+        let state = root.path().join("state");
+        let cancel = Cancel::never();
+        let access = MigrationAccess::new().unwrap();
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Utf8, false),
+            Field::new("text", DataType::Utf8, false),
+            Field::new("status", DataType::Utf8, false),
+            Field::new(
+                "vector",
+                DataType::FixedSizeList(Arc::new(Field::new("item", DataType::Float32, true)), 3),
+                true,
+            ),
+        ]));
+        let source = access
+            .create(&active.join("anna"), "memories", schema, &cancel)
+            .unwrap();
+        let count = case["count"].as_u64().unwrap();
+        if count > 0 {
+            source.add((0..count).map(|i|serde_json::json!({"id":format!("11111111-1111-4111-8111-{:012}",i),"text":format!("fact {i} about the lighthouse keeper"),"status":"active","vector":[1,0,0]})).collect(),&cancel).unwrap();
+        }
+        let before = file_hashes(&active);
+        let backend = Arc::new(
+            GenerationBackend::new(BackendConfig {
+                state_root: state.clone(),
+                active_root: active.clone(),
+                active_shared_base: active.clone(),
+                namespace: None,
+                active_generation: "active".into(),
+                active_selection: serde_json::json!({"mode":"generation","generation":"active"}),
+                active_fingerprint: serde_json::from_str(&write_json(f(base, "sourceFingerprint")))
+                    .unwrap(),
+                active_secret_ref: None,
+                config_revision: None,
+            })
+            .unwrap(),
+        );
+        let runtime = Arc::new(Boundary {
+            case: base.clone(),
+            live: Arc::new(Mutex::new(Live {
+                now: 1000,
+                validation_mode: case["mode"].as_str().unwrap().to_owned(),
+                ..Default::default()
+            })),
+            real_backend: Some(backend.clone()),
+        });
+        let coordinator = ReembeddingCoordinator::new(
+            Arc::new(MigrationStateStore::new(&state).unwrap()),
+            backend,
+            runtime.clone(),
+            Arc::new(Audit::default()),
+            MigrationLimits::default(),
+        );
+        let grant = MaintenanceGrant::for_test(Cancel::never());
+        let mut request = f(base, "request").clone();
+        let mut target = f(&request, "target").clone();
+        let mut fp = f(&target, "fingerprint").clone();
+        put(&mut fp, "dimensions", number(8)).unwrap();
+        put(&mut target, "fingerprint", fp).unwrap();
+        put(&mut request, "target", target).unwrap();
+        let plan = coordinator.plan(&grant, &request, &cancel).unwrap();
+        let proof = plan.plan().confirmation().expose_token();
+        let copied = coordinator
+            .apply(&grant, "migration-a", proof, &cancel)
+            .unwrap();
+        assert_eq!(s(&copied, "state"), "validating");
+        let result = coordinator.validate(&grant, "migration-a", &cancel);
+        assert_eq!(
+            result.is_err(),
+            !case["error"].is_null(),
+            "{}",
+            case["name"]
+        );
+        let record = coordinator
+            .status(&grant, "migration-a", &cancel)
+            .unwrap()
+            .unwrap();
+        assert_eq!(s(&record, "state"), case["state"]);
+        assert_eq!(
+            runtime.live.lock().unwrap().queries as u64,
+            case["queries"].as_u64().unwrap()
+        );
+        let value: Value = serde_json::from_str(&write_json(&record)).unwrap();
+        let v = &value["receipts"]["validation"];
+        let projected = if v.is_null() {
+            Value::Null
+        } else {
+            serde_json::json!({"semanticRecall":v["semanticRecall"],"rows":v["rows"],"validationMemoryIdPresent":!v["validationMemoryId"].is_null(),"validationTable":v["validationTable"]})
+        };
+        assert_eq!(projected, case["validation"], "{}", case["name"]);
+        assert_eq!(file_hashes(&active), before);
+        coordinator.shutdown().unwrap();
+    }
 }
