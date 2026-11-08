@@ -256,16 +256,18 @@ fn apply_steps(
         let now: u32 = tx
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .map_err(failed)?;
-        if now >= to {
-            tx.commit().map_err(failed)?;
-            continue;
-        }
+        // A newer migrator may have moved the file past this build's target meanwhile (P4-10 task review L2): checked
+        // before the skip, or every remaining step would count as "already in" and a newer schema as migrated.
         if now > target {
             return Err(StoreError::NewerSchema {
                 store: spec.name,
                 found: now,
                 supported: target,
             });
+        }
+        if now >= to {
+            tx.commit().map_err(failed)?;
+            continue;
         }
         tx.execute_batch(step).map_err(failed)?;
         tx.pragma_update(None, "user_version", to).map_err(failed)?;
@@ -336,5 +338,33 @@ mod tests {
             )
             .unwrap();
         assert_eq!(tables, 2);
+    }
+
+    /// P4-10 task review L2: a newer migrator that took the file past this build's target while we waited for the lock
+    /// is a newer schema, never "every step already in".
+    #[test]
+    fn a_file_a_newer_migrator_moved_past_the_target_is_a_newer_schema() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("s.sqlite");
+        let other = Connection::open(&path).unwrap();
+        other
+            .execute_batch("PRAGMA journal_mode=WAL; CREATE TABLE a (x); CREATE TABLE b (y); CREATE TABLE c (z); PRAGMA user_version = 3;")
+            .unwrap();
+        let mut conn = connect(&path).unwrap();
+        let steps = ["CREATE TABLE a (x)", "CREATE TABLE b (y)"];
+        // `from` = 0 is what this migrator read before the newer one ran.
+        let refused = apply_steps(&mut conn, &StoreSpec::new("s", 2), &steps, 0);
+        assert!(
+            matches!(
+                refused,
+                Err(StoreError::NewerSchema {
+                    found: 3,
+                    supported: 2,
+                    ..
+                })
+            ),
+            "{refused:?}"
+        );
+        assert_eq!(user_version(&conn).unwrap(), 3, "nothing was written");
     }
 }
