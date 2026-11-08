@@ -69,14 +69,7 @@ pub fn select(candidates: &[String], records: &[Value], threshold: f64, now: f64
 /// Reject opposite high-intensity emotional registers like the continuity gate.
 #[must_use]
 pub fn emotional_mismatch(trajectory: &str, register: &str) -> bool {
-    let negative = ["grief", "conflict", "loss", "anger", "anguish"];
-    let positive = ["celebration", "joy", "triumph", "delight", "elation"];
-    let trajectory = trajectory.to_lowercase();
-    let register = register.to_lowercase();
-    (negative.iter().any(|w| trajectory.contains(w))
-        && positive.iter().any(|w| register.contains(w)))
-        || (positive.iter().any(|w| trajectory.contains(w))
-            && negative.iter().any(|w| register.contains(w)))
+    crate::capture::continuity::emotional_mismatch(trajectory, register)
 }
 
 /// Render humility-framed pattern text without affecting the stored record.

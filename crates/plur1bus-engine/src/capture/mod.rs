@@ -82,3 +82,6 @@ pub mod reminders;
 pub mod speaker;
 /// Authenticated contextual speaker proposals over the existing SQLite mapping table.
 pub mod speaker_store;
+
+/// Shared continuity taste gate for capture/recall composition.
+pub mod continuity;
