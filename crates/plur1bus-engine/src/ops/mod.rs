@@ -23,6 +23,8 @@ mod memory_state;
 mod memory_stats;
 /// Non-creating private reads and explicit active-writer routes from native namespace pools.
 pub mod private_routes;
+/// Real private/shared memory routes without new request authority.
+pub mod routes;
 mod shared_mutation;
 /// Explicit sharing with identity-routed embeddings and source revalidation.
 pub mod sharing;

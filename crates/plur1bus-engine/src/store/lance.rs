@@ -130,13 +130,18 @@ impl Store {
         mode: OpenMode,
         expected: Option<&VectorSpaceIdentity>,
     ) -> Result<Self, StoreError> {
-        Self::open_with_executor(path, mode, expected, Executor::new()?)
+        Self::open_with_executor(path, mode, expected, Executor::new()?, false)
+    }
+    /// Explicit shared writer recovery; reads never admit a partially migrated provenance schema.
+    pub fn open_shared_write(path: &Path) -> Result<Self, StoreError> {
+        Self::open_with_executor(path, OpenMode::ReadWrite, None, Executor::new()?, true)
     }
     fn open_with_executor(
         path: &Path,
         mode: OpenMode,
         expected: Option<&VectorSpaceIdentity>,
         executor: Executor,
+        partial_sharing: bool,
     ) -> Result<Self, StoreError> {
         paths::assert_trusted_path(path)?;
         paths::assert_trusted_path(&path.join("memories.lance"))?;
@@ -231,7 +236,7 @@ impl Store {
             arrow_schema::DataType::FixedSizeList(_, dim) => *dim as usize,
             _ => return Err(StoreError::Corrupt),
         };
-        row::validate_schema(&schema, dim)?;
+        row::validate_shared_schema(&schema, dim, partial_sharing)?;
         if let Some(identity) = &identity {
             if identity.dimension.as_u64() != Some(dim as u64) {
                 return Err(StoreError::Corrupt);
@@ -318,7 +323,7 @@ impl Store {
                 .map_err(backend_error)?;
             Ok(())
         })?;
-        Self::open_with_executor(path, OpenMode::ReadWrite, Some(&identity), executor)
+        Self::open_with_executor(path, OpenMode::ReadWrite, Some(&identity), executor, false)
     }
     /// Internal physical route binding for durable original-caller receipts.
     pub(crate) fn physical_binding(&self) -> Result<(PathBuf, (u64, u64)), StoreError> {

@@ -18,6 +18,9 @@ pub mod recall_stats;
 pub mod routes;
 pub mod row;
 pub mod schema_version;
+mod shared_policy;
+/// Authenticated workspace/user physical pool routing.
+pub mod shared_pool;
 /// Node shared-copy columns outside the frozen MemoryRow contract.
 pub mod shared_row;
 pub mod sqlite;

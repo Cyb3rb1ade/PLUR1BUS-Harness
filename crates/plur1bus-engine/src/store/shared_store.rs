@@ -31,8 +31,13 @@ impl Store {
             return Ok(());
         }
         let table = self.table.clone();
+        let missing: Vec<_> = COLUMNS
+            .iter()
+            .copied()
+            .filter(|name| self.schema.field_with_name(name).is_err())
+            .collect();
         let schema = self.executor.run(async move {
-            let expressions = COLUMNS
+            let expressions = missing
                 .iter()
                 .map(|name| {
                     (
@@ -134,8 +139,26 @@ impl Store {
             return Err(StoreError::Corrupt);
         }
         let table = self.table.clone();
-        let predicate=format!("sourceMemoryId = {} AND sourceAgentId = {} AND (status = 'active' OR status = '' OR status IS NULL)",crate::store::filter::sql_string(id),crate::store::filter::sql_string(agent));
+        let id = crate::store::filter::sql_string(id);
+        let agent = crate::store::filter::sql_string(agent);
+        let live = "(status = 'active' OR status = '' OR status IS NULL)";
+        let predicate = format!("sourceMemoryId = {id} AND sourceAgentId = {agent} AND {live}");
+        let ambiguous = format!("{live} AND (sourceMemoryId IS NULL OR sourceMemoryId = '' OR (sourceMemoryId = {id} AND (sourceAgentId IS NULL OR sourceAgentId = '')))");
         self.executor.run(async move {
+            // Missing migration defaults are not proof that an original has no shared copy.
+            let unknown = table
+                .query()
+                .only_if(ambiguous)
+                .limit(1)
+                .execute()
+                .await
+                .map_err(backend_error)?
+                .try_collect::<Vec<_>>()
+                .await
+                .map_err(backend_error)?;
+            if unknown.iter().any(|batch| batch.num_rows() > 0) {
+                return Err(StoreError::Corrupt);
+            }
             let rows = table
                 .query()
                 .only_if(predicate)

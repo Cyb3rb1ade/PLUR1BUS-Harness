@@ -107,22 +107,29 @@ pub fn arrow_schema(dim: usize) -> Result<SchemaRef, StoreError> {
 // Node explicitly accepts UTF-8 columns promoted by Lance to 64-bit offsets.
 // Preserve that existing physical type while keeping the recorded bootstrap schema exact.
 pub(super) fn validate_schema(schema: &Schema, dim: usize) -> Result<(), StoreError> {
+    validate_shared_schema(schema, dim, false)
+}
+
+pub(super) fn validate_shared_schema(
+    schema: &Schema,
+    dim: usize,
+    partial: bool,
+) -> Result<(), StoreError> {
     let expected = arrow_schema(dim)?;
     let extra = schema
         .fields()
         .len()
         .checked_sub(expected.fields().len())
         .ok_or(StoreError::Corrupt)?;
-    if extra != 0 && extra != super::shared_row::COLUMNS.len() {
+    if extra > super::shared_row::COLUMNS.len()
+        || (!partial && extra != 0 && extra != super::shared_row::COLUMNS.len())
+    {
         return Err(StoreError::Corrupt);
     }
-    for (field, name) in schema
-        .fields()
-        .iter()
-        .skip(expected.fields().len())
-        .zip(super::shared_row::COLUMNS)
-    {
-        if field.name() != name
+    let mut seen = std::collections::HashSet::new();
+    for field in schema.fields().iter().skip(expected.fields().len()) {
+        if !super::shared_row::COLUMNS.contains(&field.name().as_str())
+            || !seen.insert(field.name())
             || field.is_nullable()
             || !matches!(field.data_type(), DataType::Utf8 | DataType::LargeUtf8)
         {

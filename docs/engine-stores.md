@@ -59,6 +59,32 @@ back beneath a replacement root cannot silently adopt the replacement. This adds
 handles and metadata checks; it does not provide atomic exclusion against an unrelated writer
 changing paths during a backend operation.
 
+`store::shared_pool::SharedPool` routes authenticated workspace and user identities to
+`.plur1bus-shared/workspaces/<w-key>` and `.plur1bus-shared/users/<u-key>` under the configured
+base. Keys use the existing context helpers; user pools are shared only across that user's
+agents/workspaces. Read leases neither create stores nor migrate schemas. Explicit writable
+leases add only missing provenance columns, retaining old target identities for provider
+selection. A partial shared schema requires the explicit `Store::open_shared_write` recovery
+path; ordinary readers reject it. Remaining columns and row values survive that migration. Missing origin values remain unknown:
+Unimport refuses a live unknown origin ID or a matching ID without its source agent; it never
+treats migration defaults as proof that no shared copy exists. Deleted copies and unrelated known
+origin IDs do not block that check.
+
+`ops::routes::MemoryStores` combines private routes followed by workspace/user sources and
+supplies the same physical pools to sharing and Unimport's readonly reference check. Acquisition
+errors propagate instead of silently returning empty shared sources. Row ACL and authenticated
+operation context remain mandatory; construction does not activate ProcessEngine capabilities.
+
+Each writable shared lease checks base ownership and owner-only shared-root permissions
+(including cached leases). Existing loose permissions are refused, never repaired. Unix uses
+UID/mode checks; Windows uses owner SID and strict DACL inspection, permitting the current user,
+SYSTEM and Administrators on the private root. Windows native behavior is not established by the
+macOS tests. Root replacement taints the router until restart. Leased stores retain all directory
+pins, and idle-only cache eviction never invalidates an outstanding handle. RE-D127's SHA-bound
+fixture marker documents stricter partial-schema reads, tainted reads and repeated permission
+checks against the actual Node observations. The cost is held directory handles and additional
+metadata/ACL checks; no atomic exclusion of an unrelated process during a backend call is claimed.
+
 Every T4 route resolves an expected identity for its namespace and agent through
 `store::routes::StoreIdentityResolver`. `NamespaceStores::open` uses the active identity as the
 production fallback for **all** routes, including read-only legacy routes;

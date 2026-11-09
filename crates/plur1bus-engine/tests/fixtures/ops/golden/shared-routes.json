@@ -1,0 +1,67 @@
+{
+  "recordedFrom": {
+    "source": {
+      "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+      "treeSha256": "7def6824293d4cfb5f405ecbde1e5ac4e8ab83c9358e9f4d68bb7d428445781d"
+    },
+    "node": "v24.21.0"
+  },
+  "context": {
+    "workspaceIdentity": "workspace:v1:shared-routing-fixture",
+    "userPrincipal": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d"
+  },
+  "expected": {
+    "keys": {
+      "workspace": "w-1d70ecba213e2738a3662b34b33d108150bcf905933acf0a9efe8c50fc6587",
+      "user": "u-98e10413ff53e7b883fa90cfb1f073d7ec34eeb28afaf63aeee27e3c712967"
+    },
+    "absent": null,
+    "createdByRead": false,
+    "created": 0,
+    "workspacePath": ".plur1bus-shared/workspaces/w-1d70ecba213e2738a3662b34b33d108150bcf905933acf0a9efe8c50fc6587",
+    "workspaceExists": true,
+    "userAbsent": null,
+    "userPath": ".plur1bus-shared/users/u-98e10413ff53e7b883fa90cfb1f073d7ec34eeb28afaf63aeee27e3c712967",
+    "userExists": true,
+    "otherUser": null,
+    "sameUserOtherWorkspace": 0,
+    "unbound": null,
+    "partialColumns": [
+      "sourceMemoryId",
+      "shareIdempotencyKey"
+    ],
+    "partialReadCount": 0,
+    "repairedColumns": [
+      "sourceMemoryId",
+      "shareIdempotencyKey",
+      "sourceAgentId",
+      "shareProvenance"
+    ],
+    "firstReplacedRootError": "EIDENTITY",
+    "supportAfterReplacement": {
+      "supported": false,
+      "mode": "verified-path",
+      "reason": "identity-changed"
+    },
+    "taintedRead": null,
+    "permissions": [
+      {
+        "cached": false,
+        "writeAllowed": false,
+        "support": {
+          "supported": false,
+          "mode": "verified-path",
+          "reason": "unsafe-root"
+        }
+      },
+      {
+        "cached": true,
+        "writeAllowed": true,
+        "support": {
+          "supported": true,
+          "mode": "verified-path"
+        }
+      }
+    ]
+  }
+}
