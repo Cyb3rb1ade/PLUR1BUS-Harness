@@ -326,6 +326,7 @@ impl NativeMerge {
                             proof,
                             stage: 0,
                             curation: None,
+                            knowledge: None,
                         },
                         None,
                     ),
@@ -370,6 +371,29 @@ impl NativeMerge {
                         frozen.complete,
                         cancel,
                     )?)
+                } else {
+                    None
+                };
+                let knowledge_context = merged_knowledge::KnowledgeContext {
+                    workspace: &workspace,
+                    store: &store,
+                    context: ctx,
+                };
+                let existing_knowledge = if let Some(frozen) = &receipt.knowledge {
+                    let origin = saved.normal_origin.as_ref().ok_or(StoreError::Corrupt)?;
+                    let config = serde_json::to_value(self.reader.context.host().config())
+                        .map_err(|_| StoreError::Corrupt)?;
+                    let knowledge = merged_knowledge::Files::restore(
+                        self,
+                        &knowledge_context,
+                        origin
+                            .proposal(request, ctx, &config, frozen.now_ms, cancel)?
+                            .as_deref(),
+                        frozen,
+                        cancel,
+                    )?;
+                    knowledge.validate(self, &knowledge_context, cancel)?;
+                    Some(knowledge)
                 } else {
                     None
                 };
@@ -474,14 +498,89 @@ impl NativeMerge {
                             .as_mut()
                             .ok_or(StoreError::Corrupt)?
                             .complete = true;
-                        state::save(dir, &name, bytes.as_deref(), &receipt, cancel, &|| {
-                            checked()?;
-                            publication.validate(true, cancel)
-                        })?;
+                        bytes = Some(state::save(
+                            dir,
+                            &name,
+                            bytes.as_deref(),
+                            &receipt,
+                            cancel,
+                            &|| {
+                                checked()?;
+                                publication.validate(true, cancel)
+                            },
+                        )?);
                     }
                     self.observe("normal-merge-curation-complete")?;
                     checked()?;
                     publication.validate(true, cancel)?;
+                    if origin.requires_knowledge() {
+                        let knowledge = if let Some(files) = existing_knowledge {
+                            files
+                        } else {
+                            let now = self.reader.context.host().now_ms();
+                            let config = serde_json::to_value(self.reader.context.host().config())
+                                .map_err(|_| StoreError::Corrupt)?;
+                            merged_knowledge::Files::prepare(
+                                self,
+                                &knowledge_context,
+                                origin.proposal(request, ctx, &config, now, cancel)?,
+                                now,
+                                cancel,
+                            )?
+                        };
+                        let checked = || {
+                            preflight(6)?;
+                            publication.validate(true, cancel)?;
+                            knowledge.validate(self, &knowledge_context, cancel)
+                        };
+                        if receipt.knowledge.is_none() {
+                            receipt.knowledge = Some(knowledge.frozen.clone());
+                            bytes = Some(state::save(
+                                dir,
+                                &name,
+                                bytes.as_deref(),
+                                &receipt,
+                                cancel,
+                                &checked,
+                            )?);
+                        }
+                        if knowledge.frozen.stage < 3 {
+                            self.observe("normal-merge-knowledge-prepared")?;
+                            knowledge.publish(cancel, &checked)?;
+                            self.observe("normal-merge-knowledge-write")?;
+                            for (stage, label) in [
+                                (1, "normal-merge-knowledge-verified"),
+                                (2, "normal-merge-knowledge-audited"),
+                                (3, "normal-merge-knowledge-complete"),
+                            ] {
+                                if stage == 2 {
+                                    knowledge.publish_overflow(cancel, &checked)?;
+                                    self.observe("normal-merge-knowledge-audit-write")?;
+                                }
+                                knowledge.validate_written(stage, cancel)?;
+                                if receipt.knowledge.as_ref().ok_or(StoreError::Corrupt)?.stage
+                                    < stage
+                                {
+                                    receipt.knowledge.as_mut().ok_or(StoreError::Corrupt)?.stage =
+                                        stage;
+                                    bytes = Some(state::save(
+                                        dir,
+                                        &name,
+                                        bytes.as_deref(),
+                                        &receipt,
+                                        cancel,
+                                        &|| {
+                                            checked()?;
+                                            knowledge.validate_written(stage, cancel)
+                                        },
+                                    )?);
+                                }
+                                self.observe(label)?;
+                            }
+                            knowledge.validate_written(3, cancel)?;
+                        }
+                        checked()?;
+                    }
                 }
                 Ok(result())
             },
@@ -595,3 +694,5 @@ pub use normal_merge::selection::insert::publication_chain::StorePublicationResu
 
 pub use normal_merge::selection::duplicate::DuplicateStoreResult;
 pub(crate) use normal_merge::selection::duplicate::{restore_duplicate, RestoredDuplicate};
+
+use normal_merge::selection::insert::knowledge as merged_knowledge;

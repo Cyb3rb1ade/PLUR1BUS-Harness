@@ -127,7 +127,7 @@ two identical lines; exact retries append neither again. Later unrelated complet
 while changed/deleted evidence, an interposed line at the reserved position, malformed/oversized/
 linked files or changed directory/source authority refuse. This assumes cooperating native writer
 leases; it cannot attribute externally written byte-identical lines to a different process.
-Common request admission and merged-result curation/knowledge composition remain separate.
+Common request admission remains separate from these branch-specific publishers.
 
 Normal host merges now retain their original input, assessment time, parsed model decision,
 configuration digest and workspace/registry bindings in the primary intent before destructive
@@ -141,7 +141,18 @@ the destructive `memory.deleted` audit remains a different required artifact. Or
 open resumes the gap and each curation boundary, preserving prepared times. Missing completed
 evidence, changed configuration/directory/replacement or invalid reason encoding refuses before
 acknowledgement. The pinned decision parser requires a string reason; malformed UTF-16 reasons
-fail before any primary write. Merged knowledge staging and common request composition remain open.
+fail before any primary write.
+
+New normal origins (private receipt version two) also retain the knowledge publication obligation
+before any primary write. After curation, the shared queue publisher derives eligibility from the
+original input quality/category and final merged importance. It freezes the phase time, exact
+before/after queue bytes and authorized capacity victims before publication. Current primary,
+archive, destructive audit and curation evidence remain mandatory at each queue boundary.
+Version-one origins retain their earlier curation-only behavior; raw merges remain primary-only.
+Recovery uses the actual Node file lock and its sixty-second stale threshold, without providers.
+Completed staging is historical: consumed entries are never requeued. Required overflow audit
+lines are retained evidence and cannot be silently regenerated. Whole-request admission across
+branches, interference and production process composition remain separate RX work.
 
 ## Targets
 

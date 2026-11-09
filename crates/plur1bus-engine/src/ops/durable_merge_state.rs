@@ -20,6 +20,8 @@ pub(crate) struct Receipt {
     pub stage: u8,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub curation: Option<CurationReceipt>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub knowledge: Option<super::normal_insert_state::KnowledgeReceipt>,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -33,6 +35,8 @@ impl Receipt {
         self.stage != 6
             || (self.plan.get("normal_origin").is_some()
                 && !self.curation.as_ref().is_some_and(|r| r.complete))
+            || (self.plan["normal_origin"]["version"] == 2
+                && self.knowledge.as_ref().is_none_or(|r| r.stage != 3))
     }
 }
 pub(crate) fn receipts(
@@ -78,6 +82,12 @@ pub(crate) fn receipts(
             || receipt.stage > 6
             || (receipt.curation.is_some()
                 && (receipt.stage != 6 || receipt.plan.get("normal_origin").is_none()))
+            || receipt.knowledge.as_ref().is_some_and(|r| {
+                r.stage > 3
+                    || receipt.stage != 6
+                    || receipt.plan["normal_origin"]["version"] != 2
+                    || !receipt.curation.as_ref().is_some_and(|c| c.complete)
+            })
             || receipt.version != 1
             || receipt.plan["command"] != "memory-store-merge"
             || receipt.plan["version"] != 1

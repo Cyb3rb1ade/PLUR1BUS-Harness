@@ -342,22 +342,30 @@ impl NativeMerge {
                 if mode.knowledge && !receipt.curation.as_ref().is_some_and(|c| c.complete) {
                     return Err(StoreError::InvalidInput.into());
                 }
+                let knowledge_context = knowledge::KnowledgeContext::from(plan);
                 let knowledge_replayed = receipt.knowledge.is_some();
                 let knowledge = match &receipt.knowledge {
                     Some(frozen) => Some(knowledge::Files::restore(
-                        self, &saved, plan, frozen, cancel,
-                    )?),
-                    None if mode.knowledge => Some(knowledge::Files::prepare(
                         self,
-                        &saved,
-                        plan,
-                        self.reader.context.host().now_ms(),
+                        &knowledge_context,
+                        knowledge::proposal(&saved, plan, frozen.now_ms, cancel)?.as_deref(),
+                        frozen,
                         cancel,
                     )?),
+                    None if mode.knowledge => {
+                        let now = self.reader.context.host().now_ms();
+                        Some(knowledge::Files::prepare(
+                            self,
+                            &knowledge_context,
+                            knowledge::proposal(&saved, plan, now, cancel)?,
+                            now,
+                            cancel,
+                        )?)
+                    }
                     None => None,
                 };
                 if let Some(files) = &knowledge {
-                    files.validate(self, plan, cancel)?;
+                    files.validate(self, &knowledge_context, cancel)?;
                 }
                 let knowledge_staged = knowledge.as_ref().is_some_and(|f| f.frozen.staged);
                 let publication_requested = receipt.publication_requested || mode.publication;
@@ -469,7 +477,7 @@ impl NativeMerge {
                             .as_ref()
                             .ok_or(StoreError::Corrupt)?
                             .validate(true, cancel)?;
-                        files.validate(self, plan, cancel)
+                        files.validate(self, &knowledge_context, cancel)
                     };
                     if receipt.knowledge.is_none() {
                         receipt.knowledge = Some(files.frozen.clone());

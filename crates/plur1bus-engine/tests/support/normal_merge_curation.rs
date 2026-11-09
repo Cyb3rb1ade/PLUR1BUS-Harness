@@ -59,7 +59,7 @@ fn primary_complete_gap_and_curation_boundaries_recover_without_model_replay() {
         assert_eq!(p.embed.calls.load(Ordering::SeqCst), 0);
     }
 }
-fn receipt(root: &Path) -> PathBuf {
+pub(super) fn receipt(root: &Path) -> PathBuf {
     for dir in std::fs::read_dir(root.join("neo/workspaces")).unwrap() {
         for file in std::fs::read_dir(dir.unwrap().path()).unwrap() {
             let file = file.unwrap();
@@ -74,7 +74,7 @@ fn receipt(root: &Path) -> PathBuf {
     }
     panic!("merge receipt absent");
 }
-fn request(root: &Path) -> plur1bus_engine::ops::durable_merge::MergeRequest {
+pub(super) fn request(root: &Path) -> plur1bus_engine::ops::durable_merge::MergeRequest {
     let value: Value = serde_json::from_slice(&std::fs::read(receipt(root)).unwrap()).unwrap();
     let p = &value["plan"];
     plur1bus_engine::ops::durable_merge::MergeRequest {
@@ -177,6 +177,7 @@ fn a_legacy_primary_receipt_without_normal_origin_gains_no_curation_obligation()
         .unwrap()
         .remove("normal_origin");
     value.as_object_mut().unwrap().remove("curation");
+    value.as_object_mut().unwrap().remove("knowledge");
     value["fingerprint"] = format!(
         "sha256:{:x}",
         Sha256::digest(serde_json::to_vec(&value["plan"]).unwrap())

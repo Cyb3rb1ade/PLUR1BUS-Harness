@@ -84,10 +84,10 @@ impl Files {
         })
     }
     pub(super) fn overflow(
-        plan: &NormalCandidatePlan,
+        workspace: &TrustedDirectory,
         frozen: CurationReceipt,
     ) -> Result<Self, EngineError> {
-        let directory = plan.workspace.open_child(".adaptive-learning")?;
+        let directory = workspace.open_child(".adaptive-learning")?;
         if directory_binding(&directory) != frozen.directory {
             return Err(StoreError::UntrustedPath.into());
         }

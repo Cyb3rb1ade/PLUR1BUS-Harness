@@ -40,7 +40,7 @@ struct Entry {
     category: String,
     importance: f64,
 }
-fn proposal(
+pub(super) fn proposal(
     saved: &SavedInsert,
     plan: &NormalCandidatePlan,
     now: i64,
@@ -153,21 +153,34 @@ fn transition(
         affected,
     })
 }
-pub(super) struct Files {
+pub(in crate::ops::durable_merge) struct KnowledgeContext<'a> {
+    pub workspace: &'a TrustedDirectory,
+    pub store: &'a Store,
+    pub context: &'a RequestContext,
+}
+impl<'a> From<&'a NormalCandidatePlan> for KnowledgeContext<'a> {
+    fn from(plan: &'a NormalCandidatePlan) -> Self {
+        Self {
+            workspace: &plan.workspace,
+            store: &plan.store,
+            context: &plan.context,
+        }
+    }
+}
+pub(in crate::ops::durable_merge) struct Files {
     directory: Option<TrustedDirectory>,
     lock: Option<LockGuard>,
-    pub(super) frozen: KnowledgeReceipt,
+    pub(in crate::ops::durable_merge) frozen: KnowledgeReceipt,
     overflow: Option<curation::Files>,
 }
 impl Files {
-    pub(super) fn prepare(
+    pub(in crate::ops::durable_merge) fn prepare(
         native: &NativeMerge,
-        saved: &SavedInsert,
-        plan: &NormalCandidatePlan,
+        plan: &KnowledgeContext<'_>,
+        proposal: Option<String>,
         now: i64,
         cancel: &Cancel,
     ) -> Result<Self, EngineError> {
-        let proposal = proposal(saved, plan, now, cancel)?;
         let mut frozen = KnowledgeReceipt {
             now_ms: now,
             directory: None,
@@ -194,7 +207,7 @@ impl Files {
                     .store
                     .get_record(&entry.memory_id)?
                     .ok_or(StoreError::InvalidInput)?;
-                native.private(&row, &plan.context)?;
+                native.private(&row, plan.context)?;
                 state::bounded_row(&row.row, cancel)?;
                 frozen.affected_sources.push(row.into());
             }
@@ -229,7 +242,7 @@ impl Files {
         .ok_or(StoreError::Busy)?)
     }
     fn overflow(
-        plan: &NormalCandidatePlan,
+        plan: &KnowledgeContext<'_>,
         frozen: &KnowledgeReceipt,
     ) -> Result<Option<curation::Files>, EngineError> {
         frozen
@@ -237,7 +250,7 @@ impl Files {
             .as_ref()
             .map(|event_json| {
                 curation::Files::overflow(
-                    plan,
+                    plan.workspace,
                     CurationReceipt {
                         now_ms: frozen.now_ms,
                         directory: frozen.directory.clone().ok_or(StoreError::Corrupt)?,
@@ -248,14 +261,14 @@ impl Files {
             })
             .transpose()
     }
-    pub(super) fn restore(
+    pub(in crate::ops::durable_merge) fn restore(
         native: &NativeMerge,
-        saved: &SavedInsert,
-        plan: &NormalCandidatePlan,
+        plan: &KnowledgeContext<'_>,
+        expected_proposal: Option<&str>,
         frozen: &KnowledgeReceipt,
         cancel: &Cancel,
     ) -> Result<Self, EngineError> {
-        if frozen.stage > 3 || frozen.proposal != proposal(saved, plan, frozen.now_ms, cancel)? {
+        if frozen.stage > 3 || frozen.proposal.as_deref() != expected_proposal {
             return Err(StoreError::Corrupt.into());
         }
         let Some(input) = &frozen.proposal else {
@@ -311,10 +324,10 @@ impl Files {
         files.validate(native, plan, cancel)?;
         Ok(files)
     }
-    pub(super) fn validate(
+    pub(in crate::ops::durable_merge) fn validate(
         &self,
         native: &NativeMerge,
-        plan: &NormalCandidatePlan,
+        plan: &KnowledgeContext<'_>,
         cancel: &Cancel,
     ) -> Result<(), EngineError> {
         cancel.check()?;
@@ -327,12 +340,12 @@ impl Files {
             }
             self.validate_queue(self.frozen.stage > 0, cancel)?;
             for source in &self.frozen.affected_sources {
-                native.private(&source.record(), &plan.context)?;
+                native.private(&source.record(), plan.context)?;
                 let row = plan
                     .store
                     .get_record(&source.row.id)?
                     .ok_or(StoreError::InvalidInput)?;
-                native.private(&row, &plan.context)?;
+                native.private(&row, plan.context)?;
                 if !source.same(&row)? {
                     return Err(StoreError::InvalidInput.into());
                 }
@@ -356,7 +369,11 @@ impl Files {
         }
         Ok(())
     }
-    pub(super) fn validate_written(&self, stage: u8, cancel: &Cancel) -> Result<(), EngineError> {
+    pub(in crate::ops::durable_merge) fn validate_written(
+        &self,
+        stage: u8,
+        cancel: &Cancel,
+    ) -> Result<(), EngineError> {
         self.validate_queue(true, cancel)?;
         if stage >= 2 {
             if let Some(overflow) = &self.overflow {
@@ -365,7 +382,7 @@ impl Files {
         }
         Ok(())
     }
-    pub(super) fn publish(
+    pub(in crate::ops::durable_merge) fn publish(
         &self,
         cancel: &Cancel,
         check: &dyn Fn() -> Result<(), EngineError>,
@@ -384,7 +401,7 @@ impl Files {
         }
         self.validate_queue(true, cancel)
     }
-    pub(super) fn publish_overflow(
+    pub(in crate::ops::durable_merge) fn publish_overflow(
         &self,
         cancel: &Cancel,
         check: &dyn Fn() -> Result<(), EngineError>,

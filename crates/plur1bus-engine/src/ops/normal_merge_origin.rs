@@ -30,7 +30,7 @@ impl NormalMergeOrigin {
         registry: &TrustedDirectory,
     ) -> Result<Self, EngineError> {
         Ok(Self {
-            version: 1,
+            version: 2,
             params: write_json(params),
             assessed_at,
             decision: write_json(decision),
@@ -76,7 +76,7 @@ impl NormalMergeOrigin {
         dirs: (&TrustedDirectory, &TrustedDirectory),
         cancel: &Cancel,
     ) -> Result<(), EngineError> {
-        if self.version != 1
+        if !matches!(self.version, 1 | 2)
             || self.config_hash != digest(config)?
             || self.workspace != binding(dirs.0)
             || self.registry != binding(dirs.1)
@@ -132,6 +132,23 @@ impl NormalMergeOrigin {
         cancel.check()?;
         Ok(())
     }
+    pub(in crate::ops::durable_merge) fn requires_knowledge(&self) -> bool {
+        self.version >= 2
+    }
+    pub(in crate::ops::durable_merge) fn proposal(
+        &self,
+        request: &MergeRequest,
+        ctx: &RequestContext,
+        config: &Value,
+        now_ms: i64,
+        cancel: &Cancel,
+    ) -> Result<Option<String>, EngineError> {
+        Ok(self
+            .effects(request, ctx, config, now_ms, cancel)?
+            .knowledge_pending
+            .map(|v| serde_json::to_string(&v).map_err(|_| StoreError::Corrupt))
+            .transpose()?)
+    }
     pub(in crate::ops::durable_merge) fn event(
         &self,
         request: &MergeRequest,
@@ -140,11 +157,22 @@ impl NormalMergeOrigin {
         now_ms: i64,
         cancel: &Cancel,
     ) -> Result<String, EngineError> {
+        Ok(self
+            .effects(request, ctx, config, now_ms, cancel)?
+            .curation_json)
+    }
+    pub(in crate::ops::durable_merge) fn effects(
+        &self,
+        request: &MergeRequest,
+        ctx: &RequestContext,
+        config: &Value,
+        now_ms: i64,
+        cancel: &Cancel,
+    ) -> Result<crate::capture::normal_store::ExternalStoreEffects, EngineError> {
         let cfg = crate::config::effective_config(config).map_err(|_| StoreError::InvalidInput)?;
         let row = serde_json::to_value(&request.replacement).map_err(|_| StoreError::Corrupt)?;
         let reason = self.reason(cancel)?;
-        Ok(self
-            .assess(ctx, cancel)?
+        self.assess(ctx, cancel)?
             .effects(
                 StoreOutcome::Merged {
                     id: &request.replacement.id,
@@ -157,7 +185,6 @@ impl NormalMergeOrigin {
                 cfg["schicht15"]["minImportance"].as_f64().unwrap_or(0.7),
                 cancel,
             )?
-            .into_external()?
-            .curation_json)
+            .into_external()
     }
 }

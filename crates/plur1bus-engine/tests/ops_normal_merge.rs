@@ -603,3 +603,6 @@ mod duplicate_tests;
 
 #[path = "support/normal_merge_curation.rs"]
 mod merge_curation_tests;
+
+#[path = "support/normal_merge_knowledge.rs"]
+mod merge_knowledge_tests;
