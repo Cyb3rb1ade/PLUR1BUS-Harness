@@ -7,6 +7,7 @@ pub mod capture_journal;
 mod capture_plan;
 pub mod correction_effects;
 pub mod curation;
+mod curation_store;
 pub mod derived;
 mod derived_fields;
 pub mod embedding_drain;

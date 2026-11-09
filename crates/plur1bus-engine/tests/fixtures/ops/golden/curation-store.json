@@ -1,0 +1,167 @@
+{
+  "a1Pin": "9b935ce1f970bd92a931aa99a58c620669c8085f",
+  "a1SourceManifestSha256": "c370515fdde1550bdc5a98dc1662d22a1e8cfd6437b04233cbc05c56a9fa78ee",
+  "c4Pin": "af73288cf2a268213b6e8d4a8151772aa327e29b",
+  "c4Sources": {
+    "lib/neo-arch.js": "8c6b87d7669d9ae041b4c661bb7d9d24465a75e3ff22333af0c653e6e17e4950",
+    "lib/emotion.js": "4fad4d37803bbee8bf95a8d3db11b5e2fdc3b195d617055a8af63a0d52780c27",
+    "lib/emotion-engine.js": "b8d4e60b785c9d19809b7f2bfe67e6d2871dfb1b4699bd96b6ee666391372557",
+    "lib/emotion-score.js": "4f5aff9b4bb80e9673c2d1d0a748bd69f12979e11241f946e0b43e48a0df3573",
+    "lib/tier1-lexicon.js": "b4f0e03d727355e52806cda8761f4b38c3af3dc064a051f804ed99981b3d09f8",
+    "lib/tier2-transformer.js": "f928294f31e1cf5c69ffff8b3a8c98b42af8ccc4205877036895d35acc13a120",
+    "lib/tier3-llm.js": "7749de629deee9a0cc8cd01dc51cb7bbcc6e5a99256b5eb794abf0fd41ab0dc6",
+    "lib/host-network.js": "360b692df2f2c3dc9761cfe73ca5165da4b5416f8b7778b5ec79b1dd253aaf69",
+    "lib/emotion-blends.js": "653021f8048772dc6a2c1da0e60bfef08250bcd61aacf45ba1a9bf379fa7ca29",
+    "lib/abort.js": "435016008fa477f7ed7d3215505324bb3e7159e123ea553b35fb8a14d5a4055d",
+    "lib/relevant-memory-context.js": "021cb6e3e568915dbd12602f77ba924ac8c6f1cbc43fcb93cd8697156dca4c66",
+    "lib/memory-context-sanitize.js": "476528aa230fcda996245aa22efee376153ea4bc9a6287ce77da62c1a54e2377",
+    "lib/pattern-surface.js": "e65b2ec958b0564f44ae374579ee59f52f2c9b5be50e3a95e9bb33527b276b8b",
+    "lib/continuity-gate.js": "74b57c98d4631c9d6d34ecc2c744b02f2f430584e270671f60b3ecadc2de84b6",
+    "lib/recall-decision-trace.js": "cee6208fa0a91654adae11ccd17c3b44e86c84fdf9b30c1addfa1d299c96711d",
+    "lib/temporal-provenance.js": "b15da5a91b134fddd99a8ff2448999b9b9e8da3f069b05dd73a2c1ae3a89cc60",
+    "lib/prompt-memory-fields.js": "f20716b535734930677a4657ee62c01247679aa2ba2f0f6a3d7a6de62396bbda",
+    "lib/epistemic-status.js": "552a71f9616c8caa2151b54feadd3e6ab19a470218022027425b11ccaf967fec",
+    "lib/inject-budget.js": "5897fe0a629543e60997e4749f4692c841a8f21a66526c618d7ff3fc1f52d945",
+    "lib/safe-logging.js": "4a634fa3c4cce35d5c7cb29c7c2eb72378666ef400e79dc7869a4c50d2e2c0ac",
+    "lib/log-redact.js": "f64f7d2e2fbf13684ad16fe045a1e43a9755c57be00ee7532479286eed0068e3",
+    "lib/registry-lock.js": "718791a188344b396e72db33c908fb2ef3d71a67dc1ac29a3b2b882c7b76a4e9"
+  },
+  "node": "v24.21.0",
+  "requester": {
+    "agentId": "alpha",
+    "workspaceIdentity": "workspace:v1:curation",
+    "ownerUserId": "user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2"
+  },
+  "boundaries": {
+    "context": "synthetic resolved human",
+    "store": "actual C4 files in isolated temporary roots",
+    "facade": "actual A1 list; two explicitly pinned source trees",
+    "normalization": "none"
+  },
+  "cases": [
+    {
+      "inputJson": "{\"name\":\"empty\",\"candidates\":[],\"behavior\":[],\"workspace\":\"workspace:v1:curation\"}",
+      "outputJson": "{\"agentId\":\"alpha\",\"items\":[],\"truncated\":false}"
+    },
+    {
+      "inputJson": "{\"name\":\"stable-order\",\"candidates\":[{\"id\":\"one\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"conflict\",\"statement\":\"Synthetic one\",\"category\":\"fact\"},{\"id\":\"two\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"candidate\",\"statement\":\"Synthetic two\",\"category\":\"fact\"}],\"behavior\":[{\"id\":\"three\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"stale\",\"statement\":\"Synthetic three\",\"category\":\"fact\"}],\"workspace\":\"workspace:v1:curation\"}",
+      "outputJson": "{\"agentId\":\"alpha\",\"items\":[{\"id\":\"one\",\"status\":\"conflict\",\"text\":\"Synthetic one\",\"category\":\"fact\"},{\"id\":\"two\",\"status\":\"candidate\",\"text\":\"Synthetic two\",\"category\":\"fact\"},{\"id\":\"three\",\"status\":\"stale\",\"text\":\"Synthetic three\",\"category\":\"fact\"}],\"truncated\":false}"
+    },
+    {
+      "inputJson": "{\"name\":\"newest-resolved-hides-old\",\"candidates\":[{\"id\":\"one\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"conflict\",\"statement\":\"Synthetic one\",\"category\":\"fact\"},{\"id\":\"one\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"promoted\",\"statement\":\"Synthetic one\",\"category\":\"fact\",\"updatedAt\":\"2026-11-08T11:00:00.000Z\"}],\"behavior\":[],\"workspace\":\"workspace:v1:curation\"}",
+      "outputJson": "{\"agentId\":\"alpha\",\"items\":[],\"truncated\":false}"
+    },
+    {
+      "inputJson": "{\"name\":\"newest-before-old\",\"candidates\":[{\"id\":\"one\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"conflict\",\"statement\":\"new\",\"category\":\"fact\",\"updatedAt\":\"2026-11-08T11:00:00.000Z\"},{\"id\":\"one\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"conflict\",\"statement\":\"Synthetic one\",\"category\":\"fact\"}],\"behavior\":[],\"workspace\":\"workspace:v1:curation\"}",
+      "outputJson": "{\"agentId\":\"alpha\",\"items\":[{\"id\":\"one\",\"status\":\"conflict\",\"text\":\"new\",\"category\":\"fact\"}],\"truncated\":false}"
+    },
+    {
+      "inputJson": "{\"name\":\"equal-time-later-wins\",\"candidates\":[{\"id\":\"one\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"conflict\",\"statement\":\"first\",\"category\":\"fact\"}],\"behavior\":[{\"id\":\"one\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"conflict\",\"statement\":\"second\",\"category\":\"fact\"}],\"workspace\":\"workspace:v1:curation\"}",
+      "outputJson": "{\"agentId\":\"alpha\",\"items\":[{\"id\":\"one\",\"status\":\"conflict\",\"text\":\"second\",\"category\":\"fact\"}],\"truncated\":false}"
+    },
+    {
+      "inputJson": "{\"name\":\"replacement-keeps-position\",\"candidates\":[{\"id\":\"one\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"conflict\",\"statement\":\"Synthetic one\",\"category\":\"fact\"},{\"id\":\"two\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"conflict\",\"statement\":\"Synthetic two\",\"category\":\"fact\"},{\"id\":\"one\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"conflict\",\"statement\":\"new\",\"category\":\"fact\",\"updatedAt\":1800000000000}],\"behavior\":[],\"workspace\":\"workspace:v1:curation\"}",
+      "outputJson": "{\"agentId\":\"alpha\",\"items\":[{\"id\":\"one\",\"status\":\"conflict\",\"text\":\"new\",\"category\":\"fact\"},{\"id\":\"two\",\"status\":\"conflict\",\"text\":\"Synthetic two\",\"category\":\"fact\"}],\"truncated\":false}"
+    },
+    {
+      "inputJson": "{\"name\":\"zero-updated-falls-back-created\",\"candidates\":[{\"id\":\"one\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"conflict\",\"statement\":\"Synthetic one\",\"category\":\"fact\",\"updatedAt\":0},{\"id\":\"one\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":1,\"status\":\"conflict\",\"statement\":\"older\",\"category\":\"fact\"}],\"behavior\":[],\"workspace\":\"workspace:v1:curation\"}",
+      "outputJson": "{\"agentId\":\"alpha\",\"items\":[{\"id\":\"one\",\"status\":\"conflict\",\"text\":\"Synthetic one\",\"category\":\"fact\"}],\"truncated\":false}"
+    },
+    {
+      "inputJson": "{\"name\":\"absent-times-are-zero\",\"candidates\":[{\"id\":\"one\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":null,\"status\":\"conflict\",\"statement\":\"Synthetic one\",\"category\":\"fact\"},{\"id\":\"one\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":1,\"status\":\"conflict\",\"statement\":\"later\",\"category\":\"fact\"}],\"behavior\":[],\"workspace\":\"workspace:v1:curation\"}",
+      "outputJson": "{\"agentId\":\"alpha\",\"items\":[{\"id\":\"one\",\"status\":\"conflict\",\"text\":\"later\",\"category\":\"fact\"}],\"truncated\":false}"
+    },
+    {
+      "inputJson": "{\"name\":\"hidden-statuses\",\"candidates\":[{\"id\":\"a\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"active\",\"statement\":\"Synthetic a\",\"category\":\"fact\"},{\"id\":\"b\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"demoted\",\"statement\":\"Synthetic b\",\"category\":\"fact\"},{\"id\":\"c\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"conflict\",\"statement\":\"Synthetic c\",\"category\":\"fact\",\"hardDeleted\":true},{\"id\":\"d\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"conflict\",\"statement\":\"Synthetic d\",\"category\":\"fact\",\"epistemicStatus\":\"invalidated\"}],\"behavior\":[],\"workspace\":\"workspace:v1:curation\"}",
+      "outputJson": "{\"agentId\":\"alpha\",\"items\":[],\"truncated\":false}"
+    },
+    {
+      "inputJson": "{\"name\":\"foreign-agent\",\"candidates\":[{\"id\":\"one\",\"agentId\":\"other\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"conflict\",\"statement\":\"Synthetic one\",\"category\":\"fact\"}],\"behavior\":[],\"workspace\":\"workspace:v1:curation\"}",
+      "outputJson": "{\"agentId\":\"alpha\",\"items\":[],\"truncated\":false}"
+    },
+    {
+      "inputJson": "{\"name\":\"foreign-owner-d130\",\"candidates\":[{\"id\":\"one\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:911918f74061c7d39b37142003033fbcba36f5eb592bdf062a80796f69b545d1\",\"ownerId\":\"user:v2:911918f74061c7d39b37142003033fbcba36f5eb592bdf062a80796f69b545d1\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"conflict\",\"statement\":\"Synthetic one\",\"category\":\"fact\"}],\"behavior\":[],\"workspace\":\"workspace:v1:curation\"}",
+      "outputJson": "{\"agentId\":\"alpha\",\"items\":[{\"id\":\"one\",\"status\":\"conflict\",\"text\":\"Synthetic one\",\"category\":\"fact\"}],\"truncated\":false}"
+    },
+    {
+      "inputJson": "{\"name\":\"workspace-shared\",\"candidates\":[{\"id\":\"one\",\"agentId\":\"other\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"workspace_shared\",\"visibility\":{\"scope\":\"workspace_shared\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"conflict\",\"statement\":\"Synthetic one\",\"category\":\"fact\"}],\"behavior\":[],\"workspace\":\"workspace:v1:curation\"}",
+      "outputJson": "{\"agentId\":\"alpha\",\"items\":[{\"id\":\"one\",\"status\":\"conflict\",\"text\":\"Synthetic one\",\"category\":\"fact\"}],\"truncated\":false}"
+    },
+    {
+      "inputJson": "{\"name\":\"global-user\",\"candidates\":[{\"id\":\"one\",\"agentId\":\"other\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"global_user\",\"visibility\":{\"scope\":\"global_user\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"conflict\",\"statement\":\"Synthetic one\",\"category\":\"fact\"}],\"behavior\":[],\"workspace\":\"workspace:v1:curation\"}",
+      "outputJson": "{\"agentId\":\"alpha\",\"items\":[{\"id\":\"one\",\"status\":\"conflict\",\"text\":\"Synthetic one\",\"category\":\"fact\"}],\"truncated\":false}"
+    },
+    {
+      "inputJson": "{\"name\":\"foreign-global-user\",\"candidates\":[{\"id\":\"one\",\"agentId\":\"other\",\"ownerUserId\":\"user:v2:911918f74061c7d39b37142003033fbcba36f5eb592bdf062a80796f69b545d1\",\"ownerId\":\"user:v2:911918f74061c7d39b37142003033fbcba36f5eb592bdf062a80796f69b545d1\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"global_user\",\"visibility\":{\"scope\":\"global_user\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"conflict\",\"statement\":\"Synthetic one\",\"category\":\"fact\"}],\"behavior\":[],\"workspace\":\"workspace:v1:curation\"}",
+      "outputJson": "{\"agentId\":\"alpha\",\"items\":[],\"truncated\":false}"
+    },
+    {
+      "inputJson": "{\"name\":\"string-coercion\",\"candidates\":[{\"id\":\"a\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"conflict\",\"statement\":\"\",\"category\":\"\",\"text\":[\"x\",null,\"y\"]},{\"id\":\"b\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"conflict\",\"statement\":12,\"category\":null},{\"id\":\"c\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"conflict\",\"statement\":{\"nested\":true},\"category\":\"fact\"}],\"behavior\":[],\"workspace\":\"workspace:v1:curation\"}",
+      "outputJson": "{\"agentId\":\"alpha\",\"items\":[{\"id\":\"a\",\"status\":\"conflict\",\"text\":\"x,,y\",\"category\":null},{\"id\":\"b\",\"status\":\"conflict\",\"text\":\"12\",\"category\":null},{\"id\":\"c\",\"status\":\"conflict\",\"text\":\"[object Object]\",\"category\":\"fact\"}],\"truncated\":false}"
+    },
+    {
+      "inputJson": "{\"name\":\"opaque-text\",\"candidates\":[{\"id\":\"mem_🧠\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"conflict\",\"statement\":\"raw-\\ud800-text\",\"category\":\"note\"}],\"behavior\":[],\"workspace\":\"workspace:v1:curation\"}",
+      "outputJson": "{\"agentId\":\"alpha\",\"items\":[{\"id\":\"mem_🧠\",\"status\":\"conflict\",\"text\":\"raw-\\ud800-text\",\"category\":\"note\"}],\"truncated\":false}"
+    },
+    {
+      "inputJson": "{\"name\":\"truncate\",\"candidates\":[{\"id\":\"one\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"conflict\",\"statement\":\"Synthetic one\",\"category\":\"fact\"},{\"id\":\"two\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"conflict\",\"statement\":\"Synthetic two\",\"category\":\"fact\"}],\"behavior\":[],\"query\":{\"limit\":1},\"workspace\":\"workspace:v1:curation\"}",
+      "outputJson": "{\"agentId\":\"alpha\",\"items\":[{\"id\":\"one\",\"status\":\"conflict\",\"text\":\"Synthetic one\",\"category\":\"fact\"}],\"truncated\":true}"
+    },
+    {
+      "inputJson": "{\"name\":\"limit-exact\",\"candidates\":[{\"id\":\"one\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"conflict\",\"statement\":\"Synthetic one\",\"category\":\"fact\"}],\"behavior\":[],\"query\":{\"limit\":1},\"workspace\":\"workspace:v1:curation\"}",
+      "outputJson": "{\"agentId\":\"alpha\",\"items\":[{\"id\":\"one\",\"status\":\"conflict\",\"text\":\"Synthetic one\",\"category\":\"fact\"}],\"truncated\":false}"
+    },
+    {
+      "inputJson": "{\"name\":\"limit-0\",\"candidates\":[],\"behavior\":[],\"query\":{\"limit\":0},\"workspace\":\"workspace:v1:curation\"}",
+      "error": {
+        "code": "invalid-input",
+        "message": "limit must be 1..100"
+      }
+    },
+    {
+      "inputJson": "{\"name\":\"limit-101\",\"candidates\":[],\"behavior\":[],\"query\":{\"limit\":101},\"workspace\":\"workspace:v1:curation\"}",
+      "error": {
+        "code": "invalid-input",
+        "message": "limit must be 1..100"
+      }
+    },
+    {
+      "inputJson": "{\"name\":\"limit-1.5\",\"candidates\":[],\"behavior\":[],\"query\":{\"limit\":1.5},\"workspace\":\"workspace:v1:curation\"}",
+      "error": {
+        "code": "invalid-input",
+        "message": "limit must be 1..100"
+      }
+    },
+    {
+      "inputJson": "{\"name\":\"limit--1\",\"candidates\":[],\"behavior\":[],\"query\":{\"limit\":-1},\"workspace\":\"workspace:v1:curation\"}",
+      "error": {
+        "code": "invalid-input",
+        "message": "limit must be 1..100"
+      }
+    },
+    {
+      "inputJson": "{\"name\":\"null-limit-default\",\"candidates\":[{\"id\":\"one\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"conflict\",\"statement\":\"Synthetic one\",\"category\":\"fact\"}],\"behavior\":[],\"query\":{\"limit\":null},\"workspace\":\"workspace:v1:curation\"}",
+      "outputJson": "{\"agentId\":\"alpha\",\"items\":[{\"id\":\"one\",\"status\":\"conflict\",\"text\":\"Synthetic one\",\"category\":\"fact\"}],\"truncated\":false}"
+    },
+    {
+      "inputJson": "{\"name\":\"safe-legacy-newer\",\"workspace\":\"curation\",\"candidates\":[{\"id\":\"one\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"conflict\",\"statement\":\"Synthetic one\",\"category\":\"fact\"}],\"behavior\":[],\"legacy\":[{\"id\":\"one\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"conflict\",\"statement\":\"new legacy\",\"category\":\"fact\",\"updatedAt\":\"2026-11-08T11:00:00.000Z\"}]}",
+      "outputJson": "{\"agentId\":\"alpha\",\"items\":[{\"id\":\"one\",\"status\":\"conflict\",\"text\":\"new legacy\",\"category\":\"fact\"}],\"truncated\":false}"
+    },
+    {
+      "inputJson": "{\"name\":\"safe-canonical-equal-time\",\"workspace\":\"curation\",\"candidates\":[{\"id\":\"one\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"conflict\",\"statement\":\"Synthetic one\",\"category\":\"fact\"}],\"behavior\":[],\"legacy\":[{\"id\":\"one\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"conflict\",\"statement\":\"old legacy\",\"category\":\"fact\"}]}",
+      "outputJson": "{\"agentId\":\"alpha\",\"items\":[{\"id\":\"one\",\"status\":\"conflict\",\"text\":\"Synthetic one\",\"category\":\"fact\"}],\"truncated\":false}"
+    },
+    {
+      "inputJson": "{\"name\":\"unsafe-legacy-never-read\",\"workspace\":\"workspace:v1:curation\",\"candidates\":[],\"behavior\":[],\"legacy\":[{\"id\":\"foreign-legacy\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"conflict\",\"statement\":\"Synthetic one\",\"category\":\"fact\"}]}",
+      "outputJson": "{\"agentId\":\"alpha\",\"items\":[],\"truncated\":false}"
+    },
+    {
+      "inputJson": "{\"name\":\"cross-stream-hidden-newest\",\"workspace\":\"workspace:v1:curation\",\"candidates\":[{\"id\":\"one\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":1,\"status\":\"conflict\",\"statement\":\"Synthetic one\",\"category\":\"fact\",\"updatedAt\":1}],\"behavior\":[{\"id\":\"one\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026-11-08T10:00:00.000Z\",\"status\":\"promoted\",\"statement\":\"Synthetic one\",\"category\":\"fact\"}],\"legacy\":[]}",
+      "outputJson": "{\"agentId\":\"alpha\",\"items\":[],\"truncated\":false}"
+    },
+    {
+      "inputJson": "{\"name\":\"four-digit-year-sort\",\"workspace\":\"workspace:v1:curation\",\"candidates\":[{\"id\":\"later-year\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2026\",\"status\":\"conflict\",\"statement\":\"Synthetic one\",\"category\":\"fact\"},{\"id\":\"earlier-date\",\"agentId\":\"alpha\",\"ownerUserId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"ownerId\":\"user:v2:f12057250d241c9a72b40c1bd2fe80f19c36d2ecc8e85412adb2eb94ae00bab2\",\"workspaceKey\":\"workspace:v1:curation\",\"scope\":\"agent_private\",\"visibility\":{\"scope\":\"agent_private\"},\"createdAt\":\"2025-01-01\",\"status\":\"conflict\",\"statement\":\"Synthetic one\",\"category\":\"fact\"}],\"behavior\":[]}",
+      "outputJson": "{\"agentId\":\"alpha\",\"items\":[{\"id\":\"earlier-date\",\"status\":\"conflict\",\"text\":\"Synthetic one\",\"category\":\"fact\"},{\"id\":\"later-year\",\"status\":\"conflict\",\"text\":\"Synthetic one\",\"category\":\"fact\"}],\"truncated\":false}"
+    }
+  ]
+}

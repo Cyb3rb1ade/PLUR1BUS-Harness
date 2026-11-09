@@ -59,6 +59,11 @@ fn date(value: &Json) -> f64 {
         }
         Json::String(s) => {
             let s = s.to_utf8_lossy();
+            let s = if s.len() == 4 && s.bytes().all(|b| b.is_ascii_digit()) {
+                format!("{s}-01-01")
+            } else {
+                s
+            };
             chrono::DateTime::parse_from_rfc3339(&s)
                 .ok()
                 .map(|d| d.timestamp_millis() as f64)
