@@ -1,4 +1,6 @@
 //! Lifecycle-fenced recovery. Marker retirement requires exact durable row evidence.
+#[path = "migration.rs"]
+mod migration;
 use super::{io, JobLedger, MAX_BYTES, MAX_RECORD, MAX_ROWS};
 use crate::{
     contract::{Cancel, EngineError, StoreError},
@@ -9,6 +11,7 @@ use crate::{
     },
     text::json::{parse_json, write_json, TolerantJsonValue as Json},
 };
+pub use migration::MigrationReport;
 use std::collections::HashMap;
 #[cfg(any(test, feature = "testkit"))]
 use std::sync::Arc;

@@ -11,7 +11,7 @@ use std::{io::Write, path::Path};
 pub(crate) mod io;
 pub(crate) mod json;
 mod session;
-pub use session::{JobSession, RecoveryReport, RunAdmission};
+pub use session::{JobSession, MigrationReport, RecoveryReport, RunAdmission};
 const MAX_BYTES: usize = 64 * 1024 * 1024;
 const MAX_RECORD: usize = 1024 * 1024;
 const MAX_ROWS: usize = 50_000;
