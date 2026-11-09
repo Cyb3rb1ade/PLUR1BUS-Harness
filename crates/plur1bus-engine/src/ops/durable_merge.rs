@@ -60,6 +60,8 @@ struct Saved {
     identity: VectorSpaceIdentity,
     store_binding: (PathBuf, (u64, u64)),
     state_binding: (PathBuf, (u64, u64)),
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    normal_origin: Option<normal_merge::NormalMergeOrigin>,
 }
 impl Saved {
     fn request(&self) -> MergeRequest {
@@ -78,6 +80,12 @@ pub struct NativeMerge {
     journal: Arc<CaptureJournal>,
     #[cfg(feature = "testkit")]
     observer: Option<Observer>,
+}
+#[derive(Clone, Copy)]
+struct MergeMode<'a> {
+    existing_only: bool,
+    validate_only: bool,
+    normal_origin: Option<&'a normal_merge::NormalMergeOrigin>,
 }
 impl NativeMerge {
     /// Bind existing services without changing stores or configuration.
@@ -170,7 +178,11 @@ impl NativeMerge {
             principal,
             agent,
             cancel,
-            (existing_only, validate_only),
+            MergeMode {
+                existing_only,
+                validate_only,
+                normal_origin: None,
+            },
             &|| Ok(()),
         )
     }
@@ -180,10 +192,14 @@ impl NativeMerge {
         principal: &Principal,
         agent: &AgentContext,
         cancel: &Cancel,
-        mode: (bool, bool),
+        mode: MergeMode<'_>,
         prepared_check: &dyn Fn() -> Result<(), EngineError>,
     ) -> Result<MergeResult, EngineError> {
-        let (existing_only, validate_only) = mode;
+        let MergeMode {
+            existing_only,
+            validate_only,
+            normal_origin,
+        } = mode;
         cancel.check()?;
         prepared_check()?;
         validate_request(request, cancel)?;
@@ -244,7 +260,7 @@ impl NativeMerge {
                 let mut inventory = state::receipts(dir, cancel)?;
                 if inventory
                     .iter()
-                    .any(|(file, r, _)| file != &name && r.stage != 6)
+                    .any(|(file, r, _)| file != &name && r.pending())
                 {
                     return Err(StoreError::Busy.into());
                 }
@@ -265,6 +281,15 @@ impl NativeMerge {
                     crate::store::paths::secure_dir(state_path)?;
                 }
                 let home = TrustedDirectory::open(state_path)?;
+                let retained_origin = if let Some(origin) = normal_origin {
+                    Some(origin.clone())
+                } else if let Some((_, receipt, _)) = &old {
+                    serde_json::from_value::<Saved>(receipt.plan.clone())
+                        .map_err(|_| StoreError::Corrupt)?
+                        .normal_origin
+                } else {
+                    None
+                };
                 let saved = Saved {
                     version: 1,
                     command: "memory-store-merge".into(),
@@ -277,6 +302,7 @@ impl NativeMerge {
                     identity: request.identity.clone(),
                     store_binding: store.physical_binding()?,
                     state_binding: (home.path().to_owned(), home.identity_parts()),
+                    normal_origin: retained_origin,
                 };
                 let plan = serde_json::to_value(&saved).map_err(|_| StoreError::Corrupt)?;
                 let fingerprint = format!(
@@ -299,6 +325,7 @@ impl NativeMerge {
                             fingerprint,
                             proof,
                             stage: 0,
+                            curation: None,
                         },
                         None,
                     ),
@@ -324,9 +351,28 @@ impl NativeMerge {
                     }
                     check_rows(&store, &original, &replacement, stage)?;
                     files.validate(&original.row, stage, cancel)?;
+                    if let Some(origin) = &saved.normal_origin {
+                        let config = serde_json::to_value(self.reader.context.host().config())
+                            .map_err(|_| StoreError::Corrupt)?;
+                        origin.validate(request, ctx, &config, (&workspace, &base), cancel)?;
+                    }
                     check()
                 };
                 preflight(receipt.stage)?;
+                let existing_curation = if let Some(frozen) = &receipt.curation {
+                    let origin = saved.normal_origin.as_ref().ok_or(StoreError::Corrupt)?;
+                    let config = serde_json::to_value(self.reader.context.host().config())
+                        .map_err(|_| StoreError::Corrupt)?;
+                    Some(super::curation_occurrence::Files::restore(
+                        &workspace,
+                        &frozen.publication,
+                        &origin.event(request, ctx, &config, frozen.now_ms, cancel)?,
+                        frozen.complete,
+                        cancel,
+                    )?)
+                } else {
+                    None
+                };
                 let result = || MergeResult {
                     replacement_id: replacement.row.id.clone(),
                     archive_path: files.archive_path(),
@@ -383,6 +429,60 @@ impl NativeMerge {
                 advance(6)?;
                 self.observe("complete")?;
                 preflight(6)?;
+                if let Some(origin) = &saved.normal_origin {
+                    let now = receipt
+                        .curation
+                        .as_ref()
+                        .map_or_else(|| self.reader.context.host().now_ms(), |r| r.now_ms);
+                    let publication = if let Some(files) = existing_curation {
+                        files
+                    } else {
+                        let config = serde_json::to_value(self.reader.context.host().config())
+                            .map_err(|_| StoreError::Corrupt)?;
+                        super::curation_occurrence::Files::prepare(
+                            &workspace,
+                            origin.event(request, ctx, &config, now, cancel)?,
+                            cancel,
+                        )?
+                    };
+                    let was_complete = receipt.curation.as_ref().is_some_and(|r| r.complete);
+                    let checked = || {
+                        preflight(6)?;
+                        publication.validate(was_complete, cancel)
+                    };
+                    if receipt.curation.is_none() {
+                        receipt.curation = Some(state::CurationReceipt {
+                            now_ms: now,
+                            publication: publication.snapshot.clone(),
+                            complete: false,
+                        });
+                        bytes = Some(state::save(
+                            dir,
+                            &name,
+                            bytes.as_deref(),
+                            &receipt,
+                            cancel,
+                            &checked,
+                        )?);
+                    }
+                    self.observe("normal-merge-curation-prepared")?;
+                    publication.publish(cancel, &checked)?;
+                    self.observe("normal-merge-curation-write")?;
+                    if !was_complete {
+                        receipt
+                            .curation
+                            .as_mut()
+                            .ok_or(StoreError::Corrupt)?
+                            .complete = true;
+                        state::save(dir, &name, bytes.as_deref(), &receipt, cancel, &|| {
+                            checked()?;
+                            publication.validate(true, cancel)
+                        })?;
+                    }
+                    self.observe("normal-merge-curation-complete")?;
+                    checked()?;
+                    publication.validate(true, cancel)?;
+                }
                 Ok(result())
             },
         )

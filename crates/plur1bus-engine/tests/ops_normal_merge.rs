@@ -600,3 +600,6 @@ mod insert_tests;
 
 #[path = "support/normal_duplicate.rs"]
 mod duplicate_tests;
+
+#[path = "support/normal_merge_curation.rs"]
+mod merge_curation_tests;

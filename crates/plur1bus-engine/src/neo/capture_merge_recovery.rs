@@ -46,7 +46,7 @@ impl CaptureJournal {
                 if count > 512 || total > 64 * 1024 * 1024 {
                     return Err(StoreError::Unavailable.into());
                 }
-                if receipt.stage == 6 {
+                if !receipt.pending() {
                     continue;
                 }
                 let (request, principal, agent) = restore(&receipt.plan, cancel)?;

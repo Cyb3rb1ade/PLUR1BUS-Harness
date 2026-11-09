@@ -129,6 +129,20 @@ linked files or changed directory/source authority refuse. This assumes cooperat
 leases; it cannot attribute externally written byte-identical lines to a different process.
 Common request admission and merged-result curation/knowledge composition remain separate.
 
+Normal host merges now retain their original input, assessment time, parsed model decision,
+configuration digest and workspace/registry bindings in the primary intent before destructive
+writes. Recovery reconstructs the expected merged row from those saved values and verifies its
+Arrow projection/write key under current authority without providers. Raw prepared merge intents
+without this optional origin remain primary-only.
+
+For an origin-bound merge, primary stage six is still pending until a separate `memory.merged`
+curation occurrence is durable. That event retains the original reason and final merged text;
+the destructive `memory.deleted` audit remains a different required artifact. Original-caller
+open resumes the gap and each curation boundary, preserving prepared times. Missing completed
+evidence, changed configuration/directory/replacement or invalid reason encoding refuses before
+acknowledgement. The pinned decision parser requires a string reason; malformed UTF-16 reasons
+fail before any primary write. Merged knowledge staging and common request composition remain open.
+
 ## Targets
 
 | Target | Name | What it is |

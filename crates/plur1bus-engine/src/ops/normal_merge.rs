@@ -9,6 +9,9 @@ use crate::{
     text::{js::js_trim, json::TolerantJsonValue as Json},
 };
 use std::time::{Duration, Instant};
+#[path = "normal_merge_origin.rs"]
+mod origin;
+pub(super) use origin::NormalMergeOrigin;
 struct Snapshot {
     source: MemoryRecord,
     proof: String,
@@ -73,6 +76,7 @@ impl NativeMerge {
             serde_json::to_value(host.config()).map_err(|_| StoreError::InvalidInput)?;
         let cfg = crate::config::effective_config(&original_config)
             .map_err(|_| StoreError::InvalidInput)?;
+        let assessed_at = selected.map_or_else(|| host.now_ms(), |plan| plan.assessed_at);
         let assessed = assess(
             params,
             StoreOwner {
@@ -80,7 +84,7 @@ impl NativeMerge {
                 owner_user_id: &ctx.owner_user_id,
                 workspace_key: &ctx.workspace_key,
             },
-            selected.map_or_else(|| host.now_ms(), |plan| plan.assessed_at),
+            assessed_at,
             cancel,
         )?;
         if cfg["merging"]["enabled"] == false
@@ -259,12 +263,24 @@ impl NativeMerge {
             Ok(())
         };
         revalidate()?;
+        let origin = NormalMergeOrigin::prepare(
+            params,
+            assessed_at,
+            &decision,
+            &original_config,
+            &workspace,
+            &base,
+        )?;
         self.settle_checked(
             &request,
             principal,
             agent,
             cancel,
-            (false, false),
+            MergeMode {
+                existing_only: false,
+                validate_only: false,
+                normal_origin: Some(&origin),
+            },
             &publish_check,
         )
         .map(Some)

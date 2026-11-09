@@ -18,6 +18,22 @@ pub(crate) struct Receipt {
     // 0 prepared, 1 archived, 2 replacement verified, 3 delete intent,
     // 4 source deleted, 5 audit durable, 6 complete.
     pub stage: u8,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub curation: Option<CurationReceipt>,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct CurationReceipt {
+    pub now_ms: i64,
+    pub publication: super::curation_occurrence::Snapshot,
+    pub complete: bool,
+}
+impl Receipt {
+    pub(crate) fn pending(&self) -> bool {
+        self.stage != 6
+            || (self.plan.get("normal_origin").is_some()
+                && !self.curation.as_ref().is_some_and(|r| r.complete))
+    }
 }
 pub(crate) fn receipts(
     dir: &TrustedDirectory,
@@ -60,6 +76,8 @@ pub(crate) fn receipts(
         );
         if receipt.fingerprint != digest
             || receipt.stage > 6
+            || (receipt.curation.is_some()
+                && (receipt.stage != 6 || receipt.plan.get("normal_origin").is_none()))
             || receipt.version != 1
             || receipt.plan["command"] != "memory-store-merge"
             || receipt.plan["version"] != 1
@@ -94,7 +112,7 @@ pub(crate) fn save(
     Ok(bytes)
 }
 pub(crate) fn guard_pending(dir: &TrustedDirectory, cancel: &Cancel) -> Result<(), EngineError> {
-    if receipts(dir, cancel)?.iter().any(|(_, r, _)| r.stage != 6) {
+    if receipts(dir, cancel)?.iter().any(|(_, r, _)| r.pending()) {
         return Err(StoreError::Busy.into());
     }
     Ok(())
