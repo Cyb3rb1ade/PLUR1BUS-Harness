@@ -1,0 +1,10 @@
+{
+  "nodeGoldenSha256": "68bc4c03f1521eb0ca6f021d04f160923307793bc3028a122e1403071d1f1830",
+  "cases": [
+    {
+      "proposalIndex": 9,
+      "reason": "Native confidence must remain in [0, 1]; out-of-range model or caller values cannot produce an elevated recommendation",
+      "refuse": true
+    }
+  ]
+}

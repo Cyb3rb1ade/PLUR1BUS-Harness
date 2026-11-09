@@ -157,14 +157,7 @@ impl ConflictLedger {
             let dir = workspace.create_child(".adaptive-learning")?;
             let old = io::read(&dir, LOG, io::MAX_BYTES, cancel)?;
             let mut rows = io::records(old.as_deref().unwrap_or(&[]))?;
-            let digest = hash(
-                &serde_json::to_vec(&json!({
-                    "new": request.new.row, "newSharing": request.new.sharing,
-                    "existing": request.existing.row, "existingSharing": request.existing.sharing,
-                    "score": request.score, "decision": request.decision.name()
-                }))
-                .map_err(|_| StoreError::Corrupt)?,
-            );
+            let digest = request_digest(request)?;
             let operation = request.operation_id.to_string();
             let prior = rows
                 .iter()
@@ -299,3 +292,17 @@ fn cut(value: &str) -> String {
     }
     JsString::from_utf16_units(units).to_utf8_lossy()
 }
+
+fn request_digest(request: &ConflictRequest) -> Result<String, EngineError> {
+    Ok(hash(
+        &serde_json::to_vec(&json!({
+            "new":request.new.row,"newSharing":request.new.sharing,
+            "existing":request.existing.row,"existingSharing":request.existing.sharing,
+            "score":request.score,"decision":request.decision.name()
+        }))
+        .map_err(|_| StoreError::Corrupt)?,
+    ))
+}
+#[path = "conflict_resolution_store.rs"]
+mod resolutions;
+pub use resolutions::ResolutionRequest;

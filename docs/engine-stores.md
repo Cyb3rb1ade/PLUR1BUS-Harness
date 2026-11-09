@@ -1082,3 +1082,32 @@ weakening. This is component recovery; ProcessEngine startup order, shared host
 policy composition, receipt retention and the actual normal-store path hook remain
 unfinished. Native foreground application replaces no Node background scheduling
 until that explicit composition is complete.
+
+
+## Actual-source resolution proposals (RX6 / RE-D79)
+
+`ConflictLedger::propose_resolution` writes a recommendation for an already
+durable owned conflict observation. Current source snapshots and original policy
+are checked under the shared operation writer; the observation log is rechecked
+before/after publication. Both Lance rows remain unchanged. The proposal keeps
+Node's fields and adds private derived authority, source/decision fingerprints
+and a stable proposal UUID. Four concurrent exact retries create one row; an
+altered decision under the same UUID refuses.
+
+`find_resolution` filters current owner/agent/workspace before reverse selection.
+It requires the exact original observation still to exist and both source
+snapshots still to match. Removed observations, changed/deleted sources or revoked
+access refuse. A large foreign tail cannot displace an owned recommendation.
+The strong-recommendation condition is recomputed; review-only entries are skipped.
+Neither a recommendation nor the pure confirmation-shape helper grants apply
+authority. Actual bound confirmation and safe reconsolidation remain separate.
+
+Ten actual Node proposal shapes, eighteen selectors and five confirmation gates
+are frozen through the recorder. Pure proposal JSONL is byte-exact; text selectors
+retain original UTF-16 units. A SHA-bound native exception refuses confidence
+outside [0,1]. The actual persistent writer uses the existing strict JSONL codec,
+so isolated surrogate strings and malformed/torn records refuse without lossy
+replacement or truncation. Bounds remain 64 MiB / 50,000 records / 1 MiB per new
+record. No automatic model call, resolver schedule or source mutation is added.
+The normal-store hook, confirmed application and ProcessEngine composition remain
+open.

@@ -169,7 +169,11 @@ fn id(value: &Json) -> Option<&JsString> {
         _ => None,
     }
 }
-fn bounded(value: &Json, cancel: &Cancel, budget: &mut (usize, usize)) -> Result<(), EngineError> {
+pub(super) fn bounded(
+    value: &Json,
+    cancel: &Cancel,
+    budget: &mut (usize, usize),
+) -> Result<(), EngineError> {
     let mut pending = vec![(value, 0)];
     let (nodes, units) = budget;
     while let Some((v, depth)) = pending.pop() {

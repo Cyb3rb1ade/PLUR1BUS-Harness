@@ -106,3 +106,6 @@ pub mod contradiction;
 
 /// Bounded, immutable plans for ordinary retroactive memory weakening.
 pub mod interference;
+
+/// Non-authoritative conflict proposal shapes, selectors and confirmation shape checks.
+pub mod conflict_resolution;
