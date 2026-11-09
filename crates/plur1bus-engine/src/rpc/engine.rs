@@ -414,7 +414,7 @@ impl StoreOps for Unavailable {
 }
 impl JobRegistry for Unavailable {
     fn list(&self) -> Vec<JobSpec> {
-        Vec::new()
+        crate::jobs::catalog()
     }
     fn run(
         &self,

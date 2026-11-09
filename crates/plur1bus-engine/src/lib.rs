@@ -14,6 +14,7 @@ pub mod config;
 pub mod context;
 pub mod contract;
 pub mod embedding;
+pub mod jobs;
 pub mod media;
 pub mod neo;
 pub mod ops;

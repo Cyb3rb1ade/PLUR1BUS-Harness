@@ -18,6 +18,40 @@ fn id() -> AgentId {
     serde_json::from_value(json!("alpha")).unwrap()
 }
 #[test]
+fn actual_process_lists_the_catalog_without_granting_job_execution() {
+    let (_root, host, engine) = fixture();
+    let specs = engine.jobs().list();
+    assert_eq!(specs.len(), 20);
+    assert_eq!(
+        serde_json::to_value(&specs).unwrap(),
+        serde_json::to_value(crate::jobs::catalog()).unwrap()
+    );
+    for spec in specs {
+        let opts = serde_json::from_value(json!({})).unwrap();
+        assert!(
+            matches!(engine.jobs().run(spec.name, &id(), opts, &Cancel::never()), Err(EngineError::NotAvailable{reason}) if reason == "composition-pending")
+        );
+        let cancelled = Cancel::never();
+        cancelled.cancel();
+        assert!(engine
+            .jobs()
+            .run(
+                spec.name,
+                &id(),
+                serde_json::from_value(json!({})).unwrap(),
+                &cancelled
+            )
+            .is_err());
+    }
+    assert!(!host.state_dir().exists());
+    assert!(!engine.status().ready);
+    engine.close(None).unwrap();
+    assert_eq!(engine.jobs().list().len(), 20);
+    assert!(
+        matches!(engine.jobs().run(JobName::KnowledgeUpdate, &id(), serde_json::from_value(json!({})).unwrap(), &Cancel::never()), Err(EngineError::NotAvailable{reason}) if reason == "closed")
+    );
+}
+#[test]
 fn checkpoints_use_the_existing_node_digest_and_host_clock_for_all_reasons() {
     let (_root, host, engine) = fixture();
     let reference = crate::store::checkpoint::CheckpointStore::new(|| 1234.0);
