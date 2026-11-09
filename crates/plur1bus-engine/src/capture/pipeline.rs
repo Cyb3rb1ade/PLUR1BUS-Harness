@@ -41,7 +41,7 @@ pub use ports::{
     CaptureChunkDecider, CaptureClassification, CaptureClassifier, CaptureDynamics,
     CapturePostStore, CaptureSummary, ClassificationRequest, NeoCaptureHook, ReminderEffect,
 };
-pub use routes::{HostCaptureSummary, JevChunkDecider};
+pub use routes::HostCaptureSummary;
 
 type EmbeddedCapture = (PreparedCapture<prepare::CaptureItem>, Vec<f32>);
 
@@ -88,12 +88,8 @@ impl CapturePipeline {
         let summary = host.llm().is_some().then(|| {
             Arc::new(HostCaptureSummary::new(host.clone(), model)) as Arc<dyn CaptureSummary>
         });
-        let decider = if config["captureChunkingMode"] == "automatisch" {
-            JevChunkDecider::from_host(host.clone(), &config["captureChunkingJev"])?
-                .map(|decider| Arc::new(decider) as Arc<dyn CaptureChunkDecider>)
-        } else {
-            None
-        };
+        // D125: conversation content never goes to a built-in Jev decision route.
+        // Without an explicitly composed decider, automatic mode captures whole + parts.
         let admissions = super::admission::Admissions::new(
             &base_db,
             host.clone(),
@@ -109,7 +105,7 @@ impl CapturePipeline {
             classifier,
             policy,
             summary,
-            decider,
+            decider: None,
             neo: None,
             log: Arc::new(StandardCaptureLog),
             config,

@@ -159,7 +159,35 @@ fn actual_acceptance_to_lance_rows_equal_node_without_replaying_fixture_rows() {
         serde_json::from_str(include_str!("fixtures/capture/golden/rows.json")).unwrap();
     let inputs: serde_json::Value =
         serde_json::from_str(include_str!("fixtures/capture/scenarios/rows.json")).unwrap();
-    for scenario in inputs.as_array().unwrap() {
+    let d125: serde_json::Value = serde_json::from_str(include_str!(
+        "fixtures/capture/d125-no-jev-native-exceptions.json"
+    ))
+    .unwrap();
+    assert_eq!(
+        format!(
+            "{:x}",
+            Sha256::digest(include_bytes!("fixtures/capture/golden/rows.json"))
+        ),
+        d125["nodeRowsSha256"]
+    );
+    assert_eq!(
+        format!(
+            "{:x}",
+            Sha256::digest(include_bytes!("fixtures/capture/golden/chunk-decider.json"))
+        ),
+        d125["nodeDeciderSha256"]
+    );
+    let mut scenarios = inputs.as_array().unwrap().clone();
+    // Explicit D125 native variant: automatic without a composed model is the same
+    // whole-plus-parts path as the unchanged recorded "beides" scenario.
+    let mut no_model = scenarios
+        .iter()
+        .find(|s| s["name"] == d125["nativeNoModelReference"])
+        .unwrap()
+        .clone();
+    no_model["config"]["captureChunkingMode"] = "automatisch".into();
+    scenarios.push(no_model);
+    for scenario in &scenarios {
         let expected = golden["recordings"]
             .as_array()
             .unwrap()
@@ -191,6 +219,9 @@ fn actual_acceptance_to_lance_rows_equal_node_without_replaying_fixture_rows() {
                 llm_calls.clone(),
             )));
         }
+        let secret_reads = Arc::new(CaptureSecrets(AtomicUsize::new(0)));
+        fixture_host = fixture_host.with_secrets(secret_reads.clone());
+        let egress_calls = fixture_host.egress_calls.clone();
         let host: Arc<dyn contract::HostServices> = Arc::new(fixture_host);
         let embedder: Arc<dyn embedding::EmbeddingProvider> = Arc::new(
             capture_pipeline_support::HashEmbedder::new(scenario["embedder"] == "flat"),
@@ -283,6 +314,16 @@ fn actual_acceptance_to_lance_rows_equal_node_without_replaying_fixture_rows() {
                 store.patch(&rows[0].id, &patch).unwrap();
             }
         }
+        assert_eq!(
+            secret_reads.0.load(Ordering::SeqCst),
+            0,
+            "D125: no Jev secret lookup"
+        );
+        assert_eq!(
+            egress_calls.load(Ordering::SeqCst),
+            0,
+            "D125: no capture decision HTTP attempt"
+        );
         assert_eq!(
             format!("[{}]", outcomes.join(",")),
             expected["outcomesJson"].as_str().unwrap(),
@@ -821,3 +862,53 @@ fn capture_external_unicode_obeys_f3_while_original_node_boundaries_remain_evide
 
 #[path = "support/capture_open_recovery.rs"]
 mod open_recovery;
+
+struct CaptureSecrets(AtomicUsize);
+impl contract::SecretPort for CaptureSecrets {
+    fn get(&self, _: &str) -> Result<Option<contract::SecretValue>, contract::HostError> {
+        self.0.fetch_add(1, Ordering::SeqCst);
+        Ok(Some(contract::SecretValue::new("synthetic-capture-choice")))
+    }
+}
+#[test]
+fn d125_automatic_capture_never_resolves_a_jev_secret() {
+    let directory = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
+    let workspace = directory.path().join("workspace");
+    std::fs::create_dir(&workspace).unwrap();
+    let base = directory.path().join("stores");
+    let secret = Arc::new(CaptureSecrets(AtomicUsize::new(0)));
+    let config = serde_json::from_value(serde_json::json!({
+        "baseDbPath":base,"captureChunking":true,"captureChunkingMode":"automatisch",
+        "captureChunkingJev":{"apiKeyEnv":"SYNTHETIC_CAPTURE_CHOICE"},
+        "embedding":{"provider":"local-transformers","local":{"dimensions":384}}
+    }))
+    .unwrap();
+    let host = Arc::new(
+        capture_pipeline_support::Host::new(directory.path().join("state"), workspace, config)
+            .with_secrets(secret.clone()),
+    );
+    let embedder: Arc<dyn embedding::EmbeddingProvider> =
+        Arc::new(capture_pipeline_support::HashEmbedder::new(false));
+    let stores = Arc::new(
+        store::StorePool::open(
+            &base,
+            store::OpenMode::ReadWrite,
+            Some(embedder.identity()),
+            50,
+        )
+        .unwrap(),
+    );
+    let _worker = pipeline::CapturePipeline::new(
+        host,
+        stores,
+        embedder,
+        Arc::new(ClassificationFixture(BTreeMap::new())),
+        Arc::new(shared_scope::WorkspaceCapturePolicy::new(base)),
+    )
+    .unwrap();
+    assert_eq!(
+        secret.0.load(Ordering::SeqCst),
+        0,
+        "D125 forbids constructing the Jev content decision route"
+    );
+}

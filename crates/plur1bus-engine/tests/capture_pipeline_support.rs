@@ -2,7 +2,10 @@
 #![allow(clippy::unwrap_used)]
 
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
 use std::time::Duration;
 
 use plur1bus_engine::capture::accept::CaptureRuntime;
@@ -19,6 +22,8 @@ pub struct Host {
     config: EngineConfig,
     platform: PlatformCapabilities,
     llm: Option<Arc<dyn LlmPort>>,
+    secrets: Option<Arc<dyn SecretPort>>,
+    pub egress_calls: Arc<AtomicUsize>,
     now: i64,
 }
 
@@ -30,11 +35,17 @@ impl Host {
             config,
             platform: PlatformCapabilities::default(),
             llm: None,
+            secrets: None,
+            egress_calls: Arc::new(AtomicUsize::new(0)),
             now: 1_710_000_000_000,
         }
     }
     pub fn with_now(mut self, now: i64) -> Self {
         self.now = now;
+        self
+    }
+    pub fn with_secrets(mut self, secrets: Arc<dyn SecretPort>) -> Self {
+        self.secrets = Some(secrets);
         self
     }
     pub fn with_llm(mut self, llm: Arc<dyn LlmPort>) -> Self {
@@ -57,7 +68,7 @@ impl HostServices for Host {
         self.llm.as_deref()
     }
     fn secrets(&self) -> Option<&dyn SecretPort> {
-        None
+        self.secrets.as_deref()
     }
     fn egress(&self) -> &dyn EgressGate {
         self
@@ -76,6 +87,7 @@ impl HostServices for Host {
 
 impl EgressGate for Host {
     fn decide(&self, _target: &Target) -> Decision {
+        self.egress_calls.fetch_add(1, Ordering::SeqCst);
         Decision::Deny {
             reason: "capture fixture refuses network".into(),
         }

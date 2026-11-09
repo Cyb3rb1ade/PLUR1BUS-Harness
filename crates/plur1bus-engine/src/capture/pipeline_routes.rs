@@ -1,25 +1,20 @@
-//! Concrete host LLM and guarded Jev routes used by the capture worker.
+//! Concrete host LLM summary route; no built-in external capture decision transport.
 //!
 //! Prompt bytes follow Node. Frozen LlmParams cannot carry Node's `purpose` or signal:
 //! the purpose is the fixed adapter stage, while the signal is the existing Cancel argument.
 
 use std::sync::Arc;
-use std::time::{Duration, Instant};
 
 use serde::Serialize;
-use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use crate::context::RequestContext;
 use crate::contract::{
-    Cancel, Decision, EgressGate, EngineError, HostError, HostServices, LlmParams, Message,
-    MessageRole, SecretValue, Target,
+    Cancel, EngineError, HostError, HostServices, LlmParams, Message, MessageRole,
 };
-use crate::text::js::{js_trim, JsString};
-use crate::transport::{GuardedClient, HttpRequest, SystemResolver};
+use crate::text::js::JsString;
 
-use super::super::chunk_decider::{request_json, storage_for_answer, Storage};
-use super::{CaptureChunkDecider, CaptureSummary, StorageDecision};
+use super::CaptureSummary;
 
 /// The concrete capture-summary route over the existing host LLM port.
 pub struct HostCaptureSummary {
@@ -130,160 +125,5 @@ impl CaptureSummary for HostCaptureSummary {
         } else {
             text.utf16_slice(0, max_chars)
         })
-    }
-}
-
-struct HostGate(Arc<dyn HostServices>);
-impl EgressGate for HostGate {
-    fn decide(&self, target: &Target) -> Decision {
-        self.0.egress().decide(target)
-    }
-}
-
-/// An authenticated Jev route; its secret is deliberately neither Debug nor serializable.
-pub struct JevChunkDecider {
-    client: Arc<GuardedClient<'static>>,
-    credential: SecretValue,
-    model: String,
-    minimum: f64,
-    timeout: Duration,
-    endpoint: String,
-}
-
-impl JevChunkDecider {
-    /// Resolve only a named SecretPort value. Missing credentials mean Node's no-decider fallback.
-    /// No ambient environment value or config-held secret is read or retained in diagnostics.
-    pub fn from_host(
-        host: Arc<dyn HostServices>,
-        config: &Value,
-    ) -> Result<Option<Self>, EngineError> {
-        let name = config["apiKeyEnv"]
-            .as_str()
-            .map(js_trim)
-            .filter(|value| !value.is_empty())
-            .unwrap_or("TYPESAFE_API_KEY");
-        let Some(port) = host.secrets() else {
-            return Ok(None);
-        };
-        let Some(credential) = port.get(name)? else {
-            return Ok(None);
-        };
-        if js_trim(credential.expose()).is_empty() {
-            return Ok(None);
-        }
-        let model = config["model"]
-            .as_str()
-            .map(js_trim)
-            .filter(|value| !value.is_empty())
-            .unwrap_or("jev-latest")
-            .to_string();
-        let minimum = config["minConfidence"]
-            .as_f64()
-            .filter(|value| value.is_finite())
-            .unwrap_or(0.85);
-        let milliseconds = config["timeoutMs"]
-            .as_f64()
-            .filter(|value| value.is_finite() && *value > 0.0)
-            .unwrap_or(5000.0);
-        let timeout = Duration::try_from_secs_f64(milliseconds / 1000.0)
-            .map_err(|_| HostError::InvalidResponse)?;
-        let client = Arc::new(GuardedClient::new_owned(
-            Arc::new(HostGate(host)),
-            Box::new(SystemResolver),
-        ));
-        Ok(Some(Self {
-            client,
-            credential,
-            model,
-            minimum,
-            timeout,
-            endpoint: "https://api.typesafe.ai/v1/systemone".into(),
-        }))
-    }
-}
-
-fn confidence(value: &Value) -> Option<f64> {
-    match value {
-        Value::Null => Some(0.0),
-        Value::Bool(value) => Some(f64::from(u8::from(*value))),
-        Value::Number(value) => value.as_f64(),
-        Value::String(value) => {
-            let value = js_trim(value);
-            if value.is_empty() {
-                Some(0.0)
-            } else {
-                value.parse().ok()
-            }
-        }
-        _ => None,
-    }
-}
-
-impl CaptureChunkDecider for JevChunkDecider {
-    fn decide(
-        &self,
-        text: &JsString,
-        _context: &RequestContext,
-        cancel: &Cancel,
-    ) -> Result<StorageDecision, EngineError> {
-        cancel.check()?;
-        if js_trim(&text.to_utf8_lossy()).is_empty() {
-            return Ok(StorageDecision::Both);
-        }
-        let remaining = cancel
-            .remaining()
-            .map_or(self.timeout, |remaining| remaining.min(self.timeout));
-        let deadline = Instant::now()
-            .checked_add(remaining)
-            .ok_or(HostError::InvalidResponse)?;
-        let request = HttpRequest {
-            method: "POST".into(),
-            url: self.endpoint.clone(),
-            headers: vec![
-                (
-                    "Authorization".into(),
-                    format!("Bearer {}", js_trim(self.credential.expose())),
-                ),
-                ("Content-Type".into(), "application/json".into()),
-            ],
-            body: request_json(
-                &self.model,
-                &JsString::from(super::super::output_unicode::external(
-                    &text.utf16_slice(0, 60_000),
-                )),
-            )
-            .into_bytes(),
-            max_response_bytes: 1024 * 1024,
-            max_error_response_bytes: 64 * 1024,
-            auth_rejection_counter: None,
-        };
-        let response = self
-            .client
-            .request_cancelled(request, deadline, cancel)
-            .map_err(|error| match error {
-                crate::transport::TransportError::Cancelled(reason) => {
-                    EngineError::Cancelled(reason)
-                }
-                crate::transport::TransportError::Denied
-                | crate::transport::TransportError::AddressDenied => HostError::Denied.into(),
-                _ => HostError::Failed.into(),
-            })?;
-        if !(200..300).contains(&response.status) {
-            return Err(HostError::Failed.into());
-        }
-        let body: Value =
-            serde_json::from_slice(&response.body).map_err(|_| HostError::InvalidResponse)?;
-        let answer = &body["answers"]["structure"];
-        Ok(
-            match storage_for_answer(
-                answer["choice"].as_str(),
-                confidence(&answer["confidence"]),
-                self.minimum,
-            ) {
-                Storage::Whole => StorageDecision::Whole,
-                Storage::Parts => StorageDecision::Parts,
-                Storage::Both => StorageDecision::Both,
-            },
-        )
     }
 }

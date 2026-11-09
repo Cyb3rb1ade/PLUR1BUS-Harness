@@ -1635,3 +1635,24 @@ integration test consumes all six recorded inputs, binding synthetic
 endpoint IDs and the original caller/workspace placeholders to the actual fixture;
 foreign owners remain foreign. The older rollback fixture uses a v1 user, while
 the pinned Node principal helper records a v2 user. Neither golden is changed.
+
+
+### Automatic capture without Jev (RX6 / RE-D131, D125)
+
+Automatic chunking without an explicitly composed decision model keeps the
+existing whole-plus-parts (`beides`) fallback. `CapturePipeline::new` no longer
+resolves a Jev secret or constructs its built-in external HTTP decision transport.
+Available credentials do not authorize sending conversation content for that
+purpose. Explicit native `CaptureChunkDecider` composition remains available;
+this change installs no replacement model or ProcessEngine capability.
+
+The frozen config keys and historical pure request/answer codec vectors remain
+unchanged. `capture/d125-no-jev-native-exceptions.json` binds the existing rows
+and chunk-decider golden SHA values. An additional actual CaptureRuntime/Lance
+execution uses automatic mode with the unchanged recorded `chunking-both`
+expectation. All 21 scenario executions assert zero secret lookups and zero
+egress attempts, including an available synthetic secret and the explicitly
+composed local whole-decision fixture. This is an explicit native policy
+variation, not a new Node observation. The constructor regression first failed
+with one secret lookup; after removal, all 29 tests in `capture_pipeline` and
+`capture_rows` pass. No live external decision request is part of verification.
