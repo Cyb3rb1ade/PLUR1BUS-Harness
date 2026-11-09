@@ -234,6 +234,7 @@ fn fixture_with_routes(
         reranker: None,
         workspace_dir: None,
         edges: &[],
+        bound_graph: None,
         cancel: &cancel,
         limits: StageLimits {
             top_n: 20,

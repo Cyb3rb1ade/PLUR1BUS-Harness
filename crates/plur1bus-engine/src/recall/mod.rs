@@ -116,3 +116,6 @@ pub mod warm;
 
 /// A1 statistics from complete final rendered records.
 pub mod stats;
+
+/// Request-bound graph source with actual per-table endpoint verification.
+pub mod graph_source;

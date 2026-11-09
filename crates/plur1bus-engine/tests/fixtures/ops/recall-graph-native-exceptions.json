@@ -1,0 +1,20 @@
+{
+  "decision": "RE-D132 / S4 / D130",
+  "sourceCommit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+  "nodeGoldenSha256": "96291be8c36ec14158fb060940aa5bdefb695c1aea17625cfd4ab25f4ef246b9",
+  "nativeAllowedCases": [
+    "valid"
+  ],
+  "binding": "All six unchanged actual Node endpoint cases are read from real Neo files against actual Lance rows. Only original fixture agent/user/workspace and endpoint IDs are mapped; foreign or mismatching claims remain unchanged.",
+  "differences": [
+    "Native private endpoints require the original user/workspace, including when a matching-agent foreign actual row exists.",
+    "Actual same-table live row tuples must match both serialized endpoint claims; missing, rebound, expired or invalid-at rows contribute no edges.",
+    "Ambiguous duplicate keys, non-scalar graph fields and non-finite/out-of-range strengths are not projected. No numeric/string coercion or opaque Unicode replacement.",
+    "Latest visible metadata is limited to 5000 records; at most 400 records and 200 distinct same-table endpoints are inspected.",
+    "An explicitly configured native source is used after model callbacks; failures never fall back to in-memory edges."
+  ],
+  "boundaries": [
+    "Historical Node goldens and the explicit preauthorized legacy edge input are unchanged.",
+    "No ProcessEngine activation, schema/frozen trait change, external-writer CAS or atomic cross-store snapshot is claimed."
+  ]
+}

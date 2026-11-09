@@ -87,6 +87,8 @@ pub struct StageInput<'a> {
     pub workspace_dir: Option<&'a Path>,
     /// In-memory edges. The golden graph is unbound.
     pub edges: &'a [GraphEdge],
+    /// Authorized Neo source read after providers, immediately before traversal.
+    pub bound_graph: Option<&'a super::graph_source::BoundGraphSource>,
     /// Numeric limits.
     pub limits: StageLimits,
     /// Stage switches.
@@ -329,6 +331,7 @@ fn run_stages(
             sink,
             &mut state.rejections,
             &mut observations,
+            &control.cancel,
         )?;
         Ok(())
     });
@@ -596,19 +599,33 @@ fn spread_graph(
     sink: &dyn DenialSink,
     rejections: &mut Vec<Rejection>,
     observations: &mut Observations,
+    cancel: &Cancel,
 ) -> Result<Vec<Hit>, StageError> {
-    if !input.flags.associative || input.edges.is_empty() || hits.is_empty() {
+    if !input.flags.associative || hits.is_empty() {
         return Ok(hits);
     }
+    let bound_edges = input
+        .bound_graph
+        .map(|source| {
+            source.read_for(
+                input.store,
+                input.context,
+                input.clocks.now_ms,
+                input.clocks.valid_at,
+                cancel,
+            )
+        })
+        .transpose()?;
+    let available = bound_edges.as_deref().unwrap_or(input.edges);
     let seeds: Vec<(String, f64)> = hits
         .iter()
         .take(super::graph::SEED_COUNT)
         .map(|hit| (hit.id.clone(), hit.score))
         .collect();
     let seed_ids: Vec<String> = seeds.iter().map(|(id, _)| id.clone()).collect();
-    let endpoints = reachable_endpoint_ids(input.edges, &seed_ids);
+    let endpoints = reachable_endpoint_ids(available, &seed_ids);
     let allowed = allowed_endpoints(input, &endpoints, sink, rejections)?;
-    let edges = edges_between(input.edges, &allowed);
+    let edges = edges_between(available, &allowed);
     observations.rejections(rejections);
     let traversal = traverse_observed(&seeds, &edges);
     observations.guard(

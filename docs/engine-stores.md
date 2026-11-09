@@ -1656,3 +1656,34 @@ composed local whole-decision fixture. This is an explicit native policy
 variation, not a new Node observation. The constructor regression first failed
 with one secret lookup; after removal, all 29 tests in `capture_pipeline` and
 `capture_rows` pass. No live external decision request is part of verification.
+
+
+### Bound Neo graph source for namespace recall (RX2/RX6 / RE-D132)
+
+`BoundGraphSource` holds the original canonical request and a trusted existing Neo
+root. A configured `Pipeline.bound_graph` replaces the explicit preauthorized
+in-memory edge input. The graph stage reads it after model callbacks, just before
+traversal; a failed source never falls back. Metadata uses the existing latest
+revision / ACL-before-tail reader, then validates all serialized endpoint tuples.
+Each endpoint must match a real, live row in that physical namespace table,
+including the valid-time window. Private endpoints additionally require the
+original user and workspace (D130), even where the old matching-agent ACL would
+accept another user's actual row. No request or table reuses another's row cache.
+
+The source reads at most 5,000 authorized latest records, examines at most 400
+records and loads at most 200 distinct endpoints. Cancellation surrounds bounded
+reads; duplicate JSON keys, unrepresentable strings, non-scalar graph fields and
+invalid strengths do not become traversal input. Root identity is checked again
+following row reads. Normal stage endpoint/hydration ACL and lifecycle checks
+remain in place. These observations do not form an atomic Neo/Lance snapshot
+against independent writers, and this increment does not activate ProcessEngine.
+
+`ops/recall-graph-native-exceptions.json` binds the unchanged six-case Node
+`graph-ownership.json` reference, SHA
+`96291be8c36ec14158fb060940aa5bdefb695c1aea17625cfd4ab25f4ef246b9`.
+Tests map only original fixture identities to actual rows, retaining mismatching
+claims. A real red test demonstrated matching-agent foreign private access before
+the additional user/workspace gate. Further actual-file/Lance tests cover row
+rebinding, deletion, valid time, distinct tables, duplicate claims, later hidden
+revisions, 400-record cap, cancellation and root replacement during provider work.
+Historical unbound graph stage vectors remain unchanged.

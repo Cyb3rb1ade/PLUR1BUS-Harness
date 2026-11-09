@@ -213,6 +213,7 @@ fn assert_scenario(name: &str) {
                 context: &context,
                 workspace_dir: workspace.as_deref(),
                 edges: &edges,
+                bound_graph: None,
                 limits: limits_of(&scenario),
                 flags: flags_of(&scenario),
                 clocks: clocks_of(&scenario),

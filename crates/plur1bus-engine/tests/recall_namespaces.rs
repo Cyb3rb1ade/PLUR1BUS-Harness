@@ -304,6 +304,7 @@ fn assert_runtime(name: &str) {
         reranker: None,
         workspace_dir: None,
         edges: &[],
+        bound_graph: None,
         cancel: &Cancel::never(),
         limits: StageLimits {
             top_n: 4,
