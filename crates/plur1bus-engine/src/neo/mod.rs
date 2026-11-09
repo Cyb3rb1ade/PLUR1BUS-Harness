@@ -26,7 +26,7 @@ mod index;
 mod journal_index;
 mod journal_io;
 pub mod merged;
-mod merged_order;
+pub(crate) mod merged_order;
 mod participant_names;
 pub mod postprocessing;
 pub mod prelude;

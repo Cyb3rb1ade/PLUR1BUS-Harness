@@ -9,7 +9,7 @@ use crate::{
 };
 use std::{io::Write, path::Path};
 mod io;
-mod json;
+pub(crate) mod json;
 mod session;
 pub use session::{JobSession, RecoveryReport, RunAdmission};
 const MAX_BYTES: usize = 64 * 1024 * 1024;

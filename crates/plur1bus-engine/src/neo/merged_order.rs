@@ -20,7 +20,7 @@ pub(super) fn truthy(value: &Json) -> bool {
         _ => true,
     }
 }
-pub(super) fn string(value: &Json) -> JsString {
+pub(crate) fn string(value: &Json) -> JsString {
     match value {
         Json::String(s) => s.clone(),
         Json::Array(items) => {

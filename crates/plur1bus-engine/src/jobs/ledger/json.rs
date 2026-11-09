@@ -1,6 +1,6 @@
 //! JSON.parse plus JSON.stringify object/number semantics for Node's opaque ledger objects.
 use crate::text::{js::JsString, json::TolerantJsonValue as Json};
-pub(super) fn node_value(value: Json) -> Json {
+pub(crate) fn node_value(value: Json) -> Json {
     match value {
         Json::Number(text) => match text.parse::<f64>() {
             Ok(value) if value.is_finite() => {
