@@ -1,0 +1,14 @@
+{
+  "exception": "RE-D139",
+  "sourceCommit": "1878af0b6b7eeaeba657f9d98f01a7bae5da26d8",
+  "sourceTreeSha256": "0284e11e6320f4fd49b62839876bbc483d07daaea2da4a68417d828d88ce3eeb",
+  "golden": "ops/golden/reconcile.json",
+  "goldenSha256": "ea2eb61bb0368b4c7d468b83c4a17c8104db5812d3ca3a944c679b7fb5b6734a",
+  "reference": "S5 starts reconciliation in the background and only logs incomplete reports; close waits for that task.",
+  "native": [
+    "Construction remains lazy; the first successful open waits for reconciliation using the configured active namespace writer and host clock.",
+    "Row or registry errors reject open without registering or creating the requested agent; a later call retries against the same pinned pools.",
+    "The engine shutdown token cancels reconciliation and close serializes with open.",
+    "Existing S5 pending, missing-row and grace decisions remain unchanged; no restore grant, readiness or complete capture/Neo recovery is inferred."
+  ]
+}

@@ -1795,5 +1795,22 @@ All twelve unchanged Node recovery vectors from the frozen S5 head
 `1878af0b6b7eeaeba657f9d98f01a7bae5da26d8` run against real namespace tables with
 conflicting legacy status. Complete reports/registry records match and all table
 bytes remain unchanged. The native exception marker binds the source manifest
-and golden SHA. This is recovery source composition, without activating startup
-recovery or granting snapshot-restore authority.
+and golden SHA. This recovery source grants no snapshot-restore authority; process startup
+composition is described below.
+
+### Process startup tombstone gate (RE-D139)
+
+The first successful `ProcessEngine.open` runs S5 reconciliation through the same
+active namespace pools, using the host clock and engine shutdown token. Only then
+may it initialize/register the requested agent. Construction remains lazy. Row or
+registry errors refuse opening; a later open retries on the retained pinned pools.
+This deliberately replaces S5's historical background warning-only startup path.
+Pending attempts, missing rows and the existing grace interval retain their
+recorded S5 behavior. No new row or restore authority is created.
+
+Engine shutdown cancels reconciliation before waiting for the opening operation.
+Tests compare actual ProcessEngine/Lance/registry output with the unchanged Node
+records, reject corrupt registries without creating the agent, retry after repair,
+and cancel during the startup clock callback before registry publication. The
+source/golden SHA marker records this native admission policy. Capture-WAL/Neo
+startup and complete readiness remain separate unfinished composition.

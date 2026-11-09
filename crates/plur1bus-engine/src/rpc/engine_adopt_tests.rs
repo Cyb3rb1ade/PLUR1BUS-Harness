@@ -26,7 +26,7 @@ fn snapshot(root: &Path) -> BTreeMap<PathBuf, String> {
     walk(root, root, &mut out);
     out
 }
-fn row(vector: Vec<f32>) -> MemoryRow {
+pub(super) fn row(vector: Vec<f32>) -> MemoryRow {
     let schema: Value =
         serde_json::from_str(include_str!("../../schema/engine-contract.schema.json")).unwrap();
     let mut fields = serde_json::Map::new();

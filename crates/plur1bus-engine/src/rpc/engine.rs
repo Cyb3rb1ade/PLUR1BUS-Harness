@@ -145,6 +145,7 @@ impl ProcessEngine {
         let platform = host.platform().clone();
         let clock_host = host;
         options.clock = Arc::new(move || clock_host.now_ms());
+        let store_clock = options.clock.clone();
         let embedding = Arc::new(Service::new(
             provider,
             reranker,
@@ -173,7 +174,7 @@ impl ProcessEngine {
         Ok(Self {
             embedding,
             stores,
-            store_cancel,
+            store_cancel: store_cancel.clone(),
             live_stores: Arc::new(EngineStores::new(
                 config,
                 raw["baseDbPath"]
@@ -181,6 +182,8 @@ impl ProcessEngine {
                     .filter(|path| !path.is_empty())
                     .map(std::path::PathBuf::from),
                 space,
+                store_clock,
+                store_cancel,
             )),
             checkpoints,
             system_supplement: crate::recall::system_supplement::build(
@@ -924,3 +927,7 @@ mod adopt_tests;
 #[cfg(test)]
 #[path = "engine_open_tests.rs"]
 mod open_tests;
+
+#[cfg(test)]
+#[path = "engine_recovery_tests.rs"]
+mod recovery_tests;

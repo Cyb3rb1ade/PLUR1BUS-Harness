@@ -1,7 +1,8 @@
 //! Lazy process-owned writer pools. Opening a table grants no row authority.
 use crate::{
     contract::{
-        AgentId, AgentStoreHandle, EngineConfig, EngineError, StoreError, VectorSpaceIdentity,
+        AgentId, AgentStoreHandle, Cancel, EngineConfig, EngineError, StoreError,
+        VectorSpaceIdentity,
     },
     recall::namespaces::NamespaceStores,
 };
@@ -16,7 +17,8 @@ use std::{
 
 #[derive(Default)]
 struct State {
-    pools: Option<NamespaceStores>,
+    pools: Option<Arc<NamespaceStores>>,
+    recovered: bool,
     agents: BTreeSet<String>,
     closed: bool,
 }
@@ -27,12 +29,16 @@ pub(super) struct EngineStores {
     identity: VectorSpaceIdentity,
     state: Mutex<State>,
     count: AtomicUsize,
+    clock: Arc<dyn Fn() -> i64 + Send + Sync>,
+    cancel: Cancel,
 }
 impl EngineStores {
     pub(super) fn new(
         config: EngineConfig,
         base: Option<PathBuf>,
         identity: VectorSpaceIdentity,
+        clock: Arc<dyn Fn() -> i64 + Send + Sync>,
+        cancel: Cancel,
     ) -> Self {
         Self {
             config,
@@ -40,6 +46,8 @@ impl EngineStores {
             identity,
             state: Mutex::default(),
             count: AtomicUsize::new(0),
+            clock,
+            cancel,
         }
     }
     pub(super) fn open(self: &Arc<Self>, agent: &AgentId) -> Result<AgentStoreHandle, EngineError> {
@@ -56,19 +64,34 @@ impl EngineStores {
                 reason: "closed".into(),
             });
         }
+        self.cancel.check()?;
         if state.pools.is_none() {
             let base = self.base.as_ref().ok_or_else(|| EngineError::Invalid {
                 field: "baseDbPath".into(),
                 message: "resolved store path required".into(),
             })?;
             // Eight idle handles per route; live leases remain pinned by StorePool.
-            state.pools = Some(NamespaceStores::open(
+            state.pools = Some(Arc::new(NamespaceStores::open(
                 base,
                 &self.config,
                 &self.identity,
                 8,
-            )?);
+            )?));
         }
+        if !state.recovered {
+            let pools = state.pools.as_ref().ok_or(StoreError::Unavailable)?.clone();
+            let base = self.base.as_ref().ok_or(StoreError::InvalidInput)?;
+            let lookup = crate::ops::tombstones::NamespaceGenerationLookup::new(pools);
+            let report =
+                crate::ops::tombstones::reconcile(base, &lookup, (self.clock)(), &self.cancel)?;
+            if !report.errors.is_empty() || !report.registry_errors.is_empty() {
+                return Err(EngineError::NotAvailable {
+                    reason: "startup-recovery-incomplete".into(),
+                });
+            }
+            state.recovered = true;
+        }
+        self.cancel.check()?;
         state
             .pools
             .as_ref()

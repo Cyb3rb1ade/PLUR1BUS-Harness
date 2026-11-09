@@ -131,6 +131,9 @@ fn concurrent_open_and_stop_leave_no_registered_agents() {
                         (handle.close)().unwrap();
                     }
                     Err(EngineError::NotAvailable { reason }) => assert_eq!(reason, "closed"),
+                    Err(EngineError::Cancelled(_)) => {
+                        assert!(engine.closed.load(Ordering::Acquire))
+                    }
                     Err(error) => assert!(
                         matches!(error, EngineError::NotAvailable { .. }),
                         "unexpected open failure: {error}"
