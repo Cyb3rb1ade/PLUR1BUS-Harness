@@ -1,4 +1,5 @@
 //! Pure run-state rate-limit transitions. A metadata key is neither authority nor an execution lock.
+mod store;
 use super::{
     ledger::json::node_value,
     metadata::{get, truthy},
@@ -8,6 +9,7 @@ use crate::{
     contract::{Cancel, EngineError, StoreError},
     text::json::TolerantJsonValue as Json,
 };
+pub use store::RateLimitStore;
 
 /// Frozen Node job:agent:workspace composition. Colons deliberately retain legacy key semantics.
 /// Host composition must separately select an authorized state file; keys cannot isolate tenants.

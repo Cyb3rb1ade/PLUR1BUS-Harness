@@ -8,7 +8,7 @@ use crate::{
     },
 };
 use std::{io::Write, path::Path};
-mod io;
+pub(crate) mod io;
 pub(crate) mod json;
 mod session;
 pub use session::{JobSession, RecoveryReport, RunAdmission};

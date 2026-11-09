@@ -91,6 +91,7 @@ fn completed_body_has_a_durable_run_and_dry_run_has_no_persisted_record() {
     );
 }
 
+#[cfg(feature = "testkit")]
 struct Scripted {
     name: JobName,
     mode: String,
@@ -98,6 +99,7 @@ struct Scripted {
     entered: std::sync::mpsc::Sender<()>,
     gate: Arc<(std::sync::Mutex<bool>, std::sync::Condvar)>,
 }
+#[cfg(feature = "testkit")]
 impl JobBody for Scripted {
     fn name(&self) -> JobName {
         self.name
@@ -125,6 +127,7 @@ impl JobBody for Scripted {
         }
     }
 }
+#[cfg(feature = "testkit")]
 #[test]
 fn ten_actual_node_run_scenarios_match_results_rows_and_events() {
     use plur1bus_engine::{jobs::ledger::JobLedger, text::json::write_json};
@@ -384,6 +387,7 @@ fn history_filters_before_limiting_and_refuses_unrepresentable_legacy_rows() {
     assert_eq!(ledger.snapshot(&Cancel::never()).unwrap().rows.len(), 4);
 }
 
+#[cfg(feature = "testkit")]
 #[test]
 fn reused_run_identifier_is_refused_before_calling_the_body_again() {
     use std::sync::{
@@ -428,6 +432,7 @@ fn reused_run_identifier_is_refused_before_calling_the_body_again() {
     );
 }
 
+#[cfg(feature = "testkit")]
 #[test]
 fn jobs_registry_child() {
     let Ok(path) = std::env::var("PLUR1BUS_JOB_REGISTRY_TEST_ROOT") else {
@@ -473,6 +478,7 @@ fn jobs_registry_child() {
     );
 }
 #[cfg(unix)]
+#[cfg(feature = "testkit")]
 #[test]
 fn sigkill_during_body_or_completion_recovers_without_reexecution_or_duplicate_rows() {
     use plur1bus_engine::contract::JobOutcome;

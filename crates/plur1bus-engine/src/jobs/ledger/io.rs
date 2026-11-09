@@ -16,7 +16,7 @@ pub(super) fn child(
         Err(e) => Err(e.into()),
     }
 }
-pub(super) fn read(
+pub(crate) fn read(
     dir: &TrustedDirectory,
     name: &str,
     max: usize,
@@ -99,7 +99,7 @@ pub(super) fn verify_range(
     Ok(())
 }
 
-pub(super) fn identity(
+pub(crate) fn identity(
     dir: &TrustedDirectory,
     name: &str,
 ) -> Result<Option<(u64, u64)>, EngineError> {

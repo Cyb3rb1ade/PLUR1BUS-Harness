@@ -88,7 +88,7 @@ fn rename_with_retry(from: &Path, to: &Path) -> io::Result<()> {
 }
 
 #[cfg(windows)]
-fn rename_with_retry(from: &Path, to: &Path) -> io::Result<()> {
+pub(crate) fn rename_with_retry(from: &Path, to: &Path) -> io::Result<()> {
     use std::time::{Duration, Instant};
     let started = Instant::now();
     let mut delay = Duration::from_millis(10);

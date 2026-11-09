@@ -15,6 +15,8 @@ use super::paths::assert_trusted_path;
 
 #[path = "directory_append.rs"]
 mod append;
+#[path = "directory_replace.rs"]
+mod replace;
 pub(crate) use append::identity as regular_file_identity;
 
 #[cfg(test)]

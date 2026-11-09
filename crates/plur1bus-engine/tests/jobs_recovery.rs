@@ -91,6 +91,7 @@ fn existing_receipts_corrupt_markers_and_torn_bytes_remain_distinguishable() {
         .starts_with("{\"torn\":\n"));
     assert!(ledger.orphan_markers(&Cancel::never()).unwrap().is_empty());
 }
+#[cfg(feature = "testkit")]
 #[test]
 fn changed_row_or_marker_prevents_retirement_and_leaves_recovery_retryable() {
     use std::sync::{
@@ -167,6 +168,7 @@ fn session_refuses_replaced_directory_or_lifecycle_lock() {
         }
     }
 }
+#[cfg(feature = "testkit")]
 #[test]
 fn jobs_recovery_child() {
     use std::{path::Path, sync::Arc};
@@ -195,6 +197,7 @@ fn jobs_recovery_child() {
     );
 }
 #[cfg(unix)]
+#[cfg(feature = "testkit")]
 #[test]
 fn sigkill_releases_lifetime_lease_and_recovers_each_run_exactly_once() {
     use std::{
@@ -245,6 +248,7 @@ fn sigkill_releases_lifetime_lease_and_recovers_each_run_exactly_once() {
     }
 }
 
+#[cfg(feature = "testkit")]
 #[test]
 fn cancellation_after_durable_row_keeps_marker_until_a_successful_retry() {
     use std::sync::{

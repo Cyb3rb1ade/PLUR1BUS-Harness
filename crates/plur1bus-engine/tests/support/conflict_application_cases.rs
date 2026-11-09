@@ -409,5 +409,6 @@ fn partial_application_reuses_the_frozen_successor_and_current_authority() {
     }
 }
 
+#[cfg(feature = "testkit")]
 #[path = "conflict_application_recovery_cases.rs"]
 mod recovery_cases;
