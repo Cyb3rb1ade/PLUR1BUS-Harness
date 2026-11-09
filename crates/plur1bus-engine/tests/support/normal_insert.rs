@@ -434,14 +434,14 @@ fn receipt_links_never_change_the_external_target() {
             .is_none());
     }
 }
-struct Reopened {
-    base: fixture::Reopened,
-    host: Arc<Host>,
-    embed: Arc<Embed>,
-    reader: Arc<MemoryReader>,
-    journal: Arc<CaptureJournal>,
+pub(super) struct Reopened {
+    pub(super) base: fixture::Reopened,
+    pub(super) host: Arc<Host>,
+    pub(super) embed: Arc<Embed>,
+    pub(super) reader: Arc<MemoryReader>,
+    pub(super) journal: Arc<CaptureJournal>,
 }
-fn reopen(root: &Path) -> Reopened {
+pub(super) fn reopen(root: &Path) -> Reopened {
     let base = fixture::reopen(root);
     let inner = support::TestHost::new(root.join("state"));
     inner.set_workspace("alpha", root.join("workspace"));

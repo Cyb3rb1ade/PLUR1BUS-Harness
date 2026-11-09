@@ -33,11 +33,15 @@ impl NativeMerge {
             cancel.limited_to(std::time::Instant::now() + std::time::Duration::from_secs(300));
         let requests = self.journal.merge_requests(&cancel)?;
         let inserts = self.journal.normal_insert_requests(&cancel)?;
+        let duplicates = self.journal.normal_duplicate_requests(&cancel)?;
         for (r, p, a) in &requests {
             self.settle(r, p, a, &cancel, true, true)?;
         }
         for (r, p, a) in &inserts {
             self.recover_insert(r, p, a, &cancel, true)?;
+        }
+        for (r, p, a) in &duplicates {
+            self.recover_duplicate(r, p, a, &cancel, true)?;
         }
         for (r, p, a) in &requests {
             self.settle(r, p, a, &cancel, true, false)?;
@@ -45,6 +49,9 @@ impl NativeMerge {
         for (r, p, a) in &inserts {
             self.recover_insert(r, p, a, &cancel, false)?;
         }
-        Ok(requests.len() + inserts.len())
+        for (r, p, a) in &duplicates {
+            self.recover_duplicate(r, p, a, &cancel, false)?;
+        }
+        Ok(requests.len() + inserts.len() + duplicates.len())
     }
 }

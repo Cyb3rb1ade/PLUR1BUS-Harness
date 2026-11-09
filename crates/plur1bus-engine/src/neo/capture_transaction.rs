@@ -69,6 +69,7 @@ impl CaptureJournal {
         cancel: &Cancel,
     ) -> Result<(), EngineError> {
         crate::ops::normal_insert_state::guard_pending(directory, cancel)?;
+        crate::ops::normal_duplicate_state::guard_pending(directory, cancel)?;
         crate::ops::durable_merge_state::guard_pending(directory, cancel)?;
         Self::guard_non_merge_pending(directory, cancel)
     }
@@ -169,6 +170,59 @@ impl CaptureJournal {
     }
     /// Owning ordinary primary store validates its own pending receipt; other writers remain fenced.
     pub(crate) fn with_normal_store_writer<T>(
+        &self,
+        principal: &Principal,
+        agent: &AgentContext,
+        expected: &RequestContext,
+        cancel: &Cancel,
+        extra: &dyn Fn() -> Result<(), EngineError>,
+        action: impl FnOnce(
+            &TrustedDirectory,
+            &Json,
+            &str,
+            &dyn Fn() -> Result<(), EngineError>,
+        ) -> Result<T, EngineError>,
+    ) -> Result<T, EngineError> {
+        self.with_foreground_writer(
+            principal,
+            agent,
+            expected,
+            cancel,
+            extra,
+            |dir, proof, binding, check| {
+                crate::ops::normal_duplicate_state::guard_pending(dir, cancel)?;
+                action(dir, proof, binding, check)
+            },
+        )
+    }
+    /// Owning duplicate rejection validates its receipt while ordinary intents remain fenced.
+    pub(crate) fn with_normal_duplicate_writer<T>(
+        &self,
+        principal: &Principal,
+        agent: &AgentContext,
+        expected: &RequestContext,
+        cancel: &Cancel,
+        extra: &dyn Fn() -> Result<(), EngineError>,
+        action: impl FnOnce(
+            &TrustedDirectory,
+            &Json,
+            &str,
+            &dyn Fn() -> Result<(), EngineError>,
+        ) -> Result<T, EngineError>,
+    ) -> Result<T, EngineError> {
+        self.with_foreground_writer(
+            principal,
+            agent,
+            expected,
+            cancel,
+            extra,
+            |dir, proof, binding, check| {
+                crate::ops::normal_insert_state::guard_pending(dir, cancel)?;
+                action(dir, proof, binding, check)
+            },
+        )
+    }
+    fn with_foreground_writer<T>(
         &self,
         principal: &Principal,
         agent: &AgentContext,

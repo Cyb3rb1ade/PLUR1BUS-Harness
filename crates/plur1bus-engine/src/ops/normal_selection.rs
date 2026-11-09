@@ -399,3 +399,6 @@ impl NativeMerge {
 
 #[path = "normal_insert.rs"]
 pub(in crate::ops::durable_merge) mod insert;
+
+#[path = "normal_duplicate.rs"]
+pub(in crate::ops::durable_merge) mod duplicate;

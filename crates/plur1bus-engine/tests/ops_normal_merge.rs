@@ -597,3 +597,6 @@ mod selection_tests;
 
 #[path = "support/normal_insert.rs"]
 mod insert_tests;
+
+#[path = "support/normal_duplicate.rs"]
+mod duplicate_tests;

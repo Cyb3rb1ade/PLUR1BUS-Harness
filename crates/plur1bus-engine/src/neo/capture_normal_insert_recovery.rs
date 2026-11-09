@@ -69,6 +69,7 @@ impl CaptureJournal {
                     return Err(StoreError::UntrustedPath.into());
                 }
                 transaction::guard_automatic_pending(&dir, cancel)?;
+                crate::ops::normal_duplicate_state::guard_pending(&dir, cancel)?;
                 Self::guard_non_merge_pending(&dir, cancel)?;
                 crate::ops::durable_merge_state::guard_pending(&dir, cancel)?;
                 crate::ops::conflict_application_state::guard_pending(&dir, cancel)?;

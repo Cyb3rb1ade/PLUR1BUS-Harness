@@ -114,6 +114,21 @@ A retry of an upgraded receipt resumes the retained obligation even through the 
 The returned `StorePublicationResult` acknowledges this ordinary branch only; candidate/merge/
 duplicate admission and interference still require the full request coordinator.
 
+`NativeMerge::reject_selected_duplicate` publishes an admitted duplicate rejection under its own
+operation UUID. It rechecks the actual private candidate with the existing input vector before
+a new intent and retains original input/score/time/source/caller/config/physical bindings for
+recovery. It creates no memory row or knowledge work. The duplicate registry shares the bounded
+512-receipt/8 MiB/64 MiB limits and participates in native writer fences and original-caller open
+preflight alongside merge and ordinary intents.
+
+Duplicate audit identity is **per operation**, not per existing memory ID. An exact saved prefix
+length/hash plus ordered F3-safe line anchors each occurrence. Two distinct operations may append
+two identical lines; exact retries append neither again. Later unrelated complete lines survive,
+while changed/deleted evidence, an interposed line at the reserved position, malformed/oversized/
+linked files or changed directory/source authority refuse. This assumes cooperating native writer
+leases; it cannot attribute externally written byte-identical lines to a different process.
+Common request admission and merged-result curation/knowledge composition remain separate.
+
 ## Targets
 
 | Target | Name | What it is |

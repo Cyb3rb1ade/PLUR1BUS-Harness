@@ -37,6 +37,8 @@ mod conflict_application_recovery;
 mod interference_recovery;
 #[path = "capture_merge_recovery.rs"]
 mod merge_recovery;
+#[path = "capture_normal_duplicate_recovery.rs"]
+mod normal_duplicate_recovery;
 #[path = "capture_normal_insert_recovery.rs"]
 mod normal_insert_recovery;
 #[path = "capture_recovery.rs"]
