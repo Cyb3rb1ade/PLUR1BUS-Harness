@@ -28,6 +28,7 @@ use std::{
 pub struct ProcessEngine {
     embedding: Service,
     checkpoints: crate::store::checkpoint::CheckpointStore,
+    system_supplement: Vec<String>,
     capabilities: Capabilities,
     status: EngineStatus,
     closed: Arc<AtomicBool>,
@@ -149,6 +150,12 @@ impl ProcessEngine {
         Ok(Self {
             embedding,
             checkpoints,
+            system_supplement: crate::recall::system_supplement::build(
+                raw["neo"]["enabled"] != false,
+            )
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
             capabilities,
             status,
             unavailable: Unavailable {
@@ -228,7 +235,7 @@ impl Engine for ProcessEngine {
         status
     }
     fn system_supplement(&self) -> Vec<String> {
-        Vec::new()
+        self.system_supplement.clone()
     }
     fn recall(
         &self,
@@ -867,3 +874,7 @@ mod tests {
 #[cfg(test)]
 #[path = "engine_checkpoint_tests.rs"]
 mod checkpoint_tests;
+
+#[cfg(test)]
+#[path = "engine_supplement_tests.rs"]
+mod supplement_tests;

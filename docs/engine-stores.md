@@ -1687,3 +1687,14 @@ the additional user/workspace gate. Further actual-file/Lance tests cover row
 rebinding, deletion, valid time, distinct tables, duplicate claims, later hidden
 revisions, 400-record cap, cancellation and root replacement during provider work.
 Historical unbound graph stage vectors remain unchanged.
+
+
+### ProcessEngine static supplement (RX3/RX8 / RE-D133)
+
+The actual engine facade caches the existing Node-parity system supplement at
+construction, with `neo.enabled !== false` as in the pin. This pure response stays
+stable across host config changes until a new engine is constructed and remains
+readable after close. It neither opens a store nor warms a provider. The process
+regression compares the complete serialized response to the unchanged Node
+`recall/golden/render/system-supplement.json` for disabled, enabled and default
+Neo configuration. Dynamic recall/capture readiness remains independent.
