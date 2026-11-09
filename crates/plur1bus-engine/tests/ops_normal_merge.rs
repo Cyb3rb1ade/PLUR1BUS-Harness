@@ -609,3 +609,6 @@ mod merge_knowledge_tests;
 
 #[path = "support/knowledge_promotion.rs"]
 mod promotion_tests;
+
+#[path = "support/memory_facade.rs"]
+mod facade_tests;

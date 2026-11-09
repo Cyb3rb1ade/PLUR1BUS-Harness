@@ -5,6 +5,8 @@ pub mod correction;
 mod correction_dynamics;
 /// Human foreground curation using the actual C4 reader and audit-first writer.
 pub mod curation;
+/// Common native composition of the unchanged memory contract.
+pub mod facade;
 pub mod import;
 pub mod import_ledger;
 pub mod import_lock;

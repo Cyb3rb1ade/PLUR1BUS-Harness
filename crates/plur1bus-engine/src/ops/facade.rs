@@ -1,0 +1,281 @@
+//! Native MemoryOps composition; no process capability or new wire method is implied.
+use super::{
+    context::OperationContext,
+    curation::NativeCuration,
+    import::{ImportStores, Importer},
+    import_ledger::ImportLedger,
+    import_row::ImportEncoding,
+    knowledge_promotion::NativePromotion,
+    memory::{MemoryReader, ReadStores},
+    proposals::Proposals,
+    rebind::{RebindStores, Rebinder},
+    sharing::{ShareServices, SharedStores},
+    unimport::{UnimportEffects, UnimportStores, Unimporter},
+    write::{MemoryWriter, MutationStores},
+};
+use crate::{
+    contract::{
+        AgentContext, Cancel, EngineError, MemoryCard, MemoryCorrectResult, MemoryCurationOps,
+        MemoryForgetResult, MemoryImportRequest, MemoryImportResult, MemoryLinkRequest,
+        MemoryLinkResult, MemoryListQuery, MemoryListResult, MemoryOps, MemoryPromoteRequest,
+        MemoryPromotionResult, MemoryProposalAcceptResult, MemoryProposalListQuery,
+        MemoryProposalListResult, MemoryProposalRejectResult, MemoryProposalsOps,
+        MemoryProposeResult, MemoryRebindRequest, MemoryRebindResult, MemoryShareResult,
+        MemoryShareTarget, MemoryState, MemoryStatsResult, MemoryUnbindRequest, MemoryUnbindResult,
+        MemoryUnimportRequest, MemoryUnimportResult, Principal, ProposalRejectOptions,
+        ProposeOptions, ShareOptions,
+    },
+    embedding::EmbeddingProvider,
+    neo::capture_journal::CaptureJournal,
+};
+use std::{path::PathBuf, sync::Arc};
+#[path = "facade_correction.rs"]
+mod correction;
+
+/// Explicit trusted native dependencies. Routes still authorize each actual request;
+/// supplying a route does not confer row ownership or a maintenance grant.
+pub struct MemoryPorts {
+    /// Existing readable pools.
+    pub read: Arc<dyn ReadStores>,
+    /// Existing private mutation pool.
+    pub mutation: Arc<dyn MutationStores>,
+    /// Shared destinations, including explicit unsupported status.
+    pub shared: Arc<dyn SharedStores>,
+    /// Import admission and writable route.
+    pub import: Arc<dyn ImportStores>,
+    /// Owner-binding migration route.
+    pub rebind: Arc<dyn RebindStores>,
+    /// Import rollback and existing shared pools.
+    pub unimport: Arc<dyn UnimportStores>,
+    /// Actual archive/audit and configured graph/mirror cleanup.
+    pub unimport_effects: Arc<dyn UnimportEffects>,
+    /// Active embedding identity used by reads, corrections and import.
+    pub embedder: Arc<dyn EmbeddingProvider>,
+    /// Explicit active/retained shared destination providers.
+    pub sharing_providers: Vec<Arc<dyn EmbeddingProvider>>,
+    /// Original host/policy-bound Neo journal, not a caller-derived root.
+    pub journal: Arc<CaptureJournal>,
+    /// Explicit jobs root for rollback guards; no discovery is performed here.
+    pub jobs_root: Option<PathBuf>,
+    /// Validated host import encoding policy.
+    pub import_encoding: ImportEncoding,
+}
+
+/// Every component shares one operation generation, registry root and import ledger.
+/// Neo correction effects are deliberately constructed anew for each original caller.
+pub struct NativeMemory {
+    context: Arc<OperationContext>,
+    base: PathBuf,
+    reader: Arc<MemoryReader>,
+    writer: Arc<MemoryWriter>,
+    proposals: Proposals,
+    importer: Importer,
+    rebinder: Rebinder,
+    unimporter: Unimporter,
+    promotion: NativePromotion,
+    curation: NativeCuration,
+    journal: Arc<CaptureJournal>,
+    embedder: Arc<dyn EmbeddingProvider>,
+}
+impl NativeMemory {
+    /// Compose lazily without opening a table, creating directories or calling providers.
+    pub fn new(context: Arc<OperationContext>, base: PathBuf, ports: MemoryPorts) -> Self {
+        let reader = Arc::new(MemoryReader::new(
+            context.clone(),
+            ports.read,
+            ports.embedder.clone(),
+            base.clone(),
+        ));
+        let writer = Arc::new(
+            MemoryWriter::new(context.clone(), ports.mutation, base.clone()).with_sharing(
+                ShareServices {
+                    reader: reader.clone(),
+                    stores: ports.shared,
+                    providers: ports.sharing_providers,
+                },
+            ),
+        );
+        let receipts = Arc::new(ImportLedger::new(&base));
+        Self {
+            importer: Importer::new(
+                context.clone(),
+                ports.import,
+                ports.embedder.clone(),
+                receipts.clone(),
+                base.clone(),
+                ports.import_encoding,
+            ),
+            rebinder: Rebinder::new(context.clone(), ports.rebind, base.clone()),
+            unimporter: Unimporter::new(
+                context.clone(),
+                ports.unimport,
+                receipts,
+                ports.unimport_effects,
+                base.clone(),
+                ports.jobs_root,
+            ),
+            promotion: NativePromotion::new(reader.clone(), ports.journal.clone()),
+            curation: NativeCuration::new(context.clone(), ports.journal.clone()),
+            proposals: Proposals::new(writer.clone()),
+            context,
+            base,
+            reader,
+            writer,
+            journal: ports.journal,
+            embedder: ports.embedder,
+        }
+    }
+}
+
+impl MemoryOps for NativeMemory {
+    fn list(
+        &self,
+        query: MemoryListQuery,
+        p: &Principal,
+        a: &AgentContext,
+    ) -> Result<MemoryListResult, EngineError> {
+        self.reader.list(&query, p, a)
+    }
+    fn show(&self, id: &str, p: &Principal, a: &AgentContext) -> Result<MemoryCard, EngineError> {
+        self.reader.show(id, p, a)
+    }
+    fn forget(
+        &self,
+        id: &str,
+        p: &Principal,
+        a: &AgentContext,
+    ) -> Result<MemoryForgetResult, EngineError> {
+        self.writer.forget(id, p, a)
+    }
+    fn correct(
+        &self,
+        id: &str,
+        text: &str,
+        p: &Principal,
+        a: &AgentContext,
+    ) -> Result<MemoryCorrectResult, EngineError> {
+        let operation = self.context.enter(p, a)?;
+        self.context.destructive_workspace(&operation.context)?;
+        self.correction_writer(p, a)?.correct(id, text, p, a)
+    }
+    fn share(
+        &self,
+        id: &str,
+        target: MemoryShareTarget,
+        options: ShareOptions,
+        p: &Principal,
+        a: &AgentContext,
+    ) -> Result<MemoryShareResult, EngineError> {
+        self.writer.share(id, target, p, a, &options)
+    }
+    fn state(&self, p: &Principal, a: &AgentContext) -> Result<MemoryState, EngineError> {
+        self.reader.state(p, a)
+    }
+    fn propose(
+        &self,
+        id: &str,
+        text: &str,
+        options: ProposeOptions,
+        p: &Principal,
+        a: &AgentContext,
+    ) -> Result<MemoryProposeResult, EngineError> {
+        self.proposals.propose(id, text, &options, p, a)
+    }
+    fn proposals(&self) -> &dyn MemoryProposalsOps {
+        self
+    }
+    fn import(
+        &self,
+        request: MemoryImportRequest,
+        cancel: &Cancel,
+        p: &Principal,
+        a: &AgentContext,
+    ) -> Result<MemoryImportResult, EngineError> {
+        self.importer.import(&request, p, a, cancel)
+    }
+    fn rebind(
+        &self,
+        request: MemoryRebindRequest,
+        cancel: &Cancel,
+        p: &Principal,
+        a: &AgentContext,
+    ) -> Result<MemoryRebindResult, EngineError> {
+        self.rebinder.rebind(&request, p, a, cancel)
+    }
+    fn unbind(
+        &self,
+        request: MemoryUnbindRequest,
+        cancel: &Cancel,
+        p: &Principal,
+        a: &AgentContext,
+    ) -> Result<MemoryUnbindResult, EngineError> {
+        self.rebinder.unbind(&request, p, a, cancel)
+    }
+    fn unimport(
+        &self,
+        request: MemoryUnimportRequest,
+        cancel: &Cancel,
+        p: &Principal,
+        a: &AgentContext,
+    ) -> Result<MemoryUnimportResult, EngineError> {
+        self.unimporter.unimport(&request, p, a, cancel)
+    }
+    fn link(
+        &self,
+        id: &str,
+        request: MemoryLinkRequest,
+        p: &Principal,
+        a: &AgentContext,
+    ) -> Result<MemoryLinkResult, EngineError> {
+        self.reader.link(id, &request, p, a)
+    }
+    fn stats(
+        &self,
+        ids: Option<&[String]>,
+        p: &Principal,
+        a: &AgentContext,
+    ) -> Result<MemoryStatsResult, EngineError> {
+        self.reader.stats(ids, p, a)
+    }
+    fn promote(
+        &self,
+        request: MemoryPromoteRequest,
+        p: &Principal,
+        a: &AgentContext,
+    ) -> Result<MemoryPromotionResult, EngineError> {
+        self.promotion.run(&request.ids, p, a, &Cancel::never())
+    }
+    fn curation(&self) -> &dyn MemoryCurationOps {
+        &self.curation
+    }
+}
+
+impl MemoryProposalsOps for NativeMemory {
+    fn list(
+        &self,
+        query: MemoryProposalListQuery,
+        p: &Principal,
+        a: &AgentContext,
+    ) -> Result<MemoryProposalListResult, EngineError> {
+        self.proposals.list(query, p, a)
+    }
+    fn accept(
+        &self,
+        id: &str,
+        p: &Principal,
+        a: &AgentContext,
+    ) -> Result<MemoryProposalAcceptResult, EngineError> {
+        let operation = self.context.enter(p, a)?;
+        self.context.destructive_workspace(&operation.context)?;
+        Proposals::new(Arc::new(self.correction_writer(p, a)?)).accept(id, p, a)
+    }
+    fn reject(
+        &self,
+        id: &str,
+        options: ProposalRejectOptions,
+        p: &Principal,
+        a: &AgentContext,
+    ) -> Result<MemoryProposalRejectResult, EngineError> {
+        self.proposals.reject(id, options, p, a)
+    }
+}

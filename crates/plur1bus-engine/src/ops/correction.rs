@@ -141,6 +141,8 @@ impl MemoryWriter {
         if vectors.len() != 1 {
             return Err(error(MemoryOpErrorCode::Storage));
         }
+        self.context.assert_open()?;
+        unchanged_source(&store, &old)?;
         let vector = vectors.remove(0);
         let before = if old.text.is_empty() {
             &old.summary
@@ -178,6 +180,8 @@ impl MemoryWriter {
             old.id.clone()
         } else {
             let successor = successor(&old, new_text, &summary, &vector, &evidence, now)?;
+            self.context.assert_open()?;
+            unchanged_source(&store, &old)?;
             store
                 .upsert(std::slice::from_ref(&successor))
                 .map_err(|failure| {
@@ -187,6 +191,8 @@ impl MemoryWriter {
                         MemoryOpErrorCode::Storage
                     })
                 })?;
+            self.context.assert_open()?;
+            unchanged_source(&store, &old)?;
             store
                 .patch(
                     id,
@@ -227,6 +233,16 @@ impl MemoryWriter {
         serde_json::from_value(json!({"id":new_id,"archived":true}))
             .map_err(|_| error(MemoryOpErrorCode::Storage))
     }
+}
+fn unchanged_source(store: &crate::store::Store, expected: &MemoryRow) -> Result<(), EngineError> {
+    let current = store.get(&expected.id).map_err(storage)?;
+    let current = current.ok_or_else(|| error(MemoryOpErrorCode::Conflict))?;
+    let encode =
+        |row: &MemoryRow| serde_json::to_value(row).map_err(|_| error(MemoryOpErrorCode::Storage));
+    if encode(&current)? != encode(expected)? {
+        return Err(error(MemoryOpErrorCode::Conflict));
+    }
+    Ok(())
 }
 fn storage(_: StoreError) -> EngineError {
     error(MemoryOpErrorCode::Storage)
