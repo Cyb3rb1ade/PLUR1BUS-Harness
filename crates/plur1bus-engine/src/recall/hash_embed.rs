@@ -107,6 +107,26 @@ impl HashEmbedder {
             },
         }
     }
+
+    /// Match the configured vector space without changing the fixture algorithm.
+    pub(crate) fn bind_identity(
+        mut self,
+        identity: &VectorSpaceIdentity,
+    ) -> Result<Self, EmbedError> {
+        let actual = identity
+            .dimension
+            .as_u64()
+            .and_then(|width| usize::try_from(width).ok())
+            .ok_or(EmbedError::InvalidVector)?;
+        if actual != HASH_DIMENSION {
+            return Err(EmbedError::DimensionMismatch {
+                expected: HASH_DIMENSION,
+                actual,
+            });
+        }
+        self.identity = identity.clone();
+        Ok(self)
+    }
 }
 
 impl Default for HashEmbedder {

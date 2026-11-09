@@ -1,0 +1,25 @@
+{
+  "schema": "engine-parity.golden/1",
+  "recordedFrom": {
+    "engine": "node",
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "at": "2026-11-09T16:32:46.784Z"
+  },
+  "steps": [
+    {
+      "result": {
+        "skipped": 0,
+        "stored": 2
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "reason": "duplicate-turn",
+        "skipped": 1,
+        "stored": 0
+      },
+      "trace": null
+    }
+  ]
+}

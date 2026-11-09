@@ -7,6 +7,7 @@ import { workflowPinFindings } from "./workflow-pin-gate.mjs";
 import { foreignClientFindings } from "./foreign-client-fingerprints.mjs";
 import { lstatSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { join, relative } from "node:path";
 
@@ -121,6 +122,10 @@ const ALLOW = new Map([
   ]]),
   // Preserve this exact frozen Node error in its recorded parity fixture only.
   ["crates/plur1bus-engine/tests/fixtures/ops/golden/reembedding-runtime-probe.json", [/^\s*"error": "active generation selection drift after OpenClaw config mutation",?\s*$/]],
+  // The frozen Node temporal-context block is prompt data. Permit only its recorded line.
+  ["tests/engine-parity/golden/recall/temporal.json", [{
+    test: line => createHash("sha256").update(line).digest("hex") === "f58aa1525513014b6a7829c8d9c485b996f708547cece98062d6373212fba9e9",
+  }]],
   ["packages/core/test/principal.test.ts", [/lib\/memory-request-context\.js/]],
   [
     "packages/core/package.json",

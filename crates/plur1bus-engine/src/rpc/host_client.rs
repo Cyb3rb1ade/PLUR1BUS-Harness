@@ -376,6 +376,7 @@ struct EventWorker {
 pub struct RpcHost {
     state: PathBuf,
     config: EngineConfig,
+    fixture_now_ms: Option<i64>,
     platform: PlatformCapabilities,
     link: Arc<HostLink>,
     events: Mutex<Option<EventWorker>>,
@@ -389,6 +390,7 @@ impl RpcHost {
         Self {
             state: home.join("state"),
             config,
+            fixture_now_ms: None,
             platform: PlatformCapabilities::default(),
             link: Arc::new(HostLink {
                 home,
@@ -406,6 +408,12 @@ impl RpcHost {
     /// Supply native filesystem and IPC callbacks.
     pub fn with_platform(mut self, platform: PlatformCapabilities) -> Self {
         self.platform = platform;
+        self
+    }
+
+    /// Supply the offline clock already validated by the authorized CLI seam.
+    pub fn with_fixture_clock(mut self, now_ms: Option<i64>) -> Self {
+        self.fixture_now_ms = now_ms;
         self
     }
 
@@ -563,6 +571,9 @@ impl HostServices for RpcHost {
     }
 
     fn now_ms(&self) -> i64 {
+        if let Some(now) = self.fixture_now_ms {
+            return now;
+        }
         let elapsed = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or(Duration::ZERO);

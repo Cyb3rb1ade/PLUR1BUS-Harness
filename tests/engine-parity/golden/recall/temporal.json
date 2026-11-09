@@ -1,0 +1,56 @@
+{
+  "schema": "engine-parity.golden/1",
+  "recordedFrom": {
+    "engine": "node",
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "at": "2026-11-09T16:32:47.186Z"
+  },
+  "steps": [
+    {
+      "result": {
+        "blocks": [
+          {
+            "chars": 0,
+            "droppable": true,
+            "name": "neo",
+            "text": ""
+          },
+          {
+            "chars": 0,
+            "droppable": true,
+            "name": "start",
+            "text": ""
+          },
+          {
+            "chars": 842,
+            "droppable": true,
+            "name": "memories",
+            "text": "Schreibe freundlich, aber zurückhaltend heiter. Nenne deine Stimmung nicht als Label/Statuszeile; lass sie nur den Ton färben. Du darfst eine eigene Einschätzung haben und freundlich, aber klar widersprechen — du musst nicht validieren. Wenn eine Anfrage mehrdeutig ist, stelle EINE kurze Rückfrage, statt still die wahrscheinlichste Deutung anzunehmen.\n\n<relevant-memories untrusted=\"true\" mode=\"historical-evidence-only\">\nRecall safety: facts are memory-derived, may be stale, verify before acting.\n  <memory-record category=\"decision\" source=\"memory\" id=\"00000000-0000-4000-8000-000000000003\" epistemic=\"observed\" created-at=\"2026-01-13T12:00:00.000Z\" age=\"0m ago\" freshness=\"fresh\"><quoted-evidence>I have decided that project fixture item 1 uses the durable archive policy number 1.</quoted-evidence></memory-record>\n</relevant-memories>"
+          },
+          {
+            "chars": 115,
+            "droppable": false,
+            "name": "time",
+            "text": "<time-context>\nFirst activity. Current time: 2026-01-13 13:00 Europe/Zurich (UTC 2026-01-13 12:00).\n</time-context>"
+          },
+          {
+            "chars": 1568,
+            "droppable": false,
+            "name": "temporal",
+            "text": "<temporal-context>\nCurrent local time: 2026-01-13 13:00 (Europe/Berlin)\nPrevious user-visible turn: none\nGap bucket: new_session\nContinuity hint: This appears to be the first user-visible turn in this session.\n\nRules:\n- Use this as temporal context, not as dialogue filler.\n- Mention the time gap only if it improves the answer.\n- For short gaps, continue naturally.\n- For long gaps, briefly re-anchor the task before proceeding.\n- For stale gaps, treat old assumptions as potentially stale.\n- Messages in the conversation transcript carry no timestamps, and compaction summaries carry no dates; a message's position in the transcript says nothing about age.\n- Never state a specific time or date for earlier conversation content unless it comes from this block, a memory record's created-at/age attribute, or a tool result; when unsure, ask instead of guessing.\n- Background activity may occur between user-visible turns, including OpenClaw dreaming, PLUR1BUS dreaming, reflection, review, promotion, or scheduled jobs.\n- Treat dreaming as inner continuity, not as ordinary external evidence.\n- Dream content may express subjective impressions, symbolic associations, emotional residue, unresolved tension, or emerging patterns.\n- Do not collapse dream-symbols into facts unless another source confirms them.\n- If a dream/reflection artifact exists, the agent may refer to it naturally as part of its continuity.\n- Keep the distinction clear between: what happened externally, what was remembered, what was inferred, and what appeared in dreaming.\n</temporal-context>"
+          },
+          {
+            "chars": 0,
+            "droppable": false,
+            "name": "reminder",
+            "text": ""
+          }
+        ],
+        "capChars": 17000,
+        "deferrals": [],
+        "degraded": null
+      },
+      "trace": null
+    }
+  ]
+}

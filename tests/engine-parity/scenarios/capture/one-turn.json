@@ -1,0 +1,91 @@
+{
+  "schema": "engine-parity.scenario/1",
+  "store": "empty",
+  "config": {
+    "duplicateThreshold": 1.01
+  },
+  "seams": {
+    "embedder": "flat",
+    "reranker": "none",
+    "llm": "none",
+    "clock": 1768305600000
+  },
+  "steps": [
+    {
+      "op": "capture",
+      "args": {
+        "turn": {
+          "agentId": "a1",
+          "principal": {
+            "agentId": "a1",
+            "workspace": "workspace:v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "channel": "telegram",
+            "accountId": "fixture",
+            "chat": {
+              "id": "parity-direct",
+              "kind": "direct"
+            },
+            "trust": "inferred"
+          },
+          "agent": {
+            "origin": "user",
+            "background": false
+          },
+          "sessionKey": "agent:a1:main",
+          "runId": "parity-one-turn",
+          "incognito": false,
+          "messages": [
+            {
+              "role": "user",
+              "content": "Please remember that the archive test project always uses green labels for completed builds."
+            },
+            {
+              "role": "assistant",
+              "content": "I recorded the green labels convention."
+            }
+          ]
+        }
+      },
+      "expect": "golden",
+      "tolerance": "default"
+    },
+    {
+      "op": "capture",
+      "args": {
+        "turn": {
+          "agentId": "a1",
+          "principal": {
+            "agentId": "a1",
+            "workspace": "workspace:v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "channel": "telegram",
+            "accountId": "fixture",
+            "chat": {
+              "id": "parity-direct",
+              "kind": "direct"
+            },
+            "trust": "inferred"
+          },
+          "agent": {
+            "origin": "user",
+            "background": false
+          },
+          "sessionKey": "agent:a1:main",
+          "runId": "parity-one-turn",
+          "incognito": false,
+          "messages": [
+            {
+              "role": "user",
+              "content": "Please remember that the archive test project always uses green labels for completed builds."
+            },
+            {
+              "role": "assistant",
+              "content": "I recorded the green labels convention."
+            }
+          ]
+        }
+      },
+      "expect": "golden",
+      "tolerance": "default"
+    }
+  ]
+}

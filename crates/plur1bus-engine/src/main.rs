@@ -57,6 +57,9 @@ fn run(command: Command) -> Result<(), (u8, String)> {
         seams::from_env()
     }
     .map_err(|e| (2, e.to_string()))?;
+    let fixture_clock =
+        seams::fixture_clock(std::env::var_os("PLUR1BUS_TEST_CLOCK_MS").as_deref(), seam)
+            .map_err(|e| (2, e.to_string()))?;
     let mut layout = EngineLayout::new(
         &home,
         instance.unwrap_or_else(uuid::Uuid::new_v4).to_string(),
@@ -66,7 +69,8 @@ fn run(command: Command) -> Result<(), (u8, String)> {
     layout.grace = grace;
     let host = Arc::new(
         RpcHost::new(layout.home.clone(), layout.token().to_owned(), config)
-            .with_platform(platform::capabilities()),
+            .with_platform(platform::capabilities())
+            .with_fixture_clock(fixture_clock),
     );
     let engine = Arc::new(ProcessEngine::new(host.clone(), seam).map_err(|e| (2, e.to_string()))?);
     let weak_engine = Arc::downgrade(&engine);

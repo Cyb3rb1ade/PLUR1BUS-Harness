@@ -120,10 +120,7 @@ impl ProcessEngine {
             space: Some(space.clone()),
         };
         let provider: Box<dyn embedding::EmbeddingProvider> = match seam {
-            Some(seam) => Box::new(
-                seam.embedder(normalized.dimensions())
-                    .bind_identity(&space)?,
-            ),
+            Some(seam) => seam.embedder(normalized.dimensions(), &space)?,
             None => configured_provider,
         };
         let reranker = if seam.is_some() {

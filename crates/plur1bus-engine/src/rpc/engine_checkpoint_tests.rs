@@ -146,10 +146,12 @@ fn one_thousand_session_end_checkpoints_leave_the_same_embedder_warm() {
     let identity = engine.embedding().identities().remove(0);
     let calls = Arc::new(AtomicUsize::new(0));
     let provider = Counted {
-        inner: Seam::FlatEmbedder
-            .embedder(identity.dimensions.as_u64().unwrap() as usize)
-            .bind_identity(identity.space.as_ref().unwrap())
-            .unwrap(),
+        inner: embedding::seam::FlatEmbedder::new(
+            identity.dimensions.as_u64().unwrap() as usize,
+            false,
+        )
+        .bind_identity(identity.space.as_ref().unwrap())
+        .unwrap(),
         calls: calls.clone(),
     };
     engine.embedding = Arc::new(
