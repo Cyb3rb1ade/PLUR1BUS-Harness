@@ -159,8 +159,34 @@ impl RevisionStore {
         request: &RevisionRequest,
         cancel: &Cancel,
     ) -> Result<RevisionResult, EngineError> {
-        self.execute(principal, agent, Some(request), cancel)?
-            .ok_or(StoreError::Corrupt.into())
+        self.execute(
+            principal,
+            agent,
+            Some(request),
+            plan::AuditMode::Tool,
+            cancel,
+        )?
+        .ok_or(StoreError::Corrupt.into())
+    }
+    /// Human curation facade semantics: keep/drop only, unresolved visible source, mandatory
+    /// `engine.memory.curation` audit durable before revision. Version-2 receipts preserve this
+    /// order on recovery; existing version-1 tool receipts keep their original meaning.
+    /// This native adapter still requires the original caller and a human-operation journal policy.
+    pub fn apply_curation(
+        &self,
+        principal: &Principal,
+        agent: &AgentContext,
+        request: &RevisionRequest,
+        cancel: &Cancel,
+    ) -> Result<RevisionResult, EngineError> {
+        self.execute(
+            principal,
+            agent,
+            Some(request),
+            plan::AuditMode::CurationFacade,
+            cancel,
+        )?
+        .ok_or(StoreError::Corrupt.into())
     }
     /// Resume this exact original caller's pending operation without a new decision or clock.
     /// This explicit recovery API is not automatic ProcessEngine/Core startup composition.
@@ -170,20 +196,21 @@ impl RevisionStore {
         agent: &AgentContext,
         cancel: &Cancel,
     ) -> Result<Option<RevisionResult>, EngineError> {
-        self.execute(principal, agent, None, cancel)
+        self.execute(principal, agent, None, plan::AuditMode::Tool, cancel)
     }
     fn execute(
         &self,
         principal: &Principal,
         agent: &AgentContext,
         request: Option<&RevisionRequest>,
+        mode: plan::AuditMode,
         cancel: &Cancel,
     ) -> Result<Option<RevisionResult>, EngineError> {
         cancel.check()?;
         let ctx = RequestContext::build(principal, agent, self.host.as_ref())?;
         let caller = super::caller::encode(principal, agent)?;
         if let Some(request) = request {
-            plan::validate_request(request, &ctx)?;
+            plan::validate_mode(request, &ctx, mode, cancel)?;
         }
         self.journal.with_operation_writer(
             principal,
@@ -212,7 +239,7 @@ impl RevisionStore {
                             return Err(StoreError::InvalidInput.into());
                         }
                         if let Some(request) = request {
-                            plan::matches(old, request)?;
+                            plan::matches(old, request, mode)?;
                         }
                         old.clone()
                     }
@@ -225,6 +252,7 @@ impl RevisionStore {
                             .to_rfc3339_opts(SecondsFormat::Millis, true);
                         plan::prepare(
                             &plan::Preparation {
+                                mode,
                                 dir,
                                 workspace: &workspace,
                                 proof,
@@ -258,7 +286,12 @@ impl RevisionStore {
                     io::save(dir, &state)?;
                 }
                 self.observe("prepared")?;
-                for (index, stage) in ["revision", "audit", "queue"].into_iter().enumerate() {
+                let order = if plan::audit_mode(&state)? == plan::AuditMode::CurationFacade {
+                    [(1, "audit"), (0, "revision"), (2, "queue")]
+                } else {
+                    [(0, "revision"), (1, "audit"), (2, "queue")]
+                };
+                for (index, stage) in order {
                     check()?;
                     let _ = plan::validate(dir, proof, &ctx, &state, cancel)?;
                     io::publish(dir, &audit_dir, &state, index, cancel, &check)?;

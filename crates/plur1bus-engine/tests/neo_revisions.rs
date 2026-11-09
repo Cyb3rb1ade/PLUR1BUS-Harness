@@ -1,5 +1,7 @@
 //! Actual C4 revisions, source-store preservation and durable audit/queue ordering.
 #![allow(clippy::unwrap_used, clippy::panic, reason = "fixture assertions")]
+#[path = "support/neo_curation_writer.rs"]
+mod curation_writer;
 #[path = "support/neo_revision_edges.rs"]
 mod edges;
 #[cfg(feature = "testkit")]

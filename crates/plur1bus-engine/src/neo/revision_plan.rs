@@ -19,6 +19,43 @@ use crate::{
     },
 };
 
+/// Receipt versions bind audit origin and publication order; never reinterpret legacy receipts.
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub(super) enum AuditMode {
+    Tool,
+    CurationFacade,
+}
+impl AuditMode {
+    fn version(self) -> Json {
+        Json::Number(if self == Self::Tool { "1" } else { "2" }.into())
+    }
+}
+pub(super) fn audit_mode(state: &Json) -> Result<AuditMode, EngineError> {
+    match field(state, "version")? {
+        Json::Number(v) if v == "1" => Ok(AuditMode::Tool),
+        Json::Number(v) if v == "2" => Ok(AuditMode::CurationFacade),
+        _ => Err(StoreError::Corrupt.into()),
+    }
+}
+pub(super) fn validate_mode(
+    request: &RevisionRequest,
+    ctx: &RequestContext,
+    mode: AuditMode,
+    cancel: &Cancel,
+) -> Result<(), EngineError> {
+    validate_request(request, ctx)?;
+    if mode == AuditMode::CurationFacade {
+        if !request.action.curation() {
+            return Err(StoreError::InvalidInput.into());
+        }
+        let rows =
+            super::curation::queue(std::slice::from_ref(&request.expected), &[], ctx, cancel)?;
+        if rows.len() != 1 {
+            return Err(StoreError::InvalidInput.into());
+        }
+    }
+    Ok(())
+}
 pub(super) fn authority(row: &Json, ctx: &RequestContext) -> Result<acl::Visibility, StoreError> {
     validate_object(row)?;
     let binding = acl::bindings(row, ctx)?;
@@ -44,8 +81,13 @@ pub(super) fn validate_request(
     let _ = authority(&request.expected, ctx)?;
     Ok(())
 }
-pub(super) fn matches(state: &Json, request: &RevisionRequest) -> Result<(), EngineError> {
-    if field(state, "operation")? != &text(&request.operation_id.to_string())
+pub(super) fn matches(
+    state: &Json,
+    request: &RevisionRequest,
+    mode: AuditMode,
+) -> Result<(), EngineError> {
+    if audit_mode(state)? != mode
+        || field(state, "operation")? != &text(&request.operation_id.to_string())
         || field(state, "action")? != &text(request.action.as_str())
         || field(state, "before")? != &request.expected
     {
@@ -65,6 +107,7 @@ fn audit(
     request: &RevisionRequest,
     origin: &str,
     now: &str,
+    mode: AuditMode,
 ) -> Result<Json, StoreError> {
     let curation = request.action.curation();
     let mut values = vec![
@@ -78,7 +121,9 @@ fn audit(
         ),
         (
             "source",
-            text(if curation {
+            text(if mode == AuditMode::CurationFacade {
+                "engine.memory.curation"
+            } else if curation {
                 "plur1bus_curation"
             } else {
                 "plur1bus_memory"
@@ -155,6 +200,7 @@ fn queue(row: &Json, ctx: &RequestContext, now: &str) -> Result<Json, StoreError
     ]))
 }
 pub(super) struct Preparation<'a> {
+    pub mode: AuditMode,
     pub dir: &'a TrustedDirectory,
     pub workspace: &'a TrustedDirectory,
     pub proof: &'a Json,
@@ -168,6 +214,7 @@ pub(super) fn prepare(
     now: &str,
 ) -> Result<Json, EngineError> {
     let Preparation {
+        mode,
         dir,
         workspace,
         proof,
@@ -220,7 +267,7 @@ pub(super) fn prepare(
         io::TARGETS[1]
     };
     Ok(object(vec![
-        ("version", Json::Number("1".into())),
+        ("version", mode.version()),
         ("ownership", proof.clone()),
         ("caller", caller.clone()),
         ("operation", text(&request.operation_id.to_string())),
@@ -236,7 +283,7 @@ pub(super) fn prepare(
                 io::append_plan(
                     &audit_dir,
                     "destructive-ops.jsonl",
-                    audit(ctx, request, &origin, now)?,
+                    audit(ctx, request, &origin, now, mode)?,
                     cancel,
                 )?,
                 io::append_plan(dir, "embedding-queue.jsonl", queue, cancel)?,
@@ -252,8 +299,8 @@ pub(super) fn validate(
     cancel: &Cancel,
 ) -> Result<RevisionResult, EngineError> {
     validate_object(state)?;
-    if field(state, "version")? != &Json::Number("1".into()) || field(state, "ownership")? != proof
-    {
+    let mode = audit_mode(state)?;
+    if field(state, "ownership")? != proof {
         return Err(StoreError::Corrupt.into());
     }
     let action =
@@ -264,7 +311,7 @@ pub(super) fn validate(
         expected: field(state, "before")?.clone(),
         action,
     };
-    validate_request(&request, ctx)?;
+    validate_mode(&request, ctx, mode, cancel)?;
     let now = str_field(state, "now")?;
     chrono::DateTime::parse_from_rfc3339(&now.to_utf8_lossy()).map_err(|_| StoreError::Corrupt)?;
     let after = status::transition(&request.expected, action.status(), now)?;
@@ -279,7 +326,7 @@ pub(super) fn validate(
     }
     let origin = str_field(state, "store")?.to_utf8_lossy();
     let _ = target(state)?;
-    if field(&appends[1], "row")? != &audit(ctx, &request, &origin, &now.to_utf8_lossy())? {
+    if field(&appends[1], "row")? != &audit(ctx, &request, &origin, &now.to_utf8_lossy(), mode)? {
         return Err(StoreError::Corrupt.into());
     }
     let queued = field(&appends[2], "row")?;
