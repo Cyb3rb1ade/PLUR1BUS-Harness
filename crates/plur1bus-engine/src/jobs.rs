@@ -2,6 +2,7 @@
 pub mod ledger;
 pub mod maintenance_gate;
 pub mod metadata;
+pub mod migration;
 pub mod outcome;
 pub mod rate_limit;
 pub mod registry;
