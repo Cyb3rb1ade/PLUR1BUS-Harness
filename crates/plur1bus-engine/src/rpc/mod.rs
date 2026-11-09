@@ -6,6 +6,7 @@ pub mod engine;
 pub mod host_client;
 pub mod layout;
 pub mod lifeline;
+pub mod maintenance;
 mod methods;
 pub mod platform;
 #[cfg(test)]

@@ -2,7 +2,8 @@
 
 use crate::contract::{
     AgentContext, Cancel, CancelReason, EmbedError, Engine, EngineError, HistoryFilter, HostError,
-    MemoryCurationAction, MemoryOpErrorCode, Principal, RunOptions, StoreError,
+    MaintenanceGrant, MaintenanceMethod, MaintenanceOps, MemoryCurationAction, MemoryOpErrorCode,
+    Principal, RunOptions, StoreError,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Map, Value};
@@ -264,6 +265,43 @@ fn encode(value: impl Serialize) -> Result<Value, WireError> {
 
 fn result(value: Result<impl Serialize, EngineError>) -> Result<Value, WireError> {
     encode(value.map_err(WireError::from)?)
+}
+
+/// Only the authenticated server adapter can supply a maintenance grant.
+pub(super) fn dispatch_maintenance(
+    operations: &dyn MaintenanceOps,
+    method: MaintenanceMethod,
+    params: &Value,
+    grant: &MaintenanceGrant,
+    cancel: &Cancel,
+) -> Result<Value, WireError> {
+    let request = || {
+        params
+            .get("request")
+            .cloned()
+            .ok_or_else(WireError::not_available)
+    };
+    match method {
+        MaintenanceMethod::Migrate => result(operations.migrate(
+            grant,
+            required(params, "from")?,
+            required(params, "to")?,
+            cancel,
+        )),
+        MaintenanceMethod::Plan => result(operations.plan(grant, request()?, cancel)),
+        MaintenanceMethod::Apply => result(operations.apply(grant, request()?, cancel)),
+        MaintenanceMethod::Resume => result(operations.resume(grant, request()?, cancel)),
+        MaintenanceMethod::Status => {
+            let id = params["id"].as_str().ok_or_else(WireError::not_available)?;
+            result(operations.status(grant, id, cancel))
+        }
+        MaintenanceMethod::Validate => {
+            let id = params["request"]["id"]
+                .as_str()
+                .ok_or_else(WireError::not_available)?;
+            result(operations.validate(grant, id, cancel))
+        }
+    }
 }
 
 fn projection(params: &Value, fields: &[&str]) -> Value {

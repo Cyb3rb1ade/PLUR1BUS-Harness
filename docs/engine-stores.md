@@ -1848,3 +1848,12 @@ retain the outer generation directory pins through the actual store operation.
 The process parity run uses deterministic receipt IDs with its explicitly authorized fixture clock. Other
 runs allocate UUIDs normally. The pinned Node recording for list/show/forget matches the Rust process, including
 the receipt, post-delete visibility and the remaining ordered cards.
+
+### Process schema maintenance (RE-D143)
+
+The existing `engine.admin.migrate` wire method calls the native `SchemaMigrator` with an F7 grant. For each
+maintenance call, the authenticated socket's kernel peer PID must match the trusted Core PID record. The
+record can appear after EngineClient bootstraps. The grant carries the current Core instance and connection
+lifetime. The migrator appends the projected audit entry to `state/engine-maintenance.jsonl` before changing
+the schema marker. Re-embedding calls still return their explicit composition error while their process
+service is pending.

@@ -59,23 +59,37 @@ impl CoreIdentity {
         if token.len() != 64 || !token.bytes().all(|byte| byte.is_ascii_hexdigit()) {
             return Err(HostError::Unavailable);
         }
-        let identity = read_identity_file(&run.join("core.pid"))?;
-        let mut fields = identity.split_whitespace();
-        let pid = fields
-            .next()
-            .and_then(|field| field.parse::<u32>().ok())
-            .filter(|pid| *pid != 0)
-            .ok_or(HostError::Unavailable)?;
-        let incarnation = fields.next().ok_or(HostError::Unavailable)?;
-        if fields.next().is_some() {
-            return Err(HostError::Unavailable);
-        }
+        let (pid, incarnation) = core_pid_record(home)?;
         Ok(Self {
             token: token.to_owned(),
             pid,
-            incarnation: incarnation.to_owned(),
+            incarnation,
         })
     }
+}
+
+fn core_pid_record(home: &Path) -> Result<(u32, String), HostError> {
+    let identity = read_identity_file(&home.join("run/core.pid"))?;
+    let mut fields = identity.split_whitespace();
+    let pid = fields
+        .next()
+        .and_then(|field| field.parse::<u32>().ok())
+        .filter(|pid| *pid != 0)
+        .ok_or(HostError::Unavailable)?;
+    let incarnation = fields.next().ok_or(HostError::Unavailable)?;
+    if fields.next().is_some() {
+        return Err(HostError::Unavailable);
+    }
+    Ok((pid, incarnation.to_owned()))
+}
+
+/// Bind an authenticated engine socket to the current recorded Core process.
+pub(super) fn core_instance_for_peer(home: &Path, peer_pid: u32) -> Option<uuid::Uuid> {
+    let (pid, instance) = core_pid_record(home).ok()?;
+    if pid != peer_pid {
+        return None;
+    }
+    instance.parse().ok()
 }
 
 #[derive(Default)]

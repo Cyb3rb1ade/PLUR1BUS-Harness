@@ -6,6 +6,7 @@ use plur1bus_engine::rpc::{
     host_client::RpcHost,
     layout::EngineLayout,
     lifeline::Lifeline,
+    maintenance::ProcessMaintenance,
     platform, seams,
     server::{self, ServeError},
 };
@@ -86,7 +87,7 @@ fn run(command: Command) -> Result<(), (u8, String)> {
     }));
     // The trusted supervisor/spawner owns process-group isolation. A hand start
     // stays in its terminal's foreground group so Ctrl-C and stdin keep working.
-    server::serve(
+    server::serve_with_maintenance(
         engine,
         &layout,
         if lifeline.is_some() {
@@ -94,6 +95,7 @@ fn run(command: Command) -> Result<(), (u8, String)> {
         } else {
             Lifeline::None
         },
+        Arc::new(ProcessMaintenance::new(host)),
     )
     .map_err(|e| {
         let code = if matches!(e, ServeError::Locked) {

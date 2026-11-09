@@ -796,3 +796,92 @@ fn the_allowed_cold_cli_seam_delays_only_the_first_two_query_calls_over_rpc() {
     assert!(engine.wait_for_exit().success(), "{}", engine.diagnostics());
     engine.assert_run_files_removed();
 }
+
+#[test]
+fn schema_migration_requires_the_live_core_peer_and_audits_the_actual_change() {
+    let _serial = process_test();
+    let home = home();
+    let base = home.path().join("state/lancedb");
+    let marker = base.join("_schema.json");
+    fs::create_dir_all(&base).unwrap();
+    fs::write(&marker, b"{\"schemaVersion\":\"0\"}").unwrap();
+    let mut engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
+    let mut peer = RawConnection::connect(engine.address());
+    let hello = peer.call(
+        1,
+        "engine.auth",
+        json!({"token":engine.token(),"clientId":"core-fixture"}),
+    );
+    assert_eq!(hello["result"]["pid"], engine.pid());
+
+    let migrate = |peer: &mut RawConnection, id, from: &str, to: &str| {
+        peer.call(id, "engine.admin.migrate", json!({"from":from,"to":to}))
+    };
+    let audit_path = home.path().join("state/engine-maintenance.jsonl");
+    let no_core = migrate(&mut peer, 2, "0", "1");
+    assert_unauthorized(&no_core);
+    assert_eq!(no_core["error"]["data"]["reason"], "core-link-required");
+
+    let pid_file = home.path().join("run/core.pid");
+    let publish = |pid| {
+        fs::write(&pid_file, format!("{pid} {INSTANCE}\n")).unwrap();
+        plur1bus_engine::store::paths::secure_file(&pid_file).unwrap();
+    };
+    publish(engine.pid());
+    let wrong_peer = migrate(&mut peer, 3, "0", "1");
+    assert_unauthorized(&wrong_peer);
+    assert!(!audit_path.exists());
+    assert_eq!(
+        fs::read_to_string(&marker).unwrap(),
+        "{\"schemaVersion\":\"0\"}"
+    );
+
+    // The Core can establish the EngineClient before publishing its own run files.
+    // The first authorized maintenance call uses the same authenticated socket.
+    publish(std::process::id());
+    let result = migrate(&mut peer, 4, "0", "1");
+    assert_eq!(
+        result["result"],
+        json!({"from":"0","to":"1","applied":true}),
+        "{result}"
+    );
+    assert_eq!(
+        serde_json::from_slice::<Value>(&fs::read(&marker).unwrap()).unwrap()["schemaVersion"],
+        "1"
+    );
+    let conflict = migrate(&mut peer, 5, "0", "1");
+    assert_eq!(conflict["error"]["data"]["reason"], "conflict");
+    let empty_status = peer.call(6, "engine.admin.reembedding.status", json!({}));
+    assert_eq!(
+        empty_status["error"]["data"]["reason"],
+        "operation-unavailable"
+    );
+    let targeted_status = peer.call(
+        7,
+        "engine.admin.reembedding.status",
+        json!({"id":"fixture"}),
+    );
+    assert_eq!(
+        targeted_status["error"]["data"]["reason"],
+        "composition-pending"
+    );
+    fs::remove_file(&pid_file).unwrap();
+    assert_unauthorized(&migrate(&mut peer, 8, "1", "1"));
+    let entries: Vec<Value> = fs::read_to_string(&audit_path)
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert_eq!(entries.len(), 2);
+    for entry in entries {
+        assert_eq!(entry["method"], "engine.admin.migrate");
+        assert_eq!(entry["actor"], "core-maintenance");
+        assert!(entry["coreLink"].as_str().unwrap().starts_with(INSTANCE));
+        assert_eq!(entry["target"], json!({"from":"0","to":"1"}));
+        assert!(entry.get("token").is_none());
+        assert!(entry.get("principal").is_none());
+    }
+    drop(peer);
+    engine.close_stdin();
+    assert!(engine.wait_for_exit().success());
+}

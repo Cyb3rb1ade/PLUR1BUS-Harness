@@ -17,7 +17,7 @@ use super::lifeline::{Lifeline, Watch};
 use super::methods::{self, WireError};
 use crate::contract::{AgentId, AgentStoreHandle, Cancel, CaptureHandle, CaptureResult, Engine};
 
-use crate::contract::{MaintenanceGrant, MaintenanceMethod};
+use crate::contract::{MaintenanceGrant, MaintenanceMethod, MaintenanceOps};
 
 /// Proof created only after this adapter has authenticated the actual Core link.
 pub(crate) struct AuthenticatedCoreLink {
@@ -83,6 +83,7 @@ fn epoch_ms() -> u64 {
 #[derive(Default)]
 pub(super) struct ServerOptions {
     pub(super) permission_denied_accept: bool,
+    pub(super) maintenance: Option<Arc<dyn MaintenanceOps>>,
     #[cfg(test)]
     pub(super) accept_errors: usize,
     #[cfg(test)]
@@ -222,7 +223,7 @@ struct Connection {
     closer: Arc<dyn Fn() + Send + Sync>,
     cancel: Cancel,
     authenticated: AtomicBool,
-    maintenance: Mutex<Option<Arc<MaintenanceGrant>>>,
+    peer_pid: Option<u32>,
     agents: Mutex<HashMap<String, Vec<AgentStoreHandle>>>,
 }
 
@@ -385,6 +386,7 @@ impl Connection {
 
 struct Shared {
     engine: Arc<dyn Engine>,
+    maintenance: Option<Arc<dyn MaintenanceOps>>,
     home: std::path::PathBuf,
     token: String,
     instance: String,
@@ -546,15 +548,23 @@ impl Shared {
         method: &str,
         params: &Value,
     ) -> Result<Value, WireError> {
-        if MaintenanceMethod::from_wire(method).is_some() {
-            let grant = lock(&connection.maintenance)
-                .clone()
-                .ok_or_else(|| unauthorized("auth-required"))?;
-            grant
-                .check(&connection.cancel)
-                .map_err(|_| WireError::not_available())?;
-            // RX8 composes the audited MaintenanceOps service here; frozen legacy dispatch
-            // stays unavailable until the native schema/coordinator implementation is installed.
+        if let Some(method) = MaintenanceMethod::from_wire(method) {
+            // Core can bootstrap its EngineClient before publishing its PID file.
+            // Check the authenticated socket's actual peer at the maintenance call.
+            let instance = connection
+                .peer_pid
+                .and_then(|pid| super::host_client::core_instance_for_peer(&self.home, pid))
+                .ok_or_else(|| unauthorized("core-link-required"))?;
+            let port = self
+                .maintenance
+                .as_deref()
+                .ok_or_else(WireError::not_available)?;
+            let link = AuthenticatedCoreLink {
+                instance: format!("{instance}:{}", connection.id),
+                cancellation: connection.cancel.clone(),
+            };
+            let grant = MaintenanceGrant::from_authenticated_core_link(&link);
+            return methods::dispatch_maintenance(port, method, params, &grant, &connection.cancel);
         }
         match method {
             "engine.status" => Ok(self.status()),
@@ -673,6 +683,7 @@ fn reap(workers: &mut Vec<JoinHandle<()>>) {
 
 fn connection_loop(state: &Arc<Shared>, accepted: Accepted, id: u64) {
     let _ = accepted.set_read_timeout(Some(Duration::from_secs(30)));
+    let peer_pid = accepted.peer_pid();
     let (outbound, notifications) = std::sync::mpsc::sync_channel(MAX_OUTBOUND_FRAMES);
     let connection = Arc::new(Connection {
         id,
@@ -683,7 +694,7 @@ fn connection_loop(state: &Arc<Shared>, accepted: Accepted, id: u64) {
         closer: accepted.closer,
         cancel: Cancel::never(),
         authenticated: AtomicBool::new(false),
-        maintenance: Mutex::new(None),
+        peer_pid,
         agents: Mutex::new(HashMap::new()),
     });
     let notification_connection = Arc::downgrade(&connection);
@@ -767,13 +778,6 @@ fn connection_loop(state: &Arc<Shared>, accepted: Accepted, id: u64) {
                 connection.reply(request_id, Err(unauthorized("bad-token")));
                 break;
             }
-            let link = AuthenticatedCoreLink {
-                instance: format!("{}:{}", state.instance, connection.id),
-                cancellation: connection.cancel.clone(),
-            };
-            *lock(&connection.maintenance) = Some(Arc::new(
-                MaintenanceGrant::from_authenticated_core_link(&link),
-            ));
             authenticated = true;
             if read_timeout(None).is_err() {
                 break;
@@ -948,7 +952,29 @@ pub fn serve(
     layout: &EngineLayout,
     lifeline: Lifeline,
 ) -> Result<(), ServeError> {
-    let mut options = ServerOptions::default();
+    serve_configured(engine, layout, lifeline, None)
+}
+
+/// Bind the existing wire methods to a separate native maintenance service.
+pub fn serve_with_maintenance(
+    engine: Arc<dyn Engine>,
+    layout: &EngineLayout,
+    lifeline: Lifeline,
+    maintenance: Arc<dyn MaintenanceOps>,
+) -> Result<(), ServeError> {
+    serve_configured(engine, layout, lifeline, Some(maintenance))
+}
+
+fn serve_configured(
+    engine: Arc<dyn Engine>,
+    layout: &EngineLayout,
+    lifeline: Lifeline,
+    maintenance: Option<Arc<dyn MaintenanceOps>>,
+) -> Result<(), ServeError> {
+    let mut options = ServerOptions {
+        maintenance,
+        ..ServerOptions::default()
+    };
     if super::seams::permission_denied_accept_from_env()
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "engine test seam refused"))?
     {
@@ -985,6 +1011,7 @@ pub(super) fn serve_with_options(
         .inspect_err(|error| diagnostics::failure(Stage::Startup, error))?;
     let state = Arc::new(Shared {
         engine,
+        maintenance: options.maintenance.clone(),
         home: layout.home.clone(),
         token: layout.token().into(),
         instance: layout.instance_id.clone(),
