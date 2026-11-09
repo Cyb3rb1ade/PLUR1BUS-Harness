@@ -121,3 +121,6 @@ pub mod normal_store;
 
 /// Normal-store duplicate and merge selection over authorized nearest rows.
 pub mod normal_candidates;
+
+/// Pure bounded knowledge-pending reference transitions; publication and source authority are separate.
+pub mod knowledge_pending;

@@ -72,6 +72,13 @@ bounded atomic file publisher preserves unrelated bytes, rejects malformed or li
 never recreates missing completed evidence. It uses the ordered F3-safe JSON projection.
 Knowledge staging, merge/duplicate curation and the whole-request coordinator remain separate.
 
+`capture::knowledge_pending` supplies bounded pure read/track/remove reference transitions,
+including key replacement, priority/time ordering, the 200-entry cap and overflow events. The
+pin can also lose legacy entries without a source agent during write-time normalization. A
+projection grants no removal authority: the future publisher must validate every lost entry
+against source ownership and preserve or refuse unresolved/foreign entries. No queue is written
+and no knowledge job is activated by these functions.
+
 ## Targets
 
 | Target | Name | What it is |
