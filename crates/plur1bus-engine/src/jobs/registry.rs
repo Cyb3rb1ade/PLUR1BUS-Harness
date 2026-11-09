@@ -14,6 +14,7 @@ use std::{
     time::Duration,
 };
 mod record;
+mod startup;
 
 /// Context for an explicitly installed native body. An agent identifier is not a memory-data grant.
 #[derive(Clone, Debug)]
@@ -74,6 +75,7 @@ type Events = Arc<dyn Fn(&JobRun) -> Result<(), EngineError> + Send + Sync>;
 /// No body is installed by default; a flat embedding test seam never makes a job available.
 pub struct Registry {
     root: TrustedDirectory,
+    legacy: BTreeMap<String, Vec<TrustedDirectory>>,
     clock: Clock,
     ids: IdFactory,
     events: Events,
@@ -88,6 +90,7 @@ impl Registry {
     pub fn new(root: &Path, clock: Clock) -> Result<Self, EngineError> {
         Ok(Self {
             root: TrustedDirectory::open(root)?,
+            legacy: BTreeMap::new(),
             clock,
             ids: Arc::new(|| uuid::Uuid::new_v4().to_string()),
             events: Arc::new(|_| Ok(())),
@@ -244,14 +247,7 @@ impl JobRegistry for Registry {
         let (admission, snapshot, owns, pre_skip) = {
             let mut state = lock(&slot, cancel)?;
             if state.is_none() {
-                self.check(cancel)?;
-                let mut session =
-                    JobLedger::open(self.root.path(), &agent.to_string())?.session(cancel)?;
-                #[cfg(any(test, feature = "testkit"))]
-                if let Some(observer) = &self.observer {
-                    session = session.with_observer(observer.clone());
-                }
-                session.recover((self.clock)() as f64, cancel)?;
+                let session = self.start_session(agent, cancel)?;
                 *state = Some(AgentState {
                     session,
                     active: BTreeMap::new(),

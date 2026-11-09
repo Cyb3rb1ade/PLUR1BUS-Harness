@@ -215,7 +215,8 @@ pub(super) fn decode(row: &Json, agent: &AgentId) -> Result<JobRun, EngineError>
             )?)
         || session
             != json!(
-                matches!(run.phase, Some(JobRunPhase::Rem | JobRunPhase::Deep))
+                run.migrated != Some(true)
+                    && matches!(run.phase, Some(JobRunPhase::Rem | JobRunPhase::Deep))
                     && run.outcome != JobOutcome::Skipped
             )
     {
