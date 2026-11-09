@@ -16,6 +16,7 @@ mod ledgers;
 pub mod link;
 pub mod memory;
 mod memory_state;
+mod memory_stats;
 mod shared_mutation;
 /// Explicit sharing with identity-routed embeddings and source revalidation.
 pub mod sharing;

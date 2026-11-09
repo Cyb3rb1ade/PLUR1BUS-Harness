@@ -169,8 +169,11 @@ query history, invalid metadata, linked database/journal files and replaced root
 Each call uses an immediate transaction; late validation/cancellation errors roll back earlier
 IDs. Bounds are 500 requested IDs, one million UTF-16 query units, safe-integer times/counters,
 64 MiB files and 50,000 rows for an omitted-ID read. This is a persistence component: current
-card ACL, post-render/warm/degradation admission and the ProcessEngine capability gate remain
-with the next integration step. No A1 flag is enabled by constructing this store.
+card ACL is applied by `MemoryReader::stats` using the same current physical sources, lifecycle
+and tombstone checks as `show`. Hidden IDs are omitted even when explicitly requested; visible
+IDs without history return zero counters. Only not-found is suppressed; required source and
+registry failures propagate. Post-render/warm/degradation admission and the ProcessEngine
+capability gate remain pending. No A1 flag is enabled by constructing this store.
 
 ## Targets
 
