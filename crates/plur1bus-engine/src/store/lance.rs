@@ -733,3 +733,6 @@ fn update_literal(value: &serde_json::Value) -> Result<String, StoreError> {
         _ => Err(StoreError::InvalidInput),
     }
 }
+
+#[path = "normal_candidates.rs"]
+mod normal_candidates;

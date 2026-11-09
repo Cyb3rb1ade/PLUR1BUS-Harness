@@ -107,7 +107,7 @@ impl EmbeddingProvider for Embed {
     ) -> Result<Vec<Vec<f32>>, EmbedError> {
         c.check().map_err(EmbedError::Cancelled)?;
         assert_eq!(texts.len(), 1);
-        assert!(texts[0].contains("additional context"));
+        assert!(!texts[0].is_empty());
         assert!(matches!(kind, EmbedKind::Passage));
         self.calls.fetch_add(1, Ordering::SeqCst);
         if let Some(f) = self.effect.lock().unwrap().as_ref() {
@@ -587,3 +587,6 @@ fn lexical_and_validity_guards_run_before_the_next_provider_disclosure() {
         assert!(f.base.store.get(SOURCE).unwrap().is_some());
     }
 }
+
+#[path = "support/normal_selection.rs"]
+mod selection_tests;

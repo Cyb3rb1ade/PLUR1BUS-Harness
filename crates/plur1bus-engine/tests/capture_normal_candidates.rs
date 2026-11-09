@@ -155,3 +155,25 @@ fn corrupt_query_evidence_and_cancelled_selection_refuse() {
     cancel.cancel();
     assert!(select(&[row], &incoming, &Json::Null, thresholds, &cancel).is_err());
 }
+
+#[test]
+fn independent_thresholds_keep_duplicate_checks_when_merge_band_is_empty() {
+    let row = parse_json(
+        r#"{"id":"fixture","text":"A synthetic decision","status":"active","_distance":0}"#,
+    )
+    .unwrap();
+    let selected = select(
+        &[row],
+        &JsString::from("A synthetic decision"),
+        &Json::Null,
+        Thresholds {
+            duplicate: 0.,
+            merge: 0.7,
+        },
+        &Cancel::never(),
+    )
+    .unwrap();
+    assert_eq!(array(&selected.duplicates).len(), 1);
+    assert_ne!(selected.safe_duplicate, Json::Null);
+    assert_eq!(selected.merge, Json::Null);
+}

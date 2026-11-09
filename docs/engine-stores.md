@@ -1391,7 +1391,7 @@ Merge projections retain the actual Node fields/defaults; duplicate entries rema
 raw. Legacy invalid/unknown validity normalizes to zero here, while normal-store
 front-door canonical input validation remains separate. Native query evidence must
 have finite nonnegative numeric distances, valid active status and no invalidated
-source; bounded JSON, 1,024 input rows and finite ordered thresholds refuse misuse.
+source; bounded JSON, 1,024 input rows and finite nonnegative thresholds refuse misuse.
 
 Two SHA-bound D130 exceptions record how applying authority after Node's 10/5 caps
 can hide a valid duplicate or merge behind foreign rows. Expected native output is
@@ -1400,3 +1400,46 @@ unfiltered Node observations are preserved. This pure component does not query
 Lance or grant access. Actual private query filtering, bounded acquisition, current
 authority/source revalidation and the selection-to-writer bridge remain separate.
 No existing golden, dependency or protected contract changed.
+
+
+### RX6 actual private candidate acquisition and immutable merge admission (RE-D88)
+
+`NativeMerge::select_normal` now embeds one authorized input and queries the actual
+private Lance store. Fixed predicates bind agent, storedBy, owner, workspace and
+private scope before nearest-neighbor acquisition. Query projection contains only
+ID/vector/distance; full text is not bulk-loaded. The window grows from ten by four
+until ten eligible rows or exhaustion, capped at 50,000 and a dimension-dependent
+64 MiB estimate for projected vectors/IDs. Exceeding the bound refuses instead of
+silently missing an authorized candidate. Full records are read individually;
+current vectors must match their query projection, and current source authority,
+expiry, tombstones and physical bindings are checked under shared writer leases.
+Selected full snapshots have an aggregate 64 MiB bound. RE-D87 then applies the
+unchanged 10/5 semantic budgets to this authorized ordered set.
+
+An opaque `NormalCandidatePlan` holds original principal/agent, params, input vector,
+assessment time, raw config, current source, Neo proof and physical store/workspace/
+state/registry anchors. It is not serializable or accepted as a wire credential.
+`merge_selected` verifies the original caller and current policy, config, full source,
+registry and physical bindings before invoking the RE-D86 host-model/embedding/writer
+path. Later chats cannot borrow it; a different reader registry cannot substitute
+missing tombstones. Initial TTL survives selection/model delay, while creation and
+provenance retain final preparation time. Duplicate and forgotten outcomes do not
+invoke a model; a committed input fingerprint blocks before input embedding.
+
+Actual Lance tests include one-input-vector duplicate refusal, input-plus-merged
+vector success, 100 nearer foreign-agent/owner rows, 14 nearer committed tombstones,
+input-policy/config drift, changed source/caller/config/policy after selection and
+attempted registry substitution. Source text in the merge fixture differs from the
+incoming text: actual Node treats exact text as a duplicate even below threshold.
+A direct pinned MemoryDB probe also confirms that independent thresholds remain
+legal when merge > duplicate: the merge band is empty but duplicates still work.
+The unnecessary ordered-threshold restriction in the pure selector was removed;
+existing goldens remain unchanged, with a dedicated regression test.
+
+This composes actual private selection through durable merge. `Separate` still
+requires the ordinary-store writer and its admission/recovery; no storage success is
+reported for it. Curation/knowledge/interference post-effects, shared scopes/raw date
+parsing and ProcessEngine/Core generation lifecycle remain separate. Query/window
+and byte limits bound inputs and projected data, not a promise of a hard process RSS
+limit or atomicity with uncoordinated external Lance writers. No new golden,
+dependency, TS source or protected-interface changes.

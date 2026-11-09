@@ -482,3 +482,6 @@ pub(crate) use recovery::{restore, RestoredMerge};
 
 #[path = "normal_merge.rs"]
 mod normal_merge;
+
+/// Authorized normal-store candidate acquisition and its immutable original admission.
+pub use normal_merge::selection::{NormalCandidateKind, NormalCandidatePlan};

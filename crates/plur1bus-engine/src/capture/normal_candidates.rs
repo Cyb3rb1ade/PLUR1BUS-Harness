@@ -125,7 +125,6 @@ pub fn select(
         || !thresholds.merge.is_finite()
         || thresholds.duplicate < 0.
         || thresholds.merge < 0.
-        || thresholds.merge > thresholds.duplicate
     {
         return Err(StoreError::InvalidInput.into());
     }

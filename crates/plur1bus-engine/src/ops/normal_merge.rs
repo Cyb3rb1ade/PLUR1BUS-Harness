@@ -15,6 +15,14 @@ struct Snapshot {
     binding: String,
     physical: (PathBuf, (u64, u64)),
 }
+#[derive(Clone, Copy)]
+struct NormalInput<'a> {
+    source_id: &'a str,
+    params: &'a Json,
+    selected: Option<&'a NormalCandidatePlan>,
+}
+#[path = "normal_selection.rs"]
+pub(super) mod selection;
 impl NativeMerge {
     /// Attempt the host-configured private merge of an already selected candidate ID.
     /// None leaves ordinary separate-store fallback to the caller. Provider faults may skip a
@@ -28,7 +36,33 @@ impl NativeMerge {
         agent: &AgentContext,
         cancel: &Cancel,
     ) -> Result<Option<MergeResult>, EngineError> {
+        self.normal_run(
+            NormalInput {
+                source_id,
+                params,
+                selected: None,
+            },
+            principal,
+            agent,
+            cancel,
+        )
+    }
+    fn normal_run(
+        &self,
+        input: NormalInput<'_>,
+        principal: &Principal,
+        agent: &AgentContext,
+        cancel: &Cancel,
+    ) -> Result<Option<MergeResult>, EngineError> {
+        let NormalInput {
+            source_id,
+            params,
+            selected,
+        } = input;
         cancel.check()?;
+        if let Some(plan) = selected {
+            plan.check(self, principal, agent, cancel)?;
+        }
         if uuid::Uuid::parse_str(source_id).is_err() {
             return Err(StoreError::InvalidInput.into());
         }
@@ -46,7 +80,7 @@ impl NativeMerge {
                 owner_user_id: &ctx.owner_user_id,
                 workspace_key: &ctx.workspace_key,
             },
-            host.now_ms(),
+            selected.map_or_else(|| host.now_ms(), |plan| plan.assessed_at),
             cancel,
         )?;
         if cfg["merging"]["enabled"] == false
@@ -67,6 +101,9 @@ impl NativeMerge {
             .ok_or(StoreError::InvalidInput)? as usize;
         let binding_check = || -> Result<(), EngineError> {
             cancel.check()?;
+            if let Some(plan) = selected {
+                plan.check(self, principal, agent, cancel)?;
+            }
             self.reader.context.assert_open()?;
             workspace.assert_unchanged()?;
             base.assert_unchanged()?;
@@ -111,6 +148,17 @@ impl NativeMerge {
             )
         };
         let initial = snapshot()?;
+        if let Some(plan) = selected {
+            if plan.proof.as_ref() != Some(&(initial.proof.clone(), initial.binding.clone()))
+                || !plan
+                    .source
+                    .as_ref()
+                    .ok_or(StoreError::InvalidInput)?
+                    .same(&initial.source)?
+            {
+                return Err(StoreError::InvalidInput.into());
+            }
+        }
         let revalidate = || -> Result<(), EngineError> {
             let current = snapshot()?;
             if current.proof != initial.proof
