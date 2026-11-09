@@ -152,14 +152,24 @@ fn one_thousand_session_end_checkpoints_leave_the_same_embedder_warm() {
             .unwrap(),
         calls: calls.clone(),
     };
-    engine.embedding = Service::new(
-        Box::new(provider),
-        None,
-        identity.clone(),
-        None,
-        ServiceOptions::default(),
-    )
-    .unwrap();
+    engine.embedding = Arc::new(
+        Service::new(
+            Box::new(provider),
+            None,
+            identity.clone(),
+            None,
+            ServiceOptions::default(),
+        )
+        .unwrap(),
+    );
+    // Keep the test-only provider replacement shared with the newly composed inspector.
+    engine.stores = crate::ops::adopt::StoreAdopter::new(
+        engine.embedding.clone(),
+        Some(identity.clone()),
+        host.platform().clone(),
+        Arc::new(crate::ops::adopt::CopiedStoreRoutes),
+        engine.store_cancel.clone(),
+    );
     engine.models().warm(&Cancel::never(), false).unwrap();
     let before = serde_json::to_value(engine.models().status()).unwrap();
     assert_eq!(calls.load(Ordering::SeqCst), 1);

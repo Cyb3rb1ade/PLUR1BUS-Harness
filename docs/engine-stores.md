@@ -1698,3 +1698,21 @@ readable after close. It neither opens a store nor warms a provider. The process
 regression compares the complete serialized response to the unchanged Node
 `recall/golden/render/system-supplement.json` for disabled, enabled and default
 Neo configuration. Dynamic recall/capture readiness remains independent.
+
+
+### Copied-store inspection through ProcessEngine (RX3/RX8 / RE-D134)
+
+`ProcessEngine.stores()` now exposes the existing `StoreAdopter`, sharing the
+engine's actual `EmbeddingService`, complete identity and host platform checks.
+Construction remains lazy. An explicit inspection reads copied physical tables
+and may invoke that service for bounded passage-vector comparison. Engine close
+cancels its inspection token before closing the shared embedding service.
+Both `dryRun` values preserve all source bytes and configuration; adopting or
+activating a live pool is still the host's separate responsibility. This does not
+advertise full recall/capture readiness or change a capability flag.
+
+The actual-facade regression creates a real Lance store and compares matching
+and orthogonal stored vectors using the explicitly selected flat embedding seam.
+It verifies complete source-tree hashes, unchanged config, no engine state-root
+creation and rejection after close. The existing complete Node/Lance adoption
+matrix continues to exercise the underlying inspector without golden changes.

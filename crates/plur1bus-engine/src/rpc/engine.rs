@@ -1,6 +1,7 @@
 //! Process composition over the frozen engine ports.
 //!
-//! RE-03 provides real embedding/model services. Recall rendering, capture, jobs
+//! RE-03 provides real embedding/model services; copied-store inspection and the
+//! static system supplement reuse their native components. Recall, capture, jobs
 //! and operations are not complete in this checkout; their ports explicitly
 //! report unavailability until their owning packages supply implementations.
 //! Selecting a flat embedding seam never installs a fake memory pipeline.
@@ -26,7 +27,9 @@ use std::{
 
 /// The process engine's composition root; incomplete memory ports fail explicitly.
 pub struct ProcessEngine {
-    embedding: Service,
+    embedding: Arc<Service>,
+    stores: crate::ops::adopt::StoreAdopter,
+    store_cancel: Cancel,
     checkpoints: crate::store::checkpoint::CheckpointStore,
     system_supplement: Vec<String>,
     capabilities: Capabilities,
@@ -44,7 +47,7 @@ impl crate::ops::models::ModelInventory for ProcessEngine {
         &self,
         cancel: &Cancel,
     ) -> Result<Vec<crate::ops::models::ModelRequirement>, EngineError> {
-        crate::ops::models::ModelInventory::inventory(&self.embedding, cancel)
+        crate::ops::models::ModelInventory::inventory(self.embedding.as_ref(), cancel)
     }
 }
 
@@ -134,9 +137,24 @@ impl ProcessEngine {
         let checkpoint_host = host.clone();
         let checkpoints =
             crate::store::checkpoint::CheckpointStore::new(move || checkpoint_host.now_ms() as f64);
+        let platform = host.platform().clone();
         let clock_host = host;
         options.clock = Arc::new(move || clock_host.now_ms());
-        let embedding = Service::new(provider, reranker, identity, None, options)?;
+        let embedding = Arc::new(Service::new(
+            provider,
+            reranker,
+            identity.clone(),
+            None,
+            options,
+        )?);
+        let store_cancel = Cancel::never();
+        let stores = crate::ops::adopt::StoreAdopter::new(
+            embedding.clone(),
+            Some(identity),
+            platform,
+            Arc::new(crate::ops::adopt::CopiedStoreRoutes),
+            store_cancel.clone(),
+        );
         let capabilities = decode(
             json!({"memoryLink":false,"recallStats":false,"knowledgePromotion":false,"memoryCuration":false}),
         )?;
@@ -149,6 +167,8 @@ impl ProcessEngine {
         let closed = Arc::new(AtomicBool::new(false));
         Ok(Self {
             embedding,
+            stores,
+            store_cancel,
             checkpoints,
             system_supplement: crate::recall::system_supplement::build(
                 raw["neo"]["enabled"] != false,
@@ -207,6 +227,7 @@ impl Engine for ProcessEngine {
     }
     fn close(&self, _budget: Option<Duration>) -> Result<(), EngineError> {
         self.closed.store(true, Ordering::Release);
+        self.store_cancel.cancel();
         self.embedding.close();
         self.subscribers
             .lock()
@@ -284,10 +305,10 @@ impl Engine for ProcessEngine {
         &self.unavailable
     }
     fn embedding(&self) -> &dyn EmbeddingService {
-        &self.embedding
+        self.embedding.as_ref()
     }
     fn models(&self) -> &dyn ModelsService {
-        &self.embedding
+        self.embedding.as_ref()
     }
     fn memory(&self) -> &dyn MemoryOps {
         &self.unavailable
@@ -296,7 +317,7 @@ impl Engine for ProcessEngine {
         &self.unavailable
     }
     fn stores(&self) -> &dyn StoreOps {
-        &self.unavailable
+        &self.stores
     }
     fn channels(&self) -> &dyn ChannelRegistry {
         &self.channels
@@ -878,3 +899,7 @@ mod checkpoint_tests;
 #[cfg(test)]
 #[path = "engine_supplement_tests.rs"]
 mod supplement_tests;
+
+#[cfg(test)]
+#[path = "engine_adopt_tests.rs"]
+mod adopt_tests;
