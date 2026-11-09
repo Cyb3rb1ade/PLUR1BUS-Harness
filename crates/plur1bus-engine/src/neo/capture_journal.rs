@@ -33,6 +33,8 @@ use std::{
 
 #[path = "capture_conflict_application_recovery.rs"]
 mod conflict_application_recovery;
+#[path = "capture_curation.rs"]
+mod curation;
 #[path = "capture_interference_recovery.rs"]
 mod interference_recovery;
 #[path = "capture_merge_recovery.rs"]

@@ -33,6 +33,9 @@ impl OperationContext {
     fn lock(&self) -> MutexGuard<'_, State> {
         self.state.lock().unwrap_or_else(PoisonError::into_inner)
     }
+    pub(crate) fn host_handle(&self) -> Arc<dyn HostServices> {
+        self.host.clone()
+    }
     /// Host services used only after the entry guard admits the operation.
     pub fn host(&self) -> &dyn HostServices {
         self.host.as_ref()

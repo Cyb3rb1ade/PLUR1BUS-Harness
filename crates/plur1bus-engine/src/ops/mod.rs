@@ -3,6 +3,8 @@ mod archive;
 pub mod context;
 pub mod correction;
 mod correction_dynamics;
+/// Human foreground curation using the actual C4 reader and audit-first writer.
+pub mod curation;
 pub mod import;
 pub mod import_ledger;
 pub mod import_lock;

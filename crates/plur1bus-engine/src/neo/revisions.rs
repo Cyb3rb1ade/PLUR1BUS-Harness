@@ -165,6 +165,7 @@ impl RevisionStore {
             Some(request),
             plan::AuditMode::Tool,
             cancel,
+            &|| Ok(()),
         )?
         .ok_or(StoreError::Corrupt.into())
     }
@@ -179,12 +180,23 @@ impl RevisionStore {
         request: &RevisionRequest,
         cancel: &Cancel,
     ) -> Result<RevisionResult, EngineError> {
+        self.apply_curation_checked(principal, agent, request, cancel, &|| Ok(()))
+    }
+    pub(crate) fn apply_curation_checked(
+        &self,
+        principal: &Principal,
+        agent: &AgentContext,
+        request: &RevisionRequest,
+        cancel: &Cancel,
+        check: &dyn Fn() -> Result<(), EngineError>,
+    ) -> Result<RevisionResult, EngineError> {
         self.execute(
             principal,
             agent,
             Some(request),
             plan::AuditMode::CurationFacade,
             cancel,
+            check,
         )?
         .ok_or(StoreError::Corrupt.into())
     }
@@ -196,7 +208,14 @@ impl RevisionStore {
         agent: &AgentContext,
         cancel: &Cancel,
     ) -> Result<Option<RevisionResult>, EngineError> {
-        self.execute(principal, agent, None, plan::AuditMode::Tool, cancel)
+        self.execute(
+            principal,
+            agent,
+            None,
+            plan::AuditMode::Tool,
+            cancel,
+            &|| Ok(()),
+        )
     }
     fn execute(
         &self,
@@ -205,6 +224,7 @@ impl RevisionStore {
         request: Option<&RevisionRequest>,
         mode: plan::AuditMode,
         cancel: &Cancel,
+        extra: &dyn Fn() -> Result<(), EngineError>,
     ) -> Result<Option<RevisionResult>, EngineError> {
         cancel.check()?;
         let ctx = RequestContext::build(principal, agent, self.host.as_ref())?;
@@ -217,7 +237,7 @@ impl RevisionStore {
             agent,
             &ctx,
             cancel,
-            &|| Ok(()),
+            extra,
             |dir, proof, _, check| {
                 // A prepared embedding mutation must finish before its source is revised.
                 super::embedding_publication::guard_other_pending(dir, "", cancel)?;

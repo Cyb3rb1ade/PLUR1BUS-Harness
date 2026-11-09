@@ -82,12 +82,28 @@ impl MetadataReader {
     ) -> Result<Json, EngineError> {
         // Origin, cancellation and query bounds precede filesystem reads.
         let _ = curation::list(&[], &[], ctx, limit, cancel)?;
+        self.with_curation_sources(ctx, cancel, |a, b| curation::list(a, b, ctx, limit, cancel))
+    }
+    pub(crate) fn curation_records(
+        &self,
+        ctx: &RequestContext,
+        cancel: &Cancel,
+    ) -> Result<Vec<Json>, EngineError> {
+        self.with_curation_sources(ctx, cancel, |a, b| curation::queue(a, b, ctx, cancel))
+    }
+    fn with_curation_sources<T>(
+        &self,
+        ctx: &RequestContext,
+        cancel: &Cancel,
+        project: impl FnOnce(&[Json], &[Json]) -> Result<T, EngineError>,
+    ) -> Result<T, EngineError> {
+        let _ = curation::queue(&[], &[], ctx, cancel)?;
         if Layout::for_key(&ctx.workspace_key).canonical != self.layout.canonical {
             return Err(StoreError::InvalidInput.into());
         }
         self.root.assert_unchanged()?;
         let Some(parent) = optional(self.root.open_child("workspaces"))? else {
-            return curation::list(&[], &[], ctx, limit, cancel);
+            return project(&[], &[]);
         };
         let canonical = optional(parent.open_child(&self.layout.canonical))?;
         let legacy = self
@@ -107,7 +123,7 @@ impl MetadataReader {
             let b = read(legacy.as_ref(), file, ctx, cancel, &mut budget)?;
             sources.push(merged(&a, &b)?);
         }
-        let result = curation::list(&sources[0], &sources[1], ctx, limit, cancel)?;
+        let result = project(&sources[0], &sources[1])?;
         if let Some(dir) = &canonical {
             revision_io::guard_pending(dir, cancel)?;
             dir.assert_unchanged()?;
