@@ -68,6 +68,13 @@ impl CaptureJournal {
         directory: &TrustedDirectory,
         cancel: &Cancel,
     ) -> Result<(), EngineError> {
+        crate::ops::durable_merge_state::guard_pending(directory, cancel)?;
+        Self::guard_non_merge_pending(directory, cancel)
+    }
+    pub(crate) fn guard_non_merge_pending(
+        directory: &TrustedDirectory,
+        cancel: &Cancel,
+    ) -> Result<(), EngineError> {
         crate::ops::interference_state::guard_pending(directory, cancel)?;
         if super::super::revision_io::state(directory, cancel)?.is_some_and(|value| {
             !super::super::derived_fields::bool_field(&value, "complete")
@@ -107,6 +114,33 @@ impl CaptureJournal {
     }
     /// The owning confirmed-application component validates and resumes its own pending receipt.
     pub(crate) fn with_conflict_application_writer<T>(
+        &self,
+        principal: &Principal,
+        agent: &AgentContext,
+        expected: &RequestContext,
+        cancel: &Cancel,
+        extra: &dyn Fn() -> Result<(), EngineError>,
+        action: impl FnOnce(
+            &TrustedDirectory,
+            &Json,
+            &str,
+            &dyn Fn() -> Result<(), EngineError>,
+        ) -> Result<T, EngineError>,
+    ) -> Result<T, EngineError> {
+        self.with_merge_writer(
+            principal,
+            agent,
+            expected,
+            cancel,
+            extra,
+            |dir, proof, binding, check| {
+                crate::ops::durable_merge_state::guard_pending(dir, cancel)?;
+                action(dir, proof, binding, check)
+            },
+        )
+    }
+    /// Owning merge validates its own pending receipt; other writers remain fenced.
+    pub(crate) fn with_merge_writer<T>(
         &self,
         principal: &Principal,
         agent: &AgentContext,

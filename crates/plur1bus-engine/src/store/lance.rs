@@ -318,6 +318,14 @@ impl Store {
         })?;
         Self::open_with_executor(path, OpenMode::ReadWrite, Some(&identity), executor)
     }
+    /// Internal physical route binding for durable original-caller receipts.
+    pub(crate) fn physical_binding(&self) -> Result<(PathBuf, (u64, u64)), StoreError> {
+        self.trusted()?;
+        Ok((
+            self.directory.path().to_owned(),
+            self.directory.identity_parts(),
+        ))
+    }
     /// The recorded identity, when present.
     pub fn identity(&self) -> Option<&VectorSpaceIdentity> {
         self.identity.as_ref()

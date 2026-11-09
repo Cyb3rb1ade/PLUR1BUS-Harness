@@ -35,6 +35,8 @@ use std::{
 mod conflict_application_recovery;
 #[path = "capture_interference_recovery.rs"]
 mod interference_recovery;
+#[path = "capture_merge_recovery.rs"]
+mod merge_recovery;
 #[path = "capture_recovery.rs"]
 mod recovery;
 #[path = "capture_revision_recovery.rs"]

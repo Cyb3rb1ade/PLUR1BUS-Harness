@@ -1220,3 +1220,45 @@ Actual normal-store selection/model composition, durable archive/replacement/del
 and post-store hooks remain separate work. No frozen MemoryOps method or RPC is
 added. The hygiene exception is limited to the two new fixture files' exact
 verified test-host import and source-provenance lines; production rules remain.
+
+### RX6 archived normal-store merge commits (RE-D83)
+
+`ops::durable_merge::NativeMerge` consumes an already prepared native replacement;
+model selection, lexical decisions and ordinary-store row construction remain above
+this adapter. It creates no MemoryOps or RPC method. The exact source and replacement
+must be private to the original caller, active, visible under current tombstones and
+policy, and use the current provider/store identity. Replacement identity, lineage
+and epistemic metadata must match RE-D82. The actual Arrow codec projects the saved
+replacement before full-row comparison. The writer freezes the entire caller,
+source, replacement, time and physical store/state/workspace bindings in a private
+receipt before any archive or Lance mutation.
+
+Durable stages are preparation, original archive, verified replacement, delete
+intent, original deletion, audit and completion. Archive uses the complete original
+known row. An exact existing replacement is accepted, while any collision refuses.
+The original is deleted only after an exact readback of both rows and a persisted
+delete intent. An absent original can be resumed only after that intent; missing
+receipts never recreate authority. Archive/audit collisions, changed or deleted
+completed rows and missing completed evidence refuse without repair. The mandatory
+Node-shaped destructive audit is deduplicated by the original merge key and checked
+in full, preserving unrelated JSONL rows. Each JSONL replacement is individually
+atomic; there is no transaction spanning Lance, archive, audit and receipts.
+
+Component `open` inventories and validates all pending original callers before any
+replay, then checks them again under the shared writer leases. It never constructs a
+startup principal or re-runs a provider. Pending merges fence automatic capture and
+other operations; merge itself refuses pending automatic, revision, interference
+or confirmed conflict work. Actual tests include concurrent retries, eleven injected
+cuts, seven SIGKILL cuts, clock-advanced component reopen, revoked policy, changed
+sources and filesystem collisions. These are real Lance tests; the earlier thirteen
+Node map-port recordings remain reference evidence, not thirteen claimed Rust
+workflow parity tests.
+
+Bounds: 512 retained receipts, 8 MiB per receipt/serialized input row/archive,
+64 MiB aggregate receipts, 50,000 directory entries per scan, 300-second startup,
+1 MiB source/replacement text, 32,768 vector components. Audit has the existing
+64 MiB/50,000-record bounds. Capacity refuses rather than deleting idempotency
+history. This costs repeated full-row and bounded-file checks. The runtime must
+share lifecycle/generation ownership and writer services; external uncoordinated
+writers are not made atomic. Full normal-store composition, post-store effects,
+retention policy and ProcessEngine activation remain open.
