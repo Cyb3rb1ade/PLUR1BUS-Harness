@@ -37,6 +37,7 @@ pub(super) struct EngineStores {
     config: EngineConfig,
     base: Option<PathBuf>,
     identity: VectorSpaceIdentity,
+    fingerprint: String,
     state: Mutex<State>,
     count: AtomicUsize,
     clock: Arc<dyn Fn() -> i64 + Send + Sync>,
@@ -47,6 +48,7 @@ impl EngineStores {
         config: EngineConfig,
         base: Option<PathBuf>,
         identity: VectorSpaceIdentity,
+        fingerprint: String,
         clock: Arc<dyn Fn() -> i64 + Send + Sync>,
         cancel: Cancel,
     ) -> Self {
@@ -54,6 +56,7 @@ impl EngineStores {
             config,
             base,
             identity,
+            fingerprint,
             state: Mutex::default(),
             count: AtomicUsize::new(0),
             clock,
@@ -105,17 +108,20 @@ impl EngineStores {
             });
         }
         self.cancel.check()?;
-        if self.config.reembedding.is_some() {
-            return Err(EngineError::NotAvailable {
-                reason: "generation-routing-pending".into(),
-            });
-        }
         let base = self.base.as_ref().ok_or_else(|| EngineError::Invalid {
             field: "baseDbPath".into(),
             message: "resolved store path required".into(),
         })?;
         if state.pools.is_none() {
-            let pools = if create_root {
+            let pools = if self.config.reembedding.is_some() {
+                Some(NamespaceStores::open_generation(
+                    base,
+                    &self.config,
+                    &self.identity,
+                    &self.fingerprint,
+                    IDLE_STORES_PER_ROUTE,
+                )?)
+            } else if create_root {
                 Some(NamespaceStores::open(
                     base,
                     &self.config,

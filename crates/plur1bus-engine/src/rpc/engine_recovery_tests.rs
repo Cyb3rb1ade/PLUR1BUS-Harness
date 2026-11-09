@@ -119,6 +119,7 @@ fn shutdown_during_the_startup_clock_prevents_registry_publication() {
         host.config(),
         Some(base.clone()),
         space,
+        identity.fingerprint_id,
         Arc::new(move || {
             clock_cancel.cancel();
             1_800_000_000_000

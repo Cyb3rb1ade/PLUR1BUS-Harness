@@ -1,0 +1,11 @@
+{
+  "exception": "RE-D141",
+  "sourceCommit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+  "source": "lib/reembedding/generation-layout.js",
+  "sourceSha256": "8f8a419c6656d19c07dfdb7bc10e0af0ac6caa8348ee6c239f82737825ec9ebf",
+  "native": [
+    "Selected data always remains inside its generation directory. A generation ID equal to the writer namespace does not move the shared base to the parent generations directory.",
+    "The selected declaration must match the live embedding service fingerprint and width, and pass the existing native manifest partition validation.",
+    "The layout base, generations directory and selected directory retain their own physical pins."
+  ]
+}

@@ -161,10 +161,83 @@ fn explicit_generation_does_not_fall_back_to_the_legacy_root() {
     let engine = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
     assert!(matches!(
         engine.open(&"agent".parse().unwrap()),
-        Err(EngineError::NotAvailable {reason}) if reason == "generation-routing-pending"
+        Err(EngineError::Store(StoreError::IdentityMismatch))
     ));
-    assert!(
-        methods::dispatch(&engine, "engine.memory.state", &params(), &Cancel::never()).is_err()
-    );
+    let mut request = params();
+    request["q"] = json!({"since":0});
+    assert!(methods::dispatch(&engine, "engine.memory.list", &request, &Cancel::never()).is_err());
     assert!(!base.exists());
+}
+
+#[test]
+fn validated_generation_routes_reads_and_open_to_the_selected_root() {
+    for generation_id in ["selected", "current"] {
+        check_generation(generation_id);
+    }
+}
+
+fn check_generation(generation_id: &str) {
+    let temp = tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let base = temp.path().join("db/current");
+    let state = temp.path().join("state");
+    let control = engine(&state, &base);
+    let envelope = control.embedding().identities().remove(0);
+    let identity = envelope.space.as_ref().unwrap();
+    let width = envelope.dimensions.as_u64().unwrap() as usize;
+    let generation = temp.path().join("db/generations").join(generation_id);
+    let active = generation.join("current");
+    let legacy = Store::create(&base.join("agent"), identity, width).unwrap();
+    let selected = Store::create(&active.join("agent"), identity, width).unwrap();
+    let mut row = adopt_tests::row(vec![1.; width]);
+    row.created_at = 2_000.into();
+    row.text = "Legacy generation".into();
+    legacy.upsert(std::slice::from_ref(&row)).unwrap();
+    row.text = "Selected generation".into();
+    selected.upsert(&[row]).unwrap();
+
+    let config = json!({"baseDbPath":base,"namespaces":{"activeWriteNamespace":"current"},
+        "reembedding":{"activeGeneration":generation_id,"fingerprintId":envelope.fingerprint_id,"dimensions":width}});
+    let manifest_path = generation.join("generation.json");
+    let mut manifest = json!({
+        "schemaVersion":1,"generation":generation_id,"fingerprintId":"mismatched",
+        "dimensions":width,"tables":{"agent/memories":{"sourceVersion":"1","sourceRows":1,"writtenRows":1}}
+    });
+    std::fs::write(&manifest_path, serde_json::to_vec(&manifest).unwrap()).unwrap();
+    let host = Arc::new(FakeHost::new(
+        state,
+        serde_json::from_value(config).unwrap(),
+    ));
+    host.set_now_ms(10_000);
+    let process = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
+    assert!(matches!(
+        process.open(&"new-agent".parse().unwrap()),
+        Err(EngineError::Store(StoreError::IdentityMismatch))
+    ));
+    assert!(!active.join("new-agent").exists());
+    manifest["fingerprintId"] = json!(envelope.fingerprint_id);
+    std::fs::write(&manifest_path, serde_json::to_vec(&manifest).unwrap()).unwrap();
+    let mut request = params();
+    request["id"] = json!(LIVE);
+    let result =
+        methods::dispatch(&process, "engine.memory.show", &request, &Cancel::never()).unwrap();
+    assert_eq!(result["text"], "Selected generation");
+    let handle = process.open(&"new-agent".parse().unwrap()).unwrap();
+    assert!(active.join("new-agent/memories.lance").is_dir());
+    assert!(!base.join("new-agent").exists());
+    assert_eq!(legacy.get(LIVE).unwrap().unwrap().text, "Legacy generation");
+    (handle.close)().unwrap();
+
+    #[cfg(unix)]
+    {
+        let generations = generation.parent().unwrap();
+        let moved = temp.path().join("displaced");
+        std::fs::rename(generations, &moved).unwrap();
+        std::fs::create_dir(generations).unwrap();
+        std::fs::rename(moved.join(generation_id), &generation).unwrap();
+        assert!(
+            methods::dispatch(&process, "engine.memory.show", &request, &Cancel::never()).is_err()
+        );
+        assert!(process.open(&"other".parse().unwrap()).is_err());
+        assert!(!active.join("other").exists());
+    }
 }

@@ -116,7 +116,7 @@ impl ProcessEngine {
             provider: space.provider.clone(),
             model: space.model.clone(),
             dimensions: space.dimension.clone(),
-            fingerprint_id,
+            fingerprint_id: fingerprint_id.clone(),
             space: Some(space.clone()),
         };
         let provider: Box<dyn embedding::EmbeddingProvider> = match seam {
@@ -177,16 +177,16 @@ impl ProcessEngine {
             .as_ref()
             .filter(|p| !p.is_empty())
             .map(std::path::PathBuf::from);
-        let generation_routing_pending = config.reembedding.is_some();
         let live_stores = Arc::new(EngineStores::new(
             config,
             base.clone(),
             space,
+            fingerprint_id,
             store_clock,
             store_cancel.clone(),
         ));
         let operations = Arc::new(crate::ops::context::OperationContext::new(host));
-        let memory_reader = base.filter(|_| !generation_routing_pending).map(|base| {
+        let memory_reader = base.map(|base| {
             crate::ops::memory::MemoryReader::new(
                 operations.clone(),
                 live_stores.clone(),

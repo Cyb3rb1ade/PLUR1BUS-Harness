@@ -85,7 +85,8 @@ fn io(_: std::io::Error) -> BackendError {
 fn check(cancel: &Cancel) -> Result<(), BackendError> {
     cancel.check().map_err(|_| BackendError::Cancelled)
 }
-fn generation(id: &str) -> Result<(), BackendError> {
+/// Validate a single persisted generation ID before constructing any path.
+pub(crate) fn generation(id: &str) -> Result<(), BackendError> {
     if id_valid(id) && id.len() <= 64 {
         Ok(())
     } else {
@@ -107,6 +108,41 @@ fn integer(v: &Value) -> Option<u64> {
         .filter(|n| n.is_finite() && (0. ..=9_007_199_254_740_991.).contains(n) && n.fract() == 0.)
         .map(|n| n as u64)
 }
+/// Read the same bounded generation declaration used by migration validation.
+pub(crate) fn read_generation_manifest(
+    directory: &TrustedDirectory,
+    generation: &str,
+) -> Result<Value, StoreError> {
+    const MAX_MANIFEST_BYTES: u64 = 64 * 1024 * 1024;
+    let file = directory.open_file("generation.json")?;
+    let mut bytes = Vec::new();
+    if file.metadata()?.len() > MAX_MANIFEST_BYTES {
+        return Err(StoreError::Corrupt);
+    }
+    file.take(MAX_MANIFEST_BYTES + 1).read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > MAX_MANIFEST_BYTES {
+        return Err(StoreError::Corrupt);
+    }
+    directory.assert_unchanged()?;
+    let value: Value = serde_json::from_slice(&bytes).map_err(|_| StoreError::Corrupt)?;
+    if value["schemaVersion"] != 1
+        || value["generation"] != generation
+        || integer(&value["dimensions"]).unwrap_or(0) == 0
+    {
+        return Err(StoreError::Corrupt);
+    }
+    for (id, table) in value["tables"].as_object().ok_or(StoreError::Corrupt)? {
+        partition(id).map_err(|_| StoreError::Corrupt)?;
+        if table["sourceVersion"].as_str().is_none_or(str::is_empty)
+            || integer(&table["sourceRows"]).is_none()
+            || integer(&table["writtenRows"]).is_none()
+        {
+            return Err(StoreError::Corrupt);
+        }
+    }
+    Ok(value)
+}
+
 /// Exact Node stable hash: retain all unknown metadata except vector/fingerprint and top-level `_` fields.
 pub fn stable_non_vector_hash(row: &Json) -> Result<String, BackendError> {
     let Json::Object(fields) = normalize(row, 0).map_err(|_| BackendError::Invalid)? else {
@@ -330,36 +366,7 @@ impl GenerationBackend {
     fn manifest(&self, id: &str) -> Result<Value, BackendError> {
         let root = self.root(id)?;
         let dir = TrustedDirectory::open(&root)?;
-        let file = dir.open_file("generation.json")?;
-        if file.metadata().map_err(io)?.len() > 64 * 1024 * 1024 {
-            return Err(BackendError::Invalid);
-        }
-        let mut bytes = Vec::new();
-        file.take(64 * 1024 * 1024 + 1)
-            .read_to_end(&mut bytes)
-            .map_err(io)?;
-        if bytes.len() > 64 * 1024 * 1024 {
-            return Err(BackendError::Invalid);
-        }
-        dir.assert_unchanged()?;
-        let v: Value = serde_json::from_slice(&bytes).map_err(|_| BackendError::Invalid)?;
-        if v["schemaVersion"] != 1
-            || v["generation"] != id
-            || integer(&v["dimensions"]).unwrap_or(0) == 0
-            || !v["tables"].is_object()
-        {
-            return Err(BackendError::Invalid);
-        }
-        for (id, t) in v["tables"].as_object().ok_or(BackendError::Invalid)? {
-            partition(id)?;
-            if t["sourceVersion"].as_str().is_none_or(str::is_empty)
-                || integer(&t["sourceRows"]).is_none()
-                || integer(&t["writtenRows"]).is_none()
-            {
-                return Err(BackendError::Invalid);
-            }
-        }
-        Ok(v)
+        read_generation_manifest(&dir, id).map_err(BackendError::from)
     }
     fn save(&self, id: &str, value: &Value) -> Result<(), BackendError> {
         let path = self.root(id)?.join("generation.json");

@@ -1,6 +1,7 @@
 //! Private namespace route construction; shared and optional sources belong to T6/RE-07.
 
 use crate::contract::{EngineConfig, StoreError, VectorSpaceIdentity};
+use crate::ops::reembedding::backend::{generation, read_generation_manifest};
 use crate::store::directory::TrustedDirectory;
 use crate::store::paths::{namespace_path, secure_dir};
 use crate::store::{OpenMode, Store, StoreIdentityResolver, StorePool, StoreRoute, StoreRoutes};
@@ -46,7 +47,7 @@ impl NamespaceStores {
     ) -> Result<Self, StoreError> {
         let layout = Layout::from_config(base, config)?;
         let root_pin = layout.root_pin()?;
-        Self::build(layout, root_pin.as_ref(), identity, resolver, capacity)
+        Self::build(layout, root_pin.as_slice(), identity, resolver, capacity)
     }
 
     /// Open routes for an existing layout, without establishing a missing root.
@@ -66,7 +67,7 @@ impl NamespaceStores {
         };
         Self::build(
             layout,
-            Some(&root),
+            std::slice::from_ref(&root),
             identity,
             Arc::new(FixedIdentity(identity.clone())),
             capacity,
@@ -74,9 +75,52 @@ impl NamespaceStores {
         .map(Some)
     }
 
+    /// Use the selected generation only after its manifest and active model agree.
+    pub(crate) fn open_generation(
+        base: &Path,
+        config: &EngineConfig,
+        identity: &VectorSpaceIdentity,
+        fingerprint: &str,
+        capacity: usize,
+    ) -> Result<Self, StoreError> {
+        let selected = config
+            .reembedding
+            .as_ref()
+            .ok_or(StoreError::InvalidInput)?;
+        let id = &selected.active_generation;
+        generation(id).map_err(|_| StoreError::InvalidInput)?;
+        if selected.fingerprint_id != fingerprint
+            || selected.dimensions.as_f64() != identity.dimension.as_f64()
+        {
+            return Err(StoreError::IdentityMismatch);
+        }
+
+        let mut layout = Layout::from_config(base, config)?;
+        let base = Arc::new(TrustedDirectory::open(&layout.base)?);
+        let generations = Arc::new(base.open_child("generations")?);
+        let root = Arc::new(generations.open_child(id)?);
+        let manifest = read_generation_manifest(&root, id)?;
+        if manifest["fingerprintId"] != fingerprint
+            || manifest["dimensions"].as_f64() != selected.dimensions.as_f64()
+        {
+            return Err(StoreError::IdentityMismatch);
+        }
+
+        // New generation data is always below the selected directory. A generation
+        // ID that happens to equal a namespace does not redefine the layout root.
+        layout.base = root.path().to_owned();
+        Self::build(
+            layout,
+            &[base, generations, root],
+            identity,
+            Arc::new(FixedIdentity(identity.clone())),
+            capacity,
+        )
+    }
+
     fn build(
         layout: Layout,
-        root_pin: Option<&Arc<TrustedDirectory>>,
+        root_pins: &[Arc<TrustedDirectory>],
         identity: &VectorSpaceIdentity,
         resolver: Arc<dyn StoreIdentityResolver>,
         capacity: usize,
@@ -92,7 +136,7 @@ impl NamespaceStores {
                 open_route(
                     resolved_layout,
                     namespace,
-                    root_pin,
+                    root_pins,
                     identity,
                     resolver.clone(),
                     capacity,
@@ -139,7 +183,7 @@ fn find_route(routes: &[StoreRoute], namespace: &Option<String>) -> Result<Store
 fn open_route(
     layout: &Layout,
     namespace: Option<String>,
-    root: Option<&Arc<TrustedDirectory>>,
+    root_pins: &[Arc<TrustedDirectory>],
     identity: &VectorSpaceIdentity,
     identity_resolver: Arc<dyn StoreIdentityResolver>,
     capacity: usize,
@@ -151,7 +195,7 @@ fn open_route(
     let legacy = namespace
         .as_ref()
         .is_some_and(|name| layout.legacy.contains(name));
-    let mut pins = root.cloned().into_iter().collect::<Vec<_>>();
+    let mut pins = root_pins.to_vec();
     match fs::symlink_metadata(&path) {
         Ok(metadata) if metadata.is_dir() => pins.push(Arc::new(TrustedDirectory::open(&path)?)),
         Ok(_) => return Err(StoreError::UntrustedPath),

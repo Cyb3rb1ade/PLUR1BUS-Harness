@@ -1825,6 +1825,14 @@ lease existing tables and leave an absent namespace root absent. The startup
 tombstone gate runs before the first existing table is admitted.
 
 Process close drains admitted memory operations before releasing their pools.
-An explicit Re-Embedding generation requires its own validated layout before
-the process opens stores. The process refuses that configuration while the
-generation router is pending.
+An explicit Re-Embedding generation uses its validated layout.
+
+### Selected Re-Embedding generation (RE-D141)
+
+The process checks the selected manifest against the configured model fingerprint
+and vector width before opening private or shared stores. It retains physical
+pins for the namespace base, generations directory and selected directory.
+The writer and shared pools stay inside the selected generation, including when
+its name equals the writer namespace. Tombstone reconciliation keeps the original
+configured registry path and reads the selected writer. A missing or mismatched
+manifest prevents admission until the configuration and manifest agree.
