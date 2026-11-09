@@ -463,3 +463,62 @@ fn process_link_requires_system_origin_and_replays_the_actual_receipt() {
     );
     assert!(engine.capabilities().memory_link);
 }
+
+#[test]
+fn process_import_previews_without_creating_the_writer_and_replays_one_card() {
+    let temp = tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let state = temp.path().join("state");
+    let base = temp.path().join("db");
+    let workspace = temp.path().join("workspace");
+    std::fs::create_dir(&workspace).unwrap();
+    let host = Arc::new(FakeHost::new(
+        state.clone(),
+        serde_json::from_value(json!({
+            "baseDbPath":base, "namespaces":{"activeWriteNamespace":"current"},
+            "summaryMaxWords":4, "recall":{"halfLifeDaysMap":{"project":15}}
+        }))
+        .unwrap(),
+    ));
+    host.set_workspace(&"agent".parse().unwrap(), workspace);
+    host.set_now_ms(10_000);
+    let engine = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
+    let mut request = params();
+    let text = "The release review uses a blue label and happens every Thursday afternoon.";
+    request["req"] = json!({"agentId":"agent","principal":request["p"],"dryRun":true,
+        "importRunId":"fixture-run","cards":[{"idempotencyKey":"note-1","text":text,"kind":"decision",
+        "provenance":"imported","sourceRef":"fixture:note","createdAt":5_000}]});
+    let import = |request: &Value| {
+        methods::dispatch(&engine, "engine.memory.import", request, &Cancel::never())
+    };
+    assert_eq!(import(&request).unwrap_err().reason, "denied");
+    request["a"]["origin"] = json!("system");
+    let preview = import(&request).unwrap();
+    assert_eq!(preview["dryRun"], true);
+    assert_eq!(preview["created"], 1.0, "{preview}");
+    assert!(!base.exists());
+    assert!(!state.exists());
+
+    request["req"]["dryRun"] = json!(false);
+    let first = import(&request).unwrap();
+    let id = first["cards"][0]["id"].as_str().unwrap();
+    assert_eq!(first["created"], 1.0);
+    let repeated = import(&request).unwrap();
+    assert_eq!(repeated["created"], 0.0);
+    assert_eq!(repeated["matchedExisting"], 1.0);
+    assert_eq!(repeated["cards"][0]["id"], id);
+    let receipts = std::fs::read_to_string(base.join("_imports/agent.jsonl")).unwrap();
+    assert_eq!(receipts.lines().count(), 1);
+
+    let identity = engine.embedding().identities().remove(0).space.unwrap();
+    let store = Store::open(
+        &base.join("current/agent"),
+        crate::store::OpenMode::ReadOnly,
+        Some(&identity),
+    )
+    .unwrap();
+    let row = store.get(id).unwrap().unwrap();
+    assert_eq!(row.text, text);
+    assert!(row.summary.starts_with("The release review uses"));
+    assert!(!row.summary.contains("Thursday"));
+    assert_eq!(serde_json::to_value(row).unwrap()["halfLifeDays"], 15.0);
+}

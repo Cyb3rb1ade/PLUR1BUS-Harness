@@ -16,7 +16,10 @@ use crate::{
         normalize::normalize_embedding_config,
         service::{Service, ServiceOptions},
     },
-    ops::{memory::MemoryReader, sharing::ShareServices, write::MemoryWriter},
+    ops::{
+        import::Importer, import_ledger::ImportLedger, import_row::ImportEncoding,
+        memory::MemoryReader, sharing::ShareServices, write::MemoryWriter,
+    },
 };
 use engine_stores::EngineStores;
 use serde_json::{json, Value};
@@ -52,6 +55,7 @@ pub struct ProcessEngine {
 struct ProcessMemory {
     reader: Arc<MemoryReader>,
     writer: MemoryWriter,
+    importer: Importer,
 }
 
 impl crate::ops::models::ModelInventory for ProcessEngine {
@@ -191,19 +195,41 @@ impl ProcessEngine {
         ));
         let operations = Arc::new(crate::ops::context::OperationContext::new(host));
         let memory = base.map(|base| {
+            let provider = embedding.pipeline_embedder();
             let reader = Arc::new(MemoryReader::new(
                 operations.clone(),
                 live_stores.clone(),
-                embedding.pipeline_embedder(),
+                provider.clone(),
                 base.clone(),
             ));
-            let writer = MemoryWriter::new(operations.clone(), live_stores.clone(), base)
+            let writer = MemoryWriter::new(operations.clone(), live_stores.clone(), base.clone())
                 .with_sharing(ShareServices {
                     reader: reader.clone(),
                     stores: live_stores.clone(),
-                    providers: vec![embedding.pipeline_embedder()],
+                    providers: vec![provider.clone()],
                 });
-            ProcessMemory { reader, writer }
+            let importer = Importer::new(
+                operations.clone(),
+                live_stores.clone(),
+                provider,
+                Arc::new(ImportLedger::new(&base)),
+                base,
+                ImportEncoding {
+                    half_life_overrides: crate::recall::trace::from_value(
+                        &raw["recall"]["halfLifeDaysMap"],
+                    ),
+                    flashbulb: raw["memoryDynamics"]["flashbulbEncoding"] == true,
+                    summary_max_words: raw["summaryMaxWords"]
+                        .as_u64()
+                        .and_then(|words| usize::try_from(words).ok())
+                        .unwrap_or(150),
+                },
+            );
+            ProcessMemory {
+                reader,
+                writer,
+                importer,
+            }
         });
         Ok(Self {
             embedding,
@@ -480,11 +506,22 @@ impl MemoryOps for ProcessEngine {
             .link(id, &request, principal, agent)
     }
 
+    fn import(
+        &self,
+        request: MemoryImportRequest,
+        cancel: &Cancel,
+        principal: &Principal,
+        agent: &AgentContext,
+    ) -> Result<MemoryImportResult, EngineError> {
+        self.memory_ports()?
+            .importer
+            .import(&request, principal, agent, cancel)
+    }
+
     unavailable_methods! {
         fn correct(_id: &str, _text: &str, _principal: &Principal, _agent: &AgentContext) -> MemoryCorrectResult;
         fn share(_id: &str, _target: MemoryShareTarget, _options: ShareOptions, _principal: &Principal, _agent: &AgentContext) -> MemoryShareResult;
         fn propose(_id: &str, _text: &str, _options: ProposeOptions, _principal: &Principal, _agent: &AgentContext) -> MemoryProposeResult;
-        fn import(_request: MemoryImportRequest, _cancel: &Cancel, _principal: &Principal, _agent: &AgentContext) -> MemoryImportResult;
         fn rebind(_request: MemoryRebindRequest, _cancel: &Cancel, _principal: &Principal, _agent: &AgentContext) -> MemoryRebindResult;
         fn unbind(_request: MemoryUnbindRequest, _cancel: &Cancel, _principal: &Principal, _agent: &AgentContext) -> MemoryUnbindResult;
         fn unimport(_request: MemoryUnimportRequest, _cancel: &Cancel, _principal: &Principal, _agent: &AgentContext) -> MemoryUnimportResult;

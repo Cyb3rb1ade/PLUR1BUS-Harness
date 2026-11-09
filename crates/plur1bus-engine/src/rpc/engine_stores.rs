@@ -6,6 +6,7 @@ use crate::{
         StoreError, VectorSpaceIdentity,
     },
     ops::{
+        import::ImportStores,
         memory::{ReadSource, ReadStores},
         private_routes::PrivateMemoryStores,
         routes::MemoryStores,
@@ -25,6 +26,13 @@ use std::{
 };
 
 const IDLE_STORES_PER_ROUTE: usize = 8;
+
+fn store_failure(error: EngineError) -> StoreError {
+    match error {
+        EngineError::Store(error) => error,
+        _ => StoreError::Unavailable,
+    }
+}
 
 #[derive(Default)]
 struct State {
@@ -160,13 +168,7 @@ impl EngineStores {
 
     fn memory_routes(&self) -> Result<Option<Arc<MemoryStores>>, StoreError> {
         let mut state = self.state.lock().map_err(|_| StoreError::Unavailable)?;
-        let Some(pools) = self
-            .namespaces(&mut state, false)
-            .map_err(|error| match error {
-                EngineError::Store(error) => error,
-                _ => StoreError::Unavailable,
-            })?
-        else {
+        let Some(pools) = self.namespaces(&mut state, false).map_err(store_failure)? else {
             return Ok(None);
         };
         if state.memory_routes.is_none() {
@@ -209,6 +211,21 @@ impl MutationStores for EngineStores {
             Some(routes) => routes.existing_private(context),
             None => Ok(None),
         }
+    }
+}
+
+impl ImportStores for EngineStores {
+    fn existing(&self, context: &RequestContext) -> Result<Option<Arc<Store>>, StoreError> {
+        self.existing_private(context)
+    }
+
+    fn writable(&self, context: &RequestContext) -> Result<Arc<Store>, StoreError> {
+        let mut state = self.state.lock().map_err(|_| StoreError::Unavailable)?;
+        let pools = self
+            .namespaces(&mut state, true)
+            .map_err(store_failure)?
+            .ok_or(StoreError::Unavailable)?;
+        pools.write_store(context.agent_id.as_str())
     }
 }
 
