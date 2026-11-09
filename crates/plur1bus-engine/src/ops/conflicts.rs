@@ -306,3 +306,7 @@ fn request_digest(request: &ConflictRequest) -> Result<String, EngineError> {
 #[path = "conflict_resolution_store.rs"]
 mod resolutions;
 pub use resolutions::ResolutionRequest;
+
+#[path = "conflict_application_plan.rs"]
+mod applications;
+pub use applications::{ApplicationPlan, ApplicationRequest};

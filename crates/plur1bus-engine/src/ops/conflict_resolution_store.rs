@@ -128,92 +128,100 @@ impl ConflictLedger {
             return Err(StoreError::InvalidInput.into());
         }
         self.transaction(principal, agent, cancel, |workspace, ctx, check| {
-            let dir = match workspace.open_child(".adaptive-learning") {
-                Ok(dir) => dir,
-                Err(StoreError::Io {
-                    kind: std::io::ErrorKind::NotFound,
-                }) => return Ok(None),
-                Err(e) => return Err(e.into()),
+            Ok(self
+                .resolution_at(workspace, ctx, check, memory_id, cancel)?
+                .map(|(row, _)| row))
+        })
+    }
+    pub(super) fn resolution_at(
+        &self,
+        workspace: &TrustedDirectory,
+        ctx: &RequestContext,
+        check: &dyn Fn() -> Result<(), EngineError>,
+        memory_id: &str,
+        cancel: &Cancel,
+    ) -> Result<Option<(Value, ConflictRequest)>, EngineError> {
+        let dir = match workspace.open_child(".adaptive-learning") {
+            Ok(dir) => dir,
+            Err(StoreError::Io {
+                kind: std::io::ErrorKind::NotFound,
+            }) => return Ok(None),
+            Err(e) => return Err(e.into()),
+        };
+        let Some(bytes) = io::read(&dir, RESOLVED, io::MAX_BYTES, cancel)? else {
+            return Ok(None);
+        };
+        let rows = io::records(&bytes)?;
+        for (row, _) in rows.into_iter().rev().filter(|(v, _)| owned(v, ctx)) {
+            cancel.check()?;
+            if row["recommendation"] != "apply_via_safe_reconsolidation" || row["dryRun"] != false {
+                continue;
+            }
+            let original = &row["original"];
+            if original["newMemoryId"] != memory_id && original["existingMemoryId"] != memory_id {
+                continue;
+            }
+            let observed =
+                io::read(&dir, LOG, io::MAX_BYTES, cancel)?.ok_or(StoreError::InvalidInput)?;
+            if !io::records(&observed)?
+                .into_iter()
+                .any(|(candidate, _)| owned(&candidate, ctx) && candidate == *original)
+            {
+                return Err(StoreError::InvalidInput.into());
+            }
+            let source = |field: &str| -> Result<MemoryRecord, EngineError> {
+                let id = original[field]
+                    .as_str()
+                    .filter(|id| valid_id(id))
+                    .ok_or(StoreError::Corrupt)?;
+                self.reader
+                    .find_visible_record(id, ctx, self.reader.context.host().now_ms())
             };
-            let Some(bytes) = io::read(&dir, RESOLVED, io::MAX_BYTES, cancel)? else {
-                return Ok(None);
+            let request = ConflictRequest {
+                operation_id: original["operationId"]
+                    .as_str()
+                    .ok_or(StoreError::Corrupt)?
+                    .parse()
+                    .map_err(|_| StoreError::Corrupt)?,
+                new: source("newMemoryId")?,
+                existing: source("existingMemoryId")?,
+                score: original["score"].as_f64().ok_or(StoreError::Corrupt)?,
+                decision: match original["mergeDecision"].as_str() {
+                    Some("stored_separately") => MergeDecision::StoredSeparately,
+                    Some("no_merge_llm_call") => MergeDecision::NoMergeLlmCall,
+                    _ => return Err(StoreError::Corrupt.into()),
+                },
             };
-            let rows = io::records(&bytes)?;
-            for (row, _) in rows.into_iter().rev().filter(|(v, _)| owned(v, ctx)) {
-                cancel.check()?;
-                if row["recommendation"] != "apply_via_safe_reconsolidation"
-                    || row["dryRun"] != false
-                {
-                    continue;
-                }
-                let original = &row["original"];
-                if original["newMemoryId"] != memory_id && original["existingMemoryId"] != memory_id
-                {
-                    continue;
-                }
-                let observed =
-                    io::read(&dir, LOG, io::MAX_BYTES, cancel)?.ok_or(StoreError::InvalidInput)?;
-                if !io::records(&observed)?
-                    .into_iter()
-                    .any(|(candidate, _)| owned(&candidate, ctx) && candidate == *original)
-                {
-                    return Err(StoreError::InvalidInput.into());
-                }
-                let source = |field: &str| -> Result<MemoryRecord, EngineError> {
-                    let id = original[field]
-                        .as_str()
-                        .filter(|id| valid_id(id))
-                        .ok_or(StoreError::Corrupt)?;
-                    self.reader
-                        .find_visible_record(id, ctx, self.reader.context.host().now_ms())
-                };
-                let request = ConflictRequest {
-                    operation_id: original["operationId"]
-                        .as_str()
-                        .ok_or(StoreError::Corrupt)?
-                        .parse()
-                        .map_err(|_| StoreError::Corrupt)?,
-                    new: source("newMemoryId")?,
-                    existing: source("existingMemoryId")?,
-                    score: original["score"].as_f64().ok_or(StoreError::Corrupt)?,
-                    decision: match original["mergeDecision"].as_str() {
-                        Some("stored_separately") => MergeDecision::StoredSeparately,
-                        Some("no_merge_llm_call") => MergeDecision::NoMergeLlmCall,
-                        _ => return Err(StoreError::Corrupt.into()),
-                    },
-                };
-                self.sources(&request, ctx)?;
-                validate_original(original, &request)?;
-                if row["sourceDigest"] != request_digest(&request)? {
-                    return Err(StoreError::InvalidInput.into());
-                }
-                // Recompute the recommendation and selectors from the observed fields, not a cached flag.
-                let value = parse_json(&row.to_string()).map_err(|_| StoreError::Corrupt)?;
-                let projected = conflict_resolution::proposal(
-                    &parse_json(&original.to_string()).map_err(|_| StoreError::Corrupt)?,
-                    &value,
-                    self.reader.context.host().now_ms(),
-                    cancel,
-                )?;
-                let projected: Value = serde_json::from_str(&write_json(&projected))
-                    .map_err(|_| StoreError::Corrupt)?;
-                if projected["recommendation"] != row["recommendation"] {
-                    return Err(StoreError::Corrupt.into());
-                }
-                check()?;
-                self.sources(&request, ctx)?;
-                if io::read(&dir, LOG, io::MAX_BYTES, cancel)?.as_deref()
-                    != Some(observed.as_slice())
-                    || io::read(&dir, RESOLVED, io::MAX_BYTES, cancel)?.as_deref()
-                        != Some(bytes.as_slice())
-                {
-                    return Err(StoreError::InvalidInput.into());
-                }
-                return Ok(Some(row));
+            self.sources(&request, ctx)?;
+            validate_original(original, &request)?;
+            if row["sourceDigest"] != request_digest(&request)? {
+                return Err(StoreError::InvalidInput.into());
+            }
+            // Recompute the recommendation and selectors from the observed fields, not a cached flag.
+            let value = parse_json(&row.to_string()).map_err(|_| StoreError::Corrupt)?;
+            let projected = conflict_resolution::proposal(
+                &parse_json(&original.to_string()).map_err(|_| StoreError::Corrupt)?,
+                &value,
+                self.reader.context.host().now_ms(),
+                cancel,
+            )?;
+            let projected: Value =
+                serde_json::from_str(&write_json(&projected)).map_err(|_| StoreError::Corrupt)?;
+            if projected["recommendation"] != row["recommendation"] {
+                return Err(StoreError::Corrupt.into());
             }
             check()?;
-            Ok(None)
-        })
+            self.sources(&request, ctx)?;
+            if io::read(&dir, LOG, io::MAX_BYTES, cancel)?.as_deref() != Some(observed.as_slice())
+                || io::read(&dir, RESOLVED, io::MAX_BYTES, cancel)?.as_deref()
+                    != Some(bytes.as_slice())
+            {
+                return Err(StoreError::InvalidInput.into());
+            }
+            return Ok(Some((row, request)));
+        }
+        check()?;
+        Ok(None)
     }
 }
 fn validate_original(row: &Value, request: &ConflictRequest) -> Result<(), EngineError> {

@@ -145,7 +145,7 @@ impl MemoryWriter {
 fn storage(_: StoreError) -> EngineError {
     error(MemoryOpErrorCode::Storage)
 }
-fn authorize(old: &MemoryRow, ctx: &RequestContext) -> Result<(), EngineError> {
+pub(super) fn authorize(old: &MemoryRow, ctx: &RequestContext) -> Result<(), EngineError> {
     // Private-row mutation honors every explicit binding, even though the read ACL
     // selects its primary rule by scope. Never reuse a foreign workspace or owner.
     let mut memory =
@@ -211,7 +211,7 @@ fn key(old: &MemoryRow, p: &UpdatePatch, e: &UpdateEvidence) -> String {
         )
     )
 }
-fn drift(a: &[f32], b: &[f32]) -> f64 {
+pub(super) fn drift(a: &[f32], b: &[f32]) -> f64 {
     if a.len() != b.len() {
         return 1.;
     }

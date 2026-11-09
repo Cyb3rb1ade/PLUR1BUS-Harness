@@ -46,6 +46,10 @@ pub struct MemoryReader {
     pub(super) base: PathBuf,
 }
 impl MemoryReader {
+    pub(super) fn embedding_identity(&self) -> &crate::embedding::VectorSpaceIdentity {
+        self.embedder.identity()
+    }
+
     /// Compose the host lifecycle, physical routes, provider and registry root.
     pub fn new(
         context: Arc<OperationContext>,

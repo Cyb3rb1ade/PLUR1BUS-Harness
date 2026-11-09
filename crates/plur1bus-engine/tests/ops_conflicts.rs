@@ -450,5 +450,7 @@ fn existing_loose_log_modes_are_tightened_without_dropping_old_records() {
         1
     );
 }
+#[path = "support/conflict_application_cases.rs"]
+mod application_cases;
 #[path = "support/conflict_resolution_cases.rs"]
 mod resolution_cases;

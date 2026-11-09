@@ -1111,3 +1111,33 @@ replacement or truncation. Bounds remain 64 MiB / 50,000 records / 1 MiB per new
 record. No automatic model call, resolver schedule or source mutation is added.
 The normal-store hook, confirmed application and ProcessEngine composition remain
 open.
+
+## Concrete conflict-application review plans (RX6 / RE-D80)
+
+`ConflictLedger::prepare_application` selects and validates the exact current
+proposal supplied by its caller under the existing lifecycle, mutation and
+workspace writer leases. It freezes the existing-ID target, selected text,
+replacement vector, active embedding identity, original principal and agent
+context, timestamp and complete safeUpdate successor. A domain-separated
+`conflict-apply` payload fingerprint binds all of these fields and both complete
+source snapshots. The concrete review exposes the target, before/after text,
+successor ID, provenance and semantic drift without an embedding vector.
+
+The target must be an actual private source owned by the current agent in the
+current user/workspace; read access to a foreign shared source does not grant
+write access. SafeUpdate's existing authorization and drift calculation are
+reused, with no drift override. The declared vector space must match both the
+active provider and actual store. Nonfinite/wrong-dimension vectors, drift above
+0.45, changed/withdrawn proposals, changed sources and successor-ID collisions
+refuse. Text is limited to 1 MiB, vectors to 32,768 components and the complete
+plan to 8 MiB. Mutation provenance accepts a string reason or the pinned empty
+fallback; non-string reasons remain valid proposal data but refuse preparation.
+
+`validate_application` rechecks the exact original principal (including chat and
+account), agent context, fingerprint, current policy, model, proposal and actual
+source snapshots. The plan has no public constructor or Deserialize path.
+Neither preparation nor validation writes a memory, calls a model, persists an
+approval or grants mutation authority. The plan is currently in-memory: durable
+confirmed application and its restart recovery are the next composition step.
+The existing frozen selectors and safeUpdate row builder are reused unchanged;
+no golden, dependency, RPC or HostServices contract change is introduced.
