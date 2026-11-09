@@ -1814,3 +1814,17 @@ records, reject corrupt registries without creating the agent, retry after repai
 and cancel during the startup clock callback before registry publication. The
 source/golden SHA marker records this native admission policy. Capture-WAL/Neo
 startup and complete readiness remain separate unfinished composition.
+
+### Process memory reads (RE-D140)
+
+`engine.memory.list`, `show`, and `state` use the existing native reader under
+the original caller's operation context. They reuse the process namespace
+pools and embedding service. The shared pools sit under the resolved namespace
+base, including when the configured path ends in the writer namespace. Reads
+lease existing tables and leave an absent namespace root absent. The startup
+tombstone gate runs before the first existing table is admitted.
+
+Process close drains admitted memory operations before releasing their pools.
+An explicit Re-Embedding generation requires its own validated layout before
+the process opens stores. The process refuses that configuration while the
+generation router is pending.

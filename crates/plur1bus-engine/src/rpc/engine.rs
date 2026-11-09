@@ -2,9 +2,8 @@
 //!
 //! RE-03 provides real embedding/model services; copied-store inspection and the
 //! static system supplement reuse their native components. Store opening uses lazy
-//! namespace pools. Recall, capture, jobs
-//! and operations are not complete in this checkout; their ports explicitly
-//! report unavailability until their owning packages supply implementations.
+//! namespace pools, also used by the native memory reader. Other ports are
+//! composed separately as their runtime dependencies become available.
 //! Selecting a flat embedding seam never installs a fake memory pipeline.
 
 #[path = "engine_stores.rs"]
@@ -35,6 +34,8 @@ pub struct ProcessEngine {
     stores: crate::ops::adopt::StoreAdopter,
     store_cancel: Cancel,
     live_stores: Arc<EngineStores>,
+    memory_reader: Option<crate::ops::memory::MemoryReader>,
+    operations: Arc<crate::ops::context::OperationContext>,
     checkpoints: crate::store::checkpoint::CheckpointStore,
     system_supplement: Vec<String>,
     capabilities: Capabilities,
@@ -143,7 +144,7 @@ impl ProcessEngine {
         let checkpoints =
             crate::store::checkpoint::CheckpointStore::new(move || checkpoint_host.now_ms() as f64);
         let platform = host.platform().clone();
-        let clock_host = host;
+        let clock_host = host.clone();
         options.clock = Arc::new(move || clock_host.now_ms());
         let store_clock = options.clock.clone();
         let embedding = Arc::new(Service::new(
@@ -171,20 +172,35 @@ impl ProcessEngine {
             "sharedMemory":{"supported":false,"mode":"unavailable"}
         }))?;
         let closed = Arc::new(AtomicBool::new(false));
+        let base = config
+            .base_db_path
+            .as_ref()
+            .filter(|p| !p.is_empty())
+            .map(std::path::PathBuf::from);
+        let generation_routing_pending = config.reembedding.is_some();
+        let live_stores = Arc::new(EngineStores::new(
+            config,
+            base.clone(),
+            space,
+            store_clock,
+            store_cancel.clone(),
+        ));
+        let operations = Arc::new(crate::ops::context::OperationContext::new(host));
+        let memory_reader = base.filter(|_| !generation_routing_pending).map(|base| {
+            crate::ops::memory::MemoryReader::new(
+                operations.clone(),
+                live_stores.clone(),
+                embedding.pipeline_embedder(),
+                base,
+            )
+        });
         Ok(Self {
             embedding,
             stores,
-            store_cancel: store_cancel.clone(),
-            live_stores: Arc::new(EngineStores::new(
-                config,
-                raw["baseDbPath"]
-                    .as_str()
-                    .filter(|path| !path.is_empty())
-                    .map(std::path::PathBuf::from),
-                space,
-                store_clock,
-                store_cancel,
-            )),
+            store_cancel,
+            live_stores,
+            memory_reader,
+            operations,
             checkpoints,
             system_supplement: crate::recall::system_supplement::build(
                 raw["neo"]["enabled"] != false,
@@ -244,8 +260,9 @@ impl Engine for ProcessEngine {
     fn close(&self, _budget: Option<Duration>) -> Result<(), EngineError> {
         self.closed.store(true, Ordering::Release);
         self.store_cancel.cancel();
-        let stores_closed = self.live_stores.close();
         self.embedding.close();
+        self.operations.close();
+        let stores_closed = self.live_stores.close();
         self.subscribers
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -329,7 +346,7 @@ impl Engine for ProcessEngine {
         self.embedding.as_ref()
     }
     fn memory(&self) -> &dyn MemoryOps {
-        &self.unavailable
+        self
     }
     fn admin(&self) -> &dyn AdminOps {
         &self.unavailable
@@ -377,14 +394,50 @@ macro_rules! unavailable_methods {
     )*};
 }
 
-impl MemoryOps for Unavailable {
+impl ProcessEngine {
+    fn error(&self) -> EngineError {
+        self.unavailable.error()
+    }
+
+    fn memory_reader(&self) -> Result<&crate::ops::memory::MemoryReader, EngineError> {
+        if self.closed.load(Ordering::Acquire) {
+            return Err(self.error());
+        }
+        self.memory_reader.as_ref().ok_or_else(|| self.error())
+    }
+}
+
+impl MemoryOps for ProcessEngine {
+    fn list(
+        &self,
+        query: MemoryListQuery,
+        principal: &Principal,
+        agent: &AgentContext,
+    ) -> Result<MemoryListResult, EngineError> {
+        self.memory_reader()?.list(&query, principal, agent)
+    }
+
+    fn show(
+        &self,
+        id: &str,
+        principal: &Principal,
+        agent: &AgentContext,
+    ) -> Result<MemoryCard, EngineError> {
+        self.memory_reader()?.show(id, principal, agent)
+    }
+
+    fn state(
+        &self,
+        principal: &Principal,
+        agent: &AgentContext,
+    ) -> Result<MemoryState, EngineError> {
+        self.memory_reader()?.state(principal, agent)
+    }
+
     unavailable_methods! {
-        fn list(_query: MemoryListQuery, _principal: &Principal, _agent: &AgentContext) -> MemoryListResult;
-        fn show(_id: &str, _principal: &Principal, _agent: &AgentContext) -> MemoryCard;
         fn forget(_id: &str, _principal: &Principal, _agent: &AgentContext) -> MemoryForgetResult;
         fn correct(_id: &str, _text: &str, _principal: &Principal, _agent: &AgentContext) -> MemoryCorrectResult;
         fn share(_id: &str, _target: MemoryShareTarget, _options: ShareOptions, _principal: &Principal, _agent: &AgentContext) -> MemoryShareResult;
-        fn state(_principal: &Principal, _agent: &AgentContext) -> MemoryState;
         fn propose(_id: &str, _text: &str, _options: ProposeOptions, _principal: &Principal, _agent: &AgentContext) -> MemoryProposeResult;
         fn import(_request: MemoryImportRequest, _cancel: &Cancel, _principal: &Principal, _agent: &AgentContext) -> MemoryImportResult;
         fn rebind(_request: MemoryRebindRequest, _cancel: &Cancel, _principal: &Principal, _agent: &AgentContext) -> MemoryRebindResult;
@@ -395,10 +448,10 @@ impl MemoryOps for Unavailable {
         fn promote(_request: MemoryPromoteRequest, _principal: &Principal, _agent: &AgentContext) -> MemoryPromotionResult;
     }
     fn proposals(&self) -> &dyn MemoryProposalsOps {
-        self
+        &self.unavailable
     }
     fn curation(&self) -> &dyn MemoryCurationOps {
-        self
+        &self.unavailable
     }
 }
 impl MemoryProposalsOps for Unavailable {
@@ -931,3 +984,7 @@ mod open_tests;
 #[cfg(test)]
 #[path = "engine_recovery_tests.rs"]
 mod recovery_tests;
+
+#[cfg(test)]
+#[path = "engine_memory_tests.rs"]
+mod memory_tests;

@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 /// Immutable pools for the writer, active recall tables and read-only legacy tables.
 pub struct NamespaceStores {
+    base: PathBuf,
     read: Vec<StoreRoute>,
     writer: StoreRoute,
 }
@@ -43,25 +44,55 @@ impl NamespaceStores {
         resolver: Arc<dyn StoreIdentityResolver>,
         capacity: usize,
     ) -> Result<Self, StoreError> {
-        let config = serde_json::to_value(config).map_err(|_| StoreError::InvalidInput)?;
-        let layout = Layout::resolve(
-            base,
-            config.get("namespaces").filter(|value| !value.is_null()),
-        )?;
+        let layout = Layout::from_config(base, config)?;
         let root_pin = layout.root_pin()?;
+        Self::build(layout, root_pin.as_ref(), identity, resolver, capacity)
+    }
+
+    /// Open routes for an existing layout, without establishing a missing root.
+    pub(crate) fn open_existing(
+        base: &Path,
+        config: &EngineConfig,
+        identity: &VectorSpaceIdentity,
+        capacity: usize,
+    ) -> Result<Option<Self>, StoreError> {
+        let layout = Layout::from_config(base, config)?;
+        let root = match TrustedDirectory::open(&layout.base) {
+            Ok(root) => Arc::new(root),
+            Err(StoreError::Io {
+                kind: std::io::ErrorKind::NotFound,
+            }) => return Ok(None),
+            Err(error) => return Err(error),
+        };
+        Self::build(
+            layout,
+            Some(&root),
+            identity,
+            Arc::new(FixedIdentity(identity.clone())),
+            capacity,
+        )
+        .map(Some)
+    }
+
+    fn build(
+        layout: Layout,
+        root_pin: Option<&Arc<TrustedDirectory>>,
+        identity: &VectorSpaceIdentity,
+        resolver: Arc<dyn StoreIdentityResolver>,
+        capacity: usize,
+    ) -> Result<Self, StoreError> {
         let mut configured = layout.read.clone();
         if !configured.contains(&layout.writer) {
             configured.push(layout.writer.clone());
         }
         let resolved_layout = &layout;
-        let pinned_root = root_pin.as_ref();
         let routes = configured
             .into_iter()
             .map(move |namespace| {
                 open_route(
                     resolved_layout,
                     namespace,
-                    pinned_root,
+                    root_pin,
                     identity,
                     resolver.clone(),
                     capacity,
@@ -74,7 +105,16 @@ impl NamespaceStores {
             .iter()
             .map(|name| find_route(&routes, name))
             .collect::<Result<Vec<_>, _>>()?;
-        Ok(Self { read, writer })
+        Ok(Self {
+            base: layout.base,
+            read,
+            writer,
+        })
+    }
+
+    /// Common private and shared root after resolving an explicit writer leaf.
+    pub(crate) fn base(&self) -> &Path {
+        &self.base
     }
 
     /// Lease only the active writer; callers remain responsible for row authorization.
@@ -135,6 +175,14 @@ fn open_route(
 }
 
 impl Layout {
+    fn from_config(base: &Path, config: &EngineConfig) -> Result<Self, StoreError> {
+        let config = serde_json::to_value(config).map_err(|_| StoreError::InvalidInput)?;
+        Self::resolve(
+            base,
+            config.get("namespaces").filter(|value| !value.is_null()),
+        )
+    }
+
     fn root_pin(&self) -> Result<Option<Arc<TrustedDirectory>>, StoreError> {
         if self.writer.is_some() {
             secure_dir(&self.base)?;

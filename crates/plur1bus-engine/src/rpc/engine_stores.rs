@@ -1,10 +1,17 @@
 //! Lazy process-owned writer pools. Opening a table grants no row authority.
 use crate::{
+    context::RequestContext,
     contract::{
         AgentId, AgentStoreHandle, Cancel, EngineConfig, EngineError, StoreError,
         VectorSpaceIdentity,
     },
+    ops::{
+        memory::{ReadSource, ReadStores},
+        private_routes::PrivateMemoryStores,
+        routes::MemoryStores,
+    },
     recall::namespaces::NamespaceStores,
+    store::shared_pool::SharedPool,
 };
 use std::{
     collections::BTreeSet,
@@ -15,9 +22,12 @@ use std::{
     },
 };
 
+const IDLE_STORES_PER_ROUTE: usize = 8;
+
 #[derive(Default)]
 struct State {
     pools: Option<Arc<NamespaceStores>>,
+    memory_routes: Option<Arc<MemoryStores>>,
     recovered: bool,
     agents: BTreeSet<String>,
     closed: bool,
@@ -59,44 +69,10 @@ impl EngineStores {
             }
         })?;
         let mut state = self.state.lock().map_err(|_| StoreError::Unavailable)?;
-        if state.closed {
-            return Err(EngineError::NotAvailable {
-                reason: "closed".into(),
-            });
-        }
-        self.cancel.check()?;
-        if state.pools.is_none() {
-            let base = self.base.as_ref().ok_or_else(|| EngineError::Invalid {
-                field: "baseDbPath".into(),
-                message: "resolved store path required".into(),
-            })?;
-            // Eight idle handles per route; live leases remain pinned by StorePool.
-            state.pools = Some(Arc::new(NamespaceStores::open(
-                base,
-                &self.config,
-                &self.identity,
-                8,
-            )?));
-        }
-        if !state.recovered {
-            let pools = state.pools.as_ref().ok_or(StoreError::Unavailable)?.clone();
-            let base = self.base.as_ref().ok_or(StoreError::InvalidInput)?;
-            let lookup = crate::ops::tombstones::NamespaceGenerationLookup::new(pools);
-            let report =
-                crate::ops::tombstones::reconcile(base, &lookup, (self.clock)(), &self.cancel)?;
-            if !report.errors.is_empty() || !report.registry_errors.is_empty() {
-                return Err(EngineError::NotAvailable {
-                    reason: "startup-recovery-incomplete".into(),
-                });
-            }
-            state.recovered = true;
-        }
-        self.cancel.check()?;
-        state
-            .pools
-            .as_ref()
-            .ok_or(StoreError::Unavailable)?
-            .write_store(&id)?;
+        let pools = self
+            .namespaces(&mut state, true)?
+            .ok_or(StoreError::Unavailable)?;
+        pools.write_store(&id)?;
         state.agents.insert(id.clone());
         self.count.store(state.agents.len(), Ordering::Release);
         let weak = Arc::downgrade(self);
@@ -118,15 +94,98 @@ impl EngineStores {
             }),
         })
     }
+    fn namespaces(
+        &self,
+        state: &mut State,
+        create_root: bool,
+    ) -> Result<Option<Arc<NamespaceStores>>, EngineError> {
+        if state.closed {
+            return Err(EngineError::NotAvailable {
+                reason: "closed".into(),
+            });
+        }
+        self.cancel.check()?;
+        if self.config.reembedding.is_some() {
+            return Err(EngineError::NotAvailable {
+                reason: "generation-routing-pending".into(),
+            });
+        }
+        let base = self.base.as_ref().ok_or_else(|| EngineError::Invalid {
+            field: "baseDbPath".into(),
+            message: "resolved store path required".into(),
+        })?;
+        if state.pools.is_none() {
+            let pools = if create_root {
+                Some(NamespaceStores::open(
+                    base,
+                    &self.config,
+                    &self.identity,
+                    IDLE_STORES_PER_ROUTE,
+                )?)
+            } else {
+                NamespaceStores::open_existing(
+                    base,
+                    &self.config,
+                    &self.identity,
+                    IDLE_STORES_PER_ROUTE,
+                )?
+            };
+            state.pools = pools.map(Arc::new);
+        }
+        let Some(pools) = &state.pools else {
+            return Ok(None);
+        };
+        if !state.recovered {
+            let lookup = crate::ops::tombstones::NamespaceGenerationLookup::new(pools.clone());
+            let report =
+                crate::ops::tombstones::reconcile(base, &lookup, (self.clock)(), &self.cancel)?;
+            if !report.errors.is_empty() || !report.registry_errors.is_empty() {
+                return Err(EngineError::NotAvailable {
+                    reason: "startup-recovery-incomplete".into(),
+                });
+            }
+            state.recovered = true;
+        }
+        self.cancel.check()?;
+        Ok(Some(pools.clone()))
+    }
+
+    fn memory_routes(&self) -> Result<Option<Arc<MemoryStores>>, EngineError> {
+        let mut state = self.state.lock().map_err(|_| StoreError::Unavailable)?;
+        let Some(pools) = self.namespaces(&mut state, false)? else {
+            return Ok(None);
+        };
+        if state.memory_routes.is_none() {
+            let shared = SharedPool::open(pools.base(), &self.identity, IDLE_STORES_PER_ROUTE)?;
+            state.memory_routes = Some(Arc::new(MemoryStores::new(
+                PrivateMemoryStores::new(pools),
+                Arc::new(shared),
+            )));
+        }
+        Ok(state.memory_routes.clone())
+    }
+
     pub(super) fn close(&self) -> Result<(), EngineError> {
         let mut state = self.state.lock().map_err(|_| StoreError::Unavailable)?;
         state.closed = true;
         state.agents.clear();
         self.count.store(0, Ordering::Release);
+        state.memory_routes = None;
         state.pools = None;
         Ok(())
     }
     pub(super) fn count(&self) -> usize {
         self.count.load(Ordering::Acquire)
+    }
+}
+
+impl ReadStores for EngineStores {
+    fn sources(&self, context: &RequestContext) -> Result<Vec<ReadSource>, StoreError> {
+        match self.memory_routes() {
+            Ok(Some(routes)) => routes.sources(context),
+            Ok(None) => Ok(Vec::new()),
+            Err(EngineError::Store(error)) => Err(error),
+            Err(_) => Err(StoreError::Unavailable),
+        }
     }
 }
