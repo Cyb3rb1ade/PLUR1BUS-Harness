@@ -48,6 +48,13 @@ pub struct ChildSpec {
     pub cwd: Option<PathBuf>,
 }
 
+/// Common native engine specification; the Engine slot consumes this after its schema handoff.
+pub fn engine_spec(layout: &Layout, instance_id: &str) -> Result<ChildSpec, String> {
+    crate::engine_process::configured_spec(layout, instance_id)
+        .map_err(str::to_owned)?
+        .ok_or_else(|| "native engine is not selected".to_owned())
+}
+
 /// The core in supervised mode: `node <core.js> --home <home> --lifeline stdin --instance <id>`, plus
 /// `--test-internals <v>` when `PLUR1BUS_TEST_INTERNALS` is set (exactly like `core run`). Fails when core.js is
 /// missing.
