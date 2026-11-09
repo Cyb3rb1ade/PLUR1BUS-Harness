@@ -169,7 +169,7 @@ fn id(value: &Json) -> Option<&JsString> {
         _ => None,
     }
 }
-pub(super) fn bounded(
+pub(crate) fn bounded(
     value: &Json,
     cancel: &Cancel,
     budget: &mut (usize, usize),

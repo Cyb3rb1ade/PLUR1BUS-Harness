@@ -1,0 +1,669 @@
+{
+  "pin": "9b935ce1f970bd92a931aa99a58c620669c8085f",
+  "node": "v24.21.0",
+  "sourceHashes": [
+    {
+      "path": "package.json",
+      "sha256": "62985e09c9dbbbf89352bbda6da3fc1c1a92e1006d6b92e680dca0d0d89fdaf9"
+    },
+    {
+      "path": "engine/jobs/rem-outcome.js",
+      "sha256": "e88f98b249d6145e2580580e9c0c03c5417c6101404e01daf3fe4a90ded0aef0"
+    },
+    {
+      "path": "engine/jobs/run-state-migration.js",
+      "sha256": "801ffa9bf60ad2bcad8e0505bab24abcd0cf476231c98ea27f80103044260a03"
+    },
+    {
+      "path": "engine/jobs/job-registry.js",
+      "sha256": "74fd274fb9d2edaf28690882f24f5f1fc3aea5c469681af27972f03383f45d5a"
+    },
+    {
+      "path": "engine/jobs/job-ledger.js",
+      "sha256": "2bdfd31f59ddf0cedc35175c67b9238bedd242780465c79dc98de2eec742f002"
+    },
+    {
+      "path": "engine/jobs/job-specs.js",
+      "sha256": "6f7e191a08e0cedb281b1015dee018b4891f45c359ed5de5a581594945af9f8b"
+    },
+    {
+      "path": "engine/events.js",
+      "sha256": "5a0a2f7a09d8214812549d177ad876d7a12a6fdf0f2f68d2c7adee6beef01952"
+    },
+    {
+      "path": "lib/dreaming/dream-diary.js",
+      "sha256": "8108796bc7f46b1246f9a69c6fde993a84a915a45915385daf3d07c0cd508780"
+    },
+    {
+      "path": "lib/host-sdk-loader.js",
+      "sha256": "ce7aff857496e068e077b358dfe0f8e64551652b7484281351f329745887925e"
+    },
+    {
+      "path": "lib/feature-cron-specs.js",
+      "sha256": "7f4aa7a1ffe3d623cc17c503013b9cb8b5a6a1bbb8768749081febc4a0f77f3e"
+    },
+    {
+      "path": "lib/sql-safety.js",
+      "sha256": "a6b949df02d29d3ed0494964c004d861d718eeb90abd271410e22a489de1bc62"
+    },
+    {
+      "path": "lib/log-redact.js",
+      "sha256": "f64f7d2e2fbf13684ad16fe045a1e43a9755c57be00ee7532479286eed0068e3"
+    }
+  ],
+  "boundaries": {
+    "implementation": "actual pure remJobOutcome",
+    "normalization": "none",
+    "providers": "none"
+  },
+  "cases": [
+    {
+      "inputJson": "[]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":\"no_partition\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":\"no_partition\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":\"no_partition\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":\"no_partition\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[null,{},{\"result\":null}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":\"no_partition\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[null,{},{\"result\":null}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":\"no_partition\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[null,{},{\"result\":null}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":\"no_partition\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[null,{},{\"result\":null}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":\"no_partition\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":true}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":\"skipped\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":true}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":\"skipped\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":true}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":\"skipped\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":true}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":\"skipped\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":true,\"reason\":\"already_processed\"}},{\"result\":{\"skipped\":true,\"reason\":\"later\"}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":\"already_processed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":true,\"reason\":\"already_processed\"}},{\"result\":{\"skipped\":true,\"reason\":\"later\"}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":\"already_processed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":true,\"reason\":\"already_processed\"}},{\"result\":{\"skipped\":true,\"reason\":\"later\"}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":\"already_processed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":true,\"reason\":\"already_processed\"}},{\"result\":{\"skipped\":true,\"reason\":\"later\"}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":\"already_processed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":true,\"reason\":\"\"}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":\"skipped\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":true,\"reason\":\"\"}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":\"skipped\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":true,\"reason\":\"\"}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":\"skipped\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":true,\"reason\":\"\"}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":\"skipped\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":false,\"reason\":\"ignored\"}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":\"no_partition\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":false,\"reason\":\"ignored\"}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":\"no_partition\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":false,\"reason\":\"ignored\"}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":\"no_partition\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":false,\"reason\":\"ignored\"}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":\"no_partition\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":{}}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":{}}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":{}}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"incomplete\",\"reason\":\"no_narrative\",\"pendingKeys\":[null]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":{}}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":{\"runKey\":\"one\",\"narrative\":\"story\"}}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":{\"runKey\":\"one\",\"narrative\":\"story\"}}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":{\"runKey\":\"one\",\"narrative\":\"story\"}}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":{\"runKey\":\"one\",\"narrative\":\"story\"}}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":{\"runKey\":\"one\",\"narrative\":\"\"}}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":{\"runKey\":\"one\",\"narrative\":\"\"}}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":{\"runKey\":\"one\",\"narrative\":\"\"}}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"incomplete\",\"reason\":\"no_narrative\",\"pendingKeys\":[\"one\"]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":{\"runKey\":\"one\",\"narrative\":\"\"}}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":{\"runKey\":\"one\",\"narrative\":null}}},{\"result\":{\"report\":{\"runKey\":\"two\",\"narrative\":\"story\"}}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":{\"runKey\":\"one\",\"narrative\":null}}},{\"result\":{\"report\":{\"runKey\":\"two\",\"narrative\":\"story\"}}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":{\"runKey\":\"one\",\"narrative\":null}}},{\"result\":{\"report\":{\"runKey\":\"two\",\"narrative\":\"story\"}}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"incomplete\",\"reason\":\"no_narrative\",\"pendingKeys\":[\"one\"]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":{\"runKey\":\"one\",\"narrative\":null}}},{\"result\":{\"report\":{\"runKey\":\"two\",\"narrative\":\"story\"}}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":{\"runKey\":\"same\",\"narrative\":\"\"}}},{\"result\":{\"report\":{\"runKey\":\"same\",\"narrative\":\"\"}}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":{\"runKey\":\"same\",\"narrative\":\"\"}}},{\"result\":{\"report\":{\"runKey\":\"same\",\"narrative\":\"\"}}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":{\"runKey\":\"same\",\"narrative\":\"\"}}},{\"result\":{\"report\":{\"runKey\":\"same\",\"narrative\":\"\"}}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"incomplete\",\"reason\":\"no_narrative\",\"pendingKeys\":[\"same\",\"same\"]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":{\"runKey\":\"same\",\"narrative\":\"\"}}},{\"result\":{\"report\":{\"runKey\":\"same\",\"narrative\":\"\"}}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":true,\"reason\":\"first\"}},{\"result\":{\"report\":{\"runKey\":\"one\",\"narrative\":\"story\"}}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":true,\"reason\":\"first\"}},{\"result\":{\"report\":{\"runKey\":\"one\",\"narrative\":\"story\"}}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":true,\"reason\":\"first\"}},{\"result\":{\"report\":{\"runKey\":\"one\",\"narrative\":\"story\"}}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":true,\"reason\":\"first\"}},{\"result\":{\"report\":{\"runKey\":\"one\",\"narrative\":\"story\"}}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":true,\"reason\":\"ignored\",\"report\":{\"runKey\":\"one\"}}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":true,\"reason\":\"ignored\",\"report\":{\"runKey\":\"one\"}}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":true,\"reason\":\"ignored\",\"report\":{\"runKey\":\"one\"}}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"incomplete\",\"reason\":\"no_narrative\",\"pendingKeys\":[\"one\"]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":true,\"reason\":\"ignored\",\"report\":{\"runKey\":\"one\"}}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":true}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":true}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":true}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"incomplete\",\"reason\":\"no_narrative\",\"pendingKeys\":[null]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":true}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":[]}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":[]}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":[]}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"incomplete\",\"reason\":\"no_narrative\",\"pendingKeys\":[null]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":[]}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":{\"runKey\":null,\"narrative\":null}}},{\"result\":{\"report\":{\"runKey\":4.5,\"narrative\":false}}},{\"result\":{\"report\":{\"runKey\":\"raw-\\ud800-key\",\"narrative\":0}}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":{\"runKey\":null,\"narrative\":null}}},{\"result\":{\"report\":{\"runKey\":4.5,\"narrative\":false}}},{\"result\":{\"report\":{\"runKey\":\"raw-\\ud800-key\",\"narrative\":0}}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":{\"runKey\":null,\"narrative\":null}}},{\"result\":{\"report\":{\"runKey\":4.5,\"narrative\":false}}},{\"result\":{\"report\":{\"runKey\":\"raw-\\ud800-key\",\"narrative\":0}}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"incomplete\",\"reason\":\"no_narrative\",\"pendingKeys\":[null,4.5,\"raw-\\ud800-key\"]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":{\"runKey\":null,\"narrative\":null}}},{\"result\":{\"report\":{\"runKey\":4.5,\"narrative\":false}}},{\"result\":{\"report\":{\"runKey\":\"raw-\\ud800-key\",\"narrative\":0}}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":true,\"reason\":[\"opaque\"]}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":[\"opaque\"],\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":true,\"reason\":[\"opaque\"]}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":[\"opaque\"],\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":true,\"reason\":[\"opaque\"]}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":[\"opaque\"],\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":true,\"reason\":[\"opaque\"]}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":[\"opaque\"],\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":true,\"reason\":{\"opaque\":\"\\udc00\"}}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":{\"opaque\":\"\\udc00\"},\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":true,\"reason\":{\"opaque\":\"\\udc00\"}}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":{\"opaque\":\"\\udc00\"},\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":true,\"reason\":{\"opaque\":\"\\udc00\"}}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":{\"opaque\":\"\\udc00\"},\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"skipped\":true,\"reason\":{\"opaque\":\"\\udc00\"}}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"skipped\",\"reason\":{\"opaque\":\"\\udc00\"},\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":{\"runKey\":\"one\",\"narrative\":[]}}},{\"result\":{\"report\":{\"runKey\":\"two\",\"narrative\":{}}}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":{\"runKey\":\"one\",\"narrative\":[]}}},{\"result\":{\"report\":{\"runKey\":\"two\",\"narrative\":{}}}}]",
+      "options": {
+        "narrativeExpected": false,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":{\"runKey\":\"one\",\"narrative\":[]}}},{\"result\":{\"report\":{\"runKey\":\"two\",\"narrative\":{}}}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": false
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    },
+    {
+      "inputJson": "[{\"result\":{\"report\":{\"runKey\":\"one\",\"narrative\":[]}}},{\"result\":{\"report\":{\"runKey\":\"two\",\"narrative\":{}}}}]",
+      "options": {
+        "narrativeExpected": true,
+        "dryRun": true
+      },
+      "outputJson": "{\"outcome\":\"completed\",\"pendingKeys\":[]}"
+    }
+  ]
+}

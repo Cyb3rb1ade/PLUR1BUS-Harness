@@ -181,7 +181,7 @@ fn bounded(rows: &[Json], max: usize, cancel: &Cancel) -> Result<(), EngineError
     }
     Ok(())
 }
-fn get<'a>(value: &'a Json, name: &str) -> Option<&'a Json> {
+pub(super) fn get<'a>(value: &'a Json, name: &str) -> Option<&'a Json> {
     let Json::Object(fields) = value else {
         return None;
     };
@@ -229,7 +229,7 @@ fn safe_name(value: &str, max: usize) -> Result<(), StoreError> {
     Ok(())
 }
 
-fn truthy(value: Option<&Json>) -> bool {
+pub(super) fn truthy(value: Option<&Json>) -> bool {
     match value {
         None | Some(Json::Null) => false,
         Some(Json::Bool(value)) => *value,

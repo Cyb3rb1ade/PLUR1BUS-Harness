@@ -2,6 +2,7 @@
 pub mod ledger;
 pub mod maintenance_gate;
 pub mod metadata;
+pub mod outcome;
 pub mod registry;
 use crate::contract::{
     JobName, JobSpec, JobSpecDefaultSchedule, JobSpecDefaultScheduleKind, JobSpecPhase,
