@@ -1,0 +1,749 @@
+{
+  "pin": "9b935ce1f970bd92a931aa99a58c620669c8085f",
+  "node": "v24.21.0",
+  "now": 1800000000000,
+  "sourceHashes": [
+    {
+      "path": "lib/memory-maintenance-gate.js",
+      "sha256": "1309a378fad9e8ce84dc41c18dbede9e3dd8b3034c57266f3c8b1a3a6a0b9537"
+    }
+  ],
+  "boundaries": {
+    "implementation": "actual A1 maintenance gate",
+    "clock": "fixed",
+    "normalization": "none"
+  },
+  "cases": [
+    {
+      "name": "inactive",
+      "actions": [
+        {
+          "op": "status"
+        }
+      ],
+      "outputs": [
+        {
+          "value": {
+            "active": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "enter-exit",
+      "actions": [
+        {
+          "op": "enter",
+          "input": {
+            "reason": "reembedding",
+            "migrationId": "migration-1"
+          }
+        },
+        {
+          "op": "status"
+        },
+        {
+          "op": "exit",
+          "input": {
+            "reason": "reembedding",
+            "migrationId": "migration-1"
+          }
+        },
+        {
+          "op": "status"
+        }
+      ],
+      "outputs": [
+        {},
+        {
+          "value": {
+            "active": true,
+            "reason": "reembedding",
+            "since": 1800000000000
+          }
+        },
+        {},
+        {
+          "value": {
+            "active": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "already-active",
+      "actions": [
+        {
+          "op": "enter",
+          "input": {
+            "reason": "reembedding",
+            "migrationId": "migration-1"
+          }
+        },
+        {
+          "op": "enter",
+          "input": {
+            "reason": "reembedding",
+            "migrationId": "migration-1"
+          }
+        },
+        {
+          "op": "status"
+        }
+      ],
+      "outputs": [
+        {},
+        {
+          "error": "PLUR1BUS maintenance gate is already active"
+        },
+        {
+          "value": {
+            "active": true,
+            "reason": "reembedding",
+            "since": 1800000000000
+          }
+        }
+      ]
+    },
+    {
+      "name": "not-active",
+      "actions": [
+        {
+          "op": "exit",
+          "input": {
+            "reason": "reembedding",
+            "migrationId": "migration-1"
+          }
+        },
+        {
+          "op": "status"
+        }
+      ],
+      "outputs": [
+        {
+          "error": "PLUR1BUS maintenance gate is not active"
+        },
+        {
+          "value": {
+            "active": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "wrong-reason",
+      "actions": [
+        {
+          "op": "enter",
+          "input": {
+            "reason": "reembedding",
+            "migrationId": "migration-1"
+          }
+        },
+        {
+          "op": "exit",
+          "input": {
+            "reason": "other",
+            "migrationId": "migration-1"
+          }
+        },
+        {
+          "op": "status"
+        },
+        {
+          "op": "exit",
+          "input": {
+            "reason": "reembedding",
+            "migrationId": "migration-1"
+          }
+        }
+      ],
+      "outputs": [
+        {},
+        {
+          "error": "PLUR1BUS maintenance gate lease mismatch"
+        },
+        {
+          "value": {
+            "active": true,
+            "reason": "reembedding",
+            "since": 1800000000000
+          }
+        },
+        {}
+      ]
+    },
+    {
+      "name": "wrong-id",
+      "actions": [
+        {
+          "op": "enter",
+          "input": {
+            "reason": "reembedding",
+            "migrationId": "migration-1"
+          }
+        },
+        {
+          "op": "exit",
+          "input": {
+            "reason": "reembedding",
+            "migrationId": "other"
+          }
+        },
+        {
+          "op": "status"
+        },
+        {
+          "op": "exit",
+          "input": {
+            "reason": "reembedding",
+            "migrationId": "migration-1"
+          }
+        }
+      ],
+      "outputs": [
+        {},
+        {
+          "error": "PLUR1BUS maintenance gate lease mismatch"
+        },
+        {
+          "value": {
+            "active": true,
+            "reason": "reembedding",
+            "since": 1800000000000
+          }
+        },
+        {}
+      ]
+    },
+    {
+      "name": "reason-empty",
+      "actions": [
+        {
+          "op": "enter",
+          "input": {
+            "reason": "",
+            "migrationId": "migration-1"
+          }
+        },
+        {
+          "op": "status"
+        }
+      ],
+      "outputs": [
+        {
+          "error": "invalid maintenance gate reason"
+        },
+        {
+          "value": {
+            "active": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "reason-UPPER",
+      "actions": [
+        {
+          "op": "enter",
+          "input": {
+            "reason": "UPPER",
+            "migrationId": "migration-1"
+          }
+        },
+        {
+          "op": "status"
+        }
+      ],
+      "outputs": [
+        {
+          "error": "invalid maintenance gate reason"
+        },
+        {
+          "value": {
+            "active": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "reason-_bad",
+      "actions": [
+        {
+          "op": "enter",
+          "input": {
+            "reason": "_bad",
+            "migrationId": "migration-1"
+          }
+        },
+        {
+          "op": "status"
+        }
+      ],
+      "outputs": [
+        {
+          "error": "invalid maintenance gate reason"
+        },
+        {
+          "value": {
+            "active": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "reason-bad-name",
+      "actions": [
+        {
+          "op": "enter",
+          "input": {
+            "reason": "bad-name",
+            "migrationId": "migration-1"
+          }
+        },
+        {
+          "op": "status"
+        }
+      ],
+      "outputs": [
+        {
+          "error": "invalid maintenance gate reason"
+        },
+        {
+          "value": {
+            "active": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "reason-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "actions": [
+        {
+          "op": "enter",
+          "input": {
+            "reason": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "migrationId": "migration-1"
+          }
+        },
+        {
+          "op": "status"
+        }
+      ],
+      "outputs": [
+        {
+          "error": "invalid maintenance gate reason"
+        },
+        {
+          "value": {
+            "active": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "id-empty",
+      "actions": [
+        {
+          "op": "enter",
+          "input": {
+            "reason": "reembedding",
+            "migrationId": ""
+          }
+        },
+        {
+          "op": "status"
+        }
+      ],
+      "outputs": [
+        {
+          "error": "invalid maintenance gate migration id"
+        },
+        {
+          "value": {
+            "active": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "id-_bad",
+      "actions": [
+        {
+          "op": "enter",
+          "input": {
+            "reason": "reembedding",
+            "migrationId": "_bad"
+          }
+        },
+        {
+          "op": "status"
+        }
+      ],
+      "outputs": [
+        {
+          "error": "invalid maintenance gate migration id"
+        },
+        {
+          "value": {
+            "active": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "id-has/slash",
+      "actions": [
+        {
+          "op": "enter",
+          "input": {
+            "reason": "reembedding",
+            "migrationId": "has/slash"
+          }
+        },
+        {
+          "op": "status"
+        }
+      ],
+      "outputs": [
+        {
+          "error": "invalid maintenance gate migration id"
+        },
+        {
+          "value": {
+            "active": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "id-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "actions": [
+        {
+          "op": "enter",
+          "input": {
+            "reason": "reembedding",
+            "migrationId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        },
+        {
+          "op": "status"
+        }
+      ],
+      "outputs": [
+        {
+          "error": "invalid maintenance gate migration id"
+        },
+        {
+          "value": {
+            "active": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "max-identifiers",
+      "actions": [
+        {
+          "op": "enter",
+          "input": {
+            "reason": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "migrationId": "1._-._-._-._-._-._-._-._-._-._-._-._-._-._-._-._-._-._-._-._-._-"
+          }
+        },
+        {
+          "op": "status"
+        }
+      ],
+      "outputs": [
+        {},
+        {
+          "value": {
+            "active": true,
+            "reason": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "since": 1800000000000
+          }
+        }
+      ]
+    },
+    {
+      "name": "external-inactive",
+      "external": {
+        "active": false
+      },
+      "actions": [
+        {
+          "op": "status"
+        }
+      ],
+      "outputs": [
+        {
+          "value": {
+            "active": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "external-active",
+      "external": {
+        "active": true,
+        "reason": "durable",
+        "since": 123
+      },
+      "actions": [
+        {
+          "op": "status"
+        }
+      ],
+      "outputs": [
+        {
+          "value": {
+            "active": true,
+            "reason": "durable",
+            "since": 123
+          }
+        }
+      ]
+    },
+    {
+      "name": "external-fraction",
+      "external": {
+        "active": true,
+        "reason": "durable",
+        "since": -123.25
+      },
+      "actions": [
+        {
+          "op": "status"
+        }
+      ],
+      "outputs": [
+        {
+          "value": {
+            "active": true,
+            "reason": "durable",
+            "since": -123.25
+          }
+        }
+      ]
+    },
+    {
+      "name": "external-zero",
+      "external": {
+        "active": true,
+        "reason": "durable",
+        "since": 0
+      },
+      "actions": [
+        {
+          "op": "status"
+        }
+      ],
+      "outputs": [
+        {
+          "value": {
+            "active": true,
+            "reason": "durable",
+            "since": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "external-large",
+      "external": {
+        "active": true,
+        "reason": "durable",
+        "since": 72000000000000000
+      },
+      "actions": [
+        {
+          "op": "status"
+        }
+      ],
+      "outputs": [
+        {
+          "value": {
+            "active": true,
+            "reason": "durable",
+            "since": 72000000000000000
+          }
+        }
+      ]
+    },
+    {
+      "name": "external-invalid-reason",
+      "external": {
+        "active": true,
+        "reason": "Bad",
+        "since": 123
+      },
+      "actions": [
+        {
+          "op": "status"
+        }
+      ],
+      "outputs": [
+        {
+          "error": "invalid durable maintenance gate reason"
+        }
+      ]
+    },
+    {
+      "name": "external-missing-time",
+      "external": {
+        "active": true,
+        "reason": "durable"
+      },
+      "actions": [
+        {
+          "op": "status"
+        }
+      ],
+      "outputs": [
+        {
+          "error": "invalid durable maintenance gate timestamp"
+        }
+      ]
+    },
+    {
+      "name": "external-string-time",
+      "external": {
+        "active": true,
+        "reason": "durable",
+        "since": "123"
+      },
+      "actions": [
+        {
+          "op": "status"
+        }
+      ],
+      "outputs": [
+        {
+          "error": "invalid durable maintenance gate timestamp"
+        }
+      ]
+    },
+    {
+      "name": "external-not-true",
+      "external": {
+        "active": "true"
+      },
+      "actions": [
+        {
+          "op": "status"
+        }
+      ],
+      "outputs": [
+        {
+          "value": {
+            "active": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "external-error",
+      "externalError": true,
+      "actions": [
+        {
+          "op": "status"
+        }
+      ],
+      "outputs": [
+        {
+          "error": "external unavailable"
+        }
+      ]
+    },
+    {
+      "name": "local-precedence",
+      "externalError": true,
+      "actions": [
+        {
+          "op": "enter",
+          "input": {
+            "reason": "reembedding",
+            "migrationId": "migration-1"
+          }
+        },
+        {
+          "op": "status"
+        },
+        {
+          "op": "exit",
+          "input": {
+            "reason": "reembedding",
+            "migrationId": "migration-1"
+          }
+        },
+        {
+          "op": "status"
+        }
+      ],
+      "outputs": [
+        {},
+        {
+          "value": {
+            "active": true,
+            "reason": "reembedding",
+            "since": 1800000000000
+          }
+        },
+        {},
+        {
+          "error": "external unavailable"
+        }
+      ]
+    },
+    {
+      "name": "durable-after-exit",
+      "external": {
+        "active": true,
+        "reason": "durable",
+        "since": 123
+      },
+      "actions": [
+        {
+          "op": "enter",
+          "input": {
+            "reason": "reembedding",
+            "migrationId": "migration-1"
+          }
+        },
+        {
+          "op": "status"
+        },
+        {
+          "op": "exit",
+          "input": {
+            "reason": "reembedding",
+            "migrationId": "migration-1"
+          }
+        },
+        {
+          "op": "status"
+        }
+      ],
+      "outputs": [
+        {},
+        {
+          "value": {
+            "active": true,
+            "reason": "reembedding",
+            "since": 1800000000000
+          }
+        },
+        {},
+        {
+          "value": {
+            "active": true,
+            "reason": "durable",
+            "since": 123
+          }
+        }
+      ]
+    }
+  ]
+}
