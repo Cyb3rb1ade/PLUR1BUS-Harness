@@ -712,3 +712,14 @@ pub(super) fn check_promotion_cleanup(
 ) -> Result<(), EngineError> {
     merged_knowledge::check_promotion_cleanup(before, after, agent, ids, cancel)
 }
+
+pub(super) fn restrict_promotion_cleanup(
+    before: Option<&str>,
+    after: &str,
+    agent: &str,
+    authorized: &[String],
+    now: i64,
+    cancel: &Cancel,
+) -> Result<Option<String>, EngineError> {
+    merged_knowledge::restrict_promotion_cleanup(before, after, agent, authorized, now, cancel)
+}

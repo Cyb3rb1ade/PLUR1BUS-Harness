@@ -508,3 +508,37 @@ pub(in crate::ops::durable_merge) fn check_promotion_cleanup(
     }
     Ok(())
 }
+
+/// A Node cleanup proposal is not authority: retain entries whose source cannot be proved visible.
+pub(in crate::ops::durable_merge) fn restrict_promotion_cleanup(
+    before: Option<&str>,
+    after: &str,
+    agent: &str,
+    authorized: &[String],
+    now: i64,
+    cancel: &Cancel,
+) -> Result<Option<String>, EngineError> {
+    let (raw, old) = entries(before, cancel)?;
+    let (_, new) = entries(Some(after), cancel)?;
+    let removed: Vec<_> = old
+        .iter()
+        .filter(|entry| !new.iter().any(|next| next.key == entry.key))
+        .collect();
+    if removed
+        .iter()
+        .all(|entry| entry.source_agent == agent && authorized.contains(&entry.memory_id))
+    {
+        return Ok(Some(after.into()));
+    }
+    let permitted: Vec<_> = removed
+        .into_iter()
+        .filter(|entry| entry.source_agent == agent && authorized.contains(&entry.memory_id))
+        .map(|entry| JsString::from(entry.key.as_str()))
+        .collect();
+    if permitted.is_empty() {
+        return Ok(None);
+    }
+    let restricted = queue::encode(&queue::remove(&raw, &permitted, &[], now, cancel)?, cancel)?;
+    check_promotion_cleanup(before, &restricted, agent, authorized, cancel)?;
+    Ok(Some(restricted))
+}

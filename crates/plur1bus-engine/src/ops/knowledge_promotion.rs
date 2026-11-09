@@ -2,7 +2,9 @@
 use super::{
     conflict_file as io,
     context::error,
-    durable_merge::{check_promotion_cleanup, knowledge_queue_for_promotion},
+    durable_merge::{
+        check_promotion_cleanup, knowledge_queue_for_promotion, restrict_promotion_cleanup,
+    },
     interference_state::Record,
     memory::{MemoryReader, ReadSource, SourceKind},
     promotion_plan::{self, PromotionInput},
@@ -173,7 +175,7 @@ impl NativePromotion {
                 let sources = self.sources(ctx)?;
                 let source_bindings = bindings(&sources)?;
                 let mut snapshots = Vec::new();
-                let planned = promotion_plan::plan(
+                let mut planned = promotion_plan::plan(
                     &PromotionInput {
                         context: &subject,
                         config: &config,
@@ -198,6 +200,29 @@ impl NativePromotion {
                 )?;
                 if let Some(queue) = &planned.queue {
                     check_promotion_cleanup(queue_text, queue, ctx.agent_id.as_str(), ids, cancel)?;
+                    // A not-found result hides ACL denials as well as absent sources. Neither
+                    // proves authority to delete a derived pending entry owned by someone else.
+                    let authorized: Vec<_> = snapshots
+                        .iter()
+                        .filter(|snapshot| {
+                            snapshot.visible
+                                && snapshot.raw.as_ref().is_some_and(|(_, record)| {
+                                    (record.row.scope.is_empty()
+                                        || record.row.scope == "agent-private")
+                                        && (record.row.agent_id.is_empty()
+                                            || record.row.agent_id == ctx.agent_id.as_str())
+                                })
+                        })
+                        .map(|snapshot| snapshot.id.clone())
+                        .collect();
+                    planned.queue = restrict_promotion_cleanup(
+                        queue_text,
+                        queue,
+                        ctx.agent_id.as_str(),
+                        &authorized,
+                        now,
+                        cancel,
+                    )?;
                 }
                 let outcomes =
                     serde_json::to_value(&planned.result).map_err(|_| StoreError::Corrupt)?;

@@ -405,3 +405,83 @@ fn replaced_workspace_or_source_directory_is_not_a_publication_target() {
         assert!(!root.join("held-original/memory/KNOWLEDGE.md").exists());
     }
 }
+
+#[test]
+fn hidden_or_missing_sources_never_authorize_pending_queue_removal() {
+    for kind in ["foreign-owner", "missing"] {
+        let f = setup_promotion();
+        pending(&f);
+        let before = std::fs::read(queue_path(f.base.root.path())).unwrap();
+        if kind == "foreign-owner" {
+            let mut row = f.base.store.get(SOURCE).unwrap().unwrap();
+            row.scope = "user".into();
+            row.owner_user_id = plur1bus_engine::context::harness_user_principal("foreign");
+            f.base.store.upsert(&[row]).unwrap();
+        } else {
+            f.base.store.delete(&[SOURCE]).unwrap();
+        }
+        let result = publish(&f, &[SOURCE.into()]).unwrap();
+        assert_eq!(
+            serde_json::to_value(result).unwrap()["items"][0]["reason"],
+            "not-found"
+        );
+        assert_eq!(
+            std::fs::read(queue_path(f.base.root.path())).unwrap(),
+            before,
+            "{kind}"
+        );
+        assert!(!document(f.base.root.path()).exists());
+    }
+}
+
+#[test]
+fn mixed_publication_removes_only_proved_private_source_entries() {
+    let f = setup_promotion();
+    pending(&f);
+    let mut foreign = f.base.store.get(SOURCE).unwrap().unwrap();
+    foreign.id = SECOND.into();
+    foreign.scope = "user".into();
+    foreign.owner_user_id = plur1bus_engine::context::harness_user_principal("foreign");
+    foreign.text = "Other user evidence must remain private".into();
+    f.base.store.upsert(&[foreign]).unwrap();
+    let missing = "00000000-0000-4000-8000-000000000003";
+    let path = queue_path(f.base.root.path());
+    let mut before: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    for id in [SECOND, missing] {
+        before["pending"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"sourceAgent":"alpha","memoryId":id,"importance":0.8}));
+    }
+    let before = plur1bus_engine::capture::knowledge_pending::normalize(
+        &parse_json(&before.to_string()).unwrap(),
+        1735689600000,
+        &Cancel::never(),
+    )
+    .unwrap();
+    let encoded =
+        plur1bus_engine::capture::knowledge_pending::encode(&before, &Cancel::never()).unwrap();
+    std::fs::write(&path, &encoded).unwrap();
+    let before: Value = serde_json::from_str(&encoded).unwrap();
+    let result =
+        serde_json::to_value(publish(&f, &[SOURCE.into(), SECOND.into(), missing.into()]).unwrap())
+            .unwrap();
+    assert_eq!(result["items"][0]["outcome"], "promoted");
+    assert_eq!(result["items"][1]["reason"], "not-found");
+    assert_eq!(result["items"][2]["reason"], "not-found");
+    let after: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    assert_eq!(after["pendingCount"], 3);
+    let expected: Vec<_> = before["pending"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|entry| entry["memoryId"] != SOURCE)
+        .cloned()
+        .collect();
+    assert_eq!(after["pending"], json!(expected));
+    let text = std::fs::read_to_string(document(f.base.root.path())).unwrap();
+    assert!(text.contains("A synthetic decision"));
+    assert!(!text.contains("Other user evidence"));
+    assert_eq!(f.host.calls.load(Ordering::SeqCst), 0);
+    assert_eq!(f.embed.calls.load(Ordering::SeqCst), 0);
+}
