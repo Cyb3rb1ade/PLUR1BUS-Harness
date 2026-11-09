@@ -123,6 +123,7 @@ fn actual_node_effects_match_for_stored_merged_and_duplicate_outcomes() {
                 .unwrap()
                 .1 = Json::String(JsString::from(patch["text"].as_str().unwrap()));
         }
+        assert_eq!(external.curation_json, write_json(&curation), "{name}");
         assert_eq!(
             external.curation,
             serde_json::from_str::<serde_json::Value>(&write_json(&curation)).unwrap(),

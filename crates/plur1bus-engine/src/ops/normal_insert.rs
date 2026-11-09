@@ -11,6 +11,16 @@ pub struct NormalStoreResult {
     /// The retained durable intent was reused.
     pub replayed: bool,
 }
+#[derive(Clone, Copy, Default)]
+struct InsertMode {
+    existing_only: bool,
+    validate_only: bool,
+    curation: bool,
+}
+struct InsertResult {
+    primary: NormalStoreResult,
+    curation_replayed: bool,
+}
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct SavedInsert {
@@ -147,7 +157,15 @@ impl NativeMerge {
         agent: &AgentContext,
         cancel: &Cancel,
     ) -> Result<NormalStoreResult, EngineError> {
-        self.insert_selected(plan, operation_id, principal, agent, cancel, (false, false))
+        self.insert_selected(
+            plan,
+            operation_id,
+            principal,
+            agent,
+            cancel,
+            InsertMode::default(),
+        )
+        .map(|r| r.primary)
     }
     fn insert_selected(
         &self,
@@ -156,8 +174,8 @@ impl NativeMerge {
         principal: &Principal,
         agent: &AgentContext,
         cancel: &Cancel,
-        mode: (bool, bool),
-    ) -> Result<NormalStoreResult, EngineError> {
+        mode: InsertMode,
+    ) -> Result<InsertResult, EngineError> {
         cancel.check()?;
         if operation_id.is_nil() {
             return Err(StoreError::InvalidInput.into());
@@ -192,7 +210,7 @@ impl NativeMerge {
                 let mut inventory = insert_state::receipts(dir, cancel)?;
                 if inventory
                     .iter()
-                    .any(|(file, r, _)| file != &name && r.stage != 2)
+                    .any(|(file, r, _)| file != &name && r.pending())
                 {
                     return Err(StoreError::Busy.into());
                 }
@@ -201,7 +219,7 @@ impl NativeMerge {
                     .position(|(file, _, _)| file == &name)
                     .map(|i| inventory.remove(i));
                 let replayed = old.is_some();
-                if mode.0 && !replayed {
+                if mode.existing_only && !replayed {
                     return Err(StoreError::Corrupt.into());
                 }
                 let (saved, mut receipt, mut bytes) = if let Some((_, r, b)) = old {
@@ -269,6 +287,7 @@ impl NativeMerge {
                             fingerprint,
                             proof,
                             stage: 0,
+                            curation: None,
                         },
                         None,
                     )
@@ -290,11 +309,34 @@ impl NativeMerge {
                     check()
                 };
                 preflight(receipt.stage)?;
-                let result = || NormalStoreResult {
-                    memory_id: row.row.id.clone(),
-                    replayed,
+                if mode.curation && receipt.stage != 2 {
+                    return Err(StoreError::InvalidInput.into());
+                }
+                let curation_replayed = receipt.curation.is_some();
+                let publication = match &receipt.curation {
+                    Some(frozen) => Some(curation::Files::restore(&saved, plan, frozen, cancel)?),
+                    None if mode.curation => Some(curation::Files::prepare(
+                        &saved,
+                        plan,
+                        self.reader.context.host().now_ms(),
+                        cancel,
+                    )?),
+                    None => None,
                 };
-                if mode.1 {
+                if let Some(files) = &publication {
+                    files.validate(
+                        receipt.curation.as_ref().is_some_and(|r| r.complete),
+                        cancel,
+                    )?;
+                }
+                let result = || InsertResult {
+                    primary: NormalStoreResult {
+                        memory_id: row.row.id.clone(),
+                        replayed,
+                    },
+                    curation_replayed,
+                };
+                if mode.validate_only {
                     return Ok(result());
                 }
                 if bytes.is_none() {
@@ -329,6 +371,49 @@ impl NativeMerge {
                     self.observe(label)?;
                 }
                 preflight(2)?;
+                if let Some(files) = publication {
+                    let checked = || {
+                        preflight(2)?;
+                        files.check()?;
+                        files.validate(files.frozen.complete, cancel)?;
+                        Ok(())
+                    };
+                    if receipt.curation.is_none() {
+                        receipt.curation = Some(files.frozen.clone());
+                        bytes = Some(insert_state::save(
+                            dir,
+                            &name,
+                            bytes.as_deref(),
+                            &receipt,
+                            cancel,
+                            &checked,
+                        )?);
+                    }
+                    self.observe("normal-curation-prepared")?;
+                    files.publish(cancel, &checked)?;
+                    self.observe("normal-curation-write")?;
+                    if !receipt.curation.as_ref().is_some_and(|r| r.complete) {
+                        receipt
+                            .curation
+                            .as_mut()
+                            .ok_or(StoreError::Corrupt)?
+                            .complete = true;
+                        insert_state::save(
+                            dir,
+                            &name,
+                            bytes.as_deref(),
+                            &receipt,
+                            cancel,
+                            &|| {
+                                checked()?;
+                                files.validate(true, cancel)
+                            },
+                        )?;
+                    }
+                    self.observe("normal-curation-complete")?;
+                    checked()?;
+                    files.validate(true, cancel)?;
+                }
                 Ok(result())
             },
         )
@@ -341,6 +426,28 @@ impl NativeMerge {
         cancel: &Cancel,
         validate_only: bool,
     ) -> Result<NormalStoreResult, EngineError> {
+        let plan = self.restore_insert_plan(saved, principal, agent, cancel)?;
+        self.insert_selected(
+            &plan,
+            saved.operation_id,
+            principal,
+            agent,
+            cancel,
+            InsertMode {
+                existing_only: true,
+                validate_only,
+                curation: false,
+            },
+        )
+        .map(|r| r.primary)
+    }
+    fn restore_insert_plan(
+        &self,
+        saved: &SavedInsert,
+        principal: &Principal,
+        agent: &AgentContext,
+        cancel: &Cancel,
+    ) -> Result<NormalCandidatePlan, EngineError> {
         let context = RequestContext::build(principal, agent, self.reader.context.host())?;
         let store = self.selected_store(&context, &saved.identity)?;
         let plan = NormalCandidatePlan {
@@ -365,13 +472,8 @@ impl NativeMerge {
             proof: None,
         };
         saved.check(&plan, cancel)?;
-        self.insert_selected(
-            &plan,
-            saved.operation_id,
-            principal,
-            agent,
-            cancel,
-            (true, validate_only),
-        )
+        Ok(plan)
     }
 }
+#[path = "normal_curation.rs"]
+pub(in crate::ops::durable_merge) mod curation;

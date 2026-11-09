@@ -64,6 +64,14 @@ merge importance. Pure UTF-16 cuts and exact duplicate-score formatting remain N
 `into_external` applies F3 to the curation text. These objects are proposals only: they grant no
 write authority, do not publish a queue/log, and do not resolve the separate A1 importance policy.
 
+`NativeMerge::publish_store_curation` explicitly publishes only the ordinary `memory.stored`
+event from an already completed primary receipt. The caller supplies the original operation UUID,
+not an audit payload. An optional durable curation intent keeps the original event time and held
+log-directory identity across restart; pending curation fences other cooperating writers. The
+bounded atomic file publisher preserves unrelated bytes, rejects malformed or linked files and
+never recreates missing completed evidence. It uses the ordered F3-safe JSON projection.
+Knowledge staging, merge/duplicate curation and the whole-request coordinator remain separate.
+
 ## Targets
 
 | Target | Name | What it is |

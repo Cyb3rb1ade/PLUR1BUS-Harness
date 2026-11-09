@@ -819,3 +819,6 @@ fn four_concurrent_retries_share_the_single_primary_intent() {
     });
     assert_eq!(f.embed.calls.load(Ordering::SeqCst), 1);
 }
+
+#[path = "normal_curation.rs"]
+mod curation_tests;

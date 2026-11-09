@@ -17,6 +17,21 @@ pub(crate) struct Receipt {
     pub proof: Value,
     // 0 prepared, 1 primary verified, 2 primary complete.
     pub stage: u8,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub curation: Option<CurationReceipt>,
+}
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct CurationReceipt {
+    pub now_ms: i64,
+    pub directory: (std::path::PathBuf, (u64, u64)),
+    pub event_json: String,
+    pub complete: bool,
+}
+impl Receipt {
+    pub(crate) fn pending(&self) -> bool {
+        self.stage != 2 || self.curation.as_ref().is_some_and(|r| !r.complete)
+    }
 }
 pub(crate) fn receipts(
     dir: &TrustedDirectory,
@@ -59,6 +74,7 @@ pub(crate) fn receipts(
         );
         if receipt.fingerprint != digest
             || receipt.stage > 2
+            || (receipt.curation.is_some() && receipt.stage != 2)
             || receipt.version != 1
             || receipt.plan["command"] != "memory-store-insert"
             || receipt.plan["version"] != 1
@@ -93,7 +109,7 @@ pub(crate) fn save(
     Ok(bytes)
 }
 pub(crate) fn guard_pending(dir: &TrustedDirectory, cancel: &Cancel) -> Result<(), EngineError> {
-    if receipts(dir, cancel)?.iter().any(|(_, r, _)| r.stage != 2) {
+    if receipts(dir, cancel)?.iter().any(|(_, r, _)| r.pending()) {
         return Err(StoreError::Busy.into());
     }
     Ok(())

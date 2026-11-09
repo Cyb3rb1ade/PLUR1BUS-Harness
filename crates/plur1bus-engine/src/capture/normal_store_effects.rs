@@ -45,6 +45,8 @@ pub struct StoreEffects {
 }
 /// F3-safe outward fields. An adapter must still authorize and durably publish these proposals.
 pub struct ExternalStoreEffects {
+    /// Ordered outward JSON for an eventual append; excludes the trailing newline.
+    pub curation_json: String,
     /// Curation entry with complete Unicode codepoints at the text cut.
     pub curation: serde_json::Value,
     /// Optional knowledge proposal; does not activate a job or bypass A1 policy.
@@ -64,9 +66,10 @@ impl StoreEffects {
             return Err(StoreError::InvalidInput.into());
         };
         *text = JsString::from(external(text));
+        let curation_json = write_json(&self.curation);
         Ok(ExternalStoreEffects {
-            curation: serde_json::from_str(&write_json(&self.curation))
-                .map_err(|_| StoreError::InvalidInput)?,
+            curation: serde_json::from_str(&curation_json).map_err(|_| StoreError::InvalidInput)?,
+            curation_json,
             knowledge_pending: self
                 .knowledge_pending
                 .map(|v| {
