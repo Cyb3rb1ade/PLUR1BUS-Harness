@@ -154,6 +154,13 @@ Completed staging is historical: consumed entries are never requeued. Required o
 lines are retained evidence and cannot be silently regenerated. Whole-request admission across
 branches, interference and production process composition remain separate RX work.
 
+`ProcessEngine::checkpoint` now delegates the four existing lifecycle reasons to the RE-02
+Node-compatible `CheckpointStore` and host clock. Digests and deduplication are engine-local,
+matching the pin; checkpointing creates no file, flushes no capture queue and never closes,
+probes or resets the embedding service. Closed engines reject checkpoints. CP-2's deterministic
+1,000-session-end test observes an unchanged provider call count and a still usable warm provider.
+Real-model latency acceptance and the remaining process/capture/recall composition are separate.
+
 ## Targets
 
 | Target | Name | What it is |

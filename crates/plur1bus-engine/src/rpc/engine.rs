@@ -27,6 +27,7 @@ use std::{
 /// The process engine's composition root; incomplete memory ports fail explicitly.
 pub struct ProcessEngine {
     embedding: Service,
+    checkpoints: crate::store::checkpoint::CheckpointStore,
     capabilities: Capabilities,
     status: EngineStatus,
     closed: Arc<AtomicBool>,
@@ -129,6 +130,9 @@ impl ProcessEngine {
                     .into(),
             );
         }
+        let checkpoint_host = host.clone();
+        let checkpoints =
+            crate::store::checkpoint::CheckpointStore::new(move || checkpoint_host.now_ms() as f64);
         let clock_host = host;
         options.clock = Arc::new(move || clock_host.now_ms());
         let embedding = Service::new(provider, reranker, identity, None, options)?;
@@ -144,6 +148,7 @@ impl ProcessEngine {
         let closed = Arc::new(AtomicBool::new(false));
         Ok(Self {
             embedding,
+            checkpoints,
             capabilities,
             status,
             unavailable: Unavailable {
@@ -244,10 +249,29 @@ impl Engine for ProcessEngine {
     }
     fn checkpoint(
         &self,
-        _agent: &AgentId,
-        _reason: CheckpointReason,
+        agent: &AgentId,
+        reason: CheckpointReason,
     ) -> Result<CheckpointResult, EngineError> {
-        Err(self.unavailable.error())
+        if self.closed.load(Ordering::Acquire) {
+            return Err(self.unavailable.error());
+        }
+        let name = match reason {
+            CheckpointReason::Compaction => "compaction",
+            CheckpointReason::SessionEnd => "session-end",
+            CheckpointReason::Shutdown => "shutdown",
+            CheckpointReason::Manual => "manual",
+        };
+        // The pin keeps this map for the engine lifetime. A boundary is not an engine close,
+        // a model reset, a capture flush, or a new on-disk checkpoint format.
+        let result = self
+            .checkpoints
+            .checkpoint(agent.as_str(), name, None, "")?;
+        Ok(CheckpointResult {
+            agent_id: agent.clone(),
+            reason,
+            digest: result.digest,
+            written: result.written,
+        })
     }
     fn jobs(&self) -> &dyn JobRegistry {
         &self.unavailable
@@ -839,3 +863,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "engine_checkpoint_tests.rs"]
+mod checkpoint_tests;
