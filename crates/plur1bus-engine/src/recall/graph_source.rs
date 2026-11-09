@@ -11,13 +11,8 @@ use crate::{
     embedding::EmbedError,
     neo::merged::{MetadataReader, RecordKind},
     store::Store,
-    text::json::{write_json, TolerantJsonValue as Json},
 };
-use serde_json::Value;
-use std::{
-    collections::{HashMap, HashSet},
-    path::Path,
-};
+use std::{collections::HashMap, path::Path};
 
 /// Original request and physical Neo root; no cross-request or cross-table row cache.
 /// Opening and reading are read-only. Absence of a configured source is a separate
@@ -57,10 +52,7 @@ impl BoundGraphSource {
         let mut output = Vec::new();
         for metadata in records.iter().take(GRAPH_ACL_MAX_INSPECTED_EDGES) {
             check(cancel)?;
-            if !unique(metadata) {
-                continue;
-            }
-            let Ok(edge) = serde_json::from_str::<Value>(&write_json(metadata)) else {
+            let Some(edge) = super::source_record::project(metadata) else {
                 continue;
             };
             // D130: an agent-private claim cannot route another user's row just
@@ -137,16 +129,4 @@ fn check(cancel: &Cancel) -> Result<(), StageError> {
     cancel
         .check()
         .map_err(|error| StageError::Embed(EmbedError::Cancelled(error)))
-}
-fn unique(value: &Json) -> bool {
-    match value {
-        Json::Object(fields) => {
-            let mut names = HashSet::new();
-            fields
-                .iter()
-                .all(|(name, value)| names.insert(name) && unique(value))
-        }
-        Json::Array(values) => values.iter().all(unique),
-        _ => true,
-    }
 }

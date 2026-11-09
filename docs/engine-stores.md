@@ -1716,3 +1716,34 @@ and orthogonal stored vectors using the explicitly selected flat embedding seam.
 It verifies complete source-tree hashes, unchanged config, no engine state-root
 creation and rejection after close. The existing complete Node/Lance adoption
 matrix continues to exercise the underlying inspector without golden changes.
+
+
+### Request-bound patterns in recall rendering (RX2/RX6 / RE-D135)
+
+`BoundPatternSource` uses the existing physical Neo metadata reader with the
+original canonical request. Latest revision and requester ACL precede the same
+100-record limit used by the pinned assembler. A configured runtime source
+replaces any prepared pattern snapshot after namespace selection and before
+rendering. An ordinary source failure is an error, not an empty success or a
+fallback to that snapshot. Disabled pattern surfacing and optional phases past
+the budget do not read this source; cancellation keeps the existing degraded
+recall response without injecting unverified patterns.
+
+Graph and pattern sources share a strict projection that refuses duplicate JSON
+keys and unrepresentable UTF-16 without rewriting persisted files. The original
+Neo limits (50,000 scanned lines, 64 MiB windows) still apply. This is a bounded
+metadata snapshot, not an atomic transaction with Lance or external writers.
+Legacy explicit renderer inputs remain available when no source is composed;
+ProcessEngine recall activation remains separate.
+
+`recall/pattern-source-native-exceptions.json` binds unchanged references:
+`capture/golden/neo-merged.json` at C4 `b097045b` (SHA
+`33e8caabe57d1469ad04623b0fd3ddfc39251b6fb85e44763d8e6274bdd50e81`)
+and `recall/golden/render/render-plain.json` at pin `9f34008c` (SHA
+`a169d71712ac7c3f179b29ff23eba8ac3726e9e09bcef8bddc8b8964c52e2dff`).
+Their existing suites check actual Node metadata/render behavior. New synthetic
+integration tests use real Neo files, Lance selection and the full renderer;
+they are not new Node observations. Coverage includes foreign-tail starvation,
+latest hidden revision, original context, root replacement, duplicate keys,
+100-record limit, same-user cross-agent visibility, cross-user refusal, source
+failure, disabled reads and cancellation after namespace selection.

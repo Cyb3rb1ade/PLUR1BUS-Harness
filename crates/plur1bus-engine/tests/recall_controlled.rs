@@ -321,6 +321,7 @@ impl Fixture {
             known_secrets: &[],
             ledger: None,
             neo: &EmptyNeo,
+            pattern_source: None,
             reranker_requested: true,
         }
     }
@@ -661,3 +662,6 @@ fn degraded_runtime_does_not_initialize_statistics() {
     assert!(!fixture.root.path().join("_recall-stats").exists());
     assert_eq!(fixture.provider.calls.load(Ordering::SeqCst), 0);
 }
+
+#[path = "support/recall_pattern_source.rs"]
+mod pattern_source;

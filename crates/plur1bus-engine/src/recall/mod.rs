@@ -119,3 +119,7 @@ pub mod stats;
 
 /// Request-bound graph source with actual per-table endpoint verification.
 pub mod graph_source;
+
+/// Request-bound pattern metadata for foreground rendering.
+pub mod pattern_source;
+mod source_record;

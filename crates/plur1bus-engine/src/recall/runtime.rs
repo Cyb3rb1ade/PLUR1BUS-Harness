@@ -47,6 +47,8 @@ pub struct RuntimeRequest<'a> {
     pub ledger: Option<&'a JsonlLedger<RetrievalLedgerLine>>,
     /// Existing CA5 prelude, with authorization retained by its implementation.
     pub neo: &'a dyn NeoPrelude,
+    /// Optional actual Neo source; replaces caller snapshots, never falls back after failure.
+    pub pattern_source: Option<&'a super::pattern_source::BoundPatternSource>,
     /// Requested reranker option: missing configured provider yields a diagnostic only when on.
     pub reranker_requested: bool,
 }
@@ -140,6 +142,7 @@ pub fn run(mut request: RuntimeRequest<'_>) -> Result<RecallOutcome, EngineError
         &request.render.config["recall"]["trace"],
         request.known_secrets,
     ));
+    let context = request.pipeline.context;
     let pipeline = BudgetedPipeline::new(request.pipeline, request.filter, request.started, budget)
         .with_trace_policy(policy.clone())
         .with_soft_fallback(request.render.config["recall"]["softBudgetFallback"] != false);
@@ -181,6 +184,22 @@ pub fn run(mut request: RuntimeRequest<'_>) -> Result<RecallOutcome, EngineError
             .map_err(|_| malformed())?,
     };
     request.render.config["recall"]["globalInjectMaxChars"] = json!(budget.cap_chars);
+    if let Some(source) = request.pattern_source {
+        request.render.patterns.clear();
+        if request.render.config["continuityEngine"]["enabled"] != false
+            && request.render.config["continuityEngine"]["patternSurfacing"]["enabled"] != false
+            && control.checkpoint(true)
+        {
+            control.timer.start("patterns");
+            match source.read_for(context, &control.cancel) {
+                Ok(patterns) => request.render.patterns = patterns,
+                Err(EngineError::Cancelled(_)) if control.cancel.is_cancelled() => {}
+                Err(error) => return Err(error),
+            }
+            control.timer.end("patterns");
+            control.checkpoint(false);
+        }
+    }
     if control.cancel.is_cancelled() {
         request.render.neo_enabled = false;
     }
