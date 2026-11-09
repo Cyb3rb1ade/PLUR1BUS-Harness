@@ -45,6 +45,20 @@ ordering; fan-out uses at most eight workers per request and settles all childre
 its first required error. Shared/optional sources and strict single-source timeout policy remain
 T6/RE-07 work; with T4's private routes the first route is the first private canonical source.
 
+`StoreRoute::lease_existing` and `NamespaceStores::existing_write_store` preserve the
+configured route mode and identity while refusing implicit table creation. The native
+`ops::private_routes::PrivateMemoryStores` adapter reuses those same pools for private reads,
+mutation previews, import and rebinding; only explicit writable acquisition can create a table.
+It supplies neither shared routes nor row authority. Missing sources are skipped only after
+physical root validation; corruption, root replacement and identity mismatch remain errors.
+
+Pools pin their base when present, or immediately before the first explicit creation. Leased
+stores retain the base and all configured namespace ancestor pins even after the pool drops.
+Every data operation rechecks these pins, so moving the original agent/namespace directory
+back beneath a replacement root cannot silently adopt the replacement. This adds directory
+handles and metadata checks; it does not provide atomic exclusion against an unrelated writer
+changing paths during a backend operation.
+
 Every T4 route resolves an expected identity for its namespace and agent through
 `store::routes::StoreIdentityResolver`. `NamespaceStores::open` uses the active identity as the
 production fallback for **all** routes, including read-only legacy routes;

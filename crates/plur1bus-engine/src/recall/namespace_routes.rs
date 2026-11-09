@@ -81,6 +81,11 @@ impl NamespaceStores {
     pub fn write_store(&self, agent_id: &str) -> Result<Arc<Store>, StoreError> {
         self.writer.lease(agent_id)?.ok_or(StoreError::Unavailable)
     }
+
+    /// Existing active writer for previews/mutations that must not manufacture an empty table.
+    pub fn existing_write_store(&self, agent_id: &str) -> Result<Option<Arc<Store>>, StoreError> {
+        self.writer.lease_existing(agent_id)
+    }
 }
 
 fn find_route(routes: &[StoreRoute], namespace: &Option<String>) -> Result<StoreRoute, StoreError> {
@@ -118,7 +123,8 @@ fn open_route(
     } else {
         OpenMode::ReadWrite
     };
-    let pool = StorePool::open(&path, mode, Some(identity), capacity)?;
+    let pool =
+        StorePool::open(&path, mode, Some(identity), capacity)?.with_parent_pins(pins.clone())?;
     Ok(StoreRoute {
         namespace,
         pool: Arc::new(pool),

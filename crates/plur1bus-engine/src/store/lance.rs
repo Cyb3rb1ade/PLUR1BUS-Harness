@@ -9,7 +9,7 @@ use futures::TryStreamExt;
 use lancedb::query::{ExecutableQuery, QueryBase};
 use std::future::Future;
 use std::path::{Path, PathBuf};
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
@@ -121,6 +121,7 @@ pub struct Store {
     mode: OpenMode,
     executor: Executor,
     directory: super::directory::TrustedDirectory,
+    pinned_roots: Vec<Arc<super::directory::TrustedDirectory>>,
 }
 impl Store {
     /// Open an existing physical store without migrating its schema.
@@ -247,6 +248,7 @@ impl Store {
             mode,
             executor,
             directory,
+            pinned_roots: Vec::new(),
         })
     }
 
@@ -294,15 +296,15 @@ impl Store {
                 .execute()
                 .await
                 .map_err(backend_error)?;
-            let schema = std::sync::Arc::new(arrow_schema::Schema::new(vec![
+            let schema = Arc::new(arrow_schema::Schema::new(vec![
                 arrow_schema::Field::new("identity", arrow_schema::DataType::Utf8, true),
                 arrow_schema::Field::new("identityId", arrow_schema::DataType::Utf8, true),
             ]));
             let batch = arrow_array::RecordBatch::try_new(
                 schema.clone(),
                 vec![
-                    std::sync::Arc::new(arrow_array::StringArray::from(vec![json])),
-                    std::sync::Arc::new(arrow_array::StringArray::from(vec![id])),
+                    Arc::new(arrow_array::StringArray::from(vec![json])),
+                    Arc::new(arrow_array::StringArray::from(vec![id])),
                 ],
             )
             .map_err(|_| StoreError::Corrupt)?;
@@ -430,7 +432,23 @@ impl Store {
             .to_owned();
         std::borrow::Cow::Owned(context)
     }
+    pub(crate) fn bind_pool_roots(
+        &mut self,
+        roots: Vec<Arc<super::directory::TrustedDirectory>>,
+    ) -> Result<(), StoreError> {
+        for root in &roots {
+            root.assert_unchanged()?;
+            if !self.path.starts_with(root.path()) {
+                return Err(StoreError::UntrustedPath);
+            }
+        }
+        self.pinned_roots = roots;
+        self.trusted()
+    }
     fn trusted(&self) -> Result<(), StoreError> {
+        for root in &self.pinned_roots {
+            root.assert_unchanged()?;
+        }
         self.directory.assert_unchanged()?;
         paths::assert_trusted_path(&self.path)?;
         paths::assert_trusted_path(&self.path.join("memories.lance"))
