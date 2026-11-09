@@ -75,12 +75,14 @@ pub struct MergeMaterial<'a> {
     pub now_ms: i64,
 }
 /// Exact prepared row protocol, with Node cuts retained until the typed store boundary.
-pub struct PreparedMerge {
+pub struct PreparedStoreRow {
     /// Ordered normal-store fields and dynamics, before filling the declared schema defaults.
     pub entry: Json,
     /// Original owner-bound key, including raw Node UTF-16 provenance cuts.
     pub write_key: JsString,
 }
+/// Backward-compatible name for a provider-approved merged preparation.
+pub type PreparedMerge = PreparedStoreRow;
 fn timestamp(value: &Json) -> Result<u64, EngineError> {
     match value {
         Json::Null => Ok(0),
@@ -224,6 +226,84 @@ impl AssessedStore {
     /// Original key; never reconstruct it from outward Unicode-projected fields.
     pub fn write_key(&self) -> &JsString {
         &self.key
+    }
+    /// Construct an ordinary unattributed new row from the original operation ID/vector/time.
+    /// Does not infer trust, authorize storage or repeat any embedding. Publication must freeze it.
+    pub fn ordinary(
+        &self,
+        id: &uuid::Uuid,
+        vector: &Json,
+        now: i64,
+        encoding: &StoreEncoding,
+        cancel: &Cancel,
+    ) -> Result<PreparedStoreRow, EngineError> {
+        cancel.check()?;
+        if id.is_nil()
+            || now.unsigned_abs() > 9_007_199_254_740_991
+            || encoding.summary_max_words == 0
+            || encoding.summary_max_words > 10000
+        {
+            return Err(StoreError::InvalidInput.into());
+        }
+        bounded(vector, cancel, &mut (0, 0))?;
+        bounded(&encoding.half_life_overrides, cancel, &mut (0, 0))?;
+        let Json::Array(values) = vector else {
+            return Err(StoreError::InvalidInput.into());
+        };
+        if values.is_empty()
+            || values.len() > 32768
+            || values
+                .iter()
+                .any(|v| !matches!(v,Json::Number(s) if s.parse::<f64>().is_ok_and(f64::is_finite)))
+        {
+            return Err(StoreError::InvalidInput.into());
+        }
+        let status = super::epistemic::decide_capture_status(
+            &JsString::from(self.text.as_str()),
+            "",
+            &self.origin,
+            true,
+        )?;
+        let row = object([
+            ("id", string(&id.to_string())),
+            ("text", string(&self.text)),
+            (
+                "summary",
+                string(&generate_summary(&self.text, encoding.summary_max_words)),
+            ),
+            ("origin", string(&self.origin)),
+            ("vector", vector.clone()),
+            ("importance", n(self.importance)),
+            ("category", string(&self.category)),
+            ("createdAt", n(now as f64)),
+            ("mergedFrom", string("[]")),
+            ("expiresAt", n(self.expires_at as f64)),
+            ("agentId", string(&self.agent)),
+            ("storedBy", string(&self.agent)),
+            ("workspaceId", string(&self.workspace)),
+            ("workspaceKey", string(&self.workspace)),
+            ("ownerUserId", string(&self.owner)),
+            ("sourceTurnId", string("")),
+            ("sourceMessageRole", string("")),
+            ("sourceTimestamp", n(now as f64)),
+            ("sourceUrl", Json::String(self.source_url.clone())),
+            ("evidenceQuote", Json::String(self.evidence.clone())),
+            ("scope", string("agent-private")),
+            ("validFrom", n(self.valid_from as f64)),
+            ("validUntil", n(self.valid_until as f64)),
+            ("epistemicStatus", string(status)),
+        ]);
+        let entry = super::dynamics::apply_dynamics_defaults(
+            &row,
+            now as f64,
+            &encoding.half_life_overrides,
+            &object([("flashbulbEncodingEnabled", Json::Bool(encoding.flashbulb))]),
+        );
+        cancel.check()?;
+        Ok(PreparedStoreRow {
+            entry,
+            write_key: self.key.clone(),
+        })
     }
     /// Lexical guard to run before any provider call. It does not authorize access to the source.
     pub fn compatible(&self, source: &MemoryRow) -> Result<bool, EngineError> {
@@ -407,7 +487,7 @@ impl AssessedStore {
         }))
     }
 }
-impl PreparedMerge {
+impl PreparedStoreRow {
     /// Fill fixed schema defaults; external provenance cuts drop only unpaired UTF-16 units (F3).
     /// Provider text is never silently repaired, and neither this conversion nor the key grants authority.
     pub fn into_row(mut self) -> Result<MemoryRow, EngineError> {
