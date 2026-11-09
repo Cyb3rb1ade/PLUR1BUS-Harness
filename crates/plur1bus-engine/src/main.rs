@@ -72,7 +72,12 @@ fn run(command: Command) -> Result<(), (u8, String)> {
             .with_platform(platform::capabilities())
             .with_fixture_clock(fixture_clock),
     );
-    let engine = Arc::new(ProcessEngine::new(host.clone(), seam).map_err(|e| (2, e.to_string()))?);
+    let engine = ProcessEngine::new(host.clone(), seam).map_err(|e| (2, e.to_string()))?;
+    let engine = Arc::new(if fixture_clock.is_some() {
+        engine.with_fixture_tombstone_ids()
+    } else {
+        engine
+    });
     let weak_engine = Arc::downgrade(&engine);
     host.set_egress_invalidator(Arc::new(move || {
         if let Some(engine) = weak_engine.upgrade() {

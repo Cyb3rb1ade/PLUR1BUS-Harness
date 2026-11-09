@@ -16,6 +16,7 @@ pub struct NamespaceStores {
     base: PathBuf,
     read: Vec<StoreRoute>,
     writer: StoreRoute,
+    root_pins: Vec<Arc<TrustedDirectory>>,
 }
 
 impl NamespaceStores {
@@ -153,12 +154,18 @@ impl NamespaceStores {
             base: layout.base,
             read,
             writer,
+            root_pins: root_pins.to_vec(),
         })
     }
 
     /// Common private and shared root after resolving an explicit writer leaf.
     pub(crate) fn base(&self) -> &Path {
         &self.base
+    }
+
+    /// Outer directory capabilities also retained by the selected shared pools.
+    pub(crate) fn root_pins(&self) -> &[Arc<TrustedDirectory>] {
+        &self.root_pins
     }
 
     /// Lease only the active writer; callers remain responsible for row authorization.

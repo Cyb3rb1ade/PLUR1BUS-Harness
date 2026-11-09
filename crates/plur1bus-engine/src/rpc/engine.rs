@@ -2,7 +2,7 @@
 //!
 //! RE-03 provides real embedding/model services; copied-store inspection and the
 //! static system supplement reuse their native components. Store opening uses lazy
-//! namespace pools, also used by the native memory reader. Other ports are
+//! namespace pools, also used by native memory reads and deletion. Other ports are
 //! composed separately as their runtime dependencies become available.
 //! Selecting a flat embedding seam never installs a fake memory pipeline.
 
@@ -16,6 +16,7 @@ use crate::{
         normalize::normalize_embedding_config,
         service::{Service, ServiceOptions},
     },
+    ops::{memory::MemoryReader, sharing::ShareServices, write::MemoryWriter},
 };
 use engine_stores::EngineStores;
 use serde_json::{json, Value};
@@ -34,7 +35,7 @@ pub struct ProcessEngine {
     stores: crate::ops::adopt::StoreAdopter,
     store_cancel: Cancel,
     live_stores: Arc<EngineStores>,
-    memory_reader: Option<crate::ops::memory::MemoryReader>,
+    memory: Option<ProcessMemory>,
     operations: Arc<crate::ops::context::OperationContext>,
     checkpoints: crate::store::checkpoint::CheckpointStore,
     system_supplement: Vec<String>,
@@ -46,6 +47,11 @@ pub struct ProcessEngine {
     subscribers: Mutex<Vec<mpsc::Sender<EngineEvent>>>,
     model_degradation: [Degraded; 4],
     closed_degradation: Degraded,
+}
+
+struct ProcessMemory {
+    reader: Arc<MemoryReader>,
+    writer: MemoryWriter,
 }
 
 impl crate::ops::models::ModelInventory for ProcessEngine {
@@ -183,20 +189,27 @@ impl ProcessEngine {
             store_cancel.clone(),
         ));
         let operations = Arc::new(crate::ops::context::OperationContext::new(host));
-        let memory_reader = base.map(|base| {
-            crate::ops::memory::MemoryReader::new(
+        let memory = base.map(|base| {
+            let reader = Arc::new(MemoryReader::new(
                 operations.clone(),
                 live_stores.clone(),
                 embedding.pipeline_embedder(),
-                base,
-            )
+                base.clone(),
+            ));
+            let writer = MemoryWriter::new(operations.clone(), live_stores.clone(), base)
+                .with_sharing(ShareServices {
+                    reader: reader.clone(),
+                    stores: live_stores.clone(),
+                    providers: vec![embedding.pipeline_embedder()],
+                });
+            ProcessMemory { reader, writer }
         });
         Ok(Self {
             embedding,
             stores,
             store_cancel,
             live_stores,
-            memory_reader,
+            memory,
             operations,
             checkpoints,
             system_supplement: crate::recall::system_supplement::build(
@@ -226,6 +239,20 @@ impl ProcessEngine {
     /// Invalidate the outbound policy cache after a reverse-host policy notification.
     pub fn invalidate_egress(&self) {
         self.embedding.invalidate_egress();
+    }
+
+    /// Deterministic test receipts for an explicitly authorized offline clock.
+    #[must_use]
+    pub fn with_fixture_tombstone_ids(mut self) -> Self {
+        if let Some(memory) = &mut self.memory {
+            // Node's fixture allocator consumes the first UUID in archive staging.
+            let sequence = std::sync::atomic::AtomicU64::new(2);
+            memory.writer.set_tombstone_id_source(move || {
+                let next = u128::from(sequence.fetch_add(1, Ordering::Relaxed));
+                uuid::Uuid::from_u128(0xe100_0000_0000_4000_8000_0000_0000_0000 | next)
+            });
+        }
+        self
     }
 }
 
@@ -396,11 +423,11 @@ impl ProcessEngine {
         self.unavailable.error()
     }
 
-    fn memory_reader(&self) -> Result<&crate::ops::memory::MemoryReader, EngineError> {
+    fn memory_ports(&self) -> Result<&ProcessMemory, EngineError> {
         if self.closed.load(Ordering::Acquire) {
             return Err(self.error());
         }
-        self.memory_reader.as_ref().ok_or_else(|| self.error())
+        self.memory.as_ref().ok_or_else(|| self.error())
     }
 }
 
@@ -411,7 +438,7 @@ impl MemoryOps for ProcessEngine {
         principal: &Principal,
         agent: &AgentContext,
     ) -> Result<MemoryListResult, EngineError> {
-        self.memory_reader()?.list(&query, principal, agent)
+        self.memory_ports()?.reader.list(&query, principal, agent)
     }
 
     fn show(
@@ -420,7 +447,7 @@ impl MemoryOps for ProcessEngine {
         principal: &Principal,
         agent: &AgentContext,
     ) -> Result<MemoryCard, EngineError> {
-        self.memory_reader()?.show(id, principal, agent)
+        self.memory_ports()?.reader.show(id, principal, agent)
     }
 
     fn state(
@@ -428,11 +455,19 @@ impl MemoryOps for ProcessEngine {
         principal: &Principal,
         agent: &AgentContext,
     ) -> Result<MemoryState, EngineError> {
-        self.memory_reader()?.state(principal, agent)
+        self.memory_ports()?.reader.state(principal, agent)
+    }
+
+    fn forget(
+        &self,
+        id: &str,
+        principal: &Principal,
+        agent: &AgentContext,
+    ) -> Result<MemoryForgetResult, EngineError> {
+        self.memory_ports()?.writer.forget(id, principal, agent)
     }
 
     unavailable_methods! {
-        fn forget(_id: &str, _principal: &Principal, _agent: &AgentContext) -> MemoryForgetResult;
         fn correct(_id: &str, _text: &str, _principal: &Principal, _agent: &AgentContext) -> MemoryCorrectResult;
         fn share(_id: &str, _target: MemoryShareTarget, _options: ShareOptions, _principal: &Principal, _agent: &AgentContext) -> MemoryShareResult;
         fn propose(_id: &str, _text: &str, _options: ProposeOptions, _principal: &Principal, _agent: &AgentContext) -> MemoryProposeResult;

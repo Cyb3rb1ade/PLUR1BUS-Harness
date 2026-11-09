@@ -2,16 +2,18 @@
 use crate::{
     context::RequestContext,
     contract::{
-        AgentId, AgentStoreHandle, Cancel, EngineConfig, EngineError, StoreError,
-        VectorSpaceIdentity,
+        AgentId, AgentStoreHandle, Cancel, EngineConfig, EngineError, MemoryShareTarget,
+        StoreError, VectorSpaceIdentity,
     },
     ops::{
         memory::{ReadSource, ReadStores},
         private_routes::PrivateMemoryStores,
         routes::MemoryStores,
+        sharing::SharedStores,
+        write::MutationStores,
     },
     recall::namespaces::NamespaceStores,
-    store::shared_pool::SharedPool,
+    store::{shared_pool::SharedPool, Store},
 };
 use std::{
     collections::BTreeSet,
@@ -156,13 +158,20 @@ impl EngineStores {
         Ok(Some(pools.clone()))
     }
 
-    fn memory_routes(&self) -> Result<Option<Arc<MemoryStores>>, EngineError> {
+    fn memory_routes(&self) -> Result<Option<Arc<MemoryStores>>, StoreError> {
         let mut state = self.state.lock().map_err(|_| StoreError::Unavailable)?;
-        let Some(pools) = self.namespaces(&mut state, false)? else {
+        let Some(pools) = self
+            .namespaces(&mut state, false)
+            .map_err(|error| match error {
+                EngineError::Store(error) => error,
+                _ => StoreError::Unavailable,
+            })?
+        else {
             return Ok(None);
         };
         if state.memory_routes.is_none() {
-            let shared = SharedPool::open(pools.base(), &self.identity, IDLE_STORES_PER_ROUTE)?;
+            let shared = SharedPool::open(pools.base(), &self.identity, IDLE_STORES_PER_ROUTE)?
+                .with_parent_pins(pools.root_pins())?;
             state.memory_routes = Some(Arc::new(MemoryStores::new(
                 PrivateMemoryStores::new(pools),
                 Arc::new(shared),
@@ -187,11 +196,37 @@ impl EngineStores {
 
 impl ReadStores for EngineStores {
     fn sources(&self, context: &RequestContext) -> Result<Vec<ReadSource>, StoreError> {
-        match self.memory_routes() {
-            Ok(Some(routes)) => routes.sources(context),
-            Ok(None) => Ok(Vec::new()),
-            Err(EngineError::Store(error)) => Err(error),
-            Err(_) => Err(StoreError::Unavailable),
+        match self.memory_routes()? {
+            Some(routes) => routes.sources(context),
+            None => Ok(Vec::new()),
         }
+    }
+}
+
+impl MutationStores for EngineStores {
+    fn existing_private(&self, context: &RequestContext) -> Result<Option<Arc<Store>>, StoreError> {
+        match self.memory_routes()? {
+            Some(routes) => routes.existing_private(context),
+            None => Ok(None),
+        }
+    }
+}
+
+impl SharedStores for EngineStores {
+    fn supported(&self) -> bool {
+        self.memory_routes()
+            .ok()
+            .flatten()
+            .is_some_and(|routes| routes.supported())
+    }
+
+    fn target(
+        &self,
+        context: &RequestContext,
+        scope: MemoryShareTarget,
+    ) -> Result<Arc<Store>, StoreError> {
+        self.memory_routes()?
+            .ok_or(StoreError::Unavailable)?
+            .target(context, scope)
     }
 }

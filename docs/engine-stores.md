@@ -1836,3 +1836,15 @@ The writer and shared pools stay inside the selected generation, including when
 its name equals the writer namespace. Tombstone reconciliation keeps the original
 configured registry path and reads the selected writer. A missing or mismatched
 manifest prevents admission until the configuration and manifest agree.
+
+### Process memory deletion (RE-D142)
+
+`engine.memory.forget` uses the native `MemoryWriter` with the same operation context and namespace pools as the
+read path. A private deletion archives the active writer's row and commits its tombstone before returning.
+Retries retain the committed receipt. The registry masks older copies from the read view, and their physical
+tables stay untouched. A shared row can be retracted only by its original sharing agent. Shared leases also
+retain the outer generation directory pins through the actual store operation.
+
+The process parity run uses deterministic receipt IDs with its explicitly authorized fixture clock. Other
+runs allocate UUIDs normally. The pinned Node recording for list/show/forget matches the Rust process, including
+the receipt, post-delete visibility and the remaining ordered cards.

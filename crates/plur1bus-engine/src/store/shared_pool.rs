@@ -27,6 +27,7 @@ pub struct SharedPool {
     base: PathBuf,
     identity: VectorSpaceIdentity,
     capacity: usize,
+    parent_pins: Vec<Arc<TrustedDirectory>>,
     state: Mutex<State>,
 }
 impl SharedPool {
@@ -52,12 +53,29 @@ impl SharedPool {
             base,
             identity,
             capacity,
+            parent_pins: Vec::new(),
             state: Mutex::new(state),
         })
+    }
+    /// Retain outer namespace/generation pins even for already leased shared tables.
+    pub(crate) fn with_parent_pins(
+        mut self,
+        parents: &[Arc<TrustedDirectory>],
+    ) -> Result<Self, StoreError> {
+        self.parent_pins = parents.to_vec();
+        self.check_parents()?;
+        Ok(self)
+    }
+    fn check_parents(&self) -> Result<(), StoreError> {
+        for pin in &self.parent_pins {
+            pin.assert_unchanged()?;
+        }
+        Ok(())
     }
     /// Platform/physical-root support only, never row authorization.
     pub fn supported(&self) -> bool {
         cfg!(any(target_os = "linux", target_os = "macos", windows))
+            && self.check_parents().is_ok()
             && self
                 .state
                 .lock()
@@ -88,6 +106,7 @@ impl SharedPool {
         if !cfg!(any(target_os = "linux", target_os = "macos", windows)) {
             return Err(StoreError::Unavailable);
         }
+        self.check_parents()?;
         let (kind, binding) = match scope {
             MemoryShareTarget::Workspace => ("workspaces", ctx.workspace_key.as_str()),
             MemoryShareTarget::User => ("users", ctx.owner_user_id.as_str()),
@@ -108,7 +127,7 @@ impl SharedPool {
         let path = parent.join(key);
         let mut state = self.state.lock().map_err(|_| StoreError::Unavailable)?;
         check_roots(&mut state)?;
-        let mut roots = Vec::new();
+        let mut roots = self.parent_pins.clone();
         for (index, root) in [&self.base, &shared, &parent].into_iter().enumerate() {
             let Some(root) = pin(&mut state, root, write)? else {
                 return Ok(None);

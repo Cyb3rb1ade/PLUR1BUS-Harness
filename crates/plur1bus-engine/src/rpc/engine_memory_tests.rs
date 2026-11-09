@@ -241,3 +241,158 @@ fn check_generation(generation_id: &str) {
         assert!(!active.join("other").exists());
     }
 }
+
+#[test]
+fn process_forget_archives_the_active_writer_and_replays_the_same_tombstone() {
+    let temp = tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let state = temp.path().join("state");
+    let base = temp.path().join("db");
+    let workspace = temp.path().join("workspace");
+    std::fs::create_dir(&workspace).unwrap();
+    let host = Arc::new(FakeHost::new(
+        state.clone(),
+        serde_json::from_value(json!({
+            "baseDbPath": base,
+            "namespaces": {"activeWriteNamespace":"current","legacyReadOnlyNamespaces":["legacy"],"crossNamespaceRecall":true}
+        }))
+        .unwrap(),
+    ));
+    host.set_workspace(&"agent".parse().unwrap(), workspace.clone());
+    host.set_now_ms(10_000);
+    let engine = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
+    let identity = engine.embedding().identities().remove(0).space.unwrap();
+    let width = identity.dimension.as_u64().unwrap() as usize;
+    let active = Store::create(&base.join("current/agent"), &identity, width).unwrap();
+    let legacy = Store::create(&base.join("legacy/agent"), &identity, width).unwrap();
+    let mut row = adopt_tests::row(vec![1.; width]);
+    row.created_at = 2_000.into();
+    row.text = "The active writer's card".into();
+    let mut foreign = row.clone();
+    foreign.id = FOREIGN.into();
+    foreign.agent_id = "other".into();
+    let foreign_status = foreign.status.clone();
+    active.upsert(&[row.clone(), foreign]).unwrap();
+    row.text = "Legacy copy kept on disk".into();
+    legacy.upsert(&[row]).unwrap();
+
+    let call =
+        |method, request: &Value| methods::dispatch(&engine, method, request, &Cancel::never());
+    let mut request = params();
+    request["id"] = json!(LIVE);
+    let first = call("engine.memory.forget", &request).unwrap();
+    assert_eq!(first["archived"], true);
+    assert_eq!(first["alreadyForgotten"], false);
+    let receipt = uuid::Uuid::parse_str(first["tombstoneId"].as_str().unwrap()).unwrap();
+    assert_eq!(receipt.get_version_num(), 4);
+    assert_eq!(
+        call("engine.memory.show", &request).unwrap_err().reason,
+        "not-found"
+    );
+    let repeated = call("engine.memory.forget", &request).unwrap();
+    assert_eq!(repeated["alreadyForgotten"], true);
+    assert_eq!(repeated["tombstoneId"], first["tombstoneId"]);
+
+    request["id"] = json!(FOREIGN);
+    assert_eq!(
+        call("engine.memory.forget", &request).unwrap_err().reason,
+        "not-found"
+    );
+    assert_eq!(active.get(FOREIGN).unwrap().unwrap().status, foreign_status);
+    assert_eq!(
+        legacy.get(LIVE).unwrap().unwrap().text,
+        "Legacy copy kept on disk"
+    );
+    let archive = std::fs::read_dir(state.join("memory/_archive/agent"))
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .collect::<Vec<_>>();
+    assert_eq!(archive.len(), 1);
+    let card: Value = serde_json::from_slice(&std::fs::read(&archive[0]).unwrap()).unwrap();
+    assert_eq!(card["text"], "The active writer's card");
+    let ledger = crate::store::tombstone::TombstoneRegistry::new(&base, "agent").unwrap();
+    assert!(ledger.find_by_origin(LIVE, false).unwrap().is_some());
+    assert!(workspace
+        .join(".adaptive-learning/destructive-ops.jsonl")
+        .is_file());
+}
+
+#[test]
+fn process_forget_retracts_shared_rows_only_for_the_original_sharer() {
+    use crate::{
+        context::{harness_user_principal, RequestContext},
+        store::{shared_pool::SharedPool, shared_row::ShareMetadata},
+    };
+    let temp = tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let state = temp.path().join("state");
+    let base = temp.path().join("db");
+    let workspace = temp.path().join("workspace");
+    std::fs::create_dir(&workspace).unwrap();
+    let host = Arc::new(FakeHost::new(
+        state.clone(),
+        serde_json::from_value(json!({"baseDbPath":base})).unwrap(),
+    ));
+    host.set_workspace(&"agent".parse().unwrap(), workspace.clone());
+    host.set_workspace(&"other".parse().unwrap(), workspace);
+    host.set_now_ms(10_000);
+    let mut request = params();
+    let owner = harness_user_principal("synthetic-owner");
+    let context = RequestContext::build(
+        &serde_json::from_value(request["p"].clone()).unwrap(),
+        &serde_json::from_value(request["a"].clone()).unwrap(),
+        host.as_ref(),
+    )
+    .unwrap();
+    request["p"]["workspace"] = json!(context.workspace_key);
+    request["p"]["trust"] = json!("proved");
+    request["p"]["channel"] = json!("telegram");
+    request["p"]["user"] = json!(owner);
+    request["id"] = json!(LIVE);
+    let context = RequestContext::build(
+        &serde_json::from_value(request["p"].clone()).unwrap(),
+        &serde_json::from_value(request["a"].clone()).unwrap(),
+        host.as_ref(),
+    )
+    .unwrap();
+    let engine = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
+    let identity = engine.embedding().identities().remove(0).space.unwrap();
+    let width = identity.dimension.as_u64().unwrap() as usize;
+    let pool = SharedPool::open(&base, &identity, 4).unwrap();
+    let shared = pool.writable(&context, MemoryShareTarget::User).unwrap();
+    let mut row = adopt_tests::row(vec![1.; width]);
+    row.created_at = 2_000.into();
+    row.scope = "user".into();
+    row.owner_user_id = owner;
+    row.stored_by = "agent".into();
+    shared
+        .upsert_shared(
+            &[(
+                row,
+                ShareMetadata {
+                    source_memory_id: FOREIGN.into(),
+                    source_agent_id: "agent".into(),
+                    ..ShareMetadata::default()
+                },
+            )],
+            &base,
+        )
+        .unwrap();
+    let call =
+        |method, request: &Value| methods::dispatch(&engine, method, request, &Cancel::never());
+    let mut other = request.clone();
+    other["p"]["agentId"] = json!("other");
+    assert_eq!(call("engine.memory.show", &other).unwrap()["id"], LIVE);
+    assert_eq!(
+        call("engine.memory.forget", &other).unwrap_err().reason,
+        "denied"
+    );
+    assert!(!state.exists());
+    let forgotten = call("engine.memory.forget", &request).unwrap();
+    assert_eq!(
+        forgotten,
+        json!({"id":LIVE,"archived":true,"tombstoneId":null,"alreadyForgotten":false})
+    );
+    assert_eq!(
+        call("engine.memory.show", &other).unwrap_err().reason,
+        "not-found"
+    );
+}

@@ -19,6 +19,7 @@ use crate::{
 };
 use serde_json::{json, Value};
 use std::{path::PathBuf, sync::Arc};
+use uuid::Uuid;
 
 /// Existing writable store lookup. Forget must not create an absent table.
 pub trait MutationStores: Send + Sync {
@@ -32,6 +33,7 @@ pub struct MemoryWriter {
     pub(super) base: PathBuf,
     pub(super) corrections: Option<super::correction::CorrectionServices>,
     pub(super) sharing: Option<super::sharing::ShareServices>,
+    tombstone_id: Box<dyn Fn() -> Uuid + Send + Sync>,
 }
 impl MemoryWriter {
     /// Compose existing store lookup, common mutation/lifecycle gate and stable registry root.
@@ -46,7 +48,15 @@ impl MemoryWriter {
             base,
             corrections: None,
             sharing: None,
+            tombstone_id: Box::new(Uuid::new_v4),
         }
+    }
+    /// Process parity substitutes only the source of newly allocated receipt IDs.
+    pub(crate) fn set_tombstone_id_source(
+        &mut self,
+        source: impl Fn() -> Uuid + Send + Sync + 'static,
+    ) {
+        self.tombstone_id = Box::new(source);
     }
     /// Forget an owned private-pool card with the host clock.
     pub fn forget(
@@ -107,7 +117,7 @@ impl MemoryWriter {
                     super::json_fields::project(&existing, &["tombstoneId", "canonicalOriginId"]);
                 already_committed = true;
             } else {
-                tombstone = build_tombstone(&row, ctx, "", now)?;
+                tombstone = build_tombstone(&row, ctx, "", now, (self.tombstone_id)())?;
                 append(&registry, &tombstone)?;
             }
         } else {
@@ -119,7 +129,7 @@ impl MemoryWriter {
             )?
             .to_string_lossy()
             .into_owned();
-            tombstone = build_tombstone(&row, ctx, &archive_path, now)?;
+            tombstone = build_tombstone(&row, ctx, &archive_path, now, (self.tombstone_id)())?;
             tombstone["status"] = json!("attempted");
             append(&registry, &tombstone)?;
             if store
@@ -163,10 +173,11 @@ fn build_tombstone(
     ctx: &RequestContext,
     archive: &str,
     now: i64,
+    tombstone_id: Uuid,
 ) -> Result<Value, EngineError> {
     // Node's human adapter projects out sourceTurnId/evidenceQuote/previousVersion;
     // retain that exact record shape, rather than manufacturing extra provenance.
     Ok(
-        json!({"schemaVersion":1,"tombstoneId":uuid::Uuid::new_v4().to_string(),"memoryId":row.id,"canonicalOriginId":row.id,"agentId":ctx.agent_id,"scope":row.scope,"workspaceId":if row.workspace_id.is_empty() { &row.workspace_key } else { &row.workspace_id },"workspaceKey":row.workspace_key,"ownerUserId":row.owner_user_id,"storedBy":row.stored_by,"deletedAt":archive::iso(now)?,"actor":if ctx.owner_user_id.is_empty() { format!("principal:{}",ctx.agent_id.as_str()) } else { ctx.owner_user_id.clone() },"actorType":"human","reason":"MemoryOps.forget","sourceOp":"forget","archiveRef":archive,"previousVersion":"","contentFingerprint":content_fingerprint(if row.text.is_empty(){ &row.summary }else{ &row.text }),"sourceFingerprint":"","refs":{},"status":"committed"}),
+        json!({"schemaVersion":1,"tombstoneId":tombstone_id,"memoryId":row.id,"canonicalOriginId":row.id,"agentId":ctx.agent_id,"scope":row.scope,"workspaceId":if row.workspace_id.is_empty() { &row.workspace_key } else { &row.workspace_id },"workspaceKey":row.workspace_key,"ownerUserId":row.owner_user_id,"storedBy":row.stored_by,"deletedAt":archive::iso(now)?,"actor":if ctx.owner_user_id.is_empty() { format!("principal:{}",ctx.agent_id.as_str()) } else { ctx.owner_user_id.clone() },"actorType":"human","reason":"MemoryOps.forget","sourceOp":"forget","archiveRef":archive,"previousVersion":"","contentFingerprint":content_fingerprint(if row.text.is_empty(){ &row.summary }else{ &row.text }),"sourceFingerprint":"","refs":{},"status":"committed"}),
     )
 }
