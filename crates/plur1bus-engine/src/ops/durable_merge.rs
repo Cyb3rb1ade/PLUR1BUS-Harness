@@ -490,3 +490,4 @@ pub use normal_merge::selection::insert::NormalStoreResult;
 pub(crate) use normal_merge::selection::insert::{restore_insert, RestoredInsert};
 
 pub use normal_merge::selection::insert::curation::StoreCurationResult;
+pub use normal_merge::selection::insert::knowledge::StoreKnowledgeResult;

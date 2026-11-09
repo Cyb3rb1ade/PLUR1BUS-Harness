@@ -16,10 +16,13 @@ struct InsertMode {
     existing_only: bool,
     validate_only: bool,
     curation: bool,
+    knowledge: bool,
 }
 struct InsertResult {
     primary: NormalStoreResult,
     curation_replayed: bool,
+    knowledge_replayed: bool,
+    knowledge_staged: bool,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -288,6 +291,7 @@ impl NativeMerge {
                             proof,
                             stage: 0,
                             curation: None,
+                            knowledge: None,
                         },
                         None,
                     )
@@ -329,12 +333,35 @@ impl NativeMerge {
                         cancel,
                     )?;
                 }
+                if mode.knowledge && !receipt.curation.as_ref().is_some_and(|c| c.complete) {
+                    return Err(StoreError::InvalidInput.into());
+                }
+                let knowledge_replayed = receipt.knowledge.is_some();
+                let knowledge = match &receipt.knowledge {
+                    Some(frozen) => Some(knowledge::Files::restore(
+                        self, &saved, plan, frozen, cancel,
+                    )?),
+                    None if mode.knowledge => Some(knowledge::Files::prepare(
+                        self,
+                        &saved,
+                        plan,
+                        self.reader.context.host().now_ms(),
+                        cancel,
+                    )?),
+                    None => None,
+                };
+                if let Some(files) = &knowledge {
+                    files.validate(self, plan, cancel)?;
+                }
+                let knowledge_staged = knowledge.as_ref().is_some_and(|f| f.frozen.staged);
                 let result = || InsertResult {
                     primary: NormalStoreResult {
                         memory_id: row.row.id.clone(),
                         replayed,
                     },
                     curation_replayed,
+                    knowledge_replayed,
+                    knowledge_staged,
                 };
                 if mode.validate_only {
                     return Ok(result());
@@ -371,7 +398,7 @@ impl NativeMerge {
                     self.observe(label)?;
                 }
                 preflight(2)?;
-                if let Some(files) = publication {
+                if let Some(files) = &publication {
                     let checked = || {
                         preflight(2)?;
                         files.check()?;
@@ -398,7 +425,7 @@ impl NativeMerge {
                             .as_mut()
                             .ok_or(StoreError::Corrupt)?
                             .complete = true;
-                        insert_state::save(
+                        bytes = Some(insert_state::save(
                             dir,
                             &name,
                             bytes.as_deref(),
@@ -408,11 +435,67 @@ impl NativeMerge {
                                 checked()?;
                                 files.validate(true, cancel)
                             },
-                        )?;
+                        )?);
                     }
                     self.observe("normal-curation-complete")?;
                     checked()?;
                     files.validate(true, cancel)?;
+                }
+                if let Some(files) = knowledge {
+                    let checked = || {
+                        preflight(2)?;
+                        publication
+                            .as_ref()
+                            .ok_or(StoreError::Corrupt)?
+                            .validate(true, cancel)?;
+                        files.validate(self, plan, cancel)
+                    };
+                    if receipt.knowledge.is_none() {
+                        receipt.knowledge = Some(files.frozen.clone());
+                        bytes = Some(insert_state::save(
+                            dir,
+                            &name,
+                            bytes.as_deref(),
+                            &receipt,
+                            cancel,
+                            &checked,
+                        )?);
+                    }
+                    if files.frozen.stage < 3 {
+                        self.observe("normal-knowledge-prepared")?;
+                        files.publish(cancel, &checked)?;
+                        self.observe("normal-knowledge-write")?;
+                        for (stage, label) in [
+                            (1, "normal-knowledge-verified"),
+                            (2, "normal-knowledge-audited"),
+                            (3, "normal-knowledge-complete"),
+                        ] {
+                            if stage == 2 {
+                                files.publish_overflow(cancel, &checked)?;
+                                self.observe("normal-knowledge-audit-write")?;
+                            }
+                            files.validate_written(stage, cancel)?;
+                            if receipt.knowledge.as_ref().ok_or(StoreError::Corrupt)?.stage < stage
+                            {
+                                receipt.knowledge.as_mut().ok_or(StoreError::Corrupt)?.stage =
+                                    stage;
+                                bytes = Some(insert_state::save(
+                                    dir,
+                                    &name,
+                                    bytes.as_deref(),
+                                    &receipt,
+                                    cancel,
+                                    &|| {
+                                        checked()?;
+                                        files.validate_written(stage, cancel)
+                                    },
+                                )?);
+                            }
+                            self.observe(label)?;
+                        }
+                        files.validate_written(3, cancel)?;
+                    }
+                    checked()?;
                 }
                 Ok(result())
             },
@@ -437,6 +520,7 @@ impl NativeMerge {
                 existing_only: true,
                 validate_only,
                 curation: false,
+                knowledge: false,
             },
         )
         .map(|r| r.primary)
@@ -477,3 +561,6 @@ impl NativeMerge {
 }
 #[path = "normal_curation.rs"]
 pub(in crate::ops::durable_merge) mod curation;
+
+#[path = "normal_knowledge.rs"]
+pub(in crate::ops::durable_merge) mod knowledge;

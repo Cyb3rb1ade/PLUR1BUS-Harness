@@ -75,9 +75,33 @@ Knowledge staging, merge/duplicate curation and the whole-request coordinator re
 `capture::knowledge_pending` supplies bounded pure read/track/remove reference transitions,
 including key replacement, priority/time ordering, the 200-entry cap and overflow events. The
 pin can also lose legacy entries without a source agent during write-time normalization. A
-projection grants no removal authority: the future publisher must validate every lost entry
+projection grants no removal authority: a publisher must validate every lost entry
 against source ownership and preserve or refuse unresolved/foreign entries. No queue is written
 and no knowledge job is activated by these functions.
+
+`NativeMerge::publish_store_knowledge` consumes only a complete ordinary primary and curation
+receipt under the original caller. The optional knowledge intent freezes the proposal time,
+held directory identity, exact before/after queue bytes and full snapshots of affected source
+rows. Pending publication shares the original-caller startup preflight and writer fences.
+It holds the actual Node registry file lock (60-second stale threshold) inside the existing
+Neo/kernel lease, rechecks lock ownership and current policy/config/physical/source authority,
+and advances queue-written, overflow-audited and complete stages without provider calls.
+
+Queue input is bounded to 2 MiB and 200 canonical entries; unknown metadata, duplicate keys,
+legacy identities, malformed or linked files and foreign/unresolved removals refuse before
+publication. An owned capacity victim requires current private Lance ownership and full-row CAS;
+its memory row is never deleted. Retained foreign entry values survive. A new entry dropped by
+the capacity rule returns `staged=false` and records the actual overflow audit exactly once.
+An ineligible input receives a durable explicit skip without creating a queue or running a job.
+
+`StoreKnowledgeResult.staged` is **historical publication**, not current queue membership or job
+completion. Completed retries never requeue work that a consumer removed and require no queue
+lock; the original caller/primary checks and any completed overflow audit still apply. Pending
+retries require exact saved before/after bytes. Unknown queue drift refuses rather than overwrites.
+Fresh dead Node locks remain unavailable until their existing stale threshold; no shortened
+production timeout is introduced. This is ordinary-primary staging only. Merge/duplicate effects,
+the whole-request coordinator and ProcessEngine activation remain open. Cooperating leases do
+not make queue, audit and Lance writes one externally atomic transaction.
 
 ## Targets
 

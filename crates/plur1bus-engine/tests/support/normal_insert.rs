@@ -822,3 +822,6 @@ fn four_concurrent_retries_share_the_single_primary_intent() {
 
 #[path = "normal_curation.rs"]
 mod curation_tests;
+
+#[path = "normal_knowledge.rs"]
+mod knowledge_tests;

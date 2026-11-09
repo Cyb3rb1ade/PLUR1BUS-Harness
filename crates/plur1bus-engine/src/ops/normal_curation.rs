@@ -83,11 +83,30 @@ impl Files {
             event,
         })
     }
+    pub(super) fn overflow(
+        plan: &NormalCandidatePlan,
+        frozen: CurationReceipt,
+    ) -> Result<Self, EngineError> {
+        let directory = plan.workspace.open_child(".adaptive-learning")?;
+        if directory_binding(&directory) != frozen.directory {
+            return Err(StoreError::UntrustedPath.into());
+        }
+        let event: Value =
+            serde_json::from_str(&frozen.event_json).map_err(|_| StoreError::Corrupt)?;
+        if event["event"] != "knowledge_pending.overflow" {
+            return Err(StoreError::Corrupt.into());
+        }
+        Ok(Self {
+            directory,
+            frozen,
+            event,
+        })
+    }
     pub(super) fn check(&self) -> Result<(), EngineError> {
         Ok(self.directory.assert_unchanged()?)
     }
     fn matches(&self, row: &Value) -> bool {
-        row["event"] == "memory.stored"
+        row["event"] == self.event["event"]
             && row["agentId"] == self.event["agentId"]
             && row["memoryId"] == self.event["memoryId"]
     }
@@ -213,6 +232,7 @@ impl NativeMerge {
                 existing_only: true,
                 validate_only: false,
                 curation: true,
+                knowledge: false,
             },
         )?;
         Ok(StoreCurationResult {
