@@ -18,7 +18,7 @@ use crate::{
     },
     ops::{
         import::Importer, import_ledger::ImportLedger, import_row::ImportEncoding,
-        memory::MemoryReader, sharing::ShareServices, write::MemoryWriter,
+        memory::MemoryReader, rebind::Rebinder, sharing::ShareServices, write::MemoryWriter,
     },
 };
 use engine_stores::EngineStores;
@@ -56,6 +56,7 @@ struct ProcessMemory {
     reader: Arc<MemoryReader>,
     writer: MemoryWriter,
     importer: Importer,
+    rebinder: Rebinder,
 }
 
 impl crate::ops::models::ModelInventory for ProcessEngine {
@@ -213,7 +214,7 @@ impl ProcessEngine {
                 live_stores.clone(),
                 provider,
                 Arc::new(ImportLedger::new(&base)),
-                base,
+                base.clone(),
                 ImportEncoding {
                     half_life_overrides: crate::recall::trace::from_value(
                         &raw["recall"]["halfLifeDaysMap"],
@@ -225,10 +226,12 @@ impl ProcessEngine {
                         .unwrap_or(150),
                 },
             );
+            let rebinder = Rebinder::new(operations.clone(), live_stores.clone(), base);
             ProcessMemory {
                 reader,
                 writer,
                 importer,
+                rebinder,
             }
         });
         Ok(Self {
@@ -518,12 +521,34 @@ impl MemoryOps for ProcessEngine {
             .import(&request, principal, agent, cancel)
     }
 
+    fn rebind(
+        &self,
+        request: MemoryRebindRequest,
+        cancel: &Cancel,
+        principal: &Principal,
+        agent: &AgentContext,
+    ) -> Result<MemoryRebindResult, EngineError> {
+        self.memory_ports()?
+            .rebinder
+            .rebind(&request, principal, agent, cancel)
+    }
+
+    fn unbind(
+        &self,
+        request: MemoryUnbindRequest,
+        cancel: &Cancel,
+        principal: &Principal,
+        agent: &AgentContext,
+    ) -> Result<MemoryUnbindResult, EngineError> {
+        self.memory_ports()?
+            .rebinder
+            .unbind(&request, principal, agent, cancel)
+    }
+
     unavailable_methods! {
         fn correct(_id: &str, _text: &str, _principal: &Principal, _agent: &AgentContext) -> MemoryCorrectResult;
         fn share(_id: &str, _target: MemoryShareTarget, _options: ShareOptions, _principal: &Principal, _agent: &AgentContext) -> MemoryShareResult;
         fn propose(_id: &str, _text: &str, _options: ProposeOptions, _principal: &Principal, _agent: &AgentContext) -> MemoryProposeResult;
-        fn rebind(_request: MemoryRebindRequest, _cancel: &Cancel, _principal: &Principal, _agent: &AgentContext) -> MemoryRebindResult;
-        fn unbind(_request: MemoryUnbindRequest, _cancel: &Cancel, _principal: &Principal, _agent: &AgentContext) -> MemoryUnbindResult;
         fn unimport(_request: MemoryUnimportRequest, _cancel: &Cancel, _principal: &Principal, _agent: &AgentContext) -> MemoryUnimportResult;
         fn stats(_ids: Option<&[String]>, _principal: &Principal, _agent: &AgentContext) -> MemoryStatsResult;
         fn promote(_request: MemoryPromoteRequest, _principal: &Principal, _agent: &AgentContext) -> MemoryPromotionResult;

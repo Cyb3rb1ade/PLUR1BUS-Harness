@@ -9,6 +9,7 @@ use crate::{
         import::ImportStores,
         memory::{ReadSource, ReadStores},
         private_routes::PrivateMemoryStores,
+        rebind::RebindStores,
         routes::MemoryStores,
         sharing::SharedStores,
         write::MutationStores,
@@ -182,6 +183,15 @@ impl EngineStores {
         Ok(state.memory_routes.clone())
     }
 
+    fn writable_private(&self, context: &RequestContext) -> Result<Arc<Store>, StoreError> {
+        let mut state = self.state.lock().map_err(|_| StoreError::Unavailable)?;
+        let pools = self
+            .namespaces(&mut state, true)
+            .map_err(store_failure)?
+            .ok_or(StoreError::Unavailable)?;
+        pools.write_store(context.agent_id.as_str())
+    }
+
     pub(super) fn close(&self) -> Result<(), EngineError> {
         let mut state = self.state.lock().map_err(|_| StoreError::Unavailable)?;
         state.closed = true;
@@ -220,12 +230,17 @@ impl ImportStores for EngineStores {
     }
 
     fn writable(&self, context: &RequestContext) -> Result<Arc<Store>, StoreError> {
-        let mut state = self.state.lock().map_err(|_| StoreError::Unavailable)?;
-        let pools = self
-            .namespaces(&mut state, true)
-            .map_err(store_failure)?
-            .ok_or(StoreError::Unavailable)?;
-        pools.write_store(context.agent_id.as_str())
+        self.writable_private(context)
+    }
+}
+
+impl RebindStores for EngineStores {
+    fn existing(&self, context: &RequestContext) -> Result<Option<Arc<Store>>, StoreError> {
+        self.existing_private(context)
+    }
+
+    fn writable(&self, context: &RequestContext) -> Result<Arc<Store>, StoreError> {
+        self.writable_private(context)
     }
 }
 

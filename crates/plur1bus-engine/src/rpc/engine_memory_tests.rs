@@ -522,3 +522,76 @@ fn process_import_previews_without_creating_the_writer_and_replays_one_card() {
     assert!(!row.summary.contains("Thursday"));
     assert_eq!(serde_json::to_value(row).unwrap()["halfLifeDays"], 15.0);
 }
+
+#[test]
+fn process_rebind_and_unbind_use_the_active_writer_and_the_same_receipt() {
+    let golden: Value = serde_json::from_slice(include_bytes!(
+        "../../tests/fixtures/ops/golden/rebind.json"
+    ))
+    .unwrap();
+    let case = golden["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| case["name"] == "unbind-repeat")
+        .unwrap();
+    let temp = tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let base = temp.path().join("db");
+    let host = Arc::new(FakeHost::new(
+        temp.path().join("state"),
+        serde_json::from_value(json!({
+            "baseDbPath":base,"namespaces":{"activeWriteNamespace":"current"}
+        }))
+        .unwrap(),
+    ));
+    host.set_now_ms(golden["now"].as_i64().unwrap());
+    let engine = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
+    let identity = engine.embedding().identities().remove(0).space.unwrap();
+    let width = identity.dimension.as_u64().unwrap() as usize;
+    let path = base.join("current/agent");
+    let store = Store::create(&path, &identity, width).unwrap();
+    let mut row: MemoryRow = serde_json::from_value(case["initialRows"][0].clone()).unwrap();
+    let id = row.id.clone();
+    row.vector = vec![1.; width];
+    store.upsert(&[row]).unwrap();
+    drop(store);
+    let owner = || {
+        Store::open(&path, crate::store::OpenMode::ReadOnly, Some(&identity))
+            .unwrap()
+            .get(&id)
+            .unwrap()
+            .unwrap()
+            .owner_user_id
+    };
+    assert_eq!(owner(), golden["from"]);
+
+    let call =
+        |method, request: &Value| methods::dispatch(&engine, method, request, &Cancel::never());
+    let mut request = json!({"req":case["request"],"p":golden["principal"],"a":golden["agent"]});
+    request["a"]["origin"] = json!("user");
+    assert_eq!(
+        call("engine.memory.rebind", &request).unwrap_err().reason,
+        "denied"
+    );
+    request["a"]["origin"] = json!("system");
+    request["req"]["dryRun"] = json!(true);
+    let preview = call("engine.memory.rebind", &request).unwrap();
+    assert_eq!(preview["matched"], 1.0);
+    assert_eq!(preview["dryRun"], true);
+    assert!(!base.join("_rebinds").exists());
+    assert_eq!(owner(), golden["from"]);
+
+    request["req"]["dryRun"] = json!(false);
+    let rebound = call("engine.memory.rebind", &request).unwrap();
+    assert_eq!(rebound["rebound"], 1.0);
+    assert_eq!(owner(), golden["to"]);
+    let rebind_id = rebound["rebindId"].as_str().unwrap();
+    assert!(!rebind_id.is_empty());
+    request["req"] = json!({"rebindId":rebind_id});
+    let unbound = call("engine.memory.unbind", &request).unwrap();
+    assert_eq!(unbound["unbound"], 1.0);
+    assert_eq!(owner(), golden["from"]);
+    let repeated = call("engine.memory.unbind", &request).unwrap();
+    assert_eq!(repeated["unbound"], 0.0);
+    assert_eq!(owner(), golden["from"]);
+}
