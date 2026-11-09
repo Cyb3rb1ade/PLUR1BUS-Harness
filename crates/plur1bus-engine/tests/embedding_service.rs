@@ -1408,3 +1408,6 @@ fn a_panicking_shared_compute_returns_an_error_and_releases_every_claim_for_retr
     );
     assert_eq!(calls.load(Ordering::SeqCst), 2);
 }
+
+#[path = "support/service_pipeline_adapters.rs"]
+mod pipeline_adapters;

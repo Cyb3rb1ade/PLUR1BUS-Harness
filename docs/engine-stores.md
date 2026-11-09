@@ -1768,3 +1768,17 @@ ProcessEngine/Lance stores, not newly recorded Node outcomes.
 An open table grants no row authority and does not establish startup recovery,
 capture draining, or readiness. Recall/capture/memory activation remains pending
 its original-caller and recovery composition.
+
+### Shared service adapters for native pipelines (RE-D137)
+
+`Service::pipeline_embedder` and optional `Service::pipeline_reranker` expose native
+provider ports over the same service instance. They retain its identity, batching,
+cache, vector/hit validation, cancellation and close checks. No provider, model or
+cache is rebuilt. Model selection and egress invalidation reach the original
+providers. The adapters grant no data authority or new cache scope.
+
+An absent reranker remains absent. A configured reranker's empty-result policy is
+retained, and invalid hits are rejected by the service before the pipeline receives
+them. Error projection uses existing content-free native error variants; it does
+not reconstruct provider details already removed by the service contract. These
+ports prepare composition without enabling unfinished memory/capture/recall routes.

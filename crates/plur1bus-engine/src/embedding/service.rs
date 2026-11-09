@@ -539,3 +539,6 @@ impl ModelsService for Service {
         Ok(self.status())
     }
 }
+
+#[path = "service_adapters.rs"]
+mod adapters;
