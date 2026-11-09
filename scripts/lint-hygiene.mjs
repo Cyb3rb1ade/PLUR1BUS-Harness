@@ -107,10 +107,10 @@ const ALLOW = new Map([
     /^\s*"lib\/(?:host-services\.js|setup\/(?:control-ui|feature-cron|obsidian-vault|reembedding|selftest|skill-workshop|workspace-policy)-plugin-runtime\.js)"\s*$/,
   ]],
   // RX6 row/classifier/merge recorders: exact verified test-host import and source provenance, never runtime imports.
-  ...["record-rows", "record-pipeline-boundaries", "record-classifier", "record-durable-merge"].map(name => [`crates/plur1bus-engine/tests/fixtures/capture/${name}.mjs`, [
+  ...["record-rows", "record-pipeline-boundaries", "record-classifier", "record-durable-merge", "record-normal-store-merge"].map(name => [`crates/plur1bus-engine/tests/fixtures/capture/${name}.mjs`, [
     /^\s*load\("engine\/create-engine\.js"\), load\("engine\/internals\.js"\), load\("lib\/host-services\.js"\),\s*$/,
   ]]),
-  ...["chunk-decider", "chunk-expansions", "chunk-plans", "dedupe", "rows", "schema-seed", "classifier", "durable-merge"].map(name => [
+  ...["chunk-decider", "chunk-expansions", "chunk-plans", "dedupe", "rows", "schema-seed", "classifier", "durable-merge", "normal-store-merge"].map(name => [
     `crates/plur1bus-engine/tests/fixtures/capture/golden/${name}.json`, [
       /^\s*"lib\/(?:host-services\.js|setup\/(?:control-ui|feature-cron|obsidian-vault|reembedding|selftest|skill-workshop|workspace-policy)-plugin-runtime\.js)"\s*$/,
     ],

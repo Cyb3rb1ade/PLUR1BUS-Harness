@@ -1,0 +1,300 @@
+{
+  "nodeGoldenSha256": "310e35ded7324daf22ce70cd0e986edf8ac756c83a1da7d1715e35ba173b621f",
+  "cases": [
+    {
+      "name": "basic",
+      "writeKey": "[\"workspace:v1:fixture\",\"I enjoy coffee every morning.\",\"fact\",\"dm\",0.5,\"\",\"\",\"\",\"agent-private\",\"user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c\",0,0]",
+      "patch": {
+        "id": "500f9bd6-85f8-522f-af69-60d09a19a2a8",
+        "workspaceId": "workspace:v1:fixture",
+        "workspaceKey": "workspace:v1:fixture",
+        "ownerUserId": "user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c"
+      },
+      "reason": "D130: preserve the bound original owner/workspace; replacement ID follows the same Node recipe over the owner-bound write key."
+    },
+    {
+      "name": "explicit-importance",
+      "writeKey": "[\"workspace:v1:fixture\",\"I enjoy coffee every morning.\",\"fact\",\"dm\",0.8,\"\",\"\",\"\",\"agent-private\",\"user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c\",0,0]",
+      "patch": {
+        "id": "7f3850d3-f3e0-5587-a184-8049a8dd0840",
+        "workspaceId": "workspace:v1:fixture",
+        "workspaceKey": "workspace:v1:fixture",
+        "ownerUserId": "user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c"
+      },
+      "reason": "D130: preserve the bound original owner/workspace; replacement ID follows the same Node recipe over the owner-bound write key."
+    },
+    {
+      "name": "existing-importance",
+      "writeKey": "[\"workspace:v1:fixture\",\"I enjoy coffee every morning.\",\"fact\",\"dm\",0.5,\"\",\"\",\"\",\"agent-private\",\"user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c\",0,0]",
+      "patch": {
+        "id": "500f9bd6-85f8-522f-af69-60d09a19a2a8",
+        "workspaceId": "workspace:v1:fixture",
+        "workspaceKey": "workspace:v1:fixture",
+        "ownerUserId": "user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c"
+      },
+      "reason": "D130: preserve the bound original owner/workspace; replacement ID follows the same Node recipe over the owner-bound write key."
+    },
+    {
+      "name": "core-with-ttl",
+      "refuse": true,
+      "reason": "C7: explicit permanent core importance must not silently consume a finite TTL."
+    },
+    {
+      "name": "existing-core",
+      "writeKey": "[\"workspace:v1:fixture\",\"I enjoy coffee every morning.\",\"fact\",\"dm\",0.5,\"\",\"\",\"\",\"agent-private\",\"user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c\",0,0]",
+      "patch": {
+        "id": "500f9bd6-85f8-522f-af69-60d09a19a2a8",
+        "workspaceId": "workspace:v1:fixture",
+        "workspaceKey": "workspace:v1:fixture",
+        "ownerUserId": "user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c"
+      },
+      "reason": "D130: preserve the bound original owner/workspace; replacement ID follows the same Node recipe over the owner-bound write key."
+    },
+    {
+      "name": "session-ttl",
+      "writeKey": "[\"workspace:v1:fixture\",\"I enjoy coffee every morning.\",\"fact\",\"dm\",0.5,\"session\",\"\",\"\",\"agent-private\",\"user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c\",0,0]",
+      "patch": {
+        "id": "5aa8cbbd-bc37-56eb-accc-8ee8faf68d19",
+        "workspaceId": "workspace:v1:fixture",
+        "workspaceKey": "workspace:v1:fixture",
+        "ownerUserId": "user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c"
+      },
+      "reason": "D130: preserve the bound original owner/workspace; replacement ID follows the same Node recipe over the owner-bound write key."
+    },
+    {
+      "name": "short-ttl",
+      "writeKey": "[\"workspace:v1:fixture\",\"I enjoy coffee every morning.\",\"fact\",\"dm\",0.5,\"short\",\"\",\"\",\"agent-private\",\"user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c\",0,0]",
+      "patch": {
+        "id": "9b4cf8f1-2696-5fde-afe9-0c3cc8c9e099",
+        "workspaceId": "workspace:v1:fixture",
+        "workspaceKey": "workspace:v1:fixture",
+        "ownerUserId": "user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c"
+      },
+      "reason": "D130: preserve the bound original owner/workspace; replacement ID follows the same Node recipe over the owner-bound write key."
+    },
+    {
+      "name": "unknown-ttl",
+      "writeKey": "[\"workspace:v1:fixture\",\"I enjoy coffee every morning.\",\"fact\",\"dm\",0.5,\"\",\"\",\"\",\"agent-private\",\"user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c\",0,0]",
+      "patch": {
+        "id": "500f9bd6-85f8-522f-af69-60d09a19a2a8",
+        "workspaceId": "workspace:v1:fixture",
+        "workspaceKey": "workspace:v1:fixture",
+        "ownerUserId": "user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c"
+      },
+      "reason": "D130: preserve the bound original owner/workspace; replacement ID follows the same Node recipe over the owner-bound write key."
+    },
+    {
+      "name": "category-auto",
+      "writeKey": "[\"workspace:v1:fixture\",\"I enjoy coffee every morning.\",\"conversation\",\"dm\",0.5,\"\",\"\",\"\",\"agent-private\",\"user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c\",0,0]",
+      "patch": {
+        "id": "a3138a55-2128-5ca2-aa82-c0185c49cd19",
+        "workspaceId": "workspace:v1:fixture",
+        "workspaceKey": "workspace:v1:fixture",
+        "ownerUserId": "user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c"
+      },
+      "reason": "D130: preserve the bound original owner/workspace; replacement ID follows the same Node recipe over the owner-bound write key."
+    },
+    {
+      "name": "decision",
+      "writeKey": "[\"workspace:v1:fixture\",\"I enjoy coffee every morning.\",\"decision\",\"dm\",0.5,\"\",\"\",\"\",\"agent-private\",\"user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c\",0,0]",
+      "patch": {
+        "id": "0cbe47e1-98ce-50a0-ae25-ecd30ac0f482",
+        "workspaceId": "workspace:v1:fixture",
+        "workspaceKey": "workspace:v1:fixture",
+        "ownerUserId": "user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c"
+      },
+      "reason": "D130: preserve the bound original owner/workspace; replacement ID follows the same Node recipe over the owner-bound write key."
+    },
+    {
+      "name": "voice",
+      "writeKey": "[\"workspace:v1:fixture\",\"I enjoy coffee every morning.\",\"fact\",\"dm\",0.5,\"\",\"\",\"\",\"agent-private\",\"user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c\",0,0]",
+      "patch": {
+        "id": "500f9bd6-85f8-522f-af69-60d09a19a2a8",
+        "workspaceId": "workspace:v1:fixture",
+        "workspaceKey": "workspace:v1:fixture",
+        "ownerUserId": "user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c"
+      },
+      "reason": "D130: preserve the bound original owner/workspace; replacement ID follows the same Node recipe over the owner-bound write key."
+    },
+    {
+      "name": "invalid-origin",
+      "writeKey": "[\"workspace:v1:fixture\",\"I enjoy coffee every morning.\",\"fact\",\"dm\",0.5,\"\",\"\",\"\",\"agent-private\",\"user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c\",0,0]",
+      "patch": {
+        "id": "500f9bd6-85f8-522f-af69-60d09a19a2a8",
+        "workspaceId": "workspace:v1:fixture",
+        "workspaceKey": "workspace:v1:fixture",
+        "ownerUserId": "user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c"
+      },
+      "reason": "D130: preserve the bound original owner/workspace; replacement ID follows the same Node recipe over the owner-bound write key."
+    },
+    {
+      "name": "provenance-cuts",
+      "writeKey": "[\"workspace:v1:fixture\",\"I enjoy coffee every morning.\",\"fact\",\"dm\",0.5,\"\",\"uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu\\ud83d\",\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\\ud83e\",\"agent-private\",\"user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c\",0,0]",
+      "patch": {
+        "id": "907f7fd6-bc7d-5181-a5ad-dfb3500e3425",
+        "workspaceId": "workspace:v1:fixture",
+        "workspaceKey": "workspace:v1:fixture",
+        "ownerUserId": "user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c"
+      },
+      "reason": "D130: preserve the bound original owner/workspace; replacement ID follows the same Node recipe over the owner-bound write key.",
+      "outwardPatch": {
+        "sourceUrl": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu",
+        "evidenceQuote": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      }
+    },
+    {
+      "name": "validity-union",
+      "writeKey": "[\"workspace:v1:fixture\",\"I enjoy coffee every morning.\",\"fact\",\"dm\",0.5,\"\",\"\",\"\",\"agent-private\",\"user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c\",23,111]",
+      "patch": {
+        "id": "9dead9ba-7333-50b3-af16-1ea520543394",
+        "workspaceId": "workspace:v1:fixture",
+        "workspaceKey": "workspace:v1:fixture",
+        "ownerUserId": "user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c"
+      },
+      "reason": "D130: preserve the bound original owner/workspace; replacement ID follows the same Node recipe over the owner-bound write key."
+    },
+    {
+      "name": "validity-open",
+      "writeKey": "[\"workspace:v1:fixture\",\"I enjoy coffee every morning.\",\"fact\",\"dm\",0.5,\"\",\"\",\"\",\"agent-private\",\"user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c\",23,0]",
+      "patch": {
+        "id": "b560664a-7a0c-5f53-a284-b9f1ca8fe8fe",
+        "workspaceId": "workspace:v1:fixture",
+        "workspaceKey": "workspace:v1:fixture",
+        "ownerUserId": "user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c"
+      },
+      "reason": "D130: preserve the bound original owner/workspace; replacement ID follows the same Node recipe over the owner-bound write key."
+    },
+    {
+      "name": "validity-disjoint",
+      "writeKey": "[\"workspace:v1:fixture\",\"I enjoy coffee every morning.\",\"fact\",\"dm\",0.5,\"\",\"\",\"\",\"agent-private\",\"user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c\",100,200]",
+      "patch": {
+        "id": "e9bbd745-ee22-5e1a-a507-39c821e8942e",
+        "workspaceId": "workspace:v1:fixture",
+        "workspaceKey": "workspace:v1:fixture",
+        "ownerUserId": "user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c"
+      },
+      "reason": "D130: preserve the bound original owner/workspace; replacement ID follows the same Node recipe over the owner-bound write key."
+    },
+    {
+      "name": "disputed",
+      "writeKey": "[\"workspace:v1:fixture\",\"I enjoy coffee every morning.\",\"fact\",\"dm\",0.5,\"\",\"\",\"\",\"agent-private\",\"user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c\",0,0]",
+      "patch": {
+        "id": "500f9bd6-85f8-522f-af69-60d09a19a2a8",
+        "workspaceId": "workspace:v1:fixture",
+        "workspaceKey": "workspace:v1:fixture",
+        "ownerUserId": "user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c"
+      },
+      "reason": "D130: preserve the bound original owner/workspace; replacement ID follows the same Node recipe over the owner-bound write key."
+    },
+    {
+      "name": "invalidated",
+      "writeKey": "[\"workspace:v1:fixture\",\"I enjoy coffee every morning.\",\"fact\",\"dm\",0.5,\"\",\"\",\"\",\"agent-private\",\"user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c\",0,0]",
+      "patch": {
+        "id": "500f9bd6-85f8-522f-af69-60d09a19a2a8",
+        "workspaceId": "workspace:v1:fixture",
+        "workspaceKey": "workspace:v1:fixture",
+        "ownerUserId": "user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c"
+      },
+      "reason": "D130: preserve the bound original owner/workspace; replacement ID follows the same Node recipe over the owner-bound write key."
+    },
+    {
+      "name": "summary-limit",
+      "writeKey": "[\"workspace:v1:fixture\",\"I enjoy coffee every morning.\",\"fact\",\"dm\",0.5,\"\",\"\",\"\",\"agent-private\",\"user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c\",0,0]",
+      "patch": {
+        "id": "500f9bd6-85f8-522f-af69-60d09a19a2a8",
+        "workspaceId": "workspace:v1:fixture",
+        "workspaceKey": "workspace:v1:fixture",
+        "ownerUserId": "user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c"
+      },
+      "reason": "D130: preserve the bound original owner/workspace; replacement ID follows the same Node recipe over the owner-bound write key."
+    },
+    {
+      "name": "half-life",
+      "writeKey": "[\"workspace:v1:fixture\",\"I enjoy coffee every morning.\",\"fact\",\"dm\",0.5,\"\",\"\",\"\",\"agent-private\",\"user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c\",0,0]",
+      "patch": {
+        "id": "500f9bd6-85f8-522f-af69-60d09a19a2a8",
+        "workspaceId": "workspace:v1:fixture",
+        "workspaceKey": "workspace:v1:fixture",
+        "ownerUserId": "user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c"
+      },
+      "reason": "D130: preserve the bound original owner/workspace; replacement ID follows the same Node recipe over the owner-bound write key."
+    },
+    {
+      "name": "meaningful-difference",
+      "writeKey": "[\"workspace:v1:fixture\",\"The release uses version 3.\",\"fact\",\"dm\",0.65,\"\",\"\",\"\",\"agent-private\",\"user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c\",0,0]",
+      "patch": {
+        "id": "625643e0-5dbd-562a-a08d-3b17ebbc3e2f",
+        "workspaceId": "workspace:v1:fixture",
+        "workspaceKey": "workspace:v1:fixture",
+        "ownerUserId": "user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c"
+      },
+      "reason": "D130: preserve the bound original owner/workspace; replacement ID follows the same Node recipe over the owner-bound write key."
+    },
+    {
+      "name": "loses-facts",
+      "writeKey": "[\"workspace:v1:fixture\",\"I enjoy coffee every morning.\",\"fact\",\"dm\",0.5,\"\",\"\",\"\",\"agent-private\",\"user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c\",0,0]",
+      "patch": {
+        "id": "500f9bd6-85f8-522f-af69-60d09a19a2a8",
+        "workspaceId": "workspace:v1:fixture",
+        "workspaceKey": "workspace:v1:fixture",
+        "ownerUserId": "user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c"
+      },
+      "reason": "D130: preserve the bound original owner/workspace; replacement ID follows the same Node recipe over the owner-bound write key."
+    },
+    {
+      "name": "declined",
+      "writeKey": "[\"workspace:v1:fixture\",\"I enjoy coffee every morning.\",\"fact\",\"dm\",0.5,\"\",\"\",\"\",\"agent-private\",\"user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c\",0,0]",
+      "patch": {
+        "id": "500f9bd6-85f8-522f-af69-60d09a19a2a8",
+        "workspaceId": "workspace:v1:fixture",
+        "workspaceKey": "workspace:v1:fixture",
+        "ownerUserId": "user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c"
+      },
+      "reason": "D130: preserve the bound original owner/workspace; replacement ID follows the same Node recipe over the owner-bound write key."
+    },
+    {
+      "name": "too-short",
+      "writeKey": "[\"workspace:v1:fixture\",\"I enjoy coffee every morning.\",\"fact\",\"dm\",0.5,\"\",\"\",\"\",\"agent-private\",\"user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c\",0,0]",
+      "patch": {
+        "id": "500f9bd6-85f8-522f-af69-60d09a19a2a8",
+        "workspaceId": "workspace:v1:fixture",
+        "workspaceKey": "workspace:v1:fixture",
+        "ownerUserId": "user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c"
+      },
+      "reason": "D130: preserve the bound original owner/workspace; replacement ID follows the same Node recipe over the owner-bound write key."
+    },
+    {
+      "name": "invalid-answer",
+      "writeKey": "[\"workspace:v1:fixture\",\"I enjoy coffee every morning.\",\"fact\",\"dm\",0.5,\"\",\"\",\"\",\"agent-private\",\"user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c\",0,0]",
+      "patch": {
+        "id": "500f9bd6-85f8-522f-af69-60d09a19a2a8",
+        "workspaceId": "workspace:v1:fixture",
+        "workspaceKey": "workspace:v1:fixture",
+        "ownerUserId": "user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c"
+      },
+      "reason": "D130: preserve the bound original owner/workspace; replacement ID follows the same Node recipe over the owner-bound write key."
+    },
+    {
+      "name": "provider-failure",
+      "writeKey": "[\"workspace:v1:fixture\",\"I enjoy coffee every morning.\",\"fact\",\"dm\",0.5,\"\",\"\",\"\",\"agent-private\",\"user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c\",0,0]",
+      "patch": {
+        "id": "500f9bd6-85f8-522f-af69-60d09a19a2a8",
+        "workspaceId": "workspace:v1:fixture",
+        "workspaceKey": "workspace:v1:fixture",
+        "ownerUserId": "user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c"
+      },
+      "reason": "D130: preserve the bound original owner/workspace; replacement ID follows the same Node recipe over the owner-bound write key."
+    },
+    {
+      "name": "auto-apply-off",
+      "writeKey": "[\"workspace:v1:fixture\",\"I enjoy coffee every morning.\",\"fact\",\"dm\",0.5,\"\",\"\",\"\",\"agent-private\",\"user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c\",0,0]",
+      "patch": {
+        "id": "500f9bd6-85f8-522f-af69-60d09a19a2a8",
+        "workspaceId": "workspace:v1:fixture",
+        "workspaceKey": "workspace:v1:fixture",
+        "ownerUserId": "user:v1:844b82c7a9ecb58b1a430f948f835c46a69c80b19e425d9db1374794ae82180c"
+      },
+      "reason": "D130: preserve the bound original owner/workspace; replacement ID follows the same Node recipe over the owner-bound write key."
+    }
+  ]
+}

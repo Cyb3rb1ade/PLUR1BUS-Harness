@@ -115,3 +115,6 @@ pub mod durable_merge;
 
 /// Bounded host-route merge decision and exact pinned JSON parsing.
 pub mod merge_decision;
+
+/// Canonical private normal-store assessment and prepared merge rows.
+pub mod normal_store;

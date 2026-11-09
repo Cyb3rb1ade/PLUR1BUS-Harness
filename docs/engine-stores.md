@@ -1291,3 +1291,38 @@ golden remain unchanged. Responses are capped at 1 MiB before parsing; JSON uses
 or write authority is granted by this primitive. Normal-store candidate selection,
 row construction, original-caller provider preflight and post-store effects remain
 composition work.
+
+
+### RX6 canonical private normal-store merge preparation (RE-D85)
+
+`capture::normal_store` assesses immutable private input before provider work and
+builds the ordered merged row from an explicit decision/vector/source. Twenty-seven
+actual pinned `storeMemoryFromToolParams` executions are recorded twice using offline
+DB/model/embedding ports and real temporary archive/audit files; an independent
+rerecord is byte-identical. The recorder verifies 396 source files and asserts the
+resolved archive stays under its temporary root. Golden SHA-256:
+`310e35ded7324daf22ce70cd0e986edf8ac756c83a1da7d1715e35ba173b621f`.
+
+Comparison covers actual category/importance assessment, write keys, deterministic
+replacement IDs, TTL, validity union/disjointness, summary/dynamics, epistemic fields,
+provenance and refusal gates. Raw prepared row fields preserve Node ordering and
+UTF-16 cuts. Separate SHA-bound exceptions retain the D130 original owner/workspace
+(the Node private path writes empty fields), their consequent key/ID, existing C7
+explicit core-importance/finite-TTL refusal and F3 outward complete-character cuts.
+The raw key never reconstructs from the outward-projected provenance. Provider text
+must already be valid Unicode. Schema defaults fill only at the typed store boundary;
+provider vector numbers then become Float32 and must remain finite. The oracle uses
+an offline DB port, not a Node Lance vector round-trip.
+
+This component accepts already canonical safe-integer millisecond validity values,
+private scope only and explicit caller-bound ownership. It does not authorize a
+source snapshot or call a provider. Resource bounds include 1 MiB source/provider
+text, 32,768 vector components and the shared bounded JSON limits. Native tests also
+refuse foreign owner/workspace, inactive sources, invalid validity, malformed Unicode,
+empty/nonfinite/oversized vectors and Float32 overflow. Narrow hygiene exceptions
+permit only the recorder and its generated provenance manifest to name pinned host
+modules; application code does not import them.
+
+Actual source authorization and revalidation around provider calls, candidate
+selection, ordinary-store fallback, post-store effects and ProcessEngine composition
+remain open. No protected contract, dependency or existing golden changed.
