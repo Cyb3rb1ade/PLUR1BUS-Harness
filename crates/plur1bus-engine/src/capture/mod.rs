@@ -112,3 +112,6 @@ pub mod conflict_resolution;
 
 /// Pure normal-store durable merge identity, lineage and epistemic provenance.
 pub mod durable_merge;
+
+/// Bounded host-route merge decision and exact pinned JSON parsing.
+pub mod merge_decision;

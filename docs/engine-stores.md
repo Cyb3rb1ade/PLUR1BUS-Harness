@@ -1262,3 +1262,32 @@ history. This costs repeated full-row and bounded-file checks. The runtime must
 share lifecycle/generation ownership and writer services; external uncoordinated
 writers are not made atomic. Full normal-store composition, post-store effects,
 retention policy and ProcessEngine activation remain open.
+
+### RX6 normal-store merge decision (RE-D84)
+
+`capture::merge_decision` calls the existing host LLM port with the actual pinned
+single-user prompt, 2,000 UTF-16 units per fragment and a 300-token budget. It leaves
+temperature absent and uses only the caller's selected optional model. The fixed
+purpose is `merge-decision`; the frozen LlmParams has no purpose field, so it remains
+the adapter stage. The Node host route likewise does not forward jsonMode. No direct
+provider fallback, credentials or new result cache is introduced.
+
+The route passes a cancellation deadline of at most 30 seconds to the host and
+checks cancellation after return; host cooperation is still required to interrupt
+a synchronous provider. Missing route returns no decision; provider failure remains
+an error for the store caller's explicit no-merge handling. JSON syntax/type refusal
+returns no decision. The required fields are boolean merge/string reason; true
+requires a string mergedText, even if empty. Later lexical/length/validity guards
+remain separate. Unknown fields survive. JSON duplicate keys follow last-value,
+first-insertion-position semantics, integer property keys sort first, and numeric
+spelling follows ECMAScript. Persistent receipt validators remain stricter.
+
+The actual Node recorder verifies fifteen source files and records 35 host-route
+requests/results twice, with an independent byte-equal complete rerun. Rust checks
+all raw prompt bytes and results. Two separate SHA-bound F3/RE-D17 expectations omit
+unpaired units from outward host strings only; pure Node prompts and the generated
+golden remain unchanged. Responses are capped at 1 MiB before parsing; JSON uses
+50,000-node/depth128/1,048,576-unit limits and bounded normalization. No source read
+or write authority is granted by this primitive. Normal-store candidate selection,
+row construction, original-caller provider preflight and post-store effects remain
+composition work.
