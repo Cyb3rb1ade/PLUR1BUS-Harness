@@ -46,6 +46,9 @@ pub struct MemoryReader {
     pub(super) base: PathBuf,
 }
 impl MemoryReader {
+    pub(super) fn embedding_provider(&self) -> &dyn EmbeddingProvider {
+        self.embedder.as_ref()
+    }
     pub(super) fn embedding_identity(&self) -> &crate::embedding::VectorSpaceIdentity {
         self.embedder.identity()
     }

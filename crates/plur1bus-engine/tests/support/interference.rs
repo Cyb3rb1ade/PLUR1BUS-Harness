@@ -2,7 +2,7 @@
 #![allow(clippy::unwrap_used, clippy::panic, reason = "fixture assertions")]
 #![cfg(feature = "testkit")]
 #[path = "../recall_support.rs"]
-mod support;
+pub(super) mod support;
 use plur1bus_engine::{
     capture::{interference::InterferenceOptions, shared_scope::CapturePolicy},
     context::{harness_user_principal, RequestContext},

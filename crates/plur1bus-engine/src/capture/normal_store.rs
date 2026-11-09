@@ -235,15 +235,15 @@ impl AssessedStore {
             &JsString::from(self.text.as_str()),
         )?)
     }
-    /// Materialize a provider-approved merge only when all lexical/length/validity guards hold.
-    pub fn merge(
+    /// Validate source binding, lexical decision and validity before any merged-text embedding.
+    /// The caller must still authorize and reread the actual source around provider work.
+    pub fn checked_text(
         &self,
-        m: MergeMaterial<'_>,
-        encoding: &StoreEncoding,
+        source: &MemoryRow,
+        decision: &Json,
         cancel: &Cancel,
-    ) -> Result<Option<PreparedMerge>, EngineError> {
+    ) -> Result<Option<String>, EngineError> {
         cancel.check()?;
-        let source = m.source;
         if source.agent_id != self.agent
             || source.stored_by != self.agent
             || source.owner_user_id != self.owner
@@ -251,20 +251,14 @@ impl AssessedStore {
             || source.scope != "agent-private"
             || source.status != "active"
             || source.text.len() > 1_048_576
-            || m.now_ms.unsigned_abs() > 9_007_199_254_740_991
-            || encoding.summary_max_words == 0
-            || encoding.summary_max_words > 10000
         {
             return Err(StoreError::InvalidInput.into());
         }
-        bounded(&encoding.half_life_overrides, cancel, &mut (0, 0))?;
-        bounded(m.decision, cancel, &mut (0, 0))?;
-        bounded(m.vector, cancel, &mut (0, 0))?;
+        bounded(decision, cancel, &mut (0, 0))?;
         if !self.compatible(source)? {
             return Ok(None);
         }
-        let Some(decision) = merge_decision::parse_response(&write_json(m.decision), cancel)?
-        else {
+        let Some(decision) = merge_decision::parse_response(&write_json(decision), cancel)? else {
             return Ok(None);
         };
         if get(&decision, "merge") != &Json::Bool(true) {
@@ -293,6 +287,38 @@ impl AssessedStore {
         if merged_text.len() > 1_048_576 {
             return Err(StoreError::InvalidInput.into());
         }
+        let raw = parse_json(&serde_json::to_string(source).map_err(|_| StoreError::InvalidInput)?)
+            .map_err(|_| StoreError::InvalidInput)?;
+        let from = timestamp(get(&raw, "validFrom"))?;
+        let until = timestamp(get(&raw, "validUntil"))?;
+        if (until > 0 && self.valid_from > 0 && until <= self.valid_from)
+            || (self.valid_until > 0 && from > 0 && self.valid_until <= from)
+        {
+            return Ok(None);
+        }
+        Ok(Some(merged_text))
+    }
+    /// Materialize a provider-approved merge only when all lexical/length/validity guards hold.
+    pub fn merge(
+        &self,
+        m: MergeMaterial<'_>,
+        encoding: &StoreEncoding,
+        cancel: &Cancel,
+    ) -> Result<Option<PreparedMerge>, EngineError> {
+        cancel.check()?;
+        let source = m.source;
+        if m.now_ms.unsigned_abs() > 9_007_199_254_740_991
+            || encoding.summary_max_words == 0
+            || encoding.summary_max_words > 10000
+        {
+            return Err(StoreError::InvalidInput.into());
+        }
+        bounded(&encoding.half_life_overrides, cancel, &mut (0, 0))?;
+        bounded(m.vector, cancel, &mut (0, 0))?;
+        let Some(merged_text) = self.checked_text(source, m.decision, cancel)? else {
+            return Ok(None);
+        };
+        let merged = JsString::from(merged_text.as_str());
         let Json::Array(vector) = m.vector else {
             return Err(StoreError::InvalidInput.into());
         };

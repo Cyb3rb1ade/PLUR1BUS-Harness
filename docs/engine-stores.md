@@ -1326,3 +1326,48 @@ modules; application code does not import them.
 Actual source authorization and revalidation around provider calls, candidate
 selection, ordinary-store fallback, post-store effects and ProcessEngine composition
 remain open. No protected contract, dependency or existing golden changed.
+
+
+### RX6 authorized normal-store host merge composition (RE-D86)
+
+`NativeMerge::merge_normal` joins canonical private assessment, the actual host LLM
+port, the reader's actual embedding provider and the durable RE-D83 Lance writer for
+an already selected source ID. It derives ownership from the admitted principal and
+agent; no ownership field from the input supplies authority. Before either provider,
+and after both successes and failures, short shared writer leases reread the entire
+source and current ACL/tombstone/policy, config and physical store/workspace/state
+bindings. No writer lease spans inference. Pending automatic, interference, conflict
+application or merge work fences admission. A final callback keeps config/physical
+checks active through durable publication; RE-D83 owns source CAS after deletion
+becomes legitimate.
+
+The host route honors enabled/explicit autoApply, feature model, agent feature and
+agent-default overrides, then global default. Missing host route or unavailable,
+failed or malformed completion yields no merge; denied authority and cancellation
+remain errors. Direct transport and thinking controls unsupported by frozen
+LlmParams refuse instead of silently using the host route. The cooperative decision
+budget is at most 30 seconds and can be shortened by configured timeout. Lexical,
+length, fact-preservation and disjoint-validity checks precede the next disclosure
+to the embedding provider. Exactly one finite vector in the actual store/provider
+dimension is required. Initial assessment fixes TTL; final preparation time fixes
+creation/provenance and the durable intent. No invented placeholder embedding is
+used to reach the preparation gates.
+
+Real Lance tests cover success, configuration/provider gates and model precedence,
+current source/policy/config changes during either provider, cancellation, physical
+workspace/state/store replacement, foreign/missing/inactive sources and committed
+tombstones. Interrupted publication recovers the original vector and time without
+another provider call. If its replacement has since expired, current visibility
+refuses recovery before deleting the original; pending intent remains for explicit
+repair rather than extending TTL or resurrecting data. Existing SIGKILL tests cover
+the shared durable writer; this new composition adds deterministic interruption.
+
+The raw provider/config snapshot is not persisted. Once the RE-D83 intent is durable,
+recovery uses that exact original plan under current original-caller policy and
+physical/model authority, without inference or a new configuration decision. Full
+Core config-generation admission/draining remains a separate integration gate.
+Candidate retrieval, score/duplicate selection, ordinary-store fallback and its
+request admission, curation/knowledge-pending/interference effects, shared scopes,
+raw date parsing and ProcessEngine activation remain unfinished. This internal
+selected-candidate method is not an advertised engine RPC or complete store facade.
+No new golden, dependency, TS change or protected-contract edit.

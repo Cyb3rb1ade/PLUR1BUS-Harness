@@ -165,7 +165,27 @@ impl NativeMerge {
         existing_only: bool,
         validate_only: bool,
     ) -> Result<MergeResult, EngineError> {
+        self.settle_checked(
+            request,
+            principal,
+            agent,
+            cancel,
+            (existing_only, validate_only),
+            &|| Ok(()),
+        )
+    }
+    fn settle_checked(
+        &self,
+        request: &MergeRequest,
+        principal: &Principal,
+        agent: &AgentContext,
+        cancel: &Cancel,
+        mode: (bool, bool),
+        prepared_check: &dyn Fn() -> Result<(), EngineError>,
+    ) -> Result<MergeResult, EngineError> {
+        let (existing_only, validate_only) = mode;
         cancel.check()?;
+        prepared_check()?;
         validate_request(request, cancel)?;
         let op = self.reader.context.enter(principal, agent)?;
         let ctx = &op.context;
@@ -177,6 +197,7 @@ impl NativeMerge {
         let _gate = self.reader.context.mutation()?;
         let extra = || {
             cancel.check()?;
+            prepared_check()?;
             self.reader.context.assert_open()?;
             workspace.assert_unchanged()?;
             base.assert_unchanged()?;
@@ -458,3 +479,6 @@ use files::Files;
 #[path = "durable_merge_recovery.rs"]
 mod recovery;
 pub(crate) use recovery::{restore, RestoredMerge};
+
+#[path = "normal_merge.rs"]
+mod normal_merge;
