@@ -1,5 +1,6 @@
 //! Engine-owned job catalog. A listed specification does not grant execution authority.
 pub mod ledger;
+pub mod metadata;
 use crate::contract::{
     JobName, JobSpec, JobSpecDefaultSchedule, JobSpecDefaultScheduleKind, JobSpecPhase,
 };
