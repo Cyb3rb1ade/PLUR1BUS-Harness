@@ -109,3 +109,6 @@ pub mod interference;
 
 /// Non-authoritative conflict proposal shapes, selectors and confirmation shape checks.
 pub mod conflict_resolution;
+
+/// Pure normal-store durable merge identity, lineage and epistemic provenance.
+pub mod durable_merge;

@@ -1188,3 +1188,35 @@ operation lifecycle/generation ownership. The result acknowledges the primary
 version chain only: optional Neo graph/reconsolidation effects, a real host
 confirmation adapter, normal-store composition and ProcessEngine startup remain
 open. No new golden, dependency or protected interface is introduced.
+
+## Normal-store merge identity and source provenance (RX6 / RE-D82)
+
+`capture::durable_merge` provides the exact ordered write-key JSON, source lineage
+and epistemic metadata used by the pinned normal-store merge. Validity markers
+are positive JavaScript-safe integers or zero. Text and JSON serialization retain
+UTF-16 units, including isolated surrogates in the pure protocol. The replacement
+ID uses Node's SHA-256 preimage and fixed UUID nibble layout; it is not produced
+by an unrelated namespace-UUID algorithm. Merging new, unestablished text with a
+trusted source does not inherit that trust: the merged status is `untrusted`,
+except `disputed` and `invalidated` remain so, and previous status is retained.
+
+The new recorder verifies 396 pinned sources and records 20 write keys,
+17 lineages, 13 epistemic projections and 22 replacement identities. Thirteen
+actual Node `withDurableMerge` executions additionally record archive/store/delete
+order, stale-source checks, preparation refusal, failed store/delete/verification
+and exact/colliding preexisting replacements. These execution recordings use an
+offline map database port and actual temporary archive/audit files; they do not
+claim real Lance integration or an implemented Rust merge writer. Both complete
+recordings and an independent full rerun are byte-identical. Only the temporary
+archive root is normalized. The recorder asserts its actual host archive path
+before executing and checks success cases reached deletion and audit.
+
+The Rust tests currently cover the pure byte-exact protocol and identifiers.
+Inputs use the existing bounds of 50,000 JSON nodes, depth 128 and 1,048,576 units;
+the serialized key is also limited to 1,048,576 UTF-16 units. Native identity
+inputs require a safe agent and canonical 36-character UUID. Cancellation fails
+without producing an identity. These helpers grant no read/write authorization.
+Actual normal-store selection/model composition, durable archive/replacement/delete
+and post-store hooks remain separate work. No frozen MemoryOps method or RPC is
+added. The hygiene exception is limited to the two new fixture files' exact
+verified test-host import and source-provenance lines; production rules remain.

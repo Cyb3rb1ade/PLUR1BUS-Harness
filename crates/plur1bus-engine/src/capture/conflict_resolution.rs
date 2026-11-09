@@ -10,7 +10,7 @@ use crate::{
     text::{js::JsString, json::TolerantJsonValue as Json},
 };
 const RESOLUTIONS: [&str; 4] = ["keep_a", "keep_b", "merge", "uncertain"];
-fn text(value: &Json) -> JsString {
+pub(super) fn text(value: &Json) -> JsString {
     match value {
         Json::String(v) => v.clone(),
         Json::Array(values) => {
