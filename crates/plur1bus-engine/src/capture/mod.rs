@@ -118,3 +118,6 @@ pub mod merge_decision;
 
 /// Canonical private normal-store assessment and prepared merge rows.
 pub mod normal_store;
+
+/// Normal-store duplicate and merge selection over authorized nearest rows.
+pub mod normal_candidates;

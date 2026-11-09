@@ -19,7 +19,7 @@ fn checked(value: &Json, cancel: &Cancel) -> Result<(), EngineError> {
     }
     Ok(())
 }
-fn stable_time(value: &Json) -> u64 {
+pub(super) fn stable_time(value: &Json) -> u64 {
     let n = dynamics::number(Some(value));
     if n.is_finite() && n > 0. && n.fract() == 0. && n <= 9_007_199_254_740_991. {
         n as u64

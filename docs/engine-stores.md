@@ -1371,3 +1371,32 @@ request admission, curation/knowledge-pending/interference effects, shared scope
 raw date parsing and ProcessEngine activation remain unfinished. This internal
 selected-candidate method is not an advertised engine RPC or complete store facade.
 No new golden, dependency, TS change or protected-contract edit.
+
+
+### RX6 normal-store candidate policy reference (RE-D87)
+
+Twenty-four actual pinned candidate selections record `MemoryDB.findSimilar`,
+`findMergeCandidate`, `vectorSearchActive` and the engine's safe-duplicate validity
+selector over an offline preordered query port. Fixed SQL/query limits and actual
+results are retained; this does not claim real Node Lance distance execution. The
+recorder verifies pinned sources, asserts temporary host paths, records twice and
+passes an independent byte-identical rerecord. Golden SHA-256:
+`45a86a8f41786b723707a92ef6d7d63e8d2c143162cadaf5b2bd79f23af66e45`.
+
+Pure `capture::normal_candidates::select` consumes already authorized active nearest
+rows. It preserves the first-ten duplicate acquisition, exact text alternative,
+inclusive duplicate threshold, first-five merge band with exclusive upper bound,
+stable tie order and exact lexical/equivalent-normalized-validity duplicate gate.
+Merge projections retain the actual Node fields/defaults; duplicate entries remain
+raw. Legacy invalid/unknown validity normalizes to zero here, while normal-store
+front-door canonical input validation remains separate. Native query evidence must
+have finite nonnegative numeric distances, valid active status and no invalidated
+source; bounded JSON, 1,024 input rows and finite ordered thresholds refuse misuse.
+
+Two SHA-bound D130 exceptions record how applying authority after Node's 10/5 caps
+can hide a valid duplicate or merge behind foreign rows. Expected native output is
+an actual rerun of the same Node selectors on their own authorized source set;
+unfiltered Node observations are preserved. This pure component does not query
+Lance or grant access. Actual private query filtering, bounded acquisition, current
+authority/source revalidation and the selection-to-writer bridge remain separate.
+No existing golden, dependency or protected contract changed.

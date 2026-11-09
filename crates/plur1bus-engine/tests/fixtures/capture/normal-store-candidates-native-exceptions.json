@@ -1,0 +1,56 @@
+{
+  "nodeGoldenSha256": "45a86a8f41786b723707a92ef6d7d63e8d2c143162cadaf5b2bd79f23af66e45",
+  "cases": [
+    {
+      "name": "foreign-duplicate-starvation",
+      "field": "safe",
+      "reason": "D130: current source authority precedes the 10/5 semantic candidate budgets; expected output is an actual Node rerun on its own authorized source set.",
+      "observed": null,
+      "native": {
+        "entry": {
+          "id": "00000000-0000-4000-8000-000000000020",
+          "text": "I enjoy drinking coffee every morning.",
+          "agentId": "alpha",
+          "storedBy": "alpha",
+          "ownerUserId": "user:v1:8c5689c828c392fce142e5c47c1a57b2c812ba1b14ac229bc34b1540c11d8d43",
+          "workspaceId": "workspace:v1:selection",
+          "workspaceKey": "workspace:v1:selection",
+          "scope": "agent-private",
+          "status": "active",
+          "epistemicStatus": "",
+          "validFrom": 0,
+          "validUntil": 0,
+          "_distance": 0.01
+        },
+        "score": 0.9900990099009901
+      }
+    },
+    {
+      "name": "foreign-merge-starvation",
+      "field": "merge",
+      "reason": "D130: current source authority precedes the 10/5 semantic candidate budgets; expected output is an actual Node rerun on its own authorized source set.",
+      "observed": null,
+      "native": {
+        "entry": {
+          "id": "00000000-0000-4000-8000-000000000020",
+          "text": "I enjoy drinking coffee every morning.",
+          "importance": 0.5,
+          "agentId": "alpha",
+          "storedBy": "alpha",
+          "workspaceId": "workspace:v1:selection",
+          "workspaceKey": "workspace:v1:selection",
+          "scope": "agent-private",
+          "ownerUserId": "user:v1:8c5689c828c392fce142e5c47c1a57b2c812ba1b14ac229bc34b1540c11d8d43",
+          "epistemicStatus": "",
+          "epistemicStatusActor": "",
+          "epistemicStatusReason": "",
+          "epistemicStatusUpdatedAt": 0,
+          "previousEpistemicStatus": "",
+          "validFrom": 0,
+          "validUntil": 0
+        },
+        "score": 0.7692307692307692
+      }
+    }
+  ]
+}
