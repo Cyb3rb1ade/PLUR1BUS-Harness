@@ -604,3 +604,58 @@ fn cancellation_inside_filter_does_not_dispatch_the_reranker() {
     );
     assert_eq!(ranker.calls.load(Ordering::SeqCst), 0);
 }
+
+#[test]
+fn foreground_runtime_counts_final_records_at_host_time_and_isolates_statistics_failure() {
+    use plur1bus_engine::{recall::runtime::run_with_stats, store::recall_stats::RecallStats};
+    let fixture = Fixture::new(false);
+    let id = "00000000-0000-4000-8000-000000000001";
+    let mut row = fixture.store.get("visible").unwrap().unwrap();
+    row.status = "deleted".into();
+    fixture.store.upsert(&[row.clone()]).unwrap();
+    row.id = id.into();
+    row.status = "active".into();
+    fixture.store.upsert(&[row]).unwrap();
+    let stats = RecallStats::new(fixture.root.path()).unwrap();
+    let host = support::TestHost::new(fixture.root.path().into());
+    host.time.store(777, Ordering::SeqCst);
+    let caller = Cancel::never();
+    for count in 1..=2 {
+        let counted = run_with_stats(fixture.request(&caller), &stats, &host).unwrap();
+        assert!(counted.statistics_error.is_none());
+        assert!(counted.outcome.degraded.is_none());
+        assert!(counted.outcome.to_json_line().unwrap().contains(id));
+        let counters = stats.read("agent", None, &caller).unwrap();
+        assert_eq!(counters.len(), 1);
+        assert_eq!(counters[0].id, id);
+        assert_eq!(counters[0].recalls, count);
+        assert_eq!(counters[0].distinct_queries, 1);
+        assert_eq!(counters[0].last_recalled_at, Some(777));
+    }
+    let broken_root = support::canonical_tempdir();
+    let broken = RecallStats::new(broken_root.path()).unwrap();
+    std::fs::write(broken_root.path().join("_recall-stats"), "blocked").unwrap();
+    let counted = run_with_stats(fixture.request(&caller), &broken, &host).unwrap();
+    assert!(counted.statistics_error.is_some());
+    assert!(counted.outcome.degraded.is_none());
+    assert!(counted.outcome.to_json_line().unwrap().contains(id));
+    assert_eq!(
+        std::fs::read(broken_root.path().join("_recall-stats")).unwrap(),
+        b"blocked"
+    );
+}
+
+#[test]
+fn degraded_runtime_does_not_initialize_statistics() {
+    use plur1bus_engine::{recall::runtime::run_with_stats, store::recall_stats::RecallStats};
+    let fixture = Fixture::new(false);
+    let stats = RecallStats::new(fixture.root.path()).unwrap();
+    let host = support::TestHost::new(fixture.root.path().into());
+    let caller = Cancel::never();
+    caller.cancel();
+    let counted = run_with_stats(fixture.request(&caller), &stats, &host).unwrap();
+    assert!(counted.outcome.degraded.is_some());
+    assert!(counted.statistics_error.is_none());
+    assert!(!fixture.root.path().join("_recall-stats").exists());
+    assert_eq!(fixture.provider.calls.load(Ordering::SeqCst), 0);
+}

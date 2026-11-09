@@ -7,7 +7,7 @@ import { pathToFileURL } from "node:url";
 import { AGENT, NOW, id, row, scenarios } from "./render-scenarios.mjs";
 import { captureHelpers } from "./render-helper-cases.mjs";
 
-export async function captureRender(engineRoot) {
+export async function captureRender(engineRoot, options = {}) {
   const RealDate = Date;
   globalThis.Date = class extends RealDate {
     constructor(...args) {
@@ -35,7 +35,7 @@ export async function captureRender(engineRoot) {
   emotion.setEmotionConfig({ tier: "t1", t2: { enabled: false }, t3: { enabled: false } });
   const results = {};
   try {
-    for (const [name, cases] of Object.entries(scenarios())) {
+    for (const [name, cases] of Object.entries(options.scenarios || scenarios())) {
       results[name] = [];
       for (const input of cases) {
         if (name === "system-supplement") {
@@ -46,6 +46,7 @@ export async function captureRender(engineRoot) {
         }
       }
     }
+    if (options.scenarios) return results;
     const textAt = (name, variant) => results[name].find((c) => c.input.variant === variant).rawLine;
     assert.notEqual(textAt("render-confidence-framing", "enabled"), textAt("render-confidence-framing", "disabled"));
     assert.notEqual(textAt("render-reactivation-boost", "enabled"), textAt("render-reactivation-boost", "disabled"));
@@ -239,6 +240,10 @@ export async function captureRender(engineRoot) {
     };
     const ctx = {
       cfg,
+      ...(options.stats ? { recallStats: { record(agent, ids, query, now) {
+        (calls.stats ||= []).push({ agent, ids, query, now });
+        if (spec.statsError) throw new Error("synthetic statistics unavailable");
+      } } } : {}),
       host: { stateDir: scratch, logger },
       stateDir: scratch,
       pool,
@@ -254,7 +259,8 @@ export async function captureRender(engineRoot) {
         config: { recallTimeoutMs: 600 },
         async runRecall({ signal, phaseTimer }, work) {
           try {
-            return { ok: true, value: await work(signal, phaseTimer), fromCache: false };
+            const value = spec.cachedResult ? structuredClone(spec.cachedResult) : await work(signal, phaseTimer);
+            return { ok: true, value, fromCache: !!spec.cachedResult };
           } catch (error) {
             return { ok: false, error };
           }

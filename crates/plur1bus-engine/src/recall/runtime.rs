@@ -274,3 +274,42 @@ fn namespace_error(error: NamespaceError) -> EngineError {
         },
     }
 }
+
+/// Successful recall plus an isolated, content-free statistics side-effect failure.
+/// The optional failure must not become a recall failure or enter its frozen wire result.
+pub struct CountedRecall {
+    /// Same result produced by the ordinary runtime.
+    pub outcome: RecallOutcome,
+    /// Failed sidecar delivery; no prompt, memory text or digest is included.
+    pub statistics_error: Option<EngineError>,
+}
+
+/// Run an authorized foreground recall and count only its complete final rendered records.
+/// Warm recall has its own read-only path and must not call this foreground entry point.
+pub fn run_with_stats(
+    request: RuntimeRequest<'_>,
+    statistics: &crate::store::recall_stats::RecallStats,
+    host: &dyn crate::contract::HostServices,
+) -> Result<CountedRecall, EngineError> {
+    let agent = request.pipeline.context.agent_id.clone();
+    let query = request.render.prompt.clone();
+    let cancel = request.pipeline.cancel;
+    let outcome = run(request)?;
+    let statistics_error = super::stats::record_returned(
+        statistics,
+        &super::stats::ReturnedRecall {
+            rendered: &outcome.rendered,
+            agent: agent.as_str(),
+            query: &query,
+            now: host.now_ms() as f64,
+            warm_only: false,
+            degraded: outcome.degraded.is_some(),
+            cancel,
+        },
+    )
+    .err();
+    Ok(CountedRecall {
+        outcome,
+        statistics_error,
+    })
+}

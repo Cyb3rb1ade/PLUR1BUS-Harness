@@ -115,6 +115,10 @@ const ALLOW = new Map([
       /^\s*"lib\/(?:host-services\.js|setup\/(?:control-ui|feature-cron|obsidian-vault|reembedding|selftest|skill-workshop|workspace-policy)-plugin-runtime\.js)"\s*$/,
     ],
   ]),
+  // A1 assembler reference: exact verified source-path metadata, never executable imports.
+  ["crates/plur1bus-engine/tests/fixtures/recall/golden/recall-stats-render.json", [
+    /^\s*"path": "lib\/(?:host-services\.js|providers\/openclaw-memory-embedding-adapters\.js|setup\/(?:control-ui|feature-cron|obsidian-vault|reembedding|selftest|skill-workshop|workspace-policy)-plugin-runtime\.js)",\s*$/,
+  ]],
   // Preserve this exact frozen Node error in its recorded parity fixture only.
   ["crates/plur1bus-engine/tests/fixtures/ops/golden/reembedding-runtime-probe.json", [/^\s*"error": "active generation selection drift after OpenClaw config mutation",?\s*$/]],
   ["packages/core/test/principal.test.ts", [/lib\/memory-request-context\.js/]],

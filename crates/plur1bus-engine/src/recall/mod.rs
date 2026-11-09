@@ -113,3 +113,6 @@ mod temporal_constants;
 pub mod time_context;
 /// Read-only warm orchestration.
 pub mod warm;
+
+/// A1 statistics from complete final rendered records.
+pub mod stats;

@@ -172,8 +172,12 @@ IDs. Bounds are 500 requested IDs, one million UTF-16 query units, safe-integer 
 card ACL is applied by `MemoryReader::stats` using the same current physical sources, lifecycle
 and tombstone checks as `show`. Hidden IDs are omitted even when explicitly requested; visible
 IDs without history return zero counters. Only not-found is suppressed; required source and
-registry failures propagate. Post-render/warm/degradation admission and the ProcessEngine
-capability gate remain pending. No A1 flag is enabled by constructing this store.
+registry failures propagate. `recall::runtime::run_with_stats` composes the actual foreground
+pipeline with post-render persistence: authenticated request agent, original query, host time
+after render, and complete memory records surviving the final injection cap. Warm/degraded
+results never count; persistence errors stay separate from the successful frozen recall result.
+The same post-render helper supports already-authorized cache returns. ProcessEngine wiring
+and the capability gate remain pending. No A1 flag is enabled by constructing this store.
 
 ## Targets
 
