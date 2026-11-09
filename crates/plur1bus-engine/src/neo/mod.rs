@@ -28,6 +28,7 @@ mod episode_words;
 pub mod episodes;
 pub mod format;
 pub mod global;
+mod graph_ownership;
 mod index;
 mod journal_index;
 mod journal_io;

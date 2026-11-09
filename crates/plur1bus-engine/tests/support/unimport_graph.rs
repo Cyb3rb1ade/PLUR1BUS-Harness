@@ -288,3 +288,96 @@ fn recorded_node_revision_counts_and_replay_match_with_explicit_native_ownership
         );
     }
 }
+
+#[test]
+fn serialized_endpoint_ownership_must_agree_with_original_private_sources() {
+    let bytes = include_bytes!("../fixtures/ops/golden/graph-ownership.json");
+    let recorded: Value = serde_json::from_slice(bytes).unwrap();
+    let marker: Value = serde_json::from_str(include_str!(
+        "../fixtures/ops/graph-ownership-native-exceptions.json"
+    ))
+    .unwrap();
+    assert_eq!(
+        format!("{:x}", Sha256::digest(bytes)),
+        marker["nodeGoldenSha256"]
+    );
+    assert_eq!(recorded["recordedFrom"]["node"], "v24.21.0");
+    for case in recorded["cases"].as_array().unwrap() {
+        let (f, path, _, mut edge) = fixture();
+        let original_id = edge["source"].clone();
+        for (key, value) in case["input"].as_object().unwrap() {
+            edge[key] = value.clone();
+        }
+        edge["source"] = original_id.clone();
+        edge["target"] = original_id;
+        let workspace = edge["workspaceKey"].clone();
+        let owner = edge["ownerUserId"].clone();
+        // Bind the recorder caller to this actual fixture caller; foreign owners stay foreign.
+        for pointer in [
+            "/sourceOwnership",
+            "/targetOwnership",
+            "/ownership/source",
+            "/ownership/target",
+        ] {
+            if let Some(tuple) = edge.pointer_mut(pointer) {
+                if tuple["workspaceIdentity"] == recorded["context"]["workspaceIdentity"] {
+                    tuple["workspaceIdentity"] = workspace.clone();
+                }
+                if tuple["ownerUserId"] == recorded["context"]["userPrincipal"] {
+                    tuple["ownerUserId"] = owner.clone();
+                }
+            }
+        }
+        let expected = marker["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|m| m["name"] == case["name"])
+            .map_or(!case["filtered"].as_array().unwrap().is_empty(), |m| {
+                m["nativeAllow"].as_bool().unwrap()
+            });
+        install(&path, std::slice::from_ref(&edge));
+        let result = f.call();
+        assert_eq!(
+            result["value"]["unimported"], 1,
+            "{}: {result}",
+            case["name"]
+        );
+        assert_eq!(
+            result["value"]["derived"]["graphEdgesRemoved"],
+            usize::from(expected),
+            "{}: {result}",
+            case["name"]
+        );
+        if expected {
+            assert!(fs::read(&path).unwrap().is_empty());
+        } else {
+            assert_eq!(fs::read_to_string(&path).unwrap(), format!("{edge}\n"));
+        }
+    }
+}
+
+#[test]
+fn duplicate_nested_owner_claim_is_preserved_even_when_both_values_match() {
+    let (f, path, _, mut edge) = fixture();
+    let tuple = json!({"schemaVersion":1,"scope":"agent-private","agentId":edge["agentId"],
+        "workspaceIdentity":edge["workspaceKey"],"ownerUserId":edge["ownerUserId"]});
+    edge["ownershipStatus"] = json!("bound");
+    edge["sourceOwnership"] = tuple.clone();
+    edge["targetOwnership"] = tuple.clone();
+    edge["ownership"] = json!({"source":tuple,"target":tuple});
+    let single = format!("\"sourceOwnership\":{}", edge["sourceOwnership"]);
+    let duplicate = format!(
+        "\"sourceOwnership\":{{\"ownerUserId\":{},{}",
+        edge["ownerUserId"],
+        edge["sourceOwnership"].to_string().trim_start_matches('{')
+    );
+    let raw = format!("{}\n", edge.to_string().replacen(&single, &duplicate, 1));
+    assert_ne!(raw, format!("{edge}\n"));
+    fs::write(&path, &raw).unwrap();
+    let result = f.call();
+    assert_eq!(result["value"]["unimported"], 1, "{result}");
+    assert_eq!(result["value"]["derived"]["graphEdgesRemoved"], 0);
+    assert_eq!(result["value"]["derived"]["cleanupErrors"], 1);
+    assert_eq!(fs::read_to_string(&path).unwrap(), raw);
+}

@@ -133,7 +133,10 @@ impl UnimportGraph {
                         if source.as_deref().is_some_and(|id| drop.contains(id))
                             || target.as_deref().is_some_and(|id| drop.contains(id))
                         {
-                            let owned = journal_io::owned(&row, &self.request)
+                            let owned = super::graph_ownership::private_cleanup_binding(
+                                &row,
+                                &self.request,
+                            ) && journal_io::owned(&row, &self.request)
                                 && super::acl::bindings(&row, &self.request)?.scope
                                     == "agent_private";
                             let peers = if !owned {

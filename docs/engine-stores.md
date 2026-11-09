@@ -1612,3 +1612,26 @@ stamped edge cannot supply missing card ownership. The facade test exercises thi
 refusal through the actual import/link/unimport path. This increment does not
 silently change the pinned import-row format or claim those legacy cards have
 full graph-cleanup coverage.
+
+### Serialized graph endpoint claims (RX3 / RE-D130)
+
+An edge may carry the Node `sourceOwnership`, `targetOwnership`, nested `ownership`
+and `ownershipStatus` fields in addition to native outer visibility. When any of
+those claims exists, cleanup requires all four endpoint tuples to be unambiguous,
+version 1, `agent-private`, and equal to the original caller's exact agent, user
+and workspace. A partial/null/unbound tuple or `needsRebuild` cannot be repaired
+from the outer record. Duplicate tuple keys are preserved without deletion.
+Actual private source rows and their late fingerprints are still required.
+
+An actual-Lance regression first demonstrated that an outer owned record with a
+foreign serialized source owner was removed. The additional check now preserves
+it. The reference `ops/golden/graph-ownership.json` records six actual pinned
+`isBoundGraphEdge`/`filterGraphEdgesForRequest` results; SHA
+`96291be8c36ec14158fb060940aa5bdefb695c1aea17625cfd4ab25f4ef246b9`.
+The Node agent-private filter accepts a different owner when the agent matches;
+`graph-ownership-native-exceptions.json` explicitly binds the stricter native
+private cleanup refusal. Existing recall ACL semantics are not changed. The
+integration test consumes all six recorded inputs, binding synthetic
+endpoint IDs and the original caller/workspace placeholders to the actual fixture;
+foreign owners remain foreign. The older rollback fixture uses a v1 user, while
+the pinned Node principal helper records a v2 user. Neither golden is changed.
