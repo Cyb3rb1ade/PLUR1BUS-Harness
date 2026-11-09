@@ -12,6 +12,8 @@ pub mod neo_files;
 mod neo_lock;
 pub mod paths;
 pub mod pool;
+/// Private A1 recall counters and query digests; callers own ACL and render admission.
+pub mod recall_stats;
 pub mod routes;
 pub mod row;
 pub mod schema_version;

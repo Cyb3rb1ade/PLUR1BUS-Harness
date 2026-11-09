@@ -72,6 +72,8 @@ ort = { version = "=2.0.0-rc.14", default-features = false, features = ["load-dy
 # Sensitive header flags still protect the remaining Debug request diagnostics.
 log = { version = "0.4", features = ["max_level_debug"] }
 sha2 = "0.10"
+# A1 private query equality: reuse locked RustCrypto HMAC-SHA256, MIT OR Apache-2.0.
+hmac = "=0.12.1"
 # RX5 confirmation protocol: reuse locked URL-safe encoding and constant-time equality.
 base64 = "=0.22.1"
 subtle = { version = "=2.6.1", default-features = false }

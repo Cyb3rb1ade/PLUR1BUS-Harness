@@ -161,6 +161,17 @@ probes or resets the embedding service. Closed engines reject checkpoints. CP-2'
 1,000-session-end test observes an unchanged provider call count and a still usable warm provider.
 Real-model latency acceptance and the remaining process/capture/recall composition are separate.
 
+`store::recall_stats::RecallStats` implements A1's private per-agent SQLite sidecar from the
+separate A1 reference `9b935ce1`, including schema0→1 migration, exact duplicate-query counts
+and case-preserved IDs. HMAC-SHA256 uses the persisted ASCII hex key, matching Node; plaintext
+queries never enter SQLite. Existing counters survive migration/reopen. Lost keys with retained
+query history, invalid metadata, linked database/journal files and replaced roots refuse.
+Each call uses an immediate transaction; late validation/cancellation errors roll back earlier
+IDs. Bounds are 500 requested IDs, one million UTF-16 query units, safe-integer times/counters,
+64 MiB files and 50,000 rows for an omitted-ID read. This is a persistence component: current
+card ACL, post-render/warm/degradation admission and the ProcessEngine capability gate remain
+with the next integration step. No A1 flag is enabled by constructing this store.
+
 ## Targets
 
 | Target | Name | What it is |
