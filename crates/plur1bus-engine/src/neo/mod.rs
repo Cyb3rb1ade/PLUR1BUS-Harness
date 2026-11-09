@@ -1,5 +1,9 @@
 //! Caller-bound working-memory state and derived-source authority.
 pub mod acl;
+mod append_cap;
+mod append_cap_io;
+mod append_history;
+mod append_source;
 mod caller;
 pub mod candidate_index;
 pub mod capture_hook;
@@ -39,6 +43,8 @@ pub mod revisions;
 pub mod routing;
 pub mod session_store;
 pub mod status;
+/// Configured append bounds and release-compatible record time, without a maintenance job.
+pub mod store_policy;
 mod tail;
 pub mod turn_batch;
 mod turn_rules;

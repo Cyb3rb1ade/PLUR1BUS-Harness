@@ -1,6 +1,7 @@
 //! Engine configuration validation and explicit setup profiles at the pinned Node contract.
 
 mod defaults;
+mod native_neo;
 /// Pure setup profile construction, compatibility normalization and status presentation.
 pub mod profiles;
 mod tier;
@@ -42,6 +43,8 @@ impl<T, E: std::fmt::Debug> Embedded<T> for Result<T, E> {
 
 /// The copied host-neutral source schema, before the documented runtime compatibility overlay.
 pub const SCHEMA_JSON: &str = include_str!("../../schema/engine-config.schema.json");
+/// Controller-authorized native settings, separate from the copied Node contract.
+pub const NATIVE_NEO_SCHEMA_JSON: &str = include_str!("../../schema/native-neo-n1.schema.json");
 
 /// One rejected configuration value, with its path relative to the engine configuration.
 #[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -86,6 +89,7 @@ fn schema() -> &'static Value {
             "type":"object", "additionalProperties":false,
             "properties": {"enabled":{"type":"boolean","default":true},"prefixes":{"type":"array","items":{"type":"string","minLength":1}}}
         });
+        native_neo::install_validation_fields(&mut schema);
         schema
     })
 }

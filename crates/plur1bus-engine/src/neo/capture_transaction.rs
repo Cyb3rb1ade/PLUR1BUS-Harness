@@ -64,6 +64,39 @@ pub(super) fn guard_automatic_pending(
     Ok(())
 }
 impl CaptureJournal {
+    /// Read-side idempotency checks hold the writer leases without running append housekeeping.
+    pub(crate) fn with_operation_reader<T>(
+        &self,
+        principal: &Principal,
+        agent: &AgentContext,
+        expected: &RequestContext,
+        cancel: &Cancel,
+        extra: &dyn Fn() -> Result<(), EngineError>,
+        action: impl FnOnce(
+            &TrustedDirectory,
+            &dyn Fn() -> Result<(), EngineError>,
+        ) -> Result<T, EngineError>,
+    ) -> Result<T, EngineError> {
+        extra()?;
+        let binding = self.bind(principal, agent)?;
+        if &binding.ctx != expected {
+            return Err(StoreError::InvalidInput.into());
+        }
+        let directory = self
+            .directory(&binding, true)?
+            .ok_or(StoreError::Unavailable)?;
+        self.with_leases(&binding, &directory, principal, agent, cancel, |check| {
+            let guarded = || {
+                extra()?;
+                check()
+            };
+            guard_automatic_pending(&directory, cancel)?;
+            Self::guard_non_application_pending(&directory, cancel)?;
+            crate::ops::conflict_application_state::guard_pending(&directory, cancel)?;
+            guarded()?;
+            action(&directory, &guarded)
+        })
+    }
     pub(crate) fn guard_non_application_pending(
         directory: &TrustedDirectory,
         cancel: &Cancel,

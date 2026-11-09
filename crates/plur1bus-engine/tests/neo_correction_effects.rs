@@ -75,12 +75,18 @@ struct Fixture {
     now: i64,
 }
 fn fixture(case_name: &str) -> Fixture {
+    fixture_config(case_name, json!({}))
+}
+fn fixture_config(case_name: &str, config: Value) -> Fixture {
     let root = support::canonical_tempdir();
     let workspace = root.path().join("workspace");
     let neo = root.path().join("neo");
     fs::create_dir(&workspace).unwrap();
     fs::create_dir(&neo).unwrap();
-    let host = Arc::new(support::TestHost::new(root.path().join("state")));
+    let host = Arc::new(
+        support::TestHost::new(root.path().join("state"))
+            .with_config(serde_json::from_value(config).unwrap()),
+    );
     host.set_workspace("agent", workspace.clone());
     let principal: Principal = serde_json::from_value(json!({"agentId":"agent","workspace":format!("workspace-dir:v1:{}",workspace.display()),"user":harness_user_principal("fixture"),"channel":"telegram","accountId":"fixture","chat":{"id":"fixture","kind":"direct"},"trust":"proved"})).unwrap();
     let agent = serde_json::from_value(json!({"origin":"user","background":false})).unwrap();
@@ -301,6 +307,33 @@ fn event_visibility_is_filtered_before_the_idempotency_tail() {
         .contains(&f.context, event["idempotencyKey"].as_str().unwrap())
         .unwrap());
     assert!(!f.effects.contains(&f.context, "foreign-key").unwrap());
+}
+
+#[test]
+fn idempotency_read_never_runs_append_archival() {
+    let f = fixture_config("metadata", json!({"neo":{"maxRecords":500}}));
+    update(&f);
+    let original = rows(&f, "reconsolidation-events.jsonl")[0].clone();
+    let mut records = vec![original.clone()];
+    for index in 1..700 {
+        let mut event = original.clone();
+        event["idempotencyKey"] = json!(format!("other-{index}"));
+        records.push(event);
+    }
+    let before = records
+        .iter()
+        .map(|row| format!("{row}\n"))
+        .collect::<String>();
+    fs::write(f.directory.join("reconsolidation-events.jsonl"), &before).unwrap();
+    assert!(f
+        .effects
+        .contains(&f.context, original["idempotencyKey"].as_str().unwrap())
+        .unwrap());
+    assert_eq!(
+        fs::read_to_string(f.directory.join("reconsolidation-events.jsonl")).unwrap(),
+        before
+    );
+    assert!(!f.directory.join("archives").exists());
 }
 
 #[test]

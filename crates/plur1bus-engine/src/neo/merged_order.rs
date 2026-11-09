@@ -43,7 +43,7 @@ pub(crate) fn string(value: &Json) -> JsString {
         Json::Object(_) => JsString::from_utf8_str("[object Object]"),
     }
 }
-fn date(value: &Json) -> f64 {
+pub(super) fn date(value: &Json) -> f64 {
     match value {
         Json::Number(n) => n
             .parse::<f64>()

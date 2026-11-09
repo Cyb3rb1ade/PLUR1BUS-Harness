@@ -1,0 +1,24 @@
+{
+  "decision": "RE-D125 / Controller N1, Nachtrag 2026-11-09",
+  "nodeGoldenSha256": "3f018dfd17e9dec0a3b3e18c190bf5b79e31a979e877df9382ac9453adbe1eb3",
+  "sourceCommit": "0ef3d270c0272f9ba1aec3f4677ba9ac3668b80d",
+  "oldPin": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+  "exceptions": [
+    {
+      "cases": "derivation[3..6]",
+      "reason": "Injected context must never yield Behavior-Cards; suppress its intermediate reactions as well. Actual Node outputs remain in the golden."
+    },
+    {
+      "cases": "caps",
+      "reason": "Native archive is private 0600; archive failure refuses destructive truncation and further append admission. Actual release uses umask022 mode0644 and best-effort cap errors. Native strict record bound may compact before the Node hysteresis boundary. Emergency archives use immutable source-revision-bound SHA-named gzip chunks under archives/, rather than monthly concatenation; retry does not duplicate the same occurrence. Original source descriptor, modification time and SHA are revalidated across authorization. Source ownership and unfinished receipts fence compaction."
+    },
+    {
+      "cases": "config",
+      "reason": "Native validated config replaces process environment. Regular retention is RY-A/N2 and never runs during append."
+    },
+    {
+      "cases": "deduplication",
+      "reason": "Native ownership evidence survives caps; the ownerless Node cache is not authorization. The unindexed content fallback uses the configured independent tail; full live ID collisions remain checked. Existing 64 MiB acquisition and 50000-entry index budgets remain fail closed, as do required caps involving foreign owners."
+    }
+  ]
+}

@@ -62,8 +62,14 @@ struct Fixture {
     directory: PathBuf,
 }
 fn setup() -> Fixture {
+    setup_config(json!({}))
+}
+fn setup_config(config: Value) -> Fixture {
     let root = support::canonical_tempdir();
-    let host = Arc::new(support::TestHost::new(root.path().join("state")));
+    let host = Arc::new(
+        support::TestHost::new(root.path().join("state"))
+            .with_config(serde_json::from_value(config).unwrap()),
+    );
     host.set_workspace("alpha", root.path().into());
     host.time.store(1_794_139_200_000, Ordering::SeqCst);
     let turn = turn(root.path(), "one");
@@ -88,6 +94,8 @@ fn setup() -> Fixture {
         directory,
     }
 }
+#[path = "support/neo_capture_cap.rs"]
+mod cap_tests;
 fn rows(directory: &Path, file: &str) -> Vec<Value> {
     fs::read_to_string(directory.join(file))
         .unwrap()

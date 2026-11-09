@@ -27,15 +27,33 @@ impl Layout {
         } else {
             old_raw
         };
+        // N1/v7.19.3: an authenticated directory name is already canonical only
+        // when its bounded, sanitized prefix proves the suffix. Lookalikes are hashed.
+        if let Some((prefix, suffix)) = raw.rsplit_once("--") {
+            if !prefix.is_empty()
+                && prefix.len() <= 80
+                && suffix.len() == 20
+                && sanitize_path_part(prefix) == prefix
+                && workspace_hash(prefix).starts_with(suffix)
+            {
+                return Self {
+                    canonical: raw.to_owned(),
+                    legacy: None,
+                };
+            }
+        }
         let slug = sanitize_path_part(raw);
-        // These are UTF-8 strings and a fixed ordered array; serde emits Node-compatible JSON.
-        let bytes = serde_json::json!(["neo-stable-id-v1", "workspace", raw]).to_string();
-        let hash = format!("{:x}", Sha256::digest(bytes.as_bytes()));
+        let hash = workspace_hash(raw);
         Self {
             canonical: format!("{}--{}", &slug[..slug.len().min(80)], &hash[..20]),
             legacy: (slug == old_raw && !matches!(slug.as_str(), "." | "..")).then_some(slug),
         }
     }
+}
+fn workspace_hash(raw: &str) -> String {
+    // Fixed ordered UTF-8 array; serde emits the Node-compatible hash input.
+    let bytes = serde_json::json!(["neo-stable-id-v1", "workspace", raw]).to_string();
+    format!("{:x}", Sha256::digest(bytes.as_bytes()))
 }
 /// Closed file routing: callers cannot supply arbitrary filenames or relative paths.
 #[derive(Debug, Clone, Copy)]

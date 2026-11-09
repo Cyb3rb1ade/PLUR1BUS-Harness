@@ -66,6 +66,10 @@ pub(super) fn rows(
     let Some(bytes) = bytes(dir, name, cancel)? else {
         return Ok(vec![]);
     };
+    parse_rows(&bytes, cancel)
+}
+
+pub(super) fn parse_rows(bytes: &[u8], cancel: &Cancel) -> Result<Vec<Json>, EngineError> {
     let mut out = Vec::new();
     // Only complete LF-delimited records are committed; a killed append can leave a partial tail.
     for line in bytes

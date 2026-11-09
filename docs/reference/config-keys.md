@@ -546,6 +546,13 @@ TypeScript validation returns optional, value-free `warnings` for endpoint useri
 | `memory.mediaEmbedding.backfill` | string | `"manual"` | core | advanced | false | false |  | Whether existing media are indexed automatically in the background (auto) or only on request (manual). |
 | `engine` | object | `{}` | core | advanced | false | false |  | Pass-through to the engine's EngineConfig — [57 engine keys, all advanced and core](../config-engine-keys.md). |
 | `engine.implementation` | string | `"node"` | core | advanced | false | false |  | Memory engine implementation. Rust is experimental and requires the separately running engine process; unavailable engines leave the Core running and recall reports engine-unavailable. |
+| `engine.neo` | object |  | core | advanced | false | false |  |  |
+| `engine.neo.corpusDefaultWorkspaceKey` | string |  | core | advanced | false | false |  | Public Engine model, workspace or numeric control; not credential material. |
+| `engine.neo.workspaces` | array |  | core | advanced | false | false |  |  |
+| `engine.neo.workspaces[]` | object |  | core | advanced | false | false |  |  |
+| `engine.neo.workspaces[].workspaceKey` | string |  | core | advanced | false | false |  | Public Engine model, workspace or numeric control; not credential material. |
+| `engine.neo.workspaces[].legacyKeys` | array |  | core | advanced | false | false |  | Public Engine model, workspace or numeric control; not credential material. |
+| `engine.neo.workspaces[].legacyKeys[]` | string |  | core | advanced | false | false |  |  |
 | `engine.schicht15` | object |  | core | advanced | false | false |  | Curated knowledge promotion settings passed to the Engine. |
 | `engine.schicht15.maxPromotionsPerRun` | integer | `0` | core | advanced | false | false |  | Maximum memories promoted by one knowledge-update run; 0 means unlimited. |
 | `engine.schicht15.apiKey` | string\|object |  | core | advanced | true | false | #/$defs/backupEngineSecretReference | Engine secret input: credential string or secret reference; metadata only, validated by the Engine. |
@@ -644,13 +651,6 @@ TypeScript validation returns optional, value-free `warnings` for endpoint useri
 | `engine.captureChunkingJev.apiKeyEnv` | string |  | core | advanced | true | false | #/$defs/secretEnvironmentName | Environment reference for an Engine credential. |
 | `engine.reminders` | object |  | core | advanced | false | false |  |  |
 | `engine.reminders.webhookUrl` | string |  | core | advanced | true | false |  | Engine reminder webhook; the complete URL is sensitive because its path may carry the credential. |
-| `engine.neo` | object |  | core | advanced | false | false |  |  |
-| `engine.neo.corpusDefaultWorkspaceKey` | string |  | core | advanced | false | false |  | Public Engine model, workspace or numeric control; not credential material. |
-| `engine.neo.workspaces` | array |  | core | advanced | false | false |  |  |
-| `engine.neo.workspaces[]` | object |  | core | advanced | false | false |  |  |
-| `engine.neo.workspaces[].workspaceKey` | string |  | core | advanced | false | false |  | Public Engine model, workspace or numeric control; not credential material. |
-| `engine.neo.workspaces[].legacyKeys` | array |  | core | advanced | false | false |  | Public Engine model, workspace or numeric control; not credential material. |
-| `engine.neo.workspaces[].legacyKeys[]` | string |  | core | advanced | false | false |  |  |
 | `engine.recall` | object |  | core | advanced | false | false |  |  |
 | `engine.recall.adaptiveBudget` | object |  | core | advanced | false | false |  |  |
 | `engine.recall.adaptiveBudget.tokenBudgetPct` | number |  | core | advanced | false | false |  | Public Engine model, workspace or numeric control; not credential material. |

@@ -184,6 +184,12 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "memory.mediaEmbedding.backfill", type: "string", tier: "advanced", help: "Whether existing media are indexed automatically in the background (auto) or only on request (manual)." },
   { key: "engine", type: "object", tier: "advanced", help: "Pass-through to the engine's EngineConfig (57 keys, see docs/config-engine-keys.md). Every key here is class core until the engine declares readAt: live (engine PR E5)." },
   { key: "engine.implementation", type: "string", tier: "advanced", help: "Memory engine implementation. Rust is experimental and requires the separately running engine process; unavailable engines leave the Core running and recall reports engine-unavailable." },
+  { key: "engine.neo", type: "object", tier: "advanced", help: "Neo append bounds and scheduled retention configuration; retention is never performed during append." },
+  { key: "engine.neo.maxRecords", type: "integer", tier: "advanced", help: "Emergency append ceiling; archive before truncation. Native acquisition supports at most 50000 rows." },
+  { key: "engine.neo.appendDedupeTailRecords", type: "integer", tier: "advanced", help: "Replay-deduplication tail, independent of maxRecords; persistent identity indexes remain authoritative." },
+  { key: "engine.neo.retention", type: "object", tier: "advanced", help: "Scheduled maintenance only (RY-A/N2); no retention in the append path." },
+  { key: "engine.neo.retention.days", type: "integer", tier: "advanced", help: "Minimum age in days for scheduled retention; append never uses this age to remove records." },
+  { key: "engine.neo.retention.softMaxRecords", type: "integer", tier: "advanced", help: "Scheduled retention considers old, unprotected records only above this live-record count." },
   { key: "engine.schicht15", type: "object", tier: "advanced", help: "Curated knowledge promotion settings passed to the Engine." },
   { key: "engine.schicht15.maxPromotionsPerRun", type: "integer", tier: "advanced", help: "Maximum memories promoted by one knowledge-update run; 0 means unlimited." },
   { key: "engine.baseDbPathOverride", type: "string", tier: "advanced", help: "Testing/advanced only; default <home>/state/lancedb. An absolute path (POSIX, drive letter or UNC); a blank value keeps the default." },
@@ -3244,6 +3250,52 @@ export const CONFIG_POLICY_SCHEMA: ConfigSchemaNode = {
             "rust"
           ]
         },
+        "neo": {
+          "type": "object",
+          "properties": {
+            "maxRecords": {
+              "type": "integer"
+            },
+            "appendDedupeTailRecords": {
+              "type": "integer"
+            },
+            "retention": {
+              "type": "object",
+              "properties": {
+                "days": {
+                  "type": "integer"
+                },
+                "softMaxRecords": {
+                  "type": "integer"
+                }
+              },
+              "additionalProperties": false
+            },
+            "corpusDefaultWorkspaceKey": {
+              "type": "string",
+              "x-sensitive": false
+            },
+            "workspaces": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "workspaceKey": {
+                    "type": "string",
+                    "x-sensitive": false
+                  },
+                  "legacyKeys": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "additionalProperties": true
+        },
         "schicht15": {
           "type": "object",
           "properties": {
@@ -3793,33 +3845,6 @@ export const CONFIG_POLICY_SCHEMA: ConfigSchemaNode = {
             "webhookUrl": {
               "type": "string",
               "x-sensitive": true
-            }
-          }
-        },
-        "neo": {
-          "type": "object",
-          "properties": {
-            "corpusDefaultWorkspaceKey": {
-              "type": "string",
-              "x-sensitive": false
-            },
-            "workspaces": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "workspaceKey": {
-                    "type": "string",
-                    "x-sensitive": false
-                  },
-                  "legacyKeys": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
             }
           }
         },

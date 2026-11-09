@@ -38,6 +38,11 @@ pub struct TestHost {
 }
 
 impl TestHost {
+    pub fn with_config(mut self, config: EngineConfig) -> Self {
+        self.config = config;
+        self
+    }
+
     pub fn new(state_dir: PathBuf) -> Self {
         Self {
             state_dir,

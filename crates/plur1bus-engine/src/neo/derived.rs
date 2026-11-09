@@ -42,6 +42,11 @@ pub fn from_turns(
     for input in turns {
         cancel.check()?;
         let turn = Turn::parse(input)?;
+        // N1: imported/injected recall or system context is never human reaction
+        // evidence. Filtering only candidates allowed behavior cards to loop back.
+        if is_injected_context(turn.content)? {
+            continue;
+        }
         if let Some(candidate) = candidate(&turn)? {
             out.candidates.push(candidate);
         }

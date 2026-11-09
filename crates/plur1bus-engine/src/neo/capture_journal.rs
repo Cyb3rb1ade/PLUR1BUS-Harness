@@ -31,6 +31,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[path = "capture_cap.rs"]
+mod cap;
 #[path = "capture_conflict_application_recovery.rs"]
 mod conflict_application_recovery;
 #[path = "capture_curation.rs"]
@@ -217,6 +219,7 @@ impl CaptureJournal {
                 {
                     return Err(StoreError::Busy.into());
                 }
+                self.cap(&binding, &directory, cancel, &check)?;
                 let now = Utc
                     .timestamp_millis_opt(self.host.now_ms())
                     .single()
@@ -227,6 +230,7 @@ impl CaptureJournal {
                     &binding.ctx,
                     &directory,
                     &JsString::from(now.as_str()),
+                    &super::store_policy::StorePolicy::from_config(&self.host.config())?,
                     cancel,
                 )?;
                 if plan.iter().all(Vec::is_empty) {
@@ -311,6 +315,26 @@ impl CaptureJournal {
         Ok(binding.ctx)
     }
     fn with_locks<T>(
+        &self,
+        binding: &Binding,
+        directory: &TrustedDirectory,
+        principal: &Principal,
+        agent: &AgentContext,
+        cancel: &Cancel,
+        action: impl FnOnce(&dyn Fn() -> Result<(), EngineError>) -> Result<T, EngineError>,
+    ) -> Result<T, EngineError> {
+        self.with_leases(binding, directory, principal, agent, cancel, |check| {
+            // Active durable plans must settle before compaction can remove source evidence.
+            match self.cap(binding, directory, cancel, check) {
+                Err(EngineError::Store(StoreError::Busy)) => (),
+                result => result?,
+            }
+            let result = action(check)?;
+            self.cap(binding, directory, cancel, check)?;
+            Ok(result)
+        })
+    }
+    fn with_leases<T>(
         &self,
         binding: &Binding,
         directory: &TrustedDirectory,
@@ -438,6 +462,7 @@ impl CaptureJournal {
             &directory.path().join("record-index.json"),
             &compatibility,
         )?;
+        super::append_history::preserve(directory, cancel, &check)?;
         check()?;
         journal_io::write_plan(
             directory,

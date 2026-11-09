@@ -39,16 +39,21 @@ fn new_rows(
     existing: &[Json],
     ctx: &RequestContext,
     content_dedupe: bool,
+    history_len: usize,
+    dedupe_tail: usize,
 ) -> Result<Vec<Json>, StoreError> {
     let mut identities = std::collections::HashMap::new();
     let mut content = std::collections::HashSet::new();
-    for row in existing {
+    for (index, row) in existing.iter().enumerate() {
         let owned = journal_io::owned(row, ctx);
         identities
             .entry(journal_io::id(row)?)
             .and_modify(|v| *v &= owned)
             .or_insert(owned);
-        if owned && content_dedupe {
+        if owned
+            && content_dedupe
+            && (index < history_len || index >= existing.len().saturating_sub(dedupe_tail))
+        {
             if let Some(Json::String(value)) = field(row, "normalizedStatement") {
                 content.insert(value.clone());
             }
@@ -82,6 +87,7 @@ pub(super) fn build(
     ctx: &RequestContext,
     dir: &TrustedDirectory,
     time: &JsString,
+    policy: &super::store_policy::StorePolicy,
     cancel: &Cancel,
 ) -> Result<Vec<Vec<Json>>, EngineError> {
     let workspace = JsString::from(ctx.workspace_key.as_str());
@@ -108,6 +114,7 @@ pub(super) fn build(
         cancel,
     )?;
     let derived = derived::from_turns(&turns, time, cancel)?;
+    let history = super::append_history::read(dir, cancel)?;
     let mut groups = Vec::new();
     for (index, input) in [
         turns,
@@ -119,11 +126,15 @@ pub(super) fn build(
     .enumerate()
     {
         cancel.check()?;
+        let mut existing = history[index].clone();
+        existing.extend(journal_io::rows(dir, FILES[index], cancel)?);
         groups.push(new_rows(
             input,
-            &journal_io::rows(dir, FILES[index], cancel)?,
+            &existing,
             ctx,
             index == 1,
+            history[index].len(),
+            policy.dedupe_tail_records,
         )?);
     }
     let mut queue = Vec::new();
@@ -165,11 +176,15 @@ pub(super) fn build(
             queue.push(item);
         }
     }
+    let mut existing = history[4].clone();
+    existing.extend(journal_io::rows(dir, FILES[4], cancel)?);
     groups.push(new_rows(
         queue,
-        &journal_io::rows(dir, FILES[4], cancel)?,
+        &existing,
         ctx,
         false,
+        history[4].len(),
+        policy.dedupe_tail_records,
     )?);
     Ok(groups)
 }

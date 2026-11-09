@@ -290,6 +290,45 @@ The unchanged placeholder entry point also allows unused inference code to be di
 binary digests, process evidence, monitoring limitations and why RE-00 dev timings cannot be used as release
 comparators. No binary or model payload is committed.
 
+## Native Neo append bounds (RX6 N1 / RE-D125)
+
+The native writer resolves `neo.maxRecords` (40,000) and the independent
+`neo.appendDedupeTailRecords` (5,000) from configuration, never process environment.
+`neo.retention.days` (90) and `neo.retention.softMaxRecords` (5,000) describe future
+RY-A maintenance; append performs no age/value retention. These keys carry
+`x-restart: core` and `x-tier: advanced`. The existing 64 MiB acquisition and
+50,000-entry index budgets remain separate limits; reaching them refuses work.
+
+Under the existing workspace leases, a completed append bounds the eleven Neo
+journals. Active capture, episode, embedding and operation receipts must settle
+before their source evidence can be removed. Sources must belong to the current
+caller; a required cap involving foreign owners is refused. A held source descriptor,
+modification time and SHA-256 bind the exact bytes checked for ownership to the
+archive publication. Read-side correction idempotency checks do not compact files.
+
+Removed prefixes are first published as private, synced gzip chunks at
+`workspaces/<canonical>/archives/<journal>.cap-<source-revision-sha256>.gz`.
+Only then is the live file replaced through the held directory. The key distinguishes
+later physical source revisions even when their prefixes contain identical bytes;
+retrying one interrupted publication reuses its verified chunk. Archive failure
+preserves the live journal and blocks new append admission after pending work has
+settled. Native emergency chunks deliberately differ from the release's monthly
+archive append; RY-A's value-based monthly archive remains separate work.
+
+`native-append-history.json` retains bounded ownership/deduplication evidence after
+live truncation. It is not a data grant. Without that native evidence, content dedupe
+uses the configured tail while complete live ID collisions are still checked. Native
+plans never derive permission from the ownerless Node compatibility index. Private
+`.native-neo-cap-<uuid>.tmp` files may survive a killed process; 128 such remnants
+or 50,000 directory entries refuse further staging rather than deleting unknown work.
+
+Canonical workspace names with a matching `<key>--<hash>` resolve to themselves.
+Injected recall/system context yields no derived reaction or Behavior-Card. The
+release timestamp helper interprets numeric values below 1e12 as seconds; existing
+C4 recall ordering remains unchanged. The original Node golden and the SHA-bound
+`neo-n1-native-exceptions.json` record the stricter native behavior, including the
+strict cap instead of Node's hysteresis and private 0600 archives.
+
 ## Locks
 
 The public `Lock` type supports both existing Node layouts; callers select the appropriate acquisition API.

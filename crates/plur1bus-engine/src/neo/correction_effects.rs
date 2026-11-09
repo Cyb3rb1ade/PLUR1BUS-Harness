@@ -166,16 +166,25 @@ impl CorrectionEffects for NativeCorrectionEffects {
         if key.is_empty() || key.len() > 256 {
             return Err(StoreError::InvalidInput);
         }
-        self.transaction(ctx, |dir, check| {
-            let rows = read(dir, EVENTS, &self.authority.cancel)?;
-            check()?;
-            Ok(rows
-                .iter()
-                .rev()
-                .filter(|row| owned(row, ctx))
-                .take(1000)
-                .any(|row| field(row, "idempotencyKey") == Some(&text(key))))
-        })
+        self.journal
+            .with_operation_reader(
+                &self.authority.principal,
+                &self.authority.agent,
+                ctx,
+                &self.authority.cancel,
+                &|| self.check(ctx),
+                |dir, check| {
+                    let rows = read(dir, EVENTS, &self.authority.cancel)?;
+                    check()?;
+                    Ok(rows
+                        .iter()
+                        .rev()
+                        .filter(|row| owned(row, ctx))
+                        .take(1000)
+                        .any(|row| field(row, "idempotencyKey") == Some(&text(key))))
+                },
+            )
+            .map_err(storage)
     }
 
     fn rewrite_edges(

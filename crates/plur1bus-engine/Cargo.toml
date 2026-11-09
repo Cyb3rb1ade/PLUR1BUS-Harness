@@ -76,6 +76,8 @@ sha2 = "0.10"
 hmac = "=0.12.1"
 # RX5 confirmation protocol: reuse locked URL-safe encoding and constant-time equality.
 base64 = "=0.22.1"
+# N1 emergency archives: reuse the locked MIT/Apache-2.0 gzip implementation.
+flate2 = { version = "=1.1.10", default-features = false, features = ["rust_backend"] }
 subtle = { version = "=2.6.1", default-features = false }
 # Node import UUID v5 uses SHA-1; this version is already in the locked Lance closure.
 sha1 = "0.11"

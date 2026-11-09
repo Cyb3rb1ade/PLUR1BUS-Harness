@@ -406,6 +406,7 @@ fn main() {
         "build.rs",
         "schema/engine-contract.schema.json",
         "schema/engine-config.schema.json",
+        "schema/native-neo-n1.schema.json",
         "schema/DRIFT.json",
         "schema/input-limits.json",
     ] {
@@ -451,6 +452,12 @@ fn main() {
                 issue["runtimeSchema"].clone(),
             );
         }
+    }
+    for (name, field) in read("schema/native-neo-n1.schema.json")["properties"]
+        .as_object()
+        .expect("N1 native Neo fields")
+    {
+        install_field(&mut config, &format!("neo.{name}"), field.clone());
     }
     generate(config, true, "engine_config.rs");
     let limits = read("schema/input-limits.json");
