@@ -132,6 +132,8 @@ struct Fixture {
     embed: Arc<Embed>,
     policy: Arc<fixture::Policy>,
     merge: NativeMerge,
+    reader: Arc<MemoryReader>,
+    journal: Arc<CaptureJournal>,
 }
 fn setup() -> Fixture {
     let base = fixture::setup();
@@ -163,7 +165,9 @@ fn setup() -> Fixture {
         host,
         embed,
         policy,
-        merge: NativeMerge::new(reader, journal),
+        merge: NativeMerge::new(reader.clone(), journal.clone()),
+        reader,
+        journal,
     }
 }
 fn run(
@@ -590,3 +594,6 @@ fn lexical_and_validity_guards_run_before_the_next_provider_disclosure() {
 
 #[path = "support/normal_selection.rs"]
 mod selection_tests;
+
+#[path = "support/normal_insert.rs"]
+mod insert_tests;

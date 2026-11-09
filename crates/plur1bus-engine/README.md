@@ -31,6 +31,33 @@ The [T5 fixtures](tests/fixtures/recall/golden/render/README.md) describe the re
 the 119 cases and the narrowly authorized Semantic Lens ACL parity exception. The Node reference
 is unchanged; default/on/off Lens settings all retain the authorized base and omit foreign user rows.
 
+## Private ordinary storage (RX6 / RE-05 T4)
+
+`NativeMerge::select_normal` retains an opaque original caller, input vector, assessed TTL,
+configuration, physical store/workspace/state/registry anchors and selected-source snapshot.
+`merge_selected` can prepare and commit an authorized merge. `store_selected` instead stores a
+separate card, including the conservative fallback after a declined merge; it never deletes the
+candidate. Supply and retain the same non-nil operation UUID for retries.
+
+`NormalStoreResult` acknowledges **primary storage only**. It does not mean that curation,
+knowledge promotion, interference or other post-store effects have completed. This internal
+composition does not add a store RPC or activate ProcessEngine/Core.
+
+Before the first Lance write, the private durable receipt freezes original caller/input, UUID,
+actual vector, full Arrow-projected row, creation time and initial TTL. Current policy, ownership,
+physical bindings, configuration digest, tombstones and complete-row comparisons are checked
+through publication. A retained exact retry reuses that intent. A collision, changed completed
+row, missing completed row, lost receipt with an existing target, or expired pending row refuses
+instead of overwriting, resurrecting or extending TTL. A pending intent fences other cooperating
+writers. `NativeMerge::open` inventories and preflights all pending ordinary and merge intents
+before replay, using their original callers and no model or embedding calls.
+
+Receipts are bounded to 512 retained entries, 8 MiB each and 64 MiB aggregate per inventory;
+directory enumeration is capped at 50,000 entries and startup recovery at a cooperative 300 seconds.
+Receipts are not silently pruned. These bounds do not promise a hard RSS limit or an atomic
+transaction across Lance and ordinary files. Readers may observe an inserted row before its
+primary completion receipt; unrelated external writers are outside these cooperating leases.
+
 ## Targets
 
 | Target | Name | What it is |

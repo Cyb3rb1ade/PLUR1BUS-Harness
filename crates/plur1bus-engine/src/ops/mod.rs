@@ -85,3 +85,4 @@ pub(crate) mod conflict_application_state;
 /// Archived native normal-store merge commits and original-caller recovery.
 pub mod durable_merge;
 pub(crate) mod durable_merge_state;
+pub(crate) mod normal_insert_state;

@@ -5,7 +5,7 @@ use crate::{
     store::tombstone::{TombstoneContext, TombstoneRegistry},
 };
 /// Only caller-visible outcome identifiers; no raw query diagnostics or foreign row counts.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum NormalCandidateKind {
     /// A committed fingerprint prevents silent recreation; no provider work is needed.
     Forgotten,
@@ -151,7 +151,6 @@ impl NativeMerge {
         let ctx = &op.context;
         let host = self.reader.context.host();
         let config = serde_json::to_value(host.config()).map_err(|_| StoreError::InvalidInput)?;
-        let cfg = crate::config::effective_config(&config).map_err(|_| StoreError::InvalidInput)?;
         let now = host.now_ms();
         let assessed = assess(
             params,
@@ -225,125 +224,151 @@ impl NativeMerge {
             return Err(StoreError::InvalidInput.into());
         }
         let ((kind, source), _, _) = plan.read(self, principal, agent, cancel, |check| {
-            let maximum = (64 * 1024 * 1024 / (plan.vector.len() * 4 + 128)).min(50_000);
-            let mut limit = 10usize;
-            let selected = loop {
-                check()?;
-                let found = plan.store.search_private_normal_candidates(
-                    &plan.vector,
-                    limit,
-                    ctx.agent_id.as_str(),
-                    &ctx.owner_user_id,
-                    &ctx.workspace_key,
-                )?;
-                let exhausted = found.len() < limit;
-                let mut selected = Vec::new();
-                let mut selected_bytes = 0usize;
-                for scored in found {
-                    check()?;
-                    if !scored.distance.is_finite() || scored.distance < 0. {
-                        return Err(StoreError::Corrupt.into());
-                    }
-                    let actual = plan
-                        .store
-                        .get_record(&scored.id)?
-                        .ok_or(StoreError::InvalidInput)?;
-                    state::bounded_row(&actual.row, cancel)?;
-                    if scored.vector != actual.row.vector {
-                        return Err(StoreError::InvalidInput.into());
-                    }
-                    let row = &actual.row;
-                    if actual.sharing.is_some()
-                        || row.agent_id != ctx.agent_id.as_str()
-                        || row.stored_by != ctx.agent_id.as_str()
-                        || row.owner_user_id != ctx.owner_user_id
-                        || row.workspace_key != ctx.workspace_key
-                        || row.scope != "agent-private"
-                        || row.status != "active"
-                        || !self.reader.visible(&actual, ctx, host.now_ms())?
-                    {
-                        continue;
-                    }
-                    selected_bytes += serde_json::to_vec(&actual.row)
-                        .map_err(|_| StoreError::InvalidInput)?
-                        .len();
-                    if selected_bytes > 64 * 1024 * 1024 {
-                        return Err(StoreError::Unavailable.into());
-                    }
-                    selected.push((actual, scored.distance));
-                    if selected.len() == 10 {
-                        break;
-                    }
-                }
-                if selected.len() == 10 || exhausted {
-                    break selected;
-                }
-                if limit == maximum {
-                    return Err(StoreError::Unavailable.into());
-                }
-                limit = (limit * 4).min(maximum);
-            };
-            let mut rows = Vec::new();
-            for (record, distance) in &selected {
-                let mut value =
-                    serde_json::to_value(&record.row).map_err(|_| StoreError::InvalidInput)?;
-                value
-                    .as_object_mut()
-                    .ok_or(StoreError::InvalidInput)?
-                    .remove("vector");
-                value["_distance"] = serde_json::json!(f64::from(*distance));
-                rows.push(parse_json(&value.to_string()).map_err(|_| StoreError::InvalidInput)?);
-            }
-            let thresholds = Thresholds {
-                duplicate: cfg["duplicateThreshold"].as_f64().unwrap_or(0.95),
-                merge: cfg["merging"]["threshold"].as_f64().unwrap_or(0.7),
-            };
-            let selection = normal_candidates::select(
-                &rows,
-                &JsString::from(assessed.text()),
-                params,
-                thresholds,
-                cancel,
-            )?;
-            let duplicate = selection.safe_duplicate != Json::Null;
-            let chosen = if duplicate {
-                selection.safe_duplicate
-            } else if cfg["merging"]["enabled"] != false
-                && cfg["merging"]["autoApply"] == true
-                && host.llm().is_some()
-            {
-                selection.merge
-            } else {
-                Json::Null
-            };
-            if chosen == Json::Null {
-                return Ok((NormalCandidateKind::Separate, None));
-            }
-            let value: Value =
-                serde_json::from_str(&write_json(&chosen)).map_err(|_| StoreError::InvalidInput)?;
-            let id = value["entry"]["id"]
-                .as_str()
-                .ok_or(StoreError::InvalidInput)?
-                .to_owned();
-            let score = value["score"].as_f64().ok_or(StoreError::InvalidInput)?;
-            let record = selected
-                .into_iter()
-                .find(|(r, _)| r.row.id == id)
-                .ok_or(StoreError::Corrupt)?
-                .0;
-            check()?;
-            Ok((
-                if duplicate {
-                    NormalCandidateKind::Duplicate { id, score }
-                } else {
-                    NormalCandidateKind::Merge { id, score }
-                },
-                Some(Record::from(record)),
-            ))
+            self.query_normal(&plan, cancel, check)
         })?;
         plan.kind = kind;
         plan.source = source;
         Ok(plan)
+    }
+    fn query_normal(
+        &self,
+        plan: &NormalCandidatePlan,
+        cancel: &Cancel,
+        check: &dyn Fn() -> Result<(), EngineError>,
+    ) -> Result<(NormalCandidateKind, Option<Record>), EngineError> {
+        let ctx = &plan.context;
+        let host = self.reader.context.host();
+        let cfg =
+            crate::config::effective_config(&plan.config).map_err(|_| StoreError::InvalidInput)?;
+        let params = &plan.params;
+        let assessed = assess(
+            params,
+            StoreOwner {
+                agent_id: ctx.agent_id.as_str(),
+                owner_user_id: &ctx.owner_user_id,
+                workspace_key: &ctx.workspace_key,
+            },
+            plan.assessed_at,
+            cancel,
+        )?;
+        if plan.forgotten(assessed.text())? {
+            return Ok((NormalCandidateKind::Forgotten, None));
+        }
+        let maximum = (64 * 1024 * 1024 / (plan.vector.len() * 4 + 128)).min(50_000);
+        let mut limit = 10usize;
+        let selected = loop {
+            check()?;
+            let found = plan.store.search_private_normal_candidates(
+                &plan.vector,
+                limit,
+                ctx.agent_id.as_str(),
+                &ctx.owner_user_id,
+                &ctx.workspace_key,
+            )?;
+            let exhausted = found.len() < limit;
+            let mut selected = Vec::new();
+            let mut selected_bytes = 0usize;
+            for scored in found {
+                check()?;
+                if !scored.distance.is_finite() || scored.distance < 0. {
+                    return Err(StoreError::Corrupt.into());
+                }
+                let actual = plan
+                    .store
+                    .get_record(&scored.id)?
+                    .ok_or(StoreError::InvalidInput)?;
+                state::bounded_row(&actual.row, cancel)?;
+                if scored.vector != actual.row.vector {
+                    return Err(StoreError::InvalidInput.into());
+                }
+                let row = &actual.row;
+                if actual.sharing.is_some()
+                    || row.agent_id != ctx.agent_id.as_str()
+                    || row.stored_by != ctx.agent_id.as_str()
+                    || row.owner_user_id != ctx.owner_user_id
+                    || row.workspace_key != ctx.workspace_key
+                    || row.scope != "agent-private"
+                    || row.status != "active"
+                    || !self.reader.visible(&actual, ctx, host.now_ms())?
+                {
+                    continue;
+                }
+                selected_bytes += serde_json::to_vec(&actual.row)
+                    .map_err(|_| StoreError::InvalidInput)?
+                    .len();
+                if selected_bytes > 64 * 1024 * 1024 {
+                    return Err(StoreError::Unavailable.into());
+                }
+                selected.push((actual, scored.distance));
+                if selected.len() == 10 {
+                    break;
+                }
+            }
+            if selected.len() == 10 || exhausted {
+                break selected;
+            }
+            if limit == maximum {
+                return Err(StoreError::Unavailable.into());
+            }
+            limit = (limit * 4).min(maximum);
+        };
+        let mut rows = Vec::new();
+        for (record, distance) in &selected {
+            let mut value =
+                serde_json::to_value(&record.row).map_err(|_| StoreError::InvalidInput)?;
+            value
+                .as_object_mut()
+                .ok_or(StoreError::InvalidInput)?
+                .remove("vector");
+            value["_distance"] = serde_json::json!(f64::from(*distance));
+            rows.push(parse_json(&value.to_string()).map_err(|_| StoreError::InvalidInput)?);
+        }
+        let thresholds = Thresholds {
+            duplicate: cfg["duplicateThreshold"].as_f64().unwrap_or(0.95),
+            merge: cfg["merging"]["threshold"].as_f64().unwrap_or(0.7),
+        };
+        let selection = normal_candidates::select(
+            &rows,
+            &JsString::from(assessed.text()),
+            params,
+            thresholds,
+            cancel,
+        )?;
+        let duplicate = selection.safe_duplicate != Json::Null;
+        let chosen = if duplicate {
+            selection.safe_duplicate
+        } else if cfg["merging"]["enabled"] != false
+            && cfg["merging"]["autoApply"] == true
+            && host.llm().is_some()
+        {
+            selection.merge
+        } else {
+            Json::Null
+        };
+        if chosen == Json::Null {
+            return Ok((NormalCandidateKind::Separate, None));
+        }
+        let value: Value =
+            serde_json::from_str(&write_json(&chosen)).map_err(|_| StoreError::InvalidInput)?;
+        let id = value["entry"]["id"]
+            .as_str()
+            .ok_or(StoreError::InvalidInput)?
+            .to_owned();
+        let score = value["score"].as_f64().ok_or(StoreError::InvalidInput)?;
+        let record = selected
+            .into_iter()
+            .find(|(r, _)| r.row.id == id)
+            .ok_or(StoreError::Corrupt)?
+            .0;
+        check()?;
+        Ok((
+            if duplicate {
+                NormalCandidateKind::Duplicate { id, score }
+            } else {
+                NormalCandidateKind::Merge { id, score }
+            },
+            Some(Record::from(record)),
+        ))
     }
     /// Only the original immutable selection can enter inference; source/config changes fail closed.
     pub fn merge_selected(
@@ -371,3 +396,6 @@ impl NativeMerge {
         )
     }
 }
+
+#[path = "normal_insert.rs"]
+pub(in crate::ops::durable_merge) mod insert;

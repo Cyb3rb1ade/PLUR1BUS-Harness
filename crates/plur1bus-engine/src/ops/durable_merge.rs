@@ -485,3 +485,6 @@ mod normal_merge;
 
 /// Authorized normal-store candidate acquisition and its immutable original admission.
 pub use normal_merge::selection::{NormalCandidateKind, NormalCandidatePlan};
+
+pub use normal_merge::selection::insert::NormalStoreResult;
+pub(crate) use normal_merge::selection::insert::{restore_insert, RestoredInsert};

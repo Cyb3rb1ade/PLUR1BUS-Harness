@@ -1,7 +1,7 @@
 //! Actual private query selection before bounded semantic decisions and provider preparation.
 use super::*;
 use plur1bus_engine::ops::durable_merge::NormalCandidateKind;
-fn setup_selection(merge: bool) -> Fixture {
+pub(super) fn setup_selection(merge: bool) -> Fixture {
     let f = setup();
     f.base
         .store

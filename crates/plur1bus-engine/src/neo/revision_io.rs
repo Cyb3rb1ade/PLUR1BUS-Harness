@@ -105,6 +105,7 @@ pub(super) fn state_with_size(
 /// Follow-up work must not observe a prepared but unaudited human revision as ready.
 pub(super) fn guard_pending(dir: &TrustedDirectory, cancel: &Cancel) -> Result<(), EngineError> {
     crate::ops::durable_merge_state::guard_pending(dir, cancel)?;
+    crate::ops::normal_insert_state::guard_pending(dir, cancel)?;
     crate::ops::interference_state::guard_pending(dir, cancel)?;
     crate::ops::conflict_application_state::guard_pending(dir, cancel)?;
     if let Some(value) = state(dir, cancel)? {

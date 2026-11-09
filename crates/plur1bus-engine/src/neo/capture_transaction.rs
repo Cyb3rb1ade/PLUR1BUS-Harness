@@ -68,6 +68,7 @@ impl CaptureJournal {
         directory: &TrustedDirectory,
         cancel: &Cancel,
     ) -> Result<(), EngineError> {
+        crate::ops::normal_insert_state::guard_pending(directory, cancel)?;
         crate::ops::durable_merge_state::guard_pending(directory, cancel)?;
         Self::guard_non_merge_pending(directory, cancel)
     }
@@ -141,6 +142,33 @@ impl CaptureJournal {
     }
     /// Owning merge validates its own pending receipt; other writers remain fenced.
     pub(crate) fn with_merge_writer<T>(
+        &self,
+        principal: &Principal,
+        agent: &AgentContext,
+        expected: &RequestContext,
+        cancel: &Cancel,
+        extra: &dyn Fn() -> Result<(), EngineError>,
+        action: impl FnOnce(
+            &TrustedDirectory,
+            &Json,
+            &str,
+            &dyn Fn() -> Result<(), EngineError>,
+        ) -> Result<T, EngineError>,
+    ) -> Result<T, EngineError> {
+        self.with_normal_store_writer(
+            principal,
+            agent,
+            expected,
+            cancel,
+            extra,
+            |dir, proof, binding, check| {
+                crate::ops::normal_insert_state::guard_pending(dir, cancel)?;
+                action(dir, proof, binding, check)
+            },
+        )
+    }
+    /// Owning ordinary primary store validates its own pending receipt; other writers remain fenced.
+    pub(crate) fn with_normal_store_writer<T>(
         &self,
         principal: &Principal,
         agent: &AgentContext,
