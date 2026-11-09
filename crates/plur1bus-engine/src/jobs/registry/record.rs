@@ -1,11 +1,15 @@
 //! Frozen run fields and explicit versioned-ledger metadata projection.
-use super::{JobContext, JobReport};
+use super::{
+    notes::{Notes, State},
+    JobContext, JobReport,
+};
 use crate::{
     contract::*,
     jobs::metadata,
     text::json::{parse_exact, parse_json, write_json, TolerantJsonValue as Json},
 };
 use serde_json::{json, Value};
+use std::sync::Arc;
 
 pub(super) struct Draft {
     job: JobName,
@@ -41,11 +45,12 @@ impl Draft {
             id,
         })
     }
-    pub(super) fn context(&self) -> JobContext {
+    pub(super) fn context(&self, snapshot: Arc<Vec<Json>>, cancel: Cancel) -> JobContext {
         JobContext {
             agent: self.agent.clone(),
             trigger: self.trigger,
             now_ms: self.started,
+            notes: Arc::new(State::new(snapshot, cancel)),
         }
     }
     pub(super) fn sweep(&self) -> Result<String, EngineError> {
@@ -70,6 +75,7 @@ impl Draft {
         mut report: JobReport,
         snapshot: &[Json],
         finished: i64,
+        notes: Notes,
     ) -> Result<JobRun, EngineError> {
         validate_time(finished)?;
         if report.reason.as_ref().is_some_and(|s| s.len() > 4096) {
@@ -86,6 +92,17 @@ impl Draft {
                 if property(row, "outcome") != Some(&Json::String("incomplete".into())) {
                     break;
                 }
+                if let Some(Json::Array(keys)) = property(row, "pendingKeys") {
+                    if !notes.pending.is_empty()
+                        && !keys.is_empty()
+                        && !notes
+                            .pending
+                            .iter()
+                            .any(|key| keys.contains(&Json::String(key.as_str().into())))
+                    {
+                        break;
+                    }
+                }
                 attempt += 1;
             }
         }
@@ -101,11 +118,29 @@ impl Draft {
             ));
             Some(JobRunDiary {
                 written: false,
-                reason: Some("no_workspace".into()),
+                reason: Some(
+                    if notes.diary_disabled {
+                        "diary_disabled"
+                    } else {
+                        "no_workspace"
+                    }
+                    .into(),
+                ),
             })
         } else {
-            None
+            notes.diary
         };
+        if report.outcome == JobOutcome::Skipped
+            && report.reason.as_deref() == Some("already_processed")
+            && !notes.abandoned.is_empty()
+        {
+            report.reason = Some("abandoned".into());
+        }
+        let idempotency_key = notes
+            .pending
+            .first()
+            .or_else(|| notes.keys.first())
+            .cloned();
         let duration = finished.saturating_sub(self.started).max(0);
         Ok(JobRun {
             run_id: self.id.clone(),
@@ -127,9 +162,9 @@ impl Draft {
                 provider: None,
             },
             counts: Default::default(),
-            keys: None,
-            pending_keys: None,
-            idempotency_key: None,
+            keys: (!notes.keys.is_empty()).then_some(notes.keys),
+            pending_keys: (!notes.pending.is_empty()).then_some(notes.pending),
+            idempotency_key,
             migrated: None,
             diary,
         })

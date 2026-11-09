@@ -13,6 +13,7 @@ use std::{
     },
     time::Duration,
 };
+mod notes;
 mod record;
 mod startup;
 
@@ -25,6 +26,7 @@ pub struct JobContext {
     pub trigger: JobTrigger,
     /// Host clock at admission.
     pub now_ms: i64,
+    notes: Arc<notes::State>,
 }
 /// One native body owner. Any data access must independently retain its original proven authority.
 pub trait JobBody: Send + Sync {
@@ -239,6 +241,7 @@ impl JobRegistry for Registry {
                 },
                 &[],
                 (self.clock)(),
+                notes::Notes::default(),
             )?;
             let _ = (self.events)(&run);
             return Ok(run);
@@ -256,7 +259,7 @@ impl JobRegistry for Registry {
             let state = state.as_mut().ok_or(StoreError::Corrupt)?;
             self.check(cancel)?;
             let admission = state.session.start(&draft.marker()?, cancel)?;
-            let snapshot = state.session.snapshot(cancel)?.rows;
+            let snapshot = Arc::new(state.session.snapshot(cancel)?.rows);
             let singleton = matches!(
                 job,
                 JobName::KnowledgeUpdate
@@ -291,9 +294,11 @@ impl JobRegistry for Registry {
             job,
             owns,
         };
+        let context = draft.context(snapshot.clone(), cancel.clone());
+        let _notes_guard = notes::Guard(context.notes.clone());
         let report = if owns {
             self.check(cancel)
-                .and_then(|()| body.run(&draft.context(), cancel))
+                .and_then(|()| body.run(&context, cancel))
                 .unwrap_or_else(|_| JobReport {
                     outcome: JobOutcome::Failed,
                     reason: Some(
@@ -311,7 +316,7 @@ impl JobRegistry for Registry {
                 reason: pre_skip.map(str::to_owned),
             }
         };
-        let run = draft.finish(report, &snapshot, (self.clock)())?;
+        let run = draft.finish(report, &snapshot, (self.clock)(), context.notes.freeze()?)?;
         // A cancelled body still needs bounded metadata cleanup; this never executes body work.
         let settle = Cancel::with_deadline(std::time::Instant::now() + Duration::from_secs(5));
         {

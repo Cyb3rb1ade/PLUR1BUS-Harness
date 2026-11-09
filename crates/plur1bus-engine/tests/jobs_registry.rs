@@ -584,3 +584,6 @@ fn completion_requires_the_original_session_and_unchanged_marker() {
 
 #[path = "support/jobs_registry_migration.rs"]
 mod migration;
+
+#[path = "support/jobs_registry_notes.rs"]
+mod notes;
