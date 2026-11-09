@@ -160,7 +160,7 @@ export async function runSteps(engine: Engine, scenario: Scenario, check: () => 
       });
       const raw = await Promise.race([execute(engine, step, controller.signal).catch(operationError), deadline]);
       check();
-      results.push(normalizeStep(raw));
+      results.push(normalizeStep(raw, step.op));
     } catch (error) {
       const message = error instanceof Error ? error.message : "engine operation failed";
       throw new Error(`step ${index + 1} ${step.op}: ${message}`);

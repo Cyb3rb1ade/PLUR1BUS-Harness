@@ -33,6 +33,14 @@ test("tolerates score roundoff and identifies a mismatching path", () => {
   assert.deepEqual(compare(expected, normalizeStep({ items: [{ score: 0.500002 }] }), { scores: 0.001 }), []);
 });
 
+test("uncapped Node recall matches the JSON wire without accepting nonfinite scores", () => {
+  const recall = { blocks: [], capChars: Infinity, deferrals: [], degraded: null };
+  assert.deepEqual(normalizeStep(recall, "recall"), normalizeStep({ ...recall, capChars: null }));
+  assert.throws(() => normalizeStep(recall, "memory.list"), /not JSON/);
+  assert.throws(() => normalizeStep({ ...recall, capChars: -Infinity }, "recall"), /not JSON/);
+  assert.throws(() => normalizeStep({ ...recall, trace: { scores: [Infinity] } }, "recall"), /not JSON/);
+});
+
 test("trace comparison checks the shape and the named numeric paths", () => {
   const expected = normalizeStep({ blocks: [], trace: { candidateCount: 2, scores: [0.5], label: "node" } });
   const actual = normalizeStep({ blocks: [], trace: { candidateCount: 1, scores: [0.5000001], label: "rust" } });

@@ -43,10 +43,13 @@ function canonical(value: unknown): Json {
   throw new Error("parity output is not JSON");
 }
 
-export function normalizeStep(raw: unknown): StepResult {
+export function normalizeStep(raw: unknown, operation?: string): StepResult {
   assertNoMarkers(raw, "engine output");
-  if (!isRecord(raw) || !Object.hasOwn(raw, "trace")) return { result: canonical(raw), trace: null };
-  const { trace, ...result } = raw;
+  // Node's in-process recall uses an uncapped sentinel. Its JSON wire value is null.
+  const wire = operation === "recall" && isRecord(raw) && Object.hasOwn(raw, "capChars")
+    && raw.capChars === Infinity ? { ...raw, capChars: null } : raw;
+  if (!isRecord(wire) || !Object.hasOwn(wire, "trace")) return { result: canonical(wire), trace: null };
+  const { trace, ...result } = wire;
   return { result: canonical(result), trace: trace === undefined ? null : canonical(trace) };
 }
 
