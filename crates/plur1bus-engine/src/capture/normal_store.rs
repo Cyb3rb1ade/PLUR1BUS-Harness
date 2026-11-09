@@ -522,3 +522,7 @@ impl PreparedStoreRow {
         Ok(row)
     }
 }
+
+#[path = "normal_store_effects.rs"]
+mod effects;
+pub use effects::{ExternalStoreEffects, StoreEffects, StoreOutcome};

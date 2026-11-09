@@ -58,6 +58,12 @@ Receipts are not silently pruned. These bounds do not promise a hard RSS limit o
 transaction across Lance and ordinary files. Readers may observe an inserted row before its
 primary completion receipt; unrelated external writers are outside these cooperating leases.
 
+`AssessedStore::effects` prepares the pinned curation event and optional knowledge proposal for
+stored, merged and duplicate outcomes. It retains original input fact quality while using final
+merge importance. Pure UTF-16 cuts and exact duplicate-score formatting remain Node-compatible;
+`into_external` applies F3 to the curation text. These objects are proposals only: they grant no
+write authority, do not publish a queue/log, and do not resolve the separate A1 importance policy.
+
 ## Targets
 
 | Target | Name | What it is |
