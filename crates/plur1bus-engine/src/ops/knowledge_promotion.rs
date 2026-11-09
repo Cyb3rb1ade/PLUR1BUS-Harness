@@ -21,6 +21,8 @@ use crate::{
     text::json::parse_json,
 };
 use std::{path::PathBuf, sync::Arc, time::Duration};
+#[path = "knowledge_promotion_pending.rs"]
+mod pending;
 #[cfg(feature = "testkit")]
 type Observer = Arc<dyn Fn(&str) -> Result<(), EngineError> + Send + Sync>;
 /// Deterministic publisher sharing the actual foreground/capture writer fence.
@@ -64,7 +66,19 @@ impl NativePromotion {
         agent: &AgentContext,
         cancel: &Cancel,
     ) -> Result<MemoryPromotionResult, EngineError> {
+        self.run_checked(ids, principal, agent, cancel, &|| Ok(()), None)
+    }
+    fn run_checked(
+        &self,
+        ids: &[String],
+        principal: &Principal,
+        agent: &AgentContext,
+        cancel: &Cancel,
+        selection_check: &dyn Fn() -> Result<(), EngineError>,
+        expected_queue: Option<Option<&[u8]>>,
+    ) -> Result<MemoryPromotionResult, EngineError> {
         cancel.check()?;
+        selection_check()?;
         let operation = self.reader.context.enter(principal, agent)?;
         let ctx = &operation.context;
         if ctx.background() || !matches!(ctx.origin_wire(), "user" | "system") {
@@ -102,6 +116,7 @@ impl NativePromotion {
         let _gate = self.reader.context.mutation()?;
         let extra = || {
             cancel.check()?;
+            selection_check()?;
             self.reader.context.assert_open()?;
             workspace.assert_unchanged()?;
             base.assert_unchanged()?;
@@ -159,6 +174,9 @@ impl NativePromotion {
                 guarded()?;
                 let queue_before =
                     io::read(&adaptive, "knowledge-pending.json", 2 * 1024 * 1024, cancel)?;
+                if expected_queue.is_some_and(|expected| expected != queue_before.as_deref()) {
+                    return Err(StoreError::Unavailable.into());
+                }
                 let queue_text = queue_before
                     .as_deref()
                     .map(std::str::from_utf8)

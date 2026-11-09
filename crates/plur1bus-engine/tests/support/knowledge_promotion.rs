@@ -485,3 +485,6 @@ fn mixed_publication_removes_only_proved_private_source_entries() {
     assert_eq!(f.host.calls.load(Ordering::SeqCst), 0);
     assert_eq!(f.embed.calls.load(Ordering::SeqCst), 0);
 }
+
+#[path = "knowledge_promotion_pending.rs"]
+mod pending_tests;
