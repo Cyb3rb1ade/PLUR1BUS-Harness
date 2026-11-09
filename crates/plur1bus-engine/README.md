@@ -179,6 +179,12 @@ results never count; persistence errors stay separate from the successful frozen
 The same post-render helper supports already-authorized cache returns. ProcessEngine wiring
 and the capability gate remain pending. No A1 flag is enabled by constructing this store.
 
+`ops::promotion_plan` reproduces A1's deterministic selection, per-call cap, eligibility,
+source-marker digest, quoted evidence and pending-queue cleanup. Existing Markdown is preserved
+verbatim. It returns proposed bytes and source snapshots only; the caller must still prove current
+authority, acquire publication locks, recheck sources and atomically publish marker plus evidence.
+No provider is called and no promotion capability is advertised by this pure component.
+
 ## Targets
 
 | Target | Name | What it is |

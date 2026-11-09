@@ -89,3 +89,6 @@ pub mod durable_merge;
 pub(crate) mod durable_merge_state;
 pub(crate) mod normal_duplicate_state;
 pub(crate) mod normal_insert_state;
+
+/// Deterministic A1 knowledge publication proposals; no filesystem authority.
+pub mod promotion_plan;
