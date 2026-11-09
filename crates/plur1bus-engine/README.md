@@ -184,6 +184,15 @@ source-marker digest, quoted evidence and pending-queue cleanup. Existing Markdo
 verbatim. It returns proposed bytes and source snapshots only; the caller must still prove current
 authority, acquire publication locks, recheck sources and atomically publish marker plus evidence.
 No provider is called and no promotion capability is advertised by this pure component.
+`ops::knowledge_promotion::NativePromotion` publishes explicit IDs for foreground human/system
+callers under the real capture/foreground writer fence and Node publication/pending locks.
+Physical source routes, full rows, ACL/tombstones, current expiry, config, policy and exact Markdown
+are rechecked before each write. The marker and evidence commit atomically; retries after a crash
+before queue cleanup recognize the existing marker and avoid duplicate evidence. Other agents'
+pending entries remain unchanged, and ambiguous legacy/unknown queue data fails closed.
+Pending selection for the deterministic job and ProcessEngine/feature-gate composition remain
+separate work. Eleven integration entries include three actual SIGKILL boundaries; no provider
+call or source-row mutation is required for publication.
 
 ## Targets
 

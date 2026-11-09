@@ -478,3 +478,33 @@ impl NativeMerge {
         })
     }
 }
+
+pub(in crate::ops::durable_merge) fn for_promotion(
+    raw: Option<&str>,
+    cancel: &Cancel,
+) -> Result<Json, EngineError> {
+    entries(raw, cancel).map(|(json, _)| json)
+}
+pub(in crate::ops::durable_merge) fn check_promotion_cleanup(
+    before: Option<&str>,
+    after: &str,
+    agent: &str,
+    ids: &[String],
+    cancel: &Cancel,
+) -> Result<(), EngineError> {
+    let (_, old) = entries(before, cancel)?;
+    let (_, new) = entries(Some(after), cancel)?;
+    for entry in &old {
+        if let Some(retained) = new.iter().find(|n| n.key == entry.key) {
+            if retained != entry {
+                return Err(StoreError::Corrupt.into());
+            }
+        } else if entry.source_agent != agent || !ids.contains(&entry.memory_id) {
+            return Err(StoreError::InvalidInput.into());
+        }
+    }
+    if new.iter().any(|n| !old.iter().any(|o| o.key == n.key)) {
+        return Err(StoreError::Corrupt.into());
+    }
+    Ok(())
+}

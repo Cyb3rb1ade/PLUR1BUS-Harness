@@ -167,9 +167,22 @@ where
     let mut items = Vec::new();
     let mut removals = Vec::new();
     let mut sources = Vec::new();
+    let mut source_bytes = 0usize;
     for id in selected {
         cancel.check()?;
         let row = read(id)?;
+        if let Some(row) = &row {
+            source_bytes = source_bytes
+                .checked_add(
+                    serde_json::to_vec(row)
+                        .map_err(|_| StoreError::Corrupt)?
+                        .len(),
+                )
+                .ok_or(StoreError::Unavailable)?;
+            if source_bytes > MAX_TEXT {
+                return Err(StoreError::Unavailable.into());
+            }
+        }
         let mut reason = match row.as_ref() {
             None => Some("not-found"),
             Some(row)

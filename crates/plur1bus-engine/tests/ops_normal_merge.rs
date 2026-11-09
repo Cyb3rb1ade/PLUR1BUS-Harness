@@ -606,3 +606,6 @@ mod merge_curation_tests;
 
 #[path = "support/normal_merge_knowledge.rs"]
 mod merge_knowledge_tests;
+
+#[path = "support/knowledge_promotion.rs"]
+mod promotion_tests;

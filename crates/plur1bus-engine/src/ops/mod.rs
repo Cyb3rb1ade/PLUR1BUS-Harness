@@ -92,3 +92,6 @@ pub(crate) mod normal_insert_state;
 
 /// Deterministic A1 knowledge publication proposals; no filesystem authority.
 pub mod promotion_plan;
+
+/// Caller-bound atomic canonical knowledge publication.
+pub mod knowledge_promotion;

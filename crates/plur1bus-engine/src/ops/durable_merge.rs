@@ -696,3 +696,19 @@ pub use normal_merge::selection::duplicate::DuplicateStoreResult;
 pub(crate) use normal_merge::selection::duplicate::{restore_duplicate, RestoredDuplicate};
 
 use normal_merge::selection::insert::knowledge as merged_knowledge;
+
+pub(super) fn knowledge_queue_for_promotion(
+    raw: Option<&str>,
+    cancel: &Cancel,
+) -> Result<crate::text::json::TolerantJsonValue, EngineError> {
+    merged_knowledge::for_promotion(raw, cancel)
+}
+pub(super) fn check_promotion_cleanup(
+    before: Option<&str>,
+    after: &str,
+    agent: &str,
+    ids: &[String],
+    cancel: &Cancel,
+) -> Result<(), EngineError> {
+    merged_knowledge::check_promotion_cleanup(before, after, agent, ids, cancel)
+}
