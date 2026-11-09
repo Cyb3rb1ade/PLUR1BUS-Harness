@@ -7,6 +7,10 @@ impl Service {
     pub fn pipeline_embedder(self: &Arc<Self>) -> Arc<dyn EmbeddingProvider> {
         Arc::new(PipelineEmbedder(self.clone()))
     }
+    /// A warm request may share this facade only when its cache has no disk tier.
+    pub(crate) fn memory_only_embedder(self: &Arc<Self>) -> Option<Arc<dyn EmbeddingProvider>> {
+        (!self.cache.has_persistence()).then(|| self.pipeline_embedder())
+    }
     /// Preserve the distinction between an absent reranker and a successful empty result.
     pub fn pipeline_reranker(self: &Arc<Self>) -> Option<Arc<dyn Reranker>> {
         self.reranker

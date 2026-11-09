@@ -8,6 +8,8 @@
 
 #[path = "engine_stores.rs"]
 mod engine_stores;
+#[path = "engine_warm.rs"]
+mod engine_warm;
 use super::seams::Seam;
 use crate::{
     contract::*,
@@ -349,10 +351,15 @@ impl Engine for ProcessEngine {
     }
     fn recall(
         &self,
-        _query: RecallQuery,
-        _options: RecallOptions,
+        query: RecallQuery,
+        options: RecallOptions,
         cancel: &Cancel,
     ) -> Result<RecallResult, EngineError> {
+        if query.warm_only == Some(true) && !self.closed.load(Ordering::Acquire) {
+            if let Some(base) = self.live_stores.configured_base() {
+                return engine_warm::run(self, base, &query, &options, cancel);
+            }
+        }
         cancel.check()?;
         Err(self.unavailable.error())
     }
@@ -1094,3 +1101,7 @@ mod recovery_tests;
 #[cfg(test)]
 #[path = "engine_memory_tests.rs"]
 mod memory_tests;
+
+#[cfg(test)]
+#[path = "engine_warm_tests.rs"]
+mod warm_tests;

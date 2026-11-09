@@ -39,6 +39,7 @@ fn store_failure(error: EngineError) -> StoreError {
 struct State {
     pools: Option<Arc<NamespaceStores>>,
     memory_routes: Option<Arc<MemoryStores>>,
+    warm_routes: Option<Arc<MemoryStores>>,
     recovered: bool,
     agents: BTreeSet<String>,
     closed: bool,
@@ -173,14 +174,54 @@ impl EngineStores {
             return Ok(None);
         };
         if state.memory_routes.is_none() {
-            let shared = SharedPool::open(pools.base(), &self.identity, IDLE_STORES_PER_ROUTE)?
-                .with_parent_pins(pools.root_pins())?;
-            state.memory_routes = Some(Arc::new(MemoryStores::new(
-                PrivateMemoryStores::new(pools),
-                Arc::new(shared),
-            )));
+            state.memory_routes = Some(self.compose_read_routes(pools)?);
         }
         Ok(state.memory_routes.clone())
+    }
+
+    fn compose_read_routes(
+        &self,
+        pools: Arc<NamespaceStores>,
+    ) -> Result<Arc<MemoryStores>, StoreError> {
+        let shared = SharedPool::open(pools.base(), &self.identity, IDLE_STORES_PER_ROUTE)?
+            .with_parent_pins(pools.root_pins())?;
+        Ok(Arc::new(MemoryStores::new(
+            PrivateMemoryStores::new(pools),
+            Arc::new(shared),
+        )))
+    }
+
+    pub(super) fn configured_base(&self) -> Option<&std::path::Path> {
+        self.base.as_deref()
+    }
+
+    pub(super) fn warm_sources(
+        &self,
+        context: &RequestContext,
+    ) -> Result<Vec<ReadSource>, StoreError> {
+        let routes = {
+            let mut state = self.state.lock().map_err(|_| StoreError::Unavailable)?;
+            if state.closed || self.cancel.is_cancelled() {
+                return Err(StoreError::Unavailable);
+            }
+            if state.warm_routes.is_none() {
+                let base = self.base.as_deref().ok_or(StoreError::Unavailable)?;
+                let Some(pools) = NamespaceStores::open_for_warm(
+                    base,
+                    &self.config,
+                    &self.identity,
+                    &self.fingerprint,
+                    IDLE_STORES_PER_ROUTE,
+                )?
+                else {
+                    return Ok(Vec::new());
+                };
+                // Separate read-only pools deliberately do not invoke write-capable S5 recovery.
+                state.warm_routes = Some(self.compose_read_routes(Arc::new(pools))?);
+            }
+            state.warm_routes.clone()
+        };
+        routes.ok_or(StoreError::Unavailable)?.sources(context)
     }
 
     fn writable_private(&self, context: &RequestContext) -> Result<Arc<Store>, StoreError> {
@@ -198,6 +239,7 @@ impl EngineStores {
         state.agents.clear();
         self.count.store(0, Ordering::Release);
         state.memory_routes = None;
+        state.warm_routes = None;
         state.pools = None;
         Ok(())
     }

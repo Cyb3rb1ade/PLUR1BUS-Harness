@@ -1857,3 +1857,21 @@ record can appear after EngineClient bootstraps. The grant carries the current C
 lifetime. The migrator appends the projected audit entry to `state/engine-maintenance.jsonl` before changing
 the schema marker. Re-embedding calls still return their explicit composition error while their process
 service is pending.
+
+### Read-only warm recall in the process (RE-D148)
+
+`engine.recall` with `warmOnly: true` checks the workspace policy and the persisted
+generation switch barrier before model or store work. Private leases are read-only
+and never create a table. Shared leases still use the caller's workspace and user
+bindings. The warm path reads the native Neo prelude when available and uses the
+active embedding service's memory cache for Lance searches. It returns no prompt
+blocks and does not deliver events or run activity, retrieval or recovery writes.
+
+An optional reranker only receives live rows that pass the caller ACL and the
+deletion registry checks. A warm request masks an interrupted deletion until
+normal startup can reconcile it. The isolated warm path has no query LLM.
+
+The comparison covers warm results at the Node pin. Warming the canonical and
+graph stages, retained embedding identities and shared scheduler priority are
+still part of recall composition. See the SHA-bound warm process marker. The
+foreground recall path and its readiness gate remain pending.

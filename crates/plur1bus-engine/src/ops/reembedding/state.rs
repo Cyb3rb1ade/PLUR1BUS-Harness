@@ -120,6 +120,13 @@ impl MigrationStateStore {
         let state = self.read()?;
         Ok(field(migrations(&state)?, id).cloned())
     }
+    /// Check the persistent switch barrier without opening a store or claiming a lease.
+    pub(crate) fn switching(&self) -> Result<bool, StateError> {
+        let state = self.read()?;
+        Ok(object(migrations(&state)?)?
+            .iter()
+            .any(|(_, record)| get_text(record, "state").as_deref() == Some("switching")))
+    }
     /// Return records ordered by Node's pinned locale, first creation timestamp then ID.
     pub fn list(&self) -> Result<Vec<Json>, StateError> {
         let state = self.read()?;

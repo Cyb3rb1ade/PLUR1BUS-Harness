@@ -5,7 +5,7 @@ use crate::{contract::testing::FakeHost, store::Store};
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 
-fn snapshot(root: &Path) -> BTreeMap<PathBuf, String> {
+pub(super) fn snapshot(root: &Path) -> BTreeMap<PathBuf, String> {
     fn walk(root: &Path, path: &Path, out: &mut BTreeMap<PathBuf, String>) {
         for entry in std::fs::read_dir(path).unwrap() {
             let entry = entry.unwrap();

@@ -48,7 +48,14 @@ impl NamespaceStores {
     ) -> Result<Self, StoreError> {
         let layout = Layout::from_config(base, config)?;
         let root_pin = layout.root_pin()?;
-        Self::build(layout, root_pin.as_slice(), identity, resolver, capacity)
+        Self::build(
+            layout,
+            root_pin.as_slice(),
+            identity,
+            resolver,
+            capacity,
+            OpenMode::ReadWrite,
+        )
     }
 
     /// Open routes for an existing layout, without establishing a missing root.
@@ -57,6 +64,33 @@ impl NamespaceStores {
         config: &EngineConfig,
         identity: &VectorSpaceIdentity,
         capacity: usize,
+    ) -> Result<Option<Self>, StoreError> {
+        Self::open_existing_mode(base, config, identity, capacity, OpenMode::ReadWrite)
+    }
+
+    /// Warming never opens a writable handle or repairs the selected generation.
+    pub(crate) fn open_for_warm(
+        base: &Path,
+        config: &EngineConfig,
+        identity: &VectorSpaceIdentity,
+        fingerprint: &str,
+        capacity: usize,
+    ) -> Result<Option<Self>, StoreError> {
+        let mode = OpenMode::ReadOnly;
+        if config.reembedding.is_some() {
+            Self::open_generation_mode(base, config, identity, fingerprint, capacity, mode)
+                .map(Some)
+        } else {
+            Self::open_existing_mode(base, config, identity, capacity, mode)
+        }
+    }
+
+    fn open_existing_mode(
+        base: &Path,
+        config: &EngineConfig,
+        identity: &VectorSpaceIdentity,
+        capacity: usize,
+        mode: OpenMode,
     ) -> Result<Option<Self>, StoreError> {
         let layout = Layout::from_config(base, config)?;
         let root = match TrustedDirectory::open(&layout.base) {
@@ -72,6 +106,7 @@ impl NamespaceStores {
             identity,
             Arc::new(FixedIdentity(identity.clone())),
             capacity,
+            mode,
         )
         .map(Some)
     }
@@ -83,6 +118,24 @@ impl NamespaceStores {
         identity: &VectorSpaceIdentity,
         fingerprint: &str,
         capacity: usize,
+    ) -> Result<Self, StoreError> {
+        Self::open_generation_mode(
+            base,
+            config,
+            identity,
+            fingerprint,
+            capacity,
+            OpenMode::ReadWrite,
+        )
+    }
+
+    fn open_generation_mode(
+        base: &Path,
+        config: &EngineConfig,
+        identity: &VectorSpaceIdentity,
+        fingerprint: &str,
+        capacity: usize,
+        mode: OpenMode,
     ) -> Result<Self, StoreError> {
         let selected = config
             .reembedding
@@ -116,6 +169,7 @@ impl NamespaceStores {
             identity,
             Arc::new(FixedIdentity(identity.clone())),
             capacity,
+            mode,
         )
     }
 
@@ -125,6 +179,7 @@ impl NamespaceStores {
         identity: &VectorSpaceIdentity,
         resolver: Arc<dyn StoreIdentityResolver>,
         capacity: usize,
+        mode: OpenMode,
     ) -> Result<Self, StoreError> {
         let mut configured = layout.read.clone();
         if !configured.contains(&layout.writer) {
@@ -141,6 +196,7 @@ impl NamespaceStores {
                     identity,
                     resolver.clone(),
                     capacity,
+                    mode,
                 )
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -194,6 +250,7 @@ fn open_route(
     identity: &VectorSpaceIdentity,
     identity_resolver: Arc<dyn StoreIdentityResolver>,
     capacity: usize,
+    mode: OpenMode,
 ) -> Result<StoreRoute, StoreError> {
     let path = match &namespace {
         Some(namespace) => namespace_path(&layout.base, namespace)?,
@@ -209,18 +266,14 @@ fn open_route(
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
         Err(error) => return Err(error.into()),
     }
-    let mode = if legacy {
-        OpenMode::ReadOnly
-    } else {
-        OpenMode::ReadWrite
-    };
+    let mode = if legacy { OpenMode::ReadOnly } else { mode };
     let pool =
         StorePool::open(&path, mode, Some(identity), capacity)?.with_parent_pins(pins.clone())?;
     Ok(StoreRoute {
         namespace,
         pool: Arc::new(pool),
         identity_resolver,
-        skip_missing: legacy,
+        skip_missing: mode == OpenMode::ReadOnly,
         pins,
     })
 }
