@@ -93,7 +93,9 @@ impl ImportReceipts for Receipts {
         self.ledger.append(a, r)
     }
 }
+type ArchiveHook = Box<dyn FnOnce() + Send>;
 struct Effects {
+    after_archive: Mutex<Option<ArchiveHook>>,
     case: Value,
     root: PathBuf,
     routes: Arc<Routes>,
@@ -160,6 +162,9 @@ impl UnimportEffects for Effects {
             if c["cancelAfterArchive"] == true {
                 self.cancel.cancel();
             }
+        }
+        if let Some(hook) = self.after_archive.lock().unwrap().take() {
+            hook();
         }
         Ok(path)
     }
@@ -341,6 +346,7 @@ fn exceptions() -> Value {
     e
 }
 struct Fixture {
+    host: Arc<support::TestHost>,
     root: tempfile::TempDir,
     routes: Arc<Routes>,
     effects: Arc<Effects>,
@@ -399,6 +405,7 @@ impl Fixture {
         });
         let cancel = Cancel::never();
         let effects = Arc::new(Effects {
+            after_archive: Mutex::new(None),
             case: c.clone(),
             root: root.path().to_owned(),
             routes: routes.clone(),
@@ -411,7 +418,7 @@ impl Fixture {
             fail: AtomicBool::new(!recover && c["receiptFailure"] == true),
         });
         let ops = Unimporter::new(
-            Arc::new(OperationContext::new(host)),
+            Arc::new(OperationContext::new(host.clone())),
             routes.clone(),
             receipts,
             effects.clone(),
@@ -423,6 +430,7 @@ impl Fixture {
             },
         );
         Self {
+            host,
             root,
             routes,
             effects,
@@ -582,7 +590,7 @@ fn independent_unimporters_serialize_and_commit_one_rollback() {
     host.time
         .store(g["now"].as_i64().unwrap(), Ordering::SeqCst);
     let second = Unimporter::new(
-        Arc::new(OperationContext::new(host)),
+        Arc::new(OperationContext::new(host.clone())),
         f.routes.clone(),
         Arc::new(ImportLedger::new(&f.root.path().join("store"))),
         Arc::new(FileUnimportEffects),
@@ -649,3 +657,6 @@ fn same_timestamp_reimport_recovers_its_own_intent_after_soft_delete() {
         1
     );
 }
+
+#[path = "support/unimport_graph.rs"]
+mod graph;

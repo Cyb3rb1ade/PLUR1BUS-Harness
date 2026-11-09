@@ -113,7 +113,8 @@ impl NativeMemory {
                 ports.unimport_effects,
                 base.clone(),
                 ports.jobs_root,
-            ),
+            )
+            .with_graph_cleanup(ports.journal.clone()),
             promotion: NativePromotion::new(reader.clone(), ports.journal.clone()),
             curation: NativeCuration::new(context.clone(), ports.journal.clone()),
             proposals: Proposals::new(writer.clone()),

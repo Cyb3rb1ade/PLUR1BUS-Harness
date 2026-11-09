@@ -14,6 +14,10 @@ use crate::{
         AgentContext, Cancel, EngineError, MemoryOpErrorCode, MemoryRow, MemoryUnimportRequest,
         MemoryUnimportResult, Principal, StoreError, TurnOrigin,
     },
+    neo::{
+        capture_journal::CaptureJournal, correction_effects::EffectAuthority,
+        unimport_graph::UnimportGraph,
+    },
     store::{ledger::JsonlLedger, RowPatch, Store},
     text::{
         js::{js_trim, utf16_len, JsString},
@@ -104,6 +108,7 @@ pub struct Unimporter {
     effects: Arc<dyn UnimportEffects>,
     base: PathBuf,
     jobs_root: Option<PathBuf>,
+    graph: Option<Arc<CaptureJournal>>,
 }
 impl Unimporter {
     /// Compose guarded stores, the import ledger, archives and optional jobs history.
@@ -122,7 +127,14 @@ impl Unimporter {
             effects,
             base,
             jobs_root,
+            graph: None,
         }
+    }
+    /// Compose native graph cleanup while retaining the original caller for each invocation.
+    #[must_use]
+    pub fn with_graph_cleanup(mut self, journal: Arc<CaptureJournal>) -> Self {
+        self.graph = Some(journal);
+        self
     }
     fn fence(&self, lease: &ImportLease) -> Result<(), EngineError> {
         self.context.assert_open()?;
@@ -268,6 +280,20 @@ impl Unimporter {
             return result.finish();
         }
         let _mutation = self.context.mutation()?;
+        // Admission errors affect derived cleanup only; card rollback remains independently durable.
+        let graph = self.graph.as_ref().map(|journal| {
+            UnimportGraph::open(
+                self.context.clone(),
+                journal.clone(),
+                self.stores.clone(),
+                EffectAuthority {
+                    principal: p.clone(),
+                    agent: a.clone(),
+                    cancel: cancel.clone(),
+                    base_db: self.base.clone(),
+                },
+            )
+        });
         // No creating base-directory write for an empty selection or a cancelled request.
         let mut lease =
             match import_lock::acquire(&self.base, agent, cancel, Duration::from_secs(120)) {
@@ -504,6 +530,23 @@ impl Unimporter {
                     ..Default::default()
                 })
             });
+            let graph_result = graph.map(|admission| {
+                admission.and_then(|graph| graph.run(&cleanup, &|| self.fence(&lease)))
+            });
+            let cleaned = match graph_result {
+                None => cleaned,
+                Some(result) => {
+                    let mut combined = cleaned.unwrap_or_default();
+                    match result {
+                        Ok(graph) => {
+                            combined.graph_edges_removed += graph.graph_edges_removed;
+                            combined.cleanup_errors += graph.cleanup_errors;
+                        }
+                        Err(_) => combined.cleanup_errors += 1,
+                    }
+                    Some(combined)
+                }
+            };
             if let Some(c) = cleaned {
                 result.value["derived"]["graphEdgesRemoved"] = json!(c.graph_edges_removed);
                 result.value["derived"]["mirrorsArchived"] = json!(c.mirrors_archived);

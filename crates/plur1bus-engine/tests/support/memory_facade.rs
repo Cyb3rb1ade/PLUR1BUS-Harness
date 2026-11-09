@@ -270,13 +270,36 @@ fn import_link_and_rollback_share_the_actual_receipts_and_system_guard() {
             &system,
         )
         .unwrap();
+    let ctx = RequestContext::build(&f.base.principal, &system, f.host.as_ref()).unwrap();
+    let graph = f
+        .base
+        .root
+        .path()
+        .join("neo/workspaces")
+        .join(plur1bus_engine::neo::merged::Layout::for_key(&ctx.workspace_key).canonical)
+        .join("memory-graph.jsonl");
+    std::fs::create_dir_all(graph.parent().unwrap()).unwrap();
+    let edge = json!({"source":id,"target":id,"scope":"agent_private",
+        "ownerUserId":ctx.owner_user_id,"agentId":ctx.agent_id.as_str(),"workspaceKey":ctx.workspace_key});
+    std::fs::write(&graph, format!("{edge}\n")).unwrap();
     let request = serde_json::from_value(
         json!({"agentId":"alpha", "importRunId":"facade-run", "dryRun":false}),
     )
     .unwrap();
-    memory
-        .unimport(request, &Cancel::never(), &f.base.principal, &system)
-        .unwrap();
+    let rollback = serde_json::to_value(
+        memory
+            .unimport(request, &Cancel::never(), &f.base.principal, &system)
+            .unwrap(),
+    )
+    .unwrap();
+    // Frozen import semantics leave agent-private rows without user/workspace evidence.
+    // A caller-stamped edge cannot retroactively confer those missing row bindings.
+    assert_eq!(rollback["derived"]["graphEdgesRemoved"], 0, "{rollback}");
+    assert_eq!(rollback["derived"]["cleanupErrors"], 1, "{rollback}");
+    assert_eq!(
+        std::fs::read_to_string(&graph).unwrap(),
+        format!("{edge}\n")
+    );
     assert_eq!(f.base.store.get(id).unwrap().unwrap().status, "deleted");
     assert!(memory.show(id, &f.base.principal, &f.base.agent).is_err());
     assert_eq!(f.base.store.get(SOURCE).unwrap().unwrap().status, "active");

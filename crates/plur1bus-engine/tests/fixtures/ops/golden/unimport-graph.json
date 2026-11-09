@@ -1,0 +1,107 @@
+{
+  "recordedFrom": {
+    "source": {
+      "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+      "treeSha256": "7def6824293d4cfb5f405ecbde1e5ac4e8ab83c9358e9f4d68bb7d428445781d"
+    },
+    "node": "v24.21.0"
+  },
+  "cases": [
+    {
+      "name": "all-revisions",
+      "ids": [
+        "gone"
+      ],
+      "before": "{\"source\":\"gone\",\"target\":\"peer\",\"strength\":0.3}\n{\"source\":\"gone\",\"target\":\"peer\",\"strength\":0.8}\n{\"source\":\"left\",\"target\":\"right\"}\n",
+      "result": {
+        "removed": 2,
+        "kept": 1
+      },
+      "after": "{\"source\":\"left\",\"target\":\"right\"}\n",
+      "replay": {
+        "removed": 0,
+        "kept": 1
+      }
+    },
+    {
+      "name": "ownerless-and-foreign",
+      "ids": [
+        "gone"
+      ],
+      "before": "{\"source\":\"gone\",\"target\":\"peer\"}\n{\"source\":\"peer\",\"target\":\"gone\",\"ownerUserId\":\"foreign\"}\n",
+      "result": {
+        "removed": 2,
+        "kept": 0
+      },
+      "after": "",
+      "replay": {
+        "removed": 0,
+        "kept": 0
+      }
+    },
+    {
+      "name": "malformed-and-partial",
+      "ids": [
+        "gone"
+      ],
+      "before": "  \n{\"source\":\"gone\",\"target\":\"peer\"}\nnot-json\n{\"source\":\"keep\",\"target\":\"tail\"}",
+      "result": {
+        "removed": 1,
+        "kept": 2
+      },
+      "after": "not-json\n{\"source\":\"keep\",\"target\":\"tail\"}\n",
+      "replay": {
+        "removed": 0,
+        "kept": 2
+      }
+    },
+    {
+      "name": "coerced-numeric-id",
+      "ids": [
+        "7"
+      ],
+      "before": "{\"source\":7,\"target\":\"peer\"}\n",
+      "result": {
+        "removed": 1,
+        "kept": 0
+      },
+      "after": "",
+      "replay": {
+        "removed": 0,
+        "kept": 0
+      }
+    },
+    {
+      "name": "no-match",
+      "ids": [
+        "gone"
+      ],
+      "before": " \n{\"source\":\"other\",\"target\":\"peer\"}",
+      "result": {
+        "removed": 0,
+        "kept": 1
+      },
+      "after": " \n{\"source\":\"other\",\"target\":\"peer\"}",
+      "replay": {
+        "removed": 0,
+        "kept": 1
+      }
+    },
+    {
+      "name": "absent",
+      "ids": [
+        "gone"
+      ],
+      "before": null,
+      "result": {
+        "removed": 0,
+        "kept": 0
+      },
+      "after": null,
+      "replay": {
+        "removed": 0,
+        "kept": 0
+      }
+    }
+  ]
+}

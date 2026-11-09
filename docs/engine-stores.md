@@ -1554,3 +1554,61 @@ provenance time. No existing golden/dependency/protected contract changed.
 This closes row preparation only. Actual ordinary-store durable admission/write/open
 recovery, curation/knowledge-pending/interference effects and ProcessEngine/Core
 lifecycle integration are still open; no `Separate` selection is reported stored.
+
+## Original-caller Unimport graph cleanup (RX3 / RE-D129)
+
+`NativeMemory` attaches canonical Neo graph cleanup to the same `Unimporter`,
+private routes and operation generation. Admission captures the original
+Principal/AgentContext, physical workspace/base and host configuration before
+archive callbacks. The optional import request binding never becomes the cleanup
+caller. No frozen trait or RPC changes are needed.
+
+After card rollback and durable receipts, cleanup reopens the actual deleted,
+invalidated private rows. Every removed graph revision needs explicit original
+user/agent/workspace ownership; both endpoints must resolve to private rows of
+that caller. An edge's visibility never grants access to its peer. Row fingerprints
+are retained and rechecked before publication. User-shared/ownerless/ambiguous
+rows and edges do not gain a destructive grant from their IDs.
+
+The cleanup holds the existing kernel and interoperable Neo writer leases plus
+pending-plan guards. It shrinks a journal without append-cap housekeeping: unknown
+retained bytes must not be parsed as new append input. Only complete, unambiguous
+JSON object lines with string endpoint IDs can be removed; malformed bytes, blank
+lines, incomplete tails and duplicate-key objects remain byte-identical. Each
+removed historical revision counts, matching the Node operation. Canonical graph
+only is modified, as in Node; legacy aliases remain outside this cleanup.
+
+Source reads retain an ordinary-file descriptor, identity, mtime and SHA. A private
+synced staging file replaces the live graph only after checking the exact source
+bytes/identity, original caller, configuration, policy, import lease and card
+fingerprints again. Reads are bounded to 64 MiB and 50,000 physical lines. Only row
+fingerprints, not all peer vectors, are retained in the cleanup evidence map.
+Existing staging limits and directory pins apply. This is not an atomic CAS
+against an uncoordinated external writer after the final check.
+
+Card rollback is already committed when derived cleanup starts. A cleanup failure
+increments `cleanupErrors`; rerunning the same rollback retries its already-deleted
+cards. Blocked matching edges remain intact and contribute one graph cleanup
+error. Mirror callbacks stay separate: the old Node vault confirmation binds
+agent/workspace/vault but has no user principal, so it is not promoted to new
+native user authority (controller question F14). No vault move, approval migration
+or deferred RE-07 import task is activated here.
+
+Reference: `tests/fixtures/ops/golden/unimport-graph.json`, six actual calls into
+`createNeoStore().removeGraphEdgesTouching()` at pinned `9f34008c`, recorded twice
+and independently repeated after verifying the full engine/lib source tree.
+`unimport-graph-native-exceptions.json` binds SHA
+`3e060b36afc57d06ac983f47dc970acd5936a4ba650374a1e7a155ad2a4e9afb`
+to stricter authority, source fencing and byte-preservation behavior. Original
+Node results—including ownerless deletion, numeric coercion and whitespace/tail
+normalization—remain unchanged. Three vectors compare native counts/replay with
+explicit native ownership stamping; separate real-Lance tests exercise owner,
+policy, root, source, cancellation and lease failures.
+
+Known native composition boundary: frozen import semantics store default
+agent-private cards without user/workspace bindings. Their rollback can complete,
+but this graph cleanup reports a failure and retains edges: even a correctly
+stamped edge cannot supply missing card ownership. The facade test exercises this
+refusal through the actual import/link/unimport path. This increment does not
+silently change the pinned import-row format or claim those legacy cards have
+full graph-cleanup coverage.

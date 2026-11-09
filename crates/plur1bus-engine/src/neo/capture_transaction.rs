@@ -120,6 +120,23 @@ impl CaptureJournal {
         Ok(())
     }
 
+    /// Shrinking cleanup holds all writer leases and pending-plan guards without append caps.
+    /// Its caller must retain opaque foreign bytes instead of parsing them as append input.
+    pub(crate) fn with_operation_cleanup<T>(
+        &self,
+        principal: &Principal,
+        agent: &AgentContext,
+        expected: &RequestContext,
+        cancel: &Cancel,
+        extra: &dyn Fn() -> Result<(), EngineError>,
+        action: impl FnOnce(
+            &TrustedDirectory,
+            &dyn Fn() -> Result<(), EngineError>,
+        ) -> Result<T, EngineError>,
+    ) -> Result<T, EngineError> {
+        self.with_operation_reader(principal, agent, expected, cancel, extra, action)
+    }
+
     /// Human operations hold the same leases but must not replay automatic work with their policy.
     pub(crate) fn with_operation_writer<T>(
         &self,
