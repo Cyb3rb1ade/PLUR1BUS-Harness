@@ -30,6 +30,7 @@ pub struct JobSession {
     dir: TrustedDirectory,
     lease: KernelLease,
     recovered: bool,
+    generation: uuid::Uuid,
     #[cfg(any(test, feature = "testkit"))]
     observer: Option<Observer>,
 }
@@ -47,6 +48,7 @@ impl JobLedger {
             dir,
             lease,
             recovered: false,
+            generation: uuid::Uuid::new_v4(),
             #[cfg(any(test, feature = "testkit"))]
             observer: None,
         };
@@ -211,4 +213,165 @@ fn check_identity(dir: &TrustedDirectory, expected: Option<(u64, u64)>) -> Resul
         return Err(StoreError::UntrustedPath.into());
     }
     Ok(())
+}
+
+/// Opaque proof that this session durably admitted exactly one start marker.
+pub struct RunAdmission {
+    generation: uuid::Uuid,
+    name: String,
+    marker: Vec<u8>,
+}
+impl JobSession {
+    /// Admit a new metadata run only after orphan recovery succeeded for this session.
+    pub fn start(&self, marker: &Json, cancel: &Cancel) -> Result<RunAdmission, EngineError> {
+        self.check(cancel)?;
+        if !self.recovered {
+            return Err(StoreError::Unavailable.into());
+        }
+        let expected = super::json::node_value(projection(marker)?);
+        let (id, bytes) = super::prepare_marker(marker)?;
+        let name = format!("{id}.started");
+        let marker = self.ledger.write(cancel, |dir| {
+            self.check(cancel)?;
+            let raw = io::read(dir, "ledger.jsonl", MAX_BYTES, cancel)?.unwrap_or_default();
+            if row_ranges(&raw).contains_key(&id) {
+                return Err(StoreError::InvalidInput.into());
+            }
+            super::write_marker_at(dir, &id, &bytes, cancel)?;
+            let running = dir.open_child("running")?;
+            let actual =
+                io::read(&running, &name, MAX_RECORD, cancel)?.ok_or(StoreError::Unavailable)?;
+            if actual != bytes.as_bytes() || super::marker_value(&actual, &id) != expected {
+                return Err(StoreError::Unavailable.into());
+            }
+            Ok(actual)
+        })?;
+        self.check(cancel)?;
+        Ok(RunAdmission {
+            generation: self.generation,
+            name,
+            marker,
+        })
+    }
+    /// Finish this session's admitted run. A failed append/verification keeps its marker for recovery.
+    /// The caller supplies the Node row projection, including sweep/llmSession but excluding version.
+    pub fn finish(
+        &self,
+        admission: RunAdmission,
+        row: &Json,
+        cancel: &Cancel,
+    ) -> Result<(), EngineError> {
+        let RunAdmission {
+            generation,
+            name,
+            marker,
+        } = admission;
+        self.check(cancel)?;
+        if generation != self.generation {
+            return Err(StoreError::InvalidInput.into());
+        }
+        let Json::Object(fields) = row else {
+            return Err(StoreError::InvalidInput.into());
+        };
+        if fields
+            .iter()
+            .rev()
+            .find(|(key, _)| key.to_utf8_lossy() == "agentId")
+            .map(|(_, value)| value)
+            != Some(&Json::String(self.ledger.agent.as_str().into()))
+        {
+            return Err(StoreError::InvalidInput.into());
+        }
+        let mut versioned = vec![(
+            crate::text::js::JsString::from_utf8_str("v"),
+            Json::Number("1".into()),
+        )];
+        for (key, value) in fields {
+            super::set(&mut versioned, key.clone(), value.clone());
+        }
+        let versioned = super::json::node_value(Json::Object(versioned));
+        let row_bytes = write_json(&versioned);
+        if row_bytes.len() > MAX_RECORD {
+            return Err(StoreError::InvalidInput.into());
+        }
+        let id = name
+            .strip_suffix(".started")
+            .ok_or(StoreError::InvalidInput)?;
+        let expected = super::marker_value(&marker, id);
+        let projected = projection(&versioned)?;
+        if projected != expected {
+            return Err(StoreError::InvalidInput.into());
+        }
+        self.ledger.write(cancel, |dir| {
+            self.check(cancel)?;
+            let running = dir.open_child("running")?;
+            if io::read(&running, &name, MAX_RECORD, cancel)?.as_ref() != Some(&marker) {
+                return Err(StoreError::Unavailable.into());
+            }
+            let raw = io::read(dir, "ledger.jsonl", MAX_BYTES, cancel)?.unwrap_or_default();
+            if raw.len() + row_bytes.len() + 2 > MAX_BYTES
+                || raw.iter().filter(|b| **b == b'\n').count() >= MAX_ROWS
+            {
+                return Err(StoreError::Corrupt.into());
+            }
+            if row_ranges(&raw).contains_key(id) {
+                return Err(StoreError::Corrupt.into());
+            }
+            let before = io::identity(dir, "ledger.jsonl")?;
+            let offset = raw.len() + usize::from(raw.last().is_some_and(|b| *b != b'\n'));
+            dir.append_jsonl_durable("ledger.jsonl", &versioned, MAX_RECORD + 2)?;
+            let identity = io::identity(dir, "ledger.jsonl")?;
+            if before.is_some() && before != identity {
+                return Err(StoreError::UntrustedPath.into());
+            }
+            self.observe("run-row-committed");
+            self.check(cancel)?;
+            check_identity(dir, identity)?;
+            io::verify_range(
+                dir,
+                "ledger.jsonl",
+                offset as u64,
+                row_bytes.as_bytes(),
+                cancel,
+            )?;
+            if io::read(&running, &name, MAX_RECORD, cancel)?.as_ref() != Some(&marker) {
+                return Err(StoreError::Unavailable.into());
+            }
+            io::remove(&running, &name)?;
+            self.observe("run-marker-retired");
+            self.check(cancel)?;
+            check_identity(dir, identity)?;
+            io::verify_range(
+                dir,
+                "ledger.jsonl",
+                offset as u64,
+                row_bytes.as_bytes(),
+                cancel,
+            )
+        })
+    }
+    /// Read this selected agent's bounded raw metadata while retaining the lifecycle lease.
+    pub fn snapshot(&self, cancel: &Cancel) -> Result<super::Snapshot, EngineError> {
+        self.check(cancel)?;
+        let snapshot = self.ledger.snapshot(cancel)?;
+        self.check(cancel)?;
+        Ok(snapshot)
+    }
+}
+fn projection(row: &Json) -> Result<Json, EngineError> {
+    let Json::Object(fields) = row else {
+        return Err(StoreError::InvalidInput.into());
+    };
+    let mut projected = Vec::new();
+    for name in ["runId", "job", "phase", "trigger", "startedAt"] {
+        projected.push(
+            fields
+                .iter()
+                .rev()
+                .find(|(key, _)| key.to_utf8_lossy() == name)
+                .cloned()
+                .ok_or(StoreError::InvalidInput)?,
+        );
+    }
+    Ok(Json::Object(projected))
 }

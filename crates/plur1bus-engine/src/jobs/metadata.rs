@@ -144,7 +144,7 @@ fn crash(marker: &Json, agent: &str, now: f64) -> Result<Json, EngineError> {
     ];
     Ok(object(fields))
 }
-fn sweep(ms: f64) -> Result<String, EngineError> {
+pub(super) fn sweep(ms: f64) -> Result<String, EngineError> {
     // Job history outside chrono's representable range remains evidence, not a fabricated date.
     if !ms.is_finite() || ms.abs() > 8_640_000_000_000_000.0 {
         return Err(StoreError::Corrupt.into());

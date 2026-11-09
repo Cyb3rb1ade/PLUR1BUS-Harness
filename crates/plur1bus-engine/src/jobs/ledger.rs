@@ -11,7 +11,7 @@ use std::{io::Write, path::Path};
 mod io;
 mod json;
 mod session;
-pub use session::{JobSession, RecoveryReport};
+pub use session::{JobSession, RecoveryReport, RunAdmission};
 const MAX_BYTES: usize = 64 * 1024 * 1024;
 const MAX_RECORD: usize = 1024 * 1024;
 const MAX_ROWS: usize = 50_000;
@@ -133,62 +133,8 @@ impl JobLedger {
     /// Exclusively create a start marker, retaining exactly the five Node marker fields.
     /// Registry composition must validate the job metadata before calling this persistence port.
     pub fn write_marker(&self, marker: &Json, cancel: &Cancel) -> Result<(), EngineError> {
-        let Json::Object(fields) = marker else {
-            return Err(StoreError::InvalidInput.into());
-        };
-        let id = fields
-            .iter()
-            .rev()
-            .find(|(k, _)| k.to_utf8_lossy() == "runId")
-            .and_then(|(_, v)| {
-                if let Json::String(s) = v {
-                    String::from_utf16(s.as_utf16_units()).ok()
-                } else {
-                    None
-                }
-            })
-            .ok_or(StoreError::InvalidInput)?;
-        safe_name(&id, 128)?;
-        let projected = ["runId", "job", "phase", "trigger", "startedAt"]
-            .iter()
-            .filter_map(|name| {
-                fields
-                    .iter()
-                    .rev()
-                    .find(|(k, _)| k.to_utf8_lossy() == *name)
-                    .cloned()
-            })
-            .collect();
-        let bytes = write_json(&json::node_value(Json::Object(projected)));
-        if bytes.len() > MAX_RECORD {
-            return Err(StoreError::InvalidInput.into());
-        }
-        self.write(cancel, |dir| {
-            let markers = dir.create_child("running")?;
-            markers.restrict_private()?;
-            for (index, entry) in std::fs::read_dir(markers.path())
-                .map_err(StoreError::from)?
-                .enumerate()
-            {
-                cancel.check()?;
-                entry.map_err(StoreError::from)?;
-                if index >= MAX_MARKERS - 1 {
-                    return Err(StoreError::Corrupt.into());
-                }
-            }
-            let name = format!("{id}.started");
-            let mut file = markers.create_file(&name)?;
-            file.write_all(bytes.as_bytes()).map_err(StoreError::from)?;
-            file.sync_all().map_err(StoreError::from)?;
-            if crate::store::directory::regular_file_identity(&file)?
-                != crate::store::directory::regular_file_identity(&markers.open_file(&name)?)?
-            {
-                return Err(StoreError::UntrustedPath.into());
-            }
-            io::sync(&markers)?;
-            markers.assert_unchanged()?;
-            Ok(())
-        })
+        let (id, bytes) = prepare_marker(marker)?;
+        self.write(cancel, |dir| write_marker_at(dir, &id, &bytes, cancel))
     }
     /// Remove a marker only; an absent marker is a no-op. Its run row is never removed.
     pub fn remove_marker(&self, id: &str, cancel: &Cancel) -> Result<(), EngineError> {
@@ -312,4 +258,70 @@ fn marker_value(bytes: &[u8], id: &str) -> Json {
         ],
     };
     Json::Object(fields)
+}
+
+fn prepare_marker(marker: &Json) -> Result<(String, String), EngineError> {
+    let Json::Object(fields) = marker else {
+        return Err(StoreError::InvalidInput.into());
+    };
+    let id = fields
+        .iter()
+        .rev()
+        .find(|(k, _)| k.to_utf8_lossy() == "runId")
+        .and_then(|(_, v)| {
+            if let Json::String(s) = v {
+                String::from_utf16(s.as_utf16_units()).ok()
+            } else {
+                None
+            }
+        })
+        .ok_or(StoreError::InvalidInput)?;
+    safe_name(&id, 128)?;
+    let projected = ["runId", "job", "phase", "trigger", "startedAt"]
+        .iter()
+        .filter_map(|name| {
+            fields
+                .iter()
+                .rev()
+                .find(|(k, _)| k.to_utf8_lossy() == *name)
+                .cloned()
+        })
+        .collect();
+    let bytes = write_json(&json::node_value(Json::Object(projected)));
+    if bytes.len() > MAX_RECORD {
+        return Err(StoreError::InvalidInput.into());
+    }
+    Ok((id, bytes))
+}
+
+fn write_marker_at(
+    dir: &TrustedDirectory,
+    id: &str,
+    bytes: &str,
+    cancel: &Cancel,
+) -> Result<(), EngineError> {
+    let markers = dir.create_child("running")?;
+    markers.restrict_private()?;
+    for (index, entry) in std::fs::read_dir(markers.path())
+        .map_err(StoreError::from)?
+        .enumerate()
+    {
+        cancel.check()?;
+        entry.map_err(StoreError::from)?;
+        if index >= MAX_MARKERS - 1 {
+            return Err(StoreError::Corrupt.into());
+        }
+    }
+    let name = format!("{id}.started");
+    let mut file = markers.create_file(&name)?;
+    file.write_all(bytes.as_bytes()).map_err(StoreError::from)?;
+    file.sync_all().map_err(StoreError::from)?;
+    if crate::store::directory::regular_file_identity(&file)?
+        != crate::store::directory::regular_file_identity(&markers.open_file(&name)?)?
+    {
+        return Err(StoreError::UntrustedPath.into());
+    }
+    io::sync(&markers)?;
+    markers.assert_unchanged()?;
+    Ok(())
 }
