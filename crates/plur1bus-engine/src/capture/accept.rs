@@ -48,10 +48,23 @@ struct Inner {
     queue: Arc<CaptureQueue>,
     replay: ReplayGuard,
     scheduled: bool,
-    closing: AtomicBool,
     links: CancellationLinks,
     admissions: Arc<AdmissionTickets>,
-    submissions: Mutex<Vec<JoinHandle<()>>>,
+    submissions: Mutex<Submissions>,
+}
+
+#[derive(Default)]
+struct Submissions {
+    closed: bool,
+    tasks: Vec<JoinHandle<()>>,
+}
+
+impl Submissions {
+    fn reap(&mut self) {
+        for task in self.tasks.extract_if(.., |task| task.is_finished()) {
+            let _ = task.join();
+        }
+    }
 }
 
 /// Capture service owning resources that must outlive an immediately returned receipt.
@@ -84,10 +97,9 @@ impl CaptureRuntime {
             queue,
             replay,
             scheduled,
-            closing: AtomicBool::new(false),
             links: CancellationLinks::new()?,
             admissions: Arc::new(AdmissionTickets::default()),
-            submissions: Mutex::new(Vec::new()),
+            submissions: Mutex::default(),
         })))
     }
 
@@ -111,7 +123,10 @@ impl CaptureRuntime {
                 active.cancel();
             }
         });
-        let immediate = if self.0.closing.load(Ordering::Acquire) {
+        // Closing takes the same lock before it drains the queue. A successful
+        // admission is tracked before close can observe the runtime as closed.
+        let mut submissions = lock(&self.0.submissions);
+        let immediate = if submissions.closed {
             Some("engine-closed")
         } else if turn.incognito {
             Some("incognito")
@@ -145,17 +160,8 @@ impl CaptureRuntime {
                     let _ = send.send(with_diagnostic(result, &options, inner.scheduled));
                 })
                 .map_err(|_| EngineError::Host(HostError::Failed))?;
-            let mut submissions = lock(&self.0.submissions);
-            let mut active = Vec::with_capacity(submissions.len() + 1);
-            for task in submissions.drain(..) {
-                if task.is_finished() {
-                    let _ = task.join();
-                } else {
-                    active.push(task);
-                }
-            }
-            active.push(handle);
-            *submissions = active;
+            submissions.reap();
+            submissions.tasks.push(handle);
         }
         Ok(CaptureHandle {
             id,
@@ -168,27 +174,19 @@ impl CaptureRuntime {
     /// Stop new capture work and drain scheduler/admission threads within one shared budget.
     /// False means some worker has not yet settled; no thread is forcefully terminated.
     pub fn close(&self, budget: Duration) -> bool {
-        self.0.closing.store(true, Ordering::Release);
         let started = Instant::now();
-        let drained = self.0.queue.close(budget);
+        lock(&self.0.submissions).closed = true;
+        let drained = self.0.queue.close(budget.saturating_sub(started.elapsed()));
         loop {
-            let mut tasks = lock(&self.0.submissions);
-            let mut active = Vec::new();
-            for task in tasks.drain(..) {
-                if task.is_finished() {
-                    let _ = task.join();
-                } else {
-                    active.push(task);
-                }
-            }
-            *tasks = active;
-            if tasks.is_empty() {
+            let mut submissions = lock(&self.0.submissions);
+            submissions.reap();
+            if submissions.tasks.is_empty() {
                 return drained;
             }
             if started.elapsed() >= budget {
                 return false;
             }
-            drop(tasks);
+            drop(submissions);
             thread::sleep(Duration::from_millis(1));
         }
     }
@@ -369,3 +367,7 @@ impl Drop for AdmissionTicket {
         self.release();
     }
 }
+
+#[cfg(test)]
+#[path = "accept_lifecycle_tests.rs"]
+mod lifecycle_tests;
