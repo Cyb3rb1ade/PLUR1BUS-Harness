@@ -1,4 +1,4 @@
-//! Kernel-held capture leases: no stale timeout, nonce takeover or unlink race.
+//! Kernel-held state-writer leases: no stale timeout, nonce takeover or unlink race.
 use crate::{
     contract::{Cancel, EngineError, StoreError},
     store::directory::TrustedDirectory,

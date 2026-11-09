@@ -105,6 +105,35 @@ impl TrustedDirectory {
         &self.physical
     }
 
+    /// Persist directory-entry changes on Unix; Windows relies on synced private child files.
+    pub(crate) fn sync_entries(&self) -> Result<(), StoreError> {
+        self.assert_unchanged()?;
+        #[cfg(unix)]
+        self.anchor.sync_all().map_err(io_error)?;
+        self.assert_unchanged()
+    }
+
+    /// Remove one ordinary single-link child under the caller's cooperating writer lease.
+    /// The directory handle prevents Unix ancestor substitution from redirecting deletion.
+    pub(crate) fn remove_file(&self, name: &str) -> Result<(), StoreError> {
+        valid_child(name)?;
+        let file = self.open_file(name)?;
+        regular_file_identity(&file)?;
+        self.assert_unchanged()?;
+        #[cfg(unix)]
+        {
+            use std::os::fd::AsRawFd;
+            let name = std::ffi::CString::new(name).map_err(|_| StoreError::InvalidInput)?;
+            // SAFETY: both held directory and NUL-terminated single child name are live.
+            if unsafe { libc::unlinkat(self.anchor.as_raw_fd(), name.as_ptr(), 0) } != 0 {
+                return Err(io_error(std::io::Error::last_os_error()));
+            }
+        }
+        #[cfg(windows)]
+        fs::remove_file(self.physical.join(name)).map_err(io_error)?;
+        self.sync_entries()
+    }
+
     /// Opaque device/volume and inode/file-index identity for a native ownership envelope.
     /// This supplements the physical pathname; callers must still retain and revalidate the handle.
     pub(crate) fn identity_parts(&self) -> (u64, u64) {

@@ -4,6 +4,7 @@ pub mod checkpoint;
 pub mod directory;
 pub mod filter;
 pub mod identity;
+pub(crate) mod kernel_lease;
 pub mod lance;
 pub mod ledger;
 pub mod ledger_types;

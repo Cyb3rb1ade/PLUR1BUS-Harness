@@ -25,8 +25,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-#[path = "wal_lock.rs"]
-pub(crate) mod kernel_lock;
+pub(crate) use crate::store::kernel_lease as kernel_lock;
 use kernel_lock::{acquire as lease, KernelLease};
 
 const MAX_BYTES: u64 = 64 * 1024 * 1024;

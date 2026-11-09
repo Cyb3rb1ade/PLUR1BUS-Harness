@@ -1,0 +1,559 @@
+{
+  "pin": "9b935ce1f970bd92a931aa99a58c620669c8085f",
+  "node": "v24.21.0",
+  "sourceHashes": [
+    {
+      "path": "package.json",
+      "sha256": "62985e09c9dbbbf89352bbda6da3fc1c1a92e1006d6b92e680dca0d0d89fdaf9"
+    },
+    {
+      "path": "engine/jobs/job-ledger.js",
+      "sha256": "2bdfd31f59ddf0cedc35175c67b9238bedd242780465c79dc98de2eec742f002"
+    },
+    {
+      "path": "lib/sql-safety.js",
+      "sha256": "a6b949df02d29d3ed0494964c004d861d718eeb90abd271410e22a489de1bc62"
+    },
+    {
+      "path": "lib/log-redact.js",
+      "sha256": "f64f7d2e2fbf13684ad16fe045a1e43a9755c57be00ee7532479286eed0068e3"
+    }
+  ],
+  "boundaries": {
+    "files": "actual A1 ledger and markers",
+    "input": "synthetic records",
+    "providers": "none",
+    "normalization": "orphan marker array sorted by runId only; scratch paths excluded"
+  },
+  "cases": [
+    {
+      "scenario": {
+        "name": "missing",
+        "actions": []
+      },
+      "before": {
+        "rowsJson": [],
+        "unreadable": 0,
+        "markersJson": [],
+        "raw": null
+      },
+      "steps": []
+    },
+    {
+      "scenario": {
+        "name": "ordinary-append",
+        "actions": [
+          {
+            "append": "{\"runId\":\"run-001\",\"job\":\"knowledge-update\",\"phase\":null,\"trigger\":\"manual\",\"startedAt\":42,\"agentId\":\"alpha\",\"outcome\":\"completed\",\"finishedAt\":45,\"durationMs\":3}"
+          }
+        ]
+      },
+      "before": {
+        "rowsJson": [],
+        "unreadable": 0,
+        "markersJson": [],
+        "raw": null
+      },
+      "steps": [
+        {
+          "error": false,
+          "state": {
+            "rowsJson": [
+              "{\"v\":1,\"runId\":\"run-001\",\"job\":\"knowledge-update\",\"phase\":null,\"trigger\":\"manual\",\"startedAt\":42,\"agentId\":\"alpha\",\"outcome\":\"completed\",\"finishedAt\":45,\"durationMs\":3}"
+            ],
+            "unreadable": 0,
+            "markersJson": [],
+            "raw": "{\"v\":1,\"runId\":\"run-001\",\"job\":\"knowledge-update\",\"phase\":null,\"trigger\":\"manual\",\"startedAt\":42,\"agentId\":\"alpha\",\"outcome\":\"completed\",\"finishedAt\":45,\"durationMs\":3}\n"
+          }
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "name": "torn-tail",
+        "initial": "{\"torn\":",
+        "actions": [
+          {
+            "append": "{\"runId\":\"run-001\",\"job\":\"knowledge-update\",\"phase\":null,\"trigger\":\"manual\",\"startedAt\":42,\"agentId\":\"alpha\",\"outcome\":\"completed\",\"finishedAt\":45,\"durationMs\":3}"
+          }
+        ]
+      },
+      "before": {
+        "rowsJson": [],
+        "unreadable": 1,
+        "markersJson": [],
+        "raw": "{\"torn\":"
+      },
+      "steps": [
+        {
+          "error": false,
+          "state": {
+            "rowsJson": [
+              "{\"v\":1,\"runId\":\"run-001\",\"job\":\"knowledge-update\",\"phase\":null,\"trigger\":\"manual\",\"startedAt\":42,\"agentId\":\"alpha\",\"outcome\":\"completed\",\"finishedAt\":45,\"durationMs\":3}"
+            ],
+            "unreadable": 1,
+            "markersJson": [],
+            "raw": "{\"torn\":\n{\"v\":1,\"runId\":\"run-001\",\"job\":\"knowledge-update\",\"phase\":null,\"trigger\":\"manual\",\"startedAt\":42,\"agentId\":\"alpha\",\"outcome\":\"completed\",\"finishedAt\":45,\"durationMs\":3}\n"
+          }
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "name": "complete-unterminated",
+        "initial": "{\"old\":true}",
+        "actions": [
+          {
+            "append": "{\"runId\":\"run-001\",\"job\":\"knowledge-update\",\"phase\":null,\"trigger\":\"manual\",\"startedAt\":42,\"agentId\":\"alpha\",\"outcome\":\"completed\",\"finishedAt\":45,\"durationMs\":3}"
+          }
+        ]
+      },
+      "before": {
+        "rowsJson": [
+          "{\"old\":true}"
+        ],
+        "unreadable": 0,
+        "markersJson": [],
+        "raw": "{\"old\":true}"
+      },
+      "steps": [
+        {
+          "error": false,
+          "state": {
+            "rowsJson": [
+              "{\"old\":true}",
+              "{\"v\":1,\"runId\":\"run-001\",\"job\":\"knowledge-update\",\"phase\":null,\"trigger\":\"manual\",\"startedAt\":42,\"agentId\":\"alpha\",\"outcome\":\"completed\",\"finishedAt\":45,\"durationMs\":3}"
+            ],
+            "unreadable": 0,
+            "markersJson": [],
+            "raw": "{\"old\":true}\n{\"v\":1,\"runId\":\"run-001\",\"job\":\"knowledge-update\",\"phase\":null,\"trigger\":\"manual\",\"startedAt\":42,\"agentId\":\"alpha\",\"outcome\":\"completed\",\"finishedAt\":45,\"durationMs\":3}\n"
+          }
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "name": "unreadable-preserved",
+        "initial": "\n \t\r\n﻿\n[]\nnull\n42\n\"text\"\n{bad}\n{\"old\":true}\n",
+        "actions": [
+          {
+            "append": "{\"runId\":\"run-001\",\"job\":\"knowledge-update\",\"phase\":null,\"trigger\":\"manual\",\"startedAt\":42,\"agentId\":\"alpha\",\"outcome\":\"completed\",\"finishedAt\":45,\"durationMs\":3}"
+          }
+        ]
+      },
+      "before": {
+        "rowsJson": [
+          "{\"old\":true}"
+        ],
+        "unreadable": 5,
+        "markersJson": [],
+        "raw": "\n \t\r\n﻿\n[]\nnull\n42\n\"text\"\n{bad}\n{\"old\":true}\n"
+      },
+      "steps": [
+        {
+          "error": false,
+          "state": {
+            "rowsJson": [
+              "{\"old\":true}",
+              "{\"v\":1,\"runId\":\"run-001\",\"job\":\"knowledge-update\",\"phase\":null,\"trigger\":\"manual\",\"startedAt\":42,\"agentId\":\"alpha\",\"outcome\":\"completed\",\"finishedAt\":45,\"durationMs\":3}"
+            ],
+            "unreadable": 5,
+            "markersJson": [],
+            "raw": "\n \t\r\n﻿\n[]\nnull\n42\n\"text\"\n{bad}\n{\"old\":true}\n{\"v\":1,\"runId\":\"run-001\",\"job\":\"knowledge-update\",\"phase\":null,\"trigger\":\"manual\",\"startedAt\":42,\"agentId\":\"alpha\",\"outcome\":\"completed\",\"finishedAt\":45,\"durationMs\":3}\n"
+          }
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "name": "opaque-and-numeric",
+        "initial": "{\"opaque\":\"\\ud800\",\"unknown\":0.41733280085163044}\n",
+        "actions": [
+          {
+            "append": "{\"runId\":\"run-002\",\"reason\":\"\\udfff\",\"v\":3}"
+          }
+        ]
+      },
+      "before": {
+        "rowsJson": [
+          "{\"opaque\":\"\\ud800\",\"unknown\":0.41733280085163044}"
+        ],
+        "unreadable": 0,
+        "markersJson": [],
+        "raw": "{\"opaque\":\"\\ud800\",\"unknown\":0.41733280085163044}\n"
+      },
+      "steps": [
+        {
+          "error": false,
+          "state": {
+            "rowsJson": [
+              "{\"opaque\":\"\\ud800\",\"unknown\":0.41733280085163044}",
+              "{\"v\":3,\"runId\":\"run-002\",\"reason\":\"\\udfff\"}"
+            ],
+            "unreadable": 0,
+            "markersJson": [],
+            "raw": "{\"opaque\":\"\\ud800\",\"unknown\":0.41733280085163044}\n{\"v\":3,\"runId\":\"run-002\",\"reason\":\"\\udfff\"}\n"
+          }
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "name": "exclusive-marker",
+        "actions": [
+          {
+            "marker": {
+              "runId": "run-001",
+              "job": "knowledge-update",
+              "phase": null,
+              "trigger": "manual",
+              "startedAt": 42
+            }
+          },
+          {
+            "marker": {
+              "runId": "run-001",
+              "job": "knowledge-update",
+              "phase": null,
+              "trigger": "manual",
+              "startedAt": 42
+            }
+          }
+        ]
+      },
+      "before": {
+        "rowsJson": [],
+        "unreadable": 0,
+        "markersJson": [],
+        "raw": null
+      },
+      "steps": [
+        {
+          "error": false,
+          "state": {
+            "rowsJson": [],
+            "unreadable": 0,
+            "markersJson": [
+              "{\"runId\":\"run-001\",\"job\":\"knowledge-update\",\"phase\":null,\"trigger\":\"manual\",\"startedAt\":42}"
+            ],
+            "raw": null
+          }
+        },
+        {
+          "error": true,
+          "state": {
+            "rowsJson": [],
+            "unreadable": 0,
+            "markersJson": [
+              "{\"runId\":\"run-001\",\"job\":\"knowledge-update\",\"phase\":null,\"trigger\":\"manual\",\"startedAt\":42}"
+            ],
+            "raw": null
+          }
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "name": "filename-authoritative",
+        "markers": {
+          "run-001.started": "{\"runId\":\"wrong\",\"job\":\"knowledge-update\"}"
+        },
+        "actions": []
+      },
+      "before": {
+        "rowsJson": [],
+        "unreadable": 0,
+        "markersJson": [
+          "{\"runId\":\"run-001\",\"job\":\"knowledge-update\"}"
+        ],
+        "raw": null
+      },
+      "steps": []
+    },
+    {
+      "scenario": {
+        "name": "corrupt-marker",
+        "markers": {
+          "run-001.started": "{",
+          "ignored.txt": "{}"
+        },
+        "actions": []
+      },
+      "before": {
+        "rowsJson": [],
+        "unreadable": 0,
+        "markersJson": [
+          "{\"runId\":\"run-001\",\"corrupt\":true}"
+        ],
+        "raw": null
+      },
+      "steps": []
+    },
+    {
+      "scenario": {
+        "name": "marker-array",
+        "markers": {
+          "run-001.started": "[\"first\",2]"
+        },
+        "actions": []
+      },
+      "before": {
+        "rowsJson": [],
+        "unreadable": 0,
+        "markersJson": [
+          "{\"0\":\"first\",\"1\":2,\"runId\":\"run-001\"}"
+        ],
+        "raw": null
+      },
+      "steps": []
+    },
+    {
+      "scenario": {
+        "name": "marker-string",
+        "markers": {
+          "run-001.started": "\"🚀\""
+        },
+        "actions": []
+      },
+      "before": {
+        "rowsJson": [],
+        "unreadable": 0,
+        "markersJson": [
+          "{\"0\":\"\\ud83d\",\"1\":\"\\ude80\",\"runId\":\"run-001\"}"
+        ],
+        "raw": null
+      },
+      "steps": []
+    },
+    {
+      "scenario": {
+        "name": "marker-scalar",
+        "markers": {
+          "run-001.started": "null"
+        },
+        "actions": []
+      },
+      "before": {
+        "rowsJson": [],
+        "unreadable": 0,
+        "markersJson": [
+          "{\"runId\":\"run-001\"}"
+        ],
+        "raw": null
+      },
+      "steps": []
+    },
+    {
+      "scenario": {
+        "name": "object-and-number-semantics",
+        "initial": "{\"z\":1,\"z\":2,\"2\":1,\"0\":2,\"n\":1e999}\n",
+        "actions": [
+          {
+            "append": "{\"b\":1,\"0\":3,\"b\":2,\"n\":-0,\"tiny\":1e-7,\"big\":1e21}"
+          }
+        ]
+      },
+      "before": {
+        "rowsJson": [
+          "{\"0\":2,\"2\":1,\"z\":2,\"n\":null}"
+        ],
+        "unreadable": 0,
+        "markersJson": [],
+        "raw": "{\"z\":1,\"z\":2,\"2\":1,\"0\":2,\"n\":1e999}\n"
+      },
+      "steps": [
+        {
+          "error": false,
+          "state": {
+            "rowsJson": [
+              "{\"0\":2,\"2\":1,\"z\":2,\"n\":null}",
+              "{\"0\":3,\"v\":1,\"b\":2,\"n\":0,\"tiny\":1e-7,\"big\":1e+21}"
+            ],
+            "unreadable": 0,
+            "markersJson": [],
+            "raw": "{\"z\":1,\"z\":2,\"2\":1,\"0\":2,\"n\":1e999}\n{\"0\":3,\"v\":1,\"b\":2,\"n\":0,\"tiny\":1e-7,\"big\":1e+21}\n"
+          }
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "name": "remove-marker",
+        "actions": [
+          {
+            "marker": {
+              "runId": "run-001",
+              "job": "knowledge-update",
+              "phase": null,
+              "trigger": "manual",
+              "startedAt": 42
+            }
+          },
+          {
+            "remove": "run-001"
+          },
+          {
+            "remove": "run-001"
+          }
+        ]
+      },
+      "before": {
+        "rowsJson": [],
+        "unreadable": 0,
+        "markersJson": [],
+        "raw": null
+      },
+      "steps": [
+        {
+          "error": false,
+          "state": {
+            "rowsJson": [],
+            "unreadable": 0,
+            "markersJson": [
+              "{\"runId\":\"run-001\",\"job\":\"knowledge-update\",\"phase\":null,\"trigger\":\"manual\",\"startedAt\":42}"
+            ],
+            "raw": null
+          }
+        },
+        {
+          "error": false,
+          "state": {
+            "rowsJson": [],
+            "unreadable": 0,
+            "markersJson": [],
+            "raw": null
+          }
+        },
+        {
+          "error": false,
+          "state": {
+            "rowsJson": [],
+            "unreadable": 0,
+            "markersJson": [],
+            "raw": null
+          }
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "name": "marker-then-row",
+        "actions": [
+          {
+            "marker": {
+              "runId": "run-001",
+              "job": "knowledge-update",
+              "phase": null,
+              "trigger": "manual",
+              "startedAt": 42
+            }
+          },
+          {
+            "append": "{\"runId\":\"run-001\",\"job\":\"knowledge-update\",\"phase\":null,\"trigger\":\"manual\",\"startedAt\":42,\"agentId\":\"alpha\",\"outcome\":\"completed\",\"finishedAt\":45,\"durationMs\":3}"
+          },
+          {
+            "remove": "run-001"
+          }
+        ]
+      },
+      "before": {
+        "rowsJson": [],
+        "unreadable": 0,
+        "markersJson": [],
+        "raw": null
+      },
+      "steps": [
+        {
+          "error": false,
+          "state": {
+            "rowsJson": [],
+            "unreadable": 0,
+            "markersJson": [
+              "{\"runId\":\"run-001\",\"job\":\"knowledge-update\",\"phase\":null,\"trigger\":\"manual\",\"startedAt\":42}"
+            ],
+            "raw": null
+          }
+        },
+        {
+          "error": false,
+          "state": {
+            "rowsJson": [
+              "{\"v\":1,\"runId\":\"run-001\",\"job\":\"knowledge-update\",\"phase\":null,\"trigger\":\"manual\",\"startedAt\":42,\"agentId\":\"alpha\",\"outcome\":\"completed\",\"finishedAt\":45,\"durationMs\":3}"
+            ],
+            "unreadable": 0,
+            "markersJson": [
+              "{\"runId\":\"run-001\",\"job\":\"knowledge-update\",\"phase\":null,\"trigger\":\"manual\",\"startedAt\":42}"
+            ],
+            "raw": "{\"v\":1,\"runId\":\"run-001\",\"job\":\"knowledge-update\",\"phase\":null,\"trigger\":\"manual\",\"startedAt\":42,\"agentId\":\"alpha\",\"outcome\":\"completed\",\"finishedAt\":45,\"durationMs\":3}\n"
+          }
+        },
+        {
+          "error": false,
+          "state": {
+            "rowsJson": [
+              "{\"v\":1,\"runId\":\"run-001\",\"job\":\"knowledge-update\",\"phase\":null,\"trigger\":\"manual\",\"startedAt\":42,\"agentId\":\"alpha\",\"outcome\":\"completed\",\"finishedAt\":45,\"durationMs\":3}"
+            ],
+            "unreadable": 0,
+            "markersJson": [],
+            "raw": "{\"v\":1,\"runId\":\"run-001\",\"job\":\"knowledge-update\",\"phase\":null,\"trigger\":\"manual\",\"startedAt\":42,\"agentId\":\"alpha\",\"outcome\":\"completed\",\"finishedAt\":45,\"durationMs\":3}\n"
+          }
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "name": "tail-changed-between-appends",
+        "actions": [
+          {
+            "append": "{\"runId\":\"run-001\",\"job\":\"knowledge-update\",\"phase\":null,\"trigger\":\"manual\",\"startedAt\":42,\"agentId\":\"alpha\",\"outcome\":\"completed\",\"finishedAt\":45,\"durationMs\":3}"
+          },
+          {
+            "raw": "{\"later\":"
+          },
+          {
+            "append": "{\"runId\":\"run-002\",\"job\":\"gc-run\"}"
+          }
+        ]
+      },
+      "before": {
+        "rowsJson": [],
+        "unreadable": 0,
+        "markersJson": [],
+        "raw": null
+      },
+      "steps": [
+        {
+          "error": false,
+          "state": {
+            "rowsJson": [
+              "{\"v\":1,\"runId\":\"run-001\",\"job\":\"knowledge-update\",\"phase\":null,\"trigger\":\"manual\",\"startedAt\":42,\"agentId\":\"alpha\",\"outcome\":\"completed\",\"finishedAt\":45,\"durationMs\":3}"
+            ],
+            "unreadable": 0,
+            "markersJson": [],
+            "raw": "{\"v\":1,\"runId\":\"run-001\",\"job\":\"knowledge-update\",\"phase\":null,\"trigger\":\"manual\",\"startedAt\":42,\"agentId\":\"alpha\",\"outcome\":\"completed\",\"finishedAt\":45,\"durationMs\":3}\n"
+          }
+        },
+        {
+          "error": false,
+          "state": {
+            "rowsJson": [],
+            "unreadable": 1,
+            "markersJson": [],
+            "raw": "{\"later\":"
+          }
+        },
+        {
+          "error": false,
+          "state": {
+            "rowsJson": [
+              "{\"v\":1,\"runId\":\"run-002\",\"job\":\"gc-run\"}"
+            ],
+            "unreadable": 1,
+            "markersJson": [],
+            "raw": "{\"later\":\n{\"v\":1,\"runId\":\"run-002\",\"job\":\"gc-run\"}\n"
+          }
+        }
+      ]
+    }
+  ]
+}
