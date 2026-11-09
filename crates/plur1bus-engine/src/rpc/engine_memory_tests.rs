@@ -396,3 +396,70 @@ fn process_forget_retracts_shared_rows_only_for_the_original_sharer() {
         "not-found"
     );
 }
+
+#[test]
+fn process_link_requires_system_origin_and_replays_the_actual_receipt() {
+    let temp = tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let state = temp.path().join("state");
+    let base = temp.path().join("db");
+    let workspace = temp.path().join("workspace");
+    std::fs::create_dir(&workspace).unwrap();
+    let host = Arc::new(FakeHost::new(
+        state,
+        serde_json::from_value(json!({
+            "baseDbPath":base, "namespaces":{"activeWriteNamespace":"current"}
+        }))
+        .unwrap(),
+    ));
+    host.set_workspace(&"agent".parse().unwrap(), workspace.clone());
+    host.set_now_ms(10_000);
+    let engine = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
+    let identity = engine.embedding().identities().remove(0).space.unwrap();
+    let width = identity.dimension.as_u64().unwrap() as usize;
+    let path = base.join("current/agent");
+    let store = Store::create(&path, &identity, width).unwrap();
+    let mut row = adopt_tests::row(vec![1.; width]);
+    row.created_at = 2_000.into();
+    store.upsert(&[row]).unwrap();
+    let row_before = serde_json::to_value(store.get(LIVE).unwrap().unwrap()).unwrap();
+    drop(store);
+
+    let mut request = params();
+    request["id"] = json!(LIVE);
+    request["req"] = json!({"sourceRef":"fixture:meeting;run=source-run", "provenance":"imported",
+        "idempotencyKey":"item-1", "dryRun":true});
+    let link = |request: &Value| {
+        methods::dispatch(&engine, "engine.memory.link", request, &Cancel::never())
+    };
+    assert_eq!(link(&request).unwrap_err().reason, "denied");
+    request["a"]["origin"] = json!("system");
+    let preview = link(&request).unwrap();
+    assert_eq!(preview["outcome"], "linked");
+    assert_eq!(preview["dryRun"], true);
+    let receipts = base.join("_links/agent.jsonl");
+    assert!(!receipts.exists());
+    assert!(!workspace.join(".adaptive-learning").exists());
+
+    request["req"]["dryRun"] = json!(false);
+    let applied = link(&request).unwrap();
+    assert_eq!(applied["linkId"], preview["linkId"]);
+    assert_eq!(applied["outcome"], "linked");
+    assert_eq!(applied["importRunId"], "source-run");
+    let repeated = link(&request).unwrap();
+    assert_eq!(repeated["linkId"], applied["linkId"]);
+    assert_eq!(repeated["outcome"], "already-linked");
+    assert_eq!(
+        std::fs::read_to_string(receipts).unwrap().lines().count(),
+        1
+    );
+    let audit = std::fs::read_to_string(workspace.join(".adaptive-learning/destructive-ops.jsonl"))
+        .unwrap();
+    assert_eq!(audit.lines().count(), 1);
+    assert!(audit.contains("memory.linked"));
+    let store = Store::open(&path, crate::store::OpenMode::ReadOnly, Some(&identity)).unwrap();
+    assert_eq!(
+        serde_json::to_value(store.get(LIVE).unwrap().unwrap()).unwrap(),
+        row_before
+    );
+    assert!(engine.capabilities().memory_link);
+}

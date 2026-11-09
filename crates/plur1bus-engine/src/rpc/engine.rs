@@ -165,9 +165,15 @@ impl ProcessEngine {
             Arc::new(crate::ops::adopt::CopiedStoreRoutes),
             store_cancel.clone(),
         );
-        let capabilities = decode(
-            json!({"memoryLink":false,"recallStats":false,"knowledgePromotion":false,"memoryCuration":false}),
-        )?;
+        let base = config
+            .base_db_path
+            .as_ref()
+            .filter(|p| !p.is_empty())
+            .map(std::path::PathBuf::from);
+        let capabilities = decode(json!({
+            "memoryLink":base.is_some(),
+            "recallStats":false,"knowledgePromotion":false,"memoryCuration":false
+        }))?;
         let status = decode(json!({
             "ready": false, "degraded": {"reason":"composition-pending","capability":"recall"},
             "agents":0,"contract":"1.17.0","storeSchema":{"current":null,"expected":"1"},
@@ -175,11 +181,6 @@ impl ProcessEngine {
             "sharedMemory":{"supported":false,"mode":"unavailable"}
         }))?;
         let closed = Arc::new(AtomicBool::new(false));
-        let base = config
-            .base_db_path
-            .as_ref()
-            .filter(|p| !p.is_empty())
-            .map(std::path::PathBuf::from);
         let live_stores = Arc::new(EngineStores::new(
             config,
             base.clone(),
@@ -467,6 +468,18 @@ impl MemoryOps for ProcessEngine {
         self.memory_ports()?.writer.forget(id, principal, agent)
     }
 
+    fn link(
+        &self,
+        id: &str,
+        request: MemoryLinkRequest,
+        principal: &Principal,
+        agent: &AgentContext,
+    ) -> Result<MemoryLinkResult, EngineError> {
+        self.memory_ports()?
+            .reader
+            .link(id, &request, principal, agent)
+    }
+
     unavailable_methods! {
         fn correct(_id: &str, _text: &str, _principal: &Principal, _agent: &AgentContext) -> MemoryCorrectResult;
         fn share(_id: &str, _target: MemoryShareTarget, _options: ShareOptions, _principal: &Principal, _agent: &AgentContext) -> MemoryShareResult;
@@ -475,7 +488,6 @@ impl MemoryOps for ProcessEngine {
         fn rebind(_request: MemoryRebindRequest, _cancel: &Cancel, _principal: &Principal, _agent: &AgentContext) -> MemoryRebindResult;
         fn unbind(_request: MemoryUnbindRequest, _cancel: &Cancel, _principal: &Principal, _agent: &AgentContext) -> MemoryUnbindResult;
         fn unimport(_request: MemoryUnimportRequest, _cancel: &Cancel, _principal: &Principal, _agent: &AgentContext) -> MemoryUnimportResult;
-        fn link(_id: &str, _request: MemoryLinkRequest, _principal: &Principal, _agent: &AgentContext) -> MemoryLinkResult;
         fn stats(_ids: Option<&[String]>, _principal: &Principal, _agent: &AgentContext) -> MemoryStatsResult;
         fn promote(_request: MemoryPromoteRequest, _principal: &Principal, _agent: &AgentContext) -> MemoryPromotionResult;
     }
