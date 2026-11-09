@@ -139,6 +139,31 @@ test('the ungated jobs can neither delay nor fail the gate', () => {
     'an ungated job in needs is a contract error, never a silent pass');
 });
 
+test('engine parity is advisory and runs for Rust, Core, parity fixtures or a new engine pin', () => {
+  const jobs = jobBlocks(workflow());
+  const job = jobs['engine-parity'];
+  assert.ok(job, 'missing engine-parity job');
+  assert.ok(UNGATED.includes('engine-parity'));
+  assert.match(job, /^    needs: changes$/m);
+  const jobIf = /^    if: (.*)$/m.exec(job)[1];
+  for (const [files, enginePinChanged, proceed, expected] of [
+    [['crates/plur1bus-engine/src/lib.rs'], false, true, true],
+    [['packages/core/src/engine/client.ts'], false, true, true],
+    [['tests/engine-parity/scenarios/recall/plain.json'], false, true, true],
+    [['docs/engine-stores.md'], true, true, true],
+    [['docs/engine-stores.md'], false, true, false],
+    [['packages/web/src/example.ts'], false, true, false],
+    [['crates/plur1bus-engine/src/lib.rs'], false, false, false],
+  ]) {
+    const flags = classify({ event: 'pull_request', files, enginePinChanged });
+    const outputs = Object.fromEntries(Object.entries({ ...flags, proceed }).map(([key, value]) => [key, String(value)]));
+    assert.equal(condition(jobIf, outputs), expected, files.join(', '));
+  }
+  assert.match(job, /pnpm parity --check tests\/engine-parity\/scenarios --report /);
+  assert.doesNotMatch(job, /--node-only|continue-on-error/);
+  assert.match(job, /if: \$\{\{ !cancelled\(\) \}\}[\s\S]*name: engine-parity-report/);
+});
+
 test('every Desktop platform builds test executables before the unchanged execution deadline', () => {
   const yaml = readFileSync(new URL('../../.github/workflows/desktop.yml', import.meta.url), 'utf8');
   const desktop = jobBlocks(yaml).desktop;

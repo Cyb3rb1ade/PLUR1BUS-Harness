@@ -68,7 +68,7 @@ test('an added job cannot silently bypass the gate', () => {
 
 test('slow, flaky and advisory jobs are not part of the gate: they are not in the selection', () => {
   for (const job of UNGATED) assert(!(job in selections(flags({ rust: 'true', 'ts-core': 'true', web: 'true', python: 'true' }))), job);
-  for (const job of ['unit-os', 'web-browser-macos', 'python-host', 'perf-startup', 'perf-budgets']) assert(UNGATED.includes(job), job);
+  for (const job of ['unit-os', 'web-browser-macos', 'python-host', 'perf-startup', 'perf-budgets', 'engine-parity']) assert(UNGATED.includes(job), job);
 });
 
 test('Core shards and their exact-partition gate are required only for selected TypeScript suites', () => {
