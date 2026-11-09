@@ -1747,3 +1747,24 @@ they are not new Node observations. Coverage includes foreign-tail starvation,
 latest hidden revision, original context, root replacement, duplicate keys,
 100-record limit, same-user cross-agent visibility, cross-user refusal, source
 failure, disabled reads and cancellation after namespace selection.
+
+### Process-owned store opening (RE-D136)
+
+`ProcessEngine.open` initializes the actual active namespace writer using the same
+resolved embedding identity as its embedding service. Construction is lazy; the
+first open requires the host-resolved `baseDbPath`. Contract agent IDs pass the
+stricter physical-store segment validation before any directory is created.
+The namespace pools retain their existing identity and physical-root checks.
+
+`status.agents` counts distinct explicitly opened agents without filesystem work
+or waiting for the pool mutex. As in the pinned Node implementation, closing an
+agent handle removes that agent from the opened set; it does not delete a table.
+Repeated close of that same handle cannot unregister a subsequent reopen. Engine
+close serializes with opening, drops its cached pools, clears the count and refuses
+new opens. Handles do not retain the pools after engine shutdown. The native
+exception marker binds the original Node source SHA; tests use synthetic real
+ProcessEngine/Lance stores, not newly recorded Node outcomes.
+
+An open table grants no row authority and does not establish startup recovery,
+capture draining, or readiness. Recall/capture/memory activation remains pending
+its original-caller and recovery composition.

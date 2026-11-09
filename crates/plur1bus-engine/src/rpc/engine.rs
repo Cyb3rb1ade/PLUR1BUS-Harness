@@ -1,11 +1,14 @@
 //! Process composition over the frozen engine ports.
 //!
 //! RE-03 provides real embedding/model services; copied-store inspection and the
-//! static system supplement reuse their native components. Recall, capture, jobs
+//! static system supplement reuse their native components. Store opening uses lazy
+//! namespace pools. Recall, capture, jobs
 //! and operations are not complete in this checkout; their ports explicitly
 //! report unavailability until their owning packages supply implementations.
 //! Selecting a flat embedding seam never installs a fake memory pipeline.
 
+#[path = "engine_stores.rs"]
+mod engine_stores;
 use super::seams::Seam;
 use crate::{
     contract::*,
@@ -15,6 +18,7 @@ use crate::{
         service::{Service, ServiceOptions},
     },
 };
+use engine_stores::EngineStores;
 use serde_json::{json, Value};
 use std::{
     collections::BTreeMap,
@@ -30,6 +34,7 @@ pub struct ProcessEngine {
     embedding: Arc<Service>,
     stores: crate::ops::adopt::StoreAdopter,
     store_cancel: Cancel,
+    live_stores: Arc<EngineStores>,
     checkpoints: crate::store::checkpoint::CheckpointStore,
     system_supplement: Vec<String>,
     capabilities: Capabilities,
@@ -169,6 +174,14 @@ impl ProcessEngine {
             embedding,
             stores,
             store_cancel,
+            live_stores: Arc::new(EngineStores::new(
+                config,
+                raw["baseDbPath"]
+                    .as_str()
+                    .filter(|path| !path.is_empty())
+                    .map(std::path::PathBuf::from),
+                space,
+            )),
             checkpoints,
             system_supplement: crate::recall::system_supplement::build(
                 raw["neo"]["enabled"] != false,
@@ -222,22 +235,24 @@ impl Engine for ProcessEngine {
     fn capabilities(&self) -> &Capabilities {
         &self.capabilities
     }
-    fn open(&self, _agent: &AgentId) -> Result<AgentStoreHandle, EngineError> {
-        Err(self.unavailable.error())
+    fn open(&self, agent: &AgentId) -> Result<AgentStoreHandle, EngineError> {
+        self.live_stores.open(agent)
     }
     fn close(&self, _budget: Option<Duration>) -> Result<(), EngineError> {
         self.closed.store(true, Ordering::Release);
         self.store_cancel.cancel();
+        let stores_closed = self.live_stores.close();
         self.embedding.close();
         self.subscribers
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clear();
-        Ok(())
+        stores_closed
     }
     fn status(&self) -> EngineStatus {
         let mut status = self.status.clone();
         status.models = self.embedding.status();
+        status.agents = (self.live_stores.count() as u64).into();
         // Memory/journal composition is pending; status never blocks on reverse RPC.
         if self.closed.load(Ordering::Acquire) {
             status.degraded = Some(self.closed_degradation.clone());
@@ -769,7 +784,9 @@ mod tests {
             "composition-pending",
         );
         let agent_id = serde_json::from_value(json!("fixture-agent")).unwrap();
-        not_available(engine.open(&agent_id), "composition-pending");
+        assert!(
+            matches!(engine.open(&agent_id), Err(EngineError::Invalid { field, .. }) if field == "baseDbPath")
+        );
         not_available(
             engine.memory().show("fixture-id", &principal(), &agent()),
             "composition-pending",
@@ -903,3 +920,7 @@ mod supplement_tests;
 #[cfg(test)]
 #[path = "engine_adopt_tests.rs"]
 mod adopt_tests;
+
+#[cfg(test)]
+#[path = "engine_open_tests.rs"]
+mod open_tests;

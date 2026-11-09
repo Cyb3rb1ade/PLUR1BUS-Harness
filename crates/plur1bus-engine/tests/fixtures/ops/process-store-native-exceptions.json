@@ -1,0 +1,14 @@
+{
+  "exception": "RE-D136",
+  "sourceCommit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+  "source": "engine/create-engine.js",
+  "sourceSha256": "616601790f1859fee2a61494bfd2ed8cd82874bdc759c37b8e5295c183028ed6",
+  "reference": "open initializes the active writer and registers a distinct agent; handle close removes the agent from openedAgents",
+  "native": [
+    "Repeated close of the same handle is idempotent even after another open of the agent.",
+    "Engine close serializes with open, releases cached namespace pools and rejects future opens.",
+    "Library opening requires the host-resolved baseDbPath; no implicit host path is invented.",
+    "Physical namespace pins and existing native identity validation remain mandatory; status reads only an atomic count."
+  ],
+  "coverage": "Synthetic actual ProcessEngine/Lance integration, not new Node golden observations. No row authorization, recovery or readiness is inferred from open."
+}
