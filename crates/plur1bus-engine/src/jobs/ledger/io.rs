@@ -65,3 +65,49 @@ pub(super) fn remove(dir: &TrustedDirectory, name: &str) -> Result<(), EngineErr
     dir.remove_file(name)?;
     Ok(())
 }
+
+/// Verify only the exact acknowledged row span; unrelated earlier ledger content is not reread per marker.
+pub(super) fn verify_range(
+    dir: &TrustedDirectory,
+    name: &str,
+    offset: u64,
+    bytes: &[u8],
+    cancel: &Cancel,
+) -> Result<(), EngineError> {
+    use std::io::{Seek, SeekFrom};
+    cancel.check()?;
+    let mut file = dir.open_file(name)?;
+    let identity = regular_file_identity(&file)?;
+    file.seek(SeekFrom::Start(offset))
+        .map_err(StoreError::from)?;
+    let mut buffer = [0; 65536];
+    let mut position = 0;
+    while position < bytes.len() {
+        cancel.check()?;
+        let count = (bytes.len() - position).min(buffer.len());
+        file.read_exact(&mut buffer[..count])
+            .map_err(StoreError::from)?;
+        if buffer[..count] != bytes[position..position + count] {
+            return Err(StoreError::Corrupt.into());
+        }
+        position += count;
+    }
+    if regular_file_identity(&dir.open_file(name)?)? != identity {
+        return Err(StoreError::UntrustedPath.into());
+    }
+    dir.assert_unchanged()?;
+    Ok(())
+}
+
+pub(super) fn identity(
+    dir: &TrustedDirectory,
+    name: &str,
+) -> Result<Option<(u64, u64)>, EngineError> {
+    match dir.open_file(name) {
+        Ok(file) => Ok(Some(regular_file_identity(&file)?)),
+        Err(StoreError::Io {
+            kind: std::io::ErrorKind::NotFound,
+        }) => Ok(None),
+        Err(e) => Err(e.into()),
+    }
+}

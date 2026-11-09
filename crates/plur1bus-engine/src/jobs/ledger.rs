@@ -10,6 +10,8 @@ use crate::{
 use std::{io::Write, path::Path};
 mod io;
 mod json;
+mod session;
+pub use session::{JobSession, RecoveryReport};
 const MAX_BYTES: usize = 64 * 1024 * 1024;
 const MAX_RECORD: usize = 1024 * 1024;
 const MAX_ROWS: usize = 50_000;
@@ -244,22 +246,7 @@ impl JobLedger {
             if total_bytes > MAX_BYTES {
                 return Err(StoreError::Corrupt.into());
             }
-            let run_id = (
-                JsString::from_utf8_str("runId"),
-                Json::String(JsString::from_utf8_str(id)),
-            );
-            let fields = match parse_json(&String::from_utf8_lossy(&bytes)) {
-                Ok(value) => {
-                    let mut fields = spread(json::node_value(value));
-                    set(&mut fields, run_id.0, run_id.1);
-                    fields
-                }
-                Err(_) => vec![
-                    run_id,
-                    (JsString::from_utf8_str("corrupt"), Json::Bool(true)),
-                ],
-            };
-            out.push(Json::Object(fields));
+            out.push(marker_value(&bytes, id));
         }
         markers.assert_unchanged()?;
         dir.assert_unchanged()?;
@@ -306,4 +293,23 @@ fn spread(value: Json) -> Vec<(JsString, Json)> {
             .collect(),
         _ => Vec::new(),
     }
+}
+
+fn marker_value(bytes: &[u8], id: &str) -> Json {
+    let run_id = (
+        JsString::from_utf8_str("runId"),
+        Json::String(JsString::from_utf8_str(id)),
+    );
+    let fields = match parse_json(&String::from_utf8_lossy(bytes)) {
+        Ok(value) => {
+            let mut fields = spread(json::node_value(value));
+            set(&mut fields, run_id.0, run_id.1);
+            fields
+        }
+        Err(_) => vec![
+            run_id,
+            (JsString::from_utf8_str("corrupt"), Json::Bool(true)),
+        ],
+    };
+    Json::Object(fields)
 }
