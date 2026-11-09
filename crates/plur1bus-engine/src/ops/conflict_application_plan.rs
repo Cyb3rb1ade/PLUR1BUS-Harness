@@ -140,6 +140,7 @@ impl ConflictLedger {
                 },
                 now,
             )?;
+            let successor = crate::store::row::persisted_projection(&successor)?;
             if store.get_record(&successor.id)?.is_some() {
                 return Err(StoreError::InvalidInput.into());
             }
@@ -236,3 +237,12 @@ impl ConflictLedger {
         })
     }
 }
+
+#[path = "conflict_application.rs"]
+mod apply;
+pub use apply::{
+    ApplicationAuthorization, ApplicationResult, ConfirmationCheck, ConfirmationVerifier,
+};
+
+#[path = "conflict_application_recovery.rs"]
+mod recovery;

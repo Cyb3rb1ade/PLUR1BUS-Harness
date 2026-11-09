@@ -1137,7 +1137,54 @@ fallback; non-string reasons remain valid proposal data but refuse preparation.
 account), agent context, fingerprint, current policy, model, proposal and actual
 source snapshots. The plan has no public constructor or Deserialize path.
 Neither preparation nor validation writes a memory, calls a model, persists an
-approval or grants mutation authority. The plan is currently in-memory: durable
-confirmed application and its restart recovery are the next composition step.
+approval or grants mutation authority. Preparation returns an in-memory review plan; RE-D81 below persists that exact
+plan only after explicit verification and implements its primary-commit recovery.
 The existing frozen selectors and safeUpdate row builder are reused unchanged;
 no golden, dependency, RPC or HostServices contract change is introduced.
+
+## Confirmed conflict primary commit and restart (RX6 / RE-D81)
+
+`apply_application` requires a trusted native `ConfirmationVerifier` and an
+explicit proof for the exact `conflict-apply` operation/fingerprint/original
+principal and agent context. There is no default approval, RPC capability or
+production proof adapter in this component. The host adapter must validate the
+proof, purpose, binding and expiry, and make an identical grant retry idempotent
+if receipt publication failed. It runs locally and bounded under the writer
+leases. Neither a recommendation nor a fingerprint is a permission.
+
+Before writing Lance, the component atomically saves the exact reviewed plan and
+original physical workspace proof in a private `native-conflict-application-*.json`
+receipt. The approval proof is never persisted. A fresh operation requires the
+unchanged source and an absent successor; a missing receipt cannot be guessed
+from a matching already-applied version chain. A confirmed operation stores the
+frozen successor first, then supersedes its source, checks both complete rows
+and finally completes the receipt. The other observed memory remains unchanged.
+Every check retains current caller/policy/model/physical roots, source visibility,
+tombstones and exact proposal/observation references. Changed or deleted targets
+and successors refuse; an exact retry never recreates or overwrites them.
+
+The safeUpdate successor is projected through the actual Arrow row codec before
+fingerprinting. Lance Float64 columns therefore compare exactly with the frozen
+expected row, including integral timestamps and reset counters. This does not
+introduce a floating tolerance or change the frozen safeUpdate row builder.
+
+`ConflictLedger::open` inventories all pending original callers and preflights all
+plans before applying any. It reconstructs the successor from the frozen sources,
+proposal, vector and time, verifies the complete result/fingerprint, and checks
+current original authority. No model, new confirmation or new startup principal
+is used. Four real SIGKILL cuts cover confirmed-plan publication, successor
+commit, source supersede and completion. A fresh component retains the original
+successor and timestamp. Automatic Neo writers and the other operation-writer
+users wait for pending applications; the owning adapter also fences pending
+interference, C4 and automatic work.
+
+Limits are 512 retained receipts, 8 MiB per receipt, 64 MiB actual aggregate bytes,
+50,000 entries per directory scan and a 300-second startup deadline. Capacity,
+corruption, unsafe links and current authority changes refuse; history is not
+silently pruned. A failure may follow a partial durable write, and recovery
+requires the original receipt. This is not a cross-Lance/JSONL transaction or a
+rollback/external-writer atomicity guarantee. Runtime composition must share its
+operation lifecycle/generation ownership. The result acknowledges the primary
+version chain only: optional Neo graph/reconsolidation effects, a real host
+confirmation adapter, normal-store composition and ProcessEngine startup remain
+open. No new golden, dependency or protected interface is introduced.

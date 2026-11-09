@@ -64,8 +64,49 @@ pub(super) fn guard_automatic_pending(
     Ok(())
 }
 impl CaptureJournal {
+    pub(crate) fn guard_non_application_pending(
+        directory: &TrustedDirectory,
+        cancel: &Cancel,
+    ) -> Result<(), EngineError> {
+        crate::ops::interference_state::guard_pending(directory, cancel)?;
+        if super::super::revision_io::state(directory, cancel)?.is_some_and(|value| {
+            !super::super::derived_fields::bool_field(&value, "complete")
+                .is_ok_and(|complete| complete)
+        }) {
+            return Err(StoreError::Busy.into());
+        }
+        Ok(())
+    }
+
     /// Human operations hold the same leases but must not replay automatic work with their policy.
     pub(crate) fn with_operation_writer<T>(
+        &self,
+        principal: &Principal,
+        agent: &AgentContext,
+        expected: &RequestContext,
+        cancel: &Cancel,
+        extra: &dyn Fn() -> Result<(), EngineError>,
+        action: impl FnOnce(
+            &TrustedDirectory,
+            &Json,
+            &str,
+            &dyn Fn() -> Result<(), EngineError>,
+        ) -> Result<T, EngineError>,
+    ) -> Result<T, EngineError> {
+        self.with_conflict_application_writer(
+            principal,
+            agent,
+            expected,
+            cancel,
+            extra,
+            |dir, proof, binding, check| {
+                crate::ops::conflict_application_state::guard_pending(dir, cancel)?;
+                action(dir, proof, binding, check)
+            },
+        )
+    }
+    /// The owning confirmed-application component validates and resumes its own pending receipt.
+    pub(crate) fn with_conflict_application_writer<T>(
         &self,
         principal: &Principal,
         agent: &AgentContext,

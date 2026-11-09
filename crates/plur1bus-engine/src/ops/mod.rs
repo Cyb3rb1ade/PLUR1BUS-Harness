@@ -79,3 +79,5 @@ pub mod conflicts;
 /// Durable, original-caller application of private interference plans.
 pub mod interference;
 pub(crate) mod interference_state;
+
+pub(crate) mod conflict_application_state;

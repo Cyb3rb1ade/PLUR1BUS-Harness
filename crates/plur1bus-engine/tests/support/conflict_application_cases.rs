@@ -215,3 +215,199 @@ fn revalidation_refuses_changed_source_withdrawn_proposal_and_current_policy() {
         );
     }
 }
+
+use plur1bus_engine::ops::conflicts::{
+    ApplicationAuthorization, ConfirmationCheck, ConfirmationVerifier,
+};
+struct Verifier {
+    fingerprint: String,
+    calls: std::sync::atomic::AtomicUsize,
+    allowed: bool,
+}
+impl ConfirmationVerifier for Verifier {
+    fn verify(&self, request: &ConfirmationCheck<'_>, cancel: &Cancel) -> Result<(), EngineError> {
+        cancel.check()?;
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        if !self.allowed
+            || request.fingerprint != self.fingerprint
+            || request.command != "conflict-apply"
+        {
+            return Err(StoreError::InvalidInput.into());
+        }
+        Ok(())
+    }
+}
+#[test]
+fn actual_application_requires_explicit_bound_confirmation_and_retries_without_reauthorizing() {
+    let f = owned_fixture();
+    let proposal = propose(&f);
+    let plan = f
+        .ledger
+        .prepare_application(
+            &request(&f, &proposal),
+            &f.principal,
+            &f.agent,
+            &Cancel::never(),
+        )
+        .unwrap();
+    assert!(f
+        .ledger
+        .apply_application(&plan, None, &f.principal, &f.agent, &Cancel::never())
+        .is_err());
+    let verifier = Verifier {
+        fingerprint: plan.fingerprint().into(),
+        calls: 0.into(),
+        allowed: true,
+    };
+    let proof = uuid::Uuid::new_v4().to_string();
+    let authorization = ApplicationAuthorization {
+        verifier: &verifier,
+        proof: &proof,
+    };
+    let first = f
+        .ledger
+        .apply_application(
+            &plan,
+            Some(&authorization),
+            &f.principal,
+            &f.agent,
+            &Cancel::never(),
+        )
+        .unwrap();
+    assert_eq!(first.old_id, f.request.existing.row.id);
+    assert_eq!(first.new_id, plan.review()["successorId"]);
+    assert!(!first.replayed);
+    let old = f.store.get(&first.old_id).unwrap().unwrap();
+    let next = f.store.get(&first.new_id).unwrap().unwrap();
+    assert_eq!(old.status, "superseded");
+    assert_eq!(old.superseded_by, first.new_id);
+    assert_eq!(next.previous_version, first.old_id);
+    assert_eq!(next.text, "Combined synthetic decision");
+    assert_eq!(next.update_source, "conflict-resolver");
+    assert_eq!(next.owner_user_id, f.request.existing.row.owner_user_id);
+    assert_eq!(
+        f.store.get(&f.request.new.row.id).unwrap().unwrap().text,
+        f.request.new.row.text
+    );
+    let second = f
+        .ledger
+        .apply_application(&plan, None, &f.principal, &f.agent, &Cancel::never())
+        .unwrap();
+    assert!(second.replayed);
+    assert_eq!(second.new_id, first.new_id);
+    assert_eq!(verifier.calls.load(Ordering::SeqCst), 1);
+}
+#[test]
+fn denied_or_mismatched_confirmation_leaves_no_successor_or_replay_permission() {
+    for mode in ["denied", "binding", "empty"] {
+        let f = owned_fixture();
+        let proposal = propose(&f);
+        let plan = f
+            .ledger
+            .prepare_application(
+                &request(&f, &proposal),
+                &f.principal,
+                &f.agent,
+                &Cancel::never(),
+            )
+            .unwrap();
+        let verifier = Verifier {
+            fingerprint: if mode == "binding" {
+                "different-plan".into()
+            } else {
+                plan.fingerprint().into()
+            },
+            calls: 0.into(),
+            allowed: mode != "denied",
+        };
+        let proof = if mode == "empty" {
+            String::new()
+        } else {
+            uuid::Uuid::new_v4().to_string()
+        };
+        let auth = ApplicationAuthorization {
+            verifier: &verifier,
+            proof: &proof,
+        };
+        assert!(f
+            .ledger
+            .apply_application(&plan, Some(&auth), &f.principal, &f.agent, &Cancel::never())
+            .is_err());
+        assert!(f
+            .ledger
+            .apply_application(&plan, None, &f.principal, &f.agent, &Cancel::never())
+            .is_err());
+        assert!(f
+            .store
+            .get(plan.review()["successorId"].as_str().unwrap())
+            .unwrap()
+            .is_none());
+        assert_eq!(
+            f.store
+                .get(&f.request.existing.row.id)
+                .unwrap()
+                .unwrap()
+                .status,
+            "active"
+        );
+    }
+}
+#[cfg(feature = "testkit")]
+#[test]
+fn partial_application_reuses_the_frozen_successor_and_current_authority() {
+    for stage in ["confirmed", "successor", "superseded", "complete"] {
+        let mut f = owned_fixture();
+        let proposal = propose(&f);
+        let plan = f
+            .ledger
+            .prepare_application(
+                &request(&f, &proposal),
+                &f.principal,
+                &f.agent,
+                &Cancel::never(),
+            )
+            .unwrap();
+        let verifier = Verifier {
+            fingerprint: plan.fingerprint().into(),
+            calls: 0.into(),
+            allowed: true,
+        };
+        let proof = uuid::Uuid::new_v4().to_string();
+        let auth = ApplicationAuthorization {
+            verifier: &verifier,
+            proof: &proof,
+        };
+        f.ledger = f.ledger.with_application_observer(Arc::new(move |at| {
+            if at == stage {
+                Err(StoreError::Unavailable.into())
+            } else {
+                Ok(())
+            }
+        }));
+        assert!(f
+            .ledger
+            .apply_application(&plan, Some(&auth), &f.principal, &f.agent, &Cancel::never())
+            .is_err());
+        f.ledger = f.ledger.with_application_observer(Arc::new(|_| Ok(())));
+        f.policy.allowed.store(false, Ordering::SeqCst);
+        assert!(f
+            .ledger
+            .apply_application(&plan, None, &f.principal, &f.agent, &Cancel::never())
+            .is_err());
+        f.policy.allowed.store(true, Ordering::SeqCst);
+        let result = f
+            .ledger
+            .apply_application(&plan, None, &f.principal, &f.agent, &Cancel::never())
+            .unwrap();
+        assert!(result.replayed);
+        assert_eq!(verifier.calls.load(Ordering::SeqCst), 1);
+        assert_eq!(result.new_id, plan.review()["successorId"]);
+        assert_eq!(
+            f.store.get(&result.old_id).unwrap().unwrap().status,
+            "superseded"
+        );
+    }
+}
+
+#[path = "conflict_application_recovery_cases.rs"]
+mod recovery_cases;

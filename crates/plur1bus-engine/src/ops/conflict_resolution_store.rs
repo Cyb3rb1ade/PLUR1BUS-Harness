@@ -224,7 +224,7 @@ impl ConflictLedger {
         Ok(None)
     }
 }
-fn validate_original(row: &Value, request: &ConflictRequest) -> Result<(), EngineError> {
+pub(super) fn validate_original(row: &Value, request: &ConflictRequest) -> Result<(), EngineError> {
     if row["newMemoryId"] != request.new.row.id
         || row["existingMemoryId"] != request.existing.row.id
         || row["newAgentId"] != request.new.row.stored_by

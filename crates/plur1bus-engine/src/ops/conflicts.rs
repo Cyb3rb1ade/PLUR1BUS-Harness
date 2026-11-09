@@ -15,6 +15,8 @@ use chrono::SecondsFormat;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::sync::Arc;
+#[cfg(feature = "testkit")]
+type ApplicationObserver = Arc<dyn Fn(&str) -> Result<(), EngineError> + Send + Sync>;
 const LOG: &str = "conflict-log.jsonl";
 /// Only observations that retain both rows; applying a resolution is a separate confirmed operation.
 #[derive(Clone, Copy, Debug)]
@@ -49,11 +51,18 @@ pub struct ConflictRequest {
 pub struct ConflictLedger {
     reader: Arc<MemoryReader>,
     journal: Arc<CaptureJournal>,
+    #[cfg(feature = "testkit")]
+    application_observer: Option<ApplicationObserver>,
 }
 impl ConflictLedger {
     /// Bind existing source/lifecycle and workspace-policy services without writing files.
     pub fn new(reader: Arc<MemoryReader>, journal: Arc<CaptureJournal>) -> Self {
-        Self { reader, journal }
+        Self {
+            reader,
+            journal,
+            #[cfg(feature = "testkit")]
+            application_observer: None,
+        }
     }
     fn transaction<T>(
         &self,
@@ -62,6 +71,30 @@ impl ConflictLedger {
         cancel: &Cancel,
         action: impl FnOnce(
             &TrustedDirectory,
+            &RequestContext,
+            &dyn Fn() -> Result<(), EngineError>,
+        ) -> Result<T, EngineError>,
+    ) -> Result<T, EngineError> {
+        self.transaction_with_journal(
+            principal,
+            agent,
+            cancel,
+            |workspace, dir, _, _, ctx, check| {
+                super::conflict_application_state::guard_pending(dir, cancel)?;
+                action(workspace, ctx, check)
+            },
+        )
+    }
+    fn transaction_with_journal<T>(
+        &self,
+        principal: &Principal,
+        agent: &AgentContext,
+        cancel: &Cancel,
+        action: impl FnOnce(
+            &TrustedDirectory,
+            &TrustedDirectory,
+            &crate::text::json::TolerantJsonValue,
+            &str,
             &RequestContext,
             &dyn Fn() -> Result<(), EngineError>,
         ) -> Result<T, EngineError>,
@@ -93,13 +126,13 @@ impl ConflictLedger {
             }
             Ok(())
         };
-        self.journal.with_operation_writer(
+        self.journal.with_conflict_application_writer(
             principal,
             agent,
             ctx,
             cancel,
             &check,
-            |_, _, _, current| action(&workspace, ctx, current),
+            |dir, proof, binding, current| action(&workspace, dir, proof, binding, ctx, current),
         )
     }
     fn sources(&self, request: &ConflictRequest, ctx: &RequestContext) -> Result<(), EngineError> {
@@ -309,4 +342,7 @@ pub use resolutions::ResolutionRequest;
 
 #[path = "conflict_application_plan.rs"]
 mod applications;
-pub use applications::{ApplicationPlan, ApplicationRequest};
+pub use applications::{
+    ApplicationAuthorization, ApplicationPlan, ApplicationRequest, ApplicationResult,
+    ConfirmationCheck, ConfirmationVerifier,
+};

@@ -254,6 +254,16 @@ pub(super) fn from_batches(batches: &[RecordBatch]) -> Result<Vec<MemoryRow>, St
     })
 }
 
+/// Freeze the exact declared-row representation that Lance's Arrow roundtrip will return.
+/// In particular Float64 columns read as floating JSON numbers, even for integral timestamps.
+pub(crate) fn persisted_projection(row: &MemoryRow) -> Result<MemoryRow, StoreError> {
+    let batch = to_batch(std::slice::from_ref(row), arrow_schema(row.vector.len())?)?;
+    from_batches(&[batch])?
+        .into_iter()
+        .next()
+        .ok_or(StoreError::Corrupt)
+}
+
 /// Decode one Lance row. Every column is nullable, Node's readers treat NULL as the column's
 /// default, and Arrow JSON omits a NULL field, so a missing or NULL column takes that default
 /// instead of failing the whole read. Only `id` and `vector` have none: without them a row is
