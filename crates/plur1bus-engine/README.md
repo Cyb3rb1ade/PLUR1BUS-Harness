@@ -103,6 +103,17 @@ production timeout is introduced. This is ordinary-primary staging only. Merge/d
 the whole-request coordinator and ProcessEngine activation remain open. Cooperating leases do
 not make queue, audit and Lance writes one externally atomic transaction.
 
+`NativeMerge::store_selected_with_publication` durably requests the ordinary branch's complete
+primary → curation → knowledge sequence before its first primary write. An optional
+`publication_requested` flag keeps that original receipt pending even in gaps before the next
+child intent exists; unrelated native writers remain fenced. Open recovery drives the same
+children under the original caller with no provider work and no nested writer leases. Prepared
+phases keep their times; phases not yet started take their first real preparation time during
+recovery. Existing primary-only receipts gain no new side effects unless explicitly upgraded.
+A retry of an upgraded receipt resumes the retained obligation even through the primary API.
+The returned `StorePublicationResult` acknowledges this ordinary branch only; candidate/merge/
+duplicate admission and interference still require the full request coordinator.
+
 ## Targets
 
 | Target | Name | What it is |

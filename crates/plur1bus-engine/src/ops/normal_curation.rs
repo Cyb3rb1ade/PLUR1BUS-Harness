@@ -233,6 +233,7 @@ impl NativeMerge {
                 validate_only: false,
                 curation: true,
                 knowledge: false,
+                publication: false,
             },
         )?;
         Ok(StoreCurationResult {

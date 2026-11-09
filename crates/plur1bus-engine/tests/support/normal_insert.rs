@@ -825,3 +825,6 @@ mod curation_tests;
 
 #[path = "normal_knowledge.rs"]
 mod knowledge_tests;
+
+#[path = "normal_publication_chain.rs"]
+mod publication_chain_tests;

@@ -21,6 +21,8 @@ pub(crate) struct Receipt {
     pub curation: Option<CurationReceipt>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub knowledge: Option<KnowledgeReceipt>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub publication_requested: bool,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -44,11 +46,17 @@ pub(crate) struct KnowledgeReceipt {
     // 0 prepared, 1 queue written, 2 overflow audited, 3 complete.
     pub stage: u8,
 }
+fn is_false(value: &bool) -> bool {
+    !*value
+}
 impl Receipt {
     pub(crate) fn pending(&self) -> bool {
         self.stage != 2
             || self.curation.as_ref().is_some_and(|r| !r.complete)
             || self.knowledge.as_ref().is_some_and(|r| r.stage != 3)
+            || (self.publication_requested
+                && (!self.curation.as_ref().is_some_and(|r| r.complete)
+                    || self.knowledge.as_ref().is_none_or(|r| r.stage != 3)))
     }
 }
 pub(crate) fn receipts(

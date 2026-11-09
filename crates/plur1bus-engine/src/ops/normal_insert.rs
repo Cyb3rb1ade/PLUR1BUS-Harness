@@ -17,12 +17,14 @@ struct InsertMode {
     validate_only: bool,
     curation: bool,
     knowledge: bool,
+    publication: bool,
 }
 struct InsertResult {
     primary: NormalStoreResult,
     curation_replayed: bool,
     knowledge_replayed: bool,
     knowledge_staged: bool,
+    publication_requested: bool,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -160,15 +162,18 @@ impl NativeMerge {
         agent: &AgentContext,
         cancel: &Cancel,
     ) -> Result<NormalStoreResult, EngineError> {
-        self.insert_selected(
+        let result = self.insert_selected(
             plan,
             operation_id,
             principal,
             agent,
             cancel,
             InsertMode::default(),
-        )
-        .map(|r| r.primary)
+        )?;
+        if result.publication_requested {
+            self.finish_publication(operation_id, principal, agent, cancel)?;
+        }
+        Ok(result.primary)
     }
     fn insert_selected(
         &self,
@@ -292,6 +297,7 @@ impl NativeMerge {
                             stage: 0,
                             curation: None,
                             knowledge: None,
+                            publication_requested: mode.publication,
                         },
                         None,
                     )
@@ -354,6 +360,7 @@ impl NativeMerge {
                     files.validate(self, plan, cancel)?;
                 }
                 let knowledge_staged = knowledge.as_ref().is_some_and(|f| f.frozen.staged);
+                let publication_requested = receipt.publication_requested || mode.publication;
                 let result = || InsertResult {
                     primary: NormalStoreResult {
                         memory_id: row.row.id.clone(),
@@ -362,9 +369,23 @@ impl NativeMerge {
                     curation_replayed,
                     knowledge_replayed,
                     knowledge_staged,
+                    publication_requested,
                 };
                 if mode.validate_only {
                     return Ok(result());
+                }
+                if mode.publication && !receipt.publication_requested {
+                    receipt.publication_requested = true;
+                    if bytes.is_some() {
+                        bytes = Some(insert_state::save(
+                            dir,
+                            &name,
+                            bytes.as_deref(),
+                            &receipt,
+                            cancel,
+                            &|| preflight(receipt.stage),
+                        )?);
+                    }
                 }
                 if bytes.is_none() {
                     bytes = Some(insert_state::save(
@@ -510,7 +531,7 @@ impl NativeMerge {
         validate_only: bool,
     ) -> Result<NormalStoreResult, EngineError> {
         let plan = self.restore_insert_plan(saved, principal, agent, cancel)?;
-        self.insert_selected(
+        let result = self.insert_selected(
             &plan,
             saved.operation_id,
             principal,
@@ -521,9 +542,13 @@ impl NativeMerge {
                 validate_only,
                 curation: false,
                 knowledge: false,
+                publication: false,
             },
-        )
-        .map(|r| r.primary)
+        )?;
+        if !validate_only && result.publication_requested {
+            self.finish_publication(saved.operation_id, principal, agent, cancel)?;
+        }
+        Ok(result.primary)
     }
     fn restore_insert_plan(
         &self,
@@ -564,3 +589,6 @@ pub(in crate::ops::durable_merge) mod curation;
 
 #[path = "normal_knowledge.rs"]
 pub(in crate::ops::durable_merge) mod knowledge;
+
+#[path = "normal_publication_chain.rs"]
+pub(in crate::ops::durable_merge) mod publication_chain;
