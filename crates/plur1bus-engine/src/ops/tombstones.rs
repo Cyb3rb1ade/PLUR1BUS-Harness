@@ -46,17 +46,43 @@ impl ActiveGenerationLookup {
 }
 impl TombstoneLookup for ActiveGenerationLookup {
     fn agent_exists(&self, agent: &str) -> Result<bool, StoreError> {
+        self.pool.check_roots()?;
         let path = self.pool.agent_path(agent)?;
         assert_trusted_path(&path)?;
-        match fs::symlink_metadata(path) {
+        let exists = match fs::symlink_metadata(path) {
             Ok(metadata) if metadata.is_dir() => Ok(true),
             Ok(_) => Err(StoreError::Corrupt),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
             Err(error) => Err(error.into()),
-        }
+        };
+        self.pool.check_roots()?;
+        exists
     }
     fn status(&self, agent: &str, memory_id: &str) -> Result<Option<String>, StoreError> {
         Ok(self.pool.get(agent)?.get(memory_id)?.map(|row| row.status))
+    }
+}
+
+/// Recovery view over the same configured active writer used by the runtime.
+/// Only existing leases and row reads are used; legacy recall tables cannot vote.
+pub struct NamespaceGenerationLookup {
+    stores: std::sync::Arc<crate::recall::namespaces::NamespaceStores>,
+}
+impl NamespaceGenerationLookup {
+    /// Reuse already resolved pools without discovering or creating any path.
+    pub fn new(stores: std::sync::Arc<crate::recall::namespaces::NamespaceStores>) -> Self {
+        Self { stores }
+    }
+}
+impl TombstoneLookup for NamespaceGenerationLookup {
+    fn agent_exists(&self, agent: &str) -> Result<bool, StoreError> {
+        Ok(self.stores.existing_write_store(agent)?.is_some())
+    }
+    fn status(&self, agent: &str, memory_id: &str) -> Result<Option<String>, StoreError> {
+        let Some(store) = self.stores.existing_write_store(agent)? else {
+            return Ok(None);
+        };
+        Ok(store.get(memory_id)?.map(|row| row.status))
     }
 }
 

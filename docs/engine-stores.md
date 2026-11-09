@@ -1782,3 +1782,18 @@ retained, and invalid hits are rejected by the service before the pipeline recei
 them. Error projection uses existing content-free native error variants; it does
 not reconstruct provider details already removed by the service contract. These
 ports prepare composition without enabling unfinished memory/capture/recall routes.
+
+### Active namespace tombstone lookup (RE-D138)
+
+`NamespaceGenerationLookup` reads the existing active writer from already resolved
+`NamespaceStores`. It never selects a legacy recall table or creates a missing
+agent table. Only row reads are invoked on those runtime leases. The flat
+`ActiveGenerationLookup` also checks its held pool root before and after agent
+existence checks, so a replaced root cannot masquerade as a missing agent.
+
+All twelve unchanged Node recovery vectors from the frozen S5 head
+`1878af0b6b7eeaeba657f9d98f01a7bae5da26d8` run against real namespace tables with
+conflicting legacy status. Complete reports/registry records match and all table
+bytes remain unchanged. The native exception marker binds the source manifest
+and golden SHA. This is recovery source composition, without activating startup
+recovery or granting snapshot-restore authority.

@@ -156,3 +156,24 @@ fn cancelled_recovery_never_creates_a_registry_or_store() {
     .is_err());
     assert_eq!(fs::read_dir(root.path()).unwrap().count(), 0);
 }
+
+#[cfg(unix)]
+#[test]
+fn recovery_lookup_rejects_replaced_root_before_reporting_absence() {
+    use plur1bus_engine::{
+        embedding::EmbeddingProvider, ops::tombstones::ActiveGenerationLookup,
+        recall::hash_embed::HashEmbedder,
+    };
+    let temp = support::canonical_tempdir();
+    let base = temp.path().join("active");
+    fs::create_dir(&base).unwrap();
+    let provider = HashEmbedder::new();
+    let lookup = ActiveGenerationLookup::open(&base, provider.identity()).unwrap();
+    fs::rename(&base, temp.path().join("old")).unwrap();
+    fs::create_dir(&base).unwrap();
+    assert!(lookup.agent_exists("missing").is_err());
+    assert!(fs::read_dir(&base).unwrap().next().is_none());
+}
+
+#[path = "support/tombstone_namespaces.rs"]
+mod namespaces;
