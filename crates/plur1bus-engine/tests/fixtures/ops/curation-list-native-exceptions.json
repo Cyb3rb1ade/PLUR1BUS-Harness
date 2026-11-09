@@ -1,0 +1,21 @@
+{
+  "nodeGoldenSha256": "c370515fdde1550bdc5a98dc1662d22a1e8cfd6437b04233cbc05c56a9fa78ee",
+  "cases": [
+    {
+      "index": 10,
+      "name": "foreign-owner-d130",
+      "reason": "D130 rejects contradictory private owner binding; actual Node rerun on the authorized empty source set",
+      "outputJson": "{\"agentId\":\"alpha\",\"items\":[],\"truncated\":false}",
+      "calls": [
+        [
+          "candidates",
+          10000
+        ],
+        [
+          "behavior",
+          10000
+        ]
+      ]
+    }
+  ]
+}

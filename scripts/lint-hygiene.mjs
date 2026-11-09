@@ -116,7 +116,7 @@ const ALLOW = new Map([
     ],
   ]),
   // A1 assembler reference: exact verified source-path metadata, never executable imports.
-  ...["recall/golden/recall-stats-render", "ops/golden/knowledge-promotion"].map(name => [`crates/plur1bus-engine/tests/fixtures/${name}.json`, [
+  ...["recall/golden/recall-stats-render", "ops/golden/knowledge-promotion", "ops/golden/curation-list"].map(name => [`crates/plur1bus-engine/tests/fixtures/${name}.json`, [
     /^\s*"path": "lib\/(?:host-services\.js|providers\/openclaw-memory-embedding-adapters\.js|setup\/(?:control-ui|feature-cron|obsidian-vault|reembedding|selftest|skill-workshop|workspace-policy)-plugin-runtime\.js)",\s*$/,
   ]]),
   // Preserve this exact frozen Node error in its recorded parity fixture only.
