@@ -1991,7 +1991,7 @@ reflects capture only after the first open or capture.
 
 Capture's classifier and recall share one owner-bound mood pool (RE-D51 binding
 unchanged) and one bounded set of per-owner emotion engines (256 bindings,
-oldest evicted first), keyed by agent, owner, logical workspace and
+least recently used evicted first), keyed by agent, owner, logical workspace and
 canonical workspace directory. Capture only reads the mood; a second owner of
 the same agent neither reads nor overwrites the first owner's mood file. With
 the opt-in inline tier 3 the owner's engine stays locked through the bounded

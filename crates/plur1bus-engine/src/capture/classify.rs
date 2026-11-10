@@ -56,7 +56,7 @@ pub(crate) struct Binding {
     pub(crate) workspace: String,
     pub(crate) directory: Option<std::path::PathBuf>,
 }
-/// Retained per-owner emotion routers; the oldest binding is evicted first.
+/// Retained per-owner emotion routers; the least recently used binding is evicted first.
 const MAX_EMOTION_ENGINES: usize = 256;
 #[derive(Default)]
 struct EngineMap {
@@ -84,8 +84,13 @@ impl EmotionEngines {
         binding: Binding,
     ) -> Result<Arc<Mutex<EmotionEngine>>, EngineError> {
         let mut engines = self.engines.lock().map_err(|_| StoreError::Corrupt)?;
-        if let Some(engine) = engines.by_key.get(&binding) {
-            return Ok(engine.clone());
+        if let Some(engine) = engines.by_key.get(&binding).cloned() {
+            // Least recently used order: a binding in use is never the next eviction.
+            if let Some(position) = engines.order.iter().position(|key| *key == binding) {
+                engines.order.remove(position);
+            }
+            engines.order.push_back(binding);
+            return Ok(engine);
         }
         let engine = Arc::new(Mutex::new(emotion_engine(
             &self.emotion,
@@ -215,6 +220,10 @@ impl CaptureClassifier for NativeCaptureClassifier {
             force_tier: forced_tier(emotion_config),
             skip_tier3: deferred,
         };
+        // The owner's engine (shared with recall) stays locked through analysis: its
+        // previous-emotion context must advance in turn order. With the opt-in inline tier 3
+        // (`emotion.t3.captureMode: "inline"`) this includes the bounded completion call, so
+        // that owner's recall waits at most the tier-3 timeout; other owners are unaffected.
         let result = engine
             .lock()
             .map_err(|_| StoreError::Corrupt)?

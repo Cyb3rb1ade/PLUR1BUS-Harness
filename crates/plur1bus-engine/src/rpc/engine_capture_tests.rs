@@ -218,6 +218,14 @@ fn incognito_and_a_disabled_workspace_write_nothing() {
         capture(&engine, turn("agent", "run-disabled")),
         json!({"reason":"not_captured","skipped":1,"stored":0})
     );
+    // The policy is checked before any admission file is written.
+    let admissions = fs::read_dir(root.join("db/_capture-admissions"))
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "json"))
+        .count();
+    assert_eq!(admissions, 0);
     assert!(rows(root, "agent").is_empty());
     assert!(!root.join("workspace-agent/.emotional-state.json").exists());
 }
@@ -558,6 +566,27 @@ fn no_deterministic_input_keeps_an_admission_open() {
 }
 
 #[test]
+fn a_turn_killed_after_its_first_row_is_completed_without_duplicates() {
+    let scratch = killed("first-row");
+    let root = scratch.path().to_path_buf();
+    let before = rows(&root, "agent");
+    assert_eq!(before.len(), 1);
+    let engine = ProcessEngine::new(host(&root), Some(Seam::FlatEmbedder)).unwrap();
+    engine.open(&"agent".parse().unwrap()).unwrap();
+    let after = rows(&root, "agent");
+    assert_eq!(after.len(), 2);
+    assert!(after.iter().any(|row| row.text == USER));
+    assert!(after.iter().any(|row| row.text == ASSISTANT));
+    // The unsettled row is replaced, never kept next to its rewrite.
+    assert!(after.iter().all(|row| row.id != before[0].id));
+    assert_eq!(
+        capture(&engine, turn("agent", "run-crash"))["reason"],
+        "duplicate-turn"
+    );
+    assert_eq!(pending_admissions(&root), 0);
+}
+
+#[test]
 fn an_unfinishable_entry_blocks_only_its_own_agent() {
     let scratch = killed("first-row");
     let root = scratch.path().to_path_buf();
@@ -644,6 +673,20 @@ fn user_turn(root: &Path, owner: &str, run: &str) -> TurnRecord {
 }
 
 #[test]
+fn a_user_principal_writes_neo_through_the_process() {
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let engine = ProcessEngine::new(neo_host(root), Some(Seam::FlatEmbedder)).unwrap();
+    assert_eq!(
+        capture(&engine, user_turn(root, "fixture-user", "run-neo"))["stored"],
+        2
+    );
+    assert_eq!(pending_admissions(root), 0);
+    let neo = fs::read_dir(root.join("db/_neo")).unwrap().count();
+    assert!(neo > 0);
+}
+
+#[test]
 fn neo_state_exists_only_when_neo_is_enabled() {
     let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
     let root = scratch.path();
@@ -651,4 +694,58 @@ fn neo_state_exists_only_when_neo_is_enabled() {
     let result = capture(&engine, user_turn(root, "fixture-user", "run-no-neo"));
     assert_eq!(result["stored"], 2, "{result}");
     assert!(!root.join("db/_neo").exists());
+}
+
+#[test]
+fn a_second_owner_of_the_same_agent_never_uses_the_first_owners_mood() {
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let engine = ProcessEngine::new(host(root), Some(Seam::FlatEmbedder)).unwrap();
+    let recall = |owner: &str| {
+        let principal = serde_json::to_value(&user_turn(root, owner, "recall").principal).unwrap();
+        methods::dispatch(
+            &engine,
+            "engine.recall",
+            &json!({"query":{"query":"Which labels does the archive test project use?",
+                "principal":principal,"agent":{"origin":"user","background":false}},
+                "options":{"reranker":"off"}}),
+            &Cancel::never(),
+        )
+        .unwrap()
+    };
+    assert_eq!(
+        capture(&engine, user_turn(root, "owner-a", "run-a"))["stored"],
+        2
+    );
+    // Owner A's recall commits the turn's mood, bound to owner A (RE-D51).
+    recall("owner-a");
+    let mood = root.join("workspace-agent/.emotional-state.json");
+    let owned = fs::read(&mood).unwrap();
+    // Owner B of the same agent neither reads nor overwrites it, in capture or recall.
+    let result = capture(&engine, user_turn(root, "owner-b", "run-b"));
+    recall("owner-b");
+    assert_eq!(fs::read(&mood).unwrap(), owned, "{result}");
+    assert_eq!(pending_admissions(root), 0);
+}
+
+#[test]
+fn the_shared_emotion_engines_evict_the_least_recently_used_binding() {
+    use crate::capture::classify::{Binding, EmotionEngines};
+    let engines = EmotionEngines::new(json!({}), Arc::new(|| 0));
+    let binding = |index: usize| Binding {
+        agent: format!("agent-{index}"),
+        owner: String::new(),
+        workspace: "fixture".into(),
+        directory: None,
+    };
+    let first = engines.engine(binding(0)).unwrap();
+    let second = engines.engine(binding(1)).unwrap();
+    for index in 2..256 {
+        engines.engine(binding(index)).unwrap();
+    }
+    // Using the oldest binding again keeps it; the next insert evicts binding 1 instead.
+    assert!(Arc::ptr_eq(&first, &engines.engine(binding(0)).unwrap()));
+    engines.engine(binding(256)).unwrap();
+    assert!(Arc::ptr_eq(&first, &engines.engine(binding(0)).unwrap()));
+    assert!(!Arc::ptr_eq(&second, &engines.engine(binding(1)).unwrap()));
 }
