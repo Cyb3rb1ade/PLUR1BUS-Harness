@@ -16,7 +16,9 @@ use crate::contract::{
     TurnRecord,
 };
 use crate::embedding::{batch::validate_vectors, EmbeddingProvider};
-use crate::store::{identity::identity_id, Store, StorePool};
+use crate::store::{
+    fragment_compactor::FragmentCompactor, identity::identity_id, Store, StorePool,
+};
 
 use super::accept::CaptureWorker;
 use super::chunking::{self, ExpansionMode, PreparedCapture, StorageDecision};
@@ -67,6 +69,8 @@ pub struct CapturePipeline {
     /// Top-level entries of the admission root that nobody owns, at the last inventory:
     /// kept, reported, never blocking anyone.
     foreign: std::sync::atomic::AtomicUsize,
+    /// Counts stored rows per agent table and compacts detached from the turn (RE-D161).
+    compactor: Option<Arc<FragmentCompactor>>,
 }
 
 impl CapturePipeline {
@@ -120,6 +124,7 @@ impl CapturePipeline {
             cutoff_failed,
             retained: Arc::default(),
             foreign: std::sync::atomic::AtomicUsize::new(0),
+            compactor: None,
         })
     }
 
@@ -170,6 +175,12 @@ impl CapturePipeline {
     #[must_use]
     pub fn with_neo(mut self, hook: Arc<dyn NeoCaptureHook>) -> Self {
         self.neo = Some(hook);
+        self
+    }
+    /// Note every turn's stored rows with the fragment compactor (RE-D161).
+    #[must_use]
+    pub fn with_compactor(mut self, compactor: Arc<FragmentCompactor>) -> Self {
+        self.compactor = Some(compactor);
         self
     }
     /// Supply a content-free diagnostic sink for this engine's capture work.

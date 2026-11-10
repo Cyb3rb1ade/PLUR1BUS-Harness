@@ -751,6 +751,15 @@ impl CapturePipeline {
             .map(|row| Ok((row.id.clone(), row_digest(row)?)))
             .collect::<Result<_, StoreError>>()?;
         admission.save(cancel)?;
+        // RE-D161: every stored row is a new fragment of the agent table. As at the pin
+        // (`capture-turn.js:768-772`, after the store loop and its abort check, before the
+        // post-store steps) the writes are only noted; a due compaction runs detached and
+        // the turn never waits for it or hears of its failure.
+        if stored > 0 {
+            if let Some(compactor) = &self.compactor {
+                compactor.note_writes(context.agent_id.as_str(), stored);
+            }
+        }
         let options = admission.record.options.clone();
         self.finish_post(turn, context, &options, replay, admission, cancel)
     }

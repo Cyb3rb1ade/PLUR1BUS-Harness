@@ -22,6 +22,9 @@ pub(crate) mod migration_table;
 
 #[path = "capture_compare.rs"]
 mod capture_compare;
+/// Bounded fragment statistics and compaction (RE-D161).
+#[path = "fragment_optimize.rs"]
+pub mod fragment_optimize;
 #[path = "memory_read.rs"]
 mod memory_read;
 #[path = "shared_store.rs"]

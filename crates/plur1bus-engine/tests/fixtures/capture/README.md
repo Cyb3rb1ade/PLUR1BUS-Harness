@@ -58,3 +58,14 @@ The row and classification modes and their scenario matrices are extended by CA2
 ## RX6 acknowledged capture WAL (RE-D49)
 
 `record-wal-failures.mjs` checks the four pinned replay source hashes and executes six Node cases twice: corruption, malformed pending, duplicate turn keys, failed write, pending TTL and pending capacity eviction. The native WAL refuses unsafe admission/writes, preserves incomplete plans and retains valid Node bytes. Existing goldens remain unchanged. Four valid scenarios additionally run through the productive durable adapter. Actual child-process kills test state/lock recovery before plan, after plan and after settlement; they do not claim Lance-row end-to-end recovery.
+
+## RX6 fragment compaction (RE-D161)
+
+`record-fragment-compactor.mjs --source <directory> --out <file>` reads
+`engine/store/fragment-compactor.js`, `lib/log-redact.js` and `lib/lancedb-optimize.js` at
+`9f34008c` from `<directory>` (extracted with `git show`), checks their SHA-256 before any
+import and runs the compactor with scripted `fragmentCount`/`optimize` ports, a fixed clock
+and a captured timer. `fragment-compactor.json` holds 27 `resolveLancedbCompaction` inputs,
+21 `keepVersionsHours` inputs and 17 scenarios with every port call, timer, log line and
+explicit outcome. Two recordings (Node 26.12.1) were byte-identical. Log lines are compared by
+level and kind; their Node text names the agent and a hashed reason, the native text neither.

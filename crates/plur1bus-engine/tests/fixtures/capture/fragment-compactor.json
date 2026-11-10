@@ -1,0 +1,2060 @@
+{
+  "source": {
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "sha256": {
+      "engine/store/fragment-compactor.js": "6a795b75780530732d1ee1d56c198fd96c6c0ef9227cb018c57f4e0fb684e878",
+      "lib/log-redact.js": "f64f7d2e2fbf13684ad16fe045a1e43a9755c57be00ee7532479286eed0068e3",
+      "lib/lancedb-optimize.js": "147709b52fb0693be1df9f5fcfc4fa2a92a36158a9430cb5b30b0745eaf8c27e"
+    }
+  },
+  "node": {
+    "version": "v26.12.1"
+  },
+  "clock": 1768305600000,
+  "compaction": [
+    {
+      "input": null,
+      "output": {
+        "enabled": true,
+        "fragmentThreshold": 64,
+        "checkEveryWrites": 16,
+        "checkIntervalMs": 600000,
+        "timeoutMs": 60000
+      }
+    },
+    {
+      "input": "x",
+      "output": {
+        "enabled": true,
+        "fragmentThreshold": 64,
+        "checkEveryWrites": 16,
+        "checkIntervalMs": 600000,
+        "timeoutMs": 60000
+      }
+    },
+    {
+      "input": [],
+      "output": {
+        "enabled": true,
+        "fragmentThreshold": 64,
+        "checkEveryWrites": 16,
+        "checkIntervalMs": 600000,
+        "timeoutMs": 60000
+      }
+    },
+    {
+      "input": 5,
+      "output": {
+        "enabled": true,
+        "fragmentThreshold": 64,
+        "checkEveryWrites": 16,
+        "checkIntervalMs": 600000,
+        "timeoutMs": 60000
+      }
+    },
+    {
+      "input": {},
+      "output": {
+        "enabled": true,
+        "fragmentThreshold": 64,
+        "checkEveryWrites": 16,
+        "checkIntervalMs": 600000,
+        "timeoutMs": 60000
+      }
+    },
+    {
+      "input": {
+        "enabled": false
+      },
+      "output": {
+        "enabled": false,
+        "fragmentThreshold": 64,
+        "checkEveryWrites": 16,
+        "checkIntervalMs": 600000,
+        "timeoutMs": 60000
+      }
+    },
+    {
+      "input": {
+        "enabled": "false"
+      },
+      "output": {
+        "enabled": true,
+        "fragmentThreshold": 64,
+        "checkEveryWrites": 16,
+        "checkIntervalMs": 600000,
+        "timeoutMs": 60000
+      }
+    },
+    {
+      "input": {
+        "enabled": 0
+      },
+      "output": {
+        "enabled": true,
+        "fragmentThreshold": 64,
+        "checkEveryWrites": 16,
+        "checkIntervalMs": 600000,
+        "timeoutMs": 60000
+      }
+    },
+    {
+      "input": {
+        "enabled": true
+      },
+      "output": {
+        "enabled": true,
+        "fragmentThreshold": 64,
+        "checkEveryWrites": 16,
+        "checkIntervalMs": 600000,
+        "timeoutMs": 60000
+      }
+    },
+    {
+      "input": {
+        "fragmentThreshold": 7
+      },
+      "output": {
+        "enabled": true,
+        "fragmentThreshold": 64,
+        "checkEveryWrites": 16,
+        "checkIntervalMs": 600000,
+        "timeoutMs": 60000
+      }
+    },
+    {
+      "input": {
+        "fragmentThreshold": 8
+      },
+      "output": {
+        "enabled": true,
+        "fragmentThreshold": 8,
+        "checkEveryWrites": 16,
+        "checkIntervalMs": 600000,
+        "timeoutMs": 60000
+      }
+    },
+    {
+      "input": {
+        "fragmentThreshold": 8.5
+      },
+      "output": {
+        "enabled": true,
+        "fragmentThreshold": 64,
+        "checkEveryWrites": 16,
+        "checkIntervalMs": 600000,
+        "timeoutMs": 60000
+      }
+    },
+    {
+      "input": {
+        "fragmentThreshold": "64"
+      },
+      "output": {
+        "enabled": true,
+        "fragmentThreshold": 64,
+        "checkEveryWrites": 16,
+        "checkIntervalMs": 600000,
+        "timeoutMs": 60000
+      }
+    },
+    {
+      "input": {
+        "fragmentThreshold": 1000000000
+      },
+      "output": {
+        "enabled": true,
+        "fragmentThreshold": 1000000000,
+        "checkEveryWrites": 16,
+        "checkIntervalMs": 600000,
+        "timeoutMs": 60000
+      }
+    },
+    {
+      "input": {
+        "fragmentThreshold": -1
+      },
+      "output": {
+        "enabled": true,
+        "fragmentThreshold": 64,
+        "checkEveryWrites": 16,
+        "checkIntervalMs": 600000,
+        "timeoutMs": 60000
+      }
+    },
+    {
+      "input": {
+        "fragmentThreshold": null
+      },
+      "output": {
+        "enabled": true,
+        "fragmentThreshold": 64,
+        "checkEveryWrites": 16,
+        "checkIntervalMs": 600000,
+        "timeoutMs": 60000
+      }
+    },
+    {
+      "input": {
+        "checkEveryWrites": 0
+      },
+      "output": {
+        "enabled": true,
+        "fragmentThreshold": 64,
+        "checkEveryWrites": 16,
+        "checkIntervalMs": 600000,
+        "timeoutMs": 60000
+      }
+    },
+    {
+      "input": {
+        "checkEveryWrites": 1
+      },
+      "output": {
+        "enabled": true,
+        "fragmentThreshold": 64,
+        "checkEveryWrites": 1,
+        "checkIntervalMs": 600000,
+        "timeoutMs": 60000
+      }
+    },
+    {
+      "input": {
+        "checkEveryWrites": 16
+      },
+      "output": {
+        "enabled": true,
+        "fragmentThreshold": 64,
+        "checkEveryWrites": 16,
+        "checkIntervalMs": 600000,
+        "timeoutMs": 60000
+      }
+    },
+    {
+      "input": {
+        "checkEveryWrites": true
+      },
+      "output": {
+        "enabled": true,
+        "fragmentThreshold": 64,
+        "checkEveryWrites": 16,
+        "checkIntervalMs": 600000,
+        "timeoutMs": 60000
+      }
+    },
+    {
+      "input": {
+        "checkIntervalMs": 59999
+      },
+      "output": {
+        "enabled": true,
+        "fragmentThreshold": 64,
+        "checkEveryWrites": 16,
+        "checkIntervalMs": 600000,
+        "timeoutMs": 60000
+      }
+    },
+    {
+      "input": {
+        "checkIntervalMs": 60000
+      },
+      "output": {
+        "enabled": true,
+        "fragmentThreshold": 64,
+        "checkEveryWrites": 16,
+        "checkIntervalMs": 60000,
+        "timeoutMs": 60000
+      }
+    },
+    {
+      "input": {
+        "checkIntervalMs": 3600000
+      },
+      "output": {
+        "enabled": true,
+        "fragmentThreshold": 64,
+        "checkEveryWrites": 16,
+        "checkIntervalMs": 3600000,
+        "timeoutMs": 60000
+      }
+    },
+    {
+      "input": {
+        "timeoutMs": 9999
+      },
+      "output": {
+        "enabled": true,
+        "fragmentThreshold": 64,
+        "checkEveryWrites": 16,
+        "checkIntervalMs": 600000,
+        "timeoutMs": 60000
+      }
+    },
+    {
+      "input": {
+        "timeoutMs": 10000
+      },
+      "output": {
+        "enabled": true,
+        "fragmentThreshold": 64,
+        "checkEveryWrites": 16,
+        "checkIntervalMs": 600000,
+        "timeoutMs": 10000
+      }
+    },
+    {
+      "input": {
+        "timeoutMs": 120000
+      },
+      "output": {
+        "enabled": true,
+        "fragmentThreshold": 64,
+        "checkEveryWrites": 16,
+        "checkIntervalMs": 600000,
+        "timeoutMs": 120000
+      }
+    },
+    {
+      "input": {
+        "enabled": false,
+        "fragmentThreshold": 9,
+        "checkEveryWrites": 2,
+        "checkIntervalMs": 70000,
+        "timeoutMs": 11000,
+        "other": 1
+      },
+      "output": {
+        "enabled": false,
+        "fragmentThreshold": 9,
+        "checkEveryWrites": 2,
+        "checkIntervalMs": 70000,
+        "timeoutMs": 11000
+      }
+    }
+  ],
+  "keepVersionsHours": [
+    {
+      "input": "__undefined__",
+      "output": 24
+    },
+    {
+      "input": null,
+      "output": 24
+    },
+    {
+      "input": "x",
+      "output": 24
+    },
+    {
+      "input": [],
+      "output": 24
+    },
+    {
+      "input": {},
+      "output": 24
+    },
+    {
+      "input": {
+        "keepVersionsHours": 1
+      },
+      "output": 1
+    },
+    {
+      "input": {
+        "keepVersionsHours": 0.5
+      },
+      "output": 24
+    },
+    {
+      "input": {
+        "keepVersionsHours": 0.999
+      },
+      "output": 24
+    },
+    {
+      "input": {
+        "keepVersionsHours": 1.5
+      },
+      "output": 1.5
+    },
+    {
+      "input": {
+        "keepVersionsHours": 48
+      },
+      "output": 48
+    },
+    {
+      "input": {
+        "keepVersionsHours": 0.001
+      },
+      "output": 24
+    },
+    {
+      "input": {
+        "keepVersionsHours": -5
+      },
+      "output": 24
+    },
+    {
+      "input": {
+        "keepVersionsHours": null
+      },
+      "output": 24
+    },
+    {
+      "input": {
+        "keepVersionsHours": true
+      },
+      "output": 1
+    },
+    {
+      "input": {
+        "keepVersionsHours": false
+      },
+      "output": 24
+    },
+    {
+      "input": {
+        "keepVersionsHours": "12"
+      },
+      "output": 12
+    },
+    {
+      "input": {
+        "keepVersionsHours": " 2 "
+      },
+      "output": 2
+    },
+    {
+      "input": {
+        "keepVersionsHours": ""
+      },
+      "output": 24
+    },
+    {
+      "input": {
+        "keepVersionsHours": "abc"
+      },
+      "output": 24
+    },
+    {
+      "input": {
+        "keepVersionsHours": 2.0000001
+      },
+      "output": 2.0000001
+    },
+    {
+      "input": {
+        "enabled": false,
+        "keepVersionsHours": 3
+      },
+      "output": 3
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "defaults-below-threshold-then-due",
+      "config": {},
+      "counts": [
+        10
+      ],
+      "optimizes": [],
+      "ops": [
+        {
+          "op": "note",
+          "agent": "a",
+          "n": 15
+        },
+        {
+          "op": "note",
+          "agent": "a",
+          "n": 1
+        },
+        {
+          "op": "check",
+          "agent": "a"
+        }
+      ],
+      "events": [
+        {
+          "type": "timer",
+          "intervalMs": 600000
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "outcome",
+          "agentId": "a",
+          "action": "skipped",
+          "reason": "below-threshold",
+          "fragmentsBefore": null,
+          "fragmentsAfter": null
+        }
+      ]
+    },
+    {
+      "name": "threshold-reached-compacts-once",
+      "config": {},
+      "counts": [
+        64,
+        12,
+        12
+      ],
+      "optimizes": [
+        {
+          "ok": true
+        }
+      ],
+      "ops": [
+        {
+          "op": "note",
+          "agent": "a",
+          "n": 16
+        },
+        {
+          "op": "check",
+          "agent": "a"
+        }
+      ],
+      "events": [
+        {
+          "type": "timer",
+          "intervalMs": 600000
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "outcome",
+          "agentId": "a",
+          "action": "skipped",
+          "reason": "below-threshold",
+          "fragmentsBefore": 12,
+          "fragmentsAfter": null
+        }
+      ]
+    },
+    {
+      "name": "unknown-count-falls-back-to-writes",
+      "config": {
+        "fragmentThreshold": 8,
+        "checkEveryWrites": 4
+      },
+      "counts": [
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "optimizes": [
+        {
+          "ok": true
+        }
+      ],
+      "ops": [
+        {
+          "op": "note",
+          "agent": "a",
+          "n": 4
+        },
+        {
+          "op": "note",
+          "agent": "a",
+          "n": 4
+        },
+        {
+          "op": "note",
+          "agent": "a",
+          "n": 4
+        },
+        {
+          "op": "check",
+          "agent": "a"
+        }
+      ],
+      "events": [
+        {
+          "type": "timer",
+          "intervalMs": 600000
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "outcome",
+          "agentId": "a",
+          "action": "skipped",
+          "reason": "below-threshold",
+          "fragmentsBefore": null,
+          "fragmentsAfter": null
+        }
+      ]
+    },
+    {
+      "name": "count-throws-or-is-not-finite",
+      "config": {
+        "fragmentThreshold": 8,
+        "checkEveryWrites": 8
+      },
+      "counts": [
+        "throw",
+        "nan",
+        "string",
+        9
+      ],
+      "optimizes": [
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        }
+      ],
+      "ops": [
+        {
+          "op": "note",
+          "agent": "a",
+          "n": 8
+        },
+        {
+          "op": "check",
+          "agent": "a"
+        },
+        {
+          "op": "check",
+          "agent": "a"
+        }
+      ],
+      "events": [
+        {
+          "type": "timer",
+          "intervalMs": 600000
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "outcome",
+          "agentId": "a",
+          "action": "skipped",
+          "reason": "below-threshold",
+          "fragmentsBefore": null,
+          "fragmentsAfter": null
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "outcome",
+          "agentId": "a",
+          "action": "compacted",
+          "fragmentsBefore": 9,
+          "fragmentsAfter": null
+        }
+      ]
+    },
+    {
+      "name": "busy-no-table-shutdown-skip",
+      "config": {
+        "fragmentThreshold": 8,
+        "checkEveryWrites": 1
+      },
+      "counts": [
+        20,
+        20,
+        20,
+        20
+      ],
+      "optimizes": [
+        {
+          "ok": false,
+          "reason": "busy",
+          "busy": true
+        },
+        {
+          "ok": false,
+          "reason": "no-table"
+        },
+        {
+          "ok": false,
+          "reason": "shutdown"
+        },
+        {
+          "ok": false,
+          "reason": "busy: lock wait exceeded timeoutMs",
+          "busy": true
+        }
+      ],
+      "ops": [
+        {
+          "op": "check",
+          "agent": "a"
+        },
+        {
+          "op": "check",
+          "agent": "a"
+        },
+        {
+          "op": "check",
+          "agent": "a"
+        },
+        {
+          "op": "check",
+          "agent": "a"
+        }
+      ],
+      "events": [
+        {
+          "type": "timer",
+          "intervalMs": 600000
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "outcome",
+          "agentId": "a",
+          "action": "skipped",
+          "reason": "busy",
+          "fragmentsBefore": 20,
+          "fragmentsAfter": null
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "outcome",
+          "agentId": "a",
+          "action": "skipped",
+          "reason": "no-table",
+          "fragmentsBefore": 20,
+          "fragmentsAfter": null
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "outcome",
+          "agentId": "a",
+          "action": "skipped",
+          "reason": "closed",
+          "fragmentsBefore": 20,
+          "fragmentsAfter": null
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "outcome",
+          "agentId": "a",
+          "action": "skipped",
+          "reason": "busy",
+          "fragmentsBefore": 20,
+          "fragmentsAfter": null
+        }
+      ]
+    },
+    {
+      "name": "conflict-streak-warns-at-five-and-resets-on-success",
+      "config": {
+        "fragmentThreshold": 8
+      },
+      "counts": [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        3,
+        9
+      ],
+      "optimizes": [
+        {
+          "ok": false,
+          "reason": "Retryable commit conflict for version 7",
+          "conflict": true
+        },
+        {
+          "ok": false,
+          "reason": "Retryable commit conflict for version 7",
+          "conflict": true
+        },
+        {
+          "ok": false,
+          "reason": "Retryable commit conflict for version 7",
+          "conflict": true
+        },
+        {
+          "ok": false,
+          "reason": "Retryable commit conflict for version 7",
+          "conflict": true
+        },
+        {
+          "ok": false,
+          "reason": "Retryable commit conflict for version 7",
+          "conflict": true
+        },
+        {
+          "ok": false,
+          "reason": "Retryable commit conflict for version 7",
+          "conflict": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": false,
+          "reason": "Retryable commit conflict for version 7",
+          "conflict": true
+        }
+      ],
+      "ops": [
+        {
+          "op": "check",
+          "agent": "a"
+        },
+        {
+          "op": "check",
+          "agent": "a"
+        },
+        {
+          "op": "check",
+          "agent": "a"
+        },
+        {
+          "op": "check",
+          "agent": "a"
+        },
+        {
+          "op": "check",
+          "agent": "a"
+        },
+        {
+          "op": "check",
+          "agent": "a"
+        },
+        {
+          "op": "check",
+          "agent": "a"
+        },
+        {
+          "op": "check",
+          "agent": "a"
+        }
+      ],
+      "events": [
+        {
+          "type": "timer",
+          "intervalMs": 600000
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "log",
+          "level": "debug",
+          "message": "plur1bus-compaction: optimize for 'a' lost to concurrent writes, retrying at the next check"
+        },
+        {
+          "type": "outcome",
+          "agentId": "a",
+          "action": "failed",
+          "reason": "Retryable commit conflict for version 7",
+          "fragmentsBefore": 9,
+          "fragmentsAfter": null
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "log",
+          "level": "debug",
+          "message": "plur1bus-compaction: optimize for 'a' lost to concurrent writes, retrying at the next check"
+        },
+        {
+          "type": "outcome",
+          "agentId": "a",
+          "action": "failed",
+          "reason": "Retryable commit conflict for version 7",
+          "fragmentsBefore": 9,
+          "fragmentsAfter": null
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "log",
+          "level": "debug",
+          "message": "plur1bus-compaction: optimize for 'a' lost to concurrent writes, retrying at the next check"
+        },
+        {
+          "type": "outcome",
+          "agentId": "a",
+          "action": "failed",
+          "reason": "Retryable commit conflict for version 7",
+          "fragmentsBefore": 9,
+          "fragmentsAfter": null
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "log",
+          "level": "debug",
+          "message": "plur1bus-compaction: optimize for 'a' lost to concurrent writes, retrying at the next check"
+        },
+        {
+          "type": "outcome",
+          "agentId": "a",
+          "action": "failed",
+          "reason": "Retryable commit conflict for version 7",
+          "fragmentsBefore": 9,
+          "fragmentsAfter": null
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "log",
+          "level": "warn",
+          "message": "plur1bus-compaction: optimize for 'a' has lost to concurrent writes 5 checks in a row, table may not be compacting"
+        },
+        {
+          "type": "outcome",
+          "agentId": "a",
+          "action": "failed",
+          "reason": "Retryable commit conflict for version 7",
+          "fragmentsBefore": 9,
+          "fragmentsAfter": null
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "log",
+          "level": "warn",
+          "message": "plur1bus-compaction: optimize for 'a' has lost to concurrent writes 6 checks in a row, table may not be compacting"
+        },
+        {
+          "type": "outcome",
+          "agentId": "a",
+          "action": "failed",
+          "reason": "Retryable commit conflict for version 7",
+          "fragmentsBefore": 9,
+          "fragmentsAfter": null
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "outcome",
+          "agentId": "a",
+          "action": "compacted",
+          "fragmentsBefore": 9,
+          "fragmentsAfter": 3
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "log",
+          "level": "debug",
+          "message": "plur1bus-compaction: optimize for 'a' lost to concurrent writes, retrying at the next check"
+        },
+        {
+          "type": "outcome",
+          "agentId": "a",
+          "action": "failed",
+          "reason": "Retryable commit conflict for version 7",
+          "fragmentsBefore": 9,
+          "fragmentsAfter": null
+        }
+      ]
+    },
+    {
+      "name": "other-failure-resets-the-conflict-streak",
+      "config": {
+        "fragmentThreshold": 8
+      },
+      "counts": [
+        9,
+        9,
+        9,
+        9
+      ],
+      "optimizes": [
+        {
+          "ok": false,
+          "reason": "Retryable commit conflict for version 7",
+          "conflict": true
+        },
+        {
+          "ok": false,
+          "reason": "Retryable commit conflict for version 7",
+          "conflict": true
+        },
+        {
+          "ok": false,
+          "reason": "disk full"
+        },
+        {
+          "ok": false,
+          "reason": "Retryable commit conflict for version 7",
+          "conflict": true
+        }
+      ],
+      "ops": [
+        {
+          "op": "check",
+          "agent": "a"
+        },
+        {
+          "op": "check",
+          "agent": "a"
+        },
+        {
+          "op": "check",
+          "agent": "a"
+        },
+        {
+          "op": "check",
+          "agent": "a"
+        }
+      ],
+      "events": [
+        {
+          "type": "timer",
+          "intervalMs": 600000
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "log",
+          "level": "debug",
+          "message": "plur1bus-compaction: optimize for 'a' lost to concurrent writes, retrying at the next check"
+        },
+        {
+          "type": "outcome",
+          "agentId": "a",
+          "action": "failed",
+          "reason": "Retryable commit conflict for version 7",
+          "fragmentsBefore": 9,
+          "fragmentsAfter": null
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "log",
+          "level": "debug",
+          "message": "plur1bus-compaction: optimize for 'a' lost to concurrent writes, retrying at the next check"
+        },
+        {
+          "type": "outcome",
+          "agentId": "a",
+          "action": "failed",
+          "reason": "Retryable commit conflict for version 7",
+          "fragmentsBefore": 9,
+          "fragmentsAfter": null
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "log",
+          "level": "warn",
+          "message": "plur1bus-compaction: optimize failed for 'a': Error textLen=9 sha=8c96d76f6202"
+        },
+        {
+          "type": "outcome",
+          "agentId": "a",
+          "action": "failed",
+          "reason": "disk full",
+          "fragmentsBefore": 9,
+          "fragmentsAfter": null
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "log",
+          "level": "debug",
+          "message": "plur1bus-compaction: optimize for 'a' lost to concurrent writes, retrying at the next check"
+        },
+        {
+          "type": "outcome",
+          "agentId": "a",
+          "action": "failed",
+          "reason": "Retryable commit conflict for version 7",
+          "fragmentsBefore": 9,
+          "fragmentsAfter": null
+        }
+      ]
+    },
+    {
+      "name": "optimize-throws-or-fails-without-reason",
+      "config": {
+        "fragmentThreshold": 8
+      },
+      "counts": [
+        9,
+        9,
+        9
+      ],
+      "optimizes": [
+        "throw",
+        {
+          "ok": false
+        },
+        null
+      ],
+      "ops": [
+        {
+          "op": "check",
+          "agent": "a"
+        },
+        {
+          "op": "check",
+          "agent": "a"
+        },
+        {
+          "op": "check",
+          "agent": "a"
+        }
+      ],
+      "events": [
+        {
+          "type": "timer",
+          "intervalMs": 600000
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "log",
+          "level": "warn",
+          "message": "plur1bus-compaction: optimize failed for 'a': Error textLen=17 sha=917123402b1b"
+        },
+        {
+          "type": "outcome",
+          "agentId": "a",
+          "action": "failed",
+          "reason": "optimize exploded",
+          "fragmentsBefore": 9,
+          "fragmentsAfter": null
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "log",
+          "level": "warn",
+          "message": "plur1bus-compaction: optimize failed for 'a': Error textLen=7 sha=b23a6a8439c0"
+        },
+        {
+          "type": "outcome",
+          "agentId": "a",
+          "action": "failed",
+          "reason": "unknown",
+          "fragmentsBefore": 9,
+          "fragmentsAfter": null
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "log",
+          "level": "warn",
+          "message": "plur1bus-compaction: optimize failed for 'a': Error textLen=7 sha=b23a6a8439c0"
+        },
+        {
+          "type": "outcome",
+          "agentId": "a",
+          "action": "failed",
+          "reason": "unknown",
+          "fragmentsBefore": 9,
+          "fragmentsAfter": null
+        }
+      ]
+    },
+    {
+      "name": "failure-keeps-the-write-count",
+      "config": {
+        "fragmentThreshold": 8,
+        "checkEveryWrites": 8
+      },
+      "counts": [
+        null,
+        null,
+        null
+      ],
+      "optimizes": [
+        {
+          "ok": false,
+          "reason": "disk full"
+        },
+        {
+          "ok": true
+        }
+      ],
+      "ops": [
+        {
+          "op": "note",
+          "agent": "a",
+          "n": 8
+        },
+        {
+          "op": "tick"
+        },
+        {
+          "op": "tick"
+        }
+      ],
+      "events": [
+        {
+          "type": "timer",
+          "intervalMs": 600000
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "log",
+          "level": "warn",
+          "message": "plur1bus-compaction: optimize failed for 'a': Error textLen=9 sha=8c96d76f6202"
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        }
+      ]
+    },
+    {
+      "name": "disabled-never-runs",
+      "config": {
+        "enabled": false,
+        "fragmentThreshold": 8,
+        "checkEveryWrites": 1
+      },
+      "counts": [
+        100
+      ],
+      "optimizes": [
+        {
+          "ok": true
+        }
+      ],
+      "ops": [
+        {
+          "op": "note",
+          "agent": "a",
+          "n": 50
+        },
+        {
+          "op": "tick"
+        },
+        {
+          "op": "check",
+          "agent": "a"
+        }
+      ],
+      "events": [
+        {
+          "type": "outcome",
+          "agentId": "a",
+          "action": "skipped",
+          "reason": "disabled",
+          "fragmentsBefore": null,
+          "fragmentsAfter": null
+        }
+      ]
+    },
+    {
+      "name": "timer-checks-every-written-agent-in-first-write-order",
+      "config": {
+        "fragmentThreshold": 8,
+        "checkEveryWrites": 100
+      },
+      "counts": [
+        1,
+        30,
+        2,
+        1,
+        30,
+        2
+      ],
+      "optimizes": [
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        }
+      ],
+      "ops": [
+        {
+          "op": "note",
+          "agent": "b",
+          "n": 1
+        },
+        {
+          "op": "note",
+          "agent": "a",
+          "n": 2
+        },
+        {
+          "op": "note",
+          "agent": "c",
+          "n": 1
+        },
+        {
+          "op": "note",
+          "agent": "b",
+          "n": 1
+        },
+        {
+          "op": "tick"
+        },
+        {
+          "op": "tick"
+        }
+      ],
+      "events": [
+        {
+          "type": "timer",
+          "intervalMs": 600000
+        },
+        {
+          "type": "count",
+          "agent": "b"
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "count",
+          "agent": "c"
+        },
+        {
+          "type": "count",
+          "agent": "b"
+        },
+        {
+          "type": "optimize",
+          "agent": "b",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "count",
+          "agent": "b"
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "count",
+          "agent": "c"
+        }
+      ]
+    },
+    {
+      "name": "one-capture-crossing-several-multiples-checks-once",
+      "config": {
+        "fragmentThreshold": 8,
+        "checkEveryWrites": 1
+      },
+      "counts": [
+        9,
+        9
+      ],
+      "optimizes": [
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        }
+      ],
+      "ops": [
+        {
+          "op": "note",
+          "agent": "a",
+          "n": 3
+        },
+        {
+          "op": "note",
+          "agent": "a",
+          "n": 1
+        }
+      ],
+      "events": [
+        {
+          "type": "timer",
+          "intervalMs": 600000
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        }
+      ]
+    },
+    {
+      "name": "writes-keep-counting-across-compactions",
+      "config": {
+        "fragmentThreshold": 8,
+        "checkEveryWrites": 4
+      },
+      "counts": [
+        64,
+        8,
+        64,
+        8,
+        2
+      ],
+      "optimizes": [
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        }
+      ],
+      "ops": [
+        {
+          "op": "note",
+          "agent": "a",
+          "n": 4
+        },
+        {
+          "op": "note",
+          "agent": "a",
+          "n": 3
+        },
+        {
+          "op": "note",
+          "agent": "a",
+          "n": 1
+        },
+        {
+          "op": "note",
+          "agent": "a",
+          "n": 4
+        }
+      ],
+      "events": [
+        {
+          "type": "timer",
+          "intervalMs": 600000
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        }
+      ]
+    },
+    {
+      "name": "empty-agent-is-ignored",
+      "config": {
+        "fragmentThreshold": 8,
+        "checkEveryWrites": 1
+      },
+      "counts": [
+        9
+      ],
+      "optimizes": [
+        {
+          "ok": true
+        }
+      ],
+      "ops": [
+        {
+          "op": "note",
+          "agent": "",
+          "n": 5
+        },
+        {
+          "op": "tick"
+        }
+      ],
+      "events": [
+        {
+          "type": "timer",
+          "intervalMs": 600000
+        }
+      ]
+    },
+    {
+      "name": "closed-runs-nothing",
+      "config": {
+        "fragmentThreshold": 8,
+        "checkEveryWrites": 1
+      },
+      "counts": [
+        9
+      ],
+      "optimizes": [
+        {
+          "ok": true
+        }
+      ],
+      "ops": [
+        {
+          "op": "note",
+          "agent": "a",
+          "n": 0
+        },
+        {
+          "op": "close"
+        },
+        {
+          "op": "note",
+          "agent": "a",
+          "n": 5
+        },
+        {
+          "op": "tick"
+        },
+        {
+          "op": "check",
+          "agent": "a"
+        }
+      ],
+      "events": [
+        {
+          "type": "timer",
+          "intervalMs": 600000
+        },
+        {
+          "type": "timer-cleared"
+        },
+        {
+          "type": "closed"
+        },
+        {
+          "type": "outcome",
+          "agentId": "a",
+          "action": "skipped",
+          "reason": "closed",
+          "fragmentsBefore": null,
+          "fragmentsAfter": null
+        }
+      ]
+    },
+    {
+      "name": "keep-versions-hours-reaches-optimize",
+      "config": {
+        "fragmentThreshold": 8
+      },
+      "plan": {
+        "keepVersionsHours": 1.5
+      },
+      "counts": [
+        9
+      ],
+      "optimizes": [
+        {
+          "ok": true
+        }
+      ],
+      "ops": [
+        {
+          "op": "check",
+          "agent": "a"
+        }
+      ],
+      "events": [
+        {
+          "type": "timer",
+          "intervalMs": 600000
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 5400000,
+          "timeoutMs": 60000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "outcome",
+          "agentId": "a",
+          "action": "compacted",
+          "fragmentsBefore": 9,
+          "fragmentsAfter": null
+        }
+      ]
+    },
+    {
+      "name": "keep-versions-hours-below-minimum-uses-default",
+      "config": {
+        "fragmentThreshold": 8,
+        "timeoutMs": 15000
+      },
+      "plan": {
+        "keepVersionsHours": 0.5
+      },
+      "counts": [
+        9
+      ],
+      "optimizes": [
+        {
+          "ok": true
+        }
+      ],
+      "ops": [
+        {
+          "op": "check",
+          "agent": "a"
+        }
+      ],
+      "events": [
+        {
+          "type": "timer",
+          "intervalMs": 600000
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "optimize",
+          "agent": "a",
+          "cleanupAgoMs": 86400000,
+          "timeoutMs": 15000,
+          "maxAttempts": 3,
+          "retryDelayMs": 1000,
+          "ifBusy": "skip",
+          "quietConflicts": true
+        },
+        {
+          "type": "count",
+          "agent": "a"
+        },
+        {
+          "type": "outcome",
+          "agentId": "a",
+          "action": "compacted",
+          "fragmentsBefore": 9,
+          "fragmentsAfter": null
+        }
+      ]
+    }
+  ]
+}

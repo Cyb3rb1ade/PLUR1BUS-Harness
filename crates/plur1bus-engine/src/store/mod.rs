@@ -3,6 +3,8 @@ pub mod atomic_write;
 pub mod checkpoint;
 pub mod directory;
 pub mod filter;
+/// Bounded LanceDB fragment compaction after capture (RE-D161).
+pub mod fragment_compactor;
 pub mod identity;
 pub(crate) mod kernel_lease;
 pub mod lance;

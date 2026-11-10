@@ -25,6 +25,7 @@ use crate::{
     },
     neo::capture_hook::NativeNeoCaptureHook,
     ops::reembedding::state::MigrationStateStore,
+    store::fragment_compactor::FragmentCompactor,
 };
 use std::{
     path::{Path, PathBuf},
@@ -59,6 +60,8 @@ struct Composed {
     runtime: Arc<CaptureRuntime>,
     pipeline: Arc<CapturePipeline>,
     neo: Option<Arc<NativeNeoCaptureHook>>,
+    /// Compacts agent tables after capture, detached from every turn (RE-D161).
+    compactor: Arc<FragmentCompactor>,
 }
 
 enum Slot {
@@ -81,6 +84,9 @@ pub(super) struct ProcessCapture {
     /// Test support: the background recovery does not start by itself.
     #[cfg(test)]
     held: std::sync::atomic::AtomicBool,
+    /// Test support: the agent tables the fragment compactor works on.
+    #[cfg(test)]
+    tables: Mutex<Option<Arc<dyn crate::store::fragment_compactor::FragmentTables>>>,
 }
 
 impl Default for ProcessCapture {
@@ -95,6 +101,8 @@ impl Default for ProcessCapture {
             shutdown: Cancel::never(),
             #[cfg(test)]
             held: std::sync::atomic::AtomicBool::new(false),
+            #[cfg(test)]
+            tables: Mutex::new(None),
         }
     }
 }
@@ -178,6 +186,42 @@ impl ProcessCapture {
         };
         runtime.wait_recovered(Some(budget))
     }
+    /// Test support: compact through these tables instead of the writer pool's.
+    #[cfg(test)]
+    pub(super) fn compact_with_for_test(
+        &self,
+        tables: Arc<dyn crate::store::fragment_compactor::FragmentTables>,
+    ) {
+        *self.tables.lock().unwrap_or_else(PoisonError::into_inner) = Some(tables);
+    }
+    /// Test support: tracked agents and checks queued or running.
+    #[cfg(test)]
+    pub(super) fn compaction_load_for_test(&self) -> (usize, usize) {
+        match &self.lock().slot {
+            Slot::Ready(composed) => composed.compactor.load(),
+            _ => (0, 0),
+        }
+    }
+    fn compactor(
+        &self,
+        config: &serde_json::Value,
+        pool: Arc<crate::store::StorePool>,
+    ) -> FragmentCompactor {
+        #[cfg(test)]
+        if let Some(tables) = self
+            .tables
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+        {
+            return FragmentCompactor::new(
+                crate::store::fragment_compactor::CompactorCore::from_config(config),
+                tables,
+                self.shutdown.clone(),
+            );
+        }
+        FragmentCompactor::for_pool(config, pool, self.shutdown.clone())
+    }
     fn holds_recovery(&self) -> bool {
         #[cfg(test)]
         return self.held.load(std::sync::atomic::Ordering::Acquire);
@@ -238,13 +282,14 @@ impl ProcessCapture {
             owner: this,
             armed: true,
         };
-        let outcome = compose(engine, base, &this.shutdown);
+        let outcome = compose(engine, base, this);
         let mut state = this.lock();
         guard.armed = false;
         let result = match outcome {
             Ok(composed) if state.closed => {
                 state.slot = Slot::Idle;
                 // Closed while composing: the fresh runtime never admits a turn.
+                composed.compactor.close();
                 composed.runtime.close(Duration::ZERO);
                 Err(unavailable("closed"))
             }
@@ -299,9 +344,16 @@ impl ProcessCapture {
         let Some(composed) = composed else {
             return true;
         };
+        // RE-D161: no check starts any more; a running one already sees the shutdown signal
+        // and ends at its next cancellation check. Turns drained below note nothing.
+        composed.compactor.close();
         let drained = composed
             .runtime
             .close(budget.saturating_sub(started.elapsed()));
+        let drained = composed
+            .compactor
+            .join(budget.saturating_sub(started.elapsed()))
+            && drained;
         if !drained {
             log::warn!("capture: close budget exceeded; work still settling");
         }
@@ -326,8 +378,9 @@ fn classify_failure(error: EngineError, closed: bool) -> (Option<&'static str>, 
 fn compose(
     engine: &ProcessEngine,
     base: &Path,
-    shutdown: &Cancel,
+    capture: &ProcessCapture,
 ) -> Result<Composed, EngineError> {
+    let shutdown = &capture.shutdown;
     shutdown.check()?;
     let host = engine.operations.host_handle();
     let raw = serde_json::to_value(host.config()).map_err(|_| super::composition_invalid())?;
@@ -361,13 +414,17 @@ fn compose(
         )?
         .with_engines(engine.mood.engines()),
     );
+    // RE-D161: the compactor counts the stored rows of every turn and compacts an agent
+    // table detached from the turn, on its own handle; it works only after composition.
+    let compactor = Arc::new(capture.compactor(&config, writer.clone()));
     let mut pipeline = CapturePipeline::new(
         host.clone(),
         writer,
         embedder.clone(),
         classifier,
         policy.clone(),
-    )?;
+    )?
+    .with_compactor(compactor.clone());
     // As at the pin, Neo state exists only when Neo is enabled. The pin creates the root on
     // its first write, the native hook pins an existing one. Opening the hook recovers
     // nothing; its prepared plans are inventoried with the admissions below.
@@ -409,6 +466,7 @@ fn compose(
         runtime: Arc::new(runtime),
         pipeline,
         neo,
+        compactor,
     })
 }
 

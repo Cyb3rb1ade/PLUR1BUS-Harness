@@ -97,6 +97,9 @@ fn recovery_settled(engine: &ProcessEngine) {
 #[path = "engine_capture_isolation_tests.rs"]
 mod isolation;
 
+#[path = "engine_capture_compaction_tests.rs"]
+mod compaction;
+
 /// Every file below the admission root: top-level files and the files inside each owner
 /// scope's directory (RE-D162). Lease files are left out.
 fn admission_files(root: &Path) -> Vec<PathBuf> {

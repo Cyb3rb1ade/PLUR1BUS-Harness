@@ -2440,7 +2440,10 @@ owner wait here because of this owner's retained work.
 | Turn admission, identity lookup | host | caller, at most `captureTimeoutMs`; the agent's order for one second | no |
 | Turn job (queue slot, scope lease, Neo leases) | the running job of the same agent | `captureTimeoutMs` from the slot | same agent, one turn: the pin's order |
 | WAL acknowledgements (`settle`, `keep_partial`) | the agent's WAL lease | five seconds | no; a write step on the agent's WAL file |
-| Close | queue, turns, attempts, pass | close budget | - |
+| Turn, fragment compactor note (RE-D161) | the compactor's counters and queue (two short in-memory locks) | none needed: no I/O under them | no |
+| Compactor worker, fragment count (RE-D161) | its own store handle's stats read | five seconds, shutdown | no; never the pool handle of capture or recall |
+| Compactor worker, optimize (RE-D161) | its own store handle: compact, prune, index; retry pauses | `runtime.lancedbCompaction.timeoutMs` (at least ten seconds per attempt), shutdown | no; other agents' checks wait behind it, as in the pin's one chain; turns and recall never |
+| Close | queue, turns, attempts, pass, compactor worker | close budget | - |
 
 Neo attempt counts. A binding's attempt count
 (`<neoRoot>/.native-recovery-attempts/`) is cleared when its plans are recovered
@@ -2452,3 +2455,70 @@ bound minus one): the plans are neither closed without an attempt nor retried
 without bound. The inventory's bound of 50 000 scanned entries holds per
 workspace directory, not for all directories together, so one owner's large
 workspace never cuts short the scan of another owner's directory.
+
+### Fragment compaction after capture (RE-D161)
+
+Every stored capture row is a new LanceDB fragment of the agent table. The pin
+(`engine/store/fragment-compactor.js`, wired in `engine/create-engine.js:1574-1589`
+and `engine/capture/capture-turn.js:768-772`) counts the stored rows per agent
+and compacts the table once it has enough fragments; until RE-D161 the process
+had `Store::optimize` but no caller, so fragments grew without bound and recall
+slowed with every turn. `store::fragment_compactor` ports the compactor:
+
+- Configuration as at the pin: `runtime.lancedbCompaction` (`enabled` true,
+  `fragmentThreshold` 64, minimum 8; `checkEveryWrites` 16, minimum 1;
+  `checkIntervalMs` 600 000, minimum 60 000; `timeoutMs` 60 000, minimum 10 000;
+  a non-integer or out-of-range value takes the default). `enabled: false` is the
+  only off switch. Versions older than
+  `dailyConsolidation.lancedbOptimize.keepVersionsHours` (default 24, minimum 1)
+  are pruned. Both keys are in the existing configuration schema; nothing in the
+  schema changed.
+- After the store loop of a turn with at least one stored row, the pipeline notes
+  the rows for the turn's agent table (`CapturePipeline::capture_inner`, after
+  the post-store admission is saved, before the post-store steps). A recovered
+  turn notes its rows the same way. The note only counts; a due check is queued
+  and the turn neither waits for it nor hears of its failure (the pin's
+  `runInBackground`). A turn without a stored row notes nothing.
+- A check is due when an agent's total writes cross a multiple of
+  `checkEveryWrites` (several crossings in one turn: one check) and every
+  `checkIntervalMs` for every agent with a write, in first-write order. It reads
+  the fragment count (unknown: the writes since the last compaction stand in) and
+  optimizes at `fragmentThreshold`: compact, prune, then optimize indices (the
+  pin's `table.optimize`), up to three attempts against retryable commit
+  conflicts with one and two seconds of pause, within `timeoutMs`. Success resets
+  the writes since compaction and the conflict streak; busy, no table or shutdown
+  skip; a conflict is logged at debug, from the fifth in a row at warn; any other
+  failure is logged at warn and resets the streak. The next due point retries.
+- One check per agent is queued or running at a time, and one worker thread runs
+  all checks one after the other (the pin's FIFO chain). No status reason is
+  added; log lines carry fixed reason codes only (no agent id, path or backend
+  text).
+
+Node vectors: `tests/fixtures/capture/fragment-compactor.json`, recorded twice
+byte-identically by `record-fragment-compactor.mjs` from the SHA-checked pin
+sources (27 settings, 21 retention inputs, 17 scripted scenarios with every port
+call, timer, log kind and outcome). `tests/capture_fragment_compactor.rs` replays
+them through the native counters.
+
+Native bounds beyond the pin (RE-D161):
+
+- The table work runs on its own store handle (its own runtime thread), never on
+  the pool handle that capture, recall, forget and import of the agent share; a
+  slow compaction therefore holds no turn and no recall of any owner. Concurrent
+  commits are resolved by LanceDB's optimistic commits, as at the pin.
+- A step past its budget or after the shutdown signal is dropped at its next
+  await point. At the pin a timed-out `optimize()` keeps running inside LanceDB
+  and `close()` waits for it without bound; here `close()` cancels it and waits
+  for the worker within its one budget, reporting `capture-drain-incomplete` when
+  the worker is still inside a call. A dropped compaction leaves at most
+  unreferenced data files, which a later prune removes; committed data is never
+  touched.
+- The per-agent counters are bounded at 1024 agents; the agent whose last
+  activity is oldest is forgotten first (it loses only its write counts). The pin
+  keeps every agent it has seen.
+- After close no check starts and no write is counted; the process-wide
+  busy set per table path stands in for the pin's per-path optimize lock
+  (`ifBusy: "skip"`).
+
+Not ported: the pin's `compactNow` (forced run) has no caller in the capture
+path, and consolidate-daily's own optimize belongs to the job work (RE-06).
