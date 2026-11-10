@@ -2098,17 +2098,19 @@ over the process's own sources, as the pin's `createStatusReporter`:
   `sharedMemory` keeps `{supported:false, mode:"unavailable"}`: sharing is not
   served in RX.
 
-Status reads only; it creates no directory or file, takes no lease and does not
-wait for a job session or a capture composition.
+Status reads only; it creates no directory or file, takes no lease, binds or
+closes no registry and does not wait for a job session or a capture
+composition. After `close()` it asks no source: no host callback, no ledger read
+(RE-D160).
 
 `ready` is true, and model warming or failure degrades as at the pin
 (`models-warming`/`model-failed`), except in these process states, which report
 `ready: false`: closed (`closed/engine`); capture not served
 (`startup-recovery-incomplete` or `composition-invalid` with `capture`, RE-D154
-and RE-D156); the job registry not served, that is the jobs root cannot be bound
-(`composition-invalid/jobs`) or an agent's session start (orphan recovery,
-legacy migration) failed (`startup-recovery-incomplete/jobs` until a later start
-succeeds). Which degradation is reported follows the RE-D159 priority. A ledger
+and RE-D156); the jobs root cannot be bound (`composition-invalid/jobs`); a base
+schema marker every store open refuses (`schema-unsupported/store`, RE-D160).
+One agent's failed job session start is not a status state (RE-D160). Which
+degradation is reported follows the RE-D159 priority. A ledger
 that only cannot be read reports `jobs.ledger: "unavailable"` and keeps `ready`,
 as at the pin. A host without a backlog (`journal: null`) keeps `ready`, as at
 the pin. Without a store base the frozen `{composition-pending, recall}` status
@@ -2128,7 +2130,8 @@ binding source. The cron context, an agent ID or a row owner never grants one.
 Such a job answers `E_NOT_AVAILABLE` with the fixed reason
 `job-authority-unbound`; LLM jobs (RE-06 T2–T7) answer `not-implemented`. The
 refusal comes before any file is created. `dryRun` keeps the registry's
-`skipped/dry_run_unsupported` answer for installed bodies.
+`skipped/dry_run_unsupported` answer for installed bodies and creates nothing,
+also no `_jobs` (RE-D160).
 
 The only installed body is `embedding-drain` when Neo is disabled in the
 effective configuration. It is the pin's early exit
@@ -2138,10 +2141,10 @@ enabled the drain reads private Neo rows and refuses like the others.
 
 The first run of an agent starts its registry session: the kernel lease, orphan
 marker recovery and the configured legacy migration (`Registry::prepare`). The
-start is bound to the engine's shutdown signal and to the request deadline, so
-`close()` never waits for it and stays within its budget; nothing is held
-across it but the agent's own slot. A failed start is reported by status
-(RE-D157) and retried by the next run. The process configures no legacy REM
+start has a fixed budget and ends on shutdown or when its caller is cancelled
+(RE-D160), so `close()` never waits for it and stays within its budget; nothing
+is held across it but the agent's own slot. A failed start concerns only that
+agent's runs and is retried by its next run (RE-D160). The process configures no legacy REM
 state roots: the pin migrates them inside the `rem-dream` body from owner-bound
 Neo stores, which RX cannot bind (F13; KNOWN-GAP for RY-A).
 
@@ -2150,7 +2153,7 @@ plus every agent with a run in flight, the latest finished run per job (by
 `finishedAt`), the in-flight jobs (from the durable marker until the run is
 finished), the rem/deep breaker for the current UTC sweep (limit 3, in-flight
 sessions included) and the unreadable line count. A ledger is re-read only when
-its length or modification time changed. A latest row that does not fit the
+its length, modification time, inode or change time changed (RE-D160). A latest row that does not fit the
 frozen `JobLastRun` is left out (the pin would project it as is).
 
 ### Owner-isolated capture recovery, bounded retained state and status priority (RE-D159)
@@ -2218,7 +2221,8 @@ settled ones (`REPLAY_GUARD_TTL_MS`, pin `turn-replay-guard.js` `fresh`; vector
 exception. The WAL holds content hashes, never plaintext.
 
 Status priority (first match wins): `closed/engine` > `composition-invalid`
-(capture or jobs) > `model-failed/embedding` > capture or jobs not served
+(capture or jobs) > `schema-unsupported/store` (RE-D160) >
+`model-failed/embedding` > capture not served
 (`startup-recovery-incomplete`) > `models-warming/embedding` >
 `model-failed/reranker` > `models-warming/reranker` >
 `capture-recovery-deferred/capture` > the frozen `composition-pending/recall`.
@@ -2229,3 +2233,40 @@ the frozen schema (`engine-contract.schema.json`, `Degraded.reason`), so
 owner's retained work waits (maintenance, a transient failure, its budget) or a
 file cannot be attributed; it does not change `ready` and clears once the work
 is done. `startup-recovery-deadline` is no longer reported.
+
+### Truthful readiness, bounded job sessions and per-agent isolation (RE-D160)
+
+Principle: `ready: true` only when recall and capture do not fail for a normal
+caller on a state that is already known and lasting, and one agent's jobs never
+affect another agent or the engine as a whole.
+
+- Store schema: status reads `<base>/_schema.json` through the same reader every
+  store open uses (`store::schema_version::read_base`). An unsupported version
+  (for example `"2"`), a malformed, untrusted or unreadable marker makes every
+  store open fail with `Corrupt`; status then reports `ready: false` with the
+  fixed `schema-unsupported/store`, ranked directly after `composition-invalid`.
+  A missing marker on a store not created yet is legacy `"0"`, as at the pin, and
+  keeps `ready`. `storeSchema.current` keeps the lenient pin projection.
+- Job session start: lease wait, orphan recovery and legacy migration get
+  `SESSION_START_BUDGET` = 5 s, the library's comparable bounded waits
+  (`store/tombstone.rs` `LOCK_TIMEOUT`, `store/sqlite.rs` `BUSY_TIMEOUT`, the
+  registry's 5 s settle budget). An earlier request deadline narrows it. RPC
+  requests carry no deadline: the server cancels a request's token only when its
+  connection closes, so for an RPC caller the bound is the budget, or the
+  closed connection, or engine shutdown, whichever comes first. Expiry answers
+  `E_NOT_AVAILABLE` with the fixed reason `job-session-busy`; nothing is recorded
+  and the agent's slot stays unstarted, so the next call simply tries again.
+  `engine.jobs.history` never waits for the agent's slot: while a start or run
+  holds it, the ledger file is read directly (no lock).
+- Isolation: a failed session start (for example an unreadable ledger) answers
+  `startup-recovery-incomplete` for that agent's runs only and is retried on its
+  next call; it is not a status state. The pin keeps `ready` too and reports the
+  unreadable ledger only as `jobs.ledger: "unavailable"`.
+- Status has no side effects: a replaced jobs root is reported
+  (`composition-invalid/jobs`), not closed or rebound; the next run rebinds it.
+  A root no run has bound yet is read through a temporary directory handle.
+  After close, status asks no source (no `host.journalBacklog`, no ledger read).
+- A dry run creates nothing, also no `_jobs`; without a bound registry its
+  `skipped/dry_run_unsupported` run is built by `jobs::registry::dry_run_report`.
+- The health cache key adds inode and change time (Unix) to length and
+  modification time, so a same-length rewrite is re-read.

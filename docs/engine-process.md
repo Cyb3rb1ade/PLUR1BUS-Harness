@@ -14,9 +14,12 @@ Embedding and model methods use the existing RE-03 providers. With a store base,
 status reporter over real sources (RE-D157): the host journal backlog (50 ms bound), the job ledger health under
 `<base>/_jobs` and the `_schema.json` marker. It reports `ready: true`; model warming or failure degrades as at the
 pin. It reports `ready: false` after close (`closed/engine`), while capture is not served
-(`startup-recovery-incomplete` or `composition-invalid` with `capture`), and while the job registry is not
-served: an unusable jobs root (`composition-invalid/jobs`) or an agent's session start (orphan recovery) that
-failed (`startup-recovery-incomplete/jobs`, cleared by the next successful start). While capture is served but
+(`startup-recovery-incomplete` or `composition-invalid` with `capture`), while the jobs root cannot be bound
+(`composition-invalid/jobs`) and while the base schema marker is one every store open refuses
+(`schema-unsupported/store`, RE-D160). One agent's failed job session start answers
+`startup-recovery-incomplete` for that agent's runs only. A session start is bounded (5 s, or a closed
+connection, or shutdown) and then answers `job-session-busy`; `engine.jobs.history` never waits for it. After
+close, status asks no source. While capture is served but
 some owner's retained work is deferred (maintenance, a transient failure, its own recovery budget) or a retained
 file cannot be attributed, it reports `capture-recovery-deferred/capture` and keeps `ready`. Which degradation
 wins follows the RE-D159 priority in `docs/engine-stores.md`. Without a store base it keeps the frozen

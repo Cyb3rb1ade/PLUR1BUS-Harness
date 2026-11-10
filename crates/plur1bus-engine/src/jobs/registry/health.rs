@@ -25,7 +25,7 @@ struct InFlight {
 pub(super) struct InFlightRuns {
     next: AtomicU64,
     runs: Mutex<Vec<InFlight>>,
-    cache: Mutex<HashMap<String, Cached>>,
+    cache: HealthCache,
 }
 
 /// Removes its run from the in-flight set on every exit path.
@@ -43,10 +43,17 @@ impl Drop for InFlightGuard<'_> {
     }
 }
 
-/// One agent's ledger projection, keyed by the file's length and modification time.
+/// Identity of a ledger file's content as far as metadata can tell: length, modification
+/// time and, where available, inode and change time (a same-length rewrite changes ctime).
+type Key = (u64, Option<SystemTime>, u64, i64, i64);
+
+/// Per-agent ledger projections, re-read only when the ledger file's metadata changed.
+#[derive(Default)]
+pub struct HealthCache(Mutex<HashMap<String, Cached>>);
+
 #[derive(Clone, Default)]
 struct Cached {
-    key: Option<(u64, Option<SystemTime>)>,
+    key: Option<Key>,
     last_runs: HashMap<String, JobLastRun>,
     sessions: HashMap<String, usize>,
     unreadable: usize,
@@ -88,10 +95,6 @@ impl Registry {
     /// itself never fails.
     pub fn health(&self) -> JobsHealth {
         let sweep = metadata::sweep((self.clock)() as f64).unwrap_or_default();
-        let (mut names, mut available) = match self.agent_dirs() {
-            Some(names) => (names, true),
-            None => (BTreeSet::new(), false),
-        };
         let inflight: Vec<(String, JobName, bool)> = self
             .inflight
             .runs
@@ -106,107 +109,157 @@ impl Registry {
                 )
             })
             .collect();
-        names.extend(inflight.iter().map(|(agent, _, _)| agent.clone()));
-        let mut agents = Vec::new();
-        for name in names {
-            let Ok(agent_id) = name.parse::<AgentId>() else {
-                continue;
-            };
-            let cached = self.agent_ledger(&name).unwrap_or_else(|()| {
-                available = false;
-                Cached::default()
-            });
-            let mut running: Vec<String> = inflight
-                .iter()
-                .filter(|(agent, _, _)| *agent == name)
-                .map(|(_, job, _)| job.to_string())
-                .collect();
-            running.sort();
-            running.dedup();
-            let sessions = cached.sessions.get(&sweep).copied().unwrap_or(0)
-                + inflight
-                    .iter()
-                    .filter(|(agent, _, session)| *agent == name && *session)
-                    .count();
-            let running = running
-                .iter()
-                .filter_map(|job| serde_json::from_value(json!(job)).ok())
-                .collect();
-            agents.push(AgentJobHealth {
-                agent_id,
-                last_runs: cached.last_runs,
-                running,
-                breaker: BreakerState {
-                    sweep: sweep.clone(),
-                    sessions: sessions.into(),
-                    limit: BREAKER_LIMIT.into(),
-                    open: sessions >= BREAKER_LIMIT,
-                },
-                unreadable_lines: cached.unreadable.into(),
-            });
-        }
-        JobsHealth {
-            ledger: if available {
-                JobsHealthLedger::Ok
-            } else {
-                JobsHealthLedger::Unavailable
-            },
-            agents,
-        }
+        let names = self
+            .root
+            .assert_unchanged()
+            .ok()
+            .and_then(|()| agent_dirs(self.root.path()));
+        assemble(
+            self.root.path(),
+            names,
+            &inflight,
+            &sweep,
+            &self.inflight.cache,
+        )
     }
+}
 
-    /// Safe agent directory names below the bound root; `None` when the root is unreadable.
-    fn agent_dirs(&self) -> Option<BTreeSet<String>> {
-        self.root.assert_unchanged().ok()?;
-        let mut names = BTreeSet::new();
-        for entry in std::fs::read_dir(self.root.path()).ok()? {
-            let entry = entry.ok()?;
-            let Ok(name) = entry.file_name().into_string() else {
-                continue;
-            };
-            let safe = !name.is_empty()
-                && name.len() <= 64
-                && name
-                    .bytes()
-                    .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-');
-            if safe && entry.file_type().is_ok_and(|kind| kind.is_dir()) {
-                names.insert(name);
-            }
-        }
-        Some(names)
-    }
+/// Health of a jobs root no registry has bound yet (no run can be in flight). Opens nothing
+/// for writing and keeps no handle; `None` when the root is not a trusted directory.
+pub fn health_at(root: &Path, now_ms: i64, cache: &HealthCache) -> Option<JobsHealth> {
+    let dir = TrustedDirectory::open(root).ok()?;
+    let sweep = metadata::sweep(now_ms as f64).unwrap_or_default();
+    let names = agent_dirs(dir.path());
+    let health = assemble(dir.path(), names, &[], &sweep, cache);
+    dir.assert_unchanged().ok()?;
+    Some(health)
+}
 
-    /// One agent's projection, re-read only when the ledger file's length or mtime changed.
-    fn agent_ledger(&self, agent: &str) -> Result<Cached, ()> {
-        let path = self.root.path().join(agent).join("ledger.jsonl");
-        let key = match std::fs::symlink_metadata(&path) {
-            Ok(meta) => (meta.len(), meta.modified().ok()),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                return Ok(Cached::default())
-            }
-            Err(_) => return Err(()),
+fn assemble(
+    root: &Path,
+    names: Option<BTreeSet<String>>,
+    inflight: &[(String, JobName, bool)],
+    sweep: &str,
+    cache: &HealthCache,
+) -> JobsHealth {
+    let (mut names, mut available) = match names {
+        Some(names) => (names, true),
+        None => (BTreeSet::new(), false),
+    };
+    names.extend(inflight.iter().map(|(agent, _, _)| agent.clone()));
+    let mut agents = Vec::new();
+    for name in names {
+        let Ok(agent_id) = name.parse::<AgentId>() else {
+            continue;
         };
-        let mut cache = self
-            .inflight
-            .cache
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        if let Some(cached) = cache.get(agent).filter(|cached| cached.key == Some(key)) {
-            return Ok(cached.clone());
-        }
-        let snapshot = JobLedger::open(self.root.path(), agent)
-            .map_err(|_| ())?
-            .snapshot(&Cancel::never())
-            .map_err(|_| ())?;
-        let cached = derive(key, &snapshot.rows, snapshot.unreadable);
-        cache.insert(agent.to_owned(), cached.clone());
-        Ok(cached)
+        let cached = agent_ledger(root, &name, cache).unwrap_or_else(|()| {
+            available = false;
+            Cached::default()
+        });
+        let mut running: Vec<String> = inflight
+            .iter()
+            .filter(|(agent, _, _)| *agent == name)
+            .map(|(_, job, _)| job.to_string())
+            .collect();
+        running.sort();
+        running.dedup();
+        let sessions = cached.sessions.get(sweep).copied().unwrap_or(0)
+            + inflight
+                .iter()
+                .filter(|(agent, _, session)| *agent == name && *session)
+                .count();
+        let running = running
+            .iter()
+            .filter_map(|job| serde_json::from_value(json!(job)).ok())
+            .collect();
+        agents.push(AgentJobHealth {
+            agent_id,
+            last_runs: cached.last_runs,
+            running,
+            breaker: BreakerState {
+                sweep: sweep.to_owned(),
+                sessions: sessions.into(),
+                limit: BREAKER_LIMIT.into(),
+                open: sessions >= BREAKER_LIMIT,
+            },
+            unreadable_lines: cached.unreadable.into(),
+        });
     }
+    JobsHealth {
+        ledger: if available {
+            JobsHealthLedger::Ok
+        } else {
+            JobsHealthLedger::Unavailable
+        },
+        agents,
+    }
+}
+
+/// Safe agent directory names below a root; `None` when the root is unreadable.
+fn agent_dirs(root: &Path) -> Option<BTreeSet<String>> {
+    let mut names = BTreeSet::new();
+    for entry in std::fs::read_dir(root).ok()? {
+        let entry = entry.ok()?;
+        let Ok(name) = entry.file_name().into_string() else {
+            continue;
+        };
+        let safe = !name.is_empty()
+            && name.len() <= 64
+            && name
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-');
+        if safe && entry.file_type().is_ok_and(|kind| kind.is_dir()) {
+            names.insert(name);
+        }
+    }
+    Some(names)
+}
+
+fn key(meta: &std::fs::Metadata) -> Key {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        (
+            meta.len(),
+            meta.modified().ok(),
+            meta.ino(),
+            meta.ctime(),
+            meta.ctime_nsec(),
+        )
+    }
+    #[cfg(not(unix))]
+    {
+        (meta.len(), meta.modified().ok(), 0, 0, 0)
+    }
+}
+
+/// One agent's projection, re-read only when the ledger file's metadata changed.
+fn agent_ledger(root: &Path, agent: &str, cache: &HealthCache) -> Result<Cached, ()> {
+    let path = root.join(agent).join("ledger.jsonl");
+    let key = match std::fs::symlink_metadata(&path) {
+        Ok(meta) => key(&meta),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Cached::default()),
+        Err(_) => return Err(()),
+    };
+    let mut cache = cache
+        .0
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    if let Some(cached) = cache.get(agent).filter(|cached| cached.key == Some(key)) {
+        return Ok(cached.clone());
+    }
+    let snapshot = JobLedger::open(root, agent)
+        .map_err(|_| ())?
+        .snapshot(&Cancel::never())
+        .map_err(|_| ())?;
+    let cached = derive(key, &snapshot.rows, snapshot.unreadable);
+    cache.insert(agent.to_owned(), cached.clone());
+    Ok(cached)
 }
 
 /// Latest finished run per job (by `finishedAt`, first wins on ties) and rem/deep sessions
 /// per sweep. A latest row that does not fit the frozen `JobLastRun` is left out.
-fn derive(key: (u64, Option<SystemTime>), rows: &[TolerantJsonValue], unreadable: usize) -> Cached {
+fn derive(key: Key, rows: &[TolerantJsonValue], unreadable: usize) -> Cached {
     let mut latest: HashMap<String, (f64, Value)> = HashMap::new();
     let mut sessions: HashMap<String, usize> = HashMap::new();
     for row in rows {

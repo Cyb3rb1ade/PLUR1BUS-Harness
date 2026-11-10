@@ -1,35 +1,45 @@
 //! The native job registry over `<baseDbPath>/_jobs`, as the pin's `createJobRegistry`
-//! (RE-D158). F13: RX has no owner or workspace binding for background work, so every job
-//! whose body reads or writes private rows refuses with a fixed reason; LLM bodies are not
-//! ported. The only installed body is the pin's `embedding-drain` with Neo disabled, which
-//! records `skipped/neo_disabled` and reads nothing. Reads (`list`, `history`, health) never
-//! create the root; a session start (recovery and legacy migration) is bound to shutdown.
+//! (RE-D158, RE-D160). F13: RX has no owner or workspace binding for background work, so
+//! every job whose body reads or writes private rows refuses with a fixed reason; LLM bodies
+//! are not ported. The only installed body is the pin's `embedding-drain` with Neo disabled,
+//! which records `skipped/neo_disabled` and reads nothing. Reads (`list`, `history`, health)
+//! and dry runs never create anything. A session start (lease, recovery, legacy migration)
+//! has a fixed budget and ends on shutdown or when its caller is cancelled.
 
 use crate::{
     contract::{
-        AgentId, Cancel, CancelReason, Cancelled, Degraded, EngineError, HistoryFilter,
-        HostServices, JobName, JobOutcome, JobRegistry, JobRun, JobSpec, JobsHealth,
-        JobsHealthLedger, RunOptions,
+        AgentId, Cancel, Degraded, EngineError, HistoryFilter, HostServices, JobName, JobOutcome,
+        JobRegistry, JobRun, JobSpec, JobTrigger, JobsHealth, JobsHealthLedger, RunOptions,
     },
     jobs::{
         authority,
-        registry::{JobBody, JobContext, JobReport, Registry},
+        registry::{
+            dry_run_report, health_at, HealthCache, JobBody, JobContext, JobReport, Registry,
+        },
     },
 };
 use std::{
-    collections::BTreeMap,
     path::PathBuf,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex, MutexGuard, PoisonError,
     },
-    time::Instant,
+    time::{Duration, Instant},
 };
 
-/// Status reason while an agent's session start (recovery, migration) has not succeeded.
+/// Run reason while an agent's session start (recovery, migration) fails; that agent only.
 const RECOVERY_INCOMPLETE: &str = "startup-recovery-incomplete";
-/// Status reason when the jobs root cannot be bound (not a trusted directory, replaced).
+/// Status and run reason when the jobs root cannot be bound (not a trusted directory, replaced).
 const COMPOSITION_INVALID: &str = "composition-invalid";
+/// Run reason when the session start did not finish within its budget (for example another
+/// process holds the agent's session lease). Not a failure state; the next call retries.
+const SESSION_BUSY: &str = "job-session-busy";
+/// Budget of one session start when the caller has no earlier deadline. The library's
+/// comparable bounded lock waits are 5 s: `store/tombstone.rs` `LOCK_TIMEOUT`,
+/// `store/sqlite.rs` `BUSY_TIMEOUT` and the registry's settle budget in `jobs/registry.rs`.
+const SESSION_START_BUDGET: Duration = Duration::from_secs(5);
+/// How often a waiting session start looks at its caller's and the engine's cancellation.
+const WATCH_TICK: Duration = Duration::from_millis(10);
 
 fn unavailable(reason: &str) -> EngineError {
     EngineError::NotAvailable {
@@ -58,8 +68,9 @@ pub(super) struct ProcessJobs {
     host: Arc<dyn HostServices>,
     neo_enabled: bool,
     registry: Mutex<Option<Arc<Registry>>>,
+    /// Health projections while no registry is bound yet.
+    unbound: HealthCache,
     invalid: AtomicBool,
-    failed: Mutex<BTreeMap<String, &'static str>>,
     shutdown: Cancel,
     closed: AtomicBool,
 }
@@ -76,8 +87,8 @@ impl ProcessJobs {
             host,
             neo_enabled,
             registry: Mutex::new(None),
+            unbound: HealthCache::default(),
             invalid: AtomicBool::new(false),
-            failed: Mutex::new(BTreeMap::new()),
             shutdown: Cancel::never(),
             closed: AtomicBool::new(false),
         }
@@ -92,20 +103,28 @@ impl ProcessJobs {
         self.registry.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
-    /// The bound registry. Without `create`, an absent root is `None` and nothing is written.
-    fn registry(&self, create: bool) -> Result<Option<Arc<Registry>>, EngineError> {
+    fn root(&self) -> Result<&PathBuf, EngineError> {
         if self.closed.load(Ordering::Acquire) {
             return Err(unavailable("closed"));
         }
-        let Some(root) = &self.root else {
-            return Err(unavailable("composition-pending"));
-        };
+        self.root
+            .as_ref()
+            .ok_or_else(|| unavailable("composition-pending"))
+    }
+
+    /// The bound registry. Without `create`, an absent root is `None`, nothing is written and
+    /// a replaced root is reported (`composition-invalid`), not rebound; a run rebinds it.
+    fn registry(&self, create: bool) -> Result<Option<Arc<Registry>>, EngineError> {
+        let root = self.root()?;
         let mut slot = self.slot();
         if let Some(registry) = slot.as_ref() {
             if registry.root_intact() {
                 return Ok(Some(registry.clone()));
             }
-            // A replaced root is rebound (or reported) instead of serving the old one.
+            if !create {
+                self.invalid.store(true, Ordering::Release);
+                return Err(unavailable(COMPOSITION_INVALID));
+            }
             registry.close();
             *slot = None;
         }
@@ -155,82 +174,92 @@ impl ProcessJobs {
         Ok(Some(registry))
     }
 
-    /// Start the agent's session (orphan recovery, legacy migration) bound to shutdown and to
-    /// the request deadline. Its failure is reported by status until a later start succeeds.
+    /// Start the agent's session (lease, orphan recovery, legacy migration) within
+    /// `SESSION_START_BUDGET` (or the caller's earlier deadline). It ends early on shutdown or
+    /// when the caller's token is cancelled, for example by a closed connection. A failure
+    /// concerns only this agent and is retried by its next call; nothing is recorded.
     fn prepare(
         &self,
         registry: &Registry,
         agent: &AgentId,
         cancel: &Cancel,
     ) -> Result<(), EngineError> {
-        let bound = match cancel.remaining() {
-            Some(left) => self.shutdown.limited_to(Instant::now() + left),
-            None => self.shutdown.clone(),
-        };
-        let failed = |reason: &'static str| {
-            self.failed
-                .lock()
-                .unwrap_or_else(PoisonError::into_inner)
-                .insert(agent.to_string(), reason);
-            log::warn!("jobs: session start incomplete");
-        };
-        match registry.prepare(agent, &bound) {
-            Ok(()) => {
-                self.failed
-                    .lock()
-                    .unwrap_or_else(PoisonError::into_inner)
-                    .remove(agent.as_str());
-                Ok(())
-            }
+        let now = Instant::now();
+        let end = cancel
+            .remaining()
+            .map_or(now + SESSION_START_BUDGET, |left| {
+                (now + left).min(now + SESSION_START_BUDGET)
+            });
+        let token = Cancel::with_deadline(end);
+        let done = AtomicBool::new(false);
+        let result = std::thread::scope(|scope| {
+            scope.spawn(|| {
+                while !done.load(Ordering::Acquire) {
+                    if cancel.is_cancelled() || self.shutdown.is_cancelled() {
+                        token.cancel();
+                        break;
+                    }
+                    std::thread::sleep(WATCH_TICK);
+                }
+            });
+            let result = registry.prepare(agent, &token);
+            done.store(true, Ordering::Release);
+            result
+        });
+        match result {
+            Ok(()) => Ok(()),
             // Shutdown is no failure state.
             Err(_) if self.closed.load(Ordering::Acquire) || self.shutdown.is_cancelled() => {
                 Err(unavailable("closed"))
             }
-            // The request's own deadline ended the wait; nothing failed and nothing is recorded.
-            Err(
-                error @ EngineError::Cancelled(Cancelled {
-                    reason: CancelReason::Deadline,
-                }),
-            ) => Err(error),
-            Err(error @ EngineError::Invalid { .. }) => {
-                failed(COMPOSITION_INVALID);
-                Err(error)
-            }
+            // The caller's own cancellation or deadline.
+            Err(_) if cancel.is_cancelled() => Err(cancel
+                .check()
+                .err()
+                .map_or_else(|| unavailable(SESSION_BUSY), EngineError::from)),
+            Err(EngineError::Cancelled(_)) => Err(unavailable(SESSION_BUSY)),
+            Err(error @ EngineError::Invalid { .. }) => Err(error),
             Err(_) => {
-                failed(RECOVERY_INCOMPLETE);
+                log::warn!("jobs: session start incomplete");
                 Err(unavailable(RECOVERY_INCOMPLETE))
             }
         }
     }
 
-    /// The jobs degradation the status reports, if the registry is not (fully) served.
+    /// The jobs degradation the status reports: only a jobs root that cannot be bound.
+    /// One agent's failed session start concerns only that agent's runs (RE-D160).
     pub(super) fn degradation(&self) -> Option<Degraded> {
-        let reason = if self.invalid.load(Ordering::Acquire) {
-            COMPOSITION_INVALID
-        } else {
-            *self
-                .failed
-                .lock()
-                .unwrap_or_else(PoisonError::into_inner)
-                .values()
-                .next()?
-        };
-        super::degradation(reason, "jobs").ok()
+        self.invalid
+            .load(Ordering::Acquire)
+            .then(|| super::degradation(COMPOSITION_INVALID, "jobs").ok())
+            .flatten()
     }
 
-    /// Ledger-derived health; never creates the root and never waits for a session.
+    /// Ledger-derived health. Never creates, binds, closes or waits: a replaced root is
+    /// reported, an unbound existing root is read through a temporary handle.
     pub(super) fn health(&self) -> JobsHealth {
-        match self.registry(false) {
-            Ok(Some(registry)) => registry.health(),
-            Ok(None) => JobsHealth {
-                ledger: JobsHealthLedger::Ok,
-                agents: vec![],
+        let unavailable = JobsHealth {
+            ledger: JobsHealthLedger::Unavailable,
+            agents: vec![],
+        };
+        let Ok(root) = self.root() else {
+            return unavailable;
+        };
+        let bound = self.slot().clone();
+        let health = match bound {
+            Some(registry) if registry.root_intact() => Some(registry.health()),
+            Some(_) => None,
+            None => match std::fs::symlink_metadata(root) {
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => Some(JobsHealth {
+                    ledger: JobsHealthLedger::Ok,
+                    agents: vec![],
+                }),
+                Err(_) => None,
+                Ok(_) => health_at(root, self.host.now_ms(), &self.unbound),
             },
-            Err(_) => JobsHealth {
-                ledger: JobsHealthLedger::Unavailable,
-                agents: vec![],
-            },
-        }
+        };
+        self.invalid.store(health.is_none(), Ordering::Release);
+        health.unwrap_or(unavailable)
     }
 
     /// Refuse new runs and stop session starts; admitted runs keep their own handles.
@@ -255,28 +284,40 @@ impl JobRegistry for ProcessJobs {
         cancel: &Cancel,
     ) -> Result<JobRun, EngineError> {
         cancel.check()?;
-        if self.closed.load(Ordering::Acquire) {
-            return Err(unavailable("closed"));
-        }
-        if self.root.is_none() {
-            return Err(unavailable("composition-pending"));
-        }
+        self.root()?;
         // F13: refused before any file exists; an agent ID or a cron trigger grants nothing.
         if !self.installed(job) {
             return Err(unavailable(authority::refusal(job)));
         }
+        // A dry run creates nothing: no root, no session, no ledger entry.
+        if opts.dry_run == Some(true) {
+            if let Some(registry) = self.registry(false)? {
+                return registry.run(job, agent, opts, cancel);
+            }
+            let started = self.host.now_ms();
+            let run = dry_run_report(
+                job,
+                agent,
+                opts.trigger.unwrap_or(JobTrigger::Manual),
+                started,
+                self.host.now_ms(),
+                uuid::Uuid::new_v4().to_string(),
+            )?;
+            if let Ok(payload) = serde_json::to_value(&run) {
+                self.host.emit("job.run", payload);
+            }
+            return Ok(run);
+        }
         let registry = self
             .registry(true)?
             .ok_or_else(|| unavailable(COMPOSITION_INVALID))?;
-        // A dry run is answered by the registry without a session or ledger entry.
-        if opts.dry_run != Some(true) {
-            self.prepare(&registry, agent, cancel)?;
-        }
+        self.prepare(&registry, agent, cancel)?;
         cancel.check()?;
         registry.run(job, agent, opts, cancel)
     }
     fn history(&self, agent: &AgentId, filter: HistoryFilter) -> Result<Vec<JobRun>, EngineError> {
         match self.registry(false)? {
+            // Never waits for a running session start (`Registry::history`).
             Some(registry) => registry.history(agent, filter),
             // The pin reads an absent ledger as no history.
             None => Ok(Vec::new()),

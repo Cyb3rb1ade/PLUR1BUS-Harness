@@ -398,7 +398,9 @@ impl Engine for ProcessEngine {
         // wins; the pin's model order (`types/engine.d.ts`, `status-reporter.js`) is kept as a
         // subsequence. Model degradation and deferred capture work keep ready, as at the pin.
         let closed = self.closed.load(Ordering::Acquire);
-        let (mut status, models) = if let Some(reporter) = &self.reporter {
+        // After close no source is asked: no host callback, no ledger read (RE-D160).
+        let reporter = self.reporter.as_ref().filter(|_| !closed);
+        let (mut status, models) = if let Some(reporter) = reporter {
             let mut status = reporter.status();
             let models = status.degraded.take();
             (status, models)
@@ -416,6 +418,10 @@ impl Engine for ProcessEngine {
             let models = index.map(|index| self.model_degradation[index].clone());
             (status, models)
         };
+        // RE-D159 priority with the store schema after composition-invalid (RE-D160):
+        // closed > composition invalid > schema unsupported > embedding failed > capture not
+        // served > embedding warming > reranker failed > reranker loading > capture deferred
+        // > composition-pending.
         let mut ranked: Vec<(u8, Degraded)> = Vec::new();
         let mut served = !closed;
         if closed {
@@ -424,36 +430,36 @@ impl Engine for ProcessEngine {
             if let Some((degraded, capture)) = self.capture.degradation() {
                 let rank = match capture {
                     engine_capture::Served::Invalid => 2,
-                    engine_capture::Served::No => 4,
-                    engine_capture::Served::Deferred => 8,
+                    engine_capture::Served::No => 5,
+                    engine_capture::Served::Deferred => 9,
                 };
                 served &= capture == engine_capture::Served::Deferred;
                 ranked.push((rank, degraded));
             }
-            if self.reporter.is_some() {
+            if reporter.is_some() {
+                // Only an unusable jobs root; one agent's session start affects only that agent.
                 if let Some(degraded) = self.jobs.degradation() {
                     served = false;
-                    let rank = if degraded.reason == "composition-invalid" {
-                        2
-                    } else {
-                        4
-                    };
-                    ranked.push((rank, degraded));
+                    ranked.push((2, degraded));
+                }
+                if let Some(degraded) = self.schema_degradation() {
+                    served = false;
+                    ranked.push((3, degraded));
                 }
             }
         }
         if let Some(degraded) = models {
             let rank = match (degraded.reason.as_str(), degraded.capability.as_str()) {
-                ("model-failed", "embedding") => 3,
-                ("models-warming", "embedding") => 5,
-                ("model-failed", _) => 6,
-                _ => 7,
+                ("model-failed", "embedding") => 4,
+                ("models-warming", "embedding") => 6,
+                ("model-failed", _) => 7,
+                _ => 8,
             };
             ranked.push((rank, degraded));
         }
         // The frozen default without a store base (`composition-pending`).
         if let Some(degraded) = status.degraded.take() {
-            ranked.push((9, degraded));
+            ranked.push((10, degraded));
         }
         status.degraded = ranked
             .into_iter()
@@ -585,6 +591,15 @@ macro_rules! unavailable_methods {
 impl ProcessEngine {
     fn error(&self) -> EngineError {
         self.unavailable.error()
+    }
+
+    /// `schema-unsupported/store` when the base marker is one every store open refuses
+    /// (unsupported version, malformed, untrusted or unreadable). A missing marker is legacy 0,
+    /// as at the pin. Read-only, through the same reader the store open uses (RE-D160).
+    fn schema_degradation(&self) -> Option<Degraded> {
+        let base = self.live_stores.configured_base()?;
+        crate::store::schema_version::read_base(base).err()?;
+        degradation("schema-unsupported", "store").ok()
     }
 
     fn memory_ports(&self) -> Result<&ProcessMemory, EngineError> {

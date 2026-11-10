@@ -14,6 +14,7 @@ use std::{
     time::Duration,
 };
 mod health;
+pub use health::{health_at, HealthCache};
 mod notes;
 mod record;
 mod startup;
@@ -208,6 +209,26 @@ fn lock<'a, T>(mutex: &'a Mutex<T>, cancel: &Cancel) -> Result<MutexGuard<'a, T>
         }
     }
 }
+/// The registry's dry-run answer (`skipped/dry_run_unsupported`), built without a registry,
+/// session, ledger or file; the caller supplies its clock readings and run identifier.
+pub fn dry_run_report(
+    job: JobName,
+    agent: &AgentId,
+    trigger: JobTrigger,
+    started: i64,
+    finished: i64,
+    id: String,
+) -> Result<JobRun, EngineError> {
+    record::Draft::new(job, agent.clone(), trigger, started, id)?.finish(
+        JobReport {
+            outcome: JobOutcome::Skipped,
+            reason: Some("dry_run_unsupported".into()),
+        },
+        &[],
+        finished,
+        notes::Notes::default(),
+    )
+}
 impl JobRegistry for Registry {
     fn list(&self) -> Vec<JobSpec> {
         super::catalog()
@@ -229,26 +250,15 @@ impl JobRegistry for Registry {
             .ok_or_else(|| EngineError::NotAvailable {
                 reason: "not-implemented".into(),
             })?;
-        let draft = record::Draft::new(
-            job,
-            agent.clone(),
-            opts.trigger.unwrap_or(JobTrigger::Manual),
-            (self.clock)(),
-            (self.ids)(),
-        )?;
+        let trigger = opts.trigger.unwrap_or(JobTrigger::Manual);
+        let started = (self.clock)();
+        let id = (self.ids)();
         if opts.dry_run == Some(true) {
-            let run = draft.finish(
-                JobReport {
-                    outcome: JobOutcome::Skipped,
-                    reason: Some("dry_run_unsupported".into()),
-                },
-                &[],
-                (self.clock)(),
-                notes::Notes::default(),
-            )?;
+            let run = dry_run_report(job, agent, trigger, started, (self.clock)(), id)?;
             let _ = (self.events)(&run);
             return Ok(run);
         }
+        let draft = record::Draft::new(job, agent.clone(), trigger, started, id)?;
         let slot = self.slot(agent)?;
         let sweep = draft.sweep()?;
         let (admission, snapshot, owns, pre_skip) = {
@@ -347,15 +357,21 @@ impl JobRegistry for Registry {
             .map_err(|_| StoreError::Corrupt)?
             .get::<str>(agent.as_ref())
             .cloned();
-        let rows = if let Some(slot) = slot {
-            let state = lock(&slot, &Cancel::never())?;
-            if let Some(state) = state.as_ref() {
-                state.session.snapshot(&Cancel::never())?.rows
-            } else {
-                ledger.snapshot(&Cancel::never())?.rows
+        // A read never waits for the agent's slot: while a session start or run holds it, the
+        // ledger file is read directly (the snapshot takes no lock either way).
+        let session_rows = match slot.as_deref().map(Mutex::try_lock) {
+            Some(Ok(state)) => match state.as_ref() {
+                Some(state) => Some(state.session.snapshot(&Cancel::never())?.rows),
+                None => None,
+            },
+            Some(Err(std::sync::TryLockError::Poisoned(_))) => {
+                return Err(StoreError::Corrupt.into())
             }
-        } else {
-            ledger.snapshot(&Cancel::never())?.rows
+            Some(Err(std::sync::TryLockError::WouldBlock)) | None => None,
+        };
+        let rows = match session_rows {
+            Some(rows) => rows,
+            None => ledger.snapshot(&Cancel::never())?.rows,
         };
         let job = filter.job.map(|j| j.to_string());
         let selected = metadata::history(

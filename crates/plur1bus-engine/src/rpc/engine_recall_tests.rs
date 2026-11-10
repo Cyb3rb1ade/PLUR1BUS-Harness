@@ -128,21 +128,21 @@ fn normal_recall_renders_the_selected_memory_and_records_mood_through_the_proces
             && payload["degraded"].is_null()));
     // Recall is served and every status source is composed (RE-D157).
     assert!(engine.status().ready);
-    // Counter-case: an agent's job session that cannot recover keeps the engine not ready.
-    fs::create_dir_all(root.join("db/_jobs/agent/ledger.jsonl")).unwrap();
-    let opts: RunOptions = serde_json::from_value(json!({})).unwrap();
-    let agent_id: AgentId = "agent".parse().unwrap();
-    assert!(engine
-        .jobs()
-        .run(JobName::EmbeddingDrain, &agent_id, opts, &Cancel::never())
-        .is_err());
+    // Counter-case: a schema marker the store refuses makes every store open fail (RE-D160).
+    let marker = root.join("db/_schema.json");
+    let kept = fs::read(&marker).ok();
+    fs::write(&marker, br#"{"schemaVersion":"2"}"#).unwrap();
     let degraded = engine.status().degraded.unwrap();
     assert!(!engine.status().ready);
     assert_eq!(
         (degraded.reason.as_str(), degraded.capability.as_str()),
-        ("startup-recovery-incomplete", "jobs")
+        ("schema-unsupported", "store")
     );
-    fs::remove_dir(root.join("db/_jobs/agent/ledger.jsonl")).unwrap();
+    match kept {
+        Some(bytes) => fs::write(&marker, bytes).unwrap(),
+        None => fs::remove_file(&marker).unwrap(),
+    }
+    assert!(engine.status().ready);
     // A1 counts exactly the rendered card.
     let stats = crate::store::recall_stats::RecallStats::new(&root.join("db"))
         .unwrap()
