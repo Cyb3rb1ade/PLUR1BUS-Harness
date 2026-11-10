@@ -5,13 +5,20 @@ engine binary, with its actual PID in the readiness line and authentication resu
 engine in the Core: `engine.implementation` still defaults to `node`.
 
 The process server is implemented. With a configured store base, recall (normal and warm), capture, memory
-list/show/state/forget/link/import/rebind/unbind and store adoption are served by their native compositions.
-Jobs and the remaining memory/admin operations still answer `E_NOT_AVAILABLE` with `composition-pending`.
-Embedding and model methods use the existing RE-03 providers. `engine.status` keeps `ready: false` with the frozen
-`{reason: "composition-pending", capability: "recall"}` until the journal backlog, the job ledger and the store
-schema marker are composed; a capture composition that cannot recover reports
-`{reason: "startup-recovery-incomplete", capability: "capture"}` instead. Transport tests inject an explicit
-test-only engine to exercise recall and capture receipts.
+list/show/state/forget/link/import/rebind/unbind, store adoption and the job registry
+(`engine.jobs.list/run/history`, RE-D158) are served by their native compositions. The remaining memory/admin
+operations still answer `E_NOT_AVAILABLE` with `composition-pending`. Under F13 every job whose body reads or
+writes private owner or workspace rows answers `job-authority-unbound`, LLM jobs answer `not-implemented`; the
+only installed body is `embedding-drain` with Neo disabled (`skipped/neo_disabled`, as at the pin).
+Embedding and model methods use the existing RE-03 providers. With a store base, `engine.status` is the pin's
+status reporter over real sources (RE-D157): the host journal backlog (50 ms bound), the job ledger health under
+`<base>/_jobs` and the `_schema.json` marker. It reports `ready: true`; model warming or failure degrades as at the
+pin. It reports `ready: false` after close (`closed/engine`), while capture is not served
+(`startup-recovery-incomplete`, `startup-recovery-deadline` or `composition-invalid` with `capture`), and while
+the job registry is not served: an unusable jobs root (`composition-invalid/jobs`) or an agent's session start
+(orphan recovery) that failed (`startup-recovery-incomplete/jobs`, cleared by the next successful start).
+Without a store base it keeps the frozen `{reason: "composition-pending", capability: "recall"}`. Status creates
+no file. Transport tests inject an explicit test-only engine to exercise recall and capture receipts.
 
 ## Identity and lifecycle
 
@@ -56,7 +63,7 @@ limits are not part of this trusted engine process; D123 governs untrusted ACP c
 
 `engine.status` preserves the frozen engine status and adds optional RPC 1.17 process identity, lifecycle state,
 request/auth/connection/capture/accept-error counters and scheduler-loop lag. Process `ready` means the endpoint serves RPC;
-the separate engine `ready` flag remains false while memory composition is pending.
+the separate engine `ready` flag follows the composed status above (false without a store base).
 
 ## Host services and configuration
 

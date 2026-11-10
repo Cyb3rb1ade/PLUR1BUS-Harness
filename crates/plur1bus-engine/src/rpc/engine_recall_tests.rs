@@ -126,9 +126,23 @@ fn normal_recall_renders_the_selected_memory_and_records_mood_through_the_proces
         .any(|(name, payload)| name == "recall.completed"
             && payload["agentId"] == "agent"
             && payload["degraded"].is_null()));
-    // The frozen status text keeps composition-pending/recall until the engine is ready.
+    // Recall is served and every status source is composed (RE-D157).
+    assert!(engine.status().ready);
+    // Counter-case: an agent's job session that cannot recover keeps the engine not ready.
+    fs::create_dir_all(root.join("db/_jobs/agent/ledger.jsonl")).unwrap();
+    let opts: RunOptions = serde_json::from_value(json!({})).unwrap();
+    let agent_id: AgentId = "agent".parse().unwrap();
+    assert!(engine
+        .jobs()
+        .run(JobName::EmbeddingDrain, &agent_id, opts, &Cancel::never())
+        .is_err());
+    let degraded = engine.status().degraded.unwrap();
     assert!(!engine.status().ready);
-    assert_eq!(engine.status.degraded.clone().unwrap().capability, "recall");
+    assert_eq!(
+        (degraded.reason.as_str(), degraded.capability.as_str()),
+        ("startup-recovery-incomplete", "jobs")
+    );
+    fs::remove_dir(root.join("db/_jobs/agent/ledger.jsonl")).unwrap();
     // A1 counts exactly the rendered card.
     let stats = crate::store::recall_stats::RecallStats::new(&root.join("db"))
         .unwrap()

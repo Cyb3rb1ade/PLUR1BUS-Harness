@@ -56,7 +56,22 @@ fn first_process_open_recovers_the_active_writer_and_repeats_without_extra_recor
         assert_eq!(Value::Array(rows), golden["cases"][0]["after"]);
         (handle.close)().unwrap();
     }
-    assert!(!engine.status().ready);
+    // S5 recovery done and every status source composed: ready while models warm.
+    assert!(engine.status().ready);
+    // Counter-case: a jobs root replaced by a link is not bound.
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(temp.path(), base.join("_jobs")).unwrap();
+        let status = engine.status();
+        assert!(!status.ready);
+        let degraded = status.degraded.unwrap();
+        assert_eq!(
+            (degraded.reason.as_str(), degraded.capability.as_str()),
+            ("composition-invalid", "jobs")
+        );
+        std::fs::remove_file(base.join("_jobs")).unwrap();
+        assert!(engine.status().ready);
+    }
     assert_eq!(engine.models().status().embedder.state, ModelState::Loading);
     engine.close(None).unwrap();
 }

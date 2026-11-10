@@ -14,13 +14,15 @@ use std::time::{Duration, Instant, UNIX_EPOCH};
 const INSTANCE: &str = "00000000-0000-4000-8000-000000000081";
 
 fn assert_process_status(status: &Value) {
-    assert_eq!(status["ready"], false, "{status}");
+    // The host store base is configured: recall, capture, journal, jobs and the schema marker
+    // are composed (RE-D157), so the engine is ready; model warming degrades as at the pin.
+    assert_eq!(status["ready"], true, "{status}");
     assert!(
-        status["degraded"]["reason"]
-            .as_str()
-            .is_some_and(|reason| matches!(reason, "models-warming" | "composition-pending")),
+        status["degraded"].is_null() || status["degraded"]["reason"] == "models-warming",
         "{status}"
     );
+    assert_eq!(status["jobs"]["ledger"], "ok", "{status}");
+    assert_eq!(status["storeSchema"]["expected"], "1", "{status}");
 }
 
 #[test]

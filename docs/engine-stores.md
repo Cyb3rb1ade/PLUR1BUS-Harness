@@ -1893,7 +1893,8 @@ that exists but cannot be opened, answers no blocks with the degradation
 `{reason: "error", capability: "recall"}` and the usual `recall.degraded` and
 `recall.completed` events. A1 counts only the rendered cards of a successful,
 undegraded recall. The result carries no decision trace, as at the pin. The
-status reports ready once capture is composed as well (RE-D154). Start
+status reports ready once capture, journal, jobs and the schema marker are
+composed as well (RE-D154, RE-D157). Start
 notices, session time, persona and other prompt additions, reminders, the
 retrieval ledger and the Neo prelude are not composed yet.
 
@@ -2079,3 +2080,73 @@ and its pending entries expire as at the pin.
 `postSkipped` and `recoveryAttempts` are new record fields. An older binary reads
 such a record as malformed; rolling back across this change is not supported
 while such records are pending.
+
+### Engine status in the process (RE-D157)
+
+With a configured store base, `engine.status` is the library `StatusReporter`
+over the process's own sources, as the pin's `createStatusReporter`:
+
+- `journal`: the host's `journalBacklog` (reverse `host.journalBacklog`), waited
+  for at most 50 ms with one callback in flight; a slow, failing or invalid
+  answer is `null`, as at the pin.
+- `jobs`: the registry's ledger-derived health (RE-D158).
+- `storeSchema.current`: `<base>/_schema.json` (`schemaVersion`); a missing
+  marker is `"0"`, an untrusted or malformed one `null`. `expected` stays `"1"`.
+- `models`, `agents`: the RE-03 readiness snapshot and the opened namespaces.
+  `sharedMemory` keeps `{supported:false, mode:"unavailable"}`: sharing is not
+  served in RX.
+
+Status reads only; it creates no directory or file, takes no lease and does not
+wait for a job session or a capture composition.
+
+`ready` is true, and model warming or failure degrades as at the pin
+(`models-warming`/`model-failed`), except in these process states, which report
+`ready: false` with their degradation (first match wins): closed
+(`closed/engine`); capture not served (`startup-recovery-incomplete`,
+`startup-recovery-deadline` or `composition-invalid` with `capture`, RE-D154 and
+RE-D156); the job registry not served, that is the jobs root cannot be bound
+(`composition-invalid/jobs`) or an agent's session start (orphan recovery,
+legacy migration) failed (`startup-recovery-incomplete/jobs` until a later start
+succeeds). A ledger that only cannot be read reports `jobs.ledger:
+"unavailable"` and keeps `ready`, as at the pin. A host without a backlog
+(`journal: null`) keeps `ready`, as at the pin. Without a store base the frozen
+`{composition-pending, recall}` status is unchanged.
+
+### Job registry in the process (RE-D158)
+
+`engine.jobs.*` is served by the native `jobs::registry::Registry` over
+`<base>/_jobs` (the pin's `jobsRoot`). `list` is the frozen catalog of all 20
+jobs. `history` reads an agent's ledger and returns nothing for an absent root;
+it creates nothing. Runs emit the host event `job.run`, as at the pin.
+
+Authority follows F13. `jobs::authority::JobScope` classifies every catalog job:
+all non-LLM jobs read or write private owner or workspace rows (memories, Neo,
+reminders, proposals, knowledge, including `knowledge-update`), and RX has no
+binding source. The cron context, an agent ID or a row owner never grants one.
+Such a job answers `E_NOT_AVAILABLE` with the fixed reason
+`job-authority-unbound`; LLM jobs (RE-06 T2–T7) answer `not-implemented`. The
+refusal comes before any file is created. `dryRun` keeps the registry's
+`skipped/dry_run_unsupported` answer for installed bodies.
+
+The only installed body is `embedding-drain` when Neo is disabled in the
+effective configuration. It is the pin's early exit
+(`internal-job-bodies.js`: `jobCtx.skip("neo_disabled")`): it opens no Neo store
+and reads no row, and its run is recorded in the ledger like any other. With Neo
+enabled the drain reads private Neo rows and refuses like the others.
+
+The first run of an agent starts its registry session: the kernel lease, orphan
+marker recovery and the configured legacy migration (`Registry::prepare`). The
+start is bound to the engine's shutdown signal and to the request deadline, so
+`close()` never waits for it and stays within its budget; nothing is held
+across it but the agent's own slot. A failed start is reported by status
+(RE-D157) and retried by the next run. The process configures no legacy REM
+state roots: the pin migrates them inside the `rem-dream` body from owner-bound
+Neo stores, which RX cannot bind (F13; KNOWN-GAP for RY-A).
+
+Health follows the pin's `health()`: every safe agent directory under the root
+plus every agent with a run in flight, the latest finished run per job (by
+`finishedAt`), the in-flight jobs (from the durable marker until the run is
+finished), the rem/deep breaker for the current UTC sweep (limit 3, in-flight
+sessions included) and the unreadable line count. A ledger is re-read only when
+its length or modification time changed. A latest row that does not fit the
+frozen `JobLastRun` is left out (the pin would project it as is).

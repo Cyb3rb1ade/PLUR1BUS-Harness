@@ -140,10 +140,9 @@ fn a_captured_turn_is_visible_through_list_show_and_recall() {
     assert!(memories.contains("green labels"), "{memories}");
     // Capture and recall committed through the same bound mood store.
     assert!(root.join("workspace-agent/.emotional-state.json").is_file());
-    // Capture is served, but the frozen status text stays composition-pending/recall while
-    // the journal, job ledger and schema marker are not composed.
+    // Capture, recall, journal, job registry and schema marker are composed (RE-D157).
     let status = engine.status();
-    assert!(!status.ready);
+    assert!(status.ready);
     assert!(engine.capture.degradation().is_none());
     assert!(status
         .degraded

@@ -1,4 +1,5 @@
 //! Engine-owned job catalog. A listed specification does not grant execution authority.
+pub mod authority;
 pub mod ledger;
 pub mod maintenance_gate;
 pub mod metadata;

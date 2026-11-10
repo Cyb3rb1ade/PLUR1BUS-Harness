@@ -426,8 +426,10 @@ no supervisor at all (ADR-012 §8).
 RE-08 T2/U1 implements `plur1bus-engine serve --home <home>` as a separate authenticated process. It accepts the same
 explicitly gated flat-embedder/cold seams and optional `--lifeline stdin --instance <uuid>`. Process identity, adoption,
 status counters and the served and still unavailable compositions are documented in
-[Engine process](docs/engine-process.md). Recall and capture are served; the status stays `ready: false` with
-`composition-pending` until journal, job ledger and schema marker are composed. T4/U2 still owns supervisor startup
+[Engine process](docs/engine-process.md). Recall, capture and the job registry (F13: owner-data jobs refuse with
+`job-authority-unbound`) are served; with a store base the status comes from the pin's reporter (journal backlog, job
+ledger health, schema marker) and is `ready: true` unless closed or capture/jobs are not served (RE-D157/RE-D158);
+without a base it stays `composition-pending`. T4/U2 still owns supervisor startup
 and `core run` spawning. While the engine endpoint is unavailable the Core keeps serving and recall returns
 `E_NOT_AVAILABLE` with reason `engine-unavailable`; an operation whose composition is incomplete reports
 `composition-pending`. The default remains Node.

@@ -8,6 +8,8 @@
 
 #[path = "engine_capture.rs"]
 mod engine_capture;
+#[path = "engine_jobs.rs"]
+mod engine_jobs;
 #[path = "engine_recall.rs"]
 mod engine_recall;
 #[path = "engine_stores.rs"]
@@ -47,11 +49,15 @@ pub struct ProcessEngine {
     memory: Option<ProcessMemory>,
     mood: engine_recall::RecallMood,
     capture: engine_capture::ProcessCapture,
+    jobs: Arc<engine_jobs::ProcessJobs>,
     operations: Arc<crate::ops::context::OperationContext>,
     checkpoints: crate::store::checkpoint::CheckpointStore,
     system_supplement: Vec<String>,
     capabilities: Capabilities,
+    /// The status before memory composition (no store base): composition-pending/recall.
     status: EngineStatus,
+    /// The pin's status reporter over real sources, composed when a store base is configured.
+    reporter: Option<crate::ops::status::StatusReporter>,
     closed: Arc<AtomicBool>,
     unavailable: Unavailable,
     channels: Channels,
@@ -187,10 +193,10 @@ impl ProcessEngine {
             "memoryLink":base.is_some(),
             "recallStats":false,"knowledgePromotion":false,"memoryCuration":false
         }))?;
-        // The frozen status text keeps composition-pending/recall while memory and journal
-        // composition is incomplete. Recall and capture are served with a store base, but the
-        // journal backlog, job ledger and store schema marker are not composed yet.
-        let status = decode(json!({
+        // Without a store base, the frozen status text keeps composition-pending/recall: no
+        // memory, journal, job or schema composition exists. With a base, the pin's reporter
+        // assembles the status from its real sources (RE-D157).
+        let status: EngineStatus = decode(json!({
             "ready": false, "degraded": {"reason":"composition-pending","capability":"recall"},
             "agents":0,"contract":"1.17.0","storeSchema":{"current":null,"expected":"1"},
             "jobs":{"ledger":"unavailable","agents":[]},"models":embedding.status(),"journal":null,
@@ -212,6 +218,27 @@ impl ProcessEngine {
         );
         let mood =
             engine_recall::RecallMood::new(host.clone(), raw["emotion"].clone(), effective_emotion);
+        let neo_enabled = crate::config::effective_config(&raw).map_or_else(
+            |_| raw["neo"]["enabled"] != false,
+            |config| config["neo"]["enabled"] != false,
+        );
+        let jobs = Arc::new(engine_jobs::ProcessJobs::new(
+            base.clone(),
+            host.clone(),
+            neo_enabled,
+        ));
+        let reporter = base.clone().map(|base| {
+            crate::ops::status::StatusReporter::for_host(
+                Arc::new(ProcessStatusSources {
+                    embedding: embedding.clone(),
+                    jobs: jobs.clone(),
+                    stores: live_stores.clone(),
+                }),
+                base,
+                status.contract,
+                host.clone(),
+            )
+        });
         let operations = Arc::new(crate::ops::context::OperationContext::new(host));
         let memory = base.map(|base| {
             let provider = embedding.pipeline_embedder();
@@ -260,6 +287,7 @@ impl ProcessEngine {
             memory,
             mood,
             capture: engine_capture::ProcessCapture::default(),
+            jobs,
             operations,
             checkpoints,
             system_supplement: crate::recall::system_supplement::build(
@@ -270,6 +298,7 @@ impl ProcessEngine {
             .collect(),
             capabilities,
             status,
+            reporter,
             unavailable: Unavailable {
                 closed: closed.clone(),
             },
@@ -341,6 +370,8 @@ impl Engine for ProcessEngine {
         self.closed.store(true, Ordering::Release);
         // Stop store opening first: a capture composition still in S5 recovery aborts too.
         self.store_cancel.cancel();
+        // Job session starts (recovery, migration) observe the same shutdown; nothing waits.
+        self.jobs.close();
         // Admitted capture work settles within the budget before stores are released (RE-D144).
         let drained = self.capture.close(budget);
         self.embedding.close();
@@ -361,10 +392,28 @@ impl Engine for ProcessEngine {
         }
     }
     fn status(&self) -> EngineStatus {
+        // With a store base: the pin's reporter (journal within 50 ms, job health, schema
+        // marker, models), then the process's own not-ready states (RE-D157). Model
+        // degradation keeps ready true, as at the pin.
+        if let Some(reporter) = &self.reporter {
+            let mut status = reporter.status();
+            let degraded = if self.closed.load(Ordering::Acquire) {
+                Some(self.closed_degradation.clone())
+            } else {
+                self.capture
+                    .degradation()
+                    .or_else(|| self.jobs.degradation())
+            };
+            if let Some(degraded) = degraded {
+                status.ready = false;
+                status.degraded = Some(degraded);
+            }
+            return status;
+        }
         let mut status = self.status.clone();
         status.models = self.embedding.status();
         status.agents = (self.live_stores.count() as u64).into();
-        // Memory/journal composition is pending; status never blocks on reverse RPC.
+        // No store base: memory composition is pending; status never blocks on reverse RPC.
         if self.closed.load(Ordering::Acquire) {
             status.degraded = Some(self.closed_degradation.clone());
         } else if let Some(degraded) = self.capture.degradation() {
@@ -445,7 +494,7 @@ impl Engine for ProcessEngine {
         })
     }
     fn jobs(&self) -> &dyn JobRegistry {
-        &self.unavailable
+        self.jobs.as_ref()
     }
     fn embedding(&self) -> &dyn EmbeddingService {
         self.embedding.as_ref()
@@ -671,21 +720,30 @@ impl ObsidianOps for Unavailable {
 impl StoreOps for Unavailable {
     unavailable_methods! { fn adopt(_request: StoreAdoptRequest) -> AdoptReport; }
 }
-impl JobRegistry for Unavailable {
-    fn list(&self) -> Vec<JobSpec> {
-        crate::jobs::catalog()
+/// Read-only status sources over the process's own services (RE-D157). Nothing here opens a
+/// store, warms a model or creates a file.
+struct ProcessStatusSources {
+    embedding: Arc<Service>,
+    jobs: Arc<engine_jobs::ProcessJobs>,
+    stores: Arc<EngineStores>,
+}
+impl crate::ops::status::StatusSources for ProcessStatusSources {
+    fn jobs(&self) -> Result<JobsHealth, EngineError> {
+        Ok(self.jobs.health())
     }
-    fn run(
-        &self,
-        _job: JobName,
-        _agent: &AgentId,
-        _options: RunOptions,
-        cancel: &Cancel,
-    ) -> Result<JobRun, EngineError> {
-        cancel.check()?;
-        Err(self.error())
+    fn models(&self) -> Result<ModelsStatus, EngineError> {
+        Ok(self.embedding.status())
     }
-    unavailable_methods! { fn history(_agent: &AgentId, _filter: HistoryFilter) -> Vec<JobRun>; }
+    fn identity(&self) -> Result<Option<EmbeddingIdentity>, EngineError> {
+        Ok(self.embedding.identities().into_iter().next())
+    }
+    fn shared(&self) -> Result<SharedMemorySupport, EngineError> {
+        // Sharing is not served in RX (share/propose are unavailable): unchanged report.
+        decode(json!({"supported":false,"mode":"unavailable"}))
+    }
+    fn opened_agents(&self) -> usize {
+        self.stores.count()
+    }
 }
 
 #[derive(Default)]
@@ -1160,3 +1218,7 @@ mod recall_tests;
 #[cfg(test)]
 #[path = "engine_capture_tests.rs"]
 mod capture_tests;
+
+#[cfg(test)]
+#[path = "engine_jobs_tests.rs"]
+mod jobs_tests;

@@ -13,6 +13,7 @@ use std::{
     },
     time::Duration,
 };
+mod health;
 mod notes;
 mod record;
 mod startup;
@@ -84,6 +85,7 @@ pub struct Registry {
     bodies: Mutex<BTreeMap<JobName, Arc<dyn JobBody>>>,
     agents: Mutex<BTreeMap<String, Slot>>,
     closed: AtomicBool,
+    inflight: health::InFlightRuns,
     #[cfg(any(test, feature = "testkit"))]
     observer: Option<Observer>,
 }
@@ -99,6 +101,7 @@ impl Registry {
             bodies: Mutex::new(BTreeMap::new()),
             agents: Mutex::new(BTreeMap::new()),
             closed: AtomicBool::new(false),
+            inflight: health::InFlightRuns::default(),
             #[cfg(any(test, feature = "testkit"))]
             observer: None,
         })
@@ -247,6 +250,7 @@ impl JobRegistry for Registry {
             return Ok(run);
         }
         let slot = self.slot(agent)?;
+        let sweep = draft.sweep()?;
         let (admission, snapshot, owns, pre_skip) = {
             let mut state = lock(&slot, cancel)?;
             if state.is_none() {
@@ -267,7 +271,6 @@ impl JobRegistry for Registry {
                     | JobName::RemDream
                     | JobName::ConsolidateDaily
             );
-            let sweep = draft.sweep()?;
             let mut pre_skip = if singleton && state.active.contains_key(&job) {
                 Some("already_running")
             } else {
@@ -285,7 +288,7 @@ impl JobRegistry for Registry {
             }
             let owns = pre_skip.is_none();
             if owns && singleton {
-                state.active.insert(job, sweep);
+                state.active.insert(job, sweep.clone());
             }
             (admission, snapshot, owns, pre_skip)
         };
@@ -294,6 +297,8 @@ impl JobRegistry for Registry {
             job,
             owns,
         };
+        // Health reports the run from its durable marker until it is finished (pin `inflightRuns`).
+        let _inflight = self.track(agent, job, sweep, owns && record::uses_breaker(job));
         let context = draft.context(snapshot.clone(), cancel.clone());
         let _notes_guard = notes::Guard(context.notes.clone());
         let report = if owns {

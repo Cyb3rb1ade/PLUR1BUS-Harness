@@ -31,6 +31,21 @@ impl Registry {
         roots.push(dir);
         Ok(self)
     }
+    /// Start this agent's session ahead of its first run: orphan recovery and the configured
+    /// legacy migration, under the caller's cancellation (a host binds it to its shutdown).
+    /// Idempotent; a failure leaves the agent unadmitted and the next call retries.
+    pub fn prepare(&self, agent: &AgentId, cancel: &Cancel) -> Result<(), EngineError> {
+        let slot = self.slot(agent)?;
+        let mut state = lock(&slot, cancel)?;
+        if state.is_none() {
+            let session = self.start_session(agent, cancel)?;
+            *state = Some(AgentState {
+                session,
+                active: BTreeMap::new(),
+            });
+        }
+        Ok(())
+    }
     pub(super) fn start_session(
         &self,
         agent: &AgentId,

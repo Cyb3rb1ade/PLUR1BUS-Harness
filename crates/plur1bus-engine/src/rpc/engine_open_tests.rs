@@ -32,7 +32,19 @@ fn open_is_lazy_reuses_the_writer_and_close_is_idempotent() {
     assert_eq!(count(&engine), 1);
     let other = engine.open(&agent("other")).unwrap();
     assert_eq!(count(&engine), 2);
-    assert!(!engine.status().ready);
+    // Recall, capture, journal, jobs and schema are composed; warming models keep it ready.
+    assert!(engine.status().ready);
+    // Counter-case: a jobs root that is no directory cannot serve the registry.
+    std::fs::write(base.join("_jobs"), b"").unwrap();
+    let status = engine.status();
+    assert!(!status.ready);
+    let degraded = status.degraded.unwrap();
+    assert_eq!(
+        (degraded.reason.as_str(), degraded.capability.as_str()),
+        ("composition-invalid", "jobs")
+    );
+    std::fs::remove_file(base.join("_jobs")).unwrap();
+    assert!(engine.status().ready);
     assert_eq!(engine.models().status().embedder.state, ModelState::Loading);
     engine.close(None).unwrap();
     assert_eq!(count(&engine), 0);
