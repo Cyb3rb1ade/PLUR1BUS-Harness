@@ -350,3 +350,77 @@ fn unanswered_lookups_are_bounded_and_never_reach_another_agent() {
         assert!(runtime.close(Duration::from_secs(5)), "retained={retained}");
     }
 }
+
+/// A worker whose recovery pass panics, and whose first sweep does too.
+#[derive(Default)]
+struct Panicking {
+    sweeps: std::sync::atomic::AtomicUsize,
+}
+
+impl CaptureWorker for Panicking {
+    fn recover_retained(self: Arc<Self>, _steps: &RecoverySteps) {
+        panic!("fixture: the recovery pass dies");
+    }
+    fn expire_retained(self: Arc<Self>, _steps: &RecoverySteps) {
+        if self.sweeps.fetch_add(1, Ordering::AcqRel) == 0 {
+            panic!("fixture: the sweep dies");
+        }
+    }
+    fn capture(
+        &self,
+        _turn: &TurnRecord,
+        _context: &RequestContext,
+        _options: &CaptureOptions,
+        _replay: ReplayRows,
+        _cancel: &Cancel,
+    ) -> Result<CaptureResult, EngineError> {
+        Ok(counts(0, 0, None))
+    }
+}
+
+/// RE-D163 / m5: a panic in the recovery pass is caught. The runtime that waits for the
+/// first pass still returns and serves turns, and the hourly sweep goes on: after a sweep
+/// that panicked the next one runs an hour of the host's clock later.
+#[test]
+fn a_panicking_recovery_pass_never_blocks_the_runtime() {
+    const HOUR: i64 = 60 * 60 * 1000;
+    let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
+    let host = Arc::new(FakeHost::new(
+        root.path().to_owned(),
+        serde_json::from_value(json!({})).unwrap(),
+    ));
+    let queue = Arc::new(
+        CaptureQueue::new(
+            RuntimeConfig::from_value(&json!({"pressureGateEnabled":false})),
+            Arc::new(PressureSnapshot::disabled),
+        )
+        .unwrap(),
+    );
+    let replay = ReplayGuard::durable(root.path().join("replay"), Arc::new(|| 0)).unwrap();
+    let worker = Arc::new(Panicking::default());
+    let (sent, composed) = mpsc::channel();
+    let (clock, pass) = (host.clone(), worker.clone());
+    thread::spawn(move || {
+        let _ = sent.send(CaptureRuntime::new(clock, pass, queue, replay, false));
+    });
+    let runtime = composed
+        .recv_timeout(Duration::from_secs(10))
+        .unwrap_or_else(|_| panic!("the runtime waits for a pass that died"))
+        .unwrap();
+    let handle = runtime.accept(turn(), CaptureOptions::default()).unwrap();
+    let result = handle.done.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert_eq!(result.reason, None);
+
+    let started = host.now_ms();
+    let look = || runtime.look_at_clock_for_test(Duration::from_secs(10));
+    assert_eq!(look(), Some(false));
+    host.set_now_ms(started + HOUR);
+    assert_eq!(look(), Some(true));
+    assert_eq!(worker.sweeps.load(Ordering::Acquire), 1);
+    // The sweep that panicked did not end the pass.
+    assert_eq!(look(), Some(false));
+    host.set_now_ms(started + 2 * HOUR);
+    assert_eq!(look(), Some(true));
+    assert_eq!(worker.sweeps.load(Ordering::Acquire), 2);
+    assert!(runtime.close(Duration::from_secs(5)));
+}

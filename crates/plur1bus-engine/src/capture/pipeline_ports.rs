@@ -163,6 +163,18 @@ pub trait NeoCaptureHook: Send + Sync {
         cancel: &Cancel,
     ) -> Result<(), EngineError>;
 
+    /// [`Self::record_turn`] for a resumed record: `at_ms` is when the turn was admitted, so
+    /// its journal carries the time of the turn, not that of its recovery (RE-D163).
+    fn record_resumed_turn(
+        &self,
+        turn: &TurnRecord,
+        context: &RequestContext,
+        _at_ms: i64,
+        cancel: &Cancel,
+    ) -> Result<(), EngineError> {
+        self.record_turn(turn, context, cancel)
+    }
+
     /// Run post-turn journal/watermark work even when the optional Neo pre-store hook is disabled.
     fn post_store(
         &self,

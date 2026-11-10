@@ -574,6 +574,18 @@ impl NeoCaptureHook for UserScopedNeo {
         }
         self.hook.record_turn(turn, context, cancel)
     }
+    fn record_resumed_turn(
+        &self,
+        turn: &TurnRecord,
+        context: &RequestContext,
+        at_ms: i64,
+        cancel: &Cancel,
+    ) -> Result<(), EngineError> {
+        if !self.applies(turn, context)? {
+            return Ok(());
+        }
+        self.hook.record_resumed_turn(turn, context, at_ms, cancel)
+    }
     fn post_store(
         &self,
         turn: &TurnRecord,

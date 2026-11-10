@@ -176,6 +176,22 @@ impl NativeNeoCaptureHook {
             episodes.recover_key(&binding, &budget, &bounds)
         })
     }
+    /// The pre-store journal step; `at_ms` is the turn's own time when it is resumed.
+    fn record(
+        &self,
+        turn: &TurnRecord,
+        context: &RequestContext,
+        at_ms: Option<i64>,
+        cancel: &Cancel,
+    ) -> Result<(), EngineError> {
+        if self.enabled {
+            self.episodes.record_at(turn, context, at_ms, cancel)?;
+            if !turn.incognito {
+                self.settle(turn, cancel);
+            }
+        }
+        Ok(())
+    }
     /// Remove whole plans that interrupted writes left under a temporary name more than an
     /// hour ago (RE-D163); what was removed is logged with its count.
     fn remove_stale(&self, cancel: &Cancel) {
@@ -203,13 +219,16 @@ impl NeoCaptureHook for NativeNeoCaptureHook {
         context: &RequestContext,
         cancel: &Cancel,
     ) -> Result<(), EngineError> {
-        if self.enabled {
-            self.episodes.record(turn, context, cancel)?;
-            if !turn.incognito {
-                self.settle(turn, cancel);
-            }
-        }
-        Ok(())
+        self.record(turn, context, None, cancel)
+    }
+    fn record_resumed_turn(
+        &self,
+        turn: &TurnRecord,
+        context: &RequestContext,
+        at_ms: i64,
+        cancel: &Cancel,
+    ) -> Result<(), EngineError> {
+        self.record(turn, context, Some(at_ms), cancel)
     }
     fn inventory(&self, cancel: &Cancel) -> Result<(), EngineError> {
         let (keys, unreadable, settled) = self.episodes.plan_keys(cancel)?;

@@ -18,6 +18,8 @@ struct State {
     pending: BTreeSet<String>,
     /// Keys whose attempt is in flight.
     running: BTreeSet<String>,
+    /// Of those, the keys whose attempt only applies the age bound and resumes nothing.
+    sweeping: BTreeSet<String>,
     /// After close no attempt starts.
     closed: bool,
 }
@@ -44,6 +46,7 @@ impl Drop for Flight {
     fn drop(&mut self) {
         let mut state = self.owner.lock();
         state.running.remove(&self.key);
+        state.sweeping.remove(&self.key);
         if !self.settled {
             state.pending.insert(std::mem::take(&mut self.key));
         }
@@ -103,14 +106,31 @@ impl Retained {
         thread_name: &str,
         attempt: impl FnOnce() -> bool + Send + 'static,
     ) -> bool {
+        self.start_as(key, thread_name, false, attempt) != Started::None
+    }
+
+    /// [`Self::start`], telling what happened. `sweep` marks an attempt that only applies
+    /// the age bound: whoever joins it knows that it resumes nothing.
+    pub(crate) fn start_as(
+        self: &Arc<Self>,
+        key: &str,
+        thread_name: &str,
+        sweep: bool,
+        attempt: impl FnOnce() -> bool + Send + 'static,
+    ) -> Started {
         let mut state = self.lock();
         if state.running.contains(key) {
-            return true;
+            return Started::Joined {
+                sweep: state.sweeping.contains(key),
+            };
         }
         if state.closed || !state.pending.remove(key) {
-            return false;
+            return Started::None;
         }
         state.running.insert(key.to_owned());
+        if sweep {
+            state.sweeping.insert(key.to_owned());
+        }
         drop(state);
         let flight = Flight {
             owner: self.clone(),
@@ -119,10 +139,36 @@ impl Retained {
         };
         // The thread owns the whole flight. A closure that never runs, or an attempt that
         // panics, drops it unsettled, which returns the key to pending.
-        thread::Builder::new()
+        match thread::Builder::new()
             .name(thread_name.to_owned())
             .spawn(move || flight.finish(attempt))
-            .is_ok()
+        {
+            Ok(_) => Started::Own,
+            Err(_) => Started::None,
+        }
+    }
+
+    /// Before an owner's turn: join the attempt in flight for its key, or start one, and
+    /// wait for it until `cancel` or `stop`. A joined attempt that only applied the age
+    /// bound resumed nothing (RE-D163): if the key still waits afterwards, exactly one
+    /// attempt of the owner's own is started and waited for as well.
+    pub(crate) fn recover_own<A: FnOnce() -> bool + Send + 'static>(
+        self: &Arc<Self>,
+        key: &str,
+        thread_name: &str,
+        cancel: &Cancel,
+        stop: &Cancel,
+        attempt: impl Fn() -> A,
+    ) {
+        let first = self.start_as(key, thread_name, false, attempt());
+        if first == Started::None || !self.join(key, cancel, stop) {
+            return;
+        }
+        if first == (Started::Joined { sweep: true })
+            && self.start_as(key, thread_name, false, attempt()) != Started::None
+        {
+            self.join(key, cancel, stop);
+        }
     }
 
     /// Wait until no attempt for the key is in flight; false when the waiter's `cancel` or
@@ -169,6 +215,20 @@ impl Retained {
         }
         true
     }
+}
+
+/// What starting an attempt for a key gave.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Started {
+    /// This call started the attempt.
+    Own,
+    /// An attempt was already in flight; `sweep`: it only applies the age bound.
+    Joined {
+        /// The attempt in flight resumes nothing.
+        sweep: bool,
+    },
+    /// Nothing waits for the key, or no attempt starts any more.
+    None,
 }
 
 /// Host lookups one agent may have outstanding (RE-D163).
@@ -373,6 +433,7 @@ pub(crate) fn bounded<T: Send + 'static>(
 mod tests {
     #![allow(clippy::unwrap_used, clippy::panic, reason = "test assertions")]
     use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::mpsc;
 
     #[test]
@@ -458,6 +519,51 @@ mod tests {
             || unreachable!(),
         );
         assert_eq!(late, None::<i32>);
+    }
+
+    /// RE-D163 / m5: an owner's turn that joined an attempt which only applied the age bound
+    /// starts exactly one attempt of its own afterwards; one that joined a recovery attempt
+    /// starts none.
+    #[test]
+    fn joining_a_sweep_is_followed_by_exactly_one_own_attempt() {
+        for sweep in [true, false] {
+            let retained = Arc::new(Retained::default());
+            retained.mark("scope");
+            let (release, gate) = mpsc::channel::<()>();
+            // The attempt in flight leaves the key waiting, as a sweep without expired
+            // input or a deferred recovery does.
+            let started = retained.start_as("scope", "test-attempt", sweep, move || {
+                let _ = gate.recv();
+                false
+            });
+            assert_eq!(started, Started::Own);
+            let own = Arc::new(AtomicUsize::new(0));
+            let turn = {
+                let (retained, own) = (retained.clone(), own.clone());
+                thread::spawn(move || {
+                    let never = Cancel::never();
+                    retained.recover_own("scope", "test-attempt", &never, &never, || {
+                        let own = own.clone();
+                        move || {
+                            own.fetch_add(1, Ordering::AcqRel);
+                            true
+                        }
+                    });
+                })
+            };
+            thread::sleep(Duration::from_millis(30));
+            assert_eq!(own.load(Ordering::Acquire), 0, "sweep={sweep}");
+            drop(release);
+            turn.join().unwrap();
+            assert_eq!(
+                own.load(Ordering::Acquire),
+                usize::from(sweep),
+                "sweep={sweep}"
+            );
+            // After the owner's own attempt nothing waits; after a joined recovery attempt
+            // the key waits for the next pass, as before.
+            assert_eq!(retained.waiting(), !sweep, "sweep={sweep}");
+        }
     }
 
     /// RE-D163 / R1: two outstanding lookups per agent, 32 in the process. A fresh lookup in

@@ -213,6 +213,17 @@ impl CaptureJournal {
         expected: &RequestContext,
         cancel: &Cancel,
     ) -> Result<JournalResult, EngineError> {
+        self.record_at(turn, expected, None, cancel)
+    }
+    /// [`Self::record`] with the time a new plan's rows carry (`None`: the host's clock). A
+    /// plan that is already prepared keeps its own time, as before.
+    pub(in crate::neo) fn record_at(
+        &self,
+        turn: &TurnRecord,
+        expected: &RequestContext,
+        at_ms: Option<i64>,
+        cancel: &Cancel,
+    ) -> Result<JournalResult, EngineError> {
         if turn.incognito {
             return Ok(JournalResult::default());
         }
@@ -253,7 +264,7 @@ impl CaptureJournal {
                 }
                 self.cap(&binding, &directory, cancel, &check)?;
                 let now = Utc
-                    .timestamp_millis_opt(self.host.now_ms())
+                    .timestamp_millis_opt(at_ms.unwrap_or_else(|| self.host.now_ms()))
                     .single()
                     .ok_or(StoreError::InvalidInput)?
                     .to_rfc3339_opts(SecondsFormat::Millis, true);

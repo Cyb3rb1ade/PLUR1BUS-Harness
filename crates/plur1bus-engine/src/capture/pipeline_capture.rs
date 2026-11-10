@@ -71,9 +71,19 @@ impl CaptureWorker for CapturePipeline {
         // cancellation allow. Whatever comes of it, the turn goes on.
         if let Ok(scope) = scope_of(context.agent_id.as_str(), &context.owner_user_id) {
             if self.retained.concerns(&scope) {
-                self.start_scope(steps, &scope, false);
                 let wait = cancel.limited_to(Instant::now() + self.scope_budget());
-                self.retained.join(&scope, &wait, &steps.shutdown);
+                // A sweep in flight resumes nothing: after it the turn starts the one
+                // attempt that does (RE-D163).
+                self.retained.recover_own(
+                    &scope,
+                    "capture-recovery",
+                    &wait,
+                    &steps.shutdown,
+                    || {
+                        let (this, steps, key) = (self.clone(), steps.clone(), scope.clone());
+                        move || this.recover_scope(&steps, &key, false)
+                    },
+                );
             }
         }
         if let Some(neo) = &self.neo {
@@ -156,9 +166,12 @@ impl CapturePipeline {
         expire_only: bool,
     ) -> bool {
         let (this, steps, key) = (self.clone(), steps.clone(), scope.to_owned());
-        self.retained.start(scope, "capture-recovery", move || {
-            this.recover_scope(&steps, &key, expire_only)
-        })
+        let started = self
+            .retained
+            .start_as(scope, "capture-recovery", expire_only, move || {
+                this.recover_scope(&steps, &key, expire_only)
+            });
+        started != super::super::retained::Started::None
     }
 
     /// Recover one owner scope's records under that scope's own budget; true when nothing
@@ -591,13 +604,19 @@ impl CapturePipeline {
             return Ok(aborted(0, 0));
         }
         if self.config["neo"]["enabled"] != false {
+            // A record that is being recovered carries the time of its turn (RE-D163).
+            let resumed_at =
+                (admission.record.recovery_attempts > 0).then_some(admission.record.at_ms);
             let result = self.neo.as_ref().map_or_else(
                 || {
                     Err(EngineError::NotAvailable {
                         reason: "neo-capture-unavailable".into(),
                     })
                 },
-                |hook| hook.record_turn(turn, context, cancel),
+                |hook| match resumed_at {
+                    Some(at_ms) => hook.record_resumed_turn(turn, context, at_ms, cancel),
+                    None => hook.record_turn(turn, context, cancel),
+                },
             );
             *neo_started = result.is_ok();
             if let Err(error) = result {

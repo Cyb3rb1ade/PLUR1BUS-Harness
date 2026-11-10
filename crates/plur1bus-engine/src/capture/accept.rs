@@ -165,10 +165,21 @@ impl Pass {
     }
 }
 
+/// One step of the recovery pass. A panic in it ends that step only (RE-D163): it is
+/// logged, the first pass still counts as finished and the next sweep still runs. No key
+/// stays in flight, because an attempt's key returns when its own thread ends.
+fn guarded(step: &str, run: impl FnOnce()) {
+    if std::panic::catch_unwind(std::panic::AssertUnwindSafe(run)).is_err() {
+        log::error!("capture: the recovery pass panicked in its {step}; the pass goes on");
+    }
+}
+
 fn recovery_pass(inner: &Weak<Inner>, pass: &Pass) {
     let mut swept_at = None;
     if let Some(inner) = inner.upgrade() {
-        inner.worker.clone().recover_retained(&inner.steps());
+        guarded("first pass", || {
+            inner.worker.clone().recover_retained(&inner.steps());
+        });
         // The first pass applied the age bounds too.
         swept_at = Some(inner.host.now_ms());
     }
@@ -201,7 +212,9 @@ fn recovery_pass(inner: &Weak<Inner>, pass: &Pass) {
         let now = inner.host.now_ms();
         let due = swept_at.is_none_or(|at| now < at || now - at >= EXPIRY_SWEEP_MS);
         if due {
-            inner.worker.clone().expire_retained(&inner.steps());
+            guarded("sweep", || {
+                inner.worker.clone().expire_retained(&inner.steps());
+            });
             swept_at = Some(now);
         }
         drop(inner);
@@ -318,7 +331,11 @@ impl CaptureRuntime {
         let end = budget.and_then(|budget| Instant::now().checked_add(budget));
         let pass = &self.0.pass;
         let mut state = lock(&pass.state);
-        while state.started && !state.first_done {
+        // A pass thread that ended without reporting has nothing left to wait for.
+        while state.started
+            && !state.first_done
+            && !state.thread.as_ref().is_some_and(JoinHandle::is_finished)
+        {
             let left = end.map_or(Duration::from_secs(1), |end| {
                 end.saturating_duration_since(Instant::now())
             });
@@ -331,7 +348,7 @@ impl CaptureRuntime {
                 .unwrap_or_else(PoisonError::into_inner)
                 .0;
         }
-        state.first_done
+        state.first_done || state.started
     }
 
     /// Test support: have the recovery pass look at the host's clock now instead of at the

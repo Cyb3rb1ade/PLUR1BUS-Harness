@@ -65,6 +65,17 @@ impl EpisodeStore {
     ) -> Result<JournalResult, EngineError> {
         self.journal.record(turn, context, cancel)
     }
+    /// [`Self::record`] with the time a new plan's rows carry: the turn's own time when a
+    /// retained record is resumed (RE-D163), the host's clock otherwise.
+    pub(in crate::neo) fn record_at(
+        &self,
+        turn: &TurnRecord,
+        context: &RequestContext,
+        at_ms: Option<i64>,
+        cancel: &Cancel,
+    ) -> Result<JournalResult, EngineError> {
+        self.journal.record_at(turn, context, at_ms, cancel)
+    }
     /// Complete ordinary episodes, optionally enriched through the bound provider. No background job or vault publication.
     /// A pending publication is recovered before newer work can advance any session checkpoint.
     pub fn process(

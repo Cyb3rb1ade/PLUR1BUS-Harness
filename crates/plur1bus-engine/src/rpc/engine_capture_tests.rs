@@ -628,7 +628,8 @@ fn capture_crash_child() {
     };
     let root = PathBuf::from(root);
     let phase = std::env::var("PLUR1BUS_RX_PROCESS_CAPTURE_CRASH_PHASE").unwrap_or_default();
-    let neo = phase == "neo-plan";
+    // `admitted-user`: a user's turn with Neo, killed at its admission, before any Neo plan.
+    let neo = phase == "neo-plan" || phase == "admitted-user";
     let host = Arc::new(CrashHost {
         inner: if neo { neo_host(&root) } else { host(&root) },
         root: root.clone(),
@@ -1340,6 +1341,37 @@ fn the_hourly_sweep_discards_an_old_neo_plan_and_stale_temporary_files() {
     assert_eq!(neo_plans_with_content(&root), 0);
     assert!(!left.exists());
     assert_eq!(capture_state(&engine), None);
+    engine.close(None).unwrap();
+}
+
+/// RE-D163 / m4: a resumed record writes its Neo journal with the time of the turn (its
+/// admission), not with the time of the recovery. A later turn of the owner that is
+/// captured first therefore stays the later one in the journal.
+#[test]
+fn a_resumed_turn_writes_its_neo_journal_with_the_original_turn_time() {
+    const DAY: i64 = 24 * 60 * 60 * 1000;
+    let scratch = killed("admitted-user");
+    let root = scratch.path().to_path_buf();
+    assert_eq!(admissions_with_content(&root), 1);
+    assert_eq!(neo_plans_with_content(&root), 0);
+    // The fixture host's clock at admission is 2026-01-13T12:00:00.000Z; recovery runs a
+    // day later.
+    let later = neo_host(&root);
+    later.set_now_ms(1_768_305_600_000 + DAY);
+    let engine = ProcessEngine::new(later, Some(Seam::FlatEmbedder)).unwrap();
+    engine_capture::ProcessCapture::open(&engine, &root.join("db")).unwrap();
+    recovery_settled(&engine);
+    assert_eq!(admissions_with_content(&root), 0);
+    assert_eq!(rows(&root, "agent").len(), 2);
+    let workspace = fs::read_dir(root.join("db/_neo/workspaces"))
+        .unwrap()
+        .flatten()
+        .map(|entry| entry.path())
+        .find(|path| path.is_dir())
+        .unwrap();
+    let journal = fs::read_to_string(workspace.join("turn-journal.jsonl")).unwrap();
+    assert!(journal.contains("2026-01-13T12:00:00.000Z"), "{journal}");
+    assert!(!journal.contains("2026-01-14T12:00:00.000Z"), "{journal}");
     engine.close(None).unwrap();
 }
 
