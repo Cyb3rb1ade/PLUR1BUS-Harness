@@ -868,6 +868,36 @@ fn retained_entry_case(drift: &str) {
     }
 }
 
+/// RE-D162 / D1: an operational key never closes a retained record; a capture-semantic one
+/// closes it as `config-changed`.
+#[test]
+fn only_capture_semantics_close_a_retained_record_as_config_changed() {
+    let scratch = killed("admitted");
+    let root = scratch.path().to_path_buf();
+    let changed = host(&root);
+    let mut config = serde_json::to_value(changed.config()).unwrap();
+    config["runtime"] = json!({"captureTimeoutMs":45_000,"maxQueueDepthCapturePerAgent":7});
+    config["embeddingBatchSize"] = json!(3);
+    config["llmRouter"] = json!({"defaultModel":"another-model"});
+    changed.set_config(serde_json::from_value(config).unwrap());
+    let engine = ProcessEngine::new(changed, Some(Seam::FlatEmbedder)).unwrap();
+    engine.open(&"agent".parse().unwrap()).unwrap();
+    // Another capture timeout, queue depth, batch size or model: the record is completed.
+    assert_eq!(rows(&root, "agent").len(), 2);
+    assert_eq!(pending_admissions(&root), 0);
+    engine.close(None).unwrap();
+    drop(engine);
+
+    let scratch = killed("admitted");
+    let root = scratch.path().to_path_buf();
+    let engine =
+        ProcessEngine::new(host_with_threshold(&root, 1.02), Some(Seam::FlatEmbedder)).unwrap();
+    engine.open(&"agent".parse().unwrap()).unwrap();
+    // Another duplicate threshold: closed, the retained turn is not written.
+    assert_eq!(pending_admissions(&root), 0);
+    assert!(rows(&root, "agent").is_empty());
+}
+
 /// RE-D156 / I1: content of a chat message never keeps an admission open.
 #[test]
 fn an_out_of_range_reminder_never_keeps_an_admission_open() {

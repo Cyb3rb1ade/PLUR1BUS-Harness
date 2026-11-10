@@ -2055,9 +2055,9 @@ against the current state:
   maintenance ends, or by the next open. The policy,
   including maintenance, is checked again before every row write, because each
   write saves the admission first.
-- Another effective configuration or vector space: closed (`config-changed`);
-  the library cannot prove the remaining steps idempotent under a new
-  configuration. Another workspace or root identity: closed
+- Another capture-semantic configuration (the projection in RE-D162) or vector
+  space: closed (`config-changed`); the library cannot prove the remaining steps
+  idempotent under a new configuration. Another workspace or root identity: closed
   (`workspace-identity-changed`), never written into another workspace. Another
   caller resolution: closed (`caller-changed`).
 
@@ -2270,3 +2270,40 @@ affect another agent or the engine as a whole.
   `skipped/dry_run_unsupported` run is built by `jobs::registry::dry_run_report`.
 - The health cache key adds inode and change time (Unix) to length and
   modification time, so a same-length rewrite is re-read.
+
+### Capture recovery outside the composition (RE-D162)
+
+Principle: no owner and no agent can delay or fail another owner's capture, except
+through the normal order of single write steps on the same agent table. Nothing
+stays open or grows without bound, and no plaintext stays in an unfinished
+admission record for more than seven days.
+
+Configuration digest. A retained record is closed as `config-changed` only when a
+key differs that changes what a resumed turn stores or which of its steps run. The
+record's `config` field is the digest of this projection of the effective
+configuration (`capture::admission::CAPTURE_SEMANTICS`); a missing key counts as
+its own value:
+
+| Key | Why it is part of the digest |
+|---|---|
+| `duplicateThreshold` | decides which prepared items are stored at all |
+| `captureChunking`, `captureChunkingMode` | decide into which rows a message is split |
+| `captureMaxChars` | the length from which a message is summarized or truncated |
+| `summaryMaxWords` | the stored row summary |
+| `merging.enabled` | whether an over-long message is summarized or truncated |
+| `emotion.tier`, `emotion.t2.enabled`, `emotion.t3.enabled`, `emotion.t3.onlyWhenProviderAvailable`, `emotion.t3.escalationConfidence`, `emotion.t3.captureMode`, `emotion.t3.refineImportanceMin` | the classifier tier and the emotion status written into each row |
+| `emotion.moodInfluence`, `emotion.intensityHalfLifeFactor`, `emotion.temperaments` | the mood and dynamics values written into each row |
+| `memoryDynamics.flashbulbEncoding`, `recall.halfLifeDaysMap` | the memory class, strength and half-life encoded at capture |
+| `reminders.autoExtract` | whether the post-store step extracts reminders |
+| `neo.enabled` | whether the turn has Neo steps |
+| `namespaces.activeWriteNamespace` | the store the rows are written to; rows written before are not visible in another one |
+
+Everything else is operational and never closes a record: all of `runtime`
+(time budgets, queue sizes, caches, `deferPostTurnLlm`, which has no scheduled
+path in RX), `embeddingBatchSize`, every `timeoutMs`, credentials, endpoints and
+model names (`llmRouter`, `merging.model`, `emotion.t3.model`; a language model's
+answer is not reproducible, so no step's idempotency rests on its name),
+`neo.agentEndBudgetMs`, `neo.embeddingDrain` and the settings of recall,
+reranking and jobs. The vector space stays the record's own `space` field. A
+record written under the earlier whole-configuration digest is closed once
+(`config-changed`); that format only existed on this unpublished branch.

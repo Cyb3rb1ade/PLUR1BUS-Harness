@@ -173,6 +173,42 @@ fn digest(value: &impl Serialize) -> Result<String, StoreError> {
         Sha256::digest(serde_json::to_vec(value).map_err(|_| StoreError::InvalidInput)?)
     ))
 }
+/// The effective-configuration keys (JSON pointers) whose value changes what a resumed turn
+/// stores or which of its steps run (RE-D162). Everything else is operational and never
+/// closes a retained record: all of `runtime`, time budgets, queue and batch sizes,
+/// credentials, endpoints and model names. The vector space is the record's own field.
+/// `docs/engine-stores.md` (RE-D162) gives one reason per key.
+pub(super) const CAPTURE_SEMANTICS: [&str; 21] = [
+    "/duplicateThreshold",
+    "/captureChunking",
+    "/captureChunkingMode",
+    "/captureMaxChars",
+    "/summaryMaxWords",
+    "/merging/enabled",
+    "/emotion/tier",
+    "/emotion/t2/enabled",
+    "/emotion/t3/enabled",
+    "/emotion/t3/onlyWhenProviderAvailable",
+    "/emotion/t3/escalationConfidence",
+    "/emotion/t3/captureMode",
+    "/emotion/t3/refineImportanceMin",
+    "/emotion/moodInfluence",
+    "/emotion/intensityHalfLifeFactor",
+    "/emotion/temperaments",
+    "/memoryDynamics/flashbulbEncoding",
+    "/recall/halfLifeDaysMap",
+    "/reminders/autoExtract",
+    "/neo/enabled",
+    "/namespaces/activeWriteNamespace",
+];
+/// Digest of the capture-semantic projection of an effective configuration.
+pub(super) fn semantic_digest(config: &serde_json::Value) -> Result<String, StoreError> {
+    let projection = CAPTURE_SEMANTICS
+        .iter()
+        .map(|pointer| (*pointer, config.pointer(pointer)))
+        .collect::<Vec<_>>();
+    digest(&projection)
+}
 impl Admissions {
     pub fn new(
         base: &Path,
@@ -185,7 +221,9 @@ impl Admissions {
             base: base.to_owned(),
             host,
             policy,
-            config: digest(config)?,
+            // Only capture semantics decide `config-changed` (RE-D162); a record written
+            // under the earlier whole-configuration digest is closed once.
+            config: semantic_digest(config)?,
             space,
         })
     }

@@ -234,6 +234,46 @@ mod tests {
         assert_eq!(std::fs::read_dir(dir.join(".leases")).unwrap().count(), 1);
     }
 
+    /// RE-D162 / D1: operational keys never move the digest; every projected key does.
+    #[test]
+    #[allow(clippy::unwrap_used, reason = "test assertions")]
+    fn the_config_digest_covers_capture_semantics_only() {
+        fn set(config: &mut serde_json::Value, pointer: &str, value: serde_json::Value) {
+            let mut at = config;
+            for key in pointer.split('/').skip(1) {
+                if !at.is_object() {
+                    *at = json!({});
+                }
+                at = &mut at[key];
+            }
+            *at = value;
+        }
+        let config = crate::config::effective_config(&json!({})).unwrap();
+        let base = semantic_digest(&config).unwrap();
+        let mut operational = config.clone();
+        for (pointer, value) in [
+            ("/runtime/captureTimeoutMs", json!(1)),
+            ("/runtime/maxQueueDepthCapturePerAgent", json!(1)),
+            ("/runtime/deferPostTurnLlm", json!(true)),
+            ("/embeddingBatchSize", json!(3)),
+            ("/llmRouter/defaultModel", json!("another-model")),
+            ("/merging/model", json!("another-model")),
+            ("/emotion/t3/model", json!("another-model")),
+            ("/emotion/t3/timeoutMs", json!(1)),
+            ("/neo/agentEndBudgetMs", json!(1000)),
+            ("/neo/embeddingDrain/maxItems", json!(1)),
+            ("/recall/candidateTopK", json!(1)),
+        ] {
+            set(&mut operational, pointer, value);
+        }
+        assert_eq!(semantic_digest(&operational).unwrap(), base);
+        for pointer in CAPTURE_SEMANTICS {
+            let mut changed = config.clone();
+            set(&mut changed, pointer, json!("changed-for-the-test"));
+            assert_ne!(semantic_digest(&changed).unwrap(), base, "{pointer}");
+        }
+    }
+
     #[test]
     #[allow(clippy::unwrap_used, reason = "test assertions")]
     fn inventory_budget_is_shared_across_actual_file_reads() {
