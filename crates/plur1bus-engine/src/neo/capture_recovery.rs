@@ -89,6 +89,16 @@ impl CaptureJournal {
         &self,
         cancel: &Cancel,
     ) -> Result<PlanInventory, EngineError> {
+        self.recovery_plans_within(cancel, journal_io::MAX_ROWS)
+    }
+    /// [`Self::recovery_plans`] with an explicit bound of entries scanned per workspace
+    /// directory. The bound belongs to each directory (RE-D162 / m2): a large workspace of
+    /// one owner never cuts short the scan of another owner's directory.
+    fn recovery_plans_within(
+        &self,
+        cancel: &Cancel,
+        entries: usize,
+    ) -> Result<PlanInventory, EngineError> {
         cancel.check()?;
         self.root.assert_unchanged()?;
         let mut inventory = PlanInventory {
@@ -98,7 +108,6 @@ impl CaptureJournal {
         let Some(workspaces) = optional(self.root.open_child("workspaces"))? else {
             return Ok(inventory);
         };
-        let mut scanned = 0;
         for entry in fs::read_dir(workspaces.path()).map_err(StoreError::from)? {
             cancel.check()?;
             let entry = entry.map_err(StoreError::from)?;
@@ -123,10 +132,11 @@ impl CaptureJournal {
                 continue;
             };
             let mut found: Vec<PendingPlans> = Vec::new();
+            let mut scanned = 0;
             for item in items {
                 cancel.check()?;
                 scanned += 1;
-                if scanned > journal_io::MAX_ROWS || found.len() >= MAX_CALLERS {
+                if scanned > entries || found.len() >= MAX_CALLERS {
                     inventory.unreadable += 1;
                     break;
                 }
@@ -356,18 +366,18 @@ impl CaptureJournal {
         plans: &PendingPlans,
         change: i64,
     ) -> Result<u32, EngineError> {
-        let dir = self.root.create_child(".native-recovery-attempts")?;
-        let name = format!(
-            "{:x}.json",
-            Sha256::digest(format!("{}/{}", plans.canonical, plans.digest).as_bytes())
-        );
+        let dir = self.root.create_child(ATTEMPTS)?;
+        let name = attempts_file(&plans.canonical, &plans.digest);
         let before = match journal_io::bytes(&dir, &name, &Cancel::never())? {
             None => 0,
+            // A count that cannot be read allows exactly one more attempt (RE-D162 / m1):
+            // it stands for the bound minus one, so this attempt runs and writes the bound.
+            // Neither "exhausted at once" nor "counted from zero again".
             Some(bytes) => serde_json::from_slice::<serde_json::Value>(&bytes)
                 .ok()
                 .and_then(|value| value["attempts"].as_u64())
                 .and_then(|value| u32::try_from(value).ok())
-                .unwrap_or(crate::capture::failure::MAX_RECOVERY_ATTEMPTS),
+                .unwrap_or(crate::capture::failure::MAX_RECOVERY_ATTEMPTS - 1),
         };
         let after = if change == 0 {
             match dir.remove_file(&name) {
@@ -387,5 +397,111 @@ impl CaptureJournal {
             &object(vec![("attempts", Json::Number(after.to_string()))]),
         )?;
         Ok(before)
+    }
+    /// Forget a binding's attempt count (RE-D162 / m1): after its owner's own successful
+    /// live replay, and when a new plan is written for it. A count never outlives the plan
+    /// it was counted for. Creates nothing; a failure leaves the count, which only brings
+    /// the bound closer.
+    pub(in crate::neo) fn forget_attempts(&self, canonical: &str, digest: &str) {
+        let Ok(Some(dir)) = optional(self.root.open_child(ATTEMPTS)) else {
+            return;
+        };
+        match dir.remove_file(&attempts_file(canonical, digest)) {
+            Ok(())
+            | Err(StoreError::Io {
+                kind: std::io::ErrorKind::NotFound,
+            }) => {}
+            Err(_) => log::warn!("neo: a recovery attempt count could not be cleared"),
+        }
+    }
+}
+/// The directory under the Neo root that holds the attempt counts, one file per binding.
+const ATTEMPTS: &str = ".native-recovery-attempts";
+fn attempts_file(canonical: &str, digest: &str) -> String {
+    format!(
+        "{:x}.json",
+        Sha256::digest(format!("{canonical}/{digest}").as_bytes())
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, reason = "test assertions")]
+    use super::*;
+    use crate::contract::testing::FakeHost;
+    use std::sync::Arc;
+
+    struct Allow;
+    impl CapturePolicy for Allow {
+        fn allowed(&self, _context: &RequestContext) -> Result<bool, EngineError> {
+            Ok(true)
+        }
+    }
+
+    fn journal() -> (tempfile::TempDir, CaptureJournal) {
+        let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
+        let host = Arc::new(FakeHost::new(
+            root.path().join("state"),
+            serde_json::from_value(serde_json::json!({})).unwrap(),
+        ));
+        let journal = CaptureJournal::open(root.path(), host, Arc::new(Allow)).unwrap();
+        (root, journal)
+    }
+
+    /// RE-D162 / m2: the scan bound belongs to each workspace directory. Two directories
+    /// with four unreadable plan files each, bound five: every file is seen. A counter
+    /// shared by both directories would stop in the second one after its first file.
+    #[test]
+    fn the_plan_scan_bound_is_per_workspace_directory() {
+        let (root, journal) = journal();
+        for workspace in ["one", "two"] {
+            let directory = root.path().join("workspaces").join(workspace);
+            fs::create_dir_all(&directory).unwrap();
+            for index in 0..4_u32 {
+                let name = format!("native-capture-pending-{index:064x}.json");
+                fs::write(directory.join(name), b"not a plan").unwrap();
+            }
+        }
+        let inventory = journal.recovery_plans_within(&Cancel::never(), 5).unwrap();
+        assert!(inventory.plans.is_empty());
+        assert_eq!(inventory.unreadable, 8);
+        // The bound itself still holds within one directory: three files, then the stop.
+        let inventory = journal.recovery_plans_within(&Cancel::never(), 3).unwrap();
+        assert_eq!(inventory.unreadable, 8);
+        let inventory = journal.recovery_plans_within(&Cancel::never(), 1).unwrap();
+        assert_eq!(inventory.unreadable, 4);
+    }
+
+    /// RE-D162 / m1: an attempt count that cannot be read allows exactly one more attempt;
+    /// a readable one counts up and down; forgetting it starts from zero.
+    #[test]
+    fn an_unreadable_attempt_count_allows_exactly_one_more_attempt() {
+        let (root, journal) = journal();
+        let plans = PendingPlans {
+            canonical: "workspace".into(),
+            digest: "d".repeat(64),
+            files: Vec::new(),
+            caller: None,
+        };
+        let bound = crate::capture::failure::MAX_RECOVERY_ATTEMPTS;
+        assert_eq!(journal.note_plan_attempt(&plans, 1).unwrap(), 0);
+        assert_eq!(journal.note_plan_attempt(&plans, 1).unwrap(), 1);
+        assert_eq!(journal.note_plan_attempt(&plans, -1).unwrap(), 2);
+        assert_eq!(journal.note_plan_attempt(&plans, 1).unwrap(), 1);
+        let file = root
+            .path()
+            .join(ATTEMPTS)
+            .join(attempts_file(&plans.canonical, &plans.digest));
+        fs::write(&file, b"not a count").unwrap();
+        // One more attempt: fewer than the bound were made before it, the bound after it.
+        assert_eq!(journal.note_plan_attempt(&plans, 1).unwrap(), bound - 1);
+        assert_eq!(journal.note_plan_attempt(&plans, 1).unwrap(), bound);
+        journal.forget_attempts(&plans.canonical, &plans.digest);
+        assert!(!file.exists());
+        assert_eq!(journal.note_plan_attempt(&plans, 1).unwrap(), 0);
+        // Forgetting a count that does not exist creates nothing.
+        let (other, journal) = self::journal();
+        journal.forget_attempts(&plans.canonical, &plans.digest);
+        assert!(!other.path().join(ATTEMPTS).exists());
     }
 }

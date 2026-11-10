@@ -313,3 +313,68 @@ fn opening_capture_hook_recovers_before_it_accepts_new_work() {
     );
     assert_eq!(rows(&f.directory, "episodes.jsonl").len(), 1);
 }
+
+/// A policy that cannot be asked for as long as its flag is set (a transient failure).
+struct Flaky(AtomicBool);
+impl CapturePolicy for Flaky {
+    fn allowed(&self, _: &RequestContext) -> Result<bool, EngineError> {
+        if self.0.load(Ordering::SeqCst) {
+            return Err(EngineError::Host(
+                plur1bus_engine::contract::HostError::Unavailable,
+            ));
+        }
+        Ok(true)
+    }
+}
+/// The attempt counts under the Neo root, as their file contents.
+fn attempt_counts(root: &Path) -> Vec<Value> {
+    fs::read_dir(root.join(".native-recovery-attempts"))
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "json"))
+        .map(|entry| serde_json::from_slice(&fs::read(entry.path()).unwrap()).unwrap())
+        .collect()
+}
+/// RE-D162 / m1: a binding's attempt count does not outlive the plan it was counted for.
+/// The owner's own live replay clears it, so a later plan of the same binding starts at
+/// zero instead of one failed attempt away from `recovery-exhausted`.
+#[test]
+fn a_live_replay_clears_the_bindings_attempt_count() {
+    let f = setup();
+    // A prepared capture plan: the write stops after the first journal.
+    let stopping = Arc::new(Policy {
+        allowed: AtomicBool::new(true),
+        stop_after_first: AtomicBool::new(true),
+        journal: f.directory.join("turn-journal.jsonl"),
+    });
+    let journal = plur1bus_engine::neo::capture_journal::CaptureJournal::open(
+        f.root.path(),
+        f.host.clone(),
+        stopping,
+    )
+    .unwrap();
+    assert!(journal
+        .record(&f.turn, &f.context, &Cancel::never())
+        .is_err());
+    // Four recovery attempts fail transiently; each is counted, the plan stays.
+    let flaky = Arc::new(Flaky(AtomicBool::new(true)));
+    let mood = Arc::new(plur1bus_engine::capture::emotion_pool::EmotionalPool::new(
+        f.host.clone(),
+        json!({}),
+    ));
+    let store = EpisodeStore::open(f.root.path(), f.host.clone(), flaky.clone(), mood).unwrap();
+    for attempt in 1..=4 {
+        let report = store.recover_pending(&Cancel::never()).unwrap();
+        assert_eq!((report.bindings, report.closed), (1, 0), "{attempt}");
+        assert_eq!(
+            attempt_counts(f.root.path()),
+            [json!({ "attempts": attempt })]
+        );
+    }
+    // The owner's next turn replays the plan live: the count is gone with it.
+    flaky.0.store(false, Ordering::SeqCst);
+    store.record(&f.turn, &f.context, &Cancel::never()).unwrap();
+    assert!(attempt_counts(f.root.path()).is_empty());
+    assert_eq!(store.recover_pending(&Cancel::never()).unwrap().bindings, 0);
+}

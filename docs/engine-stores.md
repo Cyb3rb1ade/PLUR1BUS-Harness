@@ -2441,3 +2441,14 @@ owner wait here because of this owner's retained work.
 | Turn job (queue slot, scope lease, Neo leases) | the running job of the same agent | `captureTimeoutMs` from the slot | same agent, one turn: the pin's order |
 | WAL acknowledgements (`settle`, `keep_partial`) | the agent's WAL lease | five seconds | no; a write step on the agent's WAL file |
 | Close | queue, turns, attempts, pass | close budget | - |
+
+Neo attempt counts. A binding's attempt count
+(`<neoRoot>/.native-recovery-attempts/`) is cleared when its plans are recovered
+or closed, and also when its owner's own journal write replays a prepared plan
+live and when a new plan is written for the binding. A count never outlives the
+plan it was counted for, so a later kill of the same binding starts at zero. A
+count that cannot be read allows exactly one more attempt (it stands for the
+bound minus one): the plans are neither closed without an attempt nor retried
+without bound. The inventory's bound of 50 000 scanned entries holds per
+workspace directory, not for all directories together, so one owner's large
+workspace never cuts short the scan of another owner's directory.

@@ -210,6 +210,9 @@ impl CaptureJournal {
                 };
                 super::revision_io::guard_pending(&directory, cancel)?;
                 self.replay(&binding, &directory, cancel, &check)?;
+                // RE-D162 / m1: the owner's own live replay succeeded; the attempts counted
+                // for an earlier plan of this binding do not carry over to a later one.
+                self.forget_binding_attempts(&binding);
                 check()?;
                 // Prepared embedding metadata must settle before a new capture can change its
                 // sources. EpisodeStore/EmbeddingDrain startup recovery owns that ordering.
@@ -246,9 +249,20 @@ impl CaptureJournal {
                     &plan,
                     &super::caller::encode(&turn.principal, &turn.agent)?,
                 )?;
+                // A new plan starts with no attempt counted.
+                self.forget_binding_attempts(&binding);
                 self.replay(&binding, &directory, cancel, &check)
             },
         )
+    }
+    fn forget_binding_attempts(&self, binding: &Binding) {
+        if let Some(digest) = binding
+            .file
+            .strip_prefix("native-capture-pending-")
+            .and_then(|name| name.strip_suffix(".json"))
+        {
+            self.forget_attempts(&binding.layout.canonical, digest);
+        }
     }
     /// Resume this principal's pending plan. No ownerless or foreign pending state is adopted.
     pub fn recover(
