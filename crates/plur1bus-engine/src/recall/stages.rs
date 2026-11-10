@@ -468,6 +468,18 @@ fn search_hits(
     sink: &dyn DenialSink,
     rejections: &mut Vec<Rejection>,
 ) -> Result<Vec<Hit>, StageError> {
+    let hits = read_hits(input, query_vector, acl_stage, sink, rejections)?;
+    retain_unmasked(input, hits, rejections)
+}
+
+/// Vector read, score filter, lifecycle and ACL; the tombstone mask is applied separately.
+fn read_hits(
+    input: &StageInput<'_>,
+    query_vector: &[f32],
+    acl_stage: &str,
+    sink: &dyn DenialSink,
+    rejections: &mut Vec<Rejection>,
+) -> Result<Vec<Hit>, StageError> {
     let filter = RowFilter {
         valid_at: input.clocks.valid_at,
         ..RowFilter::default()
@@ -492,7 +504,7 @@ fn search_hits(
     }
     reject_inactive(input, &mut hits, rejections);
     hits.retain(|hit| acl_allows(input, hit, acl_stage, sink, rejections));
-    retain_unmasked(input, hits, rejections)
+    Ok(hits)
 }
 
 /// RE-D153: drop rows whose owner committed their deletion. Only the id and a fixed
@@ -531,8 +543,9 @@ fn masked(
     Ok(true)
 }
 
-/// The pin's refined second search. Only cancellation escapes; any other embedding
-/// or read failure keeps the original hits, as the pin's `catch` does.
+/// The pin's refined second search. Cancellation escapes; any other embedding or read
+/// failure keeps the original hits, as the pin's `catch` does. The tombstone mask has no
+/// pin counterpart: an unreadable registry fails the stage, as in every other source.
 fn refine_hits(
     input: &StageInput<'_>,
     hits: &[Hit],
@@ -559,10 +572,12 @@ fn refine_hits(
         Err(_) => return Ok(None),
     };
     let mut found = Vec::new();
-    let refined = match search_hits(input, &vector, "refined-acl", sink, &mut found) {
+    let refined = match read_hits(input, &vector, "refined-acl", sink, &mut found) {
         Ok(refined) => refined,
         Err(_) => return Ok(None),
     };
+    // RE-D153 review N1: a mask failure is not a read failure and is never swallowed.
+    let refined = retain_unmasked(input, refined, &mut found)?;
     rejections.extend(found);
     let mut combined = hits.to_vec();
     for hit in refined {

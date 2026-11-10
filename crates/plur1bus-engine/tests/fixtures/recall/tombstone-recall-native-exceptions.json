@@ -10,8 +10,8 @@
   },
   "native": [
     "The pin filters recall candidates only by lifecycle and ACL; it consults no tombstone registry, so a card forgotten from the active writer returns through a retained legacy or cross-namespace copy.",
-    "Native recall masks every row whose owner's registry holds a committed deletion of its id, after the ACL: vector search in every namespace, the refined second search, graph endpoints and graph hydration. Warm reranking already blocks committed and attempted deletions.",
-    "The lookup is the memory readers' (`TombstoneRegistry::find_by_origin(id, false)` for the row's agentId or storedBy) on the same store base. Masked rows are recorded only as id with stage `tombstone` and reason `tombstoned`; they are not rendered, counted by A1 or announced.",
-    "An unreadable registry fails the recall stage; the process answers the degraded error result without data. Canonical knowledge sections carry no memory id and are not masked."
+    "Native recall masks every row whose owner's registry blocks its id, after the ACL: vector search in every namespace, the refined second search, graph endpoints and graph hydration. Foreground and warm recall share one predicate: a committed deletion, or an attempt whose latest record is still `attempted` until S5 reconciles it.",
+    "Each owner's registry is resolved once per recall call and the selected rows are checked again against a fresh resolution right before rendering. Masked rows are recorded only as id with stage `tombstone` and reason `tombstoned`; they are not rendered, counted by A1, counted in the prompt trace summary or announced.",
+    "An unreadable registry fails the recall stage, including on the refined second search; the process answers the degraded error result without data. Canonical knowledge sections carry no memory id and are not masked."
   ]
 }

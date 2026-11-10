@@ -1913,6 +1913,14 @@ inputs are bound in `tests/fixtures/recall/query-refiner.json`; the
 `recall/weak-hit-refined` parity scenario covers a hit that only the refined
 query finds. This replaces the RE-04 assumption that refinement stays off.
 
+Parity exception: the pin reads `SYNONYM_MAP[w.toLowerCase()]` from a plain
+object literal, so a word whose lower case names an inherited `Object.prototype`
+member (in practice only `constructor`) "expands" to that member's source text
+(`function Object() { [native code] }`). The native port gives such a word no
+synonym. `tests/fixtures/recall/query-refiner-native-exceptions.json` records
+Node's output next to the native expectation for four inputs
+(`record-query-refiner-exceptions.mjs`, same SHA-checked source).
+
 ### Recall locale (RE-D152)
 
 Foreground recall resolves its language the way the pin's
@@ -1932,15 +1940,27 @@ search `:1754-1761`, graph hydration `:1064-1065`, `:1102-1107`, `:1143-1148`)
 and consults no tombstone registry. A card forgotten from the active writer can
 therefore return through a retained legacy or cross-namespace copy, which the
 native forget keeps on purpose (RE-D142). Native recall masks every row whose
-owner's registry holds a committed deletion of its id. The mask runs after the
-ACL for vector search in every namespace, the refined second search, graph
-endpoints and graph hydration. It uses the memory readers' lookup on the same
-store base. A masked row appears in the trace only as its id with the fixed
-reason `tombstoned`; it is not rendered, counted by A1 or announced. An
-unreadable registry fails the recall, which answers the degraded error result
-without data. Warm reranking already blocks committed and attempted deletions.
-Canonical knowledge sections have no memory id and are not masked. See the
-SHA-bound marker `tests/fixtures/recall/tombstone-recall-native-exceptions.json`.
+owner's registry blocks its id. Foreground and warm recall use one predicate:
+a committed deletion, or an attempt whose latest record is still `attempted`
+(interrupted until S5 reconciles it). The mask runs after the ACL for vector
+search in every namespace, the refined second search, graph endpoints and graph
+hydration. Each owner's registry is resolved once per recall call, so every
+source of that call sees one snapshot; right before rendering, the selected
+rows are checked once more against a fresh resolution (one per owner, no
+per-candidate I/O). A forget that commits after that second check yields an
+answer linearized before the forget, as for list and show. A masked row appears
+in the internal trace only as its id with the fixed reason `tombstoned`; it is
+not rendered, counted by A1, counted in the prompt trace summary or announced.
+An unreadable registry fails the recall, including on the refined second search
+(whose read and embedding failures still keep the original hits), and the
+process answers the degraded error result without data. Two intended
+consequences: when the only hits at the minimum score are masked, refinement
+runs where the pin would not; rows the pin reached only through the forgotten
+card as a graph bridge are absent. Canonical knowledge sections have no memory
+id and are not masked. Internal render and projection failures after admission
+are store errors and answer the same degraded result, never a typed `invalid`.
+See the SHA-bound marker
+`tests/fixtures/recall/tombstone-recall-native-exceptions.json`.
 
 ### Capture in the process (RE-D154)
 

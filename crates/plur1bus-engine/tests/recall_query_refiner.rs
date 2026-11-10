@@ -90,3 +90,36 @@ fn refinement_fires_only_without_a_hit_at_the_minimum() {
     assert!(should_refine(&[0.1, 0.19], 0.2));
     assert!(!should_refine(&[0.1, 0.2], 0.2));
 }
+
+/// RE-D151 exception (T1 re-review N2): the pin's `SYNONYM_MAP[w.toLowerCase()]` also reads
+/// inherited `Object.prototype` members; the native port gives such words no synonym.
+/// `record-query-refiner-exceptions.mjs` recorded Node's output next to the native expectation.
+#[test]
+fn inherited_object_members_are_a_recorded_native_exception() {
+    let marker: Value = serde_json::from_str(include_str!(
+        "fixtures/recall/query-refiner-native-exceptions.json"
+    ))
+    .unwrap();
+    assert_eq!(marker["exception"], "RE-D151");
+    assert_eq!(marker["source"], fixture()["source"]);
+    let cases = marker["cases"].as_array().unwrap();
+    assert!(!cases.is_empty());
+    for case in cases {
+        let input = case["input"].as_str().unwrap();
+        assert_eq!(
+            expand_query(input),
+            case["native"]["expandQuery"],
+            "{input}"
+        );
+        assert_eq!(
+            refine_query(input, None),
+            case["native"]["refineQuery"],
+            "{input}"
+        );
+        assert_ne!(case["node"]["expandQuery"], case["native"]["expandQuery"]);
+        assert!(case["node"]["expandQuery"]
+            .as_str()
+            .unwrap()
+            .contains("[native code]"));
+    }
+}

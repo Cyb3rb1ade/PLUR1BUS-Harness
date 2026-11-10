@@ -441,30 +441,43 @@ impl TombstoneRegistry {
     /// Read-only outbound eligibility check: a warm call never repairs the registry.
     /// An interrupted deletion may still be physically present until S5 can reconcile it.
     pub(crate) fn blocks_warm_read(&self, origin: &str) -> Result<bool, StoreError> {
+        Ok(self.recall_blocked_origins()?.contains(origin))
+    }
+
+    /// Every origin no recall path may read (RE-D153 review N5, one predicate for warm and
+    /// foreground recall): a committed deletion, or an attempt whose latest record is still
+    /// `attempted`, i.e. interrupted until S5 reconciles it. Read-only; a corrupt line fails.
+    pub(crate) fn recall_blocked_origins(
+        &self,
+    ) -> Result<std::collections::HashSet<String>, StoreError> {
         let rows = self.read(false)?;
         if rows.corrupt_lines != 0 {
             return Err(StoreError::Corrupt);
         }
         let mut seen = std::collections::HashSet::new();
+        let mut blocked = std::collections::HashSet::new();
         for row in rows.tombstones.iter().rev() {
             let memory = string(row, "memoryId").unwrap_or_default();
-            let matches =
-                memory == origin || string(row, "canonicalOriginId").as_deref() == Some(origin);
             let status = string(row, "status");
-            if matches && status.as_deref() == Some("committed") {
-                return Ok(true);
-            }
             let attempt = property(row, "tombstoneId")
                 .filter(|v| !matches!(v, TolerantJsonValue::Null))
                 .map(write_json)
                 .unwrap_or_else(|| {
                     format!("{memory}:{}", string(row, "deletedAt").unwrap_or_default())
                 });
-            if seen.insert(attempt) && matches && status.as_deref() == Some("attempted") {
-                return Ok(true);
+            let latest = seen.insert(attempt);
+            let committed = status.as_deref() == Some("committed");
+            if committed || (latest && status.as_deref() == Some("attempted")) {
+                if let Some(canonical) = string(row, "canonicalOriginId").filter(|c| !c.is_empty())
+                {
+                    blocked.insert(canonical);
+                }
+                if !memory.is_empty() {
+                    blocked.insert(memory);
+                }
             }
         }
-        Ok(false)
+        Ok(blocked)
     }
 
     /// The latest committed exact fingerprint match.

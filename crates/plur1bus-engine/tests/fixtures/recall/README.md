@@ -177,6 +177,11 @@ source SHA-256 before importing a temporary copy with one appended export of the
 `query-refiner.json` holds the tables and 49 inputs with `removeStopwords`, `expandQuery` and
 `refineQuery` under nine top-result shapes. Two recordings were byte-identical.
 
+`record-query-refiner-exceptions.mjs` (same arguments) records the RE-D151 native exception in
+`query-refiner-native-exceptions.json`: for four `constructor` inputs, Node's output (inherited
+`Object.prototype` lookup) next to the native expectation, computed from the same pinned code
+with only that lookup restricted to own keys. Two recordings were byte-identical.
+
 ## Recall locale (RE-D152)
 
 `record-locale.mjs --source <directory holding lib/i18n.js and lib/i18n-dictionary.js at 9f34008c>

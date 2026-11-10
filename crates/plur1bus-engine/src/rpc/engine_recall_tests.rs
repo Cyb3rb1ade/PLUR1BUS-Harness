@@ -632,3 +632,139 @@ fn warm_reranking_never_receives_a_forgotten_legacy_copy() {
     assert!(seen.contains(&kept.text), "{seen:?}");
     assert!(!seen.contains(&row.text), "{seen:?}");
 }
+
+fn stats(root: &Path) -> Vec<(String, i64)> {
+    crate::store::recall_stats::RecallStats::new(&root.join("db"))
+        .unwrap()
+        .read("agent", None, &Cancel::never())
+        .unwrap()
+        .into_iter()
+        .map(|counter| (counter.id, counter.recalls))
+        .collect()
+}
+
+#[test]
+fn an_unreadable_registry_on_the_refined_search_degrades_and_counts_nothing() {
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let host = host_with(root, &json!({"autoRecallMinScore":0.5}));
+    let engine = ProcessEngine::new(host.clone(), Some(Seam::HashEmbedder)).unwrap();
+    let query = "Wie konfiguriere ich den Docker?";
+    let refined = crate::recall::query_refiner::refine_query(query, None);
+    let identity = engine.embedding().identities().remove(0);
+    let target = engine
+        .embedding()
+        .embed(&[refined], EmbedKind::Query, &identity, &Cancel::never())
+        .unwrap()
+        .remove(0);
+    let (_, row) = seeded_with(root, &engine, target);
+    // Only the refined query reaches the minimum score.
+    assert!(memories(&recall(&engine, &params(query, "user"))).contains(&row.id));
+    let before = stats(root);
+    let registry =
+        crate::store::tombstone::TombstoneRegistry::new(&root.join("db"), "agent").unwrap();
+    fs::create_dir_all(registry.path()).unwrap();
+    let announced = host.events().len();
+    let result = recall(&engine, &params(query, "user"));
+    assert_eq!(
+        result["degraded"],
+        json!({"reason":"error","capability":"recall","detail":"recall failed"}),
+        "{result}"
+    );
+    assert_eq!(result["blocks"], json!([]));
+    assert!(!result.to_string().contains(&row.id));
+    let names = host.events()[announced..]
+        .iter()
+        .map(|(name, _)| name.clone())
+        .collect::<Vec<_>>();
+    assert_eq!(names, ["recall.degraded", "recall.completed"]);
+    // A degraded error result counts nothing (A1).
+    assert_eq!(stats(root), before);
+}
+
+#[test]
+fn degraded_store_and_registry_failures_count_nothing() {
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let engine = ProcessEngine::new(host(root, false), Some(Seam::FlatEmbedder)).unwrap();
+    let (_, row) = seeded(root, &engine);
+    assert!(memories(&recall(
+        &engine,
+        &params("synthetic project archive", "user")
+    ))
+    .contains(&row.id));
+    let before = stats(root);
+    assert_eq!(before, [(row.id.clone(), 1)]);
+    let registry =
+        crate::store::tombstone::TombstoneRegistry::new(&root.join("db"), "agent").unwrap();
+    fs::create_dir_all(registry.path()).unwrap();
+    let result = recall(&engine, &params("synthetic project archive", "user"));
+    assert_eq!(result["degraded"]["reason"], "error");
+    assert_eq!(stats(root), before);
+    fs::remove_dir(registry.path()).unwrap();
+    fs::write(root.join("db/_neo"), "not a directory").unwrap();
+    let result = recall(&engine, &params("synthetic project archive", "user"));
+    assert_eq!(result["degraded"]["reason"], "error");
+    assert_eq!(stats(root), before);
+}
+
+#[test]
+fn an_interrupted_forget_masks_normal_recall_like_warm_recall() {
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let engine = ProcessEngine::new(host(root, false), Some(Seam::FlatEmbedder)).unwrap();
+    let (_, row) = seeded(root, &engine);
+    // The startup gate runs on the first recall; the attempt is recorded afterwards.
+    assert!(memories(&recall(
+        &engine,
+        &params("synthetic project archive", "user")
+    ))
+    .contains(&row.id));
+    let registry =
+        crate::store::tombstone::TombstoneRegistry::new(&root.join("db"), "agent").unwrap();
+    let attempt = json!({"schemaVersion":1,"tombstoneId":"fixture-attempt","memoryId":row.id,
+        "agentId":"agent","scope":"agent-private","status":"attempted","deletedAt":1,
+        "contentFingerprint":crate::store::tombstone::content_fingerprint(&row.text)});
+    registry
+        .append(&crate::text::json::parse_json(&attempt.to_string()).unwrap())
+        .unwrap();
+    assert!(registry.blocks_warm_read(&row.id).unwrap());
+    let result = recall(&engine, &params("synthetic project archive", "user"));
+    assert_eq!(result["degraded"], Value::Null, "{result}");
+    assert!(!memories(&result).contains(&row.id), "{result}");
+}
+
+#[test]
+fn the_prompt_trace_does_not_count_a_masked_card() {
+    // The same forget with and without a retained legacy copy: the summary must not differ.
+    let summary = |retain: bool| {
+        let scratch =
+            tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+        let root = scratch.path();
+        let host = legacy_host(
+            root,
+            &json!({"recall":{"decisionTrace":{"enabled":true,"includeInPrompt":true}}}),
+        );
+        let engine = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
+        let (_, row) = seeded(root, &engine);
+        let mut kept = row.clone();
+        kept.id = "66666666-6666-4666-8666-666666666666".into();
+        kept.text = "A legacy card that was never forgotten.".into();
+        let legacy = if retain {
+            vec![row.clone(), kept.clone()]
+        } else {
+            vec![kept.clone()]
+        };
+        legacy_copy(root, &engine, &legacy);
+        forget(&engine, &row.id);
+        let text = memories(&recall(
+            &engine,
+            &params("synthetic project archive", "user"),
+        ));
+        assert!(text.contains(&kept.id), "{text}");
+        assert!(!text.contains(&row.id), "{text}");
+        let start = text.find("<trace-summary").unwrap();
+        text[start..].split("/>").next().unwrap().to_owned()
+    };
+    assert_eq!(summary(true), summary(false));
+}

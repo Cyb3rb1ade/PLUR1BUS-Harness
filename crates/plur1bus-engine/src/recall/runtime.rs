@@ -143,6 +143,12 @@ pub fn run(mut request: RuntimeRequest<'_>) -> Result<RecallOutcome, EngineError
         request.known_secrets,
     ));
     let context = request.pipeline.context;
+    // RE-D153 review N6: the selected rows are checked once more against a fresh registry
+    // snapshot (one resolution per owner) right before rendering.
+    let recheck = request
+        .pipeline
+        .tombstones
+        .map(super::tombstone_mask::TombstoneMask::refreshed);
     let pipeline = BudgetedPipeline::new(request.pipeline, request.filter, request.started, budget)
         .with_trace_policy(policy.clone())
         .with_soft_fallback(request.render.config["recall"]["softBudgetFallback"] != false);
@@ -183,6 +189,15 @@ pub fn run(mut request: RuntimeRequest<'_>) -> Result<RecallOutcome, EngineError
             .collect::<Result<_, _>>()
             .map_err(|_| malformed())?,
     };
+    if let Some(mask) = &recheck {
+        let mut kept = Vec::new();
+        for hit in std::mem::take(&mut request.render.selected.memories) {
+            if !mask.masks_entry(&hit.entry).map_err(EngineError::Store)? {
+                kept.push(hit);
+            }
+        }
+        request.render.selected.memories = kept;
+    }
     request.render.config["recall"]["globalInjectMaxChars"] = json!(budget.cap_chars);
     if let Some(source) = request.pattern_source {
         request.render.patterns.clear();
@@ -267,11 +282,10 @@ fn namespace_request<'a>(
     }
 }
 
+/// An internal render or projection failure is not caller input (RE-D153 review N3):
+/// the process answers it with the post-admission `error` degradation.
 fn malformed() -> EngineError {
-    EngineError::Invalid {
-        field: "recall".into(),
-        message: "invalid internal recall result".into(),
-    }
+    EngineError::Store(StoreError::Corrupt)
 }
 fn namespace_error(error: NamespaceError) -> EngineError {
     match error {
