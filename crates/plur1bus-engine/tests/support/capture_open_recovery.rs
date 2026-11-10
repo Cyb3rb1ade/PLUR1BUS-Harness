@@ -369,3 +369,74 @@ fn startup_deadline_retains_original_input_for_a_later_recovery_attempt() {
         0
     );
 }
+
+fn pending(root: &std::path::Path) -> serde_json::Value {
+    serde_json::from_slice::<serde_json::Value>(&std::fs::read(admission(root)).unwrap()).unwrap()
+        ["record"]
+        .clone()
+}
+
+#[test]
+fn a_terminal_post_store_refusal_closes_the_admission_and_reopens_cleanly() {
+    let root = physical_temp();
+    let f = BoundaryFixture::new(root.path(), "terminal-post");
+    let result = serde_json::to_value(f.run().unwrap()).unwrap();
+    assert_eq!(result, serde_json::json!({"stored":2,"skipped":0}));
+    assert_eq!(f.rows().len(), 2);
+    assert_eq!(f.effects.load(Ordering::SeqCst), 1);
+    assert!(pending(root.path()).is_null());
+    drop(f);
+    let next = BoundaryFixture::new(root.path(), "terminal-post");
+    let effects = next.effects.clone();
+    let runtime = open(next).unwrap();
+    assert!(runtime.0.close(Duration::from_secs(5)));
+    assert_eq!(effects.load(Ordering::SeqCst), 0);
+}
+
+#[test]
+fn a_transient_post_store_failure_stays_pending_and_is_recovered_once() {
+    let root = physical_temp();
+    let f = BoundaryFixture::new(root.path(), "transient-post-once");
+    assert_eq!(serde_json::to_value(f.run().unwrap()).unwrap()["stored"], 2);
+    let record = pending(root.path());
+    assert_eq!(record["classifierDone"], false);
+    assert!(record.get("postSkipped").is_none());
+    drop(f);
+    let next = BoundaryFixture::new(root.path(), "transient-post-once");
+    let effects = next.effects.clone();
+    drop(open(next).unwrap());
+    assert_eq!(effects.load(Ordering::SeqCst), 1);
+    assert!(pending(root.path()).is_null());
+    let again = BoundaryFixture::new(root.path(), "transient-post-once");
+    let effects = again.effects.clone();
+    drop(open(again).unwrap());
+    assert_eq!(effects.load(Ordering::SeqCst), 0);
+}
+
+#[test]
+fn a_pending_entry_refused_terminally_on_recovery_is_closed_exactly_once() {
+    let root = physical_temp();
+    let f = BoundaryFixture::new(root.path(), "transient-post-once");
+    f.run().unwrap();
+    assert!(pending(root.path()).is_object());
+    drop(f);
+    // The retained entry's post-store step is now refused terminally.
+    let next = BoundaryFixture::new(root.path(), "terminal-post");
+    let effects = next.effects.clone();
+    let stores = next.stores.clone();
+    drop(open(next).unwrap());
+    assert_eq!(effects.load(Ordering::SeqCst), 1);
+    assert!(pending(root.path()).is_null());
+    assert_eq!(
+        stores
+            .get("capture-agent")
+            .unwrap()
+            .count(&store::RowFilter::default())
+            .unwrap(),
+        2
+    );
+    let last = BoundaryFixture::new(root.path(), "terminal-post");
+    let effects = last.effects.clone();
+    drop(open(last).unwrap());
+    assert_eq!(effects.load(Ordering::SeqCst), 0);
+}

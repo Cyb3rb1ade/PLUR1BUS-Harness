@@ -365,7 +365,15 @@ impl CapturePipeline {
                     admission.record.classifier_done = true;
                     admission.save(cancel)?;
                 }
-                Err(error) => self.warn(&error, CaptureLogStage::CapturePipeline, 1),
+                Err(error) => {
+                    self.warn(&error, CaptureLogStage::CapturePipeline, 1);
+                    // RE-D155: a terminal refusal closes this step with its fixed reason.
+                    if let Some(reason) = terminal_refusal(&error) {
+                        admission.record.classifier_done = true;
+                        admission.record.post_skipped.push(reason.to_owned());
+                        admission.save(cancel)?;
+                    }
+                }
             }
         }
         if !admission.record.neo_done {
@@ -380,7 +388,14 @@ impl CapturePipeline {
                     admission.record.neo_done = true;
                     admission.save(cancel)?;
                 }
-                Err(error) => self.warn(&error, CaptureLogStage::NeoCapture, 1),
+                Err(error) => {
+                    self.warn(&error, CaptureLogStage::NeoCapture, 1);
+                    if let Some(reason) = terminal_refusal(&error) {
+                        admission.record.neo_done = true;
+                        admission.record.post_skipped.push(reason.to_owned());
+                        admission.save(cancel)?;
+                    }
+                }
             }
         }
         if admission.record.classifier_done && admission.record.neo_done {

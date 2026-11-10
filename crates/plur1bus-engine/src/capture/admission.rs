@@ -61,6 +61,9 @@ pub(super) struct Record {
     pub neo_started: bool,
     pub neo_done: bool,
     pub reminders: BTreeMap<usize, ReminderEffect>,
+    /// Post-store steps closed by a terminal refusal (RE-D155): fixed reasons only, no content.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub post_skipped: Vec<String>,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -193,6 +196,7 @@ impl Admissions {
             neo_started: false,
             neo_done: false,
             reminders: BTreeMap::new(),
+            post_skipped: Vec::new(),
         };
         let name = self.filename(&expected)?;
         let locks = directory.create_child(".leases")?;

@@ -444,6 +444,17 @@ impl CaptureClassifier for BoundaryClassifier {
     ) -> Result<(), EngineError> {
         self.effects.fetch_add(1, Ordering::SeqCst);
         self.checkpoint("after-settle");
+        // RE-D155: a deterministic refusal versus a failure that succeeds when repeated.
+        if self.phase == "terminal-post" {
+            return Err(EngineError::NotAvailable {
+                reason: "speaker-media-authority-unavailable".into(),
+            });
+        }
+        let marker = self.root.join("transient-failed");
+        if self.phase == "transient-post-once" && !marker.exists() {
+            std::fs::write(marker, b"").unwrap();
+            return Err(contract::StoreError::Unavailable.into());
+        }
         Ok(())
     }
 }

@@ -285,6 +285,32 @@ impl CapturePipeline {
     }
 }
 
+/// Deterministic, fail-closed post-store refusals (RE-D155): missing authority or a library
+/// boundary, so a repetition cannot succeed. They close their step with a fixed skip reason;
+/// every other failure (I/O, cancellation, shutdown, providers) stays pending for recovery.
+const TERMINAL_POST_STORE: [&str; 2] = [
+    // F11: diarization media IDs without proven host provenance.
+    "speaker-media-authority-unavailable",
+    // The native Neo journal has no partition for this owner.
+    "neo-owner-not-applicable",
+];
+
+/// Whether a recorded skip reason is one of the fixed terminal post-store refusals.
+pub(crate) fn is_terminal_reason(reason: &str) -> bool {
+    TERMINAL_POST_STORE.contains(&reason)
+}
+
+/// The fixed reason of a terminal post-store refusal, if this error is one.
+pub(super) fn terminal_refusal(error: &EngineError) -> Option<&'static str> {
+    match error {
+        EngineError::NotAvailable { reason } => TERMINAL_POST_STORE
+            .iter()
+            .copied()
+            .find(|terminal| terminal == reason),
+        _ => None,
+    }
+}
+
 fn invalid_config() -> EngineError {
     EngineError::Invalid {
         field: "capture".into(),

@@ -449,3 +449,79 @@ fn a_turn_killed_after_admission_is_recovered_exactly_once_on_the_next_open() {
         recovered.iter().map(|row| &row.id).collect::<Vec<_>>()
     );
 }
+
+/// Admission files whose record is still pending recovery.
+fn pending_admissions(root: &Path) -> usize {
+    fs::read_dir(root.join("db/_capture-admissions"))
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "json"))
+        .filter(|entry| {
+            let value: Value =
+                serde_json::from_slice(&fs::read(entry.path()).unwrap()).unwrap_or(Value::Null);
+            !value["record"].is_null()
+        })
+        .count()
+}
+
+fn neo_host(root: &Path) -> Arc<FakeHost> {
+    let host = host(root);
+    let mut config = serde_json::to_value(host.config()).unwrap();
+    config["neo"] = json!({"enabled":true,"embeddingDrain":{"enabled":false}});
+    host.set_config(serde_json::from_value(config).unwrap());
+    host
+}
+
+#[test]
+fn no_deterministic_input_keeps_an_admission_open() {
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let engine = ProcessEngine::new(neo_host(root), Some(Seam::FlatEmbedder)).unwrap();
+    let media = format!("<!-- media-output-id: 0a1b2c3d-4e5f -->\n{USER}");
+    let mut user = turn_value(
+        "agent",
+        "run-user-no-workspace",
+        &json!([{"role":"user","content":USER}]),
+    );
+    user["agentId"] = json!("lonely");
+    user["principal"]["agentId"] = json!("lonely");
+    user["principal"]["user"] = json!(crate::context::harness_user_principal("fixture-user"));
+    user["principal"]["trust"] = json!("proved");
+    let inputs = [
+        // F11: a diarization media ID without proven provenance (speaker step refused).
+        turn_value(
+            "agent",
+            "run-media",
+            &json!([{"role":"user","content":media}]),
+        ),
+        // An owner the native Neo journal has no partition for, with Neo enabled.
+        turn_value(
+            "agent",
+            "run-ownerless",
+            &json!([{"role":"user","content":USER}]),
+        ),
+        // A user principal whose agent has no host workspace directory.
+        user,
+    ];
+    for (index, input) in inputs.into_iter().enumerate() {
+        let result = capture(&engine, serde_json::from_value(input).unwrap());
+        assert!(
+            result
+                .get("reason")
+                .is_none_or(|reason| reason != "duplicate-turn"),
+            "{index}: {result}"
+        );
+        assert_eq!(pending_admissions(root), 0, "{index}: {result}");
+    }
+    // The media turn and the ownerless turn were stored; their skipped steps hold nothing open.
+    assert_eq!(rows(root, "agent").len(), 2);
+    engine.close(None).unwrap();
+    drop(engine);
+    // After a restart, recovery has nothing pending and capture is served.
+    let engine = ProcessEngine::new(neo_host(root), Some(Seam::FlatEmbedder)).unwrap();
+    engine.open(&"agent".parse().unwrap()).unwrap();
+    assert!(!engine.capture.recovery_failed());
+    assert_eq!(capture(&engine, turn("agent", "run-after"))["stored"], 2);
+    assert_eq!(pending_admissions(root), 0);
+}

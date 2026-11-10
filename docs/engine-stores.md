@@ -1990,11 +1990,32 @@ post-turn job is composed (`scheduled = false`, so `deferPostTurnLlm` reports th
 existing inline fallback). The Neo root is created on first composition, as the
 pin creates it on its first write.
 
-The native Neo journal binds only user-owned callers. For any other owner the
-composition treats the Neo hook as not applicable instead of failing it; a
-failure there would leave every such admission pending and make each restart's
-recovery refuse capture. `close()` refuses new turns and drains admitted capture
-work within the caller's budget (30 seconds when none or zero is given, as the
+The native Neo journal binds only user-owned callers with a logical workspace
+key and a host workspace directory. For any other owner the composition skips
+Neo's pre-store work and closes the post-store step with the terminal refusal
+`neo-owner-not-applicable` (RE-D155). KNOWN-GAP for RY-A: the pin writes Neo for
+every owner; whether such owners get an agent-private Neo is an open decision.
+
+`close()` refuses new turns and drains admitted capture work within the caller's budget (30 seconds when none or zero is given, as the
 pin's `closeEngine`) before stores are released. With a store base configured,
 recall and capture are both served and the status reports `ready: true`, with
 degradation derived from models only, as the pin's StatusReporter.
+
+### Terminal post-store refusals close the admission (RE-D155)
+
+A capture admission stays on disk until its classifier and Neo post-store steps
+are done, so a restart can finish them. A step that fails with a deterministic,
+fail-closed refusal can never finish: the speaker step's
+`speaker-media-authority-unavailable` (F11, a media ID without proven host
+provenance) and Neo's `neo-owner-not-applicable`. Before this decision such a
+turn kept its admission open, every later recovery refused, and capture stayed
+`startup-recovery-incomplete`; open entries also counted against the 512
+pending admissions. `CapturePipeline` now closes a step refused with one of these
+fixed reasons, records the reason (no content) in the admission's `postSkipped`
+until the admission completes, logs the content-free capture warning and lets
+the other steps of the turn run. The stored rows remain. A pending entry whose
+step is refused terminally during recovery is closed the same way, exactly once.
+Every other failure (I/O, cancellation, shutdown, providers) keeps the step
+pending and recovery repeats it. A revoked workspace policy also keeps the entry
+pending by design: the retained input is resumed once the policy allows it
+again.

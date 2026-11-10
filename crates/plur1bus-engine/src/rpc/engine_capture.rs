@@ -157,10 +157,11 @@ fn compose(engine: &ProcessEngine, base: &Path) -> Result<CaptureRuntime, Engine
     // the Neo root recursively on its first write; the native hook pins an existing one.
     let neo_root = engine_warm::neo_root(&raw["neo"], base);
     crate::store::paths::secure_dir(&neo_root)?;
-    let neo = Arc::new(UserScopedNeo(
-        NativeNeoCaptureHook::open(&neo_root, host.clone(), policy.clone(), mood)?
+    let neo = Arc::new(UserScopedNeo {
+        hook: NativeNeoCaptureHook::open(&neo_root, host.clone(), policy.clone(), mood)?
             .with_embedder(embedder.clone())?,
-    ));
+        host: host.clone(),
+    });
     let pipeline =
         CapturePipeline::new(host.clone(), writer, embedder, classifier, policy)?.with_neo(neo);
     let queue = Arc::new(CaptureQueue::new(
@@ -179,13 +180,28 @@ fn turns_root(base: &Path) -> PathBuf {
     base.join("_capture-turns")
 }
 
-/// The native Neo journal binds only user-owned callers (`CaptureJournal::bind`). For any
-/// other owner it has no partition to write, so the hook has nothing to do: reporting that
-/// as a failure would leave the admission pending and every restart's recovery refusing.
-struct UserScopedNeo(NativeNeoCaptureHook);
+/// The native Neo journal binds only user-owned callers with a logical workspace key and a
+/// host workspace directory (`CaptureJournal::bind`). For any other owner it has no partition:
+/// pre-store work is skipped, and the post-store step reports the terminal refusal
+/// `neo-owner-not-applicable`, which closes the step instead of keeping the admission pending
+/// (RE-D155). Pin difference (KNOWN-GAP, RY-A): the pin writes Neo for every owner.
+struct UserScopedNeo {
+    hook: NativeNeoCaptureHook,
+    host: Arc<dyn HostServices>,
+}
 impl UserScopedNeo {
-    fn applies(context: &RequestContext) -> bool {
+    fn applies(&self, turn: &TurnRecord, context: &RequestContext) -> bool {
         is_user_principal(&context.owner_user_id)
+            && !context.workspace_key.is_empty()
+            && self
+                .host
+                .workspace_dir(&turn.principal.agent_id)
+                .is_ok_and(|dir| dir.is_some_and(|dir| !dir.as_os_str().is_empty()))
+    }
+    fn not_applicable() -> EngineError {
+        EngineError::NotAvailable {
+            reason: "neo-owner-not-applicable".into(),
+        }
     }
 }
 impl NeoCaptureHook for UserScopedNeo {
@@ -195,10 +211,10 @@ impl NeoCaptureHook for UserScopedNeo {
         context: &RequestContext,
         cancel: &Cancel,
     ) -> Result<(), EngineError> {
-        if !Self::applies(context) {
+        if !self.applies(turn, context) {
             return Ok(());
         }
-        self.0.record_turn(turn, context, cancel)
+        self.hook.record_turn(turn, context, cancel)
     }
     fn post_store(
         &self,
@@ -207,10 +223,10 @@ impl NeoCaptureHook for UserScopedNeo {
         options: &CaptureOptions,
         cancel: &Cancel,
     ) -> Result<(), EngineError> {
-        if !Self::applies(context) {
-            return Ok(());
+        if !self.applies(turn, context) {
+            return Err(Self::not_applicable());
         }
-        self.0.post_store(turn, context, options, cancel)
+        self.hook.post_store(turn, context, options, cancel)
     }
     fn post_store_recoverable(
         &self,
@@ -220,10 +236,10 @@ impl NeoCaptureHook for UserScopedNeo {
         resuming: bool,
         cancel: &Cancel,
     ) -> Result<(), EngineError> {
-        if !Self::applies(context) {
-            return Ok(());
+        if !self.applies(turn, context) {
+            return Err(Self::not_applicable());
         }
-        self.0
+        self.hook
             .post_store_recoverable(turn, context, options, resuming, cancel)
     }
     fn after_capture(
@@ -232,10 +248,10 @@ impl NeoCaptureHook for UserScopedNeo {
         context: &RequestContext,
         cancel: &Cancel,
     ) -> Result<(), EngineError> {
-        if !Self::applies(context) {
+        if !self.applies(turn, context) {
             return Ok(());
         }
-        self.0.after_capture(turn, context, cancel)
+        self.hook.after_capture(turn, context, cancel)
     }
 }
 

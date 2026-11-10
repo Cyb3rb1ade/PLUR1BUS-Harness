@@ -128,6 +128,12 @@ pub(super) fn validate(record: &Record) -> Result<(), EngineError> {
                 || !record.reminders.is_empty()))
         || (record.classifier_done && !record.classifier_started)
         || (record.neo_done && !record.neo_started)
+        || (primary && !record.post_skipped.is_empty())
+        || record.post_skipped.len() > 2
+        || record
+            .post_skipped
+            .iter()
+            .any(|reason| !super::super::pipeline::is_terminal_reason(reason))
     {
         return Err(StoreError::Corrupt.into());
     }
