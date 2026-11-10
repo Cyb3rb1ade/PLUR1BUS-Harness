@@ -149,10 +149,13 @@ impl CaptureWal {
             .as_ref()
             .map_or(Ok(Vec::new()), |d| read(d, agent))?;
         let now = now(&self.clock)?;
+        // RE-D159: pending entries expire like settled ones, as at the pin
+        // (`turn-replay-guard.js` `fresh`, REPLAY_GUARD_TTL_MS; vector: wal-failures.json
+        // `expired-pending`, stale rows `[]`). An expired entry is no entry.
         let existing = entries
             .iter()
-            .find(|entry| entry.key == JsString::from(key));
-        let settled = existing.is_some_and(|entry| entry.pending.is_none() && fresh(entry.at, now));
+            .find(|entry| entry.key == JsString::from(key) && fresh(entry.at, now));
+        let settled = existing.is_some_and(|entry| entry.pending.is_none());
         if settled && !recovery {
             return Ok(Admission::Completed);
         }
@@ -289,8 +292,8 @@ impl CaptureTicket {
         let mut entries = read(directory, &self.agent)?;
         let now = now(&self.wal.clock)?;
         let key = JsString::from(self.key.as_str());
-        entries
-            .retain(|entry| entry.key != key && (entry.pending.is_some() || fresh(entry.at, now)));
+        // Pending entries expire after the same seven days as settled ones (pin `fresh`).
+        entries.retain(|entry| entry.key != key && fresh(entry.at, now));
         if let Some(pending) = change {
             while entries.len() >= REPLAY_GUARD_MAX_ENTRIES {
                 let index = entries

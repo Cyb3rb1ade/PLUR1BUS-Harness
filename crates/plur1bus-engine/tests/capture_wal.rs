@@ -84,8 +84,10 @@ fn failed_plan_returns_an_error_and_cannot_be_settled_as_success() {
     assert!(dir.path().join("wal/alpha.json").is_dir());
 }
 
+/// RE-D159: pending rows survive within the pin's seven days and expire with it, as settled
+/// entries do (formerly a Rust retention exception).
 #[test]
-fn independent_tickets_merge_and_pending_rows_do_not_expire() {
+fn independent_tickets_merge_and_pending_rows_expire_like_settled_ones() {
     let dir = root();
     let wal = CaptureWal::new(dir.path().join("wal"), Arc::new(|| 1000)).unwrap();
     let a = ticket(&wal, "a");
@@ -99,10 +101,17 @@ fn independent_tickets_merge_and_pending_rows_do_not_expire() {
     b.settle(&Cancel::never()).unwrap();
     drop(a);
     drop(b);
-    let reopened = CaptureWal::new(dir.path().join("wal"), Arc::new(|| 1_000_000_000)).unwrap();
-    assert_eq!(ticket(&reopened, "a").pending_rows(), &[ROW.to_owned()]);
+    let week = 7 * 24 * 60 * 60 * 1000;
+    let within = CaptureWal::new(dir.path().join("wal"), Arc::new(move || 1000 + week)).unwrap();
+    assert_eq!(ticket(&within, "a").pending_rows(), &[ROW.to_owned()]);
     assert!(matches!(
-        reopened.begin("alpha", "b", &Cancel::never()).unwrap(),
+        within.begin("alpha", "b", &Cancel::never()).unwrap(),
+        Admission::Completed
+    ));
+    let later = CaptureWal::new(dir.path().join("wal"), Arc::new(|| 1_000_000_000)).unwrap();
+    assert!(ticket(&later, "a").pending_rows().is_empty());
+    assert!(matches!(
+        later.begin("alpha", "b", &Cancel::never()).unwrap(),
         Admission::Pending(_)
     ));
 }
@@ -149,8 +158,9 @@ fn recorded_node_failure_cases_have_explicit_durable_refusals() {
         let wal = CaptureWal::new(path, Arc::new(move || now)).unwrap();
         match case["name"].as_str().unwrap() {
             "expired-pending" => {
+                // RE-D159: an expired pending entry is gone, as in the recorded Node run.
                 assert_eq!(case["stale"], serde_json::json!([]));
-                assert_eq!(ticket(&wal, "key").pending_rows(), &[ROW.to_owned()]);
+                assert!(ticket(&wal, "key").pending_rows().is_empty());
             }
             "pending-capacity" => {
                 assert_eq!(case["firstKey"], "pending-1");
