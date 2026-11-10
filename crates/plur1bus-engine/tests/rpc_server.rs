@@ -609,13 +609,8 @@ fn signal_closes_the_engine_and_removes_its_run_files(signal: libc::c_int) {
     .unwrap();
     let mut params = fixture["params"].clone();
     params["query"]["query"] = json!(private_marker);
-    assert_eq!(
-        client
-            .call("engine.recall", params)
-            .unwrap_err()
-            .code_name(),
-        "E_NOT_AVAILABLE"
-    );
+    // Recall is served (RE-D150); the call only carries a private marker into the process.
+    assert!(client.call("engine.recall", params.clone()).is_ok());
     // SAFETY: this positive PID names the live child held and reaped by EngineProcess.
     assert_eq!(
         unsafe { libc::kill(engine.pid().try_into().unwrap(), signal) },
@@ -623,6 +618,8 @@ fn signal_closes_the_engine_and_removes_its_run_files(signal: libc::c_int) {
     );
     assert!(engine.wait_for_exit().success(), "{}", engine.diagnostics());
     engine.assert_run_files_removed();
+    // Nothing is served after the signal: the open connection answers no further call.
+    assert!(client.call("engine.recall", params).is_err());
     let stderr = engine.stderr();
     let records: Vec<Value> = stderr
         .lines()
