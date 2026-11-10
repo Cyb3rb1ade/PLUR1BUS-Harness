@@ -428,7 +428,12 @@ impl CaptureRuntime {
                 settled = false;
             }
         }
-        settled
+        // A host lookup that is still out is a worker that has not settled (RE-D163): its
+        // waiter is gone, its thread is left to finish and its answer is dropped.
+        while self.0.calls.outstanding() > 0 && started.elapsed() < budget {
+            thread::sleep(Duration::from_millis(1));
+        }
+        settled && self.0.calls.outstanding() == 0
     }
 }
 

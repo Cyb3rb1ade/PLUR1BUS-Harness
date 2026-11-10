@@ -298,3 +298,75 @@ fn the_composition_asks_no_host_and_waits_for_no_holder() {
     fs::remove_file(root.join("hang")).unwrap();
     engine.close(None).unwrap();
 }
+
+/// RE-D163 / I2: a recovery attempt asks the host nothing while it holds the Neo workspace
+/// lease. The fixture host would never answer such a lookup; another owner of the same
+/// workspace is stored and the plan is recovered.
+#[test]
+fn no_host_lookup_is_made_under_the_neo_workspace_lease() {
+    let scratch = killed("neo-plan");
+    let root = scratch.path().to_path_buf();
+    remove_admissions(&root);
+    fs::write(root.join("hang"), "").unwrap();
+    let engine = engine_on(Arc::new(CrashHost {
+        inner: neo_host(&root),
+        root: root.clone(),
+        phase: "hang-under-lease".into(),
+    }));
+    compose(&engine, &root, "under-lease");
+    // Either the attempt hangs under the lease, or the pass finishes.
+    let deadline = std::time::Instant::now() + Duration::from_secs(60);
+    while !root.join("hang-entered").exists()
+        && !engine.capture.recovered_for_test(Duration::from_millis(50))
+    {
+        assert!(std::time::Instant::now() < deadline);
+    }
+    foreign_turn_is_stored(&engine, user_turn(&root, "owner-b", "run-b"), "under-lease");
+    assert!(!root.join("hang-entered").exists());
+    recovery_settled(&engine);
+    assert_eq!(neo_plans_with_content(&root), 0);
+    fs::remove_file(root.join("hang")).unwrap();
+    engine.close(None).unwrap();
+}
+
+/// RE-D163 / R2: a live turn's Neo step waits for the workspace lease no longer than the
+/// pin's Neo budget. Then the turn is stored and its Neo step deferred, never aborted.
+#[test]
+fn a_live_turn_waits_for_the_neo_lease_within_the_neo_budget_only() {
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let host = neo_host(root);
+    let mut config = serde_json::to_value(host.config()).unwrap();
+    config["neo"]["agentEndBudgetMs"] = json!(1000);
+    config["runtime"] = json!({"captureTimeoutMs":8000});
+    host.set_config(serde_json::from_value(config).unwrap());
+    let engine = engine_on(host);
+    assert_eq!(
+        capture(&engine, user_turn(root, "owner-a", "run-a"))["stored"],
+        2
+    );
+    let leases = crate::store::directory::TrustedDirectory::open(&neo_workspace(root))
+        .unwrap()
+        .create_child(".native-capture-leases")
+        .unwrap();
+    let held =
+        crate::store::kernel_lease::acquire(&leases, "workspace", &Cancel::never(), &mut || {})
+            .unwrap();
+    let started = std::time::Instant::now();
+    let result = capture(&engine, user_turn(root, "owner-b", "run-b"));
+    assert_eq!(result["stored"], 2, "{result}");
+    assert!(
+        started.elapsed() < Duration::from_secs(6),
+        "{:?}",
+        started.elapsed()
+    );
+    // The Neo step is deferred: the admission stays for its owner's next recovery.
+    assert_eq!(admissions_with_content(root), 1);
+    drop(held);
+    assert_eq!(
+        capture(&engine, user_turn(root, "owner-b", "run-b2"))["stored"],
+        2
+    );
+    assert_eq!(admissions_with_content(root), 0);
+    engine.close(None).unwrap();
+}

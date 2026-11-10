@@ -245,7 +245,10 @@ impl CapturePipeline {
             if made >= MAX_RECOVERY_ATTEMPTS {
                 return Ok(Some("recovery-exhausted"));
             }
-            match self.admissions.assess(record, cancel)? {
+            let assessment = self.asked(steps, record, cancel, |this, record, cancel| {
+                this.admissions.assess(record, cancel)
+            })?;
+            match assessment {
                 Assessment::Ready => {}
                 Assessment::Maintenance => return Err(maintenance()),
                 Assessment::Revoked => return Ok(Some("workspace-policy-disabled")),
@@ -276,6 +279,35 @@ impl CapturePipeline {
             },
         };
         self.close_terminally(steps, record, reason, cancel)
+    }
+
+    /// Ask the host for a retained record on a thread of its own (RE-D163): within the
+    /// scope's budget and the agent's places for outstanding host lookups. An answer that
+    /// never comes ends this attempt with its budget; the attempt was counted and its
+    /// scope waits again, so no key stays in flight behind a host.
+    fn asked<T: Send + 'static>(
+        self: &Arc<Self>,
+        steps: &RecoverySteps,
+        record: &Record,
+        cancel: &Cancel,
+        call: impl FnOnce(&Self, &Record, &Cancel) -> Result<T, EngineError> + Send + 'static,
+    ) -> Result<T, EngineError> {
+        let (this, owned, budget) = (self.clone(), record.clone(), cancel.clone());
+        let answer = steps.bounds().host_call(
+            record.turn.agent_id.as_str(),
+            // The lookup is part of the attempt and carries its thread name.
+            "capture-recovery",
+            cancel,
+            self.scope_budget(),
+            move || call(&this, &owned, &budget),
+        );
+        match answer {
+            Some(answer) => answer,
+            None => {
+                cancel.check()?;
+                Err(crate::contract::HostError::Unavailable.into())
+            }
+        }
     }
 
     /// Discard a retained record with a fixed reason; rows already written stay, as at the
@@ -341,7 +373,10 @@ impl CapturePipeline {
         cancel: &Cancel,
     ) -> Result<(), EngineError> {
         let turn = &record.turn;
-        let context = RequestContext::build(&turn.principal, &turn.agent, self.host.as_ref())?;
+        let context = self.asked(steps, record, cancel, |this, record, _| {
+            let turn = &record.turn;
+            RequestContext::build(&turn.principal, &turn.agent, this.host.as_ref())
+        })?;
         let key = turn_key_of(turn)?;
         let (this, replay, record) = (self.clone(), steps.replay.clone(), record.clone());
         let agent = turn.agent_id.to_string();

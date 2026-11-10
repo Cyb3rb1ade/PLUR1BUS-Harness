@@ -528,6 +528,32 @@ impl HostServices for CrashHost {
             }
             return self.inner.workspace_dir(agent);
         }
+        if self.phase == "hang-under-lease" {
+            // A recovery attempt's lookup made while that attempt holds the Neo workspace
+            // lease never returns (RE-D163 / I2). The lease is held when it cannot be taken.
+            let recovering = std::thread::current().name() == Some("neo-recovery");
+            let leases = fs::read_dir(self.root.join("db/_neo/workspaces"))
+                .into_iter()
+                .flatten()
+                .flatten()
+                .map(|entry| entry.path().join(".native-capture-leases"))
+                .find(|path| path.is_dir());
+            if let (true, true, Some(leases)) =
+                (recovering, self.root.join("hang").exists(), leases)
+            {
+                let leases = crate::store::directory::TrustedDirectory::open(&leases).unwrap();
+                if matches!(
+                    crate::store::kernel_lease::try_acquire(&leases, "workspace"),
+                    Ok(None)
+                ) {
+                    fs::write(self.root.join("hang-entered"), "").unwrap();
+                    while self.root.join("hang").exists() {
+                        std::thread::sleep(Duration::from_millis(5));
+                    }
+                }
+            }
+            return self.inner.workspace_dir(agent);
+        }
         if self.phase == "hang-first" {
             // Note that the host was asked; the first lookup for `agent` hangs while `hang`
             // exists. A turn asks hundreds of times, so later lookups only look.

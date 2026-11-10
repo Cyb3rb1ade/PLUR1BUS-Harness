@@ -85,7 +85,35 @@ pub struct CaptureJournal {
     host: Arc<dyn HostServices>,
     policy: Arc<dyn CapturePolicy>,
 }
+/// The Neo step's budget at the pin: `max(1000, neo.agentEndBudgetMs || 20000)`
+/// (`engine/create-engine.js:867` `neoAgentEndBudgetMs`), which
+/// `engine/capture/capture-turn.js:359` applies to a turn's Neo step through
+/// `deriveBudgetedSignal`, never more than the turn's capture budget.
+pub(in crate::neo) fn neo_budget(host: &dyn HostServices) -> Duration {
+    let config = serde_json::to_value(host.config())
+        .ok()
+        .and_then(|raw| crate::config::effective_config(&raw).ok())
+        .unwrap_or_default();
+    let capture =
+        crate::capture::queue::RuntimeConfig::from_value(&config["runtime"]).capture_timeout_ms;
+    let neo = config["neo"]["agentEndBudgetMs"]
+        .as_u64()
+        .filter(|value| *value > 0)
+        .unwrap_or(20_000)
+        .max(1000);
+    Duration::from_millis(capture.min(neo))
+}
 impl CaptureJournal {
+    /// The same journal over another view of the host (RE-D163): a recovery attempt
+    /// replays a binding with the host's answers taken before any lease.
+    pub(in crate::neo) fn over(&self, host: Arc<dyn HostServices>) -> Result<Self, StoreError> {
+        self.root.assert_unchanged()?;
+        Ok(Self {
+            root: TrustedDirectory::open(self.root.path())?,
+            host,
+            policy: self.policy.clone(),
+        })
+    }
     /// Hold an existing physical Neo root. No caller-supplied row grants authority.
     pub fn open(
         root: &Path,
@@ -361,9 +389,14 @@ impl CaptureJournal {
         let cancel = cancel.limited_to(Instant::now() + Duration::from_secs(300));
         self.check(binding, principal, agent, &cancel)?;
         let locks = directory.create_child(".native-capture-leases")?;
-        let kernel = kernel_lock::acquire(&locks, "workspace", &cancel, &mut || {})?;
+        // RE-D163: a Neo step waits for the workspace lease and the Neo write lock no longer
+        // than the pin's Neo budget, whatever its caller's own budget is. A holder that does
+        // not let go defers this step (a cancellation, which is transient); it never holds
+        // up the turn's rows or ends the turn as aborted.
+        let wait = cancel.limited_to(Instant::now() + neo_budget(self.host.as_ref()));
+        let kernel = kernel_lock::acquire(&locks, "workspace", &wait, &mut || {})?;
         let neo: LockGuard = loop {
-            self.check(binding, principal, agent, &cancel)?;
+            self.check(binding, principal, agent, &wait)?;
             directory.assert_unchanged()?;
             if let Some(guard) = Lock::try_acquire_neo(
                 &directory.path().join(".neo-write.lock"),

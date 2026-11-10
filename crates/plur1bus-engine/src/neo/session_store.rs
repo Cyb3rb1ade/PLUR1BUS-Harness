@@ -64,6 +64,11 @@ impl SessionStore {
             host,
         })
     }
+    /// The same store over another view of the host (RE-D163).
+    pub(in crate::neo) fn over(&self, host: Arc<dyn HostServices>) -> Result<Self, StoreError> {
+        self.root.assert_unchanged()?;
+        Self::open(self.root.path(), host)
+    }
     fn bind(&self, p: &Principal, a: &AgentContext) -> Result<Binding, EngineError> {
         self.root.assert_unchanged()?;
         let first = self

@@ -283,7 +283,6 @@ impl HostCalls {
     }
 
     /// The lookups outstanding right now.
-    #[cfg(test)]
     pub(crate) fn outstanding(&self) -> usize {
         self.state
             .lock()

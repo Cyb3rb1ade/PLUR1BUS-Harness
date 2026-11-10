@@ -1,5 +1,55 @@
 //! Engine-owned recovery of prepared Neo work before accepting new turns.
 use super::*;
+use crate::capture::retained::Bounds;
+use crate::contract::{
+    AgentId, EgressGate, EngineConfig, HostError, JournalBacklog, PlatformCapabilities, SecretPort,
+};
+
+/// A host whose workspace answer for one agent was taken before any lease (RE-D163). The
+/// replay of that agent's binding asks it nothing that could fail to return: under the
+/// workspace lease and the Neo write lock only the file system is used.
+struct ResolvedHost {
+    host: Arc<dyn HostServices>,
+    agent: AgentId,
+    workspace: Option<std::path::PathBuf>,
+}
+impl HostServices for ResolvedHost {
+    fn state_dir(&self) -> &Path {
+        self.host.state_dir()
+    }
+    fn config(&self) -> EngineConfig {
+        self.host.config()
+    }
+    fn workspace_dir(&self, agent: &AgentId) -> Result<Option<std::path::PathBuf>, HostError> {
+        if agent == &self.agent {
+            Ok(self.workspace.clone())
+        } else {
+            // Nobody else's workspace is part of this binding.
+            Err(HostError::Unavailable)
+        }
+    }
+    fn llm(&self) -> Option<&dyn LlmPort> {
+        self.host.llm()
+    }
+    fn secrets(&self) -> Option<&dyn SecretPort> {
+        self.host.secrets()
+    }
+    fn egress(&self) -> &dyn EgressGate {
+        self.host.egress()
+    }
+    fn emit(&self, event: &str, payload: serde_json::Value) {
+        self.host.emit(event, payload);
+    }
+    fn now_ms(&self) -> i64 {
+        self.host.now_ms()
+    }
+    fn platform(&self) -> &PlatformCapabilities {
+        self.host.platform()
+    }
+    fn journal_backlog(&self) -> Option<JournalBacklog> {
+        None
+    }
+}
 
 /// Counts of work actually resumed during this startup pass, without caller or content disclosure.
 #[derive(Default, Debug)]
@@ -34,6 +84,7 @@ impl EpisodeStore {
     /// one binding fails another's or the whole recovery; only `cancel` (shutdown) ends it.
     /// This does not replay the independent Lance capture WAL or invent episodes.
     pub fn recover_pending(&self, cancel: &Cancel) -> Result<RecoveryReport, EngineError> {
+        let bounds = Bounds::new(cancel.clone());
         let inventory = self.journal.recovery_plans(cancel)?;
         let mut report = RecoveryReport {
             bindings: inventory.plans.len(),
@@ -43,10 +94,10 @@ impl EpisodeStore {
         for plans in &inventory.plans {
             cancel.check()?;
             let budget = cancel.limited_to(Instant::now() + self.plan_budget());
-            if !self.recover_plans(plans, &budget, &mut report) {
+            if !self.recover_plans(plans, &budget, &bounds, &mut report) {
                 // Only the outer cancellation (shutdown) ends the whole recovery.
                 cancel.check()?;
-                self.defer(&mut report, plans);
+                self.defer(&mut report, plans, &bounds);
             }
         }
         Ok(report)
@@ -57,18 +108,40 @@ impl EpisodeStore {
     /// `engine/capture/capture-turn.js` through `deriveBudgetedSignal`). A resumed binding
     /// is that same step, so it gets no more.
     pub(in crate::neo) fn plan_budget(&self) -> Duration {
-        let config = serde_json::to_value(self.host.config())
-            .ok()
-            .and_then(|raw| crate::config::effective_config(&raw).ok())
-            .unwrap_or_default();
-        let capture =
-            crate::capture::queue::RuntimeConfig::from_value(&config["runtime"]).capture_timeout_ms;
-        let neo = config["neo"]["agentEndBudgetMs"]
-            .as_u64()
-            .filter(|value| *value > 0)
-            .unwrap_or(20_000)
-            .max(1000);
-        Duration::from_millis(capture.min(neo))
+        crate::neo::capture_journal::neo_budget(self.host.as_ref())
+    }
+    /// This store over the host's answer for one agent's workspace, asked now: on a thread
+    /// of its own, within the binding's budget and the agent's places for outstanding host
+    /// lookups (RE-D163). No answer in time is a transient host failure.
+    fn resolved(
+        &self,
+        agent: &AgentId,
+        cancel: &Cancel,
+        bounds: &Bounds,
+    ) -> Result<EpisodeStore, EngineError> {
+        let (host, asked) = (self.host.clone(), agent.clone());
+        let workspace = bounds
+            .host_call(
+                agent.as_str(),
+                "neo-recovery",
+                cancel,
+                self.plan_budget(),
+                move || host.workspace_dir(&asked),
+            )
+            .ok_or(HostError::Unavailable)??;
+        cancel.check()?;
+        let host: Arc<dyn HostServices> = Arc::new(ResolvedHost {
+            host: self.host.clone(),
+            agent: agent.clone(),
+            workspace,
+        });
+        Ok(EpisodeStore {
+            journal: self.journal.over(host.clone())?,
+            sessions: self.sessions.over(host.clone())?,
+            host,
+            mood: self.mood.clone(),
+            narrative: self.narrative.clone(),
+        })
     }
     /// The bindings with prepared plans (`<workspace directory>/<binding digest>`) and the
     /// number of plan files that cannot be read or attributed. Directory entries and plan
@@ -86,12 +159,14 @@ impl EpisodeStore {
         Ok((keys, inventory.unreadable))
     }
     /// One attempt for one binding within `budget`; true when none of its plans is left.
-    pub(in crate::neo) fn recover_key(&self, key: &str, budget: &Cancel) -> bool {
+    pub(in crate::neo) fn recover_key(&self, key: &str, budget: &Cancel, bounds: &Bounds) -> bool {
         let Some((canonical, digest)) = key.split_once('/') else {
             return true;
         };
         match self.journal.binding_plans(canonical, digest, budget) {
-            Ok(Some(plans)) => self.recover_plans(&plans, budget, &mut RecoveryReport::default()),
+            Ok(Some(plans)) => {
+                self.recover_plans(&plans, budget, bounds, &mut RecoveryReport::default())
+            }
             Ok(None) => true,
             Err(_) => false,
         }
@@ -120,9 +195,10 @@ impl EpisodeStore {
         &self,
         plans: &crate::neo::capture_journal::PendingPlans,
         budget: &Cancel,
+        bounds: &Bounds,
         report: &mut RecoveryReport,
     ) -> bool {
-        match self.recover_binding(plans, budget, report) {
+        match self.recover_binding(plans, budget, bounds, report) {
             Ok(PlanOutcome::Recovered) => true,
             Ok(PlanOutcome::Deferred) | Err(_) => false,
             Ok(PlanOutcome::Closed(reason)) => {
@@ -144,24 +220,43 @@ impl EpisodeStore {
         &self,
         report: &mut RecoveryReport,
         plans: &crate::neo::capture_journal::PendingPlans,
+        bounds: &Bounds,
     ) {
         let key = plans.caller.as_ref().map_or_else(
             || (String::new(), plans.digest.clone()),
             |(caller, _)| {
-                RequestContext::build(&caller.principal, &caller.agent, self.host.as_ref())
+                // The owner's name for the report needs the host; without an answer the
+                // binding digest stands for it.
+                let (host, principal, agent) = (
+                    self.host.clone(),
+                    caller.principal.clone(),
+                    caller.agent.clone(),
+                );
+                bounds
+                    .host_call(
+                        caller.principal.agent_id.as_str(),
+                        "neo-recovery",
+                        &bounds.shutdown,
+                        self.plan_budget(),
+                        move || RequestContext::build(&principal, &agent, host.as_ref()),
+                    )
+                    .and_then(Result::ok)
                     .map_or_else(
-                        |_| (caller.principal.agent_id.to_string(), plans.digest.clone()),
+                        || (caller.principal.agent_id.to_string(), plans.digest.clone()),
                         |ctx| (ctx.agent_id.to_string(), ctx.owner_user_id),
                     )
             },
         );
         report.deferred.insert(key);
     }
-    /// Recover one owner binding: count first, then assess, then replay its plans.
+    /// Recover one owner binding: count first, then ask the host, then assess and replay
+    /// its plans. The host is asked once, before any lease, with a budget (RE-D163); what
+    /// follows runs on that answer.
     fn recover_binding(
         &self,
         plans: &crate::neo::capture_journal::PendingPlans,
         cancel: &Cancel,
+        bounds: &Bounds,
         report: &mut RecoveryReport,
     ) -> Result<PlanOutcome, EngineError> {
         use crate::capture::failure::{classify, FailureClass, MAX_RECOVERY_ATTEMPTS};
@@ -174,7 +269,11 @@ impl EpisodeStore {
             return Ok(PlanOutcome::Closed("recovery-exhausted"));
         }
         let outcome = (|| -> Result<PlanOutcome, EngineError> {
-            match self.journal.assess_plans(plans, cancel)? {
+            let Some((caller, _)) = &plans.caller else {
+                return Ok(PlanOutcome::Closed("workspace-identity-changed"));
+            };
+            let view = self.resolved(&caller.principal.agent_id, cancel, bounds)?;
+            match view.journal.assess_plans(plans, cancel)? {
                 PlanAssessment::Ready => {}
                 PlanAssessment::Revoked => {
                     return Ok(PlanOutcome::Closed("workspace-policy-disabled"))
@@ -188,24 +287,21 @@ impl EpisodeStore {
                     return Ok(PlanOutcome::Deferred);
                 }
             }
-            let Some((caller, _)) = &plans.caller else {
-                return Ok(PlanOutcome::Closed("workspace-identity-changed"));
-            };
-            let capture = self
+            let capture = view
                 .journal
                 .recover(&caller.principal, &caller.agent, cancel)?;
             let context =
-                RequestContext::build(&caller.principal, &caller.agent, self.host.as_ref())?;
-            let episode = self.journal.with_writer(
+                RequestContext::build(&caller.principal, &caller.agent, view.host.as_ref())?;
+            let episode = view.journal.with_writer(
                 &caller.principal,
                 &caller.agent,
                 &context,
                 cancel,
                 &|| Ok(()),
-                |dir, proof, name, check| self.resume_episode(dir, proof, name, check, cancel),
+                |dir, proof, name, check| view.resume_episode(dir, proof, name, check, cancel),
             )?;
             let embedding =
-                self.embedding_transaction(&caller.principal, &caller.agent, cancel, |session| {
+                view.embedding_transaction(&caller.principal, &caller.agent, cancel, |session| {
                     crate::neo::embedding_publication::resume(&session, cancel)
                 })?;
             report.capture_records += capture;

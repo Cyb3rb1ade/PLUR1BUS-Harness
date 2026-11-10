@@ -168,14 +168,12 @@ impl NativeNeoCaptureHook {
     }
     /// Start the one attempt for a waiting binding; true when one is in flight afterwards.
     fn start(&self, key: &str, bounds: &Bounds) -> bool {
-        let (episodes, shutdown, binding) = (
-            self.episodes.clone(),
-            bounds.shutdown.clone(),
-            key.to_owned(),
-        );
+        let (episodes, bounds, binding) = (self.episodes.clone(), bounds.clone(), key.to_owned());
         self.retained.start(key, "neo-recovery", move || {
-            let budget = shutdown.limited_to(Instant::now() + episodes.plan_budget());
-            episodes.recover_key(&binding, &budget)
+            let budget = bounds
+                .shutdown
+                .limited_to(Instant::now() + episodes.plan_budget());
+            episodes.recover_key(&binding, &budget, &bounds)
         })
     }
     /// After the owner's own journal write: its binding no longer waits once no plan of it
