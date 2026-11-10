@@ -48,12 +48,58 @@ impl LlmPort for EmotionCompletion {
         self.0.complete(params, cancel)
     }
 }
-#[derive(Hash, PartialEq, Eq)]
-struct Binding {
-    agent: String,
-    owner: String,
-    workspace: String,
-    directory: Option<std::path::PathBuf>,
+/// One owner's emotion routing context: agent, owner, logical workspace and canonical directory.
+#[derive(Clone, Hash, PartialEq, Eq)]
+pub(crate) struct Binding {
+    pub(crate) agent: String,
+    pub(crate) owner: String,
+    pub(crate) workspace: String,
+    pub(crate) directory: Option<std::path::PathBuf>,
+}
+/// Retained per-owner emotion routers; the oldest binding is evicted first.
+const MAX_EMOTION_ENGINES: usize = 256;
+#[derive(Default)]
+struct EngineMap {
+    by_key: HashMap<Binding, Arc<Mutex<EmotionEngine>>>,
+    order: std::collections::VecDeque<Binding>,
+}
+/// The pin's one emotion engine per owner, shared by capture and recall (RE-D154).
+/// Bounded; construction performs no I/O.
+pub struct EmotionEngines {
+    emotion: Value,
+    clock: Arc<dyn Fn() -> i64 + Send + Sync>,
+    engines: Mutex<EngineMap>,
+}
+impl EmotionEngines {
+    /// Bind the effective `emotion` block and the host clock.
+    pub fn new(emotion: Value, clock: Arc<dyn Fn() -> i64 + Send + Sync>) -> Self {
+        Self {
+            emotion,
+            clock,
+            engines: Mutex::default(),
+        }
+    }
+    pub(crate) fn engine(
+        &self,
+        binding: Binding,
+    ) -> Result<Arc<Mutex<EmotionEngine>>, EngineError> {
+        let mut engines = self.engines.lock().map_err(|_| StoreError::Corrupt)?;
+        if let Some(engine) = engines.by_key.get(&binding) {
+            return Ok(engine.clone());
+        }
+        let engine = Arc::new(Mutex::new(emotion_engine(
+            &self.emotion,
+            self.clock.clone(),
+        )?));
+        while engines.order.len() >= MAX_EMOTION_ENGINES {
+            if let Some(oldest) = engines.order.pop_front() {
+                engines.by_key.remove(&oldest);
+            }
+        }
+        engines.order.push_back(binding.clone());
+        engines.by_key.insert(binding, engine.clone());
+        Ok(engine)
+    }
 }
 /// Caller-local emotion history, with the same MoodPool shared with native recall.
 pub struct NativeCaptureClassifier {
@@ -62,7 +108,7 @@ pub struct NativeCaptureClassifier {
     routes: Arc<dyn CaptureEmotionRoutes>,
     mood: Arc<EmotionalPool>,
     reminders: Arc<ReminderStore>,
-    engines: Mutex<HashMap<Binding, Arc<Mutex<EmotionEngine>>>>,
+    engines: Arc<EmotionEngines>,
 }
 impl NativeCaptureClassifier {
     /// Compose actual providers; no store writes or LLM calls occur during construction.
@@ -74,14 +120,25 @@ impl NativeCaptureClassifier {
     ) -> Result<Self, EngineError> {
         let raw = serde_json::to_value(host.config()).map_err(|_| StoreError::InvalidInput)?;
         let config = crate::config::effective_config(&raw).map_err(|_| StoreError::InvalidInput)?;
+        let clock = host.clone();
+        let engines = Arc::new(EmotionEngines::new(
+            config["emotion"].clone(),
+            Arc::new(move || clock.now_ms()),
+        ));
         Ok(Self {
             host,
             config,
             routes,
             mood,
             reminders,
-            engines: Mutex::new(HashMap::new()),
+            engines,
         })
+    }
+    /// Use the process's per-owner emotion engines, so recall and capture share one context.
+    #[must_use]
+    pub fn with_engines(mut self, engines: Arc<EmotionEngines>) -> Self {
+        self.engines = engines;
+        self
     }
     fn binding(&self, turn: &TurnRecord, context: &RequestContext) -> Result<Binding, EngineError> {
         let before = self.host.workspace_dir(&turn.principal.agent_id)?;
@@ -103,17 +160,7 @@ impl NativeCaptureClassifier {
         })
     }
     fn engine(&self, binding: Binding) -> Result<Arc<Mutex<EmotionEngine>>, EngineError> {
-        let mut engines = self.engines.lock().map_err(|_| StoreError::Corrupt)?;
-        if let Some(engine) = engines.get(&binding) {
-            return Ok(engine.clone());
-        }
-        let host = self.host.clone();
-        let engine = Arc::new(Mutex::new(emotion_engine(
-            &self.config["emotion"],
-            Arc::new(move || host.now_ms()),
-        )?));
-        engines.insert(binding, engine.clone());
-        Ok(engine)
+        self.engines.engine(binding)
     }
 }
 /// The pin's single `setEmotionConfig` routing, shared by capture and recall.

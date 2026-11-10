@@ -4,8 +4,8 @@
 use super::{composition_invalid, engine_warm, ProcessEngine};
 use crate::{
     capture::{
-        classify::{emotion_engine, forced_tier},
-        emotion_engine::{AnalysisOptions, EmotionEngine},
+        classify::{forced_tier, Binding, EmotionEngines},
+        emotion_engine::AnalysisOptions,
         emotion_legacy,
         emotion_pool::EmotionalPool,
         emotion_state::EmotionalState,
@@ -32,7 +32,7 @@ use crate::{
         stages::{StageClocks, StageFlags, StageLimits},
         tombstone_mask::TombstoneMask,
     },
-    store::recall_stats::RecallStats,
+    store::{directory::TrustedDirectory, recall_stats::RecallStats},
     text::{
         js::{js_trim, JsString},
         json::{parse_json, write_json, TolerantJsonValue as Json},
@@ -40,16 +40,13 @@ use crate::{
 };
 use serde_json::{json, Value};
 use std::{
-    collections::{HashMap, VecDeque},
-    path::{Path, PathBuf},
+    path::Path,
     sync::{Arc, Mutex},
     time::Instant,
 };
 
 /// Per-table hard cap the pin's namespace recall passes to every child pipeline.
 const CANDIDATE_HARD_LIMIT: usize = 100;
-/// Retained per-owner emotion routers; the oldest binding is evicted first.
-const MAX_EMOTION_ENGINES: usize = 256;
 
 /// What a successful post-admission path asks the outer boundary to announce.
 enum Served {
@@ -442,57 +439,37 @@ impl EmotionalRecallState for MoodBoost {
     }
 }
 
-#[derive(Clone, Hash, PartialEq, Eq)]
-struct MoodKey {
-    agent: String,
-    owner: String,
-    workspace: String,
-    directory: Option<PathBuf>,
-}
-
-/// Bounded per-owner emotion routers, evicting the oldest binding first.
-#[derive(Default)]
-struct Engines {
-    by_key: HashMap<MoodKey, Arc<Mutex<EmotionEngine>>>,
-    order: VecDeque<MoodKey>,
-}
-
-/// One authenticated mood pool, later shared with capture, and per-owner emotion routing.
+/// One authenticated mood pool and the per-owner emotion engines, both shared with capture.
 pub(super) struct RecallMood {
     host: Arc<dyn HostServices>,
     pool: Arc<EmotionalPool>,
     emotion: Value,
-    engines: Mutex<Engines>,
+    engines: Arc<EmotionEngines>,
 }
 impl RecallMood {
     /// Capture the configured `emotion` block; construction performs no I/O.
-    pub(super) fn new(host: Arc<dyn HostServices>, emotion: Value) -> Self {
+    /// The engines use the effective block, as the pin's single `setEmotionConfig`.
+    pub(super) fn new(host: Arc<dyn HostServices>, emotion: Value, effective: Value) -> Self {
+        let clock = host.clone();
         Self {
             pool: Arc::new(EmotionalPool::new(host.clone(), emotion.clone())),
+            engines: Arc::new(EmotionEngines::new(
+                effective,
+                Arc::new(move || clock.now_ms()),
+            )),
             host,
             emotion,
-            engines: Mutex::default(),
         }
     }
 
-    fn engine(&self, key: MoodKey) -> Result<Arc<Mutex<EmotionEngine>>, EngineError> {
-        let mut engines = self.engines.lock().map_err(|_| StoreError::Corrupt)?;
-        if let Some(engine) = engines.by_key.get(&key) {
-            return Ok(engine.clone());
-        }
-        let clock = self.host.clone();
-        let engine = Arc::new(Mutex::new(emotion_engine(
-            &self.emotion,
-            Arc::new(move || clock.now_ms()),
-        )?));
-        while engines.order.len() >= MAX_EMOTION_ENGINES {
-            if let Some(oldest) = engines.order.pop_front() {
-                engines.by_key.remove(&oldest);
-            }
-        }
-        engines.order.push_back(key.clone());
-        engines.by_key.insert(key, engine.clone());
-        Ok(engine)
+    /// The mood pool capture classifies against (RE-D51 ownership binding unchanged).
+    pub(super) fn pool(&self) -> Arc<EmotionalPool> {
+        self.pool.clone()
+    }
+
+    /// The per-owner emotion engines capture routes through.
+    pub(super) fn engines(&self) -> Arc<EmotionEngines> {
+        self.engines.clone()
     }
 
     /// Classify the prompt (tier 1/2; no tier-3 route is composed), commit it to the bound mood.
@@ -507,13 +484,16 @@ impl RecallMood {
         let text = JsString::from(js_trim(&query.query));
         let legacy = if text.utf16_len() >= 3 {
             let input = text.utf16_slice(0, 2000);
-            let key = MoodKey {
+            // The same canonical binding capture's classifier resolves.
+            let directory = workspace
+                .map(|path| TrustedDirectory::open(path).map(|dir| dir.path().to_path_buf()))
+                .transpose()?;
+            let engine = self.engines.engine(Binding {
                 agent: context.agent_id.to_string(),
                 owner: context.owner_user_id.clone(),
                 workspace: context.workspace_key.clone(),
-                directory: workspace.map(Path::to_path_buf),
-            };
-            let engine = self.engine(key)?;
+                directory,
+            })?;
             let result = engine
                 .lock()
                 .map_err(|_| StoreError::Corrupt)?

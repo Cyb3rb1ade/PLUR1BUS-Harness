@@ -126,9 +126,9 @@ fn normal_recall_renders_the_selected_memory_and_records_mood_through_the_proces
         .any(|(name, payload)| name == "recall.completed"
             && payload["agentId"] == "agent"
             && payload["degraded"].is_null()));
-    // The frozen status text keeps composition-pending/recall until the engine is ready.
-    assert!(!engine.status().ready);
-    assert_eq!(engine.status.degraded.clone().unwrap().capability, "recall");
+    // With a store base, recall and capture are both served (RE-D154): no composition-pending.
+    assert!(engine.status().ready);
+    assert!(engine.status.degraded.is_none());
     // A1 counts exactly the rendered card.
     let stats = crate::store::recall_stats::RecallStats::new(&root.join("db"))
         .unwrap()

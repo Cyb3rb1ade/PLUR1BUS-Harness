@@ -6,6 +6,8 @@
 //! composed separately as their runtime dependencies become available.
 //! Selecting a flat embedding seam never installs a fake memory pipeline.
 
+#[path = "engine_capture.rs"]
+mod engine_capture;
 #[path = "engine_recall.rs"]
 mod engine_recall;
 #[path = "engine_stores.rs"]
@@ -44,6 +46,7 @@ pub struct ProcessEngine {
     live_stores: Arc<EngineStores>,
     memory: Option<ProcessMemory>,
     mood: engine_recall::RecallMood,
+    capture: engine_capture::ProcessCapture,
     operations: Arc<crate::ops::context::OperationContext>,
     checkpoints: crate::store::checkpoint::CheckpointStore,
     system_supplement: Vec<String>,
@@ -55,6 +58,7 @@ pub struct ProcessEngine {
     subscribers: Mutex<Vec<mpsc::Sender<EngineEvent>>>,
     model_degradation: [Degraded; 4],
     closed_degradation: Degraded,
+    capture_degradation: Degraded,
 }
 
 struct ProcessMemory {
@@ -184,8 +188,12 @@ impl ProcessEngine {
             "memoryLink":base.is_some(),
             "recallStats":false,"knowledgePromotion":false,"memoryCuration":false
         }))?;
+        // Recall and capture are both served once a store base is configured (RE-D154);
+        // the pin's StatusReporter then reports ready with model-derived degradation only.
+        let served = base.is_some();
         let status = decode(json!({
-            "ready": false, "degraded": {"reason":"composition-pending","capability":"recall"},
+            "ready": served,
+            "degraded": if served { Value::Null } else { json!({"reason":"composition-pending","capability":"recall"}) },
             "agents":0,"contract":"1.17.0","storeSchema":{"current":null,"expected":"1"},
             "jobs":{"ledger":"unavailable","agents":[]},"models":embedding.status(),"journal":null,
             "sharedMemory":{"supported":false,"mode":"unavailable"}
@@ -199,7 +207,13 @@ impl ProcessEngine {
             store_clock,
             store_cancel.clone(),
         ));
-        let mood = engine_recall::RecallMood::new(host.clone(), raw["emotion"].clone());
+        // Capture's classifier resolves the effective block; recall shares its engines.
+        let effective_emotion = crate::config::effective_config(&raw).map_or_else(
+            |_| raw["emotion"].clone(),
+            |config| config["emotion"].clone(),
+        );
+        let mood =
+            engine_recall::RecallMood::new(host.clone(), raw["emotion"].clone(), effective_emotion);
         let operations = Arc::new(crate::ops::context::OperationContext::new(host));
         let memory = base.map(|base| {
             let provider = embedding.pipeline_embedder();
@@ -247,6 +261,7 @@ impl ProcessEngine {
             live_stores,
             memory,
             mood,
+            capture: engine_capture::ProcessCapture::default(),
             operations,
             checkpoints,
             system_supplement: crate::recall::system_supplement::build(
@@ -270,6 +285,7 @@ impl ProcessEngine {
                 degradation("models-warming", "reranker")?,
             ],
             closed_degradation: degradation("closed", "engine")?,
+            capture_degradation: degradation("startup-recovery-incomplete", "capture")?,
         })
     }
 
@@ -316,10 +332,18 @@ impl Engine for ProcessEngine {
         &self.capabilities
     }
     fn open(&self, agent: &AgentId) -> Result<AgentStoreHandle, EngineError> {
-        self.live_stores.open(agent)
+        let handle = self.live_stores.open(agent)?;
+        // Opening recovers pending capture work (admissions, WAL, Neo plans) before new turns.
+        // A failed recovery does not fail the open: status reports it and capture retries it.
+        if let Some(base) = self.live_stores.configured_base() {
+            let _ = engine_capture::ProcessCapture::open(self, base);
+        }
+        Ok(handle)
     }
-    fn close(&self, _budget: Option<Duration>) -> Result<(), EngineError> {
+    fn close(&self, budget: Option<Duration>) -> Result<(), EngineError> {
         self.closed.store(true, Ordering::Release);
+        // Admitted capture work settles within the budget before stores are released (RE-D144).
+        self.capture.close(budget);
         self.store_cancel.cancel();
         self.embedding.close();
         self.operations.close();
@@ -336,7 +360,12 @@ impl Engine for ProcessEngine {
         status.agents = (self.live_stores.count() as u64).into();
         // Memory/journal composition is pending; status never blocks on reverse RPC.
         if self.closed.load(Ordering::Acquire) {
+            status.ready = false;
             status.degraded = Some(self.closed_degradation.clone());
+        } else if self.capture.recovery_failed() {
+            // Capture is not served until its startup recovery succeeds.
+            status.ready = false;
+            status.degraded = Some(self.capture_degradation.clone());
         } else {
             let index = match (&status.models.embedder.state, &status.models.reranker.state) {
                 (ModelState::Failed, _) => Some(0),
@@ -375,9 +404,14 @@ impl Engine for ProcessEngine {
     fn capture(
         &self,
         turn: TurnRecord,
-        _options: CaptureOptions,
+        options: CaptureOptions,
     ) -> Result<CaptureHandle, EngineError> {
         turn.cancel.check()?;
+        if !self.closed.load(Ordering::Acquire) {
+            if let Some(base) = self.live_stores.configured_base() {
+                return engine_capture::ProcessCapture::accept(self, base, turn, options);
+            }
+        }
         Err(self.unavailable.error())
     }
     fn checkpoint(
@@ -1118,3 +1152,7 @@ mod warm_tests;
 #[cfg(test)]
 #[path = "engine_recall_tests.rs"]
 mod recall_tests;
+
+#[cfg(test)]
+#[path = "engine_capture_tests.rs"]
+mod capture_tests;

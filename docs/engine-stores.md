@@ -1893,7 +1893,7 @@ that exists but cannot be opened, answers no blocks with the degradation
 `{reason: "error", capability: "recall"}` and the usual `recall.degraded` and
 `recall.completed` events. A1 counts only the rendered cards of a successful,
 undegraded recall. The result carries no decision trace, as at the pin. The
-status keeps `composition-pending/recall` until the engine is ready. Start
+status reports ready once capture is composed as well (RE-D154). Start
 notices, session time, persona and other prompt additions, reminders, the
 retrieval ledger and the Neo prelude are not composed yet.
 
@@ -1941,3 +1941,40 @@ unreadable registry fails the recall, which answers the degraded error result
 without data. Warm reranking already blocks committed and attempted deletions.
 Canonical knowledge sections have no memory id and are not masked. See the
 SHA-bound marker `tests/fixtures/recall/tombstone-recall-native-exceptions.json`.
+
+### Capture in the process (RE-D154)
+
+`engine.capture` runs the RE-05 `CaptureRuntime` over the native
+`CapturePipeline`, `NativeCaptureClassifier` and `NativeNeoCaptureHook`. The
+runtime is composed once, behind the same S5 startup tombstone gate as the
+memory readers, and writes through the active writer route's own `StorePool`,
+so forget, import, rebind and capture share one writer handle per agent store.
+Composition runs on the first `Engine.open` of an agent or the first capture,
+whichever comes first. Before any new turn is admitted it recovers durable
+admissions (`_capture-admissions`), the capture WAL (`_capture-turns`) and
+prepared Neo plans; a killed turn is completed exactly once. A failed recovery
+leaves `Engine.open` successful, keeps the original input on disk, refuses
+capture with `not-available/startup-recovery-incomplete` and reports
+`ready: false` with `{reason: "startup-recovery-incomplete", capability:
+"capture"}`. The next capture retries the recovery.
+
+The workspace policy adapter reads the same `control/workspace-policy.json` and
+the re-embedding switching gate as recall; an unreadable migration state is
+treated as switching. Capture's classifier and recall share one owner-bound mood
+pool (RE-D51 binding unchanged) and one bounded set of per-owner emotion engines
+(256 bindings, oldest evicted first), keyed by agent, owner, logical workspace
+and canonical workspace directory. Tier 3 uses the host's guarded completion
+port only when the effective configuration enables it; deferred mode makes no
+call at capture. No pressure sampler, chunk decider, narrative provider or
+post-turn job is composed (`scheduled = false`, so `deferPostTurnLlm` reports the
+existing inline fallback). The Neo root is created on first composition, as the
+pin creates it on its first write.
+
+The native Neo journal binds only user-owned callers. For any other owner the
+composition treats the Neo hook as not applicable instead of failing it; a
+failure there would leave every such admission pending and make each restart's
+recovery refuse capture. `close()` refuses new turns and drains admitted capture
+work within the caller's budget (30 seconds when none or zero is given, as the
+pin's `closeEngine`) before stores are released. With a store base configured,
+recall and capture are both served and the status reports `ready: true`, with
+degradation derived from models only, as the pin's StatusReporter.

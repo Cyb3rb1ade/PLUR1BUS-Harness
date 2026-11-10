@@ -229,6 +229,11 @@ impl NamespaceStores {
         self.writer.lease(agent_id)?.ok_or(StoreError::Unavailable)
     }
 
+    /// The active writer's pool itself, so capture shares its per-agent writer handles.
+    pub(crate) fn writer_pool(&self) -> Arc<StorePool> {
+        self.writer.pool.clone()
+    }
+
     /// Existing active writer for previews/mutations that must not manufacture an empty table.
     pub fn existing_write_store(&self, agent_id: &str) -> Result<Option<Arc<Store>>, StoreError> {
         self.writer.lease_existing(agent_id)
