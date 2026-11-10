@@ -89,9 +89,8 @@ fn opening_runtime_recovers_original_capture_without_a_new_turn_from_the_host() 
         assert!(rows.iter().any(|r| r.text == SECOND_TEXT));
         assert_eq!(effects.load(Ordering::SeqCst), 1, "{phase}");
         assert!(runtime.0.close(Duration::from_secs(5)));
-        let cleared: serde_json::Value =
-            serde_json::from_slice(&std::fs::read(admission(root.path())).unwrap()).unwrap();
-        assert_eq!(cleared, serde_json::json!({"record":null}));
+        // RE-D159: a completed admission leaves no file behind.
+        assert!(retained(root.path()).is_none(), "{phase}");
         let second = BoundaryFixture::new(root.path(), "");
         let effects = second.effects.clone();
         drop(open(second).unwrap());
@@ -162,19 +161,14 @@ fn modified_records_never_mutate_lance_and_never_block_the_runtime() {
             .unwrap();
         assert_eq!(after.len(), before.len(), "{kind}");
         assert_eq!(after[0].id, before[0].id, "{kind}");
-        let now = std::fs::read(&path).unwrap();
         let malformed = matches!(kind, "version" | "row-id" | "options" | "unknown-field");
         if malformed {
+            let now = std::fs::read(&path).unwrap();
             assert_eq!(now, serde_json::to_vec(&value).unwrap(), "{kind}");
         } else {
-            let closed: serde_json::Value = serde_json::from_slice(&now).unwrap();
-            assert!(
-                closed["record"].is_null() || now == serde_json::to_vec(&value).unwrap(),
-                "{kind}"
-            );
-            if kind != "caller" {
-                assert!(closed["record"].is_null(), "{kind}");
-            }
+            // Every well-formed mismatch, the caller included (the file name holds no caller
+            // digest since RE-D159, so the record is found and assessed), is closed: removed.
+            assert!(!path.exists(), "{kind}");
         }
     }
 }
@@ -362,8 +356,9 @@ fn an_observed_caller_abort_does_not_restart_automatically() {
     assert_eq!(effects.load(Ordering::SeqCst), 0);
 }
 
+/// RE-D159: running out of the owner's own recovery budget defers its input; the runtime opens.
 #[test]
-fn startup_deadline_retains_original_input_for_a_later_recovery_attempt() {
+fn startup_deadline_defers_original_input_without_failing_the_runtime() {
     let root = killed("short-deadline");
     let f = BoundaryFixture::configured(
         root.path(),
@@ -372,7 +367,8 @@ fn startup_deadline_retains_original_input_for_a_later_recovery_attempt() {
         None,
     );
     let stores = f.stores.clone();
-    assert!(open(f).is_err());
+    let runtime = open(f).unwrap();
+    assert!(runtime.0.close(Duration::from_secs(5)));
     let value: serde_json::Value =
         serde_json::from_slice(&std::fs::read(admission(root.path())).unwrap()).unwrap();
     assert!(value["record"].is_object());
@@ -390,10 +386,20 @@ fn startup_deadline_retains_original_input_for_a_later_recovery_attempt() {
     );
 }
 
+/// The retained record, or null once it is closed (RE-D159: a closed file is removed).
 fn pending(root: &std::path::Path) -> serde_json::Value {
-    serde_json::from_slice::<serde_json::Value>(&std::fs::read(admission(root)).unwrap()).unwrap()
-        ["record"]
-        .clone()
+    retained(root).map_or(serde_json::Value::Null, |path| {
+        serde_json::from_slice::<serde_json::Value>(&std::fs::read(path).unwrap()).unwrap()
+            ["record"]
+            .clone()
+    })
+}
+/// The admission file still on disk, if any.
+fn retained(root: &std::path::Path) -> Option<std::path::PathBuf> {
+    std::fs::read_dir(root.join("stores/_capture-admissions"))
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .find(|p| p.extension().is_some_and(|x| x == "json"))
 }
 
 #[test]

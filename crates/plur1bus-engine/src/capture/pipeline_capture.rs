@@ -1,60 +1,63 @@
 //! Primary capture work precedes optional Neo queue maintenance on every exit path.
-use super::super::admission::{row_digest, Admission, Assessment, Entry, Phase, Record};
+use super::super::admission::{row_digest, scope_of, Admission, Assessment, Entry, Phase, Record};
 use super::super::failure::{self, FailureClass, MAX_RECOVERY_ATTEMPTS};
 use super::super::replay_guard::{turn_key_of, ReplayGuard};
 use super::super::shared_scope::PolicyDecision;
 use super::*;
 use std::time::{Duration, Instant};
+
+fn maintenance() -> EngineError {
+    EngineError::NotAvailable {
+        reason: "workspace-maintenance".into(),
+    }
+}
+fn is_maintenance(error: &EngineError) -> bool {
+    matches!(error, EngineError::NotAvailable { reason } if reason == "workspace-maintenance")
+}
 impl CaptureWorker for CapturePipeline {
     fn recover(&self, replay: &ReplayGuard) -> Result<(), EngineError> {
-        let timeout = super::super::queue::RuntimeConfig::from_value(&self.config["runtime"])
-            .capture_timeout_ms;
-        let cancel = self
-            .shutdown
-            .limited_to(Instant::now() + Duration::from_millis(timeout));
-        // Each record is assessed and recovered on its own (RE-D156): one record's policy,
-        // configuration, workspace or failure never decides anyone else's.
-        for entry in self.admissions.inventory(&cancel)? {
-            cancel.check()?;
-            match entry {
-                Entry::Record(record) => self.recover_one(replay, &record, &cancel)?,
-                Entry::Unreadable => {
-                    self.unreadable
-                        .store(true, std::sync::atomic::Ordering::Release);
-                    self.warn(
-                        &StoreError::Corrupt.into(),
-                        CaptureLogStage::CapturePipeline,
-                        1,
-                    );
-                }
-            }
+        // Only shutdown ends the startup recovery as a whole; each owner scope has its own
+        // budget, and a scope that runs out of it is deferred to its own next turn (RE-D159).
+        let inventory = self.admissions.inventory(&self.shutdown)?;
+        self.unreadable.store(
+            inventory.unattributable > 0,
+            std::sync::atomic::Ordering::Release,
+        );
+        if inventory.unattributable > 0 {
+            self.warn(
+                &StoreError::Corrupt.into(),
+                CaptureLogStage::CapturePipeline,
+                1,
+            );
+        }
+        for (scope, names) in inventory.scopes {
+            self.recover_scope(replay, &scope, &names)?;
         }
         Ok(())
     }
 
-    fn recover_agent(
-        &self,
-        replay: &ReplayGuard,
-        agent: &str,
-        cancel: &Cancel,
-    ) -> Result<(), EngineError> {
-        // Only an agent whose retained work is still pending is retried, before its next turn.
-        if !self
+    fn recover_owner(&self, replay: &ReplayGuard, turn: &TurnRecord) {
+        // Only this caller's own pending records are retried, under their own budget and
+        // cancellation; nothing here can refuse, delay beyond that budget, or abort the turn.
+        let Ok(scope) = self.admissions.scope_for(turn, &self.shutdown) else {
+            return;
+        };
+        let was = self
             .pending
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .remove(agent)
-        {
-            return Ok(());
+            .remove(&scope);
+        if !was {
+            return;
         }
-        for entry in self.admissions.inventory(cancel)? {
-            if let Entry::Record(record) = entry {
-                if record.turn.agent_id.as_str() == agent {
-                    self.recover_one(replay, &record, cancel)?;
-                }
-            }
+        let outcome = self
+            .admissions
+            .scope_names(&scope, &self.shutdown)
+            .and_then(|names| self.recover_scope(replay, &scope, &names));
+        if let Err(error) = outcome {
+            self.warn(&error, CaptureLogStage::CapturePipeline, 1);
+            self.mark_pending(&scope);
         }
-        Ok(())
     }
 
     fn capture(
@@ -70,40 +73,91 @@ impl CaptureWorker for CapturePipeline {
 }
 
 impl CapturePipeline {
-    fn mark_pending(&self, agent: &str) {
+    fn mark_pending(&self, scope: &str) {
         self.pending
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .insert(agent.to_owned());
+            .insert(scope.to_owned());
     }
 
-    /// Recover one retained record. Only cancellation (shutdown or the startup deadline)
-    /// escapes; every other outcome is local to this record.
+    /// Recover one owner scope's records under that scope's own budget. Running out of it
+    /// defers the rest to the owner's next turn; only shutdown escapes.
+    fn recover_scope(
+        &self,
+        replay: &ReplayGuard,
+        scope: &str,
+        names: &[String],
+    ) -> Result<(), EngineError> {
+        let timeout = super::super::queue::RuntimeConfig::from_value(&self.config["runtime"])
+            .capture_timeout_ms;
+        let budget = self
+            .shutdown
+            .limited_to(Instant::now() + Duration::from_millis(timeout));
+        let entries = match self.admissions.entries(names, &budget) {
+            Ok(entries) => entries,
+            Err(error) => return self.defer(scope, error),
+        };
+        for entry in entries {
+            match entry {
+                Entry::Record(record) => {
+                    if let Err(error) = self.recover_one(replay, scope, &record, &budget) {
+                        return self.defer(scope, error);
+                    }
+                }
+                Entry::Unreadable => {
+                    // Attributed to this owner only: kept and reported, never read again here.
+                    self.warn(
+                        &StoreError::Corrupt.into(),
+                        CaptureLogStage::CapturePipeline,
+                        1,
+                    );
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Keep a scope pending after its budget, a cancellation or an inventory error.
+    fn defer(&self, scope: &str, error: EngineError) -> Result<(), EngineError> {
+        self.mark_pending(scope);
+        if self.shutdown.is_cancelled() {
+            return Err(error);
+        }
+        self.warn(&error, CaptureLogStage::CapturePipeline, 1);
+        Ok(())
+    }
+
+    /// Recover one retained record. The attempt is counted durably before anything else
+    /// runs (RE-D159), so every failure counts; only maintenance gives it back. Only
+    /// cancellation escapes; every other outcome is local to this record.
     fn recover_one(
         &self,
         replay: &ReplayGuard,
+        scope: &str,
         record: &Record,
         cancel: &Cancel,
     ) -> Result<(), EngineError> {
+        let made = match self.admissions.note_attempt(record, cancel) {
+            Ok(None) => return Ok(()),
+            Ok(Some(made)) => made,
+            Err(error @ EngineError::Cancelled(_)) => return Err(error),
+            Err(error) => {
+                self.warn(&error, CaptureLogStage::CapturePipeline, 1);
+                self.mark_pending(scope);
+                return Ok(());
+            }
+        };
         let outcome = (|| -> Result<Option<&'static str>, EngineError> {
+            if made >= MAX_RECOVERY_ATTEMPTS {
+                return Ok(Some("recovery-exhausted"));
+            }
             match self.admissions.assess(record, cancel)? {
                 Assessment::Ready => {}
-                Assessment::Maintenance => {
-                    return Err(EngineError::NotAvailable {
-                        reason: "workspace-maintenance".into(),
-                    })
-                }
+                Assessment::Maintenance => return Err(maintenance()),
                 Assessment::Revoked => return Ok(Some("workspace-policy-disabled")),
                 Assessment::ConfigChanged => return Ok(Some("config-changed")),
                 Assessment::WorkspaceChanged => return Ok(Some("workspace-identity-changed")),
                 Assessment::CallerChanged => return Ok(Some("caller-changed")),
-            }
-            match self.admissions.note_attempt(record, cancel)? {
-                None => return Ok(None),
-                Some(made) if made >= MAX_RECOVERY_ATTEMPTS => {
-                    return Ok(Some("recovery-exhausted"))
-                }
-                Some(_) => {}
             }
             self.recover_record(replay, record, cancel)?;
             Ok(None)
@@ -116,20 +170,26 @@ impl CapturePipeline {
                     if let EngineError::Cancelled(cancelled) = error {
                         return Err(EngineError::Cancelled(cancelled));
                     }
-                    self.warn(&error, CaptureLogStage::CapturePipeline, 1);
-                    self.mark_pending(record.turn.agent_id.as_str());
+                    if is_maintenance(&error) {
+                        // Maintenance is no attempt: give the counted one back.
+                        let _ = self.admissions.revert_attempt(record, cancel);
+                    } else {
+                        self.warn(&error, CaptureLogStage::CapturePipeline, 1);
+                    }
+                    self.mark_pending(scope);
                     return Ok(());
                 }
                 FailureClass::Terminal(reason) => reason,
             },
         };
-        self.close_terminally(replay, record, reason, cancel)
+        self.close_terminally(replay, scope, record, reason, cancel)
     }
 
     /// Discard a retained record with a fixed reason; rows already written stay, as at the pin.
     fn close_terminally(
         &self,
         replay: &ReplayGuard,
+        scope: &str,
         record: &Record,
         reason: &'static str,
         cancel: &Cancel,
@@ -141,20 +201,37 @@ impl CapturePipeline {
             CaptureLogStage::CapturePipeline,
             1,
         );
+        if reason == "workspace-policy-disabled" && record.phase == Phase::Primary {
+            // Revocation also releases the replay entry of the unfinished turn (as the pin's
+            // onRowsKept): no row is deleted, and only when every pending ID is this record's.
+            let key = turn_key_of(&record.turn)?;
+            let released = replay.recover(record.turn.agent_id.as_str(), &key, cancel, |rows| {
+                let stale = rows.stale_row_ids();
+                if !stale.is_empty()
+                    && !rows.primary_settled()?
+                    && stale.iter().all(|id| record.rows.contains_key(id))
+                {
+                    rows.on_rows_kept()?;
+                }
+                Ok(())
+            });
+            match released {
+                Ok(()) => {}
+                Err(error @ EngineError::Cancelled(_)) => return Err(error),
+                // The entry stays; it holds no content and expires after seven days.
+                Err(error) => self.warn(&error, CaptureLogStage::CapturePipeline, 1),
+            }
+        }
         match self.admissions.abandon_record(record, cancel) {
-            Ok(()) => {}
-            Err(error @ EngineError::Cancelled(_)) => return Err(error),
+            Ok(()) => Ok(()),
+            Err(error @ EngineError::Cancelled(_)) => Err(error),
             Err(error) => {
                 // Not even the discard succeeded: keep it for the next attempt.
                 self.warn(&error, CaptureLogStage::CapturePipeline, 1);
-                self.mark_pending(record.turn.agent_id.as_str());
-                return Ok(());
+                self.mark_pending(scope);
+                Ok(())
             }
         }
-        // The row-ID replay WAL is left as it is: it holds no content, never deletes a row it
-        // cannot attribute, and its pending entries expire as at the pin.
-        let _ = replay;
-        Ok(())
     }
 
     fn recover_record(
@@ -193,8 +270,17 @@ impl CapturePipeline {
     ) -> Result<CaptureResult, EngineError> {
         let started = Instant::now();
         let mut neo_started = false;
-        if !matches!(self.policy.decision(context), Ok(PolicyDecision::Allowed)) {
-            return Ok(counts(0, 1, Some("not_captured")));
+        match self.policy.decision(context) {
+            Ok(PolicyDecision::Allowed) => {}
+            // A recovery attempt reports why it could not run, so it is kept or closed.
+            Ok(PolicyDecision::Maintenance) if recovery => return Err(maintenance()),
+            Ok(PolicyDecision::Revoked) if recovery => {
+                return Err(EngineError::NotAvailable {
+                    reason: "workspace-policy-disabled".into(),
+                })
+            }
+            Err(error) if recovery => return Err(error),
+            _ => return Ok(counts(0, 1, Some("not_captured"))),
         }
         cancel.check()?;
         let mut admission = self.admissions.begin(turn, context, options, cancel)?;
@@ -223,11 +309,15 @@ impl CapturePipeline {
             Err(error) => match failure::classify(&error) {
                 FailureClass::Transient => Err(error),
                 FailureClass::Terminal(reason) => {
-                    // Rows already written stay; the content-free replay WAL is left as is.
+                    // Rows already written stay.
                     admission.abandon()?;
                     self.warn(&error, CaptureLogStage::CapturePipeline, 1);
                     if reason == "workspace-policy-disabled" {
-                        // The owner switched capture off mid-turn: written rows stay, as at the pin.
+                        // The owner switched capture off mid-turn: written rows stay and the
+                        // unfinished turn's replay entry is released, as the pin's onRowsKept.
+                        if !replay.primary_settled()? {
+                            replay.on_rows_kept()?;
+                        }
                         Ok(counts(0, 1, Some("not_captured")))
                     } else {
                         Err(error)
@@ -236,7 +326,10 @@ impl CapturePipeline {
             },
         };
         if !admission.is_closed() {
-            self.mark_pending(turn.agent_id.as_str());
+            self.mark_pending(&scope_of(
+                context.agent_id.as_str(),
+                &context.owner_user_id,
+            )?);
         }
         if neo_started && !cancel.is_cancelled() && !turn.cancel.is_cancelled() {
             if let Some(hook) = &self.neo {

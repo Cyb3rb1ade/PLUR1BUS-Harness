@@ -98,8 +98,25 @@ fn startup_replays_capture_rows_but_does_not_invent_unprepared_episodes() {
     assert_eq!(rows(&f.directory, "turn-journal.jsonl").len(), 5);
     assert!(!f.directory.join("episodes.jsonl").exists());
 }
+/// Journal files of the workspace directory and their bytes, excluding prepared plans.
+fn journals(directory: &Path) -> Vec<(String, Vec<u8>)> {
+    let mut out: Vec<_> = fs::read_dir(directory)
+        .unwrap()
+        .flatten()
+        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "jsonl"))
+        .map(|entry| {
+            (
+                entry.file_name().to_string_lossy().into_owned(),
+                fs::read(entry.path()).unwrap(),
+            )
+        })
+        .collect();
+    out.sort();
+    out
+}
+/// RE-D159: a revoked policy closes the binding's prepared plans; journals stay as written.
 #[test]
-fn revoked_startup_policy_retains_pending_and_current_checkpoint() {
+fn revoked_startup_policy_closes_pending_plans_and_keeps_written_journals() {
     let f = setup();
     f.policy.stop_after_first.store(true, Ordering::SeqCst);
     assert!(f
@@ -107,9 +124,12 @@ fn revoked_startup_policy_retains_pending_and_current_checkpoint() {
         .process(&f.turn, &f.context, &Cancel::never())
         .is_err());
     let path = native_file(&f.directory, "native-episode-pending-");
-    let original = fs::read(&path).unwrap();
-    assert!(reopen(&f).recover_pending(&Cancel::never()).is_err());
-    assert_eq!(original, fs::read(&path).unwrap());
+    let written = journals(&f.directory);
+    let report = reopen(&f).recover_pending(&Cancel::never()).unwrap();
+    assert_eq!((report.bindings, report.closed), (1, 1));
+    assert!(report.deferred.is_empty());
+    assert!(!path.exists());
+    assert_eq!(written, journals(&f.directory));
     f.policy.stop_after_first.store(false, Ordering::SeqCst);
     f.policy.allowed.store(true, Ordering::SeqCst);
     assert_eq!(
@@ -117,9 +137,10 @@ fn revoked_startup_policy_retains_pending_and_current_checkpoint() {
             .recover_pending(&Cancel::never())
             .unwrap()
             .bindings,
-        1
+        0
     );
 }
+/// A plan under another binding's name replays nothing: it is closed as a changed binding.
 #[test]
 fn renamed_pending_file_does_not_authorize_another_binding() {
     let f = setup();
@@ -135,17 +156,12 @@ fn renamed_pending_file_does_not_authorize_another_binding() {
         .directory
         .join(format!("native-episode-pending-{}.json", "0".repeat(64)));
     fs::rename(&path, &renamed).unwrap();
-    let original = fs::read(&renamed).unwrap();
-    assert!(reopen(&f).recover_pending(&Cancel::never()).is_err());
-    assert_eq!(original, fs::read(&renamed).unwrap());
-    fs::rename(renamed, path).unwrap();
-    assert_eq!(
-        reopen(&f)
-            .recover_pending(&Cancel::never())
-            .unwrap()
-            .bindings,
-        1
-    );
+    let written = journals(&f.directory);
+    let report = reopen(&f).recover_pending(&Cancel::never()).unwrap();
+    assert_eq!((report.bindings, report.closed), (1, 1));
+    assert_eq!(report.episode_revisions, 0);
+    assert!(!renamed.exists());
+    assert_eq!(written, journals(&f.directory));
 }
 #[test]
 fn incomplete_atomic_write_siblings_are_ignored_without_being_deleted() {

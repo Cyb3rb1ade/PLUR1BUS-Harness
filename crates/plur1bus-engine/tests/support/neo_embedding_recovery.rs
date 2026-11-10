@@ -175,12 +175,11 @@ fn corrupt_vector_tail_source_or_plan_is_retained_without_further_publication() 
             _ => plan["plan"]["changes"][0]["after"]["statement"] = json!("invented replacement"),
         }
         fs::write(&path, serde_json::to_vec(&plan).unwrap()).unwrap();
-        let before = fs::read(&path).unwrap();
-        assert!(
-            f.journal.recover_pending(&Cancel::never()).is_err(),
-            "{corruption}"
-        );
-        assert_eq!(fs::read(&path).unwrap(), before);
+        // RE-D159: a corrupt plan or source closes only its own binding's plans (removed);
+        // nothing is published from it and the recovery as a whole does not fail.
+        let report = f.journal.recover_pending(&Cancel::never()).unwrap();
+        assert_eq!(report.closed, 1, "{corruption}");
+        assert!(!path.exists(), "{corruption}");
         assert!(!f.directory.join("vector-index.json").exists());
     }
 }
@@ -199,7 +198,9 @@ fn sidecar_symlinks_and_hardlinks_are_not_written() {
         } else {
             std::os::unix::fs::symlink(&outside, &path).unwrap();
         }
-        assert!(f.journal.recover_pending(&Cancel::never()).is_err());
+        // RE-D159: the linked sidecar closes this binding's plans; nothing is written through it.
+        let report = f.journal.recover_pending(&Cancel::never()).unwrap();
+        assert_eq!(report.closed, 1, "hard: {hard}");
         assert_eq!(fs::read(outside).unwrap(), before);
     }
 }

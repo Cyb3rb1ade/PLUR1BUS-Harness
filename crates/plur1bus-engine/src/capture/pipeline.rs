@@ -61,9 +61,11 @@ pub struct CapturePipeline {
     cutoff_failed: bool,
     admissions: super::admission::Admissions,
     shutdown: Cancel,
-    /// Agents with retained work still pending after a transient failure (RE-D156).
+    /// Owner scopes (agent and owner) with retained work deferred after a transient failure,
+    /// maintenance or their recovery budget (RE-D159); retried before that owner's next turn.
     pending: std::sync::Mutex<std::collections::BTreeSet<String>>,
-    /// A malformed admission file was found; it is kept and never blocks anyone.
+    /// An admission file no owner can be attributed to was found at the last startup
+    /// inventory; it is kept and never blocks anyone.
     unreadable: std::sync::atomic::AtomicBool,
 }
 

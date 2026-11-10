@@ -25,6 +25,11 @@ pub struct NativeNeoCaptureHook {
     auto_drain: bool,
     options: DrainOptions,
     drain: Option<EmbeddingDrain>,
+    /// Owner bindings (`agent`, `owner`) whose prepared plans were deferred at open; an
+    /// owner leaves the set once its next journal write (which replays them first) succeeds.
+    deferred: std::sync::Mutex<std::collections::BTreeSet<(String, String)>>,
+    /// Plan files found at open that could not be read or attributed.
+    unreadable: usize,
 }
 impl NativeNeoCaptureHook {
     /// Bind the same effective configuration/policy and recover prepared Neo plans before admission.
@@ -100,8 +105,11 @@ impl NativeNeoCaptureHook {
             None => episodes,
         });
         // Recover prepared native work before exposing the hook to new capture admissions.
-        episodes.recover_pending(cancel)?;
+        // Each owner binding stands alone (RE-D159); deferred ones are reported in the status.
+        let report = episodes.recover_pending(cancel)?;
         Ok(Self {
+            deferred: std::sync::Mutex::new(report.deferred),
+            unreadable: report.unreadable,
             enabled: config["neo"]["enabled"] != false,
             episodes,
             auto_drain: drain["enabled"] != false,
@@ -111,6 +119,16 @@ impl NativeNeoCaptureHook {
             },
             drain: None,
         })
+    }
+    /// Whether prepared Neo plans are still deferred or unreadable since open (RE-D159).
+    #[must_use]
+    pub fn has_deferred_plans(&self) -> bool {
+        self.unreadable > 0
+            || !self
+                .deferred
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .is_empty()
     }
     /// Bind the capture composition's existing embedding provider; no model is constructed here.
     pub fn with_embedder(
@@ -130,6 +148,13 @@ impl NeoCaptureHook for NativeNeoCaptureHook {
     ) -> Result<(), EngineError> {
         if self.enabled {
             self.episodes.record(turn, context, cancel)?;
+            if !turn.incognito {
+                // The journal replays this owner's prepared plans before its new one.
+                self.deferred
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .remove(&(context.agent_id.to_string(), context.owner_user_id.clone()));
+            }
         }
         Ok(())
     }

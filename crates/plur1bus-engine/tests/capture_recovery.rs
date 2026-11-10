@@ -282,10 +282,8 @@ fn actual_native_post_store_recovers_after_sigkill_with_original_time_id_and_ter
         assert_eq!(reminder.id, expected["id"].as_str().unwrap());
         assert_eq!(reminder.remind_at.as_f64(), Some((NOW + 120_000) as f64));
         assert_eq!(reminder.reminder_status, terminal);
-        assert_eq!(
-            serde_json::from_slice::<serde_json::Value>(&std::fs::read(plan).unwrap()).unwrap(),
-            serde_json::json!({"record":null})
-        );
+        // RE-D159: the completed admission is removed, not rewritten.
+        assert!(!plan.exists(), "{phase}/{terminal}");
         assert!(runtime.0.close(Duration::from_secs(5)));
     }
 }

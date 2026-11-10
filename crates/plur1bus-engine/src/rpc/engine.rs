@@ -393,33 +393,19 @@ impl Engine for ProcessEngine {
     }
     fn status(&self) -> EngineStatus {
         // With a store base: the pin's reporter (journal within 50 ms, job health, schema
-        // marker, models), then the process's own not-ready states (RE-D157). Model
-        // degradation keeps ready true, as at the pin.
-        if let Some(reporter) = &self.reporter {
+        // marker, models), then the process's own states (RE-D157). Without one: the frozen
+        // `composition-pending` status. Either way the first match of the RE-D159 priority
+        // wins; the pin's model order (`types/engine.d.ts`, `status-reporter.js`) is kept as a
+        // subsequence. Model degradation and deferred capture work keep ready, as at the pin.
+        let closed = self.closed.load(Ordering::Acquire);
+        let (mut status, models) = if let Some(reporter) = &self.reporter {
             let mut status = reporter.status();
-            let degraded = if self.closed.load(Ordering::Acquire) {
-                Some(self.closed_degradation.clone())
-            } else {
-                self.capture
-                    .degradation()
-                    .or_else(|| self.jobs.degradation())
-            };
-            if let Some(degraded) = degraded {
-                status.ready = false;
-                status.degraded = Some(degraded);
-            }
-            return status;
-        }
-        let mut status = self.status.clone();
-        status.models = self.embedding.status();
-        status.agents = (self.live_stores.count() as u64).into();
-        // No store base: memory composition is pending; status never blocks on reverse RPC.
-        if self.closed.load(Ordering::Acquire) {
-            status.degraded = Some(self.closed_degradation.clone());
-        } else if let Some(degraded) = self.capture.degradation() {
-            // Capture is not (fully) served until its startup composition succeeds.
-            status.degraded = Some(degraded);
+            let models = status.degraded.take();
+            (status, models)
         } else {
+            let mut status = self.status.clone();
+            status.models = self.embedding.status();
+            status.agents = (self.live_stores.count() as u64).into();
             let index = match (&status.models.embedder.state, &status.models.reranker.state) {
                 (ModelState::Failed, _) => Some(0),
                 (ModelState::Loading, _) => Some(1),
@@ -427,9 +413,54 @@ impl Engine for ProcessEngine {
                 (_, ModelState::Loading) => Some(3),
                 _ => None,
             };
-            if let Some(index) = index {
-                status.degraded = Some(self.model_degradation[index].clone());
+            let models = index.map(|index| self.model_degradation[index].clone());
+            (status, models)
+        };
+        let mut ranked: Vec<(u8, Degraded)> = Vec::new();
+        let mut served = !closed;
+        if closed {
+            ranked.push((1, self.closed_degradation.clone()));
+        } else {
+            if let Some((degraded, capture)) = self.capture.degradation() {
+                let rank = match capture {
+                    engine_capture::Served::Invalid => 2,
+                    engine_capture::Served::No => 4,
+                    engine_capture::Served::Deferred => 8,
+                };
+                served &= capture == engine_capture::Served::Deferred;
+                ranked.push((rank, degraded));
             }
+            if self.reporter.is_some() {
+                if let Some(degraded) = self.jobs.degradation() {
+                    served = false;
+                    let rank = if degraded.reason == "composition-invalid" {
+                        2
+                    } else {
+                        4
+                    };
+                    ranked.push((rank, degraded));
+                }
+            }
+        }
+        if let Some(degraded) = models {
+            let rank = match (degraded.reason.as_str(), degraded.capability.as_str()) {
+                ("model-failed", "embedding") => 3,
+                ("models-warming", "embedding") => 5,
+                ("model-failed", _) => 6,
+                _ => 7,
+            };
+            ranked.push((rank, degraded));
+        }
+        // The frozen default without a store base (`composition-pending`).
+        if let Some(degraded) = status.degraded.take() {
+            ranked.push((9, degraded));
+        }
+        status.degraded = ranked
+            .into_iter()
+            .min_by_key(|(rank, _)| *rank)
+            .map(|(_, degraded)| degraded);
+        if self.reporter.is_some() && !served {
+            status.ready = false;
         }
         status
     }

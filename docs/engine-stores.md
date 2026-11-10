@@ -1979,18 +1979,19 @@ outside the capture state lock; concurrent callers wait for it. Before any new
 turn is admitted it recovers durable admissions (`_capture-admissions`), the
 capture WAL (`_capture-turns`) and prepared Neo plans; a killed turn is
 completed exactly once, also when it was killed after its first row. Recovery is
-bound to the engine's shutdown signal and handles every retained record on its
-own (RE-D156); no record can fail the composition or block another agent or
-owner. A pending record is retried before its agent's next turn, under that
-agent's admission ticket, so the agent's turns wait only while the attempt runs.
-While a retained record is pending, or a malformed admission file is kept, the
-status reports `{reason: "startup-recovery-incomplete", capability: "capture"}`.
-A startup recovery that runs out of `runtime.captureTimeoutMs` reports
-`startup-recovery-deadline`, keeps every input and is retried on the next open or
-capture; shutdown is no failure state. A configuration the composition rejects
-reports `composition-invalid`. `Engine.open` itself does not fail on a capture
-recovery failure. The status reflects capture only after the first open or
-capture.
+bound to the engine's shutdown signal and handles every owner's retained
+admissions and prepared Neo plans on their own, each owner with its own budget
+(RE-D156, RE-D159). Only shutdown, the admission directory or the Neo root
+itself can fail the composition. Work that stays (maintenance, a transient
+failure, an exhausted budget) is retried before that owner's own next turn, under
+the worker's own budget and cancellation, never the new turn's; it never delays
+or aborts another owner's turn. While such work waits, or an unattributable file
+is kept, capture is served and the status reports
+`{reason: "capture-recovery-deferred", capability: "capture"}` without touching
+`ready`. A failed composition reports `startup-recovery-incomplete` and a
+configuration the composition rejects `composition-invalid`. `Engine.open`
+itself does not fail on a capture recovery failure. The status reflects capture
+only after the first open or capture.
 
 Capture's classifier and recall share one owner-bound mood pool (RE-D51 binding
 unchanged) and one bounded set of per-owner emotion engines (256 bindings,
@@ -2022,9 +2023,7 @@ within the caller's budget (30 seconds when none is given, as the pin's
 finishes after close never admits a turn and its retained input is recovered by
 the next open. When capture work is still settling past the budget, `close()`
 completes the rest and reports `not-available/capture-drain-incomplete`. The
-status keeps `ready: false` with the frozen composition-pending/recall
-degradation until the journal backlog, the job ledger and the store schema
-marker are composed.
+status is described in RE-D157 and its priority in RE-D159.
 
 ### Terminal post-store refusals close the admission (RE-D155)
 
@@ -2042,18 +2041,18 @@ remain. RE-D156 generalizes which failures are terminal.
 
 Every retained admission is assessed on its own. The admission inventory checks
 only the structure of each file (version, file name, key, size, link safety); a
-malformed file is kept untouched, reported in the status and never recovered,
-but it blocks nobody. `begin` and `save` count other records only for capacity
-and key collisions; another record's policy, configuration or workspace never
-decides a new admission. Recovery then checks each record against the current
-state:
+malformed file is kept untouched, reported in the status and never recovered.
+Another record's policy, configuration or workspace never decides a new
+admission (capacity and file layout: RE-D159). Recovery then checks each record
+against the current state:
 
 - Revoked workspace policy (the owner switched capture off): the record is
   closed terminally and its retained turn content is discarded; rows written
   before stay, as at the pin. The same happens when the policy is revoked
   mid-turn (`not_captured`).
 - Maintenance (re-embedding switching): the record stays pending without
-  affecting anyone and is completed after the maintenance ends. The policy,
+  affecting anyone and is completed before the owner's next turn after the
+  maintenance ends, or by the next open. The policy,
   including maintenance, is checked again before every row write, because each
   write saves the admission first.
 - Another effective configuration or vector space: closed (`config-changed`);
@@ -2068,14 +2067,17 @@ filesystem I/O, an unavailable or busy store, cancellation and shutdown, an
 unavailable or failing host or embedding provider, a lost or busy lease and
 maintenance. A transient failure keeps the work pending; everything else closes
 the affected post-store step with a fixed reason, or closes a record whose
-primary work cannot continue (for example a row a human edited since). A
-reminder refused for its content (an out-of-range time, empty text, an
-invalidated or foreign key match, a tombstone) drops only that reminder; the
-turn stays. Each recovery attempt is counted durably in the record before it
-starts (`recoveryAttempts`); after five unsuccessful attempts the record is
-closed (`recovery-exhausted`). The row-ID replay WAL is left as it is when a
-record is closed: it holds no content, never deletes a row it cannot attribute,
-and its pending entries expire as at the pin.
+primary work cannot continue (for example a row a human edited since). Two
+consequences follow from that: a terminal failure in the primary phase (such as
+a stale row that was edited, shared or rebound since) keeps the rows already
+written and drops the rest of the turn; a missing or edited row in the
+post-store preflight closes both post-store steps (classifier with reminders,
+and the Neo episode) for all rows of the turn. A reminder refused for its
+content (an out-of-range time, empty text, an invalidated or foreign key match,
+a tombstone) drops only that reminder; the turn stays. Each recovery attempt is
+counted durably in the record before anything else runs (`recoveryAttempts`,
+RE-D159); after five unsuccessful attempts the record is closed
+(`recovery-exhausted`). The replay WAL is described in RE-D159.
 
 `postSkipped` and `recoveryAttempts` are new record fields. An older binary reads
 such a record as malformed; rolling back across this change is not supported
@@ -2101,16 +2103,16 @@ wait for a job session or a capture composition.
 
 `ready` is true, and model warming or failure degrades as at the pin
 (`models-warming`/`model-failed`), except in these process states, which report
-`ready: false` with their degradation (first match wins): closed
-(`closed/engine`); capture not served (`startup-recovery-incomplete`,
-`startup-recovery-deadline` or `composition-invalid` with `capture`, RE-D154 and
-RE-D156); the job registry not served, that is the jobs root cannot be bound
+`ready: false`: closed (`closed/engine`); capture not served
+(`startup-recovery-incomplete` or `composition-invalid` with `capture`, RE-D154
+and RE-D156); the job registry not served, that is the jobs root cannot be bound
 (`composition-invalid/jobs`) or an agent's session start (orphan recovery,
 legacy migration) failed (`startup-recovery-incomplete/jobs` until a later start
-succeeds). A ledger that only cannot be read reports `jobs.ledger:
-"unavailable"` and keeps `ready`, as at the pin. A host without a backlog
-(`journal: null`) keeps `ready`, as at the pin. Without a store base the frozen
-`{composition-pending, recall}` status is unchanged.
+succeeds). Which degradation is reported follows the RE-D159 priority. A ledger
+that only cannot be read reports `jobs.ledger: "unavailable"` and keeps `ready`,
+as at the pin. A host without a backlog (`journal: null`) keeps `ready`, as at
+the pin. Without a store base the frozen `{composition-pending, recall}` status
+is unchanged.
 
 ### Job registry in the process (RE-D158)
 
@@ -2150,3 +2152,80 @@ finished), the rem/deep breaker for the current UTC sweep (limit 3, in-flight
 sessions included) and the unreadable line count. A ledger is re-read only when
 its length or modification time changed. A latest row that does not fit the
 frozen `JobLastRun` is left out (the pin would project it as is).
+
+### Owner-isolated capture recovery, bounded retained state and status priority (RE-D159)
+
+Principle: an open admission or an open Neo plan of one owner never affects
+another owner's capture, and nothing stays open or grows without bound.
+
+Admissions (`_capture-admissions`):
+
+- A file is named `<scope>-<hash>.json`: `scope` is a 16-hex digest of agent and
+  owner, `hash` the digest of agent and turn key. Leases are per scope
+  (`.leases/<scope>.lock`), so lease files are bounded by the number of owners.
+- Completed and abandoned records are removed (unlink, directory sync) instead of
+  being rewritten as `{"record":null}`. Idempotency of a run does not rest on that
+  file: a closed envelope read as "fresh" already; the replay WAL
+  (`_capture-turns`) keeps a delivered turn from being captured twice.
+- `begin` and `save` never open another file. They list names and sizes of the
+  caller's own scope only: at most 512 open records and 64 MiB per scope, so a
+  full scope refuses only its own owner. A name of another owner with the same
+  agent and turn key is still refused (the Node key excludes the owner).
+- The startup inventory groups files by scope from their names. Closed files
+  written before RE-D159 (`<hash>.json` with `{"record":null}`) are removed; any
+  other file that no scope can be attributed to is kept, reported and never read
+  again; it counts against nobody's capacity. An operator removes or moves such a
+  file out of `_capture-admissions`; the status clears at the next open, when the
+  inventory is computed again. The old 50 000-entry ceiling is gone.
+
+Recovery per owner:
+
+- Each scope, and each Neo plan binding, gets its own budget
+  (`runtime.captureTimeoutMs` for admissions, 300 s for Neo plans). A scope that
+  runs out of it is deferred; only shutdown ends the recovery as a whole.
+- Before a turn, only that caller's own deferred scope is retried, under the
+  worker's own budget and the engine's shutdown signal, never the turn's
+  cancellation. A retry failure or abort never refuses or aborts the turn; the
+  scope stays deferred until a retry ends without failure.
+- Every attempt is counted durably before anything else runs, including the
+  host, policy and workspace checks; maintenance gives the counted attempt back,
+  also when it starts between the check and the attempt. After five attempts the
+  record or plan is closed (`recovery-exhausted`). A crash between counting and
+  giving back costs one attempt.
+- Failure classes are refined: an embedding provider's client error (4xx other
+  than 408 and 429) is terminal; a workspace policy that needs a workspace
+  identity the caller lacks, or an invalid request, is terminal (`invalid-input`);
+  an unreadable policy state stays transient and is counted. A host that answers
+  with an unclassified error (`HostError::Failed`, for example an internal error
+  of the reverse call) stays transient: it says nothing about the turn's content,
+  and the attempt bound limits it.
+- Neo plans (`native-{capture,episode,embedding}-pending-*.json`) follow the same
+  rules per owner binding: revoked policy, a changed workspace, directory or
+  binding, five attempts or a terminal failure remove the binding's plan files
+  (journals written before stay); maintenance and transient failures keep them.
+  A plan file that cannot be read is kept and reported. Attempt counts live in
+  `<neoRoot>/.native-recovery-attempts/`.
+
+Revocation discards retained plaintext: the admission file and the binding's
+Neo plans are removed at the next open, at a retry of that owner, or mid-turn.
+For an unfinished primary turn the replay WAL entry is released as at the pin's
+`onRowsKept` (no row is deleted), only when every pending row ID belongs to that
+record. The process serves no native workspace-policy path in RX
+(`workspace_policy` answers `not-available`), so there is no immediate discard
+on a policy change. Pending WAL entries now expire after the same seven days as
+settled ones (`REPLAY_GUARD_TTL_MS`, pin `turn-replay-guard.js` `fresh`; vector
+`wal-failures.json` `expired-pending`), which ends the former Rust retention
+exception. The WAL holds content hashes, never plaintext.
+
+Status priority (first match wins): `closed/engine` > `composition-invalid`
+(capture or jobs) > `model-failed/embedding` > capture or jobs not served
+(`startup-recovery-incomplete`) > `models-warming/embedding` >
+`model-failed/reranker` > `models-warming/reranker` >
+`capture-recovery-deferred/capture` > the frozen `composition-pending/recall`.
+The pin's model order (`types/engine.d.ts`, `status-reporter.js`
+`degradedFromModels`) stays a subsequence. `degraded.reason` is a free string in
+the frozen schema (`engine-contract.schema.json`, `Degraded.reason`), so
+`capture-recovery-deferred` is a new value. It means: capture is served, some
+owner's retained work waits (maintenance, a transient failure, its budget) or a
+file cannot be attributed; it does not change `ready` and clears once the work
+is done. `startup-recovery-deadline` is no longer reported.

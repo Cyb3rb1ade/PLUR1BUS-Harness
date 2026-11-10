@@ -35,15 +35,28 @@ use std::{
 const DEFAULT_CLOSE_BUDGET: Duration = Duration::from_secs(30);
 /// Status reason while retained capture input cannot be completed (or composition failed).
 const RECOVERY_INCOMPLETE: &str = "startup-recovery-incomplete";
-/// Status reason when startup recovery ran out of its capture timeout (retried on next use).
-const RECOVERY_DEADLINE: &str = "startup-recovery-deadline";
 /// Status reason for a configuration the capture composition rejects; nothing to recover.
 const COMPOSITION_INVALID: &str = "composition-invalid";
+/// Status reason while capture is served but some owners' retained work is deferred
+/// (maintenance, a transient failure or its own budget), or a file is unattributable (RE-D159).
+const RECOVERY_DEFERRED: &str = "capture-recovery-deferred";
+
+/// How far capture is served, for the status priority (RE-D159).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Served {
+    /// The configuration is rejected; an operator must act.
+    Invalid,
+    /// The composition failed; every capture is refused until it succeeds.
+    No,
+    /// Capture is served; some retained work waits for its owner's next turn.
+    Deferred,
+}
 
 #[derive(Clone)]
 struct Composed {
     runtime: Arc<CaptureRuntime>,
     pipeline: Arc<CapturePipeline>,
+    neo: Option<Arc<NativeNeoCaptureHook>>,
 }
 
 enum Slot {
@@ -107,17 +120,26 @@ impl ProcessCapture {
         self.state.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
-    /// The capture degradation the status reports, if capture is not (fully) served:
-    /// a failed composition, or an owner whose retained input cannot be completed.
-    pub(super) fn degradation(&self) -> Option<Degraded> {
-        let reason = match &self.lock().slot {
-            Slot::Failed(reason) => *reason,
-            Slot::Ready(composed) if composed.pipeline.has_unfinished_recovery() => {
-                RECOVERY_INCOMPLETE
+    /// The capture degradation the status reports, if capture is not (fully) served: a
+    /// failed or rejected composition, or retained work deferred to its owners' next turns.
+    pub(super) fn degradation(&self) -> Option<(Degraded, Served)> {
+        let (reason, served) = match &self.lock().slot {
+            Slot::Failed(reason) if *reason == COMPOSITION_INVALID => (*reason, Served::Invalid),
+            Slot::Failed(reason) => (*reason, Served::No),
+            Slot::Ready(composed)
+                if composed.pipeline.has_unfinished_recovery()
+                    || composed
+                        .neo
+                        .as_ref()
+                        .is_some_and(|hook| hook.has_deferred_plans()) =>
+            {
+                (RECOVERY_DEFERRED, Served::Deferred)
             }
             _ => return None,
         };
-        super::degradation(reason, "capture").ok()
+        super::degradation(reason, "capture")
+            .ok()
+            .map(|degraded| (degraded, served))
     }
 
     /// Compose the runtime once (recovery before admission), then return a receipt.
@@ -244,10 +266,8 @@ impl ProcessCapture {
 fn classify_failure(error: EngineError, closed: bool) -> (Option<&'static str>, EngineError) {
     match error {
         _ if closed => (None, unavailable("closed")),
-        // The startup recovery deadline is a status, not a caller cancellation.
-        EngineError::Cancelled(crate::contract::Cancelled {
-            reason: crate::contract::CancelReason::Deadline,
-        }) => (Some(RECOVERY_DEADLINE), unavailable(RECOVERY_DEADLINE)),
+        // Recovery has no common deadline (RE-D159): each owner's budget defers only that
+        // owner, so a cancellation here is shutdown and no failure state.
         error @ EngineError::Cancelled(_) => (None, error),
         error @ EngineError::Invalid { .. } => (Some(COMPOSITION_INVALID), error),
         error @ EngineError::NotAvailable { .. } => (Some(RECOVERY_INCOMPLETE), error),
@@ -304,21 +324,27 @@ fn compose(
     // As at the pin, Neo state exists only when Neo is enabled. Opening the hook recovers
     // prepared Neo capture/episode plans before any admission; the pin creates the root on
     // its first write, the native hook pins an existing one.
+    let mut neo = None;
     if config["neo"]["enabled"] != false {
         let neo_root = engine_warm::neo_root(&raw["neo"], base);
         crate::store::paths::secure_dir(&neo_root)?;
-        let hook = NativeNeoCaptureHook::open_with_cancel(
-            &neo_root,
-            host.clone(),
-            policy,
-            mood,
-            shutdown,
-        )?
-        .with_embedder(embedder)?;
+        // Each owner's prepared plans are recovered on their own (RE-D159); only shutdown
+        // or the Neo root itself can fail this open.
+        let hook = Arc::new(
+            NativeNeoCaptureHook::open_with_cancel(
+                &neo_root,
+                host.clone(),
+                policy,
+                mood,
+                shutdown,
+            )?
+            .with_embedder(embedder)?,
+        );
         pipeline = pipeline.with_neo(Arc::new(UserScopedNeo {
-            hook,
+            hook: hook.clone(),
             host: host.clone(),
         }));
+        neo = Some(hook);
     }
     let pipeline = Arc::new(pipeline);
     let queue = Arc::new(CaptureQueue::new(
@@ -333,6 +359,7 @@ fn compose(
     Ok(Composed {
         runtime: Arc::new(runtime),
         pipeline,
+        neo,
     })
 }
 
@@ -347,7 +374,7 @@ fn turns_root(base: &Path) -> PathBuf {
 /// `neo-owner-not-applicable`, which closes the step instead of keeping the admission pending
 /// (RE-D155). Pin difference (KNOWN-GAP, RY-A): the pin writes Neo for every owner.
 struct UserScopedNeo {
-    hook: NativeNeoCaptureHook,
+    hook: Arc<NativeNeoCaptureHook>,
     host: Arc<dyn HostServices>,
 }
 impl UserScopedNeo {

@@ -318,12 +318,20 @@ fn a_malformed_admission_file_is_kept_reported_and_blocks_nobody() {
     // Status reflects capture composition only after the first open or capture.
     assert!(engine.capture.degradation().is_none());
     let handle = engine.open(&"agent".parse().unwrap()).unwrap();
-    let status = engine.status();
-    assert!(!status.ready);
-    let degraded = status.degraded.unwrap();
+    // RE-D159: capture is served; the unattributable file is a deferred state, not unready.
+    assert!(engine.status().ready);
+    let (degraded, served) = engine.capture.degradation().unwrap();
     assert_eq!(
-        (degraded.reason.as_str(), degraded.capability.as_str()),
-        ("startup-recovery-incomplete", "capture")
+        (
+            degraded.reason.as_str(),
+            degraded.capability.as_str(),
+            served
+        ),
+        (
+            "capture-recovery-deferred",
+            "capture",
+            engine_capture::Served::Deferred
+        )
     );
     // RE-D156: an unreadable file is kept and reported, but blocks no capture.
     assert_eq!(capture(&engine, turn("agent", "run-2"))["stored"], 2);
@@ -364,6 +372,23 @@ impl HostServices for CrashHost {
             // Slow recovery: every workspace lookup takes long and ignores cancellation.
             fs::write(self.root.join("slow-entered"), "entered").unwrap();
             std::thread::sleep(Duration::from_secs(2));
+            return self.inner.workspace_dir(agent);
+        }
+        if self.phase == "toggle" {
+            // A transient host failure of `agent` for as long as the `fail` marker exists.
+            if agent.as_str() == "agent" && self.root.join("fail").exists() {
+                return Err(HostError::Unavailable);
+            }
+            return self.inner.workspace_dir(agent);
+        }
+        if self.phase == "neo-plan" {
+            // Stop once a prepared Neo capture plan with content is durable.
+            if neo_plans_with_content(&self.root) > 0 {
+                fs::write(self.root.join("checkpoint"), "neo-plan").unwrap();
+                loop {
+                    std::thread::sleep(Duration::from_secs(1));
+                }
+            }
             return self.inner.workspace_dir(agent);
         }
         let admitted = fs::read_dir(self.root.join("db/_capture-admissions"))
@@ -411,15 +436,20 @@ fn capture_crash_child() {
         return;
     };
     let root = PathBuf::from(root);
+    let phase = std::env::var("PLUR1BUS_RX_PROCESS_CAPTURE_CRASH_PHASE").unwrap_or_default();
+    let neo = phase == "neo-plan";
     let host = Arc::new(CrashHost {
-        inner: host(&root),
+        inner: if neo { neo_host(&root) } else { host(&root) },
         root: root.clone(),
-        phase: std::env::var("PLUR1BUS_RX_PROCESS_CAPTURE_CRASH_PHASE").unwrap_or_default(),
+        phase,
     });
+    let turn = if neo {
+        user_turn(&root, "owner-a", "run-crash")
+    } else {
+        turn("agent", "run-crash")
+    };
     let engine = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
-    let handle = engine
-        .capture(turn("agent", "run-crash"), options())
-        .unwrap();
+    let handle = engine.capture(turn, options()).unwrap();
     // The worker never settles; the parent kills this process.
     let _ = handle.done.recv();
 }
@@ -897,27 +927,452 @@ fn a_host_failure_never_makes_neo_not_applicable() {
     assert!(!engine_capture::neo_applies(&failing, &ownerless, &context).unwrap());
 }
 
-/// RE-D156 / M2: a startup recovery that runs out of its deadline is a status, not a cancel.
+/// The capture part of the status: reason and how far capture is served.
+fn capture_state(engine: &ProcessEngine) -> Option<(String, engine_capture::Served)> {
+    engine
+        .capture
+        .degradation()
+        .map(|(degraded, served)| (degraded.reason, served))
+}
+
+/// RE-D159: an owner whose recovery failed transiently is deferred, reported as
+/// served-but-deferred without touching `ready`, and recovered before its next turn.
 #[test]
-fn an_exhausted_startup_deadline_is_reported_in_the_status() {
+fn an_owner_deferred_by_a_transient_failure_is_reported_until_its_next_turn_recovers_it() {
+    let scratch = killed("admitted");
+    let root = scratch.path().to_path_buf();
+    fs::write(root.join("fail"), "").unwrap();
+    let host = Arc::new(CrashHost {
+        inner: host(&root),
+        root: root.clone(),
+        phase: "toggle".into(),
+    });
+    let engine = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
+    engine_capture::ProcessCapture::open(&engine, &root.join("db")).unwrap();
+    assert!(engine.status().ready);
+    assert_eq!(
+        capture_state(&engine),
+        Some((
+            "capture-recovery-deferred".into(),
+            engine_capture::Served::Deferred
+        ))
+    );
+    assert_eq!(pending_admissions(&root), 1);
+    fs::remove_file(root.join("fail")).unwrap();
+    // The owner's next turn first completes the deferred one, then the state clears.
+    assert_eq!(capture(&engine, turn("agent", "run-next"))["stored"], 2);
+    assert_eq!(pending_admissions(&root), 0);
+    assert_eq!(rows(&root, "agent").len(), 4);
+    assert_eq!(capture_state(&engine), None);
+}
+
+/// RE-D159 / Ruling 8: retained work waiting for maintenance keeps `ready`, has its own
+/// state, costs no attempt, and the state disappears once the work is completed.
+#[test]
+fn work_deferred_by_maintenance_keeps_ready_and_clears_when_completed() {
+    let scratch = killed("admitted");
+    let root = scratch.path().to_path_buf();
+    // An unreadable re-embedding state is a switching store: maintenance (fail closed).
+    let control = root.join("db/control");
+    fs::create_dir_all(&control).unwrap();
+    fs::write(control.join("reembedding-state.json"), b"{").unwrap();
+    let engine = ProcessEngine::new(host(&root), Some(Seam::FlatEmbedder)).unwrap();
+    engine.open(&"agent".parse().unwrap()).unwrap();
+    assert!(engine.status().ready);
+    assert_eq!(
+        capture_state(&engine),
+        Some((
+            "capture-recovery-deferred".into(),
+            engine_capture::Served::Deferred
+        ))
+    );
+    let retained: Value = serde_json::from_str(
+        &fs::read_dir(root.join("db/_capture-admissions"))
+            .unwrap()
+            .flatten()
+            .find_map(|entry| {
+                fs::read_to_string(entry.path())
+                    .ok()
+                    .filter(|text| text.contains(USER))
+            })
+            .unwrap(),
+    )
+    .unwrap();
+    // Maintenance is no attempt.
+    assert!(retained["record"]["recoveryAttempts"].is_null());
+    fs::remove_file(control.join("reembedding-state.json")).unwrap();
+    assert_eq!(capture(&engine, turn("agent", "run-after"))["stored"], 2);
+    assert_eq!(pending_admissions(&root), 0);
+    assert_eq!(rows(&root, "agent").len(), 4);
+    assert_eq!(capture_state(&engine), None);
+}
+
+/// Prepared Neo plan files (capture, episode, embedding) that still hold turn text.
+fn neo_plans_with_content(root: &Path) -> usize {
+    fs::read_dir(root.join("db/_neo/workspaces"))
+        .into_iter()
+        .flatten()
+        .flatten()
+        .flat_map(|workspace| {
+            fs::read_dir(workspace.path())
+                .into_iter()
+                .flatten()
+                .flatten()
+        })
+        .filter(|entry| {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            name.starts_with("native-") && name.contains("-pending-") && name.ends_with(".json")
+        })
+        .filter(|entry| fs::read_to_string(entry.path()).is_ok_and(|text| text.contains(USER)))
+        .count()
+}
+
+/// Admission files that still hold turn text, whatever their name.
+fn admissions_with_content(root: &Path) -> usize {
+    fs::read_dir(root.join("db/_capture-admissions"))
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|entry| fs::read_to_string(entry.path()).is_ok_and(|text| text.contains(USER)))
+        .count()
+}
+
+/// Disable automatic capture for the workspace a turn's caller resolves to.
+fn revoke_for(root: &Path, turn: &TurnRecord) {
+    let context =
+        crate::context::RequestContext::build(&turn.principal, &turn.agent, host(root).as_ref())
+            .unwrap();
+    crate::ops::workspace_policy::PolicyStore::new(&root.join("db"))
+        .unwrap()
+        .set(
+            &json!({"agentId":turn.agent_id.as_str(),"workspaceIdentity":context.workspace_key,
+            "expectedRevision":0,"enabled":false,"actorId":"system"}),
+            10_000,
+        )
+        .unwrap();
+}
+
+/// RE-D159 / K1: an owner's open Neo plan never stops anyone else's capture.
+#[test]
+fn an_open_neo_plan_with_revoked_policy_never_blocks_other_owners() {
+    open_neo_plan_case("policy");
+}
+
+#[test]
+fn an_open_neo_plan_with_a_changed_workspace_never_blocks_other_owners() {
+    open_neo_plan_case("workspace");
+}
+
+fn open_neo_plan_case(drift: &str) {
+    let scratch = killed("neo-plan");
+    let root = scratch.path().to_path_buf();
+    assert_eq!(neo_plans_with_content(&root), 1, "{drift}");
+    if drift == "policy" {
+        revoke_for(&root, &user_turn(&root, "owner-a", "run-crash"));
+    } else {
+        let workspace = root.join("workspace-agent");
+        fs::rename(&workspace, root.join("workspace-agent-old")).unwrap();
+        fs::create_dir(&workspace).unwrap();
+    }
+    for round in ["live", "restart"] {
+        let engine = ProcessEngine::new(neo_host(&root), Some(Seam::FlatEmbedder)).unwrap();
+        let other = capture(&engine, turn("other", &format!("run-other-{round}")));
+        assert_eq!(other["stored"], 2, "{drift} {round}: {other}");
+        let foreign = capture(
+            &engine,
+            foreign_owner_turn(&root, &format!("run-f-{round}")),
+        );
+        assert_eq!(foreign["stored"], 2, "{drift} {round}: {foreign}");
+        let owner_b = capture(
+            &engine,
+            user_turn(&root, "owner-b", &format!("run-b-{round}")),
+        );
+        if drift == "policy" {
+            // The shared workspace is switched off for owner B as well: refused, not failed.
+            assert_eq!(owner_b["reason"], "not_captured", "{round}: {owner_b}");
+        } else {
+            assert_eq!(owner_b["stored"], 2, "{drift} {round}: {owner_b}");
+        }
+        engine.close(None).unwrap();
+    }
+    // Revocation and a new workspace close the plan; its turn text is gone.
+    assert_eq!(neo_plans_with_content(&root), 0, "{drift}");
+    assert_eq!(admissions_with_content(&root), 0, "{drift}");
+}
+
+/// RE-D159 / K2: completed turns leave no admission file behind.
+#[test]
+fn completed_turns_leave_no_admission_files() {
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let engine = ProcessEngine::new(host(root), Some(Seam::FlatEmbedder)).unwrap();
+    for index in 0..20 {
+        let result = capture(&engine, turn("agent", &format!("run-{index}")));
+        assert_eq!(result["stored"], 2, "{result}");
+    }
+    let files = fs::read_dir(root.join("db/_capture-admissions"))
+        .unwrap()
+        .flatten()
+        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "json"))
+        .count();
+    assert_eq!(files, 0);
+}
+
+/// RE-D159 / K2: a directory full of closed entries never refuses capture.
+#[test]
+fn fifty_thousand_closed_entries_never_refuse_capture() {
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let directory = root.join("db/_capture-admissions");
+    fs::create_dir_all(&directory).unwrap();
+    for index in 0..50_001_u32 {
+        fs::write(
+            directory.join(format!("{index:064x}.json")),
+            br#"{"record":null}"#,
+        )
+        .unwrap();
+    }
+    let engine = ProcessEngine::new(host(root), Some(Seam::FlatEmbedder)).unwrap();
+    let result = capture(&engine, turn("agent", "run-after-history"));
+    assert_eq!(result["stored"], 2, "{result}");
+}
+
+/// RE-D159 / W1: a slow owner's startup recovery never fails anyone else's turn.
+#[test]
+fn a_slow_owners_startup_recovery_never_refuses_another_owners_turn() {
     let scratch = killed("admitted");
     let root = scratch.path().to_path_buf();
     let inner = host(&root);
     let mut config = serde_json::to_value(inner.config()).unwrap();
-    config["runtime"] = json!({"captureTimeoutMs":1});
+    config["runtime"] = json!({"captureTimeoutMs":1500});
     inner.set_config(serde_json::from_value(config).unwrap());
-    let slow = Arc::new(CrashHost {
-        inner,
-        root: root.clone(),
-        phase: "slow".into(),
-    });
-    let engine = ProcessEngine::new(slow, Some(Seam::FlatEmbedder)).unwrap();
-    engine.open(&"agent".parse().unwrap()).unwrap();
-    let degraded = engine.status().degraded.unwrap();
-    assert_eq!(
-        (degraded.reason.as_str(), degraded.capability.as_str()),
-        ("startup-recovery-deadline", "capture")
-    );
-    // The retained input is kept for the next attempt.
+    // The first owner's record is busy elsewhere for longer than the recovery budget.
+    let held = hold_admission(&root);
+    let engine = ProcessEngine::new(inner, Some(Seam::FlatEmbedder)).unwrap();
+    let other = capture(&engine, turn("other", "run-other"));
+    assert_eq!(other["stored"], 2, "{other}");
+    // The slow owner's input is deferred, not lost, and capture stays served.
     assert_eq!(pending_admissions(&root), 1);
+    assert_eq!(
+        capture_state(&engine),
+        Some((
+            "capture-recovery-deferred".into(),
+            engine_capture::Served::Deferred
+        ))
+    );
+    drop(held);
+}
+
+/// Hold the kernel lease of the retained admission, as another process would.
+fn hold_admission(root: &Path) -> crate::store::kernel_lease::KernelLease {
+    let leases = crate::store::directory::TrustedDirectory::open(
+        &root.join("db/_capture-admissions/.leases"),
+    )
+    .unwrap();
+    crate::store::kernel_lease::acquire(
+        &leases,
+        &admission_lease(root),
+        &Cancel::never(),
+        &mut || {},
+    )
+    .unwrap()
+}
+
+/// The kernel lease name guarding a retained admission file.
+fn admission_lease(root: &Path) -> String {
+    let file = fs::read_dir(root.join("db/_capture-admissions"))
+        .unwrap()
+        .flatten()
+        .find(|entry| fs::read_to_string(entry.path()).is_ok_and(|text| text.contains(USER)))
+        .unwrap()
+        .file_name()
+        .to_string_lossy()
+        .into_owned();
+    let stem = file.strip_suffix(".json").unwrap();
+    stem.split_once('-')
+        .map_or(stem, |(scope, _)| scope)
+        .to_owned()
+}
+
+/// RE-D159 / W2: another owner's pending work of the same agent never delays or aborts a turn.
+#[test]
+fn another_owners_pending_work_never_aborts_a_turn_of_the_same_agent() {
+    let scratch = killed("admitted");
+    let root = scratch.path().to_path_buf();
+    fs::write(root.join("fail"), "").unwrap();
+    let host = Arc::new(CrashHost {
+        inner: host(&root),
+        root: root.clone(),
+        phase: "toggle".into(),
+    });
+    let engine = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
+    // Startup recovery fails transiently: the first owner's record stays pending.
+    let _ = engine_capture::ProcessCapture::open(&engine, &root.join("db"));
+    fs::remove_file(root.join("fail")).unwrap();
+    assert_eq!(pending_admissions(&root), 1);
+    // The first owner's record is busy elsewhere for longer than the next turn's deadline.
+    let held = hold_admission(&root);
+    let mut next = user_turn(&root, "owner-b", "run-owner-b");
+    next.cancel = Cancel::with_deadline(std::time::Instant::now() + Duration::from_secs(3));
+    let result = capture(&engine, next);
+    assert_eq!(result["stored"], 2, "{result}");
+    assert_eq!(pending_admissions(&root), 1);
+    drop(held);
+}
+
+/// RE-D159 / W3: failures before a recovery step are counted, so nothing stays open forever.
+#[test]
+fn a_record_whose_host_keeps_failing_is_closed_after_five_attempts() {
+    let scratch = killed("admitted");
+    let root = scratch.path().to_path_buf();
+    fs::write(root.join("fail"), "").unwrap();
+    for _ in 0..6 {
+        let host = Arc::new(CrashHost {
+            inner: host(&root),
+            root: root.clone(),
+            phase: "toggle".into(),
+        });
+        let engine = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
+        let _ = engine_capture::ProcessCapture::open(&engine, &root.join("db"));
+        engine.close(None).unwrap();
+    }
+    fs::remove_file(root.join("fail")).unwrap();
+    let engine = ProcessEngine::new(host(&root), Some(Seam::FlatEmbedder)).unwrap();
+    engine_capture::ProcessCapture::open(&engine, &root.join("db")).unwrap();
+    assert_eq!(pending_admissions(&root), 0);
+    assert_eq!(admissions_with_content(&root), 0);
+    assert!(rows(&root, "agent").is_empty());
+}
+
+/// Make the first prepared Neo capture plan row foreign: its replay fails deterministically.
+fn tamper_neo_plan(root: &Path) {
+    let plan = fs::read_dir(root.join("db/_neo/workspaces"))
+        .unwrap()
+        .flatten()
+        .flat_map(|workspace| fs::read_dir(workspace.path()).unwrap().flatten())
+        .find(|entry| {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            name.starts_with("native-capture-pending-")
+                && fs::read_to_string(entry.path()).is_ok_and(|text| text.contains(USER))
+        })
+        .unwrap()
+        .path();
+    let mut value: Value = serde_json::from_slice(&fs::read(&plan).unwrap()).unwrap();
+    value["records"][0][0]["ownerUserId"] = json!("someone-else");
+    fs::write(&plan, serde_json::to_vec(&value).unwrap()).unwrap();
+}
+
+/// RE-D159 / Ruling 10: for every retained kind and trigger, other owners capture on every
+/// open, the affected owner is free again after at most five attempts, and no turn text
+/// stays after a revocation.
+#[test]
+fn every_retained_kind_and_trigger_stays_isolated_and_bounded() {
+    for kind in ["admission", "neo"] {
+        for trigger in [
+            "revoked",
+            "maintenance",
+            "config",
+            "identity",
+            "transient",
+            "terminal",
+        ] {
+            let case = format!("{kind}/{trigger}");
+            let neo = kind == "neo";
+            let scratch = killed(if neo { "neo-plan" } else { "first-row" });
+            let root = scratch.path().to_path_buf();
+            let owner = |run: &str| {
+                if neo {
+                    user_turn(&root, "owner-a", run)
+                } else {
+                    turn("agent", run)
+                }
+            };
+            let control = root.join("db/control/reembedding-state.json");
+            let base = || {
+                let host = if neo { neo_host(&root) } else { host(&root) };
+                if trigger == "config" {
+                    let mut config = serde_json::to_value(host.config()).unwrap();
+                    config["duplicateThreshold"] = json!(1.02);
+                    host.set_config(serde_json::from_value(config).unwrap());
+                }
+                host
+            };
+            match trigger {
+                "revoked" => revoke_for(&root, &owner("run-crash")),
+                "maintenance" => {
+                    fs::create_dir_all(control.parent().unwrap()).unwrap();
+                    fs::write(&control, b"{").unwrap();
+                }
+                "identity" => {
+                    let workspace = root.join("workspace-agent");
+                    fs::rename(&workspace, root.join("workspace-agent-old")).unwrap();
+                    fs::create_dir(&workspace).unwrap();
+                }
+                "transient" => fs::write(root.join("fail"), "").unwrap(),
+                // The host configuration above differs from the recorded one.
+                "config" => {}
+                // A terminal content error.
+                _ if neo => tamper_neo_plan(&root),
+                _ => {
+                    let store =
+                        Store::open(&root.join("db/current/agent"), OpenMode::ReadWrite, None)
+                            .unwrap();
+                    let mut row = store.scan(&RowFilter::default(), 10).unwrap().remove(0);
+                    row.text.push_str(" Human revision.");
+                    store.upsert(std::slice::from_ref(&row)).unwrap();
+                }
+            }
+            // Six opens: one more than the attempt bound.
+            for round in 0..6 {
+                let host = Arc::new(CrashHost {
+                    inner: base(),
+                    root: root.clone(),
+                    phase: "toggle".into(),
+                });
+                let engine = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
+                engine_capture::ProcessCapture::open(&engine, &root.join("db")).unwrap();
+                for result in [
+                    capture(&engine, turn("other", &format!("run-other-{round}"))),
+                    capture(
+                        &engine,
+                        foreign_owner_turn(&root, &format!("run-f-{round}")),
+                    ),
+                ] {
+                    if trigger == "maintenance" {
+                        // Maintenance switches every workspace off, not only this owner's.
+                        assert_eq!(result["reason"], "not_captured", "{case} {round}: {result}");
+                    } else {
+                        assert_eq!(result["stored"], 2, "{case} {round}: {result}");
+                    }
+                }
+                engine.close(None).unwrap();
+                if trigger == "revoked" {
+                    assert_eq!(admissions_with_content(&root), 0, "{case} {round}");
+                    assert_eq!(neo_plans_with_content(&root), 0, "{case} {round}");
+                }
+            }
+            if trigger == "transient" {
+                // Closed after five failed attempts, while the host still fails.
+                assert_eq!(admissions_with_content(&root), 0, "{case}");
+                assert_eq!(neo_plans_with_content(&root), 0, "{case}");
+                fs::remove_file(root.join("fail")).unwrap();
+            }
+            if trigger == "maintenance" {
+                fs::remove_file(&control).unwrap();
+            }
+            // The affected owner is free: its retained work is gone and its next turn runs.
+            let engine = ProcessEngine::new(base(), Some(Seam::FlatEmbedder)).unwrap();
+            engine_capture::ProcessCapture::open(&engine, &root.join("db")).unwrap();
+            let next = capture(&engine, owner("run-free"));
+            if trigger == "revoked" {
+                assert_eq!(next["reason"], "not_captured", "{case}: {next}");
+            } else {
+                assert_eq!(next["stored"], 2, "{case}: {next}");
+            }
+            assert_eq!(admissions_with_content(&root), 0, "{case}");
+            assert_eq!(neo_plans_with_content(&root), 0, "{case}");
+            assert_eq!(capture_state(&engine), None, "{case}");
+            engine.close(None).unwrap();
+        }
+    }
 }

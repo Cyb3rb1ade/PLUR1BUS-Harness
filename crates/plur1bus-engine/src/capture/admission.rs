@@ -23,7 +23,46 @@ use std::{
     sync::Arc,
 };
 pub(super) const MAX_BYTES: usize = 64 * 1024 * 1024;
+/// Open records per owner scope (agent and owner); other owners never count (RE-D159).
 const MAX_PENDING: usize = 512;
+
+/// The owner scope of a retained record: a digest of agent and owner, never content.
+pub(super) fn scope_of(agent: &str, owner: &str) -> Result<String, StoreError> {
+    Ok(digest(&(agent, owner))?[..16].to_owned())
+}
+/// `<scope16>-<hash64>.json`: the owner scope and the hash of agent and turn key.
+fn name_parts(name: &str) -> Option<(&str, &str)> {
+    let (scope, hash) = name.strip_suffix(".json")?.split_once('-')?;
+    let hex = |value: &str, len: usize| {
+        value.len() == len
+            && value
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    };
+    (hex(scope, 16) && hex(hash, 64)).then_some((scope, hash))
+}
+/// A file name written before RE-D159 (`<hash64>.json`).
+fn legacy_name(name: &str) -> bool {
+    name.strip_suffix(".json").is_some_and(|hash| {
+        hash.len() == 64
+            && hash
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    })
+}
+/// Names of one owner scope's files and the bytes they occupy, from directory metadata only.
+struct Usage {
+    names: Vec<String>,
+    bytes: u64,
+    /// Another owner retains a record for the same agent and turn key.
+    collision: bool,
+}
+/// The admission directory's files grouped by owner scope; nothing is opened.
+pub(super) struct Inventory {
+    pub scopes: BTreeMap<String, Vec<String>>,
+    /// Files no scope can be attributed to: kept, reported, never read again.
+    pub unattributable: usize,
+}
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -211,17 +250,48 @@ impl Admissions {
         })
     }
     fn filename(&self, record: &Record) -> Result<String, StoreError> {
-        // Physical IDs are checked in the record, not included in the filename: a restored
-        // pathname finds the old plan and refuses it rather than silently starting fresh.
-        let material = serde_json::json!([
-            record.proof.agent,
-            record.proof.owner,
-            record.proof.workspace,
-            record.proof.workspace_path,
-            record.proof.caller,
-            record.key
-        ]);
-        Ok(format!("{}.json", digest(&material)?))
+        // Caller, workspace and physical IDs are checked in the record, not included in the
+        // name: another chat of the owner, or a restored pathname, finds the old record and
+        // refuses it rather than silently starting fresh.
+        Ok(format!(
+            "{}-{}.json",
+            scope_of(&record.proof.agent, &record.proof.owner)?,
+            digest(&(&record.proof.agent, &record.key))?
+        ))
+    }
+    /// The owner scope a turn's caller resolves to (a host lookup, no policy).
+    pub fn scope_for(&self, turn: &TurnRecord, cancel: &Cancel) -> Result<String, EngineError> {
+        let ctx = self.identity_context(turn, cancel)?;
+        Ok(scope_of(ctx.agent_id.as_str(), &ctx.owner_user_id)?)
+    }
+    /// One scope's files from directory metadata; other owners' files are never opened.
+    fn usage(&self, dir: &TrustedDirectory, scope: &str, own: &str) -> Result<Usage, EngineError> {
+        let suffix = &own[scope.len()..];
+        let mut usage = Usage {
+            names: Vec::new(),
+            bytes: 0,
+            collision: false,
+        };
+        for entry in std::fs::read_dir(dir.path()).map_err(StoreError::from)? {
+            let entry = entry.map_err(StoreError::from)?;
+            let Ok(name) = entry.file_name().into_string() else {
+                continue;
+            };
+            let Some((owner, _)) = name_parts(&name) else {
+                continue;
+            };
+            if owner != scope {
+                usage.collision |= name.ends_with(suffix);
+                continue;
+            }
+            if name != own {
+                let meta = entry.metadata().map_err(StoreError::from)?;
+                usage.bytes = usage.bytes.saturating_add(meta.len());
+                usage.names.push(name);
+            }
+        }
+        dir.assert_unchanged()?;
+        Ok(usage)
     }
     pub fn begin(
         &self,
@@ -260,13 +330,13 @@ impl Admissions {
             recovery_attempts: 0,
         };
         let name = self.filename(&expected)?;
+        let scope = name_parts(&name)
+            .ok_or(StoreError::InvalidInput)?
+            .0
+            .to_owned();
         let locks = directory.create_child(".leases")?;
-        let lease = kernel_lock::acquire(
-            &locks,
-            name.strip_suffix(".json").ok_or(StoreError::InvalidInput)?,
-            cancel,
-            &mut || {},
-        )?;
+        // One lease per owner scope: lease files stay bounded by the number of owners.
+        let lease = kernel_lock::acquire(&locks, &scope, cancel, &mut || {})?;
         let previous = read(&directory, &name, cancel)?;
         let fresh = previous.is_none();
         let record = previous.unwrap_or(expected.clone());
@@ -291,50 +361,67 @@ impl Admissions {
         };
         guard.check(cancel)?;
         if fresh {
-            // Other entries count for capacity and key collisions only; their policy,
-            // configuration and workspace never decide this caller's admission (RE-D156).
-            let (active, _) = self.inventory_directory(&guard.directory, cancel)?;
+            // Only this owner's files count, by name and size; nobody else's file is opened,
+            // and their policy, configuration or workspace never decide this admission.
+            let usage = self.usage(&guard.directory, &scope, &guard.name)?;
             // The Node key deliberately excludes the chat/owner. A new caller cannot
             // use that key to claim another caller's retained input or rollback IDs.
-            if active.iter().any(|entry| {
-                matches!(entry, Entry::Record(record)
-                    if record.key == guard.record.key && record.proof.agent == guard.record.proof.agent)
-            }) {
+            if usage.collision {
                 return Err(StoreError::Corrupt.into());
             }
-            if active.len() >= MAX_PENDING {
+            if usage.names.len() >= MAX_PENDING {
                 return Err(StoreError::Unavailable.into());
             }
             guard.save(cancel)?;
         }
         Ok(guard)
     }
-    /// Structural inventory: every file is read and validated on its own. A malformed
-    /// file is reported as unreadable instead of failing the inventory (RE-D156); only
-    /// directory I/O, cancellation and the entry ceiling fail it as a whole.
-    fn inventory_directory(
-        &self,
-        dir: &TrustedDirectory,
-        cancel: &Cancel,
-    ) -> Result<(Vec<Entry>, usize), EngineError> {
-        let mut entries = Vec::new();
-        let mut budget = MAX_BYTES;
-        for (index, entry) in std::fs::read_dir(dir.path())
-            .map_err(StoreError::from)?
-            .enumerate()
-        {
+    /// Group the directory by owner scope from names alone (RE-D159). Closed files written
+    /// before RE-D159 are removed; nothing is read for another purpose.
+    fn group(&self, dir: &TrustedDirectory, cancel: &Cancel) -> Result<Inventory, EngineError> {
+        let mut inventory = Inventory {
+            scopes: BTreeMap::new(),
+            unattributable: 0,
+        };
+        for entry in std::fs::read_dir(dir.path()).map_err(StoreError::from)? {
             cancel.check()?;
-            if index >= 50_000 {
-                return Err(StoreError::Unavailable.into());
-            }
             let Ok(name) = entry.map_err(StoreError::from)?.file_name().into_string() else {
-                entries.push(Entry::Unreadable);
+                inventory.unattributable += 1;
                 continue;
             };
             if !name.ends_with(".json") {
                 continue;
             }
-            match self.structural(dir, &name, cancel, &mut budget) {
+            if let Some((scope, _)) = name_parts(&name) {
+                inventory
+                    .scopes
+                    .entry(scope.to_owned())
+                    .or_default()
+                    .push(name);
+            } else if legacy_name(&name) && matches!(read(dir, &name, cancel), Ok(None)) {
+                // No current writer uses this name, so no lease can race the removal.
+                dir.remove_file(&name)?;
+            } else {
+                inventory.unattributable += 1;
+            }
+        }
+        dir.assert_unchanged()?;
+        Ok(inventory)
+    }
+    /// Read one owner scope's files with that scope's own budget and count.
+    pub fn entries(&self, names: &[String], cancel: &Cancel) -> Result<Vec<Entry>, EngineError> {
+        let Some(dir) = self.directory()? else {
+            return Ok(vec![]);
+        };
+        let mut budget = MAX_BYTES;
+        let mut entries = Vec::new();
+        for name in names {
+            cancel.check()?;
+            if entries.len() >= MAX_PENDING {
+                entries.push(Entry::Unreadable);
+                continue;
+            }
+            match self.structural(&dir, name, cancel, &mut budget) {
                 Ok(Some(record)) => entries.push(Entry::Record(Box::new(record))),
                 Ok(None) => {}
                 Err(EngineError::Cancelled(cancelled)) => {
@@ -342,12 +429,30 @@ impl Admissions {
                 }
                 Err(_) => entries.push(Entry::Unreadable),
             }
-            if entries.len() > MAX_PENDING {
-                return Err(StoreError::Unavailable.into());
-            }
         }
-        dir.assert_unchanged()?;
-        Ok((entries, MAX_BYTES - budget))
+        Ok(entries)
+    }
+    /// The files of one owner scope, for a retry before that owner's next turn.
+    pub fn scope_names(&self, scope: &str, cancel: &Cancel) -> Result<Vec<String>, EngineError> {
+        Ok(self
+            .inventory(cancel)?
+            .scopes
+            .remove(scope)
+            .unwrap_or_default())
+    }
+    fn directory(&self) -> Result<Option<TrustedDirectory>, EngineError> {
+        let base = match TrustedDirectory::open(&self.base) {
+            Err(StoreError::Io {
+                kind: std::io::ErrorKind::NotFound,
+            }) => return Ok(None),
+            result => result?,
+        };
+        match base.open_child("_capture-admissions") {
+            Err(StoreError::Io {
+                kind: std::io::ErrorKind::NotFound,
+            }) => Ok(None),
+            result => Ok(Some(result?)),
+        }
     }
     fn structural(
         &self,
@@ -356,12 +461,7 @@ impl Admissions {
         cancel: &Cancel,
         budget: &mut usize,
     ) -> Result<Option<Record>, EngineError> {
-        let hash = &name[..name.len() - 5];
-        if hash.len() != 64
-            || !hash
-                .bytes()
-                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
-        {
+        if name_parts(name).is_none() {
             return Err(StoreError::Corrupt.into());
         }
         let Some(record) = read_with_budget(dir, name, cancel, budget)? else {
@@ -417,12 +517,8 @@ impl Admissions {
         let dir = base.open_child("_capture-admissions")?;
         let locks = dir.create_child(".leases")?;
         let name = self.filename(record)?;
-        let _lease = kernel_lock::acquire(
-            &locks,
-            name.strip_suffix(".json").ok_or(StoreError::InvalidInput)?,
-            cancel,
-            &mut || {},
-        )?;
+        let scope = name_parts(&name).ok_or(StoreError::InvalidInput)?.0;
+        let _lease = kernel_lock::acquire(&locks, scope, cancel, &mut || {})?;
         let current = read(&dir, &name, cancel)?;
         if let Some(current) = &current {
             if digest(&current.turn)? != digest(&record.turn)? {
@@ -435,8 +531,27 @@ impl Admissions {
     /// already written stay. No host, policy or store authority is needed for this.
     pub fn abandon_record(&self, record: &Record, cancel: &Cancel) -> Result<(), EngineError> {
         self.with_record(record, cancel, |dir, name, current| match current {
-            Some(_) => write(dir, name, &Envelope { record: None }),
+            Some(_) => Ok(dir.remove_file(name)?),
             None => Ok(()),
+        })
+    }
+    /// Take back an attempt counted for an attempt that maintenance prevented.
+    pub fn revert_attempt(&self, record: &Record, cancel: &Cancel) -> Result<(), EngineError> {
+        self.with_record(record, cancel, |dir, name, current| {
+            let Some(mut current) = current else {
+                return Ok(());
+            };
+            if current.recovery_attempts == 0 {
+                return Ok(());
+            }
+            current.recovery_attempts -= 1;
+            write(
+                dir,
+                name,
+                &Envelope {
+                    record: Some(current),
+                },
+            )
         })
     }
     /// Count one recovery attempt durably before it starts. Returns the attempts made
@@ -471,22 +586,16 @@ impl Admissions {
         let name = self.filename(record)?;
         Ok(read(&dir, &name, cancel)?.is_some())
     }
-    pub fn inventory(&self, cancel: &Cancel) -> Result<Vec<Entry>, EngineError> {
+    /// The admission files by owner scope, from names alone.
+    pub fn inventory(&self, cancel: &Cancel) -> Result<Inventory, EngineError> {
         cancel.check()?;
-        let base = match TrustedDirectory::open(&self.base) {
-            Err(StoreError::Io {
-                kind: std::io::ErrorKind::NotFound,
-            }) => return Ok(vec![]),
-            result => result?,
-        };
-        let directory = match base.open_child("_capture-admissions") {
-            Err(StoreError::Io {
-                kind: std::io::ErrorKind::NotFound,
-            }) => return Ok(vec![]),
-            result => result?,
-        };
-        self.inventory_directory(&directory, cancel)
-            .map(|(entries, _)| entries)
+        match self.directory()? {
+            Some(directory) => self.group(&directory, cancel),
+            None => Ok(Inventory {
+                scopes: BTreeMap::new(),
+                unattributable: 0,
+            }),
+        }
     }
 }
 impl Admission<'_> {
@@ -509,30 +618,20 @@ impl Admission<'_> {
     pub fn save(&self, cancel: &Cancel) -> Result<(), EngineError> {
         self.check(cancel)?;
         validate(&self.record)?;
-        let _capacity = kernel_lock::acquire(&self.locks, "capacity", cancel, &mut || {})?;
-        let (entries, total) = self.owner.inventory_directory(&self.directory, cancel)?;
-        let others = entries
-            .iter()
-            .filter(|entry| match entry {
-                Entry::Record(record) => self.owner.filename(record).as_ref() != Ok(&self.name),
-                Entry::Unreadable => true,
-            })
-            .count();
-        let mut budget = MAX_BYTES;
-        read_with_budget(&self.directory, &self.name, cancel, &mut budget)?;
-        let bytes = total
-            .checked_sub(MAX_BYTES - budget)
-            .ok_or(StoreError::Corrupt)?;
+        // The owner scope lease is held: only this owner's sizes count, from metadata.
+        let scope = name_parts(&self.name).ok_or(StoreError::Corrupt)?.0;
+        let usage = self.owner.usage(&self.directory, scope, &self.name)?;
         let value = Envelope {
             record: Some(self.record.clone()),
         };
         let current = serde_json::to_vec(&value)
             .map_err(|_| StoreError::Corrupt)?
-            .len();
-        if others >= MAX_PENDING
-            || bytes
+            .len() as u64;
+        if usage.names.len() >= MAX_PENDING
+            || usage
+                .bytes
                 .checked_add(current)
-                .is_none_or(|size| size > MAX_BYTES)
+                .is_none_or(|size| size > MAX_BYTES as u64)
         {
             return Err(StoreError::Unavailable.into());
         }
@@ -541,11 +640,24 @@ impl Admission<'_> {
     }
     /// Revoke only this held admission's future recovery. No host/store/effect work is
     /// authorized by this cleanup, so policy revocation or caller abort cannot prevent it.
+    /// The file is removed (RE-D159): idempotency rests on the replay WAL, not on it.
     pub fn abandon(&self) -> Result<(), EngineError> {
+        if self.closed.get() {
+            return Ok(());
+        }
         self.directory.assert_unchanged()?;
         self.locks.assert_unchanged()?;
         self.lease.check(&self.locks)?;
-        write(&self.directory, &self.name, &Envelope { record: None })?;
+        self.remove()
+    }
+    fn remove(&self) -> Result<(), EngineError> {
+        match self.directory.remove_file(&self.name) {
+            Ok(())
+            | Err(StoreError::Io {
+                kind: std::io::ErrorKind::NotFound,
+            }) => {}
+            Err(error) => return Err(error.into()),
+        }
         self.closed.set(true);
         Ok(())
     }
@@ -554,9 +666,11 @@ impl Admission<'_> {
         self.closed.get()
     }
     pub fn complete(&self, cancel: &Cancel) -> Result<(), EngineError> {
+        if self.closed.get() {
+            return Ok(());
+        }
         self.check(cancel)?;
-        write(&self.directory, &self.name, &Envelope { record: None })?;
-        self.closed.set(true);
+        self.remove()?;
         self.directory.assert_unchanged()?;
         Ok(())
     }
