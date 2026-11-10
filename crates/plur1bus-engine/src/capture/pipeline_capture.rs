@@ -6,27 +6,30 @@ impl CaptureWorker for CapturePipeline {
     fn recover(&self, replay: &super::super::replay_guard::ReplayGuard) -> Result<(), EngineError> {
         let timeout = super::super::queue::RuntimeConfig::from_value(&self.config["runtime"])
             .capture_timeout_ms;
-        let cancel = Cancel::never().limited_to(Instant::now() + Duration::from_millis(timeout));
+        let cancel = self
+            .shutdown
+            .limited_to(Instant::now() + Duration::from_millis(timeout));
         // Inventory validates every original caller/proof before the first recovery mutation.
         for record in self.admissions.inventory(&cancel)? {
             cancel.check()?;
-            let turn = &record.turn;
-            let context = RequestContext::build(&turn.principal, &turn.agent, self.host.as_ref())?;
-            let key = super::super::replay_guard::turn_key_of(turn)?;
-            replay.recover(turn.agent_id.as_str(), &key, &cancel, |rows| {
-                if !self.admissions.pending(&record, &cancel)? {
-                    return Ok(());
+            let agent = record.turn.agent_id.to_string();
+            // A blocked agent's later entries wait behind its first unfinished one.
+            if self.owner_scoped && self.recovery_blocked(&agent) {
+                continue;
+            }
+            match self.recover_record(replay, &record, &cancel) {
+                Ok(()) => {}
+                // Shutdown and the startup deadline retain every input for the next attempt.
+                Err(error @ EngineError::Cancelled(_)) => return Err(error),
+                Err(error) if self.owner_scoped => {
+                    self.warn(&error, CaptureLogStage::CapturePipeline, 1);
+                    self.blocked
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner)
+                        .insert(agent);
                 }
-                let result =
-                    self.capture_attempt(turn, &context, &record.options, &rows, &cancel, true)?;
-                if self.admissions.pending(&record, &cancel)? {
-                    return Err(StoreError::Unavailable.into());
-                }
-                if result.reason.is_none() {
-                    rows.on_rows_settled()?;
-                }
-                Ok(())
-            })?;
+                Err(error) => return Err(error),
+            }
         }
         Ok(())
     }
@@ -39,11 +42,42 @@ impl CaptureWorker for CapturePipeline {
         replay: ReplayRows,
         cancel: &Cancel,
     ) -> Result<CaptureResult, EngineError> {
+        // New turns of an agent with an unfinished retained entry must not overtake it.
+        if self.recovery_blocked(turn.agent_id.as_str()) {
+            return Err(EngineError::NotAvailable {
+                reason: "startup-recovery-incomplete".into(),
+            });
+        }
         self.capture_attempt(turn, context, options, &replay, cancel, false)
     }
 }
 
 impl CapturePipeline {
+    fn recover_record(
+        &self,
+        replay: &super::super::replay_guard::ReplayGuard,
+        record: &super::super::admission::Record,
+        cancel: &Cancel,
+    ) -> Result<(), EngineError> {
+        let turn = &record.turn;
+        let context = RequestContext::build(&turn.principal, &turn.agent, self.host.as_ref())?;
+        let key = super::super::replay_guard::turn_key_of(turn)?;
+        replay.recover(turn.agent_id.as_str(), &key, cancel, |rows| {
+            if !self.admissions.pending(record, cancel)? {
+                return Ok(());
+            }
+            let result =
+                self.capture_attempt(turn, &context, &record.options, &rows, cancel, true)?;
+            if self.admissions.pending(record, cancel)? {
+                return Err(StoreError::Unavailable.into());
+            }
+            if result.reason.is_none() {
+                rows.on_rows_settled()?;
+            }
+            Ok(())
+        })
+    }
+
     fn capture_attempt(
         &self,
         turn: &TurnRecord,

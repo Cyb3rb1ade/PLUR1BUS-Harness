@@ -144,6 +144,7 @@ fn a_captured_turn_is_visible_through_list_show_and_recall() {
     // the journal, job ledger and schema marker are not composed.
     let status = engine.status();
     assert!(!status.ready);
+    assert!(engine.capture.degradation().is_none());
     assert!(status
         .degraded
         .is_none_or(|degraded| degraded.reason != "startup-recovery-incomplete"));
@@ -307,7 +308,8 @@ fn an_unrecoverable_admission_keeps_capture_unserved_and_the_status_not_ready() 
     fs::write(&corrupt, b"{\"record\":{\"version\":1}}").unwrap();
 
     let engine = ProcessEngine::new(host(root), Some(Seam::FlatEmbedder)).unwrap();
-    assert!(!engine.status().ready);
+    // Status reflects capture composition only after the first open or capture.
+    assert!(engine.capture.degradation().is_none());
     let handle = engine.open(&"agent".parse().unwrap()).unwrap();
     let status = engine.status();
     assert!(!status.ready);
@@ -330,6 +332,17 @@ fn an_unrecoverable_admission_keeps_capture_unserved_and_the_status_not_ready() 
 struct CrashHost {
     inner: Arc<FakeHost>,
     root: PathBuf,
+    /// `admitted`: before the first row; `first-row`: one row written, the turn unsettled.
+    phase: String,
+}
+impl CrashHost {
+    fn first_row_written(&self) -> bool {
+        let path = self.root.join("db/current/agent");
+        path.join("memories.lance").exists()
+            && Store::open(&path, OpenMode::ReadOnly, None)
+                .and_then(|store| store.count(&RowFilter::default()))
+                .is_ok_and(|count| count > 0)
+    }
 }
 impl HostServices for CrashHost {
     fn state_dir(&self) -> &Path {
@@ -339,13 +352,20 @@ impl HostServices for CrashHost {
         self.inner.config()
     }
     fn workspace_dir(&self, agent: &AgentId) -> Result<Option<PathBuf>, HostError> {
+        if self.phase == "slow" {
+            // Slow recovery: every workspace lookup takes long and ignores cancellation.
+            fs::write(self.root.join("slow-entered"), "entered").unwrap();
+            std::thread::sleep(Duration::from_secs(2));
+            return self.inner.workspace_dir(agent);
+        }
         let admitted = fs::read_dir(self.root.join("db/_capture-admissions"))
             .into_iter()
             .flatten()
             .flatten()
             .any(|entry| {
                 fs::read_to_string(entry.path()).is_ok_and(|text| text.contains("\"record\":{"))
-            });
+            })
+            && (self.phase != "first-row" || self.first_row_written());
         if admitted {
             fs::write(self.root.join("checkpoint"), "admitted").unwrap();
             loop {
@@ -386,6 +406,7 @@ fn capture_crash_child() {
     let host = Arc::new(CrashHost {
         inner: host(&root),
         root: root.clone(),
+        phase: std::env::var("PLUR1BUS_RX_PROCESS_CAPTURE_CRASH_PHASE").unwrap_or_default(),
     });
     let engine = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
     let handle = engine
@@ -395,8 +416,8 @@ fn capture_crash_child() {
     let _ = handle.done.recv();
 }
 
-#[test]
-fn a_turn_killed_after_admission_is_recovered_exactly_once_on_the_next_open() {
+/// Run `capture_crash_child` in a real child process and SIGKILL it at the given phase.
+fn killed(phase: &str) -> tempfile::TempDir {
     struct Child(std::process::Child);
     impl Drop for Child {
         fn drop(&mut self) {
@@ -414,6 +435,7 @@ fn a_turn_killed_after_admission_is_recovered_exactly_once_on_the_next_open() {
                 "--nocapture",
             ])
             .env("PLUR1BUS_RX_PROCESS_CAPTURE_CRASH_ROOT", &root)
+            .env("PLUR1BUS_RX_PROCESS_CAPTURE_CRASH_PHASE", phase)
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .spawn()
@@ -421,12 +443,19 @@ fn a_turn_killed_after_admission_is_recovered_exactly_once_on_the_next_open() {
     );
     let deadline = std::time::Instant::now() + Duration::from_secs(60);
     while !root.join("checkpoint").exists() {
-        assert!(child.0.try_wait().unwrap().is_none());
-        assert!(std::time::Instant::now() < deadline);
+        assert!(child.0.try_wait().unwrap().is_none(), "{phase}");
+        assert!(std::time::Instant::now() < deadline, "{phase}");
         std::thread::sleep(Duration::from_millis(10));
     }
     child.0.kill().unwrap();
     assert!(!child.0.wait().unwrap().success());
+    scratch
+}
+
+#[test]
+fn a_turn_killed_after_admission_is_recovered_exactly_once_on_the_next_open() {
+    let scratch = killed("admitted");
+    let root = scratch.path().to_path_buf();
     assert!(rows(&root, "agent").is_empty());
 
     // Opening the agent recovers the original admission before any new turn.
@@ -489,6 +518,7 @@ fn no_deterministic_input_keeps_an_admission_open() {
     user["principal"]["agentId"] = json!("lonely");
     user["principal"]["user"] = json!(crate::context::harness_user_principal("fixture-user"));
     user["principal"]["trust"] = json!("proved");
+    user["principal"]["channel"] = json!("telegram");
     let inputs = [
         // F11: a diarization media ID without proven provenance (speaker step refused).
         turn_value(
@@ -522,7 +552,103 @@ fn no_deterministic_input_keeps_an_admission_open() {
     // After a restart, recovery has nothing pending and capture is served.
     let engine = ProcessEngine::new(neo_host(root), Some(Seam::FlatEmbedder)).unwrap();
     engine.open(&"agent".parse().unwrap()).unwrap();
-    assert!(!engine.capture.recovery_failed());
+    assert!(engine.capture.degradation().is_none());
     assert_eq!(capture(&engine, turn("agent", "run-after"))["stored"], 2);
     assert_eq!(pending_admissions(root), 0);
+}
+
+#[test]
+fn an_unfinishable_entry_blocks_only_its_own_agent() {
+    let scratch = killed("first-row");
+    let root = scratch.path().to_path_buf();
+    // A human edit of the unsettled row: recovery must not delete or overwrite it.
+    let path = root.join("db/current/agent");
+    let store = Store::open(&path, OpenMode::ReadWrite, None).unwrap();
+    let mut row = store.scan(&RowFilter::default(), 10).unwrap().remove(0);
+    row.text.push_str(" Human revision.");
+    store.upsert(std::slice::from_ref(&row)).unwrap();
+    drop(store);
+
+    let engine = ProcessEngine::new(host(&root), Some(Seam::FlatEmbedder)).unwrap();
+    engine.open(&"agent".parse().unwrap()).unwrap();
+    let degraded = engine.status().degraded.unwrap();
+    assert_eq!(
+        (degraded.reason.as_str(), degraded.capability.as_str()),
+        ("startup-recovery-incomplete", "capture")
+    );
+    // Another agent captures normally.
+    assert_eq!(capture(&engine, turn("other", "run-other"))["stored"], 2);
+    // The blocked agent's new turns do not overtake its retained entry.
+    assert!(matches!(
+        engine.capture(turn("agent", "run-new"), options()),
+        Err(EngineError::NotAvailable { reason }) if reason == "startup-recovery-incomplete"
+    ));
+    let kept = rows(&root, "agent");
+    assert_eq!(kept.len(), 1);
+    assert_eq!(kept[0].text, row.text);
+    assert_eq!(pending_admissions(&root), 1);
+}
+
+#[test]
+fn close_during_a_slow_composition_stays_within_its_budget() {
+    let scratch = killed("admitted");
+    let root = scratch.path().to_path_buf();
+    let slow = Arc::new(CrashHost {
+        inner: host(&root),
+        root: root.clone(),
+        phase: "slow".into(),
+    });
+    let engine = ProcessEngine::new(slow, Some(Seam::FlatEmbedder)).unwrap();
+    std::thread::scope(|scope| {
+        let opener = scope.spawn(|| engine.open(&"agent".parse().unwrap()));
+        let deadline = std::time::Instant::now() + Duration::from_secs(30);
+        while !root.join("slow-entered").exists() {
+            assert!(std::time::Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        let started = std::time::Instant::now();
+        let closed = engine.close(Some(Duration::from_millis(300)));
+        assert!(started.elapsed() < Duration::from_millis(1500));
+        assert!(matches!(
+            closed,
+            Err(EngineError::NotAvailable { reason }) if reason == "capture-drain-incomplete"
+        ));
+        // Nothing is admitted after close, even while the composition still finishes.
+        assert!(matches!(
+            engine.capture(turn("agent", "run-late"), options()),
+            Err(EngineError::NotAvailable { reason }) if reason == "closed"
+        ));
+        let _ = opener.join().unwrap();
+    });
+    drop(engine);
+    // The retained input is recovered by the next open.
+    assert_eq!(pending_admissions(&root), 1);
+    let engine = ProcessEngine::new(host(&root), Some(Seam::FlatEmbedder)).unwrap();
+    engine.open(&"agent".parse().unwrap()).unwrap();
+    assert_eq!(rows(&root, "agent").len(), 2);
+    assert_eq!(pending_admissions(&root), 0);
+}
+
+fn user_turn(root: &Path, owner: &str, run: &str) -> TurnRecord {
+    let mut value = turn_value(
+        "agent",
+        run,
+        &json!([{"role":"user","content":USER},{"role":"assistant","content":ASSISTANT}]),
+    );
+    value["principal"]["user"] = json!(crate::context::harness_user_principal(owner));
+    value["principal"]["trust"] = json!("proved");
+    value["principal"]["channel"] = json!("telegram");
+    let workspace = fs::canonicalize(root.join("workspace-agent")).unwrap();
+    value["principal"]["workspace"] = json!(format!("workspace-dir:v1:{}", workspace.display()));
+    serde_json::from_value(value).unwrap()
+}
+
+#[test]
+fn neo_state_exists_only_when_neo_is_enabled() {
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let engine = ProcessEngine::new(host(root), Some(Seam::FlatEmbedder)).unwrap();
+    let result = capture(&engine, user_turn(root, "fixture-user", "run-no-neo"));
+    assert_eq!(result["stored"], 2, "{result}");
+    assert!(!root.join("db/_neo").exists());
 }

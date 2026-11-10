@@ -2,7 +2,9 @@
 //!
 //! The runtime is composed once, lazily, behind the S5 startup check. Its construction
 //! recovers durable admissions, the capture WAL and prepared Neo plans before the first
-//! new turn is accepted. Node assembler behavior the library does not provide stays absent.
+//! new turn is accepted. Composition runs outside the state lock and is bound to the
+//! shutdown signal, so `close()` stays within its budget. Node assembler behavior the
+//! library does not provide stays absent.
 
 use super::{engine_warm, ProcessEngine};
 use crate::{
@@ -17,41 +19,103 @@ use crate::{
     },
     context::{is_user_principal, RequestContext},
     contract::{
-        Cancel, CaptureHandle, CaptureOptions, EngineError, HostError, HostServices, LlmParams,
-        LlmPort, LlmResult, TurnRecord,
+        Cancel, CaptureHandle, CaptureOptions, Degraded, EngineError, HostError, HostServices,
+        LlmParams, LlmPort, LlmResult, TurnRecord,
     },
     neo::capture_hook::NativeNeoCaptureHook,
     ops::reembedding::state::MigrationStateStore,
 };
 use std::{
     path::{Path, PathBuf},
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc, Mutex, PoisonError,
-    },
-    time::Duration,
+    sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError},
+    time::{Duration, Instant},
 };
 
 /// The pin's close budget when the caller supplies none (`closeEngine`).
 const DEFAULT_CLOSE_BUDGET: Duration = Duration::from_secs(30);
+/// Status reason while retained capture input cannot be completed (or composition failed).
+const RECOVERY_INCOMPLETE: &str = "startup-recovery-incomplete";
+/// Status reason for a configuration the capture composition rejects; nothing to recover.
+const COMPOSITION_INVALID: &str = "composition-invalid";
 
-#[derive(Default)]
+#[derive(Clone)]
+struct Composed {
+    runtime: Arc<CaptureRuntime>,
+    pipeline: Arc<CapturePipeline>,
+}
+
+enum Slot {
+    Idle,
+    Composing,
+    Ready(Composed),
+    Failed(&'static str),
+}
+
 struct State {
-    runtime: Option<Arc<CaptureRuntime>>,
+    slot: Slot,
     closed: bool,
 }
 
-/// The process's single capture runtime and whether its startup recovery last failed.
-#[derive(Default)]
+/// The process's single capture runtime, its composition state and its shutdown signal.
 pub(super) struct ProcessCapture {
     state: Mutex<State>,
-    recovery_failed: AtomicBool,
+    changed: Condvar,
+    shutdown: Cancel,
+}
+
+impl Default for ProcessCapture {
+    fn default() -> Self {
+        Self {
+            state: Mutex::new(State {
+                slot: Slot::Idle,
+                closed: false,
+            }),
+            changed: Condvar::new(),
+            // A fresh, independent flag: only this engine's close() raises it.
+            shutdown: Cancel::never(),
+        }
+    }
+}
+
+/// Resets an abandoned `Composing` slot (for example after a panic) so waiters can retry.
+struct ComposingGuard<'a> {
+    owner: &'a ProcessCapture,
+    armed: bool,
+}
+impl Drop for ComposingGuard<'_> {
+    fn drop(&mut self) {
+        if self.armed {
+            let mut state = self.owner.lock();
+            if matches!(state.slot, Slot::Composing) {
+                state.slot = Slot::Idle;
+            }
+            self.owner.changed.notify_all();
+        }
+    }
+}
+
+fn unavailable(reason: &str) -> EngineError {
+    EngineError::NotAvailable {
+        reason: reason.into(),
+    }
 }
 
 impl ProcessCapture {
-    /// True after a composition attempt failed and no runtime has been composed since.
-    pub(super) fn recovery_failed(&self) -> bool {
-        self.recovery_failed.load(Ordering::Acquire)
+    fn lock(&self) -> MutexGuard<'_, State> {
+        self.state.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// The capture degradation the status reports, if capture is not (fully) served:
+    /// a failed composition, or an owner whose retained input cannot be completed.
+    pub(super) fn degradation(&self) -> Option<Degraded> {
+        let reason = match &self.lock().slot {
+            Slot::Failed(reason) => *reason,
+            Slot::Ready(composed) if composed.pipeline.any_recovery_blocked() => {
+                RECOVERY_INCOMPLETE
+            }
+            _ => return None,
+        };
+        super::degradation(reason, "capture").ok()
     }
 
     /// Compose the runtime once (recovery before admission), then return a receipt.
@@ -61,72 +125,143 @@ impl ProcessCapture {
         turn: TurnRecord,
         options: CaptureOptions,
     ) -> Result<CaptureHandle, EngineError> {
-        Self::runtime(engine, base)?.accept(turn, options)
+        let agent = turn.agent_id.to_string();
+        Self::runtime(engine, base, Some(&agent))?.accept(turn, options)
     }
 
     /// Compose (and thereby recover) the runtime without accepting a turn; idempotent.
     pub(super) fn open(engine: &ProcessEngine, base: &Path) -> Result<(), EngineError> {
-        Self::runtime(engine, base).map(|_| ())
+        Self::runtime(engine, base, None).map(|_| ())
     }
 
-    fn runtime(engine: &ProcessEngine, base: &Path) -> Result<Arc<CaptureRuntime>, EngineError> {
+    fn runtime(
+        engine: &ProcessEngine,
+        base: &Path,
+        agent: Option<&str>,
+    ) -> Result<Arc<CaptureRuntime>, EngineError> {
         let this = &engine.capture;
-        // The lock is held through composition: concurrent first captures wait for one recovery.
-        let mut state = this.state.lock().unwrap_or_else(PoisonError::into_inner);
-        if state.closed {
-            return Err(EngineError::NotAvailable {
-                reason: "closed".into(),
-            });
+        let served = |composed: &Composed| match agent {
+            // Only the owner whose retained input is unfinished is refused (RE-D155 scope).
+            Some(agent) if composed.pipeline.recovery_blocked(agent) => {
+                Err(unavailable(RECOVERY_INCOMPLETE))
+            }
+            _ => Ok(composed.runtime.clone()),
+        };
+        let mut state = this.lock();
+        loop {
+            if state.closed {
+                return Err(unavailable("closed"));
+            }
+            match &state.slot {
+                Slot::Ready(composed) => return served(composed),
+                // Concurrent first callers wait for the one recovery in progress.
+                Slot::Composing => {
+                    state = this
+                        .changed
+                        .wait(state)
+                        .unwrap_or_else(PoisonError::into_inner);
+                }
+                Slot::Idle | Slot::Failed(_) => break,
+            }
         }
-        if let Some(runtime) = &state.runtime {
-            return Ok(runtime.clone());
-        }
-        match compose(engine, base) {
-            Ok(runtime) => {
-                let runtime = Arc::new(runtime);
-                state.runtime = Some(runtime.clone());
-                this.recovery_failed.store(false, Ordering::Release);
-                Ok(runtime)
+        state.slot = Slot::Composing;
+        drop(state);
+        let mut guard = ComposingGuard {
+            owner: this,
+            armed: true,
+        };
+        let outcome = compose(engine, base, &this.shutdown);
+        let mut state = this.lock();
+        guard.armed = false;
+        let result = match outcome {
+            Ok(composed) if state.closed => {
+                state.slot = Slot::Idle;
+                // Closed while composing: the fresh runtime never admits a turn.
+                composed.runtime.close(Duration::ZERO);
+                Err(unavailable("closed"))
+            }
+            Ok(composed) => {
+                state.slot = Slot::Ready(composed.clone());
+                served(&composed)
             }
             Err(error) => {
-                this.recovery_failed.store(true, Ordering::Release);
-                log::warn!("capture: startup composition incomplete");
-                Err(match error {
-                    error @ (EngineError::Cancelled(_)
-                    | EngineError::NotAvailable { .. }
-                    | EngineError::Invalid { .. }) => error,
-                    _ => EngineError::NotAvailable {
-                        reason: "startup-recovery-incomplete".into(),
-                    },
-                })
+                let (slot, error) = classify_failure(error, state.closed);
+                if slot.is_some() {
+                    log::warn!("capture: startup composition incomplete");
+                }
+                state.slot = slot.map_or(Slot::Idle, Slot::Failed);
+                Err(error)
             }
-        }
+        };
+        this.changed.notify_all();
+        drop(state);
+        result
     }
 
-    /// Refuse new turns and drain admitted capture work within the caller's budget.
-    pub(super) fn close(&self, budget: Option<Duration>) {
-        let runtime = {
-            let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
-            state.closed = true;
-            state.runtime.take()
-        };
-        if let Some(runtime) = runtime {
-            let budget = budget
-                .filter(|budget| !budget.is_zero())
-                .unwrap_or(DEFAULT_CLOSE_BUDGET);
-            if !runtime.close(budget) {
-                log::warn!("capture: close budget exceeded; work still settling");
+    /// Refuse new turns, stop a running composition and drain admitted capture work, all
+    /// within one budget (`None`: the pin's 30 seconds). False when work is still settling.
+    pub(super) fn close(&self, budget: Option<Duration>) -> bool {
+        let started = Instant::now();
+        let budget = budget.unwrap_or(DEFAULT_CLOSE_BUDGET);
+        // Recovery observes this signal; admitted turns keep their own cancellation.
+        self.shutdown.cancel();
+        let mut state = self.lock();
+        state.closed = true;
+        self.changed.notify_all();
+        while matches!(state.slot, Slot::Composing) {
+            let left = budget.saturating_sub(started.elapsed());
+            if left.is_zero() {
+                log::warn!("capture: close budget exceeded during composition");
+                return false;
             }
+            state = self
+                .changed
+                .wait_timeout(state, left)
+                .unwrap_or_else(PoisonError::into_inner)
+                .0;
         }
+        let composed = match std::mem::replace(&mut state.slot, Slot::Idle) {
+            Slot::Ready(composed) => Some(composed),
+            _ => None,
+        };
+        drop(state);
+        let Some(composed) = composed else {
+            return true;
+        };
+        let drained = composed
+            .runtime
+            .close(budget.saturating_sub(started.elapsed()));
+        if !drained {
+            log::warn!("capture: close budget exceeded; work still settling");
+        }
+        drained
     }
 }
 
-fn compose(engine: &ProcessEngine, base: &Path) -> Result<CaptureRuntime, EngineError> {
+/// Map a composition failure to its status slot and the caller's typed error.
+/// Shutdown and cancellation are no failure state: the next open composes again.
+fn classify_failure(error: EngineError, closed: bool) -> (Option<&'static str>, EngineError) {
+    match error {
+        _ if closed => (None, unavailable("closed")),
+        error @ EngineError::Cancelled(_) => (None, error),
+        error @ EngineError::Invalid { .. } => (Some(COMPOSITION_INVALID), error),
+        error @ EngineError::NotAvailable { .. } => (Some(RECOVERY_INCOMPLETE), error),
+        _ => (Some(RECOVERY_INCOMPLETE), unavailable(RECOVERY_INCOMPLETE)),
+    }
+}
+
+fn compose(
+    engine: &ProcessEngine,
+    base: &Path,
+    shutdown: &Cancel,
+) -> Result<Composed, EngineError> {
+    shutdown.check()?;
     let host = engine.operations.host_handle();
     let raw = serde_json::to_value(host.config()).map_err(|_| super::composition_invalid())?;
     let config = crate::config::effective_config(&raw).map_err(|_| super::composition_invalid())?;
     // S5 tombstone reconciliation and the one active writer route shared with forget/import.
     let pools = engine.live_stores.recall_pools()?;
+    shutdown.check()?;
     let writer = pools.writer_pool();
     let embedder = engine.embedding.pipeline_embedder();
     let switching_base = base.to_path_buf();
@@ -153,17 +288,35 @@ fn compose(engine: &ProcessEngine, base: &Path) -> Result<CaptureRuntime, Engine
         )?
         .with_engines(engine.mood.engines()),
     );
-    // Recovers prepared Neo capture/episode plans before any admission. The pin creates
-    // the Neo root recursively on its first write; the native hook pins an existing one.
-    let neo_root = engine_warm::neo_root(&raw["neo"], base);
-    crate::store::paths::secure_dir(&neo_root)?;
-    let neo = Arc::new(UserScopedNeo {
-        hook: NativeNeoCaptureHook::open(&neo_root, host.clone(), policy.clone(), mood)?
-            .with_embedder(embedder.clone())?,
-        host: host.clone(),
-    });
-    let pipeline =
-        CapturePipeline::new(host.clone(), writer, embedder, classifier, policy)?.with_neo(neo);
+    let mut pipeline = CapturePipeline::new(
+        host.clone(),
+        writer,
+        embedder.clone(),
+        classifier,
+        policy.clone(),
+    )?
+    .with_recovery_cancel(shutdown.clone())
+    .with_owner_scoped_recovery();
+    // As at the pin, Neo state exists only when Neo is enabled. Opening the hook recovers
+    // prepared Neo capture/episode plans before any admission; the pin creates the root on
+    // its first write, the native hook pins an existing one.
+    if config["neo"]["enabled"] != false {
+        let neo_root = engine_warm::neo_root(&raw["neo"], base);
+        crate::store::paths::secure_dir(&neo_root)?;
+        let hook = NativeNeoCaptureHook::open_with_cancel(
+            &neo_root,
+            host.clone(),
+            policy,
+            mood,
+            shutdown,
+        )?
+        .with_embedder(embedder)?;
+        pipeline = pipeline.with_neo(Arc::new(UserScopedNeo {
+            hook,
+            host: host.clone(),
+        }));
+    }
+    let pipeline = Arc::new(pipeline);
     let queue = Arc::new(CaptureQueue::new(
         RuntimeConfig::from_value(&config["runtime"]),
         // No process sampler is composed; the pin's disabled gate value.
@@ -172,7 +325,11 @@ fn compose(engine: &ProcessEngine, base: &Path) -> Result<CaptureRuntime, Engine
     let clock = host.clone();
     let replay = ReplayGuard::durable(turns_root(base), Arc::new(move || clock.now_ms()))?;
     // `scheduled = false`: no post-turn-refine job runs in RX; deferral falls back inline.
-    CaptureRuntime::new(host, Arc::new(pipeline), queue, replay, false)
+    let runtime = CaptureRuntime::new(host, pipeline.clone(), queue, replay, false)?;
+    Ok(Composed {
+        runtime: Arc::new(runtime),
+        pipeline,
+    })
 }
 
 /// The pin's `<baseDbPath>/_capture-turns` replay root.

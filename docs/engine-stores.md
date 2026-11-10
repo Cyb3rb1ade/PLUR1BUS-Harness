@@ -1965,30 +1965,44 @@ See the SHA-bound marker
 ### Capture in the process (RE-D154)
 
 `engine.capture` runs the RE-05 `CaptureRuntime` over the native
-`CapturePipeline`, `NativeCaptureClassifier` and `NativeNeoCaptureHook`. The
-runtime is composed once, behind the same S5 startup tombstone gate as the
-memory readers, and writes through the active writer route's own `StorePool`,
-so forget, import, rebind and capture share one writer handle per agent store.
-Composition runs on the first `Engine.open` of an agent or the first capture,
-whichever comes first. Before any new turn is admitted it recovers durable
-admissions (`_capture-admissions`), the capture WAL (`_capture-turns`) and
-prepared Neo plans; a killed turn is completed exactly once. A failed recovery
-leaves `Engine.open` successful, keeps the original input on disk, refuses
-capture with `not-available/startup-recovery-incomplete` and reports
-`ready: false` with `{reason: "startup-recovery-incomplete", capability:
-"capture"}`. The next capture retries the recovery.
+`CapturePipeline`, `NativeCaptureClassifier` and, when Neo is enabled,
+`NativeNeoCaptureHook`. The runtime is composed once, behind the same S5 startup
+tombstone gate as the memory readers, and writes through the active writer
+route's own `StorePool` (the same pins and fixed identity as a route lease), so
+forget, import, rebind and capture share one writer handle per agent store. The
+re-embedding switching gate is part of the capture policy, as for recall; an
+unreadable migration state counts as switching.
 
-The workspace policy adapter reads the same `control/workspace-policy.json` and
-the re-embedding switching gate as recall; an unreadable migration state is
-treated as switching. Capture's classifier and recall share one owner-bound mood
-pool (RE-D51 binding unchanged) and one bounded set of per-owner emotion engines
-(256 bindings, oldest evicted first), keyed by agent, owner, logical workspace
-and canonical workspace directory. Tier 3 uses the host's guarded completion
-port only when the effective configuration enables it; deferred mode makes no
-call at capture. No pressure sampler, chunk decider, narrative provider or
-post-turn job is composed (`scheduled = false`, so `deferPostTurnLlm` reports the
-existing inline fallback). The Neo root is created on first composition, as the
-pin creates it on its first write.
+Composition runs on the first `Engine.open` of an agent or the first capture,
+outside the capture state lock; concurrent callers wait for it. Before any new
+turn is admitted it recovers durable admissions (`_capture-admissions`), the
+capture WAL (`_capture-turns`) and prepared Neo plans; a killed turn is
+completed exactly once, also when it was killed after its first row. Recovery is
+bound to the engine's shutdown signal. It is owner-scoped: an entry that cannot
+be completed blocks only its own agent (its new turns answer
+`not-available/startup-recovery-incomplete` so they never overtake it) while
+other agents capture normally; the status reports
+`{reason: "startup-recovery-incomplete", capability: "capture"}`. An
+inventory failure that cannot be attributed to an owner, or a cancelled
+recovery, still fails the composition as a whole; the next open retries. A
+configuration the composition rejects reports `composition-invalid`.
+`Engine.open` itself does not fail on a capture recovery failure. The status
+reflects capture only after the first open or capture.
+
+Capture's classifier and recall share one owner-bound mood pool (RE-D51 binding
+unchanged) and one bounded set of per-owner emotion engines (256 bindings,
+oldest evicted first), keyed by agent, owner, logical workspace and
+canonical workspace directory. Capture only reads the mood; a second owner of
+the same agent neither reads nor overwrites the first owner's mood file. With
+the opt-in inline tier 3 the owner's engine stays locked through the bounded
+completion call. Tier 3 uses the host's guarded completion port only when the
+effective configuration enables it; deferred mode makes no call at capture. No
+pressure sampler, narrative provider or post-turn job is composed
+(`scheduled = false`, so `deferPostTurnLlm` reports the existing inline
+fallback). The pin's chunk decider is the Jev HTTP model route
+(`lib/jev-chunk-decider.js`), not deterministic; D125 keeps whole-plus-parts.
+As at the pin, Neo state exists only when Neo is enabled; the root is created on
+the first composition.
 
 The native Neo journal binds only user-owned callers with a logical workspace
 key and a host workspace directory. For any other owner the composition skips
@@ -1996,12 +2010,16 @@ Neo's pre-store work and closes the post-store step with the terminal refusal
 `neo-owner-not-applicable` (RE-D155). KNOWN-GAP for RY-A: the pin writes Neo for
 every owner; whether such owners get an agent-private Neo is an open decision.
 
-`close()` refuses new turns and drains admitted capture work within the caller's budget (30 seconds when none or zero is given, as the
-pin's `closeEngine`) before stores are released. Recall and capture are served
-with a store base, but the status keeps `ready: false` with the frozen
-composition-pending/recall degradation until the journal backlog, the job
-ledger and the store schema marker are composed (the frozen status text and
-the pin's StatusReporter report ready only with those parts).
+`close()` raises the shutdown signal and cancels store opening, refuses new
+turns, waits for a running composition and drains admitted capture work, all
+within the caller's budget (30 seconds when none is given, as the pin's
+`closeEngine`; an explicit zero is honored, unlike the pin). A composition that
+finishes after close never admits a turn and its retained input is recovered by
+the next open. When capture work is still settling past the budget, `close()`
+completes the rest and reports `not-available/capture-drain-incomplete`. The
+status keeps `ready: false` with the frozen composition-pending/recall
+degradation until the journal backlog, the job ledger and the store schema
+marker are composed.
 
 ### Terminal post-store refusals close the admission (RE-D155)
 

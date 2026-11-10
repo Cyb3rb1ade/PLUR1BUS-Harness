@@ -34,7 +34,17 @@ impl NativeNeoCaptureHook {
         policy: Arc<dyn CapturePolicy>,
         mood: Arc<EmotionalPool>,
     ) -> Result<Self, EngineError> {
-        Self::open_bound(root, host, policy, mood, None)
+        Self::open_bound(root, host, policy, mood, None, &Cancel::never())
+    }
+    /// As [`Self::open`], with the prepared-plan recovery bound to a shutdown signal.
+    pub fn open_with_cancel(
+        root: &Path,
+        host: Arc<dyn HostServices>,
+        policy: Arc<dyn CapturePolicy>,
+        mood: Arc<EmotionalPool>,
+        cancel: &Cancel,
+    ) -> Result<Self, EngineError> {
+        Self::open_bound(root, host, policy, mood, None, cancel)
     }
     /// Bind an already authorized narrative provider. Prepared startup recovery still performs
     /// no inference. Disabled Neo and background captures never invoke this optional provider.
@@ -45,7 +55,7 @@ impl NativeNeoCaptureHook {
         mood: Arc<EmotionalPool>,
         narrative: Arc<dyn LlmPort>,
     ) -> Result<Self, EngineError> {
-        Self::open_bound(root, host, policy, mood, Some(narrative))
+        Self::open_bound(root, host, policy, mood, Some(narrative), &Cancel::never())
     }
     fn open_bound(
         root: &Path,
@@ -53,6 +63,7 @@ impl NativeNeoCaptureHook {
         policy: Arc<dyn CapturePolicy>,
         mood: Arc<EmotionalPool>,
         narrative: Option<Arc<dyn LlmPort>>,
+        cancel: &Cancel,
     ) -> Result<Self, EngineError> {
         let raw = serde_json::to_value(host.config()).map_err(|_| StoreError::InvalidInput)?;
         let config = crate::config::effective_config(&raw).map_err(|_| StoreError::InvalidInput)?;
@@ -89,7 +100,7 @@ impl NativeNeoCaptureHook {
             None => episodes,
         });
         // Recover prepared native work before exposing the hook to new capture admissions.
-        episodes.recover_pending(&Cancel::never())?;
+        episodes.recover_pending(cancel)?;
         Ok(Self {
             enabled: config["neo"]["enabled"] != false,
             episodes,

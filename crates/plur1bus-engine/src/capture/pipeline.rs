@@ -60,6 +60,9 @@ pub struct CapturePipeline {
     base_db: PathBuf,
     cutoff_failed: bool,
     admissions: super::admission::Admissions,
+    shutdown: Cancel,
+    owner_scoped: bool,
+    blocked: std::sync::Mutex<std::collections::BTreeSet<String>>,
 }
 
 impl CapturePipeline {
@@ -111,7 +114,45 @@ impl CapturePipeline {
             config,
             base_db,
             cutoff_failed,
+            shutdown: Cancel::never(),
+            owner_scoped: false,
+            blocked: std::sync::Mutex::default(),
         })
+    }
+
+    /// Bind startup recovery to a shutdown signal; admitted work keeps its own cancellation.
+    #[must_use]
+    pub fn with_recovery_cancel(mut self, shutdown: Cancel) -> Self {
+        self.shutdown = shutdown;
+        self
+    }
+
+    /// Recover per owner: an entry that cannot be completed blocks only its own agent
+    /// (until the next recovery) instead of refusing the whole runtime. Inventory failures,
+    /// which cannot be attributed safely, and cancellation still fail recovery as a whole.
+    #[must_use]
+    pub fn with_owner_scoped_recovery(mut self) -> Self {
+        self.owner_scoped = true;
+        self
+    }
+
+    /// Whether owner-scoped recovery left an entry of this agent incomplete.
+    #[must_use]
+    pub fn recovery_blocked(&self, agent: &str) -> bool {
+        self.blocked
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .contains(agent)
+    }
+
+    /// Whether owner-scoped recovery left any agent blocked.
+    #[must_use]
+    pub fn any_recovery_blocked(&self) -> bool {
+        !self
+            .blocked
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .is_empty()
     }
 
     /// Supply the configured summary route; absence means Node's route is unavailable.

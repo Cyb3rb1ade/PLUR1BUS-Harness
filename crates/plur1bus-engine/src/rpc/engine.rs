@@ -58,7 +58,6 @@ pub struct ProcessEngine {
     subscribers: Mutex<Vec<mpsc::Sender<EngineEvent>>>,
     model_degradation: [Degraded; 4],
     closed_degradation: Degraded,
-    capture_degradation: Degraded,
 }
 
 struct ProcessMemory {
@@ -284,7 +283,6 @@ impl ProcessEngine {
                 degradation("models-warming", "reranker")?,
             ],
             closed_degradation: degradation("closed", "engine")?,
-            capture_degradation: degradation("startup-recovery-incomplete", "capture")?,
         })
     }
 
@@ -341,9 +339,10 @@ impl Engine for ProcessEngine {
     }
     fn close(&self, budget: Option<Duration>) -> Result<(), EngineError> {
         self.closed.store(true, Ordering::Release);
-        // Admitted capture work settles within the budget before stores are released (RE-D144).
-        self.capture.close(budget);
+        // Stop store opening first: a capture composition still in S5 recovery aborts too.
         self.store_cancel.cancel();
+        // Admitted capture work settles within the budget before stores are released (RE-D144).
+        let drained = self.capture.close(budget);
         self.embedding.close();
         self.operations.close();
         let stores_closed = self.live_stores.close();
@@ -351,7 +350,15 @@ impl Engine for ProcessEngine {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clear();
-        stores_closed
+        stores_closed?;
+        // Capture work still settling past the budget keeps its own writer handles: report it.
+        if drained {
+            Ok(())
+        } else {
+            Err(EngineError::NotAvailable {
+                reason: "capture-drain-incomplete".into(),
+            })
+        }
     }
     fn status(&self) -> EngineStatus {
         let mut status = self.status.clone();
@@ -359,12 +366,10 @@ impl Engine for ProcessEngine {
         status.agents = (self.live_stores.count() as u64).into();
         // Memory/journal composition is pending; status never blocks on reverse RPC.
         if self.closed.load(Ordering::Acquire) {
-            status.ready = false;
             status.degraded = Some(self.closed_degradation.clone());
-        } else if self.capture.recovery_failed() {
-            // Capture is not served until its startup recovery succeeds.
-            status.ready = false;
-            status.degraded = Some(self.capture_degradation.clone());
+        } else if let Some(degraded) = self.capture.degradation() {
+            // Capture is not (fully) served until its startup composition succeeds.
+            status.degraded = Some(degraded);
         } else {
             let index = match (&status.models.embedder.state, &status.models.reranker.state) {
                 (ModelState::Failed, _) => Some(0),
