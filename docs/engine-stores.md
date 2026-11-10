@@ -1923,3 +1923,21 @@ more German function words among the last three user texts select `de`,
 otherwise `en`. The time and reminder blocks use it. The detection is
 deterministic and reads nothing; `tests/fixtures/recall/locale.json` binds the
 word list and 44 recorded cases. SOUL.md tone is not composed.
+
+### Tombstoned ids in recall (RE-D153)
+
+The pin filters recall candidates only by lifecycle and ACL
+(`lib/recall-pipeline.js` at `9f34008c`: vector search `:1701-1702`, refined
+search `:1754-1761`, graph hydration `:1064-1065`, `:1102-1107`, `:1143-1148`)
+and consults no tombstone registry. A card forgotten from the active writer can
+therefore return through a retained legacy or cross-namespace copy, which the
+native forget keeps on purpose (RE-D142). Native recall masks every row whose
+owner's registry holds a committed deletion of its id. The mask runs after the
+ACL for vector search in every namespace, the refined second search, graph
+endpoints and graph hydration. It uses the memory readers' lookup on the same
+store base. A masked row appears in the trace only as its id with the fixed
+reason `tombstoned`; it is not rendered, counted by A1 or announced. An
+unreadable registry fails the recall, which answers the degraded error result
+without data. Warm reranking already blocks committed and attempted deletions.
+Canonical knowledge sections have no memory id and are not masked. See the
+SHA-bound marker `tests/fixtures/recall/tombstone-recall-native-exceptions.json`.

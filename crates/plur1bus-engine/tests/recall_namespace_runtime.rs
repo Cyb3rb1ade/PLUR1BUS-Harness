@@ -458,6 +458,7 @@ fn pipeline<'a>(
         workspace_dir: fixture["knowledge"].is_string().then_some(workspace),
         edges,
         bound_graph: None,
+        tombstones: None,
         cancel,
         limits: StageLimits {
             top_n: top,

@@ -476,3 +476,159 @@ fn a_german_prompt_renders_the_german_time_block() {
         "<time-context>\nErste Aktivität. Aktuelle Zeit: 2026-01-13 13:00 Europe/Zurich (UTC 2026-01-13 12:00).\n</time-context>"
     );
 }
+
+fn legacy_host(root: &Path, extra: &Value) -> Arc<FakeHost> {
+    let mut config = json!({"namespaces":{"activeWriteNamespace":"current",
+        "legacyReadOnlyNamespaces":["legacy"],"crossNamespaceRecall":true}});
+    for (key, value) in extra.as_object().unwrap() {
+        config[key] = value.clone();
+    }
+    host_with(root, &config)
+}
+
+fn legacy_copy(root: &Path, engine: &ProcessEngine, rows: &[MemoryRow]) {
+    let space = engine.embedding().identities().remove(0).space.unwrap();
+    let width = space.dimension.as_u64().unwrap() as usize;
+    let legacy = Store::create(&root.join("db/legacy/agent"), &space, width).unwrap();
+    legacy.upsert(rows).unwrap();
+}
+
+fn forget(engine: &ProcessEngine, id: &str) {
+    let query = params("x", "user");
+    let request = json!({"id":id,"p":query["query"]["principal"],"a":query["query"]["agent"]});
+    methods::dispatch(engine, "engine.memory.forget", &request, &Cancel::never()).unwrap();
+}
+
+#[test]
+fn a_forgotten_card_never_returns_through_a_legacy_copy() {
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let engine =
+        ProcessEngine::new(legacy_host(root, &json!({})), Some(Seam::FlatEmbedder)).unwrap();
+    let (_, row) = seeded(root, &engine);
+    // A different, never forgotten legacy card stays visible.
+    let mut kept = row.clone();
+    kept.id = "66666666-6666-4666-8666-666666666666".into();
+    kept.text = "A legacy card that was never forgotten.".into();
+    legacy_copy(root, &engine, &[row.clone(), kept.clone()]);
+    forget(&engine, &row.id);
+    let result = recall(&engine, &params("synthetic project archive", "user"));
+    assert_eq!(result["degraded"], Value::Null, "{result}");
+    let text = memories(&result);
+    assert!(!text.contains(&row.id), "{text}");
+    assert!(text.contains(&kept.id), "{text}");
+    // A1 never counts the masked card.
+    let stats = crate::store::recall_stats::RecallStats::new(&root.join("db"))
+        .unwrap()
+        .read("agent", None, &Cancel::never())
+        .unwrap();
+    assert!(stats.iter().all(|counter| counter.id != row.id));
+}
+
+#[test]
+fn the_refined_search_never_finds_a_forgotten_legacy_copy() {
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let host = legacy_host(root, &json!({"autoRecallMinScore":0.5}));
+    let engine = ProcessEngine::new(host, Some(Seam::HashEmbedder)).unwrap();
+    let query = "Wie konfiguriere ich den Docker?";
+    let refined = crate::recall::query_refiner::refine_query(query, None);
+    let identity = engine.embedding().identities().remove(0);
+    let target = engine
+        .embedding()
+        .embed(&[refined], EmbedKind::Query, &identity, &Cancel::never())
+        .unwrap()
+        .remove(0);
+    let (_, row) = seeded_with(root, &engine, target);
+    legacy_copy(root, &engine, std::slice::from_ref(&row));
+    assert!(memories(&recall(&engine, &params(query, "user"))).contains(&row.id));
+    forget(&engine, &row.id);
+    let result = recall(&engine, &params(query, "user"));
+    assert_eq!(result["degraded"], Value::Null, "{result}");
+    assert!(!memories(&result).contains(&row.id), "{result}");
+}
+
+#[test]
+fn an_unreadable_registry_answers_degraded_without_data() {
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let host = host(root, false);
+    let engine = ProcessEngine::new(host.clone(), Some(Seam::FlatEmbedder)).unwrap();
+    let (_, row) = seeded(root, &engine);
+    // The startup tombstone gate has run; the registry becomes unreadable afterwards.
+    assert!(memories(&recall(
+        &engine,
+        &params("synthetic project archive", "user")
+    ))
+    .contains(&row.id));
+    let registry =
+        crate::store::tombstone::TombstoneRegistry::new(&root.join("db"), "agent").unwrap();
+    fs::create_dir_all(registry.path()).unwrap();
+    let result = recall(&engine, &params("synthetic project archive", "user"));
+    assert_eq!(
+        result["degraded"],
+        json!({"reason":"error","capability":"recall","detail":"recall failed"})
+    );
+    assert_eq!(result["blocks"], json!([]));
+    assert!(!result.to_string().contains(&row.id));
+}
+
+#[test]
+fn warm_reranking_never_receives_a_forgotten_legacy_copy() {
+    use crate::embedding::{RerankError, Reranker};
+
+    struct Recorder(Arc<Mutex<Vec<String>>>);
+    impl Reranker for Recorder {
+        fn empty_result_is_valid(&self) -> bool {
+            false
+        }
+        fn rerank(
+            &self,
+            _: &str,
+            docs: &[String],
+            _: usize,
+            _: &Cancel,
+        ) -> Result<Vec<RerankHit>, RerankError> {
+            self.0.lock().unwrap().extend_from_slice(docs);
+            Ok(vec![RerankHit {
+                index: 0.into(),
+                score: 1.into(),
+            }])
+        }
+    }
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let mut engine =
+        ProcessEngine::new(legacy_host(root, &json!({})), Some(Seam::FlatEmbedder)).unwrap();
+    let (_, row) = seeded(root, &engine);
+    let mut kept = row.clone();
+    kept.id = "66666666-6666-4666-8666-666666666666".into();
+    kept.text = "A legacy card that was never forgotten.".into();
+    let mut second = kept.clone();
+    second.id = "77777777-7777-4777-8777-777777777777".into();
+    second.text = "A second live legacy card.".into();
+    legacy_copy(root, &engine, &[row.clone(), kept.clone(), second]);
+    forget(&engine, &row.id);
+    let identity = engine.embedding().identities().remove(0);
+    let space = identity.space.clone().unwrap();
+    let width = space.dimension.as_u64().unwrap() as usize;
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    engine.embedding = Arc::new(
+        Service::new(
+            Seam::FlatEmbedder.embedder(width, &space).unwrap(),
+            Some(Box::new(Recorder(seen.clone()))),
+            identity,
+            None,
+            ServiceOptions::default(),
+        )
+        .unwrap(),
+    );
+    let mut warm = params("synthetic project archive", "user");
+    warm["query"]["warmOnly"] = json!(true);
+    warm["options"]["reranker"] = json!("on");
+    let reply = recall(&engine, &warm);
+    assert_eq!(reply["degraded"], Value::Null, "{reply}");
+    let seen = seen.lock().unwrap().clone();
+    assert!(seen.contains(&kept.text), "{seen:?}");
+    assert!(!seen.contains(&row.text), "{seen:?}");
+}

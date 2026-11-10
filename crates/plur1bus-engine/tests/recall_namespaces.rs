@@ -305,6 +305,7 @@ fn assert_runtime(name: &str) {
         workspace_dir: None,
         edges: &[],
         bound_graph: None,
+        tombstones: None,
         cancel: &Cancel::never(),
         limits: StageLimits {
             top_n: 4,

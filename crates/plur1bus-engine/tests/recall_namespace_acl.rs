@@ -393,6 +393,7 @@ fn pipeline<'a>(
         workspace_dir: None,
         edges: &[],
         bound_graph: None,
+        tombstones: None,
         cancel,
         limits: StageLimits {
             top_n: 4,

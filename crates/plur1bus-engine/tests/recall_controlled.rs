@@ -132,6 +132,7 @@ impl Fixture {
             workspace_dir: Some(self.root.path()),
             edges: &[],
             bound_graph: None,
+            tombstones: None,
             limits: StageLimits {
                 top_n: 12,
                 candidate_top_k: 40,
@@ -296,6 +297,7 @@ impl Fixture {
                 workspace_dir: input.workspace_dir,
                 edges: &[],
                 bound_graph: None,
+                tombstones: None,
                 cancel: caller,
                 limits: input.limits,
                 flags: input.flags,

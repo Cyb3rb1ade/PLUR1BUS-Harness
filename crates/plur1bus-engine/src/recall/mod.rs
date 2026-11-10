@@ -61,6 +61,8 @@ pub mod stages;
 pub mod temporal;
 /// Monotonic request and per-namespace phase timing.
 pub mod timing;
+/// Committed-deletion mask for recall candidate sources (RE-D153).
+pub mod tombstone_mask;
 /// Bounded, redacted, lossless recall decision traces.
 pub mod trace;
 mod trace_redaction;

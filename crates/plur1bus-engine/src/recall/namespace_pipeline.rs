@@ -38,6 +38,8 @@ pub struct Pipeline<'a> {
     pub edges: &'a [GraphEdge],
     /// Native metadata source; when configured, replaces preauthorized in-memory edges.
     pub bound_graph: Option<&'a super::graph_source::BoundGraphSource>,
+    /// Committed-deletion mask for every row source (RE-D153); `None` reads unmasked.
+    pub tombstones: Option<&'a super::tombstone_mask::TombstoneMask>,
     /// Shared caller/deadline cancellation.
     pub cancel: &'a Cancel,
     /// Stage 1–7 limits.
@@ -150,6 +152,7 @@ impl Pipeline<'_> {
             workspace_dir: self.workspace_dir,
             edges: self.edges,
             bound_graph: self.bound_graph,
+            tombstones: self.tombstones,
             limits,
             flags,
             clocks: self.clocks.clone(),

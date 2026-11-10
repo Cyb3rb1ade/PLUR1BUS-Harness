@@ -30,6 +30,7 @@ use crate::{
         runtime::{self, RuntimeRequest},
         score::EmotionalRecallState,
         stages::{StageClocks, StageFlags, StageLimits},
+        tombstone_mask::TombstoneMask,
     },
     store::recall_stats::RecallStats,
     text::{
@@ -199,6 +200,8 @@ fn serve(
     let neo = engine_warm::neo_root(&raw["neo"], base);
     let graph = optional(BoundGraphSource::open(&neo, context))?;
     let patterns = optional(BoundPatternSource::open(&neo, context))?;
+    // The same registry the memory readers consult (RE-D153).
+    let tombstones = TombstoneMask::new(base);
     let embedder = engine.embedding.pipeline_embedder();
     let recall = &raw["recall"];
     let continuity = raw["continuityEngine"]["enabled"] != false;
@@ -216,6 +219,7 @@ fn serve(
         workspace_dir: workspace.as_deref(),
         edges: &[],
         bound_graph: graph.as_ref(),
+        tombstones: Some(&tombstones),
         cancel: caller,
         limits: StageLimits {
             top_n,

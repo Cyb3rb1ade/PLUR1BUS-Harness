@@ -90,6 +90,8 @@ pub struct StageInput<'a> {
     pub edges: &'a [GraphEdge],
     /// Authorized Neo source read after providers, immediately before traversal.
     pub bound_graph: Option<&'a super::graph_source::BoundGraphSource>,
+    /// Committed-deletion mask applied after the ACL to every row source (RE-D153).
+    pub tombstones: Option<&'a super::tombstone_mask::TombstoneMask>,
     /// Numeric limits.
     pub limits: StageLimits,
     /// Stage switches.
@@ -490,7 +492,43 @@ fn search_hits(
     }
     reject_inactive(input, &mut hits, rejections);
     hits.retain(|hit| acl_allows(input, hit, acl_stage, sink, rejections));
-    Ok(hits)
+    retain_unmasked(input, hits, rejections)
+}
+
+/// RE-D153: drop rows whose owner committed their deletion. Only the id and a fixed
+/// reason are recorded. An unreadable registry fails the stage; it never reads unmasked.
+fn retain_unmasked(
+    input: &StageInput<'_>,
+    hits: Vec<Hit>,
+    rejections: &mut Vec<Rejection>,
+) -> Result<Vec<Hit>, StageError> {
+    let mut kept = Vec::with_capacity(hits.len());
+    for hit in hits {
+        if masked(input, &hit, rejections)? {
+            continue;
+        }
+        kept.push(hit);
+    }
+    Ok(kept)
+}
+
+fn masked(
+    input: &StageInput<'_>,
+    hit: &Hit,
+    rejections: &mut Vec<Rejection>,
+) -> Result<bool, StageError> {
+    let (Some(mask), Some(row)) = (input.tombstones, hit.row.as_ref()) else {
+        return Ok(false);
+    };
+    if !mask.masks(row).map_err(StageError::Store)? {
+        return Ok(false);
+    }
+    rejections.push(Rejection {
+        memory_id: hit.id.clone(),
+        stage: "tombstone".to_owned(),
+        reason: "tombstoned".to_owned(),
+    });
+    Ok(true)
 }
 
 /// The pin's refined second search. Only cancellation escapes; any other embedding
@@ -766,6 +804,7 @@ fn hydrate(
         } else if hit.row.as_ref().is_some_and(|row| {
             lifecycle::is_recall_entry_live(row, input.clocks.now_ms, input.clocks.valid_at)
         }) && acl_allows(input, &hit, "graph-hydration-acl", sink, rejections)
+            && !masked(input, &hit, rejections)?
         {
             hydrated.push(hit);
         }
@@ -803,7 +842,9 @@ fn hydrate_one(
         score: hit.score,
         source: "graph",
     };
-    if !acl_allows(input, &kept, "graph-hydration-acl", sink, rejections) {
+    if !acl_allows(input, &kept, "graph-hydration-acl", sink, rejections)
+        || masked(input, &kept, rejections)?
+    {
         return Ok(None);
     }
     Ok(graph_relevance_allows(input.embedder, query_vector, &kept, rejections).then_some(kept))
@@ -998,7 +1039,10 @@ fn allowed_endpoints(
                     score: 0.0,
                     source: "graph",
                 };
-                if acl_allows(input, &shell, "graph-endpoint-acl", sink, rejections) {
+                // A forgotten card is neither an association target nor a bridge (RE-D153).
+                if acl_allows(input, &shell, "graph-endpoint-acl", sink, rejections)
+                    && !masked(input, &shell, rejections)?
+                {
                     allowed.push(endpoint.clone());
                 }
             }
