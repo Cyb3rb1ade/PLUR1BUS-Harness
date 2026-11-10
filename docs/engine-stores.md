@@ -2660,3 +2660,37 @@ Native bounds beyond the pin (RE-D161):
 
 Not ported: the pin's `compactNow` (forced run) has no caller in the capture
 path, and consolidate-daily's own optimize belongs to the job work (RE-06).
+
+### Bounded job admission, status reads and per-agent caches (RE-D164)
+
+- Admission: after the session start, a run's admission window (the agent's slot,
+  the durable start marker with the ledger writer lease, the snapshot) waits at
+  most `SESSION_START_BUDGET` (5 s) or the caller's earlier deadline, and ends on
+  a closed connection or shutdown (`Registry::run_admitted`); expiry answers
+  `job-session-busy`. The body and its 5 s settle keep the caller's token. Every
+  holder of an agent's slot is therefore bounded, so the blocking slot lock in
+  the run guard's drop is bounded as well.
+- The watcher of a budgeted wait ends on every exit of the wait, also a panic
+  (drop guard), so its thread scope never waits for it.
+- `history` reads the ledger directly while the slot is held; a read that
+  overlaps an append (the reader sees the size change, `ledger/io.rs` `read`) is
+  retried at most three times, 5 ms apart, within 250 ms, then answers as before.
+  The overlap is reachable: the direct read happens exactly while a run of the
+  same agent holds the slot to append its row.
+- Per-agent bounds: a registry keeps at most 256 idle agent slots (each a started
+  session with directory handle and lease; same bound as the shared emotion
+  engines); the least recently used idle slot is released, a slot in use never.
+  A health cache keeps at most 1024 ledger projections (the compactor's
+  tracked-agent bound), least recently used first. A failed session start keeps
+  `_jobs/<agent>/` and its lease file: removing them could race a parallel start
+  in another process that holds or waits for the same lease file, so they stay
+  (empty directory, empty lock file).
+- Status reads: `_schema.json` is opened only as a regular file, without
+  following a final link and without blocking on a FIFO or device, and read up to
+  64 KiB (`store::schema_version::read_marker_text`, also used by every store
+  open); anything else is `Corrupt`, so status reports `schema-unsupported/store`.
+  A health read skips a ledger that is not a regular file (`ledger:
+  "unavailable"`) and never holds the cache lock while it reads, so a slow ledger
+  never holds another status caller.
+- `job-session-busy` and the other job reasons are internal; on the wire they
+  are `operation-unavailable` (`rpc/methods.rs`).

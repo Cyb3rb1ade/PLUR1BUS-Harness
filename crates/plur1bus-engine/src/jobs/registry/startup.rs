@@ -31,6 +31,13 @@ impl Registry {
         roots.push(dir);
         Ok(self)
     }
+    /// Number of agent slots (each may hold a started session with its lease) currently kept.
+    pub fn open_sessions(&self) -> usize {
+        self.agents
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .len()
+    }
     /// Start this agent's session ahead of its first run: orphan recovery and the configured
     /// legacy migration, under the caller's cancellation (a host binds it to its shutdown).
     /// Idempotent; a failure leaves the agent unadmitted and the next call retries.

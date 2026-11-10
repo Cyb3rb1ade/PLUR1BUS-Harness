@@ -6,12 +6,10 @@ use crate::{
         ModelState, ModelsStatus, ModelsStatusEmbedder, ModelsStatusReranker, SharedMemoryMode,
         SharedMemorySupport, SharedMemorySupportReason,
     },
-    store::paths::assert_trusted_path,
     text::json::{parse_json, TolerantJsonValue as Json},
 };
 use serde_json::Value;
 use std::{
-    fs,
     path::{Path, PathBuf},
     sync::{
         mpsc::{self, Receiver, RecvTimeoutError},
@@ -56,11 +54,10 @@ pub fn normalize_journal(value: &Value) -> Option<JournalBacklog> {
 }
 /// Read only the base marker. Unknown numeric versions are diagnostic data, not migration permission.
 pub fn schema_version(base: &Path) -> Option<String> {
-    let path = base.join("_schema.json");
-    assert_trusted_path(&path).ok()?;
-    let bytes = match fs::read_to_string(&path) {
-        Ok(s) => s,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Some("0".into()),
+    // Bounded, regular-file-only and non-blocking, as every store open reads it (RE-D164).
+    let bytes = match crate::store::schema_version::read_marker_text(&base.join("_schema.json")) {
+        Ok(Some(text)) => text,
+        Ok(None) => return Some("0".into()),
         Err(_) => return None,
     };
     let raw = parse_json(&bytes).ok()?;

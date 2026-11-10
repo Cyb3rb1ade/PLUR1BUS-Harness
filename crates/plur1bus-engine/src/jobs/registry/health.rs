@@ -47,13 +47,64 @@ impl Drop for InFlightGuard<'_> {
 /// time and, where available, inode and change time (a same-length rewrite changes ctime).
 type Key = (u64, Option<SystemTime>, u64, i64, i64);
 
+/// Most agent ledger projections one cache keeps (RE-D164); the least recently used goes.
+/// Same bound as the compactor's tracked agents (`store/fragment_compactor.rs`
+/// `MAX_TRACKED_AGENTS`): status lists every agent directory, so a smaller cache would
+/// re-read every ledger on each call once more agents exist.
+pub const MAX_HEALTH_PROJECTIONS: usize = 1024;
+
+#[cfg(any(test, feature = "testkit"))]
+type ReadHook = Arc<dyn Fn(&str) + Send + Sync>;
+
 /// Per-agent ledger projections, re-read only when the ledger file's metadata changed.
 #[derive(Default)]
-pub struct HealthCache(Mutex<HashMap<String, Cached>>);
+pub struct HealthCache {
+    entries: Mutex<HashMap<String, Cached>>,
+    uses: AtomicU64,
+    #[cfg(any(test, feature = "testkit"))]
+    hook: Mutex<Option<ReadHook>>,
+}
+impl HealthCache {
+    /// Number of projections currently kept.
+    pub fn len(&self) -> usize {
+        self.entries
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .len()
+    }
+    /// Whether no projection is kept.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+    /// Observe each ledger read (agent name) in isolated fixtures only.
+    #[cfg(any(test, feature = "testkit"))]
+    pub fn set_read_hook(&self, hook: ReadHook) {
+        *self
+            .hook
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(hook);
+    }
+    fn observe(&self, agent: &str) {
+        #[cfg(any(test, feature = "testkit"))]
+        {
+            let hook = self
+                .hook
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .clone();
+            if let Some(hook) = hook {
+                hook(agent);
+            }
+        }
+        #[cfg(not(any(test, feature = "testkit")))]
+        let _ = agent;
+    }
+}
 
 #[derive(Clone, Default)]
 struct Cached {
     key: Option<Key>,
+    used: u64,
     last_runs: HashMap<String, JobLastRun>,
     sessions: HashMap<String, usize>,
     unreadable: usize,
@@ -83,6 +134,11 @@ impl Registry {
             runs: &self.inflight,
             id,
         }
+    }
+
+    /// Number of ledger projections this registry's health cache keeps.
+    pub fn cached_projections(&self) -> usize {
+        self.inflight.cache.len()
     }
 
     /// Whether the jobs root is still the directory this registry bound.
@@ -237,23 +293,48 @@ fn key(meta: &std::fs::Metadata) -> Key {
 fn agent_ledger(root: &Path, agent: &str, cache: &HealthCache) -> Result<Cached, ()> {
     let path = root.join(agent).join("ledger.jsonl");
     let key = match std::fs::symlink_metadata(&path) {
-        Ok(meta) => key(&meta),
+        // Only a regular file is read; a FIFO or device would block the status (RE-D164).
+        Ok(meta) if meta.is_file() => key(&meta),
+        Ok(_) => return Err(()),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Cached::default()),
         Err(_) => return Err(()),
     };
-    let mut cache = cache
-        .0
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    if let Some(cached) = cache.get(agent).filter(|cached| cached.key == Some(key)) {
-        return Ok(cached.clone());
+    let used = cache.uses.fetch_add(1, Ordering::Relaxed);
+    {
+        let mut entries = cache
+            .entries
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(cached) = entries
+            .get_mut(agent)
+            .filter(|cached| cached.key == Some(key))
+        {
+            cached.used = used;
+            return Ok(cached.clone());
+        }
     }
+    // The read runs without the cache lock: a slow ledger never holds another caller.
+    cache.observe(agent);
     let snapshot = JobLedger::open(root, agent)
         .map_err(|_| ())?
         .snapshot(&Cancel::never())
         .map_err(|_| ())?;
-    let cached = derive(key, &snapshot.rows, snapshot.unreadable);
-    cache.insert(agent.to_owned(), cached.clone());
+    let mut cached = derive(key, &snapshot.rows, snapshot.unreadable);
+    cached.used = used;
+    let mut entries = cache
+        .entries
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    if !entries.contains_key(agent) && entries.len() >= MAX_HEALTH_PROJECTIONS {
+        if let Some(oldest) = entries
+            .iter()
+            .min_by_key(|(_, cached)| cached.used)
+            .map(|(name, _)| name.clone())
+        {
+            entries.remove(&oldest);
+        }
+    }
+    entries.insert(agent.to_owned(), cached.clone());
     Ok(cached)
 }
 
@@ -293,6 +374,7 @@ fn derive(key: Key, rows: &[TolerantJsonValue], unreadable: usize) -> Cached {
         .collect();
     Cached {
         key: Some(key),
+        used: 0,
         last_runs,
         sessions,
         unreadable,

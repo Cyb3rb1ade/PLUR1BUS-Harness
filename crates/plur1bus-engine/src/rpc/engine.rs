@@ -346,6 +346,22 @@ fn decode<T: serde::de::DeserializeOwned>(value: Value) -> Result<T, EngineError
     serde_json::from_value(value).map_err(|_| composition_invalid())
 }
 
+/// Status priority, first match wins (RE-D159, schema after composition-invalid per RE-D160).
+/// The declaration order is the documented order.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum StatusRank {
+    Closed,
+    CompositionInvalid,
+    SchemaUnsupported,
+    EmbeddingFailed,
+    CaptureNotServed,
+    EmbeddingWarming,
+    RerankerFailed,
+    RerankerLoading,
+    CaptureDeferred,
+    CompositionPending,
+}
+
 fn degradation(reason: &str, capability: &str) -> Result<Degraded, EngineError> {
     decode(json!({"reason": reason, "capability": capability}))
 }
@@ -422,16 +438,16 @@ impl Engine for ProcessEngine {
         // closed > composition invalid > schema unsupported > embedding failed > capture not
         // served > embedding warming > reranker failed > reranker loading > capture deferred
         // > composition-pending.
-        let mut ranked: Vec<(u8, Degraded)> = Vec::new();
+        let mut ranked: Vec<(StatusRank, Degraded)> = Vec::new();
         let mut served = !closed;
         if closed {
-            ranked.push((1, self.closed_degradation.clone()));
+            ranked.push((StatusRank::Closed, self.closed_degradation.clone()));
         } else {
             if let Some((degraded, capture)) = self.capture.degradation() {
                 let rank = match capture {
-                    engine_capture::Served::Invalid => 2,
-                    engine_capture::Served::No => 5,
-                    engine_capture::Served::Deferred => 9,
+                    engine_capture::Served::Invalid => StatusRank::CompositionInvalid,
+                    engine_capture::Served::No => StatusRank::CaptureNotServed,
+                    engine_capture::Served::Deferred => StatusRank::CaptureDeferred,
                 };
                 served &= capture == engine_capture::Served::Deferred;
                 ranked.push((rank, degraded));
@@ -440,26 +456,26 @@ impl Engine for ProcessEngine {
                 // Only an unusable jobs root; one agent's session start affects only that agent.
                 if let Some(degraded) = self.jobs.degradation() {
                     served = false;
-                    ranked.push((2, degraded));
+                    ranked.push((StatusRank::CompositionInvalid, degraded));
                 }
                 if let Some(degraded) = self.schema_degradation() {
                     served = false;
-                    ranked.push((3, degraded));
+                    ranked.push((StatusRank::SchemaUnsupported, degraded));
                 }
             }
         }
         if let Some(degraded) = models {
             let rank = match (degraded.reason.as_str(), degraded.capability.as_str()) {
-                ("model-failed", "embedding") => 4,
-                ("models-warming", "embedding") => 6,
-                ("model-failed", _) => 7,
-                _ => 8,
+                ("model-failed", "embedding") => StatusRank::EmbeddingFailed,
+                ("models-warming", "embedding") => StatusRank::EmbeddingWarming,
+                ("model-failed", _) => StatusRank::RerankerFailed,
+                _ => StatusRank::RerankerLoading,
             };
             ranked.push((rank, degraded));
         }
         // The frozen default without a store base (`composition-pending`).
         if let Some(degraded) = status.degraded.take() {
-            ranked.push((10, degraded));
+            ranked.push((StatusRank::CompositionPending, degraded));
         }
         status.degraded = ranked
             .into_iter()

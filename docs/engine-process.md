@@ -18,7 +18,10 @@ pin. It reports `ready: false` after close (`closed/engine`), while capture is n
 (`composition-invalid/jobs`) and while the base schema marker is one every store open refuses
 (`schema-unsupported/store`, RE-D160). One agent's failed job session start answers
 `startup-recovery-incomplete` for that agent's runs only. A session start is bounded (5 s, or a closed
-connection, or shutdown) and then answers `job-session-busy`; `engine.jobs.history` never waits for it. After
+connection, or shutdown) and then answers `job-session-busy`; so is the start-marker admission (RE-D164);
+`engine.jobs.history` never waits for it. `job-session-busy`, `job-authority-unbound` and
+`startup-recovery-incomplete` are internal reasons: on the wire each appears as `operation-unavailable`, so a
+client cannot tell "busy, retry later" from "refused" (changing that is a contract change, not RX). After
 close, status asks no source. Capture composition takes an inventory only; retained work is recovered behind it,
 one owner at a time (RE-D162). While capture is served but some owner's retained work waits or is being recovered
 (after the composition, maintenance, a transient failure, its own recovery budget) or a retained

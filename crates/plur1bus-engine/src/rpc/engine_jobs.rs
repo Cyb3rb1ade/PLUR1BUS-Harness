@@ -40,6 +40,23 @@ const SESSION_BUSY: &str = "job-session-busy";
 const SESSION_START_BUDGET: Duration = Duration::from_secs(5);
 /// How often a waiting session start looks at its caller's and the engine's cancellation.
 const WATCH_TICK: Duration = Duration::from_millis(10);
+/// Most idle agent slots the registry keeps (RE-D164).
+#[cfg(test)]
+pub(super) const MAX_AGENT_SESSIONS: usize = crate::jobs::registry::MAX_AGENT_SESSIONS;
+
+#[cfg(test)]
+type Fault = Arc<dyn Fn() + Send + Sync>;
+
+/// A fresh token ending after `SESSION_START_BUDGET`, or at the caller's earlier deadline.
+fn budgeted(cancel: &Cancel) -> Cancel {
+    let now = Instant::now();
+    let end = cancel
+        .remaining()
+        .map_or(now + SESSION_START_BUDGET, |left| {
+            (now + left).min(now + SESSION_START_BUDGET)
+        });
+    Cancel::with_deadline(end)
+}
 
 fn unavailable(reason: &str) -> EngineError {
     EngineError::NotAvailable {
@@ -73,6 +90,8 @@ pub(super) struct ProcessJobs {
     invalid: AtomicBool,
     shutdown: Cancel,
     closed: AtomicBool,
+    #[cfg(test)]
+    prepare_fault: Mutex<Option<Fault>>,
 }
 
 impl ProcessJobs {
@@ -91,7 +110,42 @@ impl ProcessJobs {
             invalid: AtomicBool::new(false),
             shutdown: Cancel::never(),
             closed: AtomicBool::new(false),
+            #[cfg(test)]
+            prepare_fault: Mutex::new(None),
         }
+    }
+
+    /// Run a fault inside the session start (test only).
+    #[cfg(test)]
+    pub(super) fn set_prepare_fault(&self, fault: Fault) {
+        *self
+            .prepare_fault
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner) = Some(fault);
+    }
+
+    /// Observe ledger reads of the unbound health cache (test only).
+    #[cfg(test)]
+    pub(super) fn set_ledger_read_hook(&self, hook: Arc<dyn Fn(&str) + Send + Sync>) {
+        self.unbound.set_read_hook(hook);
+    }
+
+    /// Agent slots of the bound registry (test only).
+    #[cfg(test)]
+    pub(super) fn open_sessions(&self) -> usize {
+        self.slot()
+            .as_ref()
+            .map_or(0, |registry| registry.open_sessions())
+    }
+
+    /// Ledger projections kept by both health caches (test only).
+    #[cfg(test)]
+    pub(super) fn cached_projections(&self) -> usize {
+        self.unbound.len()
+            + self
+                .slot()
+                .as_ref()
+                .map_or(0, |registry| registry.cached_projections())
     }
 
     /// Whether a native body is installed for this job in this composition.
@@ -184,15 +238,36 @@ impl ProcessJobs {
         agent: &AgentId,
         cancel: &Cancel,
     ) -> Result<(), EngineError> {
-        let now = Instant::now();
-        let end = cancel
-            .remaining()
-            .map_or(now + SESSION_START_BUDGET, |left| {
-                (now + left).min(now + SESSION_START_BUDGET)
-            });
-        let token = Cancel::with_deadline(end);
+        let token = budgeted(cancel);
+        self.watched(cancel, &token, || {
+            #[cfg(test)]
+            {
+                let fault = self
+                    .prepare_fault
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .clone();
+                if let Some(fault) = fault {
+                    fault();
+                }
+            }
+            registry.prepare(agent, &token)
+        })
+        .map_err(|error| self.waited(error, cancel))
+    }
+
+    /// Run `work` while a watcher cancels `token` when the caller's token (a closed
+    /// connection) or the engine's shutdown fires. The watcher ends on every exit of `work`,
+    /// also a panic (drop guard), so the scope never waits for it (RE-D164).
+    fn watched<T>(&self, cancel: &Cancel, token: &Cancel, work: impl FnOnce() -> T) -> T {
+        struct Done<'a>(&'a AtomicBool);
+        impl Drop for Done<'_> {
+            fn drop(&mut self) {
+                self.0.store(true, Ordering::Release);
+            }
+        }
         let done = AtomicBool::new(false);
-        let result = std::thread::scope(|scope| {
+        std::thread::scope(|scope| {
             scope.spawn(|| {
                 while !done.load(Ordering::Acquire) {
                     if cancel.is_cancelled() || self.shutdown.is_cancelled() {
@@ -202,28 +277,40 @@ impl ProcessJobs {
                     std::thread::sleep(WATCH_TICK);
                 }
             });
-            let result = registry.prepare(agent, &token);
-            done.store(true, Ordering::Release);
-            result
-        });
-        match result {
-            Ok(()) => Ok(()),
-            // Shutdown is no failure state.
-            Err(_) if self.closed.load(Ordering::Acquire) || self.shutdown.is_cancelled() => {
-                Err(unavailable("closed"))
-            }
-            // The caller's own cancellation or deadline.
-            Err(_) if cancel.is_cancelled() => Err(cancel
-                .check()
-                .err()
-                .map_or_else(|| unavailable(SESSION_BUSY), EngineError::from)),
-            Err(EngineError::Cancelled(_)) => Err(unavailable(SESSION_BUSY)),
-            Err(error @ EngineError::Invalid { .. }) => Err(error),
-            Err(_) => {
+            let _done = Done(&done);
+            work()
+        })
+    }
+
+    /// Map a session-start error: shutdown → closed; the caller's own cancellation stays its
+    /// own; the budget → `job-session-busy`; anything else concerns this agent only.
+    fn waited(&self, error: EngineError, cancel: &Cancel) -> EngineError {
+        if let Some(error) = self.interrupted(&error, cancel) {
+            return error;
+        }
+        match error {
+            error @ EngineError::Invalid { .. } => error,
+            _ => {
                 log::warn!("jobs: session start incomplete");
-                Err(unavailable(RECOVERY_INCOMPLETE))
+                unavailable(RECOVERY_INCOMPLETE)
             }
         }
+    }
+
+    /// The common part of every budgeted wait: shutdown, the caller, then the budget.
+    fn interrupted(&self, error: &EngineError, cancel: &Cancel) -> Option<EngineError> {
+        if self.closed.load(Ordering::Acquire) || self.shutdown.is_cancelled() {
+            return Some(unavailable("closed"));
+        }
+        if cancel.is_cancelled() {
+            return Some(
+                cancel
+                    .check()
+                    .err()
+                    .map_or_else(|| unavailable(SESSION_BUSY), EngineError::from),
+            );
+        }
+        matches!(error, EngineError::Cancelled(_)).then(|| unavailable(SESSION_BUSY))
     }
 
     /// The jobs degradation the status reports: only a jobs root that cannot be bound.
@@ -313,7 +400,13 @@ impl JobRegistry for ProcessJobs {
             .ok_or_else(|| unavailable(COMPOSITION_INVALID))?;
         self.prepare(&registry, agent, cancel)?;
         cancel.check()?;
-        registry.run(job, agent, opts, cancel)
+        // The admission window (slot, start marker with its ledger writer lease) has the same
+        // budget as the session start; the body keeps the caller's token (RE-D164).
+        let admit = budgeted(cancel);
+        self.watched(cancel, &admit, || {
+            registry.run_admitted(job, agent, &opts, cancel, &admit)
+        })
+        .map_err(|error| self.interrupted(&error, cancel).unwrap_or(error))
     }
     fn history(&self, agent: &AgentId, filter: HistoryFilter) -> Result<Vec<JobRun>, EngineError> {
         match self.registry(false)? {

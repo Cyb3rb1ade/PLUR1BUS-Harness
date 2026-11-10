@@ -480,3 +480,232 @@ fn close_during_job_recovery_stays_within_its_budget() {
     assert!(!agent_dir.join("running").exists());
     drop(lease);
 }
+
+fn hold(dir: &Path, name: &str) -> crate::store::kernel_lease::KernelLease {
+    let held = TrustedDirectory::open(dir).unwrap();
+    crate::store::kernel_lease::acquire(&held, name, &Cancel::never(), &mut || {}).unwrap()
+}
+
+#[test]
+fn marker_admission_is_bounded_and_history_reads_real_lines_meanwhile() {
+    let temp = scratch();
+    let base = temp.path().join("db");
+    let (_host, engine) = engine(temp.path(), false);
+    drain(&engine, &alpha(), &Cancel::never()).unwrap();
+    let engine = Arc::new(engine);
+    // After a successful start, another holder keeps the agent's ledger writer lease.
+    let lease = hold(&base.join("_jobs/alpha"), "job-ledger-writer");
+    let (done, finished) = mpsc::channel();
+    let started = Instant::now();
+    let workers: Vec<_> = (0..8)
+        .map(|_| {
+            let runner = engine.clone();
+            let done = done.clone();
+            std::thread::spawn(move || {
+                let _ = done.send(drain(&runner, &alpha(), &Cancel::never()).map(|_| ()));
+            })
+        })
+        .collect();
+    std::thread::sleep(Duration::from_millis(200));
+    // While admissions wait, history reads the real ledger line directly.
+    let (sent, listed) = mpsc::channel();
+    let reader = engine.clone();
+    std::thread::spawn(move || {
+        let _ = sent.send(
+            reader
+                .jobs()
+                .history(&alpha(), serde_json::from_value(json!({})).unwrap())
+                .map(|runs| runs.len()),
+        );
+    });
+    let listed = listed.recv_timeout(Duration::from_secs(1));
+    assert!(matches!(listed, Ok(Ok(1))), "{listed:?}");
+    for _ in 0..8 {
+        let result = finished.recv_timeout(Duration::from_secs(20));
+        assert!(result.is_ok(), "an admission waited without bound");
+        refused(result.unwrap(), "job-session-busy");
+    }
+    // Eight bounded budgets in parallel, generous against foreign load.
+    assert!(started.elapsed() < Duration::from_secs(20));
+    for worker in workers {
+        worker.join().unwrap();
+    }
+    // Nothing is left behind: other methods answer, the next run is admitted after release.
+    assert_eq!(status(&engine)["ready"], true);
+    drop(lease);
+    drain(&engine, &alpha(), &Cancel::never()).unwrap();
+    assert_eq!(history(&engine).len(), 2);
+    engine.close(None).unwrap();
+}
+
+#[allow(clippy::panic, reason = "the injected fault is the test")]
+#[test]
+fn a_panicking_session_start_ends_its_watcher() {
+    let temp = scratch();
+    let (_host, engine) = engine(temp.path(), false);
+    engine
+        .jobs
+        .set_prepare_fault(Arc::new(|| std::panic::panic_any("injected")));
+    let engine = Arc::new(engine);
+    let (done, finished) = mpsc::channel();
+    let runner = engine.clone();
+    std::thread::spawn(move || {
+        let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            drain(&runner, &alpha(), &Cancel::never()).map(|_| ())
+        }));
+        let _ = done.send(outcome.is_err());
+    });
+    let panicked = finished.recv_timeout(Duration::from_secs(5));
+    assert!(
+        matches!(panicked, Ok(true)),
+        "the run did not return: {panicked:?}"
+    );
+    engine.close(None).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn a_fifo_schema_marker_answers_status_at_once_as_unsupported() {
+    let temp = scratch();
+    let base = temp.path().join("db");
+    let (_host, engine) = engine(temp.path(), false);
+    fs::create_dir_all(&base).unwrap();
+    let marker = std::ffi::CString::new(
+        base.join("_schema.json")
+            .into_os_string()
+            .into_encoded_bytes(),
+    )
+    .unwrap();
+    // SAFETY: a valid NUL-terminated path in a test-owned directory.
+    assert_eq!(unsafe { libc::mkfifo(marker.as_ptr(), 0o600) }, 0);
+    let engine = Arc::new(engine);
+    let (done, finished) = mpsc::channel();
+    let reader = engine.clone();
+    std::thread::spawn(move || {
+        let _ = done.send(status(&reader));
+    });
+    let answered = finished.recv_timeout(Duration::from_secs(5));
+    assert!(answered.is_ok(), "status blocked on a FIFO marker");
+    let answered = answered.unwrap();
+    assert_eq!(answered["ready"], false);
+    assert_eq!(
+        answered["degraded"],
+        json!({"reason":"schema-unsupported","capability":"store"})
+    );
+    // An oversized marker is unsupported too.
+    let big = temp.path().join("big");
+    fs::create_dir_all(big.join("db")).unwrap();
+    fs::write(
+        big.join("db/_schema.json"),
+        format!(
+            "{{\"schemaVersion\":\"1\",\"pad\":\"{}\"}}",
+            "x".repeat(70_000)
+        ),
+    )
+    .unwrap();
+    let (_host, other) = self::engine(&big, false);
+    assert_eq!(status(&other)["degraded"]["reason"], "schema-unsupported");
+}
+
+#[test]
+fn a_slow_ledger_read_does_not_hold_other_status_callers() {
+    let temp = scratch();
+    let base = temp.path().join("db");
+    let (_host, engine) = engine(temp.path(), false);
+    for agent in ["alpha", "beta"] {
+        fs::create_dir_all(base.join("_jobs").join(agent)).unwrap();
+        fs::write(base.join("_jobs").join(agent).join("ledger.jsonl"), "{}\n").unwrap();
+    }
+    let gate = Arc::new(testkit::FixtureGate::default());
+    let first = Arc::new(AtomicBool::new(true));
+    let hook_gate = gate.clone();
+    engine
+        .jobs
+        .set_ledger_read_hook(Arc::new(move |agent: &str| {
+            if agent == "alpha" && first.swap(false, Ordering::AcqRel) {
+                hook_gate.block();
+            }
+        }));
+    let engine = Arc::new(engine);
+    let slow = engine.clone();
+    let blocked = std::thread::spawn(move || status(&slow));
+    assert!(gate.wait_entered(Duration::from_secs(5)));
+    let (done, finished) = mpsc::channel();
+    let quick = engine.clone();
+    std::thread::spawn(move || {
+        let _ = done.send(status(&quick));
+    });
+    let other = finished.recv_timeout(Duration::from_secs(5));
+    gate.release();
+    assert!(
+        other.is_ok(),
+        "a slow ledger read held another status caller"
+    );
+    assert_eq!(
+        other.unwrap()["jobs"]["agents"].as_array().unwrap().len(),
+        2
+    );
+    blocked.join().unwrap();
+    engine.close(None).unwrap();
+}
+
+#[test]
+fn agent_sessions_and_health_projections_are_bounded() {
+    let temp = scratch();
+    let base = temp.path().join("db");
+    let (_host, engine) = engine(temp.path(), false);
+    for index in 0..(engine_jobs::MAX_AGENT_SESSIONS + 4) {
+        let agent: AgentId = serde_json::from_value(json!(format!("agent-{index}"))).unwrap();
+        drain(&engine, &agent, &Cancel::never()).unwrap();
+        assert!(engine.jobs.open_sessions() <= engine_jobs::MAX_AGENT_SESSIONS);
+    }
+    // An evicted agent starts a fresh session and keeps its ledger.
+    let first: AgentId = serde_json::from_value(json!("agent-0")).unwrap();
+    drain(&engine, &first, &Cancel::never()).unwrap();
+    assert_eq!(
+        engine
+            .jobs()
+            .history(&first, serde_json::from_value(json!({})).unwrap())
+            .unwrap()
+            .len(),
+        2
+    );
+    let jobs = status(&engine)["jobs"].clone();
+    assert_eq!(jobs["ledger"], "ok");
+    assert!(engine.jobs.cached_projections() <= crate::jobs::registry::MAX_HEALTH_PROJECTIONS);
+    assert!(base.join("_jobs").is_dir());
+    engine.close(None).unwrap();
+}
+
+#[test]
+fn the_status_priority_table_puts_the_schema_after_composition_invalid() {
+    use super::StatusRank as R;
+    let documented = [
+        R::Closed,
+        R::CompositionInvalid,
+        R::SchemaUnsupported,
+        R::EmbeddingFailed,
+        R::CaptureNotServed,
+        R::EmbeddingWarming,
+        R::RerankerFailed,
+        R::RerankerLoading,
+        R::CaptureDeferred,
+        R::CompositionPending,
+    ];
+    for pair in documented.windows(2) {
+        assert!(
+            pair[0] < pair[1],
+            "{:?} must outrank {:?}",
+            pair[0],
+            pair[1]
+        );
+    }
+    // Through the engine: an unsupported marker wins over warming models.
+    let temp = scratch();
+    let base = temp.path().join("db");
+    let (_host, engine) = engine(temp.path(), false);
+    fs::create_dir_all(&base).unwrap();
+    fs::write(base.join("_schema.json"), br#"{"schemaVersion":"2"}"#).unwrap();
+    assert_eq!(engine.models().status().embedder.state, ModelState::Loading);
+    assert_eq!(status(&engine)["degraded"]["reason"], "schema-unsupported");
+}

@@ -14,7 +14,11 @@ use std::{
     time::Duration,
 };
 mod health;
-pub use health::{health_at, HealthCache};
+pub use health::{health_at, HealthCache, MAX_HEALTH_PROJECTIONS};
+/// Most idle agent slots (each with its started session, directory handle and lease) a
+/// registry keeps; the least recently used idle one is released first (RE-D164). Same bound
+/// as the shared emotion engines (`capture::classify::EmotionEngines`, 256, `354cc93f12`).
+pub const MAX_AGENT_SESSIONS: usize = 256;
 mod notes;
 mod record;
 mod startup;
@@ -84,7 +88,9 @@ pub struct Registry {
     ids: IdFactory,
     events: Events,
     bodies: Mutex<BTreeMap<JobName, Arc<dyn JobBody>>>,
-    agents: Mutex<BTreeMap<String, Slot>>,
+    /// Agent slots with their last use; at most `MAX_AGENT_SESSIONS` idle ones are kept.
+    agents: Mutex<BTreeMap<String, (Slot, u64)>>,
+    uses: std::sync::atomic::AtomicU64,
     closed: AtomicBool,
     inflight: health::InFlightRuns,
     #[cfg(any(test, feature = "testkit"))]
@@ -101,6 +107,7 @@ impl Registry {
             events: Arc::new(|_| Ok(())),
             bodies: Mutex::new(BTreeMap::new()),
             agents: Mutex::new(BTreeMap::new()),
+            uses: std::sync::atomic::AtomicU64::new(0),
             closed: AtomicBool::new(false),
             inflight: health::InFlightRuns::default(),
             #[cfg(any(test, feature = "testkit"))]
@@ -175,10 +182,30 @@ impl Registry {
     fn slot(&self, agent: &AgentId) -> Result<Slot, EngineError> {
         let mut agents = self.agents.lock().map_err(|_| StoreError::Corrupt)?;
         self.check(&Cancel::never())?;
-        Ok(agents
-            .entry(agent.to_string())
-            .or_insert_with(|| Arc::new(Mutex::new(None)))
-            .clone())
+        let used = self.uses.fetch_add(1, Ordering::Relaxed);
+        if let Some((slot, last)) = agents.get_mut(agent.as_str()) {
+            *last = used;
+            return Ok(slot.clone());
+        }
+        // Release the least recently used idle slot (its session, directory handle and lease)
+        // before a new one exceeds the bound. A slot someone else holds is never released; with
+        // every slot in use the map grows by the concurrent callers only (RE-D164).
+        while agents.len() >= MAX_AGENT_SESSIONS {
+            let idle = agents
+                .iter()
+                .filter(|(_, (slot, _))| Arc::strong_count(slot) == 1)
+                .min_by_key(|(_, (_, last))| *last)
+                .map(|(name, _)| name.clone());
+            match idle {
+                Some(name) => {
+                    agents.remove(&name);
+                }
+                None => break,
+            }
+        }
+        let slot: Slot = Arc::new(Mutex::new(None));
+        agents.insert(agent.to_string(), (slot.clone(), used));
+        Ok(slot)
     }
 }
 struct ActiveRun {
@@ -206,6 +233,30 @@ fn lock<'a, T>(mutex: &'a Mutex<T>, cancel: &Cancel) -> Result<MutexGuard<'a, T>
             Err(std::sync::TryLockError::WouldBlock) => {
                 std::thread::sleep(Duration::from_millis(5))
             }
+        }
+    }
+}
+/// Read a ledger without its session. A read overlapping an append sees the size change and
+/// answers `Unavailable` (`ledger/io.rs` `read`); it is retried at most three times with a
+/// short pause while less than 250 ms have passed, then the last answer stands (RE-D164).
+/// The read itself keeps its own bounds (`MAX_BYTES`, `MAX_ROWS`).
+fn direct_snapshot(
+    ledger: &JobLedger,
+) -> Result<Vec<crate::text::json::TolerantJsonValue>, EngineError> {
+    const RETRIES: usize = 3;
+    const PAUSE: Duration = Duration::from_millis(5);
+    const BUDGET: Duration = Duration::from_millis(250);
+    let started = std::time::Instant::now();
+    let mut attempt = 0;
+    loop {
+        match ledger.snapshot(&Cancel::never()) {
+            Err(EngineError::Store(StoreError::Unavailable))
+                if attempt < RETRIES && started.elapsed() + PAUSE < BUDGET =>
+            {
+                attempt += 1;
+                std::thread::sleep(PAUSE);
+            }
+            other => return other.map(|snapshot| snapshot.rows),
         }
     }
 }
@@ -240,6 +291,24 @@ impl JobRegistry for Registry {
         opts: RunOptions,
         cancel: &Cancel,
     ) -> Result<JobRun, EngineError> {
+        self.run_admitted(job, agent, &opts, cancel, cancel)
+    }
+    fn history(&self, agent: &AgentId, filter: HistoryFilter) -> Result<Vec<JobRun>, EngineError> {
+        self.history_inner(agent, &filter)
+    }
+}
+impl Registry {
+    /// `JobRegistry::run` with a separate token for the admission window: the agent's slot,
+    /// a session start and the durable start marker (with its ledger writer lease) wait at
+    /// most until `admit` ends; the body and its settle keep the caller's `cancel` (RE-D164).
+    pub fn run_admitted(
+        &self,
+        job: JobName,
+        agent: &AgentId,
+        opts: &RunOptions,
+        cancel: &Cancel,
+        admit: &Cancel,
+    ) -> Result<JobRun, EngineError> {
         self.check(cancel)?;
         let body = self
             .bodies
@@ -262,9 +331,9 @@ impl JobRegistry for Registry {
         let slot = self.slot(agent)?;
         let sweep = draft.sweep()?;
         let (admission, snapshot, owns, pre_skip) = {
-            let mut state = lock(&slot, cancel)?;
+            let mut state = lock(&slot, admit)?;
             if state.is_none() {
-                let session = self.start_session(agent, cancel)?;
+                let session = self.start_session(agent, admit)?;
                 *state = Some(AgentState {
                     session,
                     active: BTreeMap::new(),
@@ -272,8 +341,9 @@ impl JobRegistry for Registry {
             }
             let state = state.as_mut().ok_or(StoreError::Corrupt)?;
             self.check(cancel)?;
-            let admission = state.session.start(&draft.marker()?, cancel)?;
-            let snapshot = Arc::new(state.session.snapshot(cancel)?.rows);
+            self.check(admit)?;
+            let admission = state.session.start(&draft.marker()?, admit)?;
+            let snapshot = Arc::new(state.session.snapshot(admit)?.rows);
             let singleton = matches!(
                 job,
                 JobName::KnowledgeUpdate
@@ -348,7 +418,11 @@ impl JobRegistry for Registry {
         cancel.check()?;
         Ok(run)
     }
-    fn history(&self, agent: &AgentId, filter: HistoryFilter) -> Result<Vec<JobRun>, EngineError> {
+    fn history_inner(
+        &self,
+        agent: &AgentId,
+        filter: &HistoryFilter,
+    ) -> Result<Vec<JobRun>, EngineError> {
         self.check(&Cancel::never())?;
         let ledger = JobLedger::open(self.root.path(), &agent.to_string())?;
         let slot = self
@@ -356,7 +430,7 @@ impl JobRegistry for Registry {
             .lock()
             .map_err(|_| StoreError::Corrupt)?
             .get::<str>(agent.as_ref())
-            .cloned();
+            .map(|(slot, _)| slot.clone());
         // A read never waits for the agent's slot: while a session start or run holds it, the
         // ledger file is read directly (the snapshot takes no lock either way).
         let session_rows = match slot.as_deref().map(Mutex::try_lock) {
@@ -371,7 +445,7 @@ impl JobRegistry for Registry {
         };
         let rows = match session_rows {
             Some(rows) => rows,
-            None => ledger.snapshot(&Cancel::never())?.rows,
+            None => direct_snapshot(&ledger)?,
         };
         let job = filter.job.map(|j| j.to_string());
         let selected = metadata::history(

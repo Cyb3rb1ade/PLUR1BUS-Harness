@@ -75,15 +75,59 @@ pub fn initialize_base(
     Ok(StoreSchemaVersion::V1)
 }
 
-fn read_marker(path: &Path) -> Result<Option<StoreSchemaVersion>, StoreError> {
+/// Upper bound of a schema marker; the pin writes about 100 bytes (`initialize_base`).
+const MAX_MARKER_BYTES: u64 = 64 * 1024;
+
+/// Read a marker's text: only a regular file, opened without following a final link and
+/// without blocking on a FIFO or device, at most `MAX_MARKER_BYTES`. Anything else is
+/// `Corrupt` (RE-D164); a missing file is `None`.
+pub(crate) fn read_marker_text(path: &Path) -> Result<Option<String>, StoreError> {
+    use std::io::Read;
     assert_trusted_path(path)?;
-    let text = match fs::read_to_string(path) {
-        Ok(text) => text,
+    let mut options = fs::OpenOptions::new();
+    options.read(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.custom_flags(libc::O_NONBLOCK | libc::O_NOFOLLOW | libc::O_CLOEXEC);
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        // FILE_FLAG_OPEN_REPARSE_POINT: open a link itself; metadata rejects it below.
+        options.custom_flags(0x0020_0000);
+    }
+    let file = match options.open(path) {
+        Ok(file) => file,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(error) if error.kind() == std::io::ErrorKind::InvalidData => {
-            return Err(StoreError::Corrupt)
-        }
         Err(error) => return Err(io_error(error)),
+    };
+    let metadata = file.metadata().map_err(io_error)?;
+    if !metadata.is_file() || metadata.len() > MAX_MARKER_BYTES {
+        return Err(StoreError::Corrupt);
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        if metadata.file_attributes() & 0x400 != 0 {
+            return Err(StoreError::Corrupt);
+        }
+    }
+    let mut bytes = Vec::new();
+    file.take(MAX_MARKER_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(io_error)?;
+    if bytes.len() as u64 > MAX_MARKER_BYTES {
+        return Err(StoreError::Corrupt);
+    }
+    String::from_utf8(bytes)
+        .map(Some)
+        .map_err(|_| StoreError::Corrupt)
+}
+
+fn read_marker(path: &Path) -> Result<Option<StoreSchemaVersion>, StoreError> {
+    let Some(text) = read_marker_text(path)? else {
+        return Ok(None);
     };
     let TolerantJsonValue::Object(fields) = parse_json(&text).map_err(|_| StoreError::Corrupt)?
     else {
