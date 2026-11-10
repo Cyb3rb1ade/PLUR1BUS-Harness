@@ -130,6 +130,22 @@ impl TrustedDirectory {
         self.sync_entries()
     }
 
+    /// Remove what interrupted atomic writes left in this directory more than an hour ago
+    /// (`atomic_write::stale_temporaries`), with one directory sync. No lease is needed:
+    /// after an hour no writer is between writing and renaming. Returns the number removed.
+    pub(crate) fn remove_stale_temporaries(&self, now_ms: i64) -> Result<usize, StoreError> {
+        let mut removed = 0;
+        for name in super::atomic_write::stale_temporaries(self.path(), now_ms).map_err(io_error)? {
+            if self.remove_file_unsynced(&name).is_ok() {
+                removed += 1;
+            }
+        }
+        if removed > 0 {
+            self.sync_entries()?;
+        }
+        Ok(removed)
+    }
+
     /// [`Self::remove_file`] without the directory sync. A caller that removes many
     /// children persists them with one [`Self::sync_entries`] at the end.
     pub(crate) fn remove_file_unsynced(&self, name: &str) -> Result<(), StoreError> {

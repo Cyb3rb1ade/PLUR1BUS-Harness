@@ -436,6 +436,8 @@ mod tests {
             ("/emotion/t3/timeoutMs", json!(1)),
             ("/neo/agentEndBudgetMs", json!(1000)),
             ("/neo/embeddingDrain/maxItems", json!(1)),
+            // RE-D163: a resumed record's Neo step follows the current switch.
+            ("/neo/enabled", json!(false)),
             ("/recall/candidateTopK", json!(1)),
         ] {
             set(&mut operational, pointer, value);

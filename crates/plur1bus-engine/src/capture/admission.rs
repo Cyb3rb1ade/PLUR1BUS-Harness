@@ -227,7 +227,7 @@ fn digest(value: &impl Serialize) -> Result<String, StoreError> {
 /// closes a retained record: all of `runtime`, time budgets, queue and batch sizes,
 /// credentials, endpoints and model names. The vector space is the record's own field.
 /// `docs/engine-stores.md` (RE-D162) gives one reason per key.
-pub(super) const CAPTURE_SEMANTICS: [&str; 21] = [
+pub(super) const CAPTURE_SEMANTICS: [&str; 20] = [
     "/duplicateThreshold",
     "/captureChunking",
     "/captureChunkingMode",
@@ -247,7 +247,8 @@ pub(super) const CAPTURE_SEMANTICS: [&str; 21] = [
     "/memoryDynamics/flashbulbEncoding",
     "/recall/halfLifeDaysMap",
     "/reminders/autoExtract",
-    "/neo/enabled",
+    // The capture pipeline writes through the writer route's pool, and that route is this
+    // key (`recall::namespace_routes`, `NamespaceStores::writer_pool`).
     "/namespaces/activeWriteNamespace",
 ];
 /// Digest of the capture-semantic projection of an effective configuration.
@@ -543,6 +544,33 @@ impl Admissions {
         }
         root.assert_unchanged()?;
         Ok(inventory)
+    }
+    /// Remove what interrupted atomic writes left in the owner scopes (RE-D163): a whole
+    /// record under a temporary name, older than an hour by the host's clock. Directory
+    /// entries and file times only; no lease, no host callback. Returns the number removed.
+    pub fn remove_stale_temporaries(&self, cancel: &Cancel) -> Result<usize, EngineError> {
+        cancel.check()?;
+        let Some(root) = self.root()? else {
+            return Ok(0);
+        };
+        let now = self.host.now_ms();
+        let mut removed = 0;
+        for entry in std::fs::read_dir(root.path()).map_err(StoreError::from)? {
+            cancel.check()?;
+            let Ok(entry) = entry else { continue };
+            let Ok(name) = entry.file_name().into_string() else {
+                continue;
+            };
+            let directory = entry.file_type().is_ok_and(|kind| kind.is_dir());
+            if !matches!(classify(&name, directory), TopLevel::Scope) {
+                continue;
+            }
+            if let Ok(dir) = root.open_child(&name) {
+                // One scope's failure is its own; the others are still looked at.
+                removed += dir.remove_stale_temporaries(now).unwrap_or(0);
+            }
+        }
+        Ok(removed)
     }
     /// Read one owner scope's record files with that scope's own budget and count. The
     /// flag reports files beyond the per-scope bound, left for a later attempt.

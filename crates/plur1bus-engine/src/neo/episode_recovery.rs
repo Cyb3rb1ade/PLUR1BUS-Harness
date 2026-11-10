@@ -70,6 +70,10 @@ pub struct RecoveryReport {
     /// Plan files that could not be read or attributed: kept, reported, never blocking.
     pub unreadable: usize,
 }
+/// The key of a binding: its workspace directory under the Neo root and its binding digest.
+fn binding_key(plans: &crate::neo::capture_journal::PendingPlans) -> String {
+    format!("{}/{}", plans.canonical, plans.digest)
+}
 /// How one binding's recovery ended.
 enum PlanOutcome {
     Recovered,
@@ -146,17 +150,42 @@ impl EpisodeStore {
     /// The bindings with prepared plans (`<workspace directory>/<binding digest>`) and the
     /// number of plan files that cannot be read or attributed. Directory entries and plan
     /// files only: no host is asked, nothing is leased (RE-D162).
+    /// The third number counts bindings whose plan files are all settled (no rows, no
+    /// caller): they hold nothing to recover and are not listed.
     pub(in crate::neo) fn plan_keys(
         &self,
         cancel: &Cancel,
-    ) -> Result<(Vec<String>, usize), EngineError> {
+    ) -> Result<(Vec<String>, usize, usize), EngineError> {
         let inventory = self.journal.recovery_plans(cancel)?;
-        let keys = inventory
+        let keys = inventory.plans.iter().map(binding_key).collect();
+        Ok((keys, inventory.unreadable, inventory.settled))
+    }
+    /// The bindings whose prepared plans are past the age bound, read from the directories
+    /// as they are now: no host is asked, nothing is leased.
+    pub(in crate::neo) fn expired_keys(&self, cancel: &Cancel) -> Result<Vec<String>, EngineError> {
+        let inventory = self.journal.recovery_plans(cancel)?;
+        Ok(inventory
             .plans
             .iter()
-            .map(|plans| format!("{}/{}", plans.canonical, plans.digest))
-            .collect();
-        Ok((keys, inventory.unreadable))
+            .filter(|plans| self.expired(plans))
+            .map(binding_key)
+            .collect())
+    }
+    /// Whether a binding's prepared plans are older than seven days by the host's clock
+    /// (RE-D163): the bound of every retained input, inclusive like the pin's pending TTL.
+    fn expired(&self, plans: &crate::neo::capture_journal::PendingPlans) -> bool {
+        plans.written_ms.is_some_and(|at| {
+            self.host.now_ms().saturating_sub(at)
+                > crate::capture::replay_guard::REPLAY_GUARD_TTL_MS
+        })
+    }
+    /// Remove whole plans that interrupted writes left under a temporary name more than an
+    /// hour ago; the number removed.
+    pub(in crate::neo) fn remove_stale_temporaries(
+        &self,
+        cancel: &Cancel,
+    ) -> Result<usize, EngineError> {
+        self.journal.remove_stale_temporaries(cancel)
     }
     /// One attempt for one binding within `budget`; true when none of its plans is left.
     pub(in crate::neo) fn recover_key(&self, key: &str, budget: &Cancel, bounds: &Bounds) -> bool {
@@ -198,11 +227,21 @@ impl EpisodeStore {
         bounds: &Bounds,
         report: &mut RecoveryReport,
     ) -> bool {
-        match self.recover_binding(plans, budget, bounds, report) {
+        // RE-D163: prepared plans older than seven days are discarded and never resumed,
+        // whatever their attempt count is; no attempt is counted for that.
+        let outcome = if self.expired(plans) {
+            Ok(PlanOutcome::Closed("recovery-expired"))
+        } else {
+            self.recover_binding(plans, budget, bounds, report)
+        };
+        match outcome {
             Ok(PlanOutcome::Recovered) => true,
             Ok(PlanOutcome::Deferred) | Err(_) => false,
             Ok(PlanOutcome::Closed(reason)) => {
-                log::warn!("neo: prepared plans closed ({reason})");
+                log::warn!(
+                    "neo: {} prepared plan files closed ({reason})",
+                    plans.files.len()
+                );
                 match self.journal.discard_plans(plans, budget) {
                     Ok(()) => {
                         let _ = self.journal.note_plan_attempt(plans, 0);

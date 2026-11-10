@@ -33,6 +33,7 @@ impl CaptureWorker for CapturePipeline {
             );
         }
         self.retained.replace(inventory.scopes);
+        self.remove_stale(cancel);
         match &self.neo {
             Some(neo) => neo.inventory(cancel),
             None => Ok(()),
@@ -52,6 +53,10 @@ impl CaptureWorker for CapturePipeline {
 
     fn expire_retained(self: Arc<Self>, steps: &RecoverySteps) {
         self.pass(steps, true);
+        self.remove_stale(&steps.shutdown);
+        if let Some(neo) = &self.neo {
+            neo.expire_retained(&steps.bounds());
+        }
     }
 
     fn recover_owner(
@@ -108,6 +113,16 @@ const ATTEMPT_GRACE: Duration = Duration::from_secs(1);
 impl CapturePipeline {
     fn mark_pending(&self, scope: &str) {
         self.retained.mark(scope);
+    }
+
+    /// Remove whole records that interrupted writes left under a temporary name more than
+    /// an hour ago (RE-D163); what was removed is logged with its count.
+    fn remove_stale(&self, cancel: &Cancel) {
+        match self.admissions.remove_stale_temporaries(cancel) {
+            Ok(0) | Err(EngineError::Cancelled(_)) => {}
+            Ok(removed) => log::warn!("capture: {removed} stale temporary record files removed"),
+            Err(error) => self.warn(&error, CaptureLogStage::CapturePipeline, 1),
+        }
     }
 
     /// One owner scope's recovery budget: a turn's capture budget.

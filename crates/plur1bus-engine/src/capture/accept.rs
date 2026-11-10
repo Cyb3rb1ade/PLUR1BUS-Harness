@@ -29,8 +29,11 @@ use super::retained::{Bounds, HostCalls, Place};
 /// answer arrives: later turns of the agent pass, as at the pin, where the lookup holds no
 /// agent-wide order.
 const ADMISSION_PATIENCE: Duration = Duration::from_secs(1);
-/// How often retained input is checked against its age bound while the engine runs.
-const EXPIRY_SWEEP: Duration = Duration::from_secs(60 * 60);
+/// How often retained input is checked against its age bound while the engine runs. The
+/// hour is the host's (RE-D163), as the age bound itself is.
+const EXPIRY_SWEEP_MS: i64 = 60 * 60 * 1000;
+/// How often the recovery pass looks at the host's clock.
+const CLOCK_LOOK: Duration = Duration::from_secs(60);
 
 /// What a recovery attempt gets from the runtime (RE-D162).
 #[derive(Clone)]
@@ -147,6 +150,11 @@ struct PassState {
     first_done: bool,
     stop: bool,
     thread: Option<JoinHandle<()>>,
+    /// Look at the clock now instead of at the next minute.
+    poked: bool,
+    /// How often the pass looked at the clock, and how often it swept then.
+    looks: u64,
+    sweeps: u64,
 }
 impl Pass {
     fn stop(&self) -> Option<JoinHandle<()>> {
@@ -158,15 +166,18 @@ impl Pass {
 }
 
 fn recovery_pass(inner: &Weak<Inner>, pass: &Pass) {
+    let mut swept_at = None;
     if let Some(inner) = inner.upgrade() {
         inner.worker.clone().recover_retained(&inner.steps());
+        // The first pass applied the age bounds too.
+        swept_at = Some(inner.host.now_ms());
     }
     lock(&pass.state).first_done = true;
     pass.changed.notify_all();
     loop {
-        let end = Instant::now() + EXPIRY_SWEEP;
+        let end = Instant::now() + CLOCK_LOOK;
         let mut state = lock(&pass.state);
-        while !state.stop {
+        while !state.stop && !state.poked {
             let left = end.saturating_duration_since(Instant::now());
             if left.is_zero() {
                 break;
@@ -180,12 +191,24 @@ fn recovery_pass(inner: &Weak<Inner>, pass: &Pass) {
         if state.stop {
             return;
         }
+        state.poked = false;
         drop(state);
         // The runtime is gone when nothing holds it any more.
         let Some(inner) = inner.upgrade() else {
             return;
         };
-        inner.worker.clone().expire_retained(&inner.steps());
+        // An hour of the host's clock since the last sweep (or a clock that went back).
+        let now = inner.host.now_ms();
+        let due = swept_at.is_none_or(|at| now < at || now - at >= EXPIRY_SWEEP_MS);
+        if due {
+            inner.worker.clone().expire_retained(&inner.steps());
+            swept_at = Some(now);
+        }
+        drop(inner);
+        let mut state = lock(&pass.state);
+        state.looks += 1;
+        state.sweeps += u64::from(due);
+        pass.changed.notify_all();
     }
 }
 
@@ -309,6 +332,31 @@ impl CaptureRuntime {
                 .0;
         }
         state.first_done
+    }
+
+    /// Test support: have the recovery pass look at the host's clock now instead of at the
+    /// next minute. `Some(true)` when it swept, `Some(false)` when no hour of the host's
+    /// clock had passed, `None` when it did not look within `budget`.
+    #[cfg(test)]
+    pub(crate) fn look_at_clock_for_test(&self, budget: Duration) -> Option<bool> {
+        let pass = &self.0.pass;
+        let mut state = lock(&pass.state);
+        let (looks, sweeps) = (state.looks, state.sweeps);
+        state.poked = true;
+        pass.changed.notify_all();
+        let end = Instant::now() + budget;
+        while state.looks == looks {
+            let left = end.saturating_duration_since(Instant::now());
+            if left.is_zero() {
+                return None;
+            }
+            state = pass
+                .changed
+                .wait_timeout(state, left)
+                .unwrap_or_else(PoisonError::into_inner)
+                .0;
+        }
+        Some(state.sweeps > sweeps)
     }
 
     /// Return a receipt without waiting for identity I/O, the agent queue, providers or writes.

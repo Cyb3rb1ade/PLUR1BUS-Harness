@@ -215,6 +215,10 @@ pub trait NeoCaptureHook: Send + Sync {
     /// the end of all recovery ends it.
     fn recover_retained(&self, _bounds: &Bounds) {}
 
+    /// Discard prepared plans that are past their age bound and what interrupted writes
+    /// left behind; nothing is resumed.
+    fn expire_retained(&self, _bounds: &Bounds) {}
+
     /// Before a turn: join the recovery of this caller's own binding, or start it. It waits
     /// for no other binding and never fails the turn.
     fn recover_owner(

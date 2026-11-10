@@ -176,6 +176,13 @@ impl NativeNeoCaptureHook {
             episodes.recover_key(&binding, &budget, &bounds)
         })
     }
+    /// Remove whole plans that interrupted writes left under a temporary name more than an
+    /// hour ago (RE-D163); what was removed is logged with its count.
+    fn remove_stale(&self, cancel: &Cancel) {
+        if let Ok(removed @ 1..) = self.episodes.remove_stale_temporaries(cancel) {
+            log::warn!("neo: {removed} stale temporary plan files removed");
+        }
+    }
     /// After the owner's own journal write: its binding no longer waits once no plan of it
     /// is left (the journal replays a prepared plan before a new one).
     fn settle(&self, turn: &TurnRecord, cancel: &Cancel) {
@@ -205,11 +212,40 @@ impl NeoCaptureHook for NativeNeoCaptureHook {
         Ok(())
     }
     fn inventory(&self, cancel: &Cancel) -> Result<(), EngineError> {
-        let (keys, unreadable) = self.episodes.plan_keys(cancel)?;
+        let (keys, unreadable, settled) = self.episodes.plan_keys(cancel)?;
         self.unreadable
             .store(unreadable, std::sync::atomic::Ordering::Release);
+        if settled > 0 {
+            // Settled plan files hold no rows and no caller: nothing to recover, nothing
+            // is lost by leaving them out (RE-D163).
+            log::info!("neo: {settled} settled plan bindings hold no work and are not listed");
+        }
         self.retained.replace(keys);
+        self.remove_stale(cancel);
         Ok(())
+    }
+    fn expire_retained(&self, bounds: &Bounds) {
+        let shutdown = &bounds.shutdown;
+        self.remove_stale(shutdown);
+        // The sweep reads the directories again, so a plan that a failed turn left behind
+        // while the engine ran is found too. Only bindings past the age bound get an
+        // attempt, and that attempt discards them without resuming anything.
+        let Ok(keys) = self.episodes.expired_keys(shutdown) else {
+            return;
+        };
+        for key in keys {
+            if shutdown.is_cancelled() {
+                return;
+            }
+            if !self.retained.concerns(&key) {
+                self.retained.mark(&key);
+            }
+            if self.start(&key, bounds) {
+                let patience = Instant::now() + self.episodes.plan_budget() + ATTEMPT_GRACE;
+                let patience = shutdown.limited_to(patience);
+                self.retained.join(&key, &patience, shutdown);
+            }
+        }
     }
     fn has_retained(&self) -> bool {
         self.retained.waiting()

@@ -187,6 +187,15 @@ impl ProcessCapture {
         };
         runtime.wait_recovered(Some(budget))
     }
+    /// Test support: have the recovery pass look at the host's clock now; whether it swept.
+    #[cfg(test)]
+    pub(super) fn look_at_clock_for_test(&self, budget: Duration) -> Option<bool> {
+        let runtime = match &self.lock().slot {
+            Slot::Ready(composed) => composed.runtime.clone(),
+            _ => return None,
+        };
+        runtime.look_at_clock_for_test(budget)
+    }
     /// Test support: compact through these tables instead of the writer pool's.
     #[cfg(test)]
     pub(super) fn compact_with_for_test(
@@ -430,8 +439,20 @@ fn compose(
     // its first write, the native hook pins an existing one. Opening the hook recovers
     // nothing; its prepared plans are inventoried with the admissions below.
     let mut neo = None;
-    if config["neo"]["enabled"] != false {
-        let neo_root = engine_warm::neo_root(&raw["neo"], base);
+    let neo_root = engine_warm::neo_root(&raw["neo"], base);
+    if config["neo"]["enabled"] == false {
+        // Neo is switched off: nothing of Neo is written or resumed, and no Neo state is
+        // created. A plan that an earlier run with Neo left prepared still holds turn
+        // text, so the age bound applies to it all the same (RE-D163). A root that cannot
+        // be opened is left alone.
+        if neo_root.is_dir() {
+            if let Ok(hook) =
+                NativeNeoCaptureHook::open_deferred(&neo_root, host.clone(), policy, mood)
+            {
+                pipeline = pipeline.with_neo(Arc::new(ExpiringNeo(hook)));
+            }
+        }
+    } else {
         crate::store::paths::secure_dir(&neo_root)?;
         let hook = Arc::new(
             NativeNeoCaptureHook::open_deferred(&neo_root, host.clone(), policy, mood)?
@@ -474,6 +495,52 @@ fn compose(
 /// The pin's `<baseDbPath>/_capture-turns` replay root.
 fn turns_root(base: &Path) -> PathBuf {
     base.join("_capture-turns")
+}
+
+/// Neo switched off: no Neo step runs and no plan is resumed. Only the age bound is applied
+/// to what an earlier run with Neo left prepared (RE-D163): plans older than seven days and
+/// temporary files older than an hour are discarded, by the first pass and by every sweep.
+struct ExpiringNeo(NativeNeoCaptureHook);
+impl NeoCaptureHook for ExpiringNeo {
+    fn record_turn(
+        &self,
+        _turn: &TurnRecord,
+        _context: &RequestContext,
+        _cancel: &Cancel,
+    ) -> Result<(), EngineError> {
+        Ok(())
+    }
+    fn post_store(
+        &self,
+        _turn: &TurnRecord,
+        _context: &RequestContext,
+        _options: &CaptureOptions,
+        _cancel: &Cancel,
+    ) -> Result<(), EngineError> {
+        Ok(())
+    }
+    fn post_store_recoverable(
+        &self,
+        _turn: &TurnRecord,
+        _context: &RequestContext,
+        _options: &CaptureOptions,
+        _resuming: bool,
+        _cancel: &Cancel,
+    ) -> Result<(), EngineError> {
+        Ok(())
+    }
+    fn has_retained(&self) -> bool {
+        self.0.has_retained()
+    }
+    fn recover_retained(&self, bounds: &Bounds) {
+        self.0.expire_retained(bounds);
+    }
+    fn expire_retained(&self, bounds: &Bounds) {
+        self.0.expire_retained(bounds);
+    }
+    fn close_retained(&self, budget: Duration) -> bool {
+        self.0.close_retained(budget)
+    }
 }
 
 /// The native Neo journal binds only user-owned callers with a logical workspace key and a
@@ -552,6 +619,9 @@ impl NeoCaptureHook for UserScopedNeo {
     }
     fn recover_retained(&self, bounds: &Bounds) {
         self.hook.recover_retained(bounds);
+    }
+    fn expire_retained(&self, bounds: &Bounds) {
+        self.hook.expire_retained(bounds);
     }
     fn recover_owner(
         &self,

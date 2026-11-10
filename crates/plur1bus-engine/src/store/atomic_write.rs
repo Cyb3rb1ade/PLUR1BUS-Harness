@@ -48,6 +48,61 @@ fn write_before_rename(
     Ok(())
 }
 
+/// How long a temporary sibling may stay before it counts as left behind (RE-D163). A
+/// writer needs milliseconds between creating it and renaming it.
+pub(crate) const TEMPORARY_TTL_MS: i64 = 60 * 60 * 1000;
+
+/// Whether `name` is a temporary sibling as this module names it:
+/// `.<target name>.<process id>.<nonce, twelve hex digits>.tmp`.
+pub(crate) fn is_temporary(name: &str) -> bool {
+    let Some(rest) = name
+        .strip_prefix('.')
+        .and_then(|rest| rest.strip_suffix(".tmp"))
+    else {
+        return false;
+    };
+    let mut parts = rest.rsplitn(3, '.');
+    let (Some(nonce), Some(process), Some(target)) = (parts.next(), parts.next(), parts.next())
+    else {
+        return false;
+    };
+    nonce.len() == 12
+        && nonce
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        && !process.is_empty()
+        && process.bytes().all(|b| b.is_ascii_digit())
+        && !target.is_empty()
+}
+
+/// The temporary siblings in `directory` that a writer killed between writing and renaming
+/// left behind: regular files of this module's own name pattern whose modification time is
+/// more than [`TEMPORARY_TTL_MS`] before `now_ms`. Such a file holds the whole content of
+/// its target. A file whose time cannot be read is not listed; a link is not followed.
+pub(crate) fn stale_temporaries(directory: &Path, now_ms: i64) -> io::Result<Vec<String>> {
+    let mut stale = Vec::new();
+    for entry in fs::read_dir(directory)? {
+        let Ok(entry) = entry else { continue };
+        let Ok(name) = entry.file_name().into_string() else {
+            continue;
+        };
+        if !is_temporary(&name) {
+            continue;
+        }
+        let modified = entry
+            .metadata()
+            .ok()
+            .filter(fs::Metadata::is_file)
+            .and_then(|metadata| metadata.modified().ok())
+            .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+            .and_then(|since| i64::try_from(since.as_millis()).ok());
+        if modified.is_some_and(|at| now_ms.saturating_sub(at) > TEMPORARY_TTL_MS) {
+            stale.push(name);
+        }
+    }
+    Ok(stale)
+}
+
 fn create_temporary(path: &Path, directory: &Path) -> io::Result<(PathBuf, File)> {
     static NEXT: OnceLock<AtomicU64> = OnceLock::new();
     let counter = NEXT.get_or_init(|| {
@@ -120,6 +175,47 @@ mod tests {
     #![allow(clippy::unwrap_used)]
 
     use super::*;
+
+    /// RE-D163: only this module's own temporary names are recognised, and only after an
+    /// hour; the bound is exclusive at exactly one hour.
+    #[test]
+    fn only_own_temporary_names_older_than_an_hour_are_stale() {
+        let root = tempfile::tempdir().unwrap();
+        let own = ".state.json.4242.0123456789ab.tmp";
+        for name in [
+            own,
+            "state.json.4242.0123456789ab.tmp",
+            ".state.json.4242.tmp",
+            ".state.json.pid.0123456789ab.tmp",
+            ".state.json.4242.0123456789AB.tmp",
+            "..4242.0123456789ab.tmp",
+            "notes.tmp",
+        ] {
+            fs::write(root.path().join(name), b"content").unwrap();
+            assert_eq!(is_temporary(name), name == own, "{name}");
+        }
+        fs::create_dir(root.path().join(".dir.json.4242.0123456789ab.tmp")).unwrap();
+        // What a real interrupted write leaves is recognised.
+        let (left, _file) = create_temporary(&root.path().join("real.json"), root.path()).unwrap();
+        let left = left.file_name().unwrap().to_str().unwrap().to_owned();
+        assert!(is_temporary(&left), "{left}");
+        let written = fs::metadata(root.path().join(own))
+            .unwrap()
+            .modified()
+            .unwrap()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64;
+        assert!(stale_temporaries(root.path(), written + TEMPORARY_TTL_MS)
+            .unwrap()
+            .is_empty());
+        let mut stale =
+            stale_temporaries(root.path(), written + TEMPORARY_TTL_MS + 60_000).unwrap();
+        stale.sort();
+        let mut expected = vec![own.to_owned(), left];
+        expected.sort();
+        assert_eq!(stale, expected);
+    }
 
     struct Directory(PathBuf);
     impl Directory {

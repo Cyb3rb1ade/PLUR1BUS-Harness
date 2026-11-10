@@ -1097,6 +1097,252 @@ fn only_capture_semantics_close_a_retained_record_as_config_changed() {
     assert!(rows(&root, "agent").is_empty());
 }
 
+/// A file's modification time in milliseconds since the epoch.
+fn modified_ms(path: &Path) -> i64 {
+    let modified = fs::symlink_metadata(path)
+        .unwrap()
+        .modified()
+        .unwrap()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap();
+    i64::try_from(modified.as_millis()).unwrap()
+}
+
+/// The prepared Neo plan files that still hold turn text.
+fn neo_plan_files(root: &Path) -> Vec<PathBuf> {
+    fs::read_dir(root.join("db/_neo/workspaces"))
+        .into_iter()
+        .flatten()
+        .flatten()
+        .flat_map(|workspace| {
+            fs::read_dir(workspace.path())
+                .into_iter()
+                .flatten()
+                .flatten()
+        })
+        .map(|entry| entry.path())
+        .filter(|path| {
+            let name = path.file_name().unwrap().to_string_lossy().into_owned();
+            name.starts_with("native-") && name.contains("-pending-") && name.ends_with(".json")
+        })
+        .filter(|path| fs::read_to_string(path).is_ok_and(|text| text.contains(USER)))
+        .collect()
+}
+
+/// Make every workspace wait for maintenance: retained work is deferred without an attempt.
+fn start_maintenance(root: &Path) -> PathBuf {
+    let control = root.join("db/control");
+    fs::create_dir_all(&control).unwrap();
+    let state = control.join("reembedding-state.json");
+    fs::write(&state, b"{").unwrap();
+    state
+}
+
+/// RE-D163 / R4: the Neo switch is no capture semantics. A restart with Neo switched off
+/// completes the retained turn; its Neo step follows the current switch.
+#[test]
+fn a_restart_with_another_neo_switch_completes_the_retained_turn() {
+    let scratch = killed("neo-plan");
+    let root = scratch.path().to_path_buf();
+    assert_eq!(admissions_with_content(&root), 1);
+    // Neo is disabled now (`host` has `neo.enabled: false`).
+    let engine = ProcessEngine::new(host(&root), Some(Seam::FlatEmbedder)).unwrap();
+    engine_capture::ProcessCapture::open(&engine, &root.join("db")).unwrap();
+    recovery_settled(&engine);
+    assert_eq!(admissions_with_content(&root), 0);
+    assert_eq!(rows(&root, "agent").len(), 2);
+    // No Neo step ran: the plan prepared before the kill is untouched.
+    assert_eq!(neo_plans_with_content(&root), 1);
+    assert_eq!(capture_state(&engine), None);
+}
+
+/// RE-D163 / R3: a prepared Neo plan with turn text that is older than seven days is
+/// discarded, whatever its attempt count; the bound is inclusive and the clock is the host's.
+/// It is discarded as well while Neo is switched off, when nothing else of Neo runs.
+#[test]
+fn a_neo_plan_older_than_seven_days_is_discarded() {
+    const WEEK: i64 = 7 * 24 * 60 * 60 * 1000;
+    for (age, kept, neo) in [
+        (WEEK, true, true),
+        (WEEK + 1, false, true),
+        (WEEK, true, false),
+        (WEEK + 1, false, false),
+    ] {
+        let scratch = killed("neo-plan");
+        let root = scratch.path().to_path_buf();
+        // Maintenance: the plan is not simply recovered, and no attempt is counted.
+        start_maintenance(&root);
+        let written = neo_plan_files(&root)
+            .iter()
+            .map(|path| modified_ms(path))
+            .min()
+            .unwrap();
+        let later = if neo { neo_host(&root) } else { host(&root) };
+        later.set_now_ms(written + age);
+        let engine = ProcessEngine::new(later, Some(Seam::FlatEmbedder)).unwrap();
+        engine_capture::ProcessCapture::open(&engine, &root.join("db")).unwrap();
+        recovery_settled(&engine);
+        assert_eq!(
+            neo_plans_with_content(&root),
+            usize::from(kept),
+            "{age} neo={neo}"
+        );
+        // Journals written before the kill stay.
+        assert!(
+            fs::read_dir(root.join("db/_neo/workspaces"))
+                .unwrap()
+                .count()
+                > 0
+        );
+        engine.close(None).unwrap();
+    }
+}
+
+/// RE-D163 / R5: a temporary file an interrupted atomic write left behind holds a whole
+/// record or plan. Older than an hour, it is removed at the inventory; only the atomic
+/// writer's own name pattern is touched.
+#[test]
+fn stale_temporary_files_with_turn_text_are_removed_after_an_hour() {
+    const HOUR: i64 = 60 * 60 * 1000;
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let engine = ProcessEngine::new(neo_host(root), Some(Seam::FlatEmbedder)).unwrap();
+    assert_eq!(
+        capture(&engine, user_turn(root, "owner-a", "run-1"))["stored"],
+        2
+    );
+    engine.close(None).unwrap();
+    drop(engine);
+    let scope = fs::read_dir(root.join("db/_capture-admissions"))
+        .unwrap()
+        .flatten()
+        .map(|entry| entry.path())
+        .find(|path| path.is_dir() && !path.ends_with(".leases"))
+        .unwrap();
+    let workspace = fs::read_dir(root.join("db/_neo/workspaces"))
+        .unwrap()
+        .flatten()
+        .map(|entry| entry.path())
+        .find(|path| path.is_dir())
+        .unwrap();
+    let hash = "3".repeat(64);
+    let stale = [
+        scope.join(format!(".{hash}.json.4242.0123456789ab.tmp")),
+        workspace.join(format!(
+            ".native-capture-pending-{hash}.json.4242.0123456789ab.tmp"
+        )),
+        workspace.join(format!(
+            ".native-episode-pending-{hash}.json.4242.0123456789ab.tmp"
+        )),
+        workspace.join(".candidate-index.jsonl.4242.0123456789ab.tmp"),
+    ];
+    let foreign = [
+        scope.join("notes.tmp"),
+        scope.join(format!(".{hash}.json.4242.tmp")),
+        workspace.join(".candidate-index.jsonl.4242.tmp"),
+        workspace.join("native-capture-pending-notes.tmp"),
+    ];
+    for path in stale.iter().chain(&foreign) {
+        fs::write(path, USER).unwrap();
+    }
+    // Exactly an hour after the oldest was written nothing is stale; one millisecond more
+    // than an hour after the youngest, all of them are.
+    let times = stale.iter().map(|path| modified_ms(path));
+    let (oldest, youngest) = (times.clone().min().unwrap(), times.max().unwrap());
+    for (now, kept) in [(oldest + HOUR, true), (youngest + HOUR + 1, false)] {
+        let age = now - oldest;
+        let later = neo_host(root);
+        later.set_now_ms(now);
+        let engine = ProcessEngine::new(later, Some(Seam::FlatEmbedder)).unwrap();
+        engine_capture::ProcessCapture::open(&engine, &root.join("db")).unwrap();
+        recovery_settled(&engine);
+        for path in &stale {
+            assert_eq!(path.exists(), kept, "{age}: {}", path.display());
+        }
+        for path in &foreign {
+            assert!(path.exists(), "{age}: {}", path.display());
+        }
+        engine.close(None).unwrap();
+    }
+}
+
+/// RE-D163 / m8: while the engine runs, the recovery pass sweeps once per hour of the
+/// host's clock. A retained admission that grew older than seven days is discarded then,
+/// without an attempt; before the hour has passed nothing is swept.
+#[test]
+fn the_hourly_sweep_discards_an_admission_that_grew_too_old() {
+    const WEEK: i64 = 7 * 24 * 60 * 60 * 1000;
+    const HOUR: i64 = 60 * 60 * 1000;
+    // The fixture host's clock at admission.
+    let admitted_at = 1_768_305_600_000;
+    let scratch = killed("admitted");
+    let root = scratch.path().to_path_buf();
+    // Maintenance: the record is not simply recovered, and no attempt is counted.
+    start_maintenance(&root);
+    let clock = host(&root);
+    clock.set_now_ms(admitted_at + WEEK);
+    let engine = ProcessEngine::new(clock.clone(), Some(Seam::FlatEmbedder)).unwrap();
+    engine_capture::ProcessCapture::open(&engine, &root.join("db")).unwrap();
+    recovery_settled(&engine);
+    assert_eq!(admissions_with_content(&root), 1);
+    let look = || {
+        engine
+            .capture
+            .look_at_clock_for_test(Duration::from_secs(60))
+    };
+    // Not an hour later: the pass looks at the clock and leaves everything alone.
+    clock.set_now_ms(admitted_at + WEEK + HOUR - 1);
+    assert_eq!(look(), Some(false));
+    assert_eq!(admissions_with_content(&root), 1);
+    clock.set_now_ms(admitted_at + WEEK + HOUR);
+    assert_eq!(look(), Some(true));
+    assert_eq!(admissions_with_content(&root), 0);
+    assert_eq!(rows(&root, "agent").len(), 0);
+    assert_eq!(capture_state(&engine), None);
+    // The next sweep is due an hour after this one.
+    assert_eq!(look(), Some(false));
+    engine.close(None).unwrap();
+}
+
+/// RE-D163 / R3, R5, m8: the hourly sweep also discards a prepared Neo plan that grew older
+/// than seven days and removes temporary files that interrupted writes left behind.
+#[test]
+fn the_hourly_sweep_discards_an_old_neo_plan_and_stale_temporary_files() {
+    const WEEK: i64 = 7 * 24 * 60 * 60 * 1000;
+    const HOUR: i64 = 60 * 60 * 1000;
+    let scratch = killed("neo-plan");
+    let root = scratch.path().to_path_buf();
+    start_maintenance(&root);
+    let plans = neo_plan_files(&root);
+    let written = plans.iter().map(|path| modified_ms(path)).min().unwrap();
+    let clock = neo_host(&root);
+    clock.set_now_ms(written + WEEK);
+    let engine = ProcessEngine::new(clock.clone(), Some(Seam::FlatEmbedder)).unwrap();
+    engine_capture::ProcessCapture::open(&engine, &root.join("db")).unwrap();
+    recovery_settled(&engine);
+    assert_eq!(neo_plans_with_content(&root), 1);
+    // A writer is killed between writing and renaming while the engine runs.
+    let left = plans[0]
+        .parent()
+        .unwrap()
+        .join(".candidate-index.jsonl.4242.0123456789ab.tmp");
+    fs::write(&left, USER).unwrap();
+    let look = || {
+        engine
+            .capture
+            .look_at_clock_for_test(Duration::from_secs(60))
+    };
+    assert_eq!(look(), Some(false));
+    assert_eq!(neo_plans_with_content(&root), 1);
+    assert!(left.exists());
+    clock.set_now_ms(written + WEEK + HOUR);
+    assert_eq!(look(), Some(true));
+    assert_eq!(neo_plans_with_content(&root), 0);
+    assert!(!left.exists());
+    assert_eq!(capture_state(&engine), None);
+    engine.close(None).unwrap();
+}
+
 /// RE-D156 / I1: content of a chat message never keeps an admission open.
 #[test]
 fn an_out_of_range_reminder_never_keeps_an_admission_open() {

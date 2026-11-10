@@ -68,12 +68,35 @@ pub(in crate::neo) struct PendingPlans {
     pub files: Vec<String>,
     /// The stored caller and ownership proof, when a file holding them could be read.
     pub caller: Option<(Caller, Json)>,
+    /// When the oldest plan file that holds content was written (its modification time,
+    /// milliseconds since the epoch); None when no such time could be read.
+    pub written_ms: Option<i64>,
+}
+impl PendingPlans {
+    /// Keep the oldest modification time among the plan files that hold content.
+    fn note_written(&mut self, at: Option<i64>) {
+        self.written_ms = match (self.written_ms, at) {
+            (Some(known), Some(at)) => Some(known.min(at)),
+            (known, at) => known.or(at),
+        };
+    }
+}
+/// A plan file's own modification time; a link is not followed.
+fn modified_ms(directory: &TrustedDirectory, name: &str) -> Option<i64> {
+    let time = fs::symlink_metadata(directory.path().join(name))
+        .ok()?
+        .modified()
+        .ok()?;
+    let since = time.duration_since(std::time::UNIX_EPOCH).ok()?;
+    i64::try_from(since.as_millis()).ok()
 }
 /// Prepared plans by owner binding. A file that cannot be read or attributed is counted,
 /// kept and never fails anyone else's recovery; only cancellation and the root fail it.
 pub(in crate::neo) struct PlanInventory {
     pub plans: Vec<PendingPlans>,
     pub unreadable: usize,
+    /// Bindings whose plan files are all settled: no rows, no caller, nothing to recover.
+    pub settled: usize,
 }
 /// What the current host and policy allow for one binding's prepared plans.
 pub(in crate::neo) enum PlanAssessment {
@@ -104,6 +127,7 @@ impl CaptureJournal {
         let mut inventory = PlanInventory {
             plans: Vec::new(),
             unreadable: 0,
+            settled: 0,
         };
         let Some(workspaces) = optional(self.root.open_child("workspaces"))? else {
             return Ok(inventory);
@@ -171,18 +195,26 @@ impl CaptureJournal {
                             digest,
                             files: Vec::new(),
                             caller: None,
+                            written_ms: None,
                         });
                         found.len() - 1
                     }
                 };
+                if caller.is_some() {
+                    found[index].note_written(modified_ms(&directory, &filename));
+                }
                 found[index].files.push(filename);
                 if found[index].caller.is_none() {
                     found[index].caller = caller;
                 }
             }
-            inventory
-                .plans
-                .extend(found.into_iter().filter(|plan| plan.caller.is_some()));
+            // A binding without a caller has only settled plan files: a capture plan
+            // without rows, or an episode or embedding file whose plan is null. It holds no
+            // turn content and nothing to recover; it is counted, not listed.
+            let (active, settled): (Vec<_>, Vec<_>) =
+                found.into_iter().partition(|plan| plan.caller.is_some());
+            inventory.settled += settled.len();
+            inventory.plans.extend(active);
         }
         self.root.assert_unchanged()?;
         cancel.check()?;
@@ -209,6 +241,7 @@ impl CaptureJournal {
             digest: digest.to_owned(),
             files: Vec::new(),
             caller: None,
+            written_ms: None,
         };
         for prefix in [
             "native-capture-pending-",
@@ -223,6 +256,9 @@ impl CaptureJournal {
             }
             match self.plan_caller(&directory, &filename, prefix, cancel) {
                 Ok(caller) => {
+                    if caller.is_some() {
+                        plans.note_written(modified_ms(&directory, &filename));
+                    }
                     plans.files.push(filename);
                     if plans.caller.is_none() {
                         plans.caller = caller;
@@ -358,6 +394,35 @@ impl CaptureJournal {
         }
         Ok(())
     }
+    /// Remove what interrupted atomic writes left in the workspace directories (RE-D163): a
+    /// whole plan under a temporary name, older than an hour by the host's clock. Directory
+    /// entries and file times only; no lease, no host callback. Returns the number removed.
+    pub(in crate::neo) fn remove_stale_temporaries(
+        &self,
+        cancel: &Cancel,
+    ) -> Result<usize, EngineError> {
+        cancel.check()?;
+        let Some(workspaces) = optional(self.root.open_child("workspaces"))? else {
+            return Ok(0);
+        };
+        let now = self.host.now_ms();
+        let mut removed = 0;
+        for entry in fs::read_dir(workspaces.path()).map_err(StoreError::from)? {
+            cancel.check()?;
+            let Ok(entry) = entry else { continue };
+            let Ok(name) = entry.file_name().into_string() else {
+                continue;
+            };
+            if !entry.file_type().is_ok_and(|kind| kind.is_dir()) {
+                continue;
+            }
+            if let Ok(directory) = workspaces.open_child(&name) {
+                // One workspace's failure is its own; the others are still looked at.
+                removed += directory.remove_stale_temporaries(now).unwrap_or(0);
+            }
+        }
+        Ok(removed)
+    }
     /// The durable recovery attempt count of a binding's plans (RE-D159): `change > 0` counts
     /// one before an attempt starts, `change < 0` gives one back (maintenance), `0` clears it.
     /// Returns the attempts made before this call.
@@ -482,6 +547,7 @@ mod tests {
             digest: "d".repeat(64),
             files: Vec::new(),
             caller: None,
+            written_ms: None,
         };
         let bound = crate::capture::failure::MAX_RECOVERY_ATTEMPTS;
         assert_eq!(journal.note_plan_attempt(&plans, 1).unwrap(), 0);

@@ -2299,8 +2299,12 @@ its own value:
 | `emotion.moodInfluence`, `emotion.intensityHalfLifeFactor`, `emotion.temperaments` | the mood and dynamics values written into each row |
 | `memoryDynamics.flashbulbEncoding`, `recall.halfLifeDaysMap` | the memory class, strength and half-life encoded at capture |
 | `reminders.autoExtract` | whether the post-store step extracts reminders |
-| `neo.enabled` | whether the turn has Neo steps |
-| `namespaces.activeWriteNamespace` | the store the rows are written to; rows written before are not visible in another one |
+| `namespaces.activeWriteNamespace` | the store the rows are written to: the capture pipeline writes through the pool of the writer route (`NamespaceStores::writer_pool`), and that route is this key; rows written before are not visible in another one |
+
+`neo.enabled` left the digest with RE-D163: a resumed record applies the switch as
+it is now (`capture_inner` and the Neo hook read the current configuration), so
+the entry only discarded rows that were still to be written in order to protect
+a Neo step that is skipped anyway.
 
 Everything else is operational and never closes a record: all of `runtime`
 (time budgets, queue sizes, caches, `deferPostTurnLlm`, which has no scheduled
