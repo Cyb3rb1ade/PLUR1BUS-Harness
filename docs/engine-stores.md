@@ -1875,3 +1875,24 @@ The comparison covers warm results at the Node pin. Warming the canonical and
 graph stages, retained embedding identities and shared scheduler priority are
 still part of recall composition. See the SHA-bound warm process marker. The
 foreground recall path and its readiness gate remain pending.
+
+### Foreground recall in the process (RE-D150)
+
+`engine.recall` without `warmOnly` runs the native recall runtime over the
+process writer pools after the same admission, workspace policy and startup
+tombstone gate as the memory readers. A disabled workspace answers an empty
+result and announces nothing. Internal turns and prompts under five UTF-16
+units answer an empty result. The prompt's emotion (tier 1/2) is committed to
+the owner-bound mood store before the store read; a foreign or corrupt mood
+file is neither used nor overwritten. Bound Neo graph and pattern sources are
+read when present.
+
+After admission, cancellation, unavailable capabilities and invalid input stay
+typed errors. Every other failure, including store opening and a Neo source
+that exists but cannot be opened, answers no blocks with the degradation
+`{reason: "error", capability: "recall"}` and the usual `recall.degraded` and
+`recall.completed` events. A1 counts only the rendered cards of a successful,
+undegraded recall. The result carries no decision trace, as at the pin. The
+status keeps `composition-pending/recall` until the engine is ready. Start
+notices, session time, persona and other prompt additions, reminders, the
+retrieval ledger and the Neo prelude are not composed yet.

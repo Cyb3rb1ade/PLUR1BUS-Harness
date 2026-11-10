@@ -184,10 +184,8 @@ impl ProcessEngine {
             "memoryLink":base.is_some(),
             "recallStats":false,"knowledgePromotion":false,"memoryCuration":false
         }))?;
-        // Recall is served once a store is configured; capture is the next pending port.
-        let pending = if base.is_some() { "capture" } else { "recall" };
         let status = decode(json!({
-            "ready": false, "degraded": {"reason":"composition-pending","capability":pending},
+            "ready": false, "degraded": {"reason":"composition-pending","capability":"recall"},
             "agents":0,"contract":"1.17.0","storeSchema":{"current":null,"expected":"1"},
             "jobs":{"ledger":"unavailable","agents":[]},"models":embedding.status(),"journal":null,
             "sharedMemory":{"supported":false,"mode":"unavailable"}

@@ -1,7 +1,7 @@
 //! Foreground recall over the process pools and the RE-04 T6 runtime (RE-D150).
 //! Node assembler behavior the library does not provide stays absent; see the RX takeover report.
 
-use super::{composition_invalid, decode, engine_warm, ProcessEngine};
+use super::{composition_invalid, engine_warm, ProcessEngine};
 use crate::{
     capture::{
         classify::{emotion_engine, forced_tier},
@@ -38,7 +38,7 @@ use crate::{
 };
 use serde_json::{json, Value};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
     time::Instant,
@@ -46,6 +46,30 @@ use std::{
 
 /// Per-table hard cap the pin's namespace recall passes to every child pipeline.
 const CANDIDATE_HARD_LIMIT: usize = 100;
+/// Retained per-owner emotion routers; the oldest binding is evicted first.
+const MAX_EMOTION_ENGINES: usize = 256;
+
+/// What a successful post-admission path asks the outer boundary to announce.
+enum Served {
+    /// The pin returns these before its scheduler: no events.
+    Silent(RecallResult),
+    /// Every scheduled exit announces deferrals, degradation and completion.
+    Announced(RecallResult),
+}
+
+/// One admitted foreground request and the values resolved before admission.
+struct Foreground<'a> {
+    engine: &'a ProcessEngine,
+    base: &'a Path,
+    query: &'a RecallQuery,
+    options: &'a RecallOptions,
+    raw: Value,
+    overrides: Value,
+    reranker: Option<Arc<dyn crate::embedding::Reranker>>,
+    missing_reranker: bool,
+    started: Instant,
+    caller: &'a Cancel,
+}
 
 pub(super) fn run(
     engine: &ProcessEngine,
@@ -68,47 +92,92 @@ pub(super) fn run(
         options.reranker == Some(RecallOptionsReranker::On) && reranker.is_none();
     let agent = query.principal.agent_id.to_string();
     if !control.checkpoint(false) {
-        return completed(
-            host,
-            &agent,
-            engine_warm::result(&control, Value::Null, missing_reranker),
+        // The pin's entry abort announces only the degradation.
+        let result = engine_warm::result(&control, Value::Null, missing_reranker)?;
+        let wire = serde_json::to_value(&result).map_err(|_| composition_invalid())?;
+        host.emit(
+            "recall.degraded",
+            json!({"agentId":agent,"degraded":wire["degraded"]}),
         );
+        return Ok(result);
     }
+    // An admission failure is the pin's `Engine.recall` catch: invalid-query, no events.
     let Ok(admitted) = engine.operations.enter(&query.principal, &query.agent) else {
         control.checkpoint(false);
         let degraded = json!({"reason":"invalid-query","capability":"recall"});
-        return completed(
-            host,
-            &agent,
-            engine_warm::result(&control, degraded, missing_reranker),
-        );
+        return engine_warm::result(&control, degraded, missing_reranker);
     };
     control.timer.record("entry", control.timer.elapsed_ms());
-    let context = &admitted.context;
+    let request = Foreground {
+        engine,
+        base,
+        query,
+        options,
+        raw,
+        overrides,
+        reranker,
+        missing_reranker,
+        started,
+        caller,
+    };
+    match serve(&request, &admitted.context, &mut control) {
+        Ok(Served::Silent(result)) => Ok(result),
+        Ok(Served::Announced(result)) => announce(host, &agent, result),
+        // Typed capability, cancellation and input failures stay errors.
+        Err(
+            error @ (EngineError::Cancelled(_)
+            | EngineError::NotAvailable { .. }
+            | EngineError::Invalid { .. }),
+        ) => Err(error),
+        // Every other failure after admission is the pin's store-section catch: no memory
+        // content, no other source, a bounded `error` degradation with the usual events.
+        Err(_) => {
+            control.checkpoint(false);
+            let degraded = json!({"reason":"error","capability":"recall","detail":"recall failed"});
+            announce(
+                host,
+                &agent,
+                engine_warm::result(&control, degraded, missing_reranker)?,
+            )
+        }
+    }
+}
+
+fn serve(
+    request: &Foreground<'_>,
+    context: &RequestContext,
+    control: &mut RecallControl,
+) -> Result<Served, EngineError> {
+    let Foreground {
+        engine,
+        base,
+        query,
+        options,
+        ref raw,
+        ref overrides,
+        ref reranker,
+        missing_reranker,
+        started,
+        caller,
+    } = *request;
+    let host = engine.operations.host();
+    let empty = |control: &RecallControl, degraded: Value| {
+        engine_warm::result(control, degraded, missing_reranker)
+    };
     // A workspace whose automatic policy disables memory answers an empty success, before any work.
     if !engine_warm::automatic_allowed(base, context) {
-        return engine_warm::result(&control, Value::Null, missing_reranker);
+        return empty(control, Value::Null).map(Served::Silent);
     }
     let origin = serde_json::to_value(&query.agent).map_err(|_| composition_invalid())?;
     // Internal turns and prompts under five UTF-16 units get no recall injection.
     if origin["origin"] != "user" || JsString::from(query.query.as_str()).utf16_len() < 5 {
-        return completed(
-            host,
-            &agent,
-            engine_warm::result(&control, Value::Null, missing_reranker),
-        );
+        return empty(control, Value::Null).map(Served::Announced);
     }
-    let workspace = match host.workspace_dir(&query.principal.agent_id) {
-        Ok(workspace) => workspace.filter(|path| !path.as_os_str().is_empty()),
-        Err(_) => {
-            let degraded = json!({"reason":"invalid-query","capability":"recall"});
-            return completed(
-                host,
-                &agent,
-                engine_warm::result(&control, degraded, missing_reranker),
-            );
-        }
+    let Ok(workspace) = host.workspace_dir(&query.principal.agent_id) else {
+        let degraded = json!({"reason":"invalid-query","capability":"recall"});
+        return empty(control, degraded).map(Served::Silent);
     };
+    let workspace = workspace.filter(|path| !path.as_os_str().is_empty());
     let now = host.now_ms();
     // The pin catches mood failures; a foreign or corrupt mood file is not used as authority.
     let mood = match engine
@@ -123,11 +192,7 @@ pub(super) fn run(
         }
     };
     if !control.checkpoint(false) {
-        return completed(
-            host,
-            &agent,
-            engine_warm::result(&control, Value::Null, missing_reranker),
-        );
+        return empty(control, Value::Null).map(Served::Announced);
     }
     let pools = engine.live_stores.recall_pools()?;
     let neo = engine_warm::neo_root(&raw["neo"], base);
@@ -205,13 +270,13 @@ pub(super) fn run(
     render.mood = mood
         .as_ref()
         .map_or(Value::Null, |mood| mood.describe.clone());
-    let request = RuntimeRequest {
+    let runtime_request = RuntimeRequest {
         pipeline,
         routes: pools.as_ref(),
         render,
         filter: None,
         started,
-        budget_overrides: overrides,
+        budget_overrides: overrides.clone(),
         known_secrets: &[],
         ledger: None,
         neo: &NoNeo,
@@ -222,44 +287,30 @@ pub(super) fn run(
             None => reranker.is_some(),
         },
     };
-    let outcome = match RecallStats::new(base) {
-        Ok(stats) => runtime::run_with_stats(request, &stats, host).map(|counted| {
+    let mut outcome = match RecallStats::new(base) {
+        Ok(stats) => {
+            let counted = runtime::run_with_stats(runtime_request, &stats, host)?;
             if counted.statistics_error.is_some() {
                 log::warn!("recall: statistics sidecar unavailable");
             }
             counted.outcome
-        }),
-        Err(_) => runtime::run(request),
-    };
-    let mut outcome = match outcome {
-        Ok(outcome) => outcome,
-        // A capability the library does not provide (query refinement) stays a typed failure.
-        Err(error @ (EngineError::Cancelled(_) | EngineError::NotAvailable { .. })) => {
-            return Err(error)
         }
-        // Like the pin's store-section catch: no memory content, a bounded `error` degradation.
         Err(_) => {
-            control.checkpoint(false);
-            let degraded = json!({"reason":"error","capability":"recall","detail":"recall failed"});
-            return completed(
-                host,
-                &agent,
-                engine_warm::result(&control, degraded, missing_reranker),
-            );
+            log::debug!("recall: statistics base unavailable");
+            runtime::run(runtime_request)?
         }
     };
     // The pin's RecallResult never carries the internal decision trace.
     outcome.trace = None;
-    completed(host, &agent, outcome.to_contract())
+    outcome.to_contract().map(Served::Announced)
 }
 
-/// Emit the pin's per-deferral, degraded and completion events from the returned value.
-fn completed(
+/// Emit the pin's per-deferral, degraded and completion events for a scheduled exit.
+fn announce(
     host: &dyn HostServices,
     agent: &str,
-    result: Result<RecallResult, EngineError>,
+    result: RecallResult,
 ) -> Result<RecallResult, EngineError> {
-    let result = result?;
     let wire = serde_json::to_value(&result).map_err(|_| composition_invalid())?;
     for deferral in wire["deferrals"].as_array().into_iter().flatten() {
         let mut payload = json!({"agentId":agent});
@@ -279,10 +330,10 @@ fn completed(
         "recall.completed",
         json!({"agentId":agent,"timing":wire["timing"],"degraded":wire["degraded"]}),
     );
-    decode(wire)
+    Ok(result)
 }
 
-/// Absent Neo metadata is no source; any other open failure fails closed.
+/// Absent Neo metadata is no source; any other open failure fails the recall closed.
 fn optional<T>(source: Result<T, StoreError>) -> Result<Option<T>, EngineError> {
     match source {
         Ok(source) => Ok(Some(source)),
@@ -376,7 +427,7 @@ impl EmotionalRecallState for MoodBoost {
     }
 }
 
-#[derive(Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 struct MoodKey {
     agent: String,
     owner: String,
@@ -384,12 +435,19 @@ struct MoodKey {
     directory: Option<PathBuf>,
 }
 
+/// Bounded per-owner emotion routers, evicting the oldest binding first.
+#[derive(Default)]
+struct Engines {
+    by_key: HashMap<MoodKey, Arc<Mutex<EmotionEngine>>>,
+    order: VecDeque<MoodKey>,
+}
+
 /// One authenticated mood pool, later shared with capture, and per-owner emotion routing.
 pub(super) struct RecallMood {
     host: Arc<dyn HostServices>,
     pool: Arc<EmotionalPool>,
     emotion: Value,
-    engines: Mutex<HashMap<MoodKey, Arc<Mutex<EmotionEngine>>>>,
+    engines: Mutex<Engines>,
 }
 impl RecallMood {
     /// Capture the configured `emotion` block; construction performs no I/O.
@@ -404,7 +462,7 @@ impl RecallMood {
 
     fn engine(&self, key: MoodKey) -> Result<Arc<Mutex<EmotionEngine>>, EngineError> {
         let mut engines = self.engines.lock().map_err(|_| StoreError::Corrupt)?;
-        if let Some(engine) = engines.get(&key) {
+        if let Some(engine) = engines.by_key.get(&key) {
             return Ok(engine.clone());
         }
         let clock = self.host.clone();
@@ -412,7 +470,13 @@ impl RecallMood {
             &self.emotion,
             Arc::new(move || clock.now_ms()),
         )?));
-        engines.insert(key, engine.clone());
+        while engines.order.len() >= MAX_EMOTION_ENGINES {
+            if let Some(oldest) = engines.order.pop_front() {
+                engines.by_key.remove(&oldest);
+            }
+        }
+        engines.order.push_back(key.clone());
+        engines.by_key.insert(key, engine.clone());
         Ok(engine)
     }
 
