@@ -1,5 +1,6 @@
 //! Internal capture dependencies; none changes the public engine contract.
 
+use crate::capture::retained::Bounds;
 use crate::context::RequestContext;
 use crate::contract::{Cancel, CaptureOptions, EngineError, MemoryRow, TurnRecord};
 use crate::text::js::JsString;
@@ -211,8 +212,8 @@ pub trait NeoCaptureHook: Send + Sync {
     }
 
     /// One pass over the waiting bindings, one after the other, each under its own budget;
-    /// `shutdown` ends it.
-    fn recover_retained(&self, _shutdown: &Cancel) {}
+    /// the end of all recovery ends it.
+    fn recover_retained(&self, _bounds: &Bounds) {}
 
     /// Before a turn: join the recovery of this caller's own binding, or start it. It waits
     /// for no other binding and never fails the turn.
@@ -221,7 +222,7 @@ pub trait NeoCaptureHook: Send + Sync {
         _turn: &TurnRecord,
         _context: &RequestContext,
         _cancel: &Cancel,
-        _shutdown: &Cancel,
+        _bounds: &Bounds,
     ) {
     }
 

@@ -5,7 +5,7 @@
 //! Every attempt runs on its own thread: whoever waits for it holds nothing another owner
 //! needs, and an attempt whose host call never returns keeps only its own key busy.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -171,29 +171,198 @@ impl Retained {
     }
 }
 
-/// Run a call that may never return (a host callback) on its own thread and wait for its
-/// answer until `cancel` or `budget` ends the wait. `None`: no answer in time; the thread is
-/// left to finish on its own and its answer is dropped.
+/// Host lookups one agent may have outstanding (RE-D163).
+pub(crate) const HOST_CALLS_PER_AGENT: usize = 2;
+/// Host lookups the whole process may have outstanding.
+pub(crate) const HOST_CALLS: usize = 32;
+/// How long an outstanding lookup counts as "about to be answered". While one of the
+/// lookups in the way is younger, a new one waits for its place (a burst of turns on a
+/// healthy host is never refused). Once all of them are older, the host is not answering:
+/// a new lookup is refused at once, without a thread.
+const ANSWER_PATIENCE: Duration = Duration::from_secs(1);
+
+/// The bound on host lookups that run on a thread of their own because the host may never
+/// answer (RE-D163): every such thread holds a place until its host call returns, not
+/// until its waiter gives up. So threads cannot pile up behind a host that hangs for one
+/// agent, and that agent cannot use up the places of the others beyond its own two.
+#[derive(Default)]
+pub struct HostCalls {
+    state: Mutex<Calls>,
+    changed: Condvar,
+}
+#[derive(Default)]
+struct Calls {
+    /// Start times of the outstanding lookups, per agent.
+    agents: HashMap<String, Vec<Instant>>,
+    total: usize,
+}
+/// One outstanding lookup; dropping it (when the host call has returned) frees the place.
+pub(crate) struct HostCall {
+    owner: Arc<HostCalls>,
+    agent: String,
+    started: Instant,
+}
+impl Drop for HostCall {
+    fn drop(&mut self) {
+        let mut calls = self
+            .owner
+            .state
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        let calls = &mut *calls;
+        if let Some(started) = calls.agents.get_mut(&self.agent) {
+            if let Some(at) = started.iter().position(|at| *at == self.started) {
+                started.swap_remove(at);
+                calls.total = calls.total.saturating_sub(1);
+            }
+            if started.is_empty() {
+                calls.agents.remove(&self.agent);
+            }
+        }
+        self.owner.changed.notify_all();
+    }
+}
+/// What asking for a place gave.
+pub(crate) enum Place {
+    /// The lookup may run.
+    Granted(HostCall),
+    /// The bound is reached by lookups the host is not answering, or the wait was
+    /// cancelled: no lookup, the same result as an unanswered one.
+    Refused,
+    /// The bound is reached by lookups that are still fresh, and `until` has come.
+    Later,
+}
+impl HostCalls {
+    /// Ask for a place for one more lookup of `agent`, waiting until `until` at most.
+    pub(crate) fn begin(
+        self: &Arc<Self>,
+        agent: &str,
+        cancel: &Cancel,
+        stop: &Cancel,
+        until: Instant,
+    ) -> Place {
+        let mut calls = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+        loop {
+            if cancel.is_cancelled() || stop.is_cancelled() {
+                return Place::Refused;
+            }
+            let now = Instant::now();
+            let own = calls.agents.get(agent).map_or(0, Vec::len);
+            if own < HOST_CALLS_PER_AGENT && calls.total < HOST_CALLS {
+                calls.agents.entry(agent.to_owned()).or_default().push(now);
+                calls.total += 1;
+                return Place::Granted(HostCall {
+                    owner: self.clone(),
+                    agent: agent.to_owned(),
+                    started: now,
+                });
+            }
+            // The lookups in the way: the agent's own when its bound is reached, else all.
+            let youngest = if own >= HOST_CALLS_PER_AGENT {
+                calls.agents.get(agent).and_then(|at| at.iter().max())
+            } else {
+                calls.agents.values().flatten().max()
+            };
+            let fresh_until = youngest.map_or(now, |at| *at + ANSWER_PATIENCE);
+            if now >= fresh_until {
+                return Place::Refused;
+            }
+            if now >= until {
+                return Place::Later;
+            }
+            let pause = fresh_until
+                .min(until)
+                .saturating_duration_since(now)
+                .min(Duration::from_millis(20));
+            calls = self
+                .changed
+                .wait_timeout(calls, pause)
+                .unwrap_or_else(PoisonError::into_inner)
+                .0;
+        }
+    }
+
+    /// The lookups outstanding right now.
+    #[cfg(test)]
+    pub(crate) fn outstanding(&self) -> usize {
+        self.state
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .total
+    }
+}
+
+/// What bounds recovery besides each attempt's own budget (RE-D163).
+#[derive(Clone)]
+pub struct Bounds {
+    /// Ends all recovery (close). After it no host lookup starts.
+    pub(crate) shutdown: Cancel,
+    /// The places for host lookups that run on a thread of their own.
+    pub(crate) calls: Arc<HostCalls>,
+}
+impl Bounds {
+    /// Bounds of their own, for a store that is opened outside a capture runtime.
+    pub(crate) fn new(shutdown: Cancel) -> Self {
+        Self {
+            shutdown,
+            calls: Arc::default(),
+        }
+    }
+
+    /// [`bounded`] within these bounds.
+    pub(crate) fn host_call<T: Send + 'static>(
+        &self,
+        agent: &str,
+        thread_name: &str,
+        cancel: &Cancel,
+        budget: Duration,
+        call: impl FnOnce() -> T + Send + 'static,
+    ) -> Option<T> {
+        bounded(
+            &self.calls,
+            agent,
+            thread_name,
+            cancel,
+            &self.shutdown,
+            budget,
+            call,
+        )
+    }
+}
+
+/// Run a host call that may never return on its own thread and wait for its answer until
+/// `cancel`, the end of all recovery (`stop`) or `budget` ends the wait. The thread holds a
+/// place in `calls` until the host call returns. `None`: no place, no thread, or no answer
+/// in time; a thread that is still running is left to finish and its answer is dropped.
 pub(crate) fn bounded<T: Send + 'static>(
+    calls: &Arc<HostCalls>,
+    agent: &str,
     thread_name: &str,
     cancel: &Cancel,
+    stop: &Cancel,
     budget: Duration,
     call: impl FnOnce() -> T + Send + 'static,
 ) -> Option<T> {
+    let end = Instant::now() + budget;
+    let Place::Granted(place) = calls.begin(agent, cancel, stop, end) else {
+        return None;
+    };
     let (send, answer) = std::sync::mpsc::channel();
+    // A thread that cannot start drops the closure and with it the place.
     thread::Builder::new()
         .name(thread_name.to_owned())
         .spawn(move || {
-            let _ = send.send(call());
+            let value = call();
+            drop(place);
+            let _ = send.send(value);
         })
         .ok()?;
-    let end = Instant::now() + budget;
     loop {
         match answer.recv_timeout(Duration::from_millis(20)) {
             Ok(value) => return Some(value),
             Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => return None,
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
-                if cancel.is_cancelled() || Instant::now() >= end {
+                if cancel.is_cancelled() || stop.is_cancelled() || Instant::now() >= end {
                     return None;
                 }
             }
@@ -254,14 +423,100 @@ mod tests {
     #[test]
     fn a_bounded_call_answers_or_ends_the_wait() {
         let never = Cancel::never();
-        let quick = bounded("test-call", &never, Duration::from_secs(5), || 7);
-        assert_eq!(quick, Some(7));
+        let calls = Arc::new(HostCalls::default());
+        let call = |budget, call: Box<dyn FnOnce() -> i32 + Send>| {
+            bounded(&calls, "agent", "test-call", &never, &never, budget, call)
+        };
+        assert_eq!(call(Duration::from_secs(5), Box::new(|| 7)), Some(7));
+        assert_eq!(calls.outstanding(), 0);
         let (release, gate) = mpsc::channel::<()>();
-        let slow = bounded("test-call", &never, Duration::from_millis(30), move || {
-            let _ = gate.recv();
-            7
-        });
+        let slow = call(
+            Duration::from_millis(30),
+            Box::new(move || {
+                let _ = gate.recv();
+                7
+            }),
+        );
         assert_eq!(slow, None);
+        // The thread still holds its place: the host call has not returned.
+        assert_eq!(calls.outstanding(), 1);
         drop(release);
+        let end = Instant::now() + Duration::from_secs(5);
+        while calls.outstanding() > 0 {
+            assert!(Instant::now() < end);
+            thread::sleep(Duration::from_millis(1));
+        }
+        // After the end of all recovery no call starts.
+        let stopped = Cancel::never();
+        stopped.cancel();
+        let late = bounded(
+            &calls,
+            "agent",
+            "test-call",
+            &never,
+            &stopped,
+            Duration::from_secs(5),
+            || unreachable!(),
+        );
+        assert_eq!(late, None::<i32>);
+    }
+
+    /// RE-D163 / R1: two outstanding lookups per agent, 32 in the process. A fresh lookup in
+    /// the way is waited for; lookups the host is not answering refuse the next one at once.
+    #[test]
+    fn outstanding_host_lookups_are_bounded_per_agent_and_in_the_process() {
+        let never = Cancel::never();
+        let calls = Arc::new(HostCalls::default());
+        let now = Instant::now;
+        let granted = |agent: &str| match calls.begin(agent, &never, &never, now()) {
+            Place::Granted(place) => place,
+            _ => unreachable!("a free place was not granted"),
+        };
+        let first = granted("x");
+        let second = granted("x");
+        // Fresh lookups are in the way: no place yet, but no refusal either.
+        assert!(matches!(
+            calls.begin("x", &never, &never, now()),
+            Place::Later
+        ));
+        // Another agent is not affected by this agent's bound.
+        let other = granted("y");
+        // A place that frees while a new lookup waits is taken.
+        let waiter = {
+            let calls = calls.clone();
+            thread::spawn(move || {
+                let never = Cancel::never();
+                let until = Instant::now() + Duration::from_secs(5);
+                matches!(calls.begin("x", &never, &never, until), Place::Granted(_))
+            })
+        };
+        thread::sleep(Duration::from_millis(30));
+        drop(first);
+        assert!(waiter.join().unwrap());
+        // Once every lookup in the way is older than the patience, the next is refused at
+        // once, long before its own deadline.
+        thread::sleep(ANSWER_PATIENCE);
+        let third = granted("x");
+        thread::sleep(ANSWER_PATIENCE + Duration::from_millis(20));
+        let asked = now();
+        assert!(matches!(
+            calls.begin("x", &never, &never, asked + Duration::from_secs(30)),
+            Place::Refused
+        ));
+        assert!(asked.elapsed() < Duration::from_secs(1));
+        // The process bound: 32 outstanding, then the 33rd agent is refused as well.
+        let mut held = vec![second, third, other];
+        for index in 0..HOST_CALLS - held.len() {
+            held.push(granted(&format!("agent-{index}")));
+        }
+        assert_eq!(calls.outstanding(), HOST_CALLS);
+        thread::sleep(ANSWER_PATIENCE + Duration::from_millis(20));
+        assert!(matches!(
+            calls.begin("one-more", &never, &never, now() + Duration::from_secs(30)),
+            Place::Refused
+        ));
+        drop(held);
+        assert_eq!(calls.outstanding(), 0);
+        drop(granted("one-more"));
     }
 }

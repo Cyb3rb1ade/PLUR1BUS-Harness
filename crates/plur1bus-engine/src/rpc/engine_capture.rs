@@ -16,6 +16,7 @@ use crate::{
         queue::{CaptureQueue, PressureSnapshot, RuntimeConfig},
         reminder_store::ReminderStore,
         replay_guard::ReplayGuard,
+        retained::Bounds,
         shared_scope::{CapturePolicy, WorkspaceCapturePolicy},
     },
     context::{is_user_principal, RequestContext},
@@ -549,19 +550,19 @@ impl NeoCaptureHook for UserScopedNeo {
     fn has_retained(&self) -> bool {
         self.hook.has_retained()
     }
-    fn recover_retained(&self, shutdown: &Cancel) {
-        self.hook.recover_retained(shutdown);
+    fn recover_retained(&self, bounds: &Bounds) {
+        self.hook.recover_retained(bounds);
     }
     fn recover_owner(
         &self,
         turn: &TurnRecord,
         context: &RequestContext,
         cancel: &Cancel,
-        shutdown: &Cancel,
+        bounds: &Bounds,
     ) {
         // Only a caller the journal can bind has a binding; that needs no host here.
         if is_user_principal(&context.owner_user_id) && !context.workspace_key.is_empty() {
-            self.hook.recover_owner(turn, context, cancel, shutdown);
+            self.hook.recover_owner(turn, context, cancel, bounds);
         }
     }
     fn close_retained(&self, budget: Duration) -> bool {

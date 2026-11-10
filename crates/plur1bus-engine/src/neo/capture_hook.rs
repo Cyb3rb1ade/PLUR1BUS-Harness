@@ -8,7 +8,7 @@ use crate::{
     capture::{
         emotion_pool::EmotionalPool,
         pipeline::NeoCaptureHook,
-        retained::{bounded, Retained},
+        retained::{Bounds, Retained},
         shared_scope::CapturePolicy,
     },
     context::RequestContext,
@@ -93,7 +93,7 @@ impl NativeNeoCaptureHook {
         // Recover prepared native work before exposing the hook to new capture admissions.
         // Each owner binding stands alone; what stays is reported in the status.
         NeoCaptureHook::inventory(&hook, cancel)?;
-        hook.recover_retained(cancel);
+        hook.recover_retained(&Bounds::new(cancel.clone()));
         cancel.check()?;
         Ok(hook)
     }
@@ -167,9 +167,12 @@ impl NativeNeoCaptureHook {
         Ok(self)
     }
     /// Start the one attempt for a waiting binding; true when one is in flight afterwards.
-    fn start(&self, key: &str, shutdown: &Cancel) -> bool {
-        let (episodes, shutdown, binding) =
-            (self.episodes.clone(), shutdown.clone(), key.to_owned());
+    fn start(&self, key: &str, bounds: &Bounds) -> bool {
+        let (episodes, shutdown, binding) = (
+            self.episodes.clone(),
+            bounds.shutdown.clone(),
+            key.to_owned(),
+        );
         self.retained.start(key, "neo-recovery", move || {
             let budget = shutdown.limited_to(Instant::now() + episodes.plan_budget());
             episodes.recover_key(&binding, &budget)
@@ -213,7 +216,8 @@ impl NeoCaptureHook for NativeNeoCaptureHook {
     fn has_retained(&self) -> bool {
         self.retained.waiting()
     }
-    fn recover_retained(&self, shutdown: &Cancel) {
+    fn recover_retained(&self, bounds: &Bounds) {
+        let shutdown = &bounds.shutdown;
         // Bindings one after the other. The pass only waits; each attempt has its own
         // thread and budget, and holds the workspace leases no longer than a turn's own
         // Neo step would.
@@ -221,7 +225,7 @@ impl NeoCaptureHook for NativeNeoCaptureHook {
             if shutdown.is_cancelled() {
                 return;
             }
-            if self.start(&key, shutdown) {
+            if self.start(&key, bounds) {
                 let patience = Instant::now() + self.episodes.plan_budget() + ATTEMPT_GRACE;
                 let patience = shutdown.limited_to(patience);
                 self.retained.join(&key, &patience, shutdown);
@@ -233,29 +237,34 @@ impl NeoCaptureHook for NativeNeoCaptureHook {
         turn: &TurnRecord,
         _context: &RequestContext,
         cancel: &Cancel,
-        shutdown: &Cancel,
+        bounds: &Bounds,
     ) {
         if !self.enabled || turn.incognito || !self.retained.waiting() {
             return;
         }
-        // The caller's own binding needs the host; the lookup has a deadline that ends
-        // only this wait.
+        // The caller's own binding needs the host. The lookup has a deadline that ends only
+        // this wait, it takes one of the agent's places for outstanding host lookups, and
+        // none starts once recovery has ended (RE-D163).
         let budget = self.episodes.plan_budget();
         let (episodes, principal, agent) = (
             self.episodes.clone(),
             turn.principal.clone(),
             turn.agent.clone(),
         );
-        let key = bounded("neo-identity", cancel, budget, move || {
-            episodes.binding_key(&principal, &agent)
-        });
+        let key = bounds.host_call(
+            turn.agent_id.as_str(),
+            "neo-identity",
+            cancel,
+            budget,
+            move || episodes.binding_key(&principal, &agent),
+        );
         let Some(Ok(Some(key))) = key else {
             return;
         };
         if self.retained.concerns(&key) {
-            self.start(&key, shutdown);
+            self.start(&key, bounds);
             let wait = cancel.limited_to(Instant::now() + budget);
-            self.retained.join(&key, &wait, shutdown);
+            self.retained.join(&key, &wait, &bounds.shutdown);
         }
     }
     fn close_retained(&self, budget: Duration) -> bool {

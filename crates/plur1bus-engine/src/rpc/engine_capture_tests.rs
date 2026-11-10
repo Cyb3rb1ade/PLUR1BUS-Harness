@@ -529,15 +529,14 @@ impl HostServices for CrashHost {
             return self.inner.workspace_dir(agent);
         }
         if self.phase == "hang-first" {
-            // Count every lookup; the first one for `agent` hangs while `hang` exists.
-            use std::io::Write;
-            let mut calls = fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(self.root.join("host-calls"))
-                .unwrap();
-            calls.write_all(b".").unwrap();
+            // Note that the host was asked; the first lookup for `agent` hangs while `hang`
+            // exists. A turn asks hundreds of times, so later lookups only look.
+            let calls = self.root.join("host-calls");
+            if !calls.exists() {
+                fs::write(calls, ".").unwrap();
+            }
             if agent.as_str() == "agent"
+                && !self.root.join("hang-entered").exists()
                 && self.root.join("hang").exists()
                 && fs::OpenOptions::new()
                     .write(true)

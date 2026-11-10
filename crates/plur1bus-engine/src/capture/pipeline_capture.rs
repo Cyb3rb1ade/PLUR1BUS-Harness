@@ -46,7 +46,7 @@ impl CaptureWorker for CapturePipeline {
     fn recover_retained(self: Arc<Self>, steps: &RecoverySteps) {
         self.pass(steps, false);
         if let Some(neo) = &self.neo {
-            neo.recover_retained(&steps.shutdown);
+            neo.recover_retained(&steps.bounds());
         }
     }
 
@@ -72,7 +72,7 @@ impl CaptureWorker for CapturePipeline {
             }
         }
         if let Some(neo) = &self.neo {
-            neo.recover_owner(turn, context, cancel, &steps.shutdown);
+            neo.recover_owner(turn, context, cancel, &steps.bounds());
         }
     }
 

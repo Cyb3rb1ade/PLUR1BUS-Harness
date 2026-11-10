@@ -21,10 +21,13 @@ use super::cancel_link::CancellationLinks;
 use super::queue::{CaptureQueue, QueueMeta};
 use super::replay_guard::{turn_key_of, ReplayGuard, ReplayRows};
 use super::result::counts;
+use super::retained::{Bounds, HostCalls, Place};
 
 /// How long an admitted turn keeps its place in its agent's order while the host has not
-/// answered its identity lookup. After that the turn steps aside until the answer arrives:
-/// later turns of the agent pass, as at the pin, where the lookup holds no agent-wide order.
+/// answered its identity lookup, counted from the start of the lookup, which runs while the
+/// turn still waits in that order (RE-D163). After that the turn steps aside until the
+/// answer arrives: later turns of the agent pass, as at the pin, where the lookup holds no
+/// agent-wide order.
 const ADMISSION_PATIENCE: Duration = Duration::from_secs(1);
 /// How often retained input is checked against its age bound while the engine runs.
 const EXPIRY_SWEEP: Duration = Duration::from_secs(60 * 60);
@@ -38,6 +41,17 @@ pub struct RecoverySteps {
     pub queue: Arc<CaptureQueue>,
     /// Ends all recovery (close); admitted turns keep their own cancellation.
     pub shutdown: Cancel,
+    /// The places for outstanding host lookups (RE-D163).
+    pub(crate) calls: Arc<HostCalls>,
+}
+impl RecoverySteps {
+    /// What a recovery step outside this module is bound by.
+    pub(crate) fn bounds(&self) -> Bounds {
+        Bounds {
+            shutdown: self.shutdown.clone(),
+            calls: self.calls.clone(),
+        }
+    }
 }
 
 /// Row work supplied by the composed capture pipeline, not by the public contract.
@@ -105,6 +119,8 @@ struct Inner {
     shutdown: Cancel,
     pass: Arc<Pass>,
     owners: OwnerGate,
+    /// Bounds the threads that wait for a host answer: two per agent, 32 in all.
+    calls: Arc<HostCalls>,
 }
 
 impl Inner {
@@ -113,6 +129,7 @@ impl Inner {
             replay: self.replay.clone(),
             queue: self.queue.clone(),
             shutdown: self.shutdown.clone(),
+            calls: self.calls.clone(),
         }
     }
 }
@@ -250,6 +267,7 @@ impl CaptureRuntime {
             shutdown,
             pass: Arc::default(),
             owners: OwnerGate::default(),
+            calls: Arc::default(),
         })))
     }
 
@@ -334,6 +352,7 @@ impl CaptureRuntime {
         } else {
             let ticket = self.0.admissions.issue(turn.agent_id.as_str());
             let inner = self.0.clone();
+            let (unstarted, fallback) = (send.clone(), options.clone());
             let handle = thread::Builder::new()
                 .name("capture-admission".into())
                 .spawn(move || {
@@ -348,10 +367,19 @@ impl CaptureRuntime {
                     )
                     .unwrap_or_else(|error| counts(0, 1, Some(&error_description(&error))));
                     let _ = send.send(with_diagnostic(result, &options, inner.scheduled));
-                })
-                .map_err(|_| EngineError::Host(HostError::Failed))?;
+                });
             submissions.reap();
-            submissions.tasks.push(handle);
+            match handle {
+                Ok(handle) => submissions.tasks.push(handle),
+                // No thread for this turn (RE-D163): only this receipt ends, as a turn whose
+                // host did not answer. The turn's ticket went with the closure; later turns
+                // are accepted as before.
+                Err(_) => {
+                    let failed = EngineError::Host(HostError::Unavailable);
+                    let result = counts(0, 1, Some(&error_description(&failed)));
+                    let _ = unstarted.send(with_diagnostic(result, &fallback, self.0.scheduled));
+                }
+            }
         }
         Ok(CaptureHandle {
             id,
@@ -404,37 +432,58 @@ impl CaptureRuntime {
     }
 }
 
+/// An identity lookup in flight.
+struct Lookup {
+    answer: mpsc::Receiver<Result<RequestContext, EngineError>>,
+    started: Instant,
+}
+
 /// Resolve a turn's identity on its own thread, so that a host that never answers ends
-/// only the wait, never the waiter.
-fn lookup(inner: &Inner, turn: &TurnRecord) -> mpsc::Receiver<Result<RequestContext, EngineError>> {
+/// only the wait, never the waiter. Such threads are bounded (RE-D163): the thread holds
+/// one of its agent's two places, and one of the 32 of the process, until the host call
+/// returns. `None`: no lookup was started — the places are held by lookups the host is not
+/// answering, the turn was cancelled, the runtime is closing, or no thread could start.
+fn lookup(inner: &Inner, turn: &TurnRecord, cancel: &Cancel) -> Option<Lookup> {
+    let until = Instant::now() + inner.queue.capture_timeout();
+    let agent = turn.agent_id.as_str();
+    let Place::Granted(place) = inner.calls.begin(agent, cancel, &inner.shutdown, until) else {
+        return None;
+    };
     let (send, answer) = mpsc::channel();
     let host = inner.host.clone();
     let (principal, agent) = (turn.principal.clone(), turn.agent.clone());
-    // A thread that cannot start drops the sender: the lookup then reports a failed host.
-    let _ = thread::Builder::new()
+    // A thread that cannot start drops the closure and with it the place.
+    thread::Builder::new()
         .name("capture-identity".into())
         .spawn(move || {
-            let _ = send.send(RequestContext::build(&principal, &agent, host.as_ref()));
-        });
-    answer
+            let context = RequestContext::build(&principal, &agent, host.as_ref());
+            drop(place);
+            let _ = send.send(context);
+        })
+        .ok()?;
+    Some(Lookup {
+        answer,
+        started: Instant::now(),
+    })
 }
 
-/// Wait for a lookup's answer until the caller's cancellation or `budget` ends the wait:
-/// the answer, or `None` when none came in time.
+/// Wait for a lookup's answer until the caller's cancellation, the end of the runtime or
+/// `budget` ends the wait: the answer, or `None` when none came in time.
 fn await_lookup(
-    answer: &mpsc::Receiver<Result<RequestContext, EngineError>>,
+    inner: &Inner,
+    lookup: &Lookup,
     cancel: &Cancel,
     budget: Duration,
 ) -> Option<Result<RequestContext, EngineError>> {
     let end = Instant::now() + budget;
     loop {
-        match answer.recv_timeout(Duration::from_millis(20)) {
+        match lookup.answer.recv_timeout(Duration::from_millis(20)) {
             Ok(result) => return Some(result),
             Err(mpsc::RecvTimeoutError::Disconnected) => {
                 return Some(Err(EngineError::Host(HostError::Failed)))
             }
             Err(mpsc::RecvTimeoutError::Timeout) => {
-                if cancel.is_cancelled() || Instant::now() >= end {
+                if cancel.is_cancelled() || inner.shutdown.is_cancelled() || Instant::now() >= end {
                     return None;
                 }
             }
@@ -442,11 +491,15 @@ fn await_lookup(
     }
 }
 
-/// The result of a turn whose identity lookup got no answer in time: the caller's own abort,
-/// or what a failed lookup reports (the pin's `detailOf(error)`).
-fn unanswered(cancel: &Cancel) -> CaptureResult {
+/// The result of a turn whose identity lookup was not started or got no answer in time: the
+/// caller's own abort, what the closed queue answers once the runtime closes, or what a
+/// failed lookup reports (the pin's `detailOf(error)`).
+fn unanswered(inner: &Inner, cancel: &Cancel) -> CaptureResult {
     if cancel.is_cancelled() {
         return counts(0, 1, Some("aborted"));
+    }
+    if inner.shutdown.is_cancelled() {
+        return counts(0, 1, Some("engine-closed"));
     }
     let failed = EngineError::Host(HostError::Unavailable);
     counts(0, 1, Some(&error_description(&failed)))
@@ -468,7 +521,10 @@ fn execute(
     if inner.worker.has_retained() || inner.owners.busy() {
         ticket.park();
         let mut own = OwnerTurn::enter(inner, ticket.id);
-        match await_lookup(&lookup(inner, &turn), cancel, inner.queue.capture_timeout()) {
+        let Some(first) = lookup(inner, &turn, cancel) else {
+            return Ok(unanswered(inner, cancel));
+        };
+        match await_lookup(inner, &first, cancel, inner.queue.capture_timeout()) {
             Some(Ok(context)) if context.origin_wire() == "user" => {
                 own.line_up(format!(
                     "{}\n{}",
@@ -486,11 +542,16 @@ fn execute(
             }
             // A failed lookup is reported by the turn's own admission below, as before.
             Some(_) => {}
-            None => return Ok(unanswered(cancel)),
+            None => return Ok(unanswered(inner, cancel)),
         }
         ticket.unpark();
         staged = Some(own);
     }
+    // The admission's own lookup starts before the turn waits for its place in its agent's
+    // order (RE-D163): the waits of turns in a row run side by side and do not add up.
+    let Some(admission) = lookup(inner, &turn, cancel) else {
+        return Ok(unanswered(inner, cancel));
+    };
     if !ticket.wait(cancel) {
         return Ok(counts(0, 1, Some("aborted")));
     }
@@ -504,20 +565,20 @@ fn execute(
         cancel,
         || ticket.release(),
         |replay| {
-            // The lookup has a deadline. A host that does not answer at once no longer
-            // holds the agent's order: the ticket is parked until the answer arrives.
-            let answer = lookup(inner, &turn);
-            let context = match answer.recv_timeout(ADMISSION_PATIENCE) {
-                Ok(result) => result?,
-                Err(mpsc::RecvTimeoutError::Disconnected) => {
-                    return Err(EngineError::Host(HostError::Failed))
-                }
-                Err(mpsc::RecvTimeoutError::Timeout) => {
+            // The lookup has a deadline. A host that has not answered within the patience
+            // (what is left of it since the lookup started) no longer holds the agent's
+            // order: the ticket is parked until the answer arrives.
+            let left =
+                (admission.started + ADMISSION_PATIENCE).saturating_duration_since(Instant::now());
+            let context = match await_lookup(inner, &admission, cancel, left) {
+                Some(result) => result?,
+                None => {
                     ticket.park();
-                    let outcome = await_lookup(&answer, cancel, inner.queue.capture_timeout());
+                    let outcome =
+                        await_lookup(inner, &admission, cancel, inner.queue.capture_timeout());
                     ticket.unpark();
                     let Some(result) = outcome else {
-                        return Ok(unanswered(cancel));
+                        return Ok(unanswered(inner, cancel));
                     };
                     if !ticket.wait(cancel) {
                         return Ok(counts(0, 1, Some("aborted")));
