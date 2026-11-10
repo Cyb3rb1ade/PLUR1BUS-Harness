@@ -99,7 +99,7 @@ fn opening_runtime_recovers_original_capture_without_a_new_turn_from_the_host() 
     }
 }
 #[test]
-fn startup_refuses_modified_record_caller_config_model_and_physical_workspace() {
+fn modified_records_never_mutate_lance_and_never_block_the_runtime() {
     for kind in [
         "version",
         "caller",
@@ -150,7 +150,11 @@ fn startup_refuses_modified_record_caller_config_model_and_physical_workspace() 
         let f = BoundaryFixture::new(root.path(), "");
         let before = f.rows();
         let stores = f.stores.clone();
-        assert!(open(f).is_err(), "{kind}");
+        // RE-D156: one record never fails the runtime. A malformed file is kept untouched;
+        // a well-formed record whose caller, configuration, vector space, workspace or row
+        // no longer matches is closed terminally. Lance is never mutated.
+        let runtime = open(f).unwrap();
+        assert!(runtime.0.close(Duration::from_secs(5)), "{kind}");
         let after = stores
             .get("capture-agent")
             .unwrap()
@@ -158,15 +162,24 @@ fn startup_refuses_modified_record_caller_config_model_and_physical_workspace() 
             .unwrap();
         assert_eq!(after.len(), before.len(), "{kind}");
         assert_eq!(after[0].id, before[0].id, "{kind}");
-        assert_eq!(
-            std::fs::read(&path).unwrap(),
-            serde_json::to_vec(&value).unwrap(),
-            "{kind}"
-        );
+        let now = std::fs::read(&path).unwrap();
+        let malformed = matches!(kind, "version" | "row-id" | "options" | "unknown-field");
+        if malformed {
+            assert_eq!(now, serde_json::to_vec(&value).unwrap(), "{kind}");
+        } else {
+            let closed: serde_json::Value = serde_json::from_slice(&now).unwrap();
+            assert!(
+                closed["record"].is_null() || now == serde_json::to_vec(&value).unwrap(),
+                "{kind}"
+            );
+            if kind != "caller" {
+                assert!(closed["record"].is_null(), "{kind}");
+            }
+        }
     }
 }
 #[test]
-fn edited_lance_row_blocks_primary_cleanup_and_post_store_reentry() {
+fn an_edited_lance_row_closes_its_entry_without_cleanup_or_reentry() {
     for phase in ["after-first-row", "after-settle"] {
         let root = killed(phase);
         let f = BoundaryFixture::new(root.path(), "");
@@ -178,7 +191,8 @@ fn edited_lance_row_blocks_primary_cleanup_and_post_store_reentry() {
             .unwrap()
             .upsert(std::slice::from_ref(&row))
             .unwrap();
-        assert!(open(f).is_err(), "{phase}");
+        let effects = f.effects.clone();
+        drop(open(f).unwrap());
         assert_eq!(
             stores
                 .get("capture-agent")
@@ -189,10 +203,13 @@ fn edited_lance_row_blocks_primary_cleanup_and_post_store_reentry() {
                 .text,
             row.text
         );
+        // The human edit is kept; the entry is closed terminally, its effects never re-run.
+        assert_eq!(effects.load(Ordering::SeqCst), 0, "{phase}");
+        assert!(pending(root.path()).is_null(), "{phase}");
     }
 }
 #[test]
-fn changed_effective_configuration_and_revoked_capture_policy_preserve_pending_work() {
+fn changed_effective_configuration_and_revoked_capture_policy_close_the_entry() {
     for revoked in [false, true] {
         let root = killed("after-first-row");
         let extra = if revoked {
@@ -202,14 +219,14 @@ fn changed_effective_configuration_and_revoked_capture_policy_preserve_pending_w
         };
         let f = BoundaryFixture::configured(root.path(), "", extra, None);
         let stores = f.stores.clone();
-        let path = admission(root.path());
-        let original = std::fs::read(&path).unwrap();
         if revoked {
             plur1bus_engine::ops::workspace_policy::PolicyStore::new(&root.path().join("stores")).unwrap()
                 .set(&serde_json::json!({"agentId":"capture-agent","workspaceIdentity":f.context.workspace_key,"enabled":false,"expectedRevision":0,"actorId":"fixture-controller"}),1_710_000_000_001).unwrap();
         }
-        assert!(open(f).is_err());
-        assert_eq!(std::fs::read(path).unwrap(), original);
+        // RE-D156: closed terminally, the retained turn content is discarded and the row
+        // written before the crash stays, as at the pin.
+        drop(open(f).unwrap());
+        assert!(pending(root.path()).is_null(), "{revoked}");
         assert_eq!(
             stores
                 .get("capture-agent")
@@ -222,7 +239,7 @@ fn changed_effective_configuration_and_revoked_capture_policy_preserve_pending_w
 }
 
 #[test]
-fn oversized_duplicate_and_linked_admission_files_refuse_before_lance_mutation() {
+fn oversized_duplicate_and_linked_admission_files_are_kept_without_lance_mutation() {
     for kind in ["oversize", "duplicate", "symlink", "hardlink"] {
         let root = killed("after-first-row");
         let path = admission(root.path());
@@ -252,7 +269,9 @@ fn oversized_duplicate_and_linked_admission_files_refuse_before_lance_mutation()
         }
         let f = BoundaryFixture::new(root.path(), "");
         let stores = f.stores.clone();
-        assert!(open(f).is_err(), "{kind}");
+        // RE-D156: an unreadable file is never recovered and never blocks the runtime.
+        drop(open(f).unwrap());
+        assert!(path.symlink_metadata().is_ok(), "{kind}");
         assert_eq!(
             stores
                 .get("capture-agent")
@@ -289,7 +308,7 @@ fn another_authorized_chat_cannot_borrow_an_original_pending_capture() {
 }
 
 #[test]
-fn an_unknown_post_store_implementation_cannot_claim_replay_safety() {
+fn an_unknown_post_store_implementation_closes_its_step_instead_of_replaying() {
     let root = killed("after-settle");
     let mut f = BoundaryFixture::new(root.path(), "");
     let stores = f.stores.clone();
@@ -305,7 +324,9 @@ fn an_unknown_post_store_implementation_cannot_claim_replay_safety() {
         )),
     )
     .unwrap();
-    assert!(open(f).is_err());
+    // The classifier cannot prove replay safety: that is a library limit, so the step is
+    // closed with a fixed reason (RE-D156) and never re-entered; the stored rows stay.
+    drop(open(f).unwrap());
     assert_eq!(
         stores
             .get("capture-agent")
@@ -314,10 +335,9 @@ fn an_unknown_post_store_implementation_cannot_claim_replay_safety() {
             .unwrap(),
         2
     );
-    let after: serde_json::Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
     let before: serde_json::Value = serde_json::from_slice(&before).unwrap();
-    assert_eq!(after["record"]["turn"], before["record"]["turn"]);
-    assert_eq!(after["record"]["classifierDone"], false);
+    assert!(before["record"].is_object());
+    assert!(pending(root.path()).is_null());
 }
 
 #[test]
@@ -439,4 +459,135 @@ fn a_pending_entry_refused_terminally_on_recovery_is_closed_exactly_once() {
     let effects = last.effects.clone();
     drop(open(last).unwrap());
     assert_eq!(effects.load(Ordering::SeqCst), 0);
+}
+
+/// A workspace policy whose maintenance state a test switches on and off.
+struct Maintenance(
+    Arc<std::sync::atomic::AtomicBool>,
+    shared_scope::WorkspaceCapturePolicy,
+);
+impl shared_scope::CapturePolicy for Maintenance {
+    fn allowed(&self, context: &context::RequestContext) -> Result<bool, EngineError> {
+        if self.0.load(Ordering::SeqCst) {
+            return Ok(false);
+        }
+        self.1.allowed(context)
+    }
+    fn decision(
+        &self,
+        context: &context::RequestContext,
+    ) -> Result<shared_scope::PolicyDecision, EngineError> {
+        if self.0.load(Ordering::SeqCst) {
+            return Ok(shared_scope::PolicyDecision::Maintenance);
+        }
+        self.1.decision(context)
+    }
+}
+
+#[test]
+fn maintenance_keeps_a_retained_entry_until_it_ends() {
+    let root = killed("after-first-row");
+    let mut f = BoundaryFixture::new(root.path(), "");
+    let stores = f.stores.clone();
+    let active = Arc::new(std::sync::atomic::AtomicBool::new(true));
+    f.worker = pipeline::CapturePipeline::new(
+        f.host.clone(),
+        stores.clone(),
+        Arc::new(capture_pipeline_support::HashEmbedder::new(false)),
+        Arc::new(BoundaryClassifier {
+            root: root.path().to_owned(),
+            phase: String::new(),
+            calls: AtomicUsize::new(0),
+            effects: f.effects.clone(),
+        }),
+        Arc::new(Maintenance(
+            active.clone(),
+            shared_scope::WorkspaceCapturePolicy::new(root.path().join("stores")),
+        )),
+    )
+    .unwrap();
+    // During maintenance the runtime opens; the entry waits untouched and blocks nothing.
+    drop(open(f).unwrap());
+    assert!(pending(root.path()).is_object());
+    let count = || {
+        stores
+            .get("capture-agent")
+            .unwrap()
+            .count(&store::RowFilter::default())
+            .unwrap()
+    };
+    assert_eq!(count(), 1);
+    active.store(false, Ordering::SeqCst);
+    // After maintenance the next open completes it exactly once.
+    let next = BoundaryFixture::new(root.path(), "");
+    drop(open(next).unwrap());
+    assert!(pending(root.path()).is_null());
+    assert_eq!(count(), 2);
+}
+
+#[test]
+fn transient_failures_are_retried_at_most_five_times_across_restarts() {
+    let root = physical_temp();
+    let f = BoundaryFixture::new(root.path(), "transient-post-always");
+    assert_eq!(serde_json::to_value(f.run().unwrap()).unwrap()["stored"], 2);
+    let effects = f.effects.clone();
+    drop(f);
+    assert_eq!(
+        pending(root.path())["recoveryAttempts"],
+        serde_json::Value::Null
+    );
+    for attempt in 1..=pipeline_failure::MAX_RECOVERY_ATTEMPTS {
+        let next = BoundaryFixture::new(root.path(), "transient-post-always");
+        drop(open(next).unwrap());
+        // Counted durably before each attempt, so a crash can neither repeat nor lose it.
+        assert_eq!(
+            pending(root.path())["recoveryAttempts"],
+            attempt,
+            "{attempt}"
+        );
+    }
+    let last = BoundaryFixture::new(root.path(), "transient-post-always");
+    let effects_last = last.effects.clone();
+    drop(open(last).unwrap());
+    // Exhausted: closed terminally without another attempt; rows stay.
+    assert!(pending(root.path()).is_null());
+    assert_eq!(effects_last.load(Ordering::SeqCst), 0);
+    assert_eq!(effects.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn a_pending_entry_is_retried_before_its_agents_next_turn() {
+    let root = physical_temp();
+    let f = BoundaryFixture::new(root.path(), "transient-post-once");
+    let first = f.turn.clone();
+    let mut second = serde_json::to_value(&f.turn).unwrap();
+    second["runId"] = "capture-boundary-next".into();
+    let second: TurnRecord = serde_json::from_value(second).unwrap();
+    let effects = f.effects.clone();
+    let stores = f.stores.clone();
+    let runtime = open(f).unwrap();
+    let options = || serde_json::from_value(serde_json::json!({})).unwrap();
+    let done = |handle: contract::CaptureHandle| {
+        serde_json::to_value(handle.done.recv_timeout(Duration::from_secs(15)).unwrap()).unwrap()
+    };
+    // The first turn's post-store step fails transiently: its entry stays pending.
+    assert_eq!(
+        done(runtime.0.accept(first, options()).unwrap())["stored"],
+        2
+    );
+    assert!(pending(root.path()).is_object());
+    // The agent's next turn first retries it (no restart), then runs normally.
+    let result = done(runtime.0.accept(second, options()).unwrap());
+    assert!(result.get("reason").is_none(), "{result}");
+    assert!(pending(root.path()).is_null());
+    assert_eq!(effects.load(Ordering::SeqCst), 3);
+    assert!(
+        stores
+            .get("capture-agent")
+            .unwrap()
+            .count(&store::RowFilter::default())
+            .unwrap()
+            >= 2
+    );
+    assert!(runtime.0.close(Duration::from_secs(5)));
 }

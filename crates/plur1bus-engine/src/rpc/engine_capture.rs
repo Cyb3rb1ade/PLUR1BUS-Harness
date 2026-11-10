@@ -35,6 +35,8 @@ use std::{
 const DEFAULT_CLOSE_BUDGET: Duration = Duration::from_secs(30);
 /// Status reason while retained capture input cannot be completed (or composition failed).
 const RECOVERY_INCOMPLETE: &str = "startup-recovery-incomplete";
+/// Status reason when startup recovery ran out of its capture timeout (retried on next use).
+const RECOVERY_DEADLINE: &str = "startup-recovery-deadline";
 /// Status reason for a configuration the capture composition rejects; nothing to recover.
 const COMPOSITION_INVALID: &str = "composition-invalid";
 
@@ -110,7 +112,7 @@ impl ProcessCapture {
     pub(super) fn degradation(&self) -> Option<Degraded> {
         let reason = match &self.lock().slot {
             Slot::Failed(reason) => *reason,
-            Slot::Ready(composed) if composed.pipeline.any_recovery_blocked() => {
+            Slot::Ready(composed) if composed.pipeline.has_unfinished_recovery() => {
                 RECOVERY_INCOMPLETE
             }
             _ => return None,
@@ -140,12 +142,11 @@ impl ProcessCapture {
         agent: Option<&str>,
     ) -> Result<Arc<CaptureRuntime>, EngineError> {
         let this = &engine.capture;
-        let served = |composed: &Composed| match agent {
-            // Only the owner whose retained input is unfinished is refused (RE-D155 scope).
-            Some(agent) if composed.pipeline.recovery_blocked(agent) => {
-                Err(unavailable(RECOVERY_INCOMPLETE))
-            }
-            _ => Ok(composed.runtime.clone()),
+        // An owner's pending retained work is retried before its next turn, under that
+        // agent's admission ticket; it never refuses the turn or anyone else (RE-D156).
+        let _ = agent;
+        let served = |composed: &Composed| -> Result<Arc<CaptureRuntime>, EngineError> {
+            Ok(composed.runtime.clone())
         };
         let mut state = this.lock();
         loop {
@@ -243,6 +244,10 @@ impl ProcessCapture {
 fn classify_failure(error: EngineError, closed: bool) -> (Option<&'static str>, EngineError) {
     match error {
         _ if closed => (None, unavailable("closed")),
+        // The startup recovery deadline is a status, not a caller cancellation.
+        EngineError::Cancelled(crate::contract::Cancelled {
+            reason: crate::contract::CancelReason::Deadline,
+        }) => (Some(RECOVERY_DEADLINE), unavailable(RECOVERY_DEADLINE)),
         error @ EngineError::Cancelled(_) => (None, error),
         error @ EngineError::Invalid { .. } => (Some(COMPOSITION_INVALID), error),
         error @ EngineError::NotAvailable { .. } => (Some(RECOVERY_INCOMPLETE), error),
@@ -295,8 +300,7 @@ fn compose(
         classifier,
         policy.clone(),
     )?
-    .with_recovery_cancel(shutdown.clone())
-    .with_owner_scoped_recovery();
+    .with_recovery_cancel(shutdown.clone());
     // As at the pin, Neo state exists only when Neo is enabled. Opening the hook recovers
     // prepared Neo capture/episode plans before any admission; the pin creates the root on
     // its first write, the native hook pins an existing one.
@@ -347,13 +351,8 @@ struct UserScopedNeo {
     host: Arc<dyn HostServices>,
 }
 impl UserScopedNeo {
-    fn applies(&self, turn: &TurnRecord, context: &RequestContext) -> bool {
-        is_user_principal(&context.owner_user_id)
-            && !context.workspace_key.is_empty()
-            && self
-                .host
-                .workspace_dir(&turn.principal.agent_id)
-                .is_ok_and(|dir| dir.is_some_and(|dir| !dir.as_os_str().is_empty()))
+    fn applies(&self, turn: &TurnRecord, context: &RequestContext) -> Result<bool, EngineError> {
+        neo_applies(self.host.as_ref(), turn, context)
     }
     fn not_applicable() -> EngineError {
         EngineError::NotAvailable {
@@ -368,7 +367,7 @@ impl NeoCaptureHook for UserScopedNeo {
         context: &RequestContext,
         cancel: &Cancel,
     ) -> Result<(), EngineError> {
-        if !self.applies(turn, context) {
+        if !self.applies(turn, context)? {
             return Ok(());
         }
         self.hook.record_turn(turn, context, cancel)
@@ -380,7 +379,7 @@ impl NeoCaptureHook for UserScopedNeo {
         options: &CaptureOptions,
         cancel: &Cancel,
     ) -> Result<(), EngineError> {
-        if !self.applies(turn, context) {
+        if !self.applies(turn, context)? {
             return Err(Self::not_applicable());
         }
         self.hook.post_store(turn, context, options, cancel)
@@ -393,7 +392,7 @@ impl NeoCaptureHook for UserScopedNeo {
         resuming: bool,
         cancel: &Cancel,
     ) -> Result<(), EngineError> {
-        if !self.applies(turn, context) {
+        if !self.applies(turn, context)? {
             return Err(Self::not_applicable());
         }
         self.hook
@@ -405,11 +404,27 @@ impl NeoCaptureHook for UserScopedNeo {
         context: &RequestContext,
         cancel: &Cancel,
     ) -> Result<(), EngineError> {
-        if !self.applies(turn, context) {
+        if !self.applies(turn, context)? {
             return Ok(());
         }
         self.hook.after_capture(turn, context, cancel)
     }
+}
+
+/// Whether the native Neo journal has a partition for this owner. A host failure while
+/// resolving the workspace is transient and propagates (RE-D156); only a missing user
+/// principal, an empty logical key or a host answer of "no workspace" is not applicable.
+pub(super) fn neo_applies(
+    host: &dyn HostServices,
+    turn: &TurnRecord,
+    context: &RequestContext,
+) -> Result<bool, EngineError> {
+    if !is_user_principal(&context.owner_user_id) || context.workspace_key.is_empty() {
+        return Ok(false);
+    }
+    Ok(host
+        .workspace_dir(&turn.principal.agent_id)?
+        .is_some_and(|dir| !dir.as_os_str().is_empty()))
 }
 
 /// Tier-3 emotion through the host's guarded completion port, when the host has one.

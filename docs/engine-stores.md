@@ -1978,16 +1978,18 @@ outside the capture state lock; concurrent callers wait for it. Before any new
 turn is admitted it recovers durable admissions (`_capture-admissions`), the
 capture WAL (`_capture-turns`) and prepared Neo plans; a killed turn is
 completed exactly once, also when it was killed after its first row. Recovery is
-bound to the engine's shutdown signal. It is owner-scoped: an entry that cannot
-be completed blocks only its own agent (its new turns answer
-`not-available/startup-recovery-incomplete` so they never overtake it) while
-other agents capture normally; the status reports
-`{reason: "startup-recovery-incomplete", capability: "capture"}`. An
-inventory failure that cannot be attributed to an owner, or a cancelled
-recovery, still fails the composition as a whole; the next open retries. A
-configuration the composition rejects reports `composition-invalid`.
-`Engine.open` itself does not fail on a capture recovery failure. The status
-reflects capture only after the first open or capture.
+bound to the engine's shutdown signal and handles every retained record on its
+own (RE-D156); no record can fail the composition or block another agent or
+owner. A pending record is retried before its agent's next turn, under that
+agent's admission ticket, so the agent's turns wait only while the attempt runs.
+While a retained record is pending, or a malformed admission file is kept, the
+status reports `{reason: "startup-recovery-incomplete", capability: "capture"}`.
+A startup recovery that runs out of `runtime.captureTimeoutMs` reports
+`startup-recovery-deadline`, keeps every input and is retried on the next open or
+capture; shutdown is no failure state. A configuration the composition rejects
+reports `composition-invalid`. `Engine.open` itself does not fail on a capture
+recovery failure. The status reflects capture only after the first open or
+capture.
 
 Capture's classifier and recall share one owner-bound mood pool (RE-D51 binding
 unchanged) and one bounded set of per-owner emotion engines (256 bindings,
@@ -2009,6 +2011,8 @@ key and a host workspace directory. For any other owner the composition skips
 Neo's pre-store work and closes the post-store step with the terminal refusal
 `neo-owner-not-applicable` (RE-D155). KNOWN-GAP for RY-A: the pin writes Neo for
 every owner; whether such owners get an agent-private Neo is an open decision.
+A host failure while resolving the workspace is transient for this check, never
+"not applicable".
 
 `close()` raises the shutdown signal and cancels store opening, refuses new
 turns, waits for a running composition and drains admitted capture work, all
@@ -2024,18 +2028,54 @@ marker are composed.
 ### Terminal post-store refusals close the admission (RE-D155)
 
 A capture admission stays on disk until its classifier and Neo post-store steps
-are done, so a restart can finish them. A step that fails with a deterministic,
-fail-closed refusal can never finish: the speaker step's
-`speaker-media-authority-unavailable` (F11, a media ID without proven host
-provenance) and Neo's `neo-owner-not-applicable`. Before this decision such a
-turn kept its admission open, every later recovery refused, and capture stayed
-`startup-recovery-incomplete`; open entries also counted against the 512
-pending admissions. `CapturePipeline` now closes a step refused with one of these
-fixed reasons, records the reason (no content) in the admission's `postSkipped`
-until the admission completes, logs the content-free capture warning and lets
-the other steps of the turn run. The stored rows remain. A pending entry whose
-step is refused terminally during recovery is closed the same way, exactly once.
-Every other failure (I/O, cancellation, shutdown, providers) keeps the step
-pending and recovery repeats it. A revoked workspace policy also keeps the entry
-pending by design: the retained input is resumed once the policy allows it
-again.
+are done, so a restart can finish them. Before this decision a step that failed
+deterministically (for example `speaker-media-authority-unavailable`, F11: a
+media ID without proven host provenance) kept its admission open forever; every
+later recovery refused it and open entries counted against the 512 pending
+admissions. `CapturePipeline` closes such a step, records its fixed reason (no
+content) in the admission's `postSkipped` until the admission completes, logs the
+content-free capture warning and lets the other steps run. The stored rows
+remain. RE-D156 generalizes which failures are terminal.
+
+### Isolated admissions, failure classes and bounded retries (RE-D156)
+
+Every retained admission is assessed on its own. The admission inventory checks
+only the structure of each file (version, file name, key, size, link safety); a
+malformed file is kept untouched, reported in the status and never recovered,
+but it blocks nobody. `begin` and `save` count other records only for capacity
+and key collisions; another record's policy, configuration or workspace never
+decides a new admission. Recovery then checks each record against the current
+state:
+
+- Revoked workspace policy (the owner switched capture off): the record is
+  closed terminally and its retained turn content is discarded; rows written
+  before stay, as at the pin. The same happens when the policy is revoked
+  mid-turn (`not_captured`).
+- Maintenance (re-embedding switching): the record stays pending without
+  affecting anyone and is completed after the maintenance ends. The policy,
+  including maintenance, is checked again before every row write, because each
+  write saves the admission first.
+- Another effective configuration or vector space: closed (`config-changed`);
+  the library cannot prove the remaining steps idempotent under a new
+  configuration. Another workspace or root identity: closed
+  (`workspace-identity-changed`), never written into another workspace. Another
+  caller resolution: closed (`caller-changed`).
+
+Failures are terminal unless they are on an explicit transient list
+(`capture::failure::classify`, exhaustive matches without wildcard arms):
+filesystem I/O, an unavailable or busy store, cancellation and shutdown, an
+unavailable or failing host or embedding provider, a lost or busy lease and
+maintenance. A transient failure keeps the work pending; everything else closes
+the affected post-store step with a fixed reason, or closes a record whose
+primary work cannot continue (for example a row a human edited since). A
+reminder refused for its content (an out-of-range time, empty text, an
+invalidated or foreign key match, a tombstone) drops only that reminder; the
+turn stays. Each recovery attempt is counted durably in the record before it
+starts (`recoveryAttempts`); after five unsuccessful attempts the record is
+closed (`recovery-exhausted`). The row-ID replay WAL is left as it is when a
+record is closed: it holds no content, never deletes a row it cannot attribute,
+and its pending entries expire as at the pin.
+
+`postSkipped` and `recoveryAttempts` are new record fields. An older binary reads
+such a record as malformed; rolling back across this change is not supported
+while such records are pending.

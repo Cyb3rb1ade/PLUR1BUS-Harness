@@ -30,6 +30,17 @@ pub trait CaptureWorker: Send + Sync {
         Ok(())
     }
 
+    /// Retry this agent's still pending retained work before its next turn (RE-D156).
+    /// The agent's admission ticket is held, so its turns wait only during this attempt.
+    fn recover_agent(
+        &self,
+        _replay: &ReplayGuard,
+        _agent: &str,
+        _cancel: &Cancel,
+    ) -> Result<(), EngineError> {
+        Ok(())
+    }
+
     /// Process a turn under its resolved identity; plan before writes and settle after commits.
     /// Returning a result with a reason leaves the turn eligible for replay unless already settled.
     fn capture(
@@ -204,8 +215,16 @@ fn execute(
     if !ticket.wait(cancel) {
         return Ok(counts(0, 1, Some("aborted")));
     }
-    let key = turn_key_of(&turn)?;
     let replay_agent = turn.agent_id.to_string();
+    // A failed retry is logged and kept pending by the worker; it never blocks this turn.
+    if let Err(EngineError::Cancelled(_)) =
+        inner
+            .worker
+            .recover_agent(&inner.replay, &replay_agent, cancel)
+    {
+        return Ok(counts(0, 1, Some("aborted")));
+    }
+    let key = turn_key_of(&turn)?;
     inner.replay.run_with_wait_hook(
         &replay_agent,
         &key,

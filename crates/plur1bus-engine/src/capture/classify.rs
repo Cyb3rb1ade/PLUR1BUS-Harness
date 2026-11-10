@@ -355,6 +355,13 @@ impl NativeCaptureClassifier {
                 )
             };
             if let Err(error) = result {
+                // RE-D156: a reminder refused for its content (out-of-range time, empty text,
+                // an invalidated or foreign key match, a tombstone) drops only this reminder.
+                if let super::failure::FailureClass::Terminal(_) = super::failure::classify(&error)
+                {
+                    log::warn!("capture: reminder refused");
+                    continue;
+                }
                 if journal.is_some() {
                     return Err(error);
                 }

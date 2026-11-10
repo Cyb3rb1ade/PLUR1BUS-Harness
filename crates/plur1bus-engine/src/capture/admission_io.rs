@@ -133,7 +133,8 @@ pub(super) fn validate(record: &Record) -> Result<(), EngineError> {
         || record
             .post_skipped
             .iter()
-            .any(|reason| !super::super::pipeline::is_terminal_reason(reason))
+            .any(|reason| !super::super::failure::is_step_reason(reason))
+        || record.recovery_attempts > super::super::failure::MAX_RECOVERY_ATTEMPTS
     {
         return Err(StoreError::Corrupt.into());
     }

@@ -1,34 +1,57 @@
 //! Primary capture work precedes optional Neo queue maintenance on every exit path.
-use super::super::admission::{row_digest, Admission, Phase};
+use super::super::admission::{row_digest, Admission, Assessment, Entry, Phase, Record};
+use super::super::failure::{self, FailureClass, MAX_RECOVERY_ATTEMPTS};
+use super::super::replay_guard::{turn_key_of, ReplayGuard};
+use super::super::shared_scope::PolicyDecision;
 use super::*;
 use std::time::{Duration, Instant};
 impl CaptureWorker for CapturePipeline {
-    fn recover(&self, replay: &super::super::replay_guard::ReplayGuard) -> Result<(), EngineError> {
+    fn recover(&self, replay: &ReplayGuard) -> Result<(), EngineError> {
         let timeout = super::super::queue::RuntimeConfig::from_value(&self.config["runtime"])
             .capture_timeout_ms;
         let cancel = self
             .shutdown
             .limited_to(Instant::now() + Duration::from_millis(timeout));
-        // Inventory validates every original caller/proof before the first recovery mutation.
-        for record in self.admissions.inventory(&cancel)? {
+        // Each record is assessed and recovered on its own (RE-D156): one record's policy,
+        // configuration, workspace or failure never decides anyone else's.
+        for entry in self.admissions.inventory(&cancel)? {
             cancel.check()?;
-            let agent = record.turn.agent_id.to_string();
-            // A blocked agent's later entries wait behind its first unfinished one.
-            if self.owner_scoped && self.recovery_blocked(&agent) {
-                continue;
-            }
-            match self.recover_record(replay, &record, &cancel) {
-                Ok(()) => {}
-                // Shutdown and the startup deadline retain every input for the next attempt.
-                Err(error @ EngineError::Cancelled(_)) => return Err(error),
-                Err(error) if self.owner_scoped => {
-                    self.warn(&error, CaptureLogStage::CapturePipeline, 1);
-                    self.blocked
-                        .lock()
-                        .unwrap_or_else(std::sync::PoisonError::into_inner)
-                        .insert(agent);
+            match entry {
+                Entry::Record(record) => self.recover_one(replay, &record, &cancel)?,
+                Entry::Unreadable => {
+                    self.unreadable
+                        .store(true, std::sync::atomic::Ordering::Release);
+                    self.warn(
+                        &StoreError::Corrupt.into(),
+                        CaptureLogStage::CapturePipeline,
+                        1,
+                    );
                 }
-                Err(error) => return Err(error),
+            }
+        }
+        Ok(())
+    }
+
+    fn recover_agent(
+        &self,
+        replay: &ReplayGuard,
+        agent: &str,
+        cancel: &Cancel,
+    ) -> Result<(), EngineError> {
+        // Only an agent whose retained work is still pending is retried, before its next turn.
+        if !self
+            .pending
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .remove(agent)
+        {
+            return Ok(());
+        }
+        for entry in self.admissions.inventory(cancel)? {
+            if let Entry::Record(record) = entry {
+                if record.turn.agent_id.as_str() == agent {
+                    self.recover_one(replay, &record, cancel)?;
+                }
             }
         }
         Ok(())
@@ -42,26 +65,107 @@ impl CaptureWorker for CapturePipeline {
         replay: ReplayRows,
         cancel: &Cancel,
     ) -> Result<CaptureResult, EngineError> {
-        // New turns of an agent with an unfinished retained entry must not overtake it.
-        if self.recovery_blocked(turn.agent_id.as_str()) {
-            return Err(EngineError::NotAvailable {
-                reason: "startup-recovery-incomplete".into(),
-            });
-        }
         self.capture_attempt(turn, context, options, &replay, cancel, false)
     }
 }
 
 impl CapturePipeline {
+    fn mark_pending(&self, agent: &str) {
+        self.pending
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(agent.to_owned());
+    }
+
+    /// Recover one retained record. Only cancellation (shutdown or the startup deadline)
+    /// escapes; every other outcome is local to this record.
+    fn recover_one(
+        &self,
+        replay: &ReplayGuard,
+        record: &Record,
+        cancel: &Cancel,
+    ) -> Result<(), EngineError> {
+        let outcome = (|| -> Result<Option<&'static str>, EngineError> {
+            match self.admissions.assess(record, cancel)? {
+                Assessment::Ready => {}
+                Assessment::Maintenance => {
+                    return Err(EngineError::NotAvailable {
+                        reason: "workspace-maintenance".into(),
+                    })
+                }
+                Assessment::Revoked => return Ok(Some("workspace-policy-disabled")),
+                Assessment::ConfigChanged => return Ok(Some("config-changed")),
+                Assessment::WorkspaceChanged => return Ok(Some("workspace-identity-changed")),
+                Assessment::CallerChanged => return Ok(Some("caller-changed")),
+            }
+            match self.admissions.note_attempt(record, cancel)? {
+                None => return Ok(None),
+                Some(made) if made >= MAX_RECOVERY_ATTEMPTS => {
+                    return Ok(Some("recovery-exhausted"))
+                }
+                Some(_) => {}
+            }
+            self.recover_record(replay, record, cancel)?;
+            Ok(None)
+        })();
+        let reason = match outcome {
+            Ok(None) => return Ok(()),
+            Ok(Some(reason)) => reason,
+            Err(error) => match failure::classify(&error) {
+                FailureClass::Transient => {
+                    if let EngineError::Cancelled(cancelled) = error {
+                        return Err(EngineError::Cancelled(cancelled));
+                    }
+                    self.warn(&error, CaptureLogStage::CapturePipeline, 1);
+                    self.mark_pending(record.turn.agent_id.as_str());
+                    return Ok(());
+                }
+                FailureClass::Terminal(reason) => reason,
+            },
+        };
+        self.close_terminally(replay, record, reason, cancel)
+    }
+
+    /// Discard a retained record with a fixed reason; rows already written stay, as at the pin.
+    fn close_terminally(
+        &self,
+        replay: &ReplayGuard,
+        record: &Record,
+        reason: &'static str,
+        cancel: &Cancel,
+    ) -> Result<(), EngineError> {
+        self.warn(
+            &EngineError::NotAvailable {
+                reason: reason.into(),
+            },
+            CaptureLogStage::CapturePipeline,
+            1,
+        );
+        match self.admissions.abandon_record(record, cancel) {
+            Ok(()) => {}
+            Err(error @ EngineError::Cancelled(_)) => return Err(error),
+            Err(error) => {
+                // Not even the discard succeeded: keep it for the next attempt.
+                self.warn(&error, CaptureLogStage::CapturePipeline, 1);
+                self.mark_pending(record.turn.agent_id.as_str());
+                return Ok(());
+            }
+        }
+        // The row-ID replay WAL is left as it is: it holds no content, never deletes a row it
+        // cannot attribute, and its pending entries expire as at the pin.
+        let _ = replay;
+        Ok(())
+    }
+
     fn recover_record(
         &self,
-        replay: &super::super::replay_guard::ReplayGuard,
-        record: &super::super::admission::Record,
+        replay: &ReplayGuard,
+        record: &Record,
         cancel: &Cancel,
     ) -> Result<(), EngineError> {
         let turn = &record.turn;
         let context = RequestContext::build(&turn.principal, &turn.agent, self.host.as_ref())?;
-        let key = super::super::replay_guard::turn_key_of(turn)?;
+        let key = turn_key_of(turn)?;
         replay.recover(turn.agent_id.as_str(), &key, cancel, |rows| {
             if !self.admissions.pending(record, cancel)? {
                 return Ok(());
@@ -89,17 +193,16 @@ impl CapturePipeline {
     ) -> Result<CaptureResult, EngineError> {
         let started = Instant::now();
         let mut neo_started = false;
-        if !self.policy.allowed(context).unwrap_or(false) {
+        if !matches!(self.policy.decision(context), Ok(PolicyDecision::Allowed)) {
             return Ok(counts(0, 1, Some("not_captured")));
         }
         cancel.check()?;
         let mut admission = self.admissions.begin(turn, context, options, cancel)?;
         let result = if admission.record.phase == Phase::PostStore {
             self.finish_post(turn, context, options, replay, &mut admission, cancel)
+        } else if replay.primary_settled()? {
+            Err(StoreError::Corrupt.into())
         } else {
-            if replay.primary_settled()? {
-                return Err(StoreError::Corrupt.into());
-            }
             self.capture_inner(
                 turn,
                 context,
@@ -113,6 +216,27 @@ impl CapturePipeline {
         // Startup's own bounded deadline instead leaves original work pending for retry.
         if !recovery && (cancel.is_cancelled() || turn.cancel.is_cancelled()) {
             admission.abandon()?;
+        }
+        // RE-D156: a terminal failure closes the record; only listed transient ones keep it.
+        let result = match result {
+            Ok(result) => Ok(result),
+            Err(error) => match failure::classify(&error) {
+                FailureClass::Transient => Err(error),
+                FailureClass::Terminal(reason) => {
+                    // Rows already written stay; the content-free replay WAL is left as is.
+                    admission.abandon()?;
+                    self.warn(&error, CaptureLogStage::CapturePipeline, 1);
+                    if reason == "workspace-policy-disabled" {
+                        // The owner switched capture off mid-turn: written rows stay, as at the pin.
+                        Ok(counts(0, 1, Some("not_captured")))
+                    } else {
+                        Err(error)
+                    }
+                }
+            },
+        };
+        if !admission.is_closed() {
+            self.mark_pending(turn.agent_id.as_str());
         }
         if neo_started && !cancel.is_cancelled() && !turn.cancel.is_cancelled() {
             if let Some(hook) = &self.neo {
@@ -139,8 +263,19 @@ impl CapturePipeline {
         neo_started: &mut bool,
         admission: &mut Admission<'_>,
     ) -> Result<CaptureResult, EngineError> {
-        if !self.policy.allowed(context).unwrap_or(false) {
-            return Ok(counts(0, 1, Some("not_captured")));
+        // Revocation (terminal) and maintenance (transient) are typed for the caller.
+        match self.policy.decision(context)? {
+            PolicyDecision::Allowed => {}
+            PolicyDecision::Revoked => {
+                return Err(EngineError::NotAvailable {
+                    reason: "workspace-policy-disabled".into(),
+                })
+            }
+            PolicyDecision::Maintenance => {
+                return Err(EngineError::NotAvailable {
+                    reason: "workspace-maintenance".into(),
+                })
+            }
         }
         if cancel.is_cancelled() {
             return Ok(aborted(0, 0));
@@ -401,8 +536,8 @@ impl CapturePipeline {
                 }
                 Err(error) => {
                     self.warn(&error, CaptureLogStage::CapturePipeline, 1);
-                    // RE-D155: a terminal refusal closes this step with its fixed reason.
-                    if let Some(reason) = terminal_refusal(&error) {
+                    // RE-D155/156: any failure not listed transient closes this step.
+                    if let FailureClass::Terminal(reason) = failure::classify(&error) {
                         admission.record.classifier_done = true;
                         admission.record.post_skipped.push(reason.to_owned());
                         admission.save(cancel)?;
@@ -424,7 +559,7 @@ impl CapturePipeline {
                 }
                 Err(error) => {
                     self.warn(&error, CaptureLogStage::NeoCapture, 1);
-                    if let Some(reason) = terminal_refusal(&error) {
+                    if let FailureClass::Terminal(reason) = failure::classify(&error) {
                         admission.record.neo_done = true;
                         admission.record.post_skipped.push(reason.to_owned());
                         admission.save(cancel)?;

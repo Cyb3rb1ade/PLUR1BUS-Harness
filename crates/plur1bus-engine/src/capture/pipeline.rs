@@ -61,8 +61,10 @@ pub struct CapturePipeline {
     cutoff_failed: bool,
     admissions: super::admission::Admissions,
     shutdown: Cancel,
-    owner_scoped: bool,
-    blocked: std::sync::Mutex<std::collections::BTreeSet<String>>,
+    /// Agents with retained work still pending after a transient failure (RE-D156).
+    pending: std::sync::Mutex<std::collections::BTreeSet<String>>,
+    /// A malformed admission file was found; it is kept and never blocks anyone.
+    unreadable: std::sync::atomic::AtomicBool,
 }
 
 impl CapturePipeline {
@@ -115,8 +117,8 @@ impl CapturePipeline {
             base_db,
             cutoff_failed,
             shutdown: Cancel::never(),
-            owner_scoped: false,
-            blocked: std::sync::Mutex::default(),
+            pending: std::sync::Mutex::default(),
+            unreadable: std::sync::atomic::AtomicBool::new(false),
         })
     }
 
@@ -127,32 +129,16 @@ impl CapturePipeline {
         self
     }
 
-    /// Recover per owner: an entry that cannot be completed blocks only its own agent
-    /// (until the next recovery) instead of refusing the whole runtime. Inventory failures,
-    /// which cannot be attributed safely, and cancellation still fail recovery as a whole.
+    /// Whether retained capture work is still unfinished: a pending entry awaiting its
+    /// owner's next turn (or the end of maintenance), or a malformed admission file.
     #[must_use]
-    pub fn with_owner_scoped_recovery(mut self) -> Self {
-        self.owner_scoped = true;
-        self
-    }
-
-    /// Whether owner-scoped recovery left an entry of this agent incomplete.
-    #[must_use]
-    pub fn recovery_blocked(&self, agent: &str) -> bool {
-        self.blocked
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .contains(agent)
-    }
-
-    /// Whether owner-scoped recovery left any agent blocked.
-    #[must_use]
-    pub fn any_recovery_blocked(&self) -> bool {
-        !self
-            .blocked
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .is_empty()
+    pub fn has_unfinished_recovery(&self) -> bool {
+        self.unreadable.load(std::sync::atomic::Ordering::Acquire)
+            || !self
+                .pending
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .is_empty()
     }
 
     /// Supply the configured summary route; absence means Node's route is unavailable.
@@ -323,32 +309,6 @@ impl CapturePipeline {
         }
         let _ = context;
         (prepared, failed)
-    }
-}
-
-/// Deterministic, fail-closed post-store refusals (RE-D155): missing authority or a library
-/// boundary, so a repetition cannot succeed. They close their step with a fixed skip reason;
-/// every other failure (I/O, cancellation, shutdown, providers) stays pending for recovery.
-const TERMINAL_POST_STORE: [&str; 2] = [
-    // F11: diarization media IDs without proven host provenance.
-    "speaker-media-authority-unavailable",
-    // The native Neo journal has no partition for this owner.
-    "neo-owner-not-applicable",
-];
-
-/// Whether a recorded skip reason is one of the fixed terminal post-store refusals.
-pub(crate) fn is_terminal_reason(reason: &str) -> bool {
-    TERMINAL_POST_STORE.contains(&reason)
-}
-
-/// The fixed reason of a terminal post-store refusal, if this error is one.
-pub(super) fn terminal_refusal(error: &EngineError) -> Option<&'static str> {
-    match error {
-        EngineError::NotAvailable { reason } => TERMINAL_POST_STORE
-            .iter()
-            .copied()
-            .find(|terminal| terminal == reason),
-        _ => None,
     }
 }
 

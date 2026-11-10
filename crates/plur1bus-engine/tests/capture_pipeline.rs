@@ -2,7 +2,8 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 pub use plur1bus_engine::capture::{
-    accept, chunking, pipeline, queue, replay_guard, result, row_builder, shared_scope,
+    accept, chunking, failure as pipeline_failure, pipeline, queue, replay_guard, result,
+    row_builder, shared_scope,
 };
 pub use plur1bus_engine::{config, context, contract, embedding, store, text, transport};
 mod capture_pipeline_support;
@@ -449,6 +450,9 @@ impl CaptureClassifier for BoundaryClassifier {
             return Err(EngineError::NotAvailable {
                 reason: "speaker-media-authority-unavailable".into(),
             });
+        }
+        if self.phase == "transient-post-always" {
+            return Err(contract::StoreError::Unavailable.into());
         }
         let marker = self.root.join("transient-failed");
         if self.phase == "transient-post-once" && !marker.exists() {

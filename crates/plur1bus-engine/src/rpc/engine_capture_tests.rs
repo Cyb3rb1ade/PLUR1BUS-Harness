@@ -303,7 +303,7 @@ fn injected_context_is_never_captured() {
 }
 
 #[test]
-fn an_unrecoverable_admission_keeps_capture_unserved_and_the_status_not_ready() {
+fn a_malformed_admission_file_is_kept_reported_and_blocks_nobody() {
     let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
     let root = scratch.path();
     let engine = ProcessEngine::new(host(root), Some(Seam::FlatEmbedder)).unwrap();
@@ -326,12 +326,10 @@ fn an_unrecoverable_admission_keeps_capture_unserved_and_the_status_not_ready() 
         (degraded.reason.as_str(), degraded.capability.as_str()),
         ("startup-recovery-incomplete", "capture")
     );
-    assert!(matches!(
-        engine.capture(turn("agent", "run-2"), options()),
-        Err(EngineError::NotAvailable { reason }) if reason == "startup-recovery-incomplete"
-    ));
-    // Nothing was written past the refused recovery; the original input is retained.
-    assert_eq!(rows(root, "agent").len(), 2);
+    // RE-D156: an unreadable file is kept and reported, but blocks no capture.
+    assert_eq!(capture(&engine, turn("agent", "run-2"))["stored"], 2);
+    assert_eq!(capture(&engine, turn("other", "run-3"))["stored"], 2);
+    assert_eq!(rows(root, "agent").len(), 4);
     assert!(corrupt.is_file());
     (handle.close)().unwrap();
 }
@@ -360,6 +358,9 @@ impl HostServices for CrashHost {
         self.inner.config()
     }
     fn workspace_dir(&self, agent: &AgentId) -> Result<Option<PathBuf>, HostError> {
+        if self.phase == "host-error" {
+            return Err(HostError::Unavailable);
+        }
         if self.phase == "slow" {
             // Slow recovery: every workspace lookup takes long and ignores cancellation.
             fs::write(self.root.join("slow-entered"), "entered").unwrap();
@@ -587,7 +588,7 @@ fn a_turn_killed_after_its_first_row_is_completed_without_duplicates() {
 }
 
 #[test]
-fn an_unfinishable_entry_blocks_only_its_own_agent() {
+fn a_human_edited_unsettled_row_closes_its_entry_and_blocks_nobody() {
     let scratch = killed("first-row");
     let root = scratch.path().to_path_buf();
     // A human edit of the unsettled row: recovery must not delete or overwrite it.
@@ -600,22 +601,15 @@ fn an_unfinishable_entry_blocks_only_its_own_agent() {
 
     let engine = ProcessEngine::new(host(&root), Some(Seam::FlatEmbedder)).unwrap();
     engine.open(&"agent".parse().unwrap()).unwrap();
-    let degraded = engine.status().degraded.unwrap();
-    assert_eq!(
-        (degraded.reason.as_str(), degraded.capability.as_str()),
-        ("startup-recovery-incomplete", "capture")
-    );
-    // Another agent captures normally.
-    assert_eq!(capture(&engine, turn("other", "run-other"))["stored"], 2);
-    // The blocked agent's new turns do not overtake its retained entry.
-    assert!(matches!(
-        engine.capture(turn("agent", "run-new"), options()),
-        Err(EngineError::NotAvailable { reason }) if reason == "startup-recovery-incomplete"
-    ));
+    // RE-D156: the edit makes the entry unrecoverable, so it is closed terminally.
+    assert_eq!(pending_admissions(&root), 0);
+    assert!(engine.capture.degradation().is_none());
     let kept = rows(&root, "agent");
     assert_eq!(kept.len(), 1);
     assert_eq!(kept[0].text, row.text);
-    assert_eq!(pending_admissions(&root), 1);
+    // Nobody is blocked: the same and another agent capture normally.
+    assert_eq!(capture(&engine, turn("other", "run-other"))["stored"], 2);
+    assert_eq!(capture(&engine, turn("agent", "run-new"))["stored"], 2);
 }
 
 #[test]
@@ -748,4 +742,183 @@ fn the_shared_emotion_engines_evict_the_least_recently_used_binding() {
     engines.engine(binding(256)).unwrap();
     assert!(Arc::ptr_eq(&first, &engines.engine(binding(0)).unwrap()));
     assert!(!Arc::ptr_eq(&second, &engines.engine(binding(1)).unwrap()));
+}
+
+/// Disable automatic capture for one agent's workspace through the canonical policy store.
+fn revoke_policy(root: &Path, agent: &str) {
+    let host = host(root);
+    let context = crate::context::RequestContext::build(
+        &serde_json::from_value(principal(agent)).unwrap(),
+        &serde_json::from_value(json!({"origin":"user","background":false})).unwrap(),
+        host.as_ref(),
+    )
+    .unwrap();
+    crate::ops::workspace_policy::PolicyStore::new(&root.join("db"))
+        .unwrap()
+        .set(
+            &json!({"agentId":agent,"workspaceIdentity":context.workspace_key,
+            "expectedRevision":0,"enabled":false,"actorId":"system"}),
+            10_000,
+        )
+        .unwrap();
+}
+
+fn host_with_threshold(root: &Path, threshold: f64) -> Arc<FakeHost> {
+    let host = host(root);
+    let mut config = serde_json::to_value(host.config()).unwrap();
+    config["duplicateThreshold"] = json!(threshold);
+    host.set_config(serde_json::from_value(config).unwrap());
+    host
+}
+
+fn foreign_owner_turn(root: &Path, run: &str) -> TurnRecord {
+    let mut value = turn_value(
+        "other",
+        run,
+        &json!([{"role":"user","content":USER},{"role":"assistant","content":ASSISTANT}]),
+    );
+    value["principal"]["user"] = json!(crate::context::harness_user_principal("foreign-owner"));
+    value["principal"]["trust"] = json!("proved");
+    value["principal"]["channel"] = json!("telegram");
+    let workspace = fs::canonicalize(root.join("workspace-other")).unwrap();
+    value["principal"]["workspace"] = json!(format!("workspace-dir:v1:{}", workspace.display()));
+    serde_json::from_value(value).unwrap()
+}
+
+/// RE-D156 / C1: one agent's retained entry never stops anyone else's capture.
+#[test]
+fn a_retained_entry_with_revoked_policy_never_blocks_other_owners() {
+    retained_entry_case("policy");
+}
+
+#[test]
+fn a_retained_entry_with_config_drift_never_blocks_other_owners() {
+    retained_entry_case("config");
+}
+
+#[test]
+fn a_retained_entry_with_a_changed_workspace_never_blocks_other_owners() {
+    retained_entry_case("workspace");
+}
+
+fn retained_entry_case(drift: &str) {
+    {
+        let scratch = killed("first-row");
+        let root = scratch.path().to_path_buf();
+        let host = match drift {
+            "policy" => {
+                revoke_policy(&root, "agent");
+                host(&root)
+            }
+            "config" => host_with_threshold(&root, 1.02),
+            _ => {
+                let workspace = root.join("workspace-agent");
+                fs::rename(&workspace, root.join("workspace-agent-old")).unwrap();
+                fs::create_dir(&workspace).unwrap();
+                host(&root)
+            }
+        };
+        let engine = ProcessEngine::new(host.clone(), Some(Seam::FlatEmbedder)).unwrap();
+        engine.open(&"agent".parse().unwrap()).unwrap();
+        let other = capture(&engine, turn("other", "run-other-live"));
+        assert_eq!(other["stored"], 2, "{drift}: {other}");
+        let foreign = capture(&engine, foreign_owner_turn(&root, "run-foreign-live"));
+        assert_eq!(foreign["stored"], 2, "{drift}: {foreign}");
+        engine.close(None).unwrap();
+        drop(engine);
+        let engine = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
+        engine.open(&"agent".parse().unwrap()).unwrap();
+        let again = capture(&engine, turn("other", "run-other-restart"));
+        assert_eq!(again["stored"], 2, "{drift}: {again}");
+        let foreign = capture(&engine, foreign_owner_turn(&root, "run-foreign-restart"));
+        assert_eq!(foreign["stored"], 2, "{drift}: {foreign}");
+        // Revocation, config drift and a changed workspace close the entry terminally.
+        assert_eq!(pending_admissions(&root), 0, "{drift}");
+        // The row written before the crash stays, as at the pin; nothing is rewritten.
+        assert_eq!(rows(&root, "agent").len(), 1, "{drift}");
+    }
+}
+
+/// RE-D156 / I1: content of a chat message never keeps an admission open.
+#[test]
+fn an_out_of_range_reminder_never_keeps_an_admission_open() {
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let engine = ProcessEngine::new(host(root), Some(Seam::FlatEmbedder)).unwrap();
+    let text = "Erinnere mich in 99999999999 Tagen an den Arzttermin in der Praxis.";
+    let result = capture(
+        &engine,
+        serde_json::from_value(turn_value(
+            "agent",
+            "run-far-reminder",
+            &json!([{"role":"user","content":text}]),
+        ))
+        .unwrap(),
+    );
+    assert_eq!(result["stored"], 1, "{result}");
+    assert_eq!(pending_admissions(root), 0, "{result}");
+    engine.close(None).unwrap();
+    drop(engine);
+    let engine = ProcessEngine::new(host(root), Some(Seam::FlatEmbedder)).unwrap();
+    engine.open(&"agent".parse().unwrap()).unwrap();
+    assert!(engine.capture.degradation().is_none());
+    assert_eq!(capture(&engine, turn("agent", "run-next"))["stored"], 2);
+}
+
+/// RE-D156 / I3: a host failure while resolving the workspace is transient for Neo.
+#[test]
+fn a_host_failure_never_makes_neo_not_applicable() {
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let healthy = host(root);
+    let turn = user_turn(root, "fixture-user", "run-neo-host");
+    let context =
+        crate::context::RequestContext::build(&turn.principal, &turn.agent, healthy.as_ref())
+            .unwrap();
+    assert!(engine_capture::neo_applies(healthy.as_ref(), &turn, &context).unwrap());
+    let failing = CrashHost {
+        inner: healthy.clone(),
+        root: root.to_path_buf(),
+        phase: "host-error".into(),
+    };
+    let error = engine_capture::neo_applies(&failing, &turn, &context).unwrap_err();
+    assert_eq!(
+        crate::capture::failure::classify(&error),
+        crate::capture::failure::FailureClass::Transient
+    );
+    // Only a caller without a user principal is not applicable.
+    let ownerless = turn_value("agent", "run-ownerless", &json!([]));
+    let ownerless: TurnRecord = serde_json::from_value(ownerless).unwrap();
+    let context = crate::context::RequestContext::build(
+        &ownerless.principal,
+        &ownerless.agent,
+        healthy.as_ref(),
+    )
+    .unwrap();
+    assert!(!engine_capture::neo_applies(&failing, &ownerless, &context).unwrap());
+}
+
+/// RE-D156 / M2: a startup recovery that runs out of its deadline is a status, not a cancel.
+#[test]
+fn an_exhausted_startup_deadline_is_reported_in_the_status() {
+    let scratch = killed("admitted");
+    let root = scratch.path().to_path_buf();
+    let inner = host(&root);
+    let mut config = serde_json::to_value(inner.config()).unwrap();
+    config["runtime"] = json!({"captureTimeoutMs":1});
+    inner.set_config(serde_json::from_value(config).unwrap());
+    let slow = Arc::new(CrashHost {
+        inner,
+        root: root.clone(),
+        phase: "slow".into(),
+    });
+    let engine = ProcessEngine::new(slow, Some(Seam::FlatEmbedder)).unwrap();
+    engine.open(&"agent".parse().unwrap()).unwrap();
+    let degraded = engine.status().degraded.unwrap();
+    assert_eq!(
+        (degraded.reason.as_str(), degraded.capability.as_str()),
+        ("startup-recovery-deadline", "capture")
+    );
+    // The retained input is kept for the next attempt.
+    assert_eq!(pending_admissions(&root), 1);
 }
