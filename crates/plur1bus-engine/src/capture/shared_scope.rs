@@ -74,23 +74,16 @@ impl CapturePolicy for WorkspaceCapturePolicy {
             _ if decision["allowed"] == true => Ok(PolicyDecision::Allowed),
             Some("workspace_disabled") => Ok(PolicyDecision::Revoked),
             Some("migration_switching") => Ok(PolicyDecision::Maintenance),
-            // An unreadable policy state is retried, never read as a user's revocation.
+            // The caller has no workspace identity or sent an invalid one: deterministic.
+            Some("workspace_identity_required" | "invalid") => Err(StoreError::InvalidInput.into()),
+            // An unreadable or unwritable policy state is an operator repair: retried (and
+            // counted, RE-D159), never read as a user's revocation.
             _ => Err(StoreError::Unavailable.into()),
         }
     }
 
+    /// The same decision as [`CapturePolicy::decision`]: only `Allowed` allows.
     fn allowed(&self, context: &RequestContext) -> Result<bool, EngineError> {
-        let maintenance = self.maintenance.as_ref().is_some_and(|active| active());
-        if maintenance {
-            return Ok(false);
-        }
-        let policy = PolicyStore::new(&self.base_db).map_err(|_| StoreError::Corrupt)?;
-        let decision = policy.automatic(
-            &json!({
-                "agentId": context.agent_id.as_str(), "workspaceIdentity": context.workspace_key
-            }),
-            maintenance,
-        );
-        Ok(decision["allowed"] == true)
+        Ok(self.decision(context)? == PolicyDecision::Allowed)
     }
 }

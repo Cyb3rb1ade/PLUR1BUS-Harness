@@ -78,9 +78,15 @@ pub fn classify(error: &EngineError) -> FailureClass {
             StoreError::TombstoneBlocked => Terminal("tombstone-blocked"),
         },
         EngineError::Embedding(error) => match error {
-            EmbedError::Cancelled(_)
-            | EmbedError::Unavailable
-            | EmbedError::ProviderFailed { .. } => Transient,
+            EmbedError::Cancelled(_) | EmbedError::Unavailable => Transient,
+            // A provider that answered: a client error refuses this input (408 and 429 are
+            // timing, not content); no status, a server error or a timeout is transient.
+            EmbedError::ProviderFailed { status } => match status {
+                Some(400..=499) if !matches!(status, Some(408 | 429)) => {
+                    Terminal("embedding-refused")
+                }
+                _ => Transient,
+            },
             EmbedError::InvalidVector | EmbedError::DimensionMismatch { .. } => {
                 Terminal("embedding-refused")
             }
@@ -171,6 +177,22 @@ mod tests {
             (
                 EngineError::Embedding(EmbedError::ProviderFailed { status: Some(503) }),
                 Transient,
+            ),
+            (
+                EngineError::Embedding(EmbedError::ProviderFailed { status: None }),
+                Transient,
+            ),
+            (
+                EngineError::Embedding(EmbedError::ProviderFailed { status: Some(429) }),
+                Transient,
+            ),
+            (
+                EngineError::Embedding(EmbedError::ProviderFailed { status: Some(408) }),
+                Transient,
+            ),
+            (
+                EngineError::Embedding(EmbedError::ProviderFailed { status: Some(400) }),
+                Terminal("embedding-refused"),
             ),
             (
                 EngineError::Embedding(EmbedError::InvalidVector),
