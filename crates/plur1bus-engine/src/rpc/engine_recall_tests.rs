@@ -657,8 +657,20 @@ fn an_unreadable_registry_on_the_refined_search_degrades_and_counts_nothing() {
         .embed(&[refined], EmbedKind::Query, &identity, &Cancel::never())
         .unwrap()
         .remove(0);
-    let (_, row) = seeded_with(root, &engine, target);
-    // Only the refined query reaches the minimum score.
+    let (_, row) = seeded_with(root, &engine, target.clone());
+    // Only the refined query reaches the minimum score: with refinement off, the same
+    // store and query find nothing (the original query alone misses the floor).
+    let control = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let unrefined = ProcessEngine::new(
+        host_with(
+            control.path(),
+            &json!({"autoRecallMinScore":0.5,"recall":{"queryRefinement":{"enabled":false}}}),
+        ),
+        Some(Seam::HashEmbedder),
+    )
+    .unwrap();
+    let (_, copy) = seeded_with(control.path(), &unrefined, target);
+    assert!(!memories(&recall(&unrefined, &params(query, "user"))).contains(&copy.id));
     assert!(memories(&recall(&engine, &params(query, "user"))).contains(&row.id));
     let before = stats(root);
     let registry =
