@@ -11,6 +11,7 @@
 //! that capture and recall of the agent use.
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
@@ -191,7 +192,7 @@ impl Outcome {
     }
 }
 
-/// What a check logs (FC:176-188). Messages carry no agent id, path or backend text.
+/// What a check logs (FC:176-188). Messages name the agent as the pin does, never a path or backend text.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CompactionLog {
     /// Debug: lost to concurrent writes, retried at the next check.
@@ -436,6 +437,18 @@ pub fn check(
     agent: &str,
     cancel: &Cancel,
 ) -> (Outcome, Option<CompactionLog>) {
+    check_with(core, tables, agent, cancel, true)
+}
+
+/// `check`, with the count after a compaction only when `recount` (the pin reports it in
+/// the outcome; the worker discards the outcome, so it skips the extra handle, RE-D161 M8).
+fn check_with(
+    core: &Mutex<CompactorCore>,
+    tables: &dyn FragmentTables,
+    agent: &str,
+    cancel: &Cancel,
+    recount: bool,
+) -> (Outcome, Option<CompactionLog>) {
     let (plan, enabled) = {
         let core = lock(core);
         if core.closed || cancel.is_cancelled() {
@@ -458,24 +471,35 @@ pub fn check(
     }
     let result = tables.optimize(agent, &plan, cancel);
     let (mut outcome, log) = lock(core).settle(agent, before, result);
-    if outcome.action == "compacted" {
+    if recount && outcome.action == "compacted" {
         outcome.fragments_after = tables.fragment_count(agent, cancel);
     }
     (outcome, log)
 }
 
-fn emit(log: Option<CompactionLog>) {
+/// The log line of a check, naming the agent as the pin does (FC:180,183,187) and nothing
+/// else: no path, no backend text (the reason is one of `timeout|backend|open|conflict`).
+fn message(agent: &str, log: &CompactionLog) -> (log::Level, String) {
     match log {
-        None => {}
-        Some(CompactionLog::ConflictRetry) => {
-            log::debug!("compaction: optimize lost to concurrent writes, retrying at the next check");
-        }
-        Some(CompactionLog::ConflictStreak(streak)) => log::warn!(
-            "compaction: optimize has lost to concurrent writes {streak} checks in a row, table may not be compacting"
+        CompactionLog::ConflictRetry => (
+            log::Level::Debug,
+            format!("compaction: optimize for '{agent}' lost to concurrent writes, retrying at the next check"),
         ),
-        Some(CompactionLog::Failed(reason)) => {
-            log::warn!("compaction: optimize failed: {reason}");
-        }
+        CompactionLog::ConflictStreak(streak) => (
+            log::Level::Warn,
+            format!("compaction: optimize for '{agent}' has lost to concurrent writes {streak} checks in a row, table may not be compacting"),
+        ),
+        CompactionLog::Failed(reason) => (
+            log::Level::Warn,
+            format!("compaction: optimize failed for '{agent}': {reason}"),
+        ),
+    }
+}
+
+fn emit(agent: &str, log: Option<CompactionLog>) {
+    if let Some(log) = log {
+        let (level, text) = message(agent, &log);
+        log::log!(level, "{text}");
     }
 }
 
@@ -497,6 +521,10 @@ struct Inner {
     tables: Arc<dyn FragmentTables>,
     cancel: Cancel,
     worker: Mutex<Option<JoinHandle<()>>>,
+    /// Count again after a compaction (fixtures only; production discards the outcome).
+    recount: AtomicBool,
+    /// The timer interval when a fixture sets one; otherwise `checkIntervalMs`.
+    interval: Mutex<Option<Duration>>,
 }
 
 /// The process's fragment compactor: capture notes writes; one worker runs the checks.
@@ -517,8 +545,26 @@ impl FragmentCompactor {
                 tables,
                 cancel,
                 worker: Mutex::new(None),
+                recount: AtomicBool::new(false),
+                interval: Mutex::new(None),
             }),
         }
+    }
+
+    /// Fixtures: count again after each compaction, as `check` reports it.
+    #[cfg(any(test, feature = "testkit"))]
+    #[must_use]
+    pub fn with_recount(self) -> Self {
+        self.inner.recount.store(true, AtomicOrdering::Release);
+        self
+    }
+
+    /// Fixtures: a timer interval below the configuration minimum (set before the first write).
+    #[cfg(any(test, feature = "testkit"))]
+    #[must_use]
+    pub fn with_check_interval(self, interval: Duration) -> Self {
+        *lock(&self.inner.interval) = Some(interval);
+        self
     }
 
     /// The compactor over a writer pool's agent tables.
@@ -651,7 +697,8 @@ impl Drop for Finished<'_> {
 
 fn work(inner: &Inner) {
     let _finished = Finished(inner);
-    let interval = Duration::from_millis(lock(&inner.core).settings.check_interval_ms);
+    let interval = lock(&inner.interval)
+        .unwrap_or_else(|| Duration::from_millis(lock(&inner.core).settings.check_interval_ms));
     let mut next_tick = Instant::now() + interval;
     loop {
         let agent = {
@@ -659,6 +706,11 @@ fn work(inner: &Inner) {
             loop {
                 if queue.stopping || inner.cancel.is_cancelled() {
                     return;
+                }
+                // The timer fires on time also while checks are queued, as the pin's
+                // `setInterval` does (RE-D161, M6); its agents join the end of the queue.
+                if Instant::now() >= next_tick {
+                    break None;
                 }
                 if let Some(agent) = queue.pending.pop_front() {
                     break Some(agent);
@@ -685,8 +737,15 @@ fn work(inner: &Inner) {
             }
             continue;
         };
-        let (_, log) = check(&inner.core, inner.tables.as_ref(), &agent, &inner.cancel);
-        emit(log);
+        let recount = inner.recount.load(AtomicOrdering::Acquire);
+        let (_, log) = check_with(
+            &inner.core,
+            inner.tables.as_ref(),
+            &agent,
+            &inner.cancel,
+            recount,
+        );
+        emit(&agent, log);
         lock(&inner.queue).flight.remove(&agent);
         inner.changed.notify_all();
     }
@@ -734,9 +793,16 @@ impl FragmentTables for PoolTables {
             return None;
         }
         let path = self.table(agent)?;
-        Store::open(&path, OpenMode::ReadOnly, None)
-            .ok()?
-            .fragment_count(cancel)
+        // Opening and the stats read share the pin's five seconds (RE-D161, M1).
+        super::lance::fragment_optimize::count_within(
+            super::lance::fragment_optimize::FRAGMENT_COUNT_BUDGET,
+            cancel,
+            move |cancel| {
+                Store::open(&path, OpenMode::ReadOnly, None)
+                    .ok()?
+                    .fragment_count(cancel)
+            },
+        )
     }
 
     fn optimize(&self, agent: &str, plan: &OptimizePlan, cancel: &Cancel) -> OptimizeResult {
@@ -873,5 +939,83 @@ mod tests {
         // Settling a check for an unknown agent stays within the bound too.
         core.settle("late", None, OptimizeResult::Conflict(String::new()));
         assert_eq!(core.tracked(), MAX_TRACKED_AGENTS);
+    }
+
+    /// Counts every fragment count and optimize.
+    struct Probe {
+        counts: AtomicUsize,
+        optimized: AtomicUsize,
+    }
+    impl FragmentTables for Probe {
+        fn fragment_count(&self, _agent: &str, _cancel: &Cancel) -> Option<u64> {
+            self.counts.fetch_add(1, Ordering::SeqCst);
+            Some(100)
+        }
+        fn optimize(&self, _agent: &str, _plan: &OptimizePlan, _cancel: &Cancel) -> OptimizeResult {
+            self.optimized.fetch_add(1, Ordering::SeqCst);
+            OptimizeResult::Compacted
+        }
+    }
+    fn probe() -> Arc<Probe> {
+        Arc::new(Probe {
+            counts: AtomicUsize::new(0),
+            optimized: AtomicUsize::new(0),
+        })
+    }
+
+    #[test]
+    fn the_worker_does_not_count_again_after_a_compaction_unless_asked() {
+        for (recount, expected) in [(false, 1), (true, 2)] {
+            let tables = probe();
+            let mut compactor = FragmentCompactor::new(
+                CompactorCore::new(settings(true), 24.0),
+                tables.clone(),
+                Cancel::never(),
+            );
+            if recount {
+                compactor = compactor.with_recount();
+            }
+            compactor.note_writes("a", 4);
+            wait("one compaction", || {
+                tables.optimized.load(Ordering::SeqCst) == 1
+            });
+            wait("checks done", || compactor.load().1 == 0);
+            assert_eq!(tables.counts.load(Ordering::SeqCst), expected);
+            compactor.close();
+            assert!(compactor.join(Duration::from_secs(5)));
+        }
+    }
+
+    #[test]
+    fn the_timer_checks_a_tracked_agent_below_the_write_count() {
+        let tables = probe();
+        let compactor = FragmentCompactor::new(
+            CompactorCore::new(settings(true), 24.0),
+            tables.clone(),
+            Cancel::never(),
+        )
+        .with_check_interval(Duration::from_millis(20));
+        // One write: not a due point (every four writes), but the timer covers the agent.
+        compactor.note_writes("a", 1);
+        wait("timer compaction", || {
+            tables.optimized.load(Ordering::SeqCst) >= 1
+        });
+        compactor.close();
+        assert!(compactor.join(Duration::from_secs(5)));
+    }
+
+    #[test]
+    fn log_lines_name_the_agent_and_nothing_else() {
+        let cases = [
+            (CompactionLog::ConflictRetry, log::Level::Debug),
+            (CompactionLog::ConflictStreak(5), log::Level::Warn),
+            (CompactionLog::Failed("timeout".into()), log::Level::Warn),
+        ];
+        for (entry, level) in cases {
+            let (actual, text) = message("agent-7", &entry);
+            assert_eq!(actual, level);
+            assert!(text.contains("'agent-7'"), "{text}");
+            assert!(!text.contains('/'), "{text}");
+        }
     }
 }

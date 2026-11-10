@@ -102,7 +102,10 @@ fn a_stored_turn_compacts_its_agent_table_once_and_an_empty_one_never() {
     assert_eq!(capture(&engine, turn("agent", "run-1"))["stored"], 2);
     eventually("first compaction", || tables.optimized().len() == 1);
     assert_eq!(capture(&engine, turn("agent", "run-1"))["stored"], 0);
-    std::thread::sleep(Duration::from_millis(200));
+    // The check (count, optimize, count again) is done once nothing is queued or running.
+    eventually("check done", || {
+        engine.capture.compaction_load_for_test().1 == 0
+    });
     // One turn with two rows crosses two due points and still compacts once.
     assert_eq!(tables.optimized(), ["agent"]);
     assert_eq!(tables.counts.load(Ordering::SeqCst), 2);
@@ -137,7 +140,8 @@ fn disabled_compaction_never_runs_and_tracks_nothing() {
     for run in ["run-1", "run-2", "run-3"] {
         assert_eq!(capture(&engine, turn("agent", run))["stored"], 2);
     }
-    std::thread::sleep(Duration::from_millis(200));
+    // Disabled: no write is tracked, so no worker or timer exists that could run later.
+    assert_eq!(engine.capture.compaction_load_for_test(), (0, 0));
     assert!(tables.optimized().is_empty());
     assert_eq!(tables.counts.load(Ordering::SeqCst), 0);
     assert_eq!(engine.capture.compaction_load_for_test(), (0, 0));

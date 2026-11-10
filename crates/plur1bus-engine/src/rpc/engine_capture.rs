@@ -224,11 +224,13 @@ impl ProcessCapture {
             .unwrap_or_else(PoisonError::into_inner)
             .clone()
         {
+            // Fixture tables report the count after a compaction, as `check` does.
             return FragmentCompactor::new(
                 crate::store::fragment_compactor::CompactorCore::from_config(config),
                 tables,
                 self.shutdown.clone(),
-            );
+            )
+            .with_recount();
         }
         FragmentCompactor::for_pool(config, pool, self.shutdown.clone())
     }

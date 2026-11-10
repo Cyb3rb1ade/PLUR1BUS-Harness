@@ -10,8 +10,61 @@ use crate::store::fragment_compactor::OptimizePlan;
 use std::future::Future;
 use std::time::{Duration, Instant};
 
-/// `lib/db-adapter.js:1025-1039` at the pin: the stats read is bounded by five seconds.
-const FRAGMENT_COUNT_BUDGET: Duration = Duration::from_secs(5);
+/// `lib/db-adapter.js:1020-1039` at the pin: opening the table and reading its stats are
+/// bounded together by five seconds.
+pub(crate) const FRAGMENT_COUNT_BUDGET: Duration = Duration::from_secs(5);
+/// Count threads that may still be stuck in a hung open at once; further counts answer
+/// "unknown" at once instead of piling up threads (RE-D161).
+const MAX_STUCK_COUNTS: usize = 4;
+static COUNTS_RUNNING: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// Run `count` (open the table, read its stats) on its own short-lived thread and wait at
+/// most `budget` or until `cancel` fires; otherwise the count is unknown (`None`). A hung
+/// open (a blocked filesystem) therefore holds the caller at most `budget`; the thread ends
+/// with the system call and is not waited for. `count` gets a token that ends with the wait.
+pub(crate) fn count_within(
+    budget: Duration,
+    cancel: &Cancel,
+    count: impl FnOnce(&Cancel) -> Option<u64> + Send + 'static,
+) -> Option<u64> {
+    use std::sync::atomic::Ordering;
+    struct Running;
+    impl Drop for Running {
+        fn drop(&mut self) {
+            COUNTS_RUNNING.fetch_sub(1, Ordering::AcqRel);
+        }
+    }
+    if cancel.is_cancelled() {
+        return None;
+    }
+    if COUNTS_RUNNING.fetch_add(1, Ordering::AcqRel) >= MAX_STUCK_COUNTS {
+        COUNTS_RUNNING.fetch_sub(1, Ordering::AcqRel);
+        return None;
+    }
+    let token = cancel.limited_to(Instant::now() + budget);
+    let inner = token.clone();
+    let (sent, received) = std::sync::mpsc::sync_channel(1);
+    let spawned = std::thread::Builder::new()
+        .name("fragment-count".into())
+        .spawn(move || {
+            let _running = Running;
+            let _ = sent.send(count(&inner));
+        });
+    if spawned.is_err() {
+        COUNTS_RUNNING.fetch_sub(1, Ordering::AcqRel);
+        return None;
+    }
+    loop {
+        if token.is_cancelled() {
+            return None;
+        }
+        match received.recv_timeout(POLL) {
+            Ok(count) => return count,
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => return None,
+        }
+    }
+}
 /// `lib/db-adapter.js:995` at the pin: one optimize attempt gets at least ten seconds.
 const ATTEMPT_FLOOR: Duration = Duration::from_secs(10);
 /// `lib/db-adapter.js:983` at the pin: retry delays grow up to one minute.
@@ -168,5 +221,57 @@ impl Store {
             }
         });
         outcome.unwrap_or(OptimizeRun::Failed)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, reason = "test assertions")]
+    use super::*;
+
+    /// An open that blocks until released, as a hung filesystem would.
+    fn hanging() -> (
+        std::sync::mpsc::Sender<()>,
+        impl FnOnce(&Cancel) -> Option<u64> + Send + 'static,
+    ) {
+        let (release, released) = std::sync::mpsc::channel::<()>();
+        (release, move |_: &Cancel| {
+            let _ = released.recv();
+            Some(7)
+        })
+    }
+
+    #[test]
+    fn a_hanging_open_counts_as_unknown_within_the_budget() {
+        let (release, open) = hanging();
+        let started = Instant::now();
+        let count = count_within(Duration::from_millis(100), &Cancel::never(), open);
+        assert_eq!(count, None);
+        // Bounded by the budget plus one poll, far below the pin's five seconds.
+        assert!(started.elapsed() < Duration::from_secs(2));
+        release.send(()).unwrap();
+    }
+
+    #[test]
+    fn shutdown_ends_the_wait_for_a_hanging_open() {
+        let (release, open) = hanging();
+        let cancel = Cancel::never();
+        let stopper = cancel.clone();
+        let started = Instant::now();
+        let waiter =
+            std::thread::spawn(move || count_within(Duration::from_secs(60), &cancel, open));
+        std::thread::sleep(Duration::from_millis(50));
+        stopper.cancel();
+        assert_eq!(waiter.join().unwrap(), None);
+        assert!(started.elapsed() < Duration::from_secs(10));
+        release.send(()).unwrap();
+    }
+
+    #[test]
+    fn a_finished_count_is_returned() {
+        assert_eq!(
+            count_within(Duration::from_secs(5), &Cancel::never(), |_| Some(3)),
+            Some(3)
+        );
     }
 }

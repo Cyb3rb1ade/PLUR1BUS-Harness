@@ -713,29 +713,6 @@ impl Store {
         }
         self.purge_expired(now)
     }
-    /// Compact fragments and retain at least the Node policy's default 24 hours of versions.
-    pub fn optimize(&self) -> Result<(), StoreError> {
-        self.writable()?;
-        let table = self.table.clone();
-        self.executor.run(async move {
-            table
-                .optimize(lancedb::table::OptimizeAction::Compact {
-                    options: Default::default(),
-                    remap_options: None,
-                })
-                .await
-                .map_err(backend_error)?;
-            table
-                .optimize(lancedb::table::OptimizeAction::Prune {
-                    older_than: Some(chrono::Duration::hours(24)),
-                    delete_unverified: Some(false),
-                    error_if_tagged_old_versions: None,
-                })
-                .await
-                .map_err(backend_error)?;
-            Ok(())
-        })
-    }
 }
 fn backend_error(_: lancedb::Error) -> StoreError {
     StoreError::Unavailable

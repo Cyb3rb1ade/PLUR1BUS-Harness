@@ -423,8 +423,8 @@ also match NULL and empty values. `Store::delete` refuses an ID that is not a UU
 native partial Lance updates, so concurrent changes to different columns do not overwrite each other. Content writes
 and content patches consult the actual tombstone registry; legacy rows with blank agent metadata use the physical
 namespace solely for this guard. Stored fields remain unchanged. Registry repair only quarantines and truncates an
-incomplete final record under the shared lock; complete corrupt records fail closed. `Store::optimize` keeps the
-Node compaction and 24-hour pruning policy; expiry purge preserves `neverForget` and core rows, with the existing
+incomplete final record under the shared lock; complete corrupt records fail closed. Table compaction runs only
+through the capture compactor (`Store::optimize_fragments` under its per-table busy claim, RE-D161); expiry purge preserves `neverForget` and core rows, with the existing
 five-minute per-database throttle. `StorePool` (the Node agent-pool counterpart) retains leased handles and
 evicts only idle least-recently-used entries after its soft bound.
 
@@ -2467,7 +2467,7 @@ another owner wait here because of this owner's retained work.
 | Turn job, Neo steps (pre-store journal, post-store episodes): workspace lease, `.neo-write.lock` | a Neo write step of the same workspace | Neo budget per step | same workspace: at most the Neo budget per step, then the turn is stored and its Neo step deferred (`engine/capture/capture-turn.js:399`) |
 | WAL acknowledgements (`settle`, `keep_partial`) | the agent's WAL lease | five seconds | no; a write step on the agent's WAL file |
 | Turn, fragment compactor note (RE-D161) | the compactor's counters and queue (two short in-memory locks) | none needed: no I/O under them | no |
-| Compactor worker, fragment count (RE-D161) | its own store handle's stats read | five seconds, shutdown | no; never the pool handle of capture or recall |
+| Compactor worker, fragment count (RE-D161) | opening its own store handle and the stats read | five seconds for both, shutdown | no; never the pool handle of capture or recall |
 | Compactor worker, optimize (RE-D161) | its own store handle: compact, prune, index; retry pauses | `runtime.lancedbCompaction.timeoutMs` (at least ten seconds per attempt), shutdown | no; other agents' checks wait behind it, as in the pin's one chain; turns and recall never |
 | Close | queue, turns, attempts, pass, outstanding host lookups, compactor worker | close budget | - |
 
@@ -2600,7 +2600,7 @@ Every stored capture row is a new LanceDB fragment of the agent table. The pin
 (`engine/store/fragment-compactor.js`, wired in `engine/create-engine.js:1574-1589`
 and `engine/capture/capture-turn.js:768-772`) counts the stored rows per agent
 and compacts the table once it has enough fragments; until RE-D161 the process
-had `Store::optimize` but no caller, so fragments grew without bound and recall
+had an optimize entry but no caller, so fragments grew without bound and recall
 slowed with every turn. `store::fragment_compactor` ports the compactor:
 
 - Configuration as at the pin: `runtime.lancedbCompaction` (`enabled` true,
@@ -2629,8 +2629,12 @@ slowed with every turn. `store::fragment_compactor` ports the compactor:
   failure is logged at warn and resets the streak. The next due point retries.
 - One check per agent is queued or running at a time, and one worker thread runs
   all checks one after the other (the pin's FIFO chain). No status reason is
-  added; log lines carry fixed reason codes only (no agent id, path or backend
-  text).
+  added; log lines name the agent as the pin does (`fragment-compactor.js`
+  FC:180,183,187) and carry fixed reason codes only (no path or backend text).
+  After a compaction the worker does not count again: the pin reports that count
+  only in the check's outcome, which the worker discards (fixtures keep it).
+  The timer fires on time also while checks are queued (the pin's `setInterval`);
+  its agents join the end of the queue.
 
 Node vectors: `tests/fixtures/capture/fragment-compactor.json`, recorded twice
 byte-identically by `record-fragment-compactor.mjs` from the SHA-checked pin
@@ -2649,11 +2653,22 @@ Native bounds beyond the pin (RE-D161):
   and `close()` waits for it without bound; here `close()` cancels it and waits
   for the worker within its one budget, reporting `capture-drain-incomplete` when
   the worker is still inside a call. A dropped compaction leaves at most
-  unreferenced data files, which a later prune removes; committed data is never
-  touched.
+  unreferenced data files, which a prune removes once they are older than seven
+  days (LanceDB's unverified-file threshold, `delete_unverified` unset);
+  committed data is never touched.
+- The fragment count opens the table and reads its stats on a short-lived
+  thread within one five-second budget (the pin's `fragmentCount`,
+  `lib/db-adapter.js:1020-1039`, bounds both) or until shutdown; a hung open
+  holds the worker at most that long and counts as unknown. At most four such
+  threads may be stuck at once; beyond that the count is unknown at once.
 - The per-agent counters are bounded at 1024 agents; the agent whose last
   activity is oldest is forgotten first (it loses only its write counts). The pin
-  keeps every agent it has seen.
+  keeps every agent it has seen. With more than 1024 agents rotating so that an
+  agent is always forgotten between two of its own writes, that agent never
+  reaches a due point and the timer does not see it either; its fragments then
+  grow until it stays tracked long enough (accepted, M3).
+- `Store::optimize`, an unused second entry without the busy claim and without
+  the index step, is removed; compaction has one path.
 - After close no check starts and no write is counted; the process-wide
   busy set per table path stands in for the pin's per-path optimize lock
   (`ifBusy: "skip"`).
