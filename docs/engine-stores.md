@@ -1997,9 +1997,11 @@ Neo's pre-store work and closes the post-store step with the terminal refusal
 every owner; whether such owners get an agent-private Neo is an open decision.
 
 `close()` refuses new turns and drains admitted capture work within the caller's budget (30 seconds when none or zero is given, as the
-pin's `closeEngine`) before stores are released. With a store base configured,
-recall and capture are both served and the status reports `ready: true`, with
-degradation derived from models only, as the pin's StatusReporter.
+pin's `closeEngine`) before stores are released. Recall and capture are served
+with a store base, but the status keeps `ready: false` with the frozen
+composition-pending/recall degradation until the journal backlog, the job
+ledger and the store schema marker are composed (the frozen status text and
+the pin's StatusReporter report ready only with those parts).
 
 ### Terminal post-store refusals close the admission (RE-D155)
 

@@ -425,10 +425,12 @@ no supervisor at all (ADR-012 §8).
 `engine.implementation` selects `node` (default) or the experimental `rust` RPC client and requires a Core restart.
 RE-08 T2/U1 implements `plur1bus-engine serve --home <home>` as a separate authenticated process. It accepts the same
 explicitly gated flat-embedder/cold seams and optional `--lifeline stdin --instance <uuid>`. Process identity, adoption,
-status counters and current unavailable memory composition are documented in [Engine process](docs/engine-process.md).
-T4/U2 still owns supervisor startup and `core run` spawning. While the engine endpoint is unavailable the Core keeps
-serving and recall returns `E_NOT_AVAILABLE` with reason `engine-unavailable`; an available but incomplete engine
-reports `composition-pending`. The default remains Node.
+status counters and the served and still unavailable compositions are documented in
+[Engine process](docs/engine-process.md). Recall and capture are served; the status stays `ready: false` with
+`composition-pending` until journal, job ledger and schema marker are composed. T4/U2 still owns supervisor startup
+and `core run` spawning. While the engine endpoint is unavailable the Core keeps serving and recall returns
+`E_NOT_AVAILABLE` with reason `engine-unavailable`; an operation whose composition is incomplete reports
+`composition-pending`. The default remains Node.
 
 **Under a supervisor** (spawns and monitors the core, restarts it with backoff, adds `daemon`/
 `1staid check`; ADR-012 §10):

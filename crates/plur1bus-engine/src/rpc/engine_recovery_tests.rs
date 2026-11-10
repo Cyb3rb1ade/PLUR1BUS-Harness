@@ -56,8 +56,7 @@ fn first_process_open_recovers_the_active_writer_and_repeats_without_extra_recor
         assert_eq!(Value::Array(rows), golden["cases"][0]["after"]);
         (handle.close)().unwrap();
     }
-    // A configured base serves recall and capture (RE-D154); models still load lazily.
-    assert!(engine.status().ready);
+    assert!(!engine.status().ready);
     assert_eq!(engine.models().status().embedder.state, ModelState::Loading);
     engine.close(None).unwrap();
 }

@@ -4,10 +4,14 @@
 engine binary, with its actual PID in the readiness line and authentication result. It does not select the Rust
 engine in the Core: `engine.implementation` still defaults to `node`.
 
-The process server is implemented. Recall, capture, jobs and memory/admin operations are connected through the
-frozen Rust `Engine` traits, but their unfinished production implementations answer `E_NOT_AVAILABLE` with
-`composition-pending`. Embedding and model methods use the existing RE-03 providers. Transport tests inject an
-explicit test-only engine to exercise recall and capture receipts without claiming that production pipelines exist.
+The process server is implemented. With a configured store base, recall (normal and warm), capture, memory
+list/show/state/forget/link/import/rebind/unbind and store adoption are served by their native compositions.
+Jobs and the remaining memory/admin operations still answer `E_NOT_AVAILABLE` with `composition-pending`.
+Embedding and model methods use the existing RE-03 providers. `engine.status` keeps `ready: false` with the frozen
+`{reason: "composition-pending", capability: "recall"}` until the journal backlog, the job ledger and the store
+schema marker are composed; a capture composition that cannot recover reports
+`{reason: "startup-recovery-incomplete", capability: "capture"}` instead. Transport tests inject an explicit
+test-only engine to exercise recall and capture receipts.
 
 ## Identity and lifecycle
 

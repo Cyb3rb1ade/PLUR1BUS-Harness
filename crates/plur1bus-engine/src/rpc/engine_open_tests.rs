@@ -32,8 +32,7 @@ fn open_is_lazy_reuses_the_writer_and_close_is_idempotent() {
     assert_eq!(count(&engine), 1);
     let other = engine.open(&agent("other")).unwrap();
     assert_eq!(count(&engine), 2);
-    // A configured base serves recall and capture (RE-D154); models still load lazily.
-    assert!(engine.status().ready);
+    assert!(!engine.status().ready);
     assert_eq!(engine.models().status().embedder.state, ModelState::Loading);
     engine.close(None).unwrap();
     assert_eq!(count(&engine), 0);

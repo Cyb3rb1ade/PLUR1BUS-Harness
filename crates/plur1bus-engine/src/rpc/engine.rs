@@ -188,12 +188,11 @@ impl ProcessEngine {
             "memoryLink":base.is_some(),
             "recallStats":false,"knowledgePromotion":false,"memoryCuration":false
         }))?;
-        // Recall and capture are both served once a store base is configured (RE-D154);
-        // the pin's StatusReporter then reports ready with model-derived degradation only.
-        let served = base.is_some();
+        // The frozen status text keeps composition-pending/recall while memory and journal
+        // composition is incomplete. Recall and capture are served with a store base, but the
+        // journal backlog, job ledger and store schema marker are not composed yet.
         let status = decode(json!({
-            "ready": served,
-            "degraded": if served { Value::Null } else { json!({"reason":"composition-pending","capability":"recall"}) },
+            "ready": false, "degraded": {"reason":"composition-pending","capability":"recall"},
             "agents":0,"contract":"1.17.0","storeSchema":{"current":null,"expected":"1"},
             "jobs":{"ledger":"unavailable","agents":[]},"models":embedding.status(),"journal":null,
             "sharedMemory":{"supported":false,"mode":"unavailable"}

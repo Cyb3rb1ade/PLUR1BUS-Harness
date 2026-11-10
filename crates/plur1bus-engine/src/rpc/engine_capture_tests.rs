@@ -140,14 +140,15 @@ fn a_captured_turn_is_visible_through_list_show_and_recall() {
     assert!(memories.contains("green labels"), "{memories}");
     // Capture and recall committed through the same bound mood store.
     assert!(root.join("workspace-agent/.emotional-state.json").is_file());
-    // Recall and capture are both served: the frozen contract reports ready.
+    // Capture is served, but the frozen status text stays composition-pending/recall while
+    // the journal, job ledger and schema marker are not composed.
     let status = engine.status();
-    assert!(status.ready);
+    assert!(!status.ready);
     assert!(status
         .degraded
-        .is_none_or(|degraded| degraded.reason != "composition-pending"));
+        .is_none_or(|degraded| degraded.reason != "startup-recovery-incomplete"));
     engine.close(None).unwrap();
-    assert!(!engine.status().ready);
+    assert_eq!(engine.status().degraded.unwrap().reason, "closed");
 }
 
 #[test]
@@ -306,7 +307,7 @@ fn an_unrecoverable_admission_keeps_capture_unserved_and_the_status_not_ready() 
     fs::write(&corrupt, b"{\"record\":{\"version\":1}}").unwrap();
 
     let engine = ProcessEngine::new(host(root), Some(Seam::FlatEmbedder)).unwrap();
-    assert!(engine.status().ready);
+    assert!(!engine.status().ready);
     let handle = engine.open(&"agent".parse().unwrap()).unwrap();
     let status = engine.status();
     assert!(!status.ready);
