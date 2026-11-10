@@ -133,12 +133,19 @@ impl CaptureWal {
             Sha256::digest(name.to_ascii_lowercase().as_bytes())
         );
         let locks = parent.create_child(&lock_dir)?;
-        let flight = lease(
-            &locks,
-            &lock_name("turn", agent, Some(key)),
-            cancel,
-            &mut wait,
-        )?;
+        let flight = if recovery {
+            // A recovery step never waits for an identical turn in flight (RE-D162): the
+            // record is deferred, and the turn that holds the lease completes it itself.
+            kernel_lock::try_acquire(&locks, &lock_name("turn", agent, Some(key)))?
+                .ok_or(StoreError::Busy)?
+        } else {
+            lease(
+                &locks,
+                &lock_name("turn", agent, Some(key)),
+                cancel,
+                &mut wait,
+            )?
+        };
         let _writer = lease(&locks, &lock_name("agent", agent, None), cancel, &mut || {})?;
         let directory = match fs::symlink_metadata(&self.root) {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,

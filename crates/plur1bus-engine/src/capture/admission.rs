@@ -346,11 +346,6 @@ impl Admissions {
             format!("{}.json", digest(&(&record.proof.agent, &record.key))?),
         ))
     }
-    /// The owner scope a turn's caller resolves to (a host lookup, no policy).
-    pub fn scope_for(&self, turn: &TurnRecord, cancel: &Cancel) -> Result<String, EngineError> {
-        let ctx = self.identity_context(turn, cancel)?;
-        Ok(scope_of(ctx.agent_id.as_str(), &ctx.owner_user_id)?)
-    }
     /// The admission root, if it exists.
     fn root(&self) -> Result<Option<TrustedDirectory>, EngineError> {
         let base = match TrustedDirectory::open(&self.base) {

@@ -78,11 +78,20 @@ impl EmbeddingDrain {
         episodes: Arc<EpisodeStore>,
         provider: Option<Arc<dyn EmbeddingProvider>>,
     ) -> Result<Self, EngineError> {
+        let drain = Self::bind(episodes, provider)?;
+        drain.episodes.recover_pending(&Cancel::never())?;
+        Ok(drain)
+    }
+    /// Validate provider identity only. For a composition that recovers prepared plans on
+    /// its own, per owner binding and outside its construction (RE-D162).
+    pub fn bind(
+        episodes: Arc<EpisodeStore>,
+        provider: Option<Arc<dyn EmbeddingProvider>>,
+    ) -> Result<Self, EngineError> {
         let space = provider
             .as_ref()
             .map(|p| try_identity_id(p.identity()))
             .transpose()?;
-        episodes.recover_pending(&Cancel::never())?;
         Ok(Self {
             episodes,
             provider,

@@ -88,6 +88,15 @@ fn rows(root: &Path, agent: &str) -> Vec<MemoryRow> {
         .unwrap()
 }
 
+/// Wait until the background recovery pass that follows the composition has finished
+/// (RE-D162): opening returns after the inventory, recovery runs behind it.
+fn recovery_settled(engine: &ProcessEngine) {
+    assert!(engine.capture.recovered_for_test(Duration::from_secs(180)));
+}
+
+#[path = "engine_capture_isolation_tests.rs"]
+mod isolation;
+
 /// Every file below the admission root: top-level files and the files inside each owner
 /// scope's directory (RE-D162). Lease files are left out.
 fn admission_files(root: &Path) -> Vec<PathBuf> {
@@ -346,6 +355,7 @@ fn foreign_and_malformed_admission_files_are_reported_and_block_nobody() {
         // Status reflects capture composition only after the first open or capture.
         assert!(engine.capture.degradation().is_none());
         engine.open(&"agent".parse().unwrap()).unwrap();
+        recovery_settled(&engine);
         engine
     };
     let deferred = Some((
@@ -409,6 +419,7 @@ fn retained_input_older_than_seven_days_is_discarded() {
         later.set_now_ms(admitted_at + age);
         let engine = ProcessEngine::new(later, Some(Seam::FlatEmbedder)).unwrap();
         engine.open(&"agent".parse().unwrap()).unwrap();
+        recovery_settled(&engine);
         assert_eq!(admissions_with_content(&root), 0, "{age}");
         assert_eq!(
             rows(&root, "agent").len(),
@@ -450,6 +461,7 @@ fn a_malformed_scope_file_is_removed_once_it_is_seven_days_old() {
         later.set_now_ms(modified + age);
         let engine = ProcessEngine::new(later, Some(Seam::FlatEmbedder)).unwrap();
         engine.open(&"agent".parse().unwrap()).unwrap();
+        recovery_settled(&engine);
         assert_eq!(malformed.exists(), kept, "{age}");
         assert_eq!(capture_state(&engine).is_some(), kept, "{age}");
         engine.close(None).unwrap();
@@ -494,6 +506,45 @@ impl HostServices for CrashHost {
             // A transient host failure of `agent` for as long as the `fail` marker exists.
             if agent.as_str() == "agent" && self.root.join("fail").exists() {
                 return Err(HostError::Unavailable);
+            }
+            return self.inner.workspace_dir(agent);
+        }
+        if self.phase == "recovery-fails" || self.phase == "recovery-refused" {
+            // A transient host failure for recovery attempts only, for as long as the `fail`
+            // marker exists: it hits the owner whose work is retained, never a turn.
+            let recovering = matches!(
+                std::thread::current().name(),
+                Some("capture-recovery" | "neo-recovery")
+            );
+            if recovering && self.root.join("fail").exists() {
+                return Err(if self.phase == "recovery-fails" {
+                    HostError::Unavailable
+                } else {
+                    HostError::Failed
+                });
+            }
+            return self.inner.workspace_dir(agent);
+        }
+        if self.phase == "hang-first" {
+            // Count every lookup; the first one for `agent` hangs while `hang` exists.
+            use std::io::Write;
+            let mut calls = fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(self.root.join("host-calls"))
+                .unwrap();
+            calls.write_all(b".").unwrap();
+            if agent.as_str() == "agent"
+                && self.root.join("hang").exists()
+                && fs::OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .open(self.root.join("hang-entered"))
+                    .is_ok()
+            {
+                while self.root.join("hang").exists() {
+                    std::thread::sleep(Duration::from_millis(5));
+                }
             }
             return self.inner.workspace_dir(agent);
         }
@@ -611,6 +662,7 @@ fn a_turn_killed_after_admission_is_recovered_exactly_once_on_the_next_open() {
     // Opening the agent recovers the original admission before any new turn.
     let engine = ProcessEngine::new(host(&root), Some(Seam::FlatEmbedder)).unwrap();
     let handle = engine.open(&"agent".parse().unwrap()).unwrap();
+    recovery_settled(&engine);
     let recovered = rows(&root, "agent");
     assert_eq!(recovered.len(), 2);
     assert!(recovered.iter().any(|row| row.text == USER));
@@ -623,6 +675,7 @@ fn a_turn_killed_after_admission_is_recovered_exactly_once_on_the_next_open() {
     drop(engine);
     let engine = ProcessEngine::new(host(&root), Some(Seam::FlatEmbedder)).unwrap();
     engine.open(&"agent".parse().unwrap()).unwrap();
+    recovery_settled(&engine);
     let again = rows(&root, "agent");
     assert_eq!(
         again.iter().map(|row| &row.id).collect::<Vec<_>>(),
@@ -700,6 +753,7 @@ fn no_deterministic_input_keeps_an_admission_open() {
     // After a restart, recovery has nothing pending and capture is served.
     let engine = ProcessEngine::new(neo_host(root), Some(Seam::FlatEmbedder)).unwrap();
     engine.open(&"agent".parse().unwrap()).unwrap();
+    recovery_settled(&engine);
     assert!(engine.capture.degradation().is_none());
     assert_eq!(capture(&engine, turn("agent", "run-after"))["stored"], 2);
     assert_eq!(pending_admissions(root), 0);
@@ -713,6 +767,7 @@ fn a_turn_killed_after_its_first_row_is_completed_without_duplicates() {
     assert_eq!(before.len(), 1);
     let engine = ProcessEngine::new(host(&root), Some(Seam::FlatEmbedder)).unwrap();
     engine.open(&"agent".parse().unwrap()).unwrap();
+    recovery_settled(&engine);
     let after = rows(&root, "agent");
     assert_eq!(after.len(), 2);
     assert!(after.iter().any(|row| row.text == USER));
@@ -740,6 +795,7 @@ fn a_human_edited_unsettled_row_closes_its_entry_and_blocks_nobody() {
 
     let engine = ProcessEngine::new(host(&root), Some(Seam::FlatEmbedder)).unwrap();
     engine.open(&"agent".parse().unwrap()).unwrap();
+    recovery_settled(&engine);
     // RE-D156: the edit makes the entry unrecoverable, so it is closed terminally.
     assert_eq!(pending_admissions(&root), 0);
     assert!(engine.capture.degradation().is_none());
@@ -751,8 +807,10 @@ fn a_human_edited_unsettled_row_closes_its_entry_and_blocks_nobody() {
     assert_eq!(capture(&engine, turn("agent", "run-new"))["stored"], 2);
 }
 
+/// RE-D162: the composition returns at once; what is slow is one owner's recovery behind it.
+/// Close ends it within its budget, starts no further step, and the input stays retained.
 #[test]
-fn close_during_a_slow_composition_stays_within_its_budget() {
+fn close_during_a_slow_recovery_stays_within_its_budget() {
     let scratch = killed("admitted");
     let root = scratch.path().to_path_buf();
     let slow = Arc::new(CrashHost {
@@ -761,32 +819,31 @@ fn close_during_a_slow_composition_stays_within_its_budget() {
         phase: "slow".into(),
     });
     let engine = ProcessEngine::new(slow, Some(Seam::FlatEmbedder)).unwrap();
-    std::thread::scope(|scope| {
-        let opener = scope.spawn(|| engine.open(&"agent".parse().unwrap()));
-        let deadline = std::time::Instant::now() + Duration::from_secs(30);
-        while !root.join("slow-entered").exists() {
-            assert!(std::time::Instant::now() < deadline);
-            std::thread::sleep(Duration::from_millis(5));
-        }
-        let started = std::time::Instant::now();
-        let closed = engine.close(Some(Duration::from_millis(300)));
-        assert!(started.elapsed() < Duration::from_millis(1500));
-        assert!(matches!(
-            closed,
-            Err(EngineError::NotAvailable { reason }) if reason == "capture-drain-incomplete"
-        ));
-        // Nothing is admitted after close, even while the composition still finishes.
-        assert!(matches!(
-            engine.capture(turn("agent", "run-late"), options()),
-            Err(EngineError::NotAvailable { reason }) if reason == "closed"
-        ));
-        let _ = opener.join().unwrap();
-    });
+    // The slow host call belongs to the recovery attempt, not to the composition.
+    engine_capture::ProcessCapture::open(&engine, &root.join("db")).unwrap();
+    let deadline = std::time::Instant::now() + Duration::from_secs(30);
+    while !root.join("slow-entered").exists() {
+        assert!(std::time::Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    let started = std::time::Instant::now();
+    let closed = engine.close(Some(Duration::from_millis(300)));
+    assert!(started.elapsed() < Duration::from_millis(1500));
+    assert!(matches!(
+        closed,
+        Err(EngineError::NotAvailable { reason }) if reason == "capture-drain-incomplete"
+    ));
+    // Nothing is admitted after close, even while the attempt still finishes its host call.
+    assert!(matches!(
+        engine.capture(turn("agent", "run-late"), options()),
+        Err(EngineError::NotAvailable { reason }) if reason == "closed"
+    ));
     drop(engine);
     // The retained input is recovered by the next open.
     assert_eq!(pending_admissions(&root), 1);
     let engine = ProcessEngine::new(host(&root), Some(Seam::FlatEmbedder)).unwrap();
     engine.open(&"agent".parse().unwrap()).unwrap();
+    recovery_settled(&engine);
     assert_eq!(rows(&root, "agent").len(), 2);
     assert_eq!(pending_admissions(&root), 0);
 }
@@ -959,6 +1016,7 @@ fn retained_entry_case(drift: &str) {
         };
         let engine = ProcessEngine::new(host.clone(), Some(Seam::FlatEmbedder)).unwrap();
         engine.open(&"agent".parse().unwrap()).unwrap();
+        recovery_settled(&engine);
         let other = capture(&engine, turn("other", "run-other-live"));
         assert_eq!(other["stored"], 2, "{drift}: {other}");
         let foreign = capture(&engine, foreign_owner_turn(&root, "run-foreign-live"));
@@ -967,6 +1025,7 @@ fn retained_entry_case(drift: &str) {
         drop(engine);
         let engine = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
         engine.open(&"agent".parse().unwrap()).unwrap();
+        recovery_settled(&engine);
         let again = capture(&engine, turn("other", "run-other-restart"));
         assert_eq!(again["stored"], 2, "{drift}: {again}");
         let foreign = capture(&engine, foreign_owner_turn(&root, "run-foreign-restart"));
@@ -992,6 +1051,7 @@ fn only_capture_semantics_close_a_retained_record_as_config_changed() {
     changed.set_config(serde_json::from_value(config).unwrap());
     let engine = ProcessEngine::new(changed, Some(Seam::FlatEmbedder)).unwrap();
     engine.open(&"agent".parse().unwrap()).unwrap();
+    recovery_settled(&engine);
     // Another capture timeout, queue depth, batch size or model: the record is completed.
     assert_eq!(rows(&root, "agent").len(), 2);
     assert_eq!(pending_admissions(&root), 0);
@@ -1003,6 +1063,7 @@ fn only_capture_semantics_close_a_retained_record_as_config_changed() {
     let engine =
         ProcessEngine::new(host_with_threshold(&root, 1.02), Some(Seam::FlatEmbedder)).unwrap();
     engine.open(&"agent".parse().unwrap()).unwrap();
+    recovery_settled(&engine);
     // Another duplicate threshold: closed, the retained turn is not written.
     assert_eq!(pending_admissions(&root), 0);
     assert!(rows(&root, "agent").is_empty());
@@ -1030,6 +1091,7 @@ fn an_out_of_range_reminder_never_keeps_an_admission_open() {
     drop(engine);
     let engine = ProcessEngine::new(host(root), Some(Seam::FlatEmbedder)).unwrap();
     engine.open(&"agent".parse().unwrap()).unwrap();
+    recovery_settled(&engine);
     assert!(engine.capture.degradation().is_none());
     assert_eq!(capture(&engine, turn("agent", "run-next"))["stored"], 2);
 }
@@ -1089,6 +1151,7 @@ fn an_owner_deferred_by_a_transient_failure_is_reported_until_its_next_turn_reco
     });
     let engine = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
     engine_capture::ProcessCapture::open(&engine, &root.join("db")).unwrap();
+    recovery_settled(&engine);
     assert!(engine.status().ready);
     assert_eq!(
         capture_state(&engine),
@@ -1118,6 +1181,7 @@ fn work_deferred_by_maintenance_keeps_ready_and_clears_when_completed() {
     fs::write(control.join("reembedding-state.json"), b"{").unwrap();
     let engine = ProcessEngine::new(host(&root), Some(Seam::FlatEmbedder)).unwrap();
     engine.open(&"agent".parse().unwrap()).unwrap();
+    recovery_settled(&engine);
     assert!(engine.status().ready);
     assert_eq!(
         capture_state(&engine),
@@ -1230,6 +1294,7 @@ fn open_neo_plan_case(drift: &str) {
         } else {
             assert_eq!(owner_b["stored"], 2, "{drift} {round}: {owner_b}");
         }
+        recovery_settled(&engine);
         engine.close(None).unwrap();
     }
     // Revocation and a new workspace close the plan; its turn text is gone.
@@ -1377,6 +1442,7 @@ fn another_owners_pending_work_never_aborts_a_turn_of_the_same_agent() {
     let engine = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
     // Startup recovery fails transiently: the first owner's record stays pending.
     let _ = engine_capture::ProcessCapture::open(&engine, &root.join("db"));
+    recovery_settled(&engine);
     fs::remove_file(root.join("fail")).unwrap();
     assert_eq!(pending_admissions(&root), 1);
     // The first owner's record is busy elsewhere for longer than the next turn's deadline.
@@ -1403,11 +1469,13 @@ fn a_record_whose_host_keeps_failing_is_closed_after_five_attempts() {
         });
         let engine = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
         let _ = engine_capture::ProcessCapture::open(&engine, &root.join("db"));
+        recovery_settled(&engine);
         engine.close(None).unwrap();
     }
     fs::remove_file(root.join("fail")).unwrap();
     let engine = ProcessEngine::new(host(&root), Some(Seam::FlatEmbedder)).unwrap();
     engine_capture::ProcessCapture::open(&engine, &root.join("db")).unwrap();
+    recovery_settled(&engine);
     assert_eq!(pending_admissions(&root), 0);
     assert_eq!(admissions_with_content(&root), 0);
     assert!(rows(&root, "agent").is_empty());
@@ -1431,9 +1499,11 @@ fn tamper_neo_plan(root: &Path) {
     fs::write(&plan, serde_json::to_vec(&value).unwrap()).unwrap();
 }
 
-/// RE-D159 / Ruling 10: for every retained kind and trigger, other owners capture on every
-/// open, the affected owner is free again after at most five attempts, and no turn text
-/// stays after a revocation.
+/// RE-D159 / Ruling 10, RE-D162 / m7: for every retained kind and trigger, other owners
+/// capture on every open (another agent, another agent's owner and a second owner of the
+/// same agent), the affected owner is free again after at most five attempts, and no turn
+/// text stays after a revocation. For the transient triggers the bound is exact: retained
+/// after each of five failed attempts, closed by the sixth open without another attempt.
 #[test]
 fn every_retained_kind_and_trigger_stays_isolated_and_bounded() {
     for kind in ["admission", "neo"] {
@@ -1443,6 +1513,7 @@ fn every_retained_kind_and_trigger_stays_isolated_and_bounded() {
             "config",
             "identity",
             "transient",
+            "host-failed",
             "terminal",
         ] {
             let case = format!("{kind}/{trigger}");
@@ -1477,7 +1548,9 @@ fn every_retained_kind_and_trigger_stays_isolated_and_bounded() {
                     fs::rename(&workspace, root.join("workspace-agent-old")).unwrap();
                     fs::create_dir(&workspace).unwrap();
                 }
-                "transient" => fs::write(root.join("fail"), "").unwrap(),
+                // The host fails for recovery attempts only: for the owner with retained
+                // work, not for a turn of the second owner of the same agent.
+                "transient" | "host-failed" => fs::write(root.join("fail"), "").unwrap(),
                 // The host configuration above differs from the recorded one.
                 "config" => {}
                 // A terminal content error.
@@ -1491,15 +1564,22 @@ fn every_retained_kind_and_trigger_stays_isolated_and_bounded() {
                     store.upsert(std::slice::from_ref(&row)).unwrap();
                 }
             }
+            let counted = matches!(trigger, "transient" | "host-failed");
             // Six opens: one more than the attempt bound.
             for round in 0..6 {
                 let host = Arc::new(CrashHost {
                     inner: base(),
                     root: root.clone(),
-                    phase: "toggle".into(),
+                    phase: match trigger {
+                        "transient" => "recovery-fails",
+                        "host-failed" => "recovery-refused",
+                        _ => "toggle",
+                    }
+                    .into(),
                 });
                 let engine = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
                 engine_capture::ProcessCapture::open(&engine, &root.join("db")).unwrap();
+                recovery_settled(&engine);
                 for result in [
                     capture(&engine, turn("other", &format!("run-other-{round}"))),
                     capture(
@@ -1514,13 +1594,29 @@ fn every_retained_kind_and_trigger_stays_isolated_and_bounded() {
                         assert_eq!(result["stored"], 2, "{case} {round}: {result}");
                     }
                 }
+                // A second owner of the same agent (m7). It shares the agent's workspace, so
+                // maintenance and a revocation of that workspace refuse it too.
+                let second = capture(
+                    &engine,
+                    user_turn(&root, "owner-b", &format!("run-second-{round}")),
+                );
+                if matches!(trigger, "maintenance" | "revoked") {
+                    assert_eq!(second["reason"], "not_captured", "{case} {round}: {second}");
+                } else {
+                    assert_eq!(second["stored"], 2, "{case} {round}: {second}");
+                }
                 engine.close(None).unwrap();
+                if counted {
+                    // Five failed attempts keep the work, the sixth open closes it.
+                    let retained = admissions_with_content(&root) + neo_plans_with_content(&root);
+                    assert_eq!(retained > 0, round < 5, "{case} {round}: {retained}");
+                }
                 if trigger == "revoked" {
                     assert_eq!(admissions_with_content(&root), 0, "{case} {round}");
                     assert_eq!(neo_plans_with_content(&root), 0, "{case} {round}");
                 }
             }
-            if trigger == "transient" {
+            if counted {
                 // Closed after five failed attempts, while the host still fails.
                 assert_eq!(admissions_with_content(&root), 0, "{case}");
                 assert_eq!(neo_plans_with_content(&root), 0, "{case}");
@@ -1532,6 +1628,7 @@ fn every_retained_kind_and_trigger_stays_isolated_and_bounded() {
             // The affected owner is free: its retained work is gone and its next turn runs.
             let engine = ProcessEngine::new(base(), Some(Seam::FlatEmbedder)).unwrap();
             engine_capture::ProcessCapture::open(&engine, &root.join("db")).unwrap();
+            recovery_settled(&engine);
             let next = capture(&engine, owner("run-free"));
             if trigger == "revoked" {
                 assert_eq!(next["reason"], "not_captured", "{case}: {next}");

@@ -42,29 +42,102 @@ impl EpisodeStore {
         };
         for plans in &inventory.plans {
             cancel.check()?;
-            let budget = cancel.limited_to(Instant::now() + Duration::from_secs(300));
-            match self.recover_binding(plans, &budget, &mut report) {
-                Ok(PlanOutcome::Recovered) => {}
-                Ok(PlanOutcome::Deferred) => self.defer(&mut report, plans),
-                Ok(PlanOutcome::Closed(reason)) => {
-                    log::warn!("neo: prepared plans closed ({reason})");
-                    match self.journal.discard_plans(plans, cancel) {
-                        Ok(()) => {
-                            let _ = self.journal.note_plan_attempt(plans, 0);
-                            report.closed += 1;
-                        }
-                        Err(error @ EngineError::Cancelled(_)) => return Err(error),
-                        Err(_) => self.defer(&mut report, plans),
-                    }
-                }
-                Err(_) => {
-                    // Only the outer cancellation (shutdown) ends the whole recovery.
-                    cancel.check()?;
-                    self.defer(&mut report, plans);
-                }
+            let budget = cancel.limited_to(Instant::now() + self.plan_budget());
+            if !self.recover_plans(plans, &budget, &mut report) {
+                // Only the outer cancellation (shutdown) ends the whole recovery.
+                cancel.check()?;
+                self.defer(&mut report, plans);
             }
         }
         Ok(report)
+    }
+    /// One binding's recovery budget (RE-D162): what a turn's own Neo step gets at the pin,
+    /// `min(captureTimeoutMs, max(1000, neo.agentEndBudgetMs || 20000))`
+    /// (`engine/create-engine.js` `neoAgentEndBudgetMs`, applied in
+    /// `engine/capture/capture-turn.js` through `deriveBudgetedSignal`). A resumed binding
+    /// is that same step, so it gets no more.
+    pub(in crate::neo) fn plan_budget(&self) -> Duration {
+        let config = serde_json::to_value(self.host.config())
+            .ok()
+            .and_then(|raw| crate::config::effective_config(&raw).ok())
+            .unwrap_or_default();
+        let capture =
+            crate::capture::queue::RuntimeConfig::from_value(&config["runtime"]).capture_timeout_ms;
+        let neo = config["neo"]["agentEndBudgetMs"]
+            .as_u64()
+            .filter(|value| *value > 0)
+            .unwrap_or(20_000)
+            .max(1000);
+        Duration::from_millis(capture.min(neo))
+    }
+    /// The bindings with prepared plans (`<workspace directory>/<binding digest>`) and the
+    /// number of plan files that cannot be read or attributed. Directory entries and plan
+    /// files only: no host is asked, nothing is leased (RE-D162).
+    pub(in crate::neo) fn plan_keys(
+        &self,
+        cancel: &Cancel,
+    ) -> Result<(Vec<String>, usize), EngineError> {
+        let inventory = self.journal.recovery_plans(cancel)?;
+        let keys = inventory
+            .plans
+            .iter()
+            .map(|plans| format!("{}/{}", plans.canonical, plans.digest))
+            .collect();
+        Ok((keys, inventory.unreadable))
+    }
+    /// One attempt for one binding within `budget`; true when none of its plans is left.
+    pub(in crate::neo) fn recover_key(&self, key: &str, budget: &Cancel) -> bool {
+        let Some((canonical, digest)) = key.split_once('/') else {
+            return true;
+        };
+        match self.journal.binding_plans(canonical, digest, budget) {
+            Ok(Some(plans)) => self.recover_plans(&plans, budget, &mut RecoveryReport::default()),
+            Ok(None) => true,
+            Err(_) => false,
+        }
+    }
+    /// Whether a binding still has a prepared plan.
+    pub(in crate::neo) fn has_plans(&self, key: &str, cancel: &Cancel) -> bool {
+        key.split_once('/').is_some_and(|(canonical, digest)| {
+            !matches!(
+                self.journal.binding_plans(canonical, digest, cancel),
+                Ok(None)
+            )
+        })
+    }
+    /// The key of the binding a caller's own journal writes use; this asks the host.
+    pub(in crate::neo) fn binding_key(
+        &self,
+        principal: &crate::contract::Principal,
+        agent: &crate::contract::AgentContext,
+    ) -> Result<Option<String>, EngineError> {
+        self.journal.binding_key(principal, agent)
+    }
+    /// Recover or close one binding's plans within its budget; false when they stay for a
+    /// later attempt. Closing waits for the workspace leases under the same budget (I3):
+    /// a lease held elsewhere defers the binding, it never stops anyone.
+    fn recover_plans(
+        &self,
+        plans: &crate::neo::capture_journal::PendingPlans,
+        budget: &Cancel,
+        report: &mut RecoveryReport,
+    ) -> bool {
+        match self.recover_binding(plans, budget, report) {
+            Ok(PlanOutcome::Recovered) => true,
+            Ok(PlanOutcome::Deferred) | Err(_) => false,
+            Ok(PlanOutcome::Closed(reason)) => {
+                log::warn!("neo: prepared plans closed ({reason})");
+                match self.journal.discard_plans(plans, budget) {
+                    Ok(()) => {
+                        let _ = self.journal.note_plan_attempt(plans, 0);
+                        report.closed += 1;
+                        true
+                    }
+                    // The attempt was counted; the next one closes the plans again.
+                    Err(_) => false,
+                }
+            }
+        }
     }
     /// Remember a binding whose plans stay, keyed by agent and owner for the status.
     fn defer(

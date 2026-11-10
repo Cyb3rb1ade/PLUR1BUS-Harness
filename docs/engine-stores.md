@@ -1975,18 +1975,19 @@ re-embedding switching gate is part of the capture policy, as for recall; an
 unreadable migration state counts as switching.
 
 Composition runs on the first `Engine.open` of an agent or the first capture,
-outside the capture state lock; concurrent callers wait for it. Before any new
-turn is admitted it recovers durable admissions (`_capture-admissions`), the
-capture WAL (`_capture-turns`) and prepared Neo plans; a killed turn is
-completed exactly once, also when it was killed after its first row. Recovery is
-bound to the engine's shutdown signal and handles every owner's retained
-admissions and prepared Neo plans on their own, each owner with its own budget
-(RE-D156, RE-D159). Only shutdown, the admission directory or the Neo root
-itself can fail the composition. Work that stays (maintenance, a transient
-failure, an exhausted budget) is retried before that owner's own next turn, under
-the worker's own budget and cancellation, never the new turn's; it never delays
-or aborts another owner's turn. While such work waits, or an unattributable file
-is kept, capture is served and the status reports
+outside the capture state lock; concurrent callers wait for it. It takes an
+inventory of durable admissions (`_capture-admissions`) and prepared Neo plans
+and recovers nothing itself; recovery runs behind it, one owner at a time, and
+is joined by that owner's own next turn (RE-D162). A killed turn is completed
+exactly once, also when it was killed after its first row, and a replay of that
+turn by its owner waits for it. Recovery is bound to the engine's shutdown
+signal and handles every owner's retained admissions and prepared Neo plans on
+their own, each owner with its own budget (RE-D156, RE-D159). Only shutdown, the
+admission directory or the Neo root itself can fail the composition. Work that
+stays (maintenance, a transient failure, an exhausted budget) is retried before
+that owner's own next turn, under its own budget; it never delays or aborts
+another owner's turn (RE-D162). While such work waits or is being recovered, or
+an unattributable file is kept, capture is served and the status reports
 `{reason: "capture-recovery-deferred", capability: "capture"}` without touching
 `ready`. A failed composition reports `startup-recovery-incomplete` and a
 configuration the composition rejects `composition-invalid`. `Engine.open`
@@ -2185,12 +2186,12 @@ Admissions (`_capture-admissions`):
 Recovery per owner:
 
 - Each scope, and each Neo plan binding, gets its own budget
-  (`runtime.captureTimeoutMs` for admissions, 300 s for Neo plans). A scope that
-  runs out of it is deferred; only shutdown ends the recovery as a whole.
-- Before a turn, only that caller's own deferred scope is retried, under the
-  worker's own budget and the engine's shutdown signal, never the turn's
-  cancellation. A retry failure or abort never refuses or aborts the turn; the
-  scope stays deferred until a retry ends without failure.
+  (`runtime.captureTimeoutMs` for admissions; for Neo plans see RE-D162). A scope
+  that runs out of it is deferred; only shutdown ends the recovery as a whole.
+- Before a turn, only that caller's own deferred scope is retried, under its own
+  budget and the engine's shutdown signal. A retry failure or abort never refuses
+  or aborts the turn; the scope stays deferred until a retry ends without
+  failure. Where the retry runs and what it holds: RE-D162.
 - Every attempt is counted durably before anything else runs, including the
   host, policy and workspace checks; maintenance gives the counted attempt back,
   also when it starts between the check and the attempt. After five attempts the
@@ -2210,8 +2211,10 @@ Recovery per owner:
   A plan file that cannot be read is kept and reported. Attempt counts live in
   `<neoRoot>/.native-recovery-attempts/`.
 
-Revocation discards retained plaintext: the admission file and the binding's
-Neo plans are removed at the next open, at a retry of that owner, or mid-turn.
+Revocation discards retained plaintext: the admission file is removed by the
+recovery after the next open, at a retry of that owner, or mid-turn; the
+binding's Neo plans by the recovery after the next open or at that owner's next
+turn (RE-D162).
 For an unfinished primary turn the replay WAL entry is released as at the pin's
 `onRowsKept` (no row is deleted), only when every pending row ID belongs to that
 record. The process serves no native workspace-policy path in RX
@@ -2339,3 +2342,102 @@ directory that is not a well-formed record of that scope defers and reports that
 scope only, and is removed once its modification time is more than seven days
 old. Seven days is the pin's pending TTL (`REPLAY_GUARD_TTL_MS`, inclusive like
 the pin's `fresh`), so the replay entry of such a turn has expired as well.
+
+Composition takes an inventory only. `Engine.open` and the first capture compose
+the runtime. Until it is ready the composition lists `_capture-admissions` (owner
+scope directories that hold a record file; earlier formats removed; everything
+else counted) and the Neo workspace directories (prepared plan files per owner
+binding; each plan file is read for its stored caller). It calls no host
+callback and no provider and waits for no lease, so its duration depends on the
+number of directory entries and plan files, never on what any owner's work would
+do. The S5 tombstone gate before it is the one recall has. The result is the
+pending set: owner scopes (admissions) and owner bindings (Neo plans,
+`<workspace directory>/<binding digest>`). The library's
+`CaptureRuntime::new` and `NativeNeoCaptureHook::open` still return after one
+recovery pass; the process uses `CaptureRuntime::compose` and
+`NativeNeoCaptureHook::open_deferred`.
+
+Recovery runs behind the composition. A background pass
+(`capture-recovery-pass`) goes through the pending set once, owner scopes first,
+then Neo bindings, one after the other. Each attempt runs on its own thread
+(`capture-recovery`, `neo-recovery`) under its own budget. The pass only waits for
+it, at most the budget plus one second, and then goes on: an attempt stuck in a
+host call that ignores cancellation keeps only its own key busy. While an attempt
+counts itself (`recoveryAttempts`), assesses the record (host, policy) or waits
+for its own scope lease, it holds neither an admission ticket nor a queue slot.
+A budget that runs out defers the key; the attempt was counted and the bound of
+five stays. Budgets:
+
+- An owner scope gets `runtime.captureTimeoutMs`, the budget of a turn's capture.
+- A Neo binding gets `min(runtime.captureTimeoutMs, max(1000,
+  neo.agentEndBudgetMs || 20000))`. This is the budget of a turn's own Neo step
+  at the pin (`engine/create-engine.js` `neoAgentEndBudgetMs`, applied in
+  `engine/capture/capture-turn.js` with `deriveBudgetedSignal`); a resumed binding
+  is that same step and gets no more. The former fixed 300 seconds are gone.
+  Closing a binding's plans (`discard_plans`) waits for the workspace lease and
+  the Neo write lock under the same budget; a lock held elsewhere defers the
+  binding.
+
+One write step per record. The row work of a retained record is one job in its
+agent's capture queue, as a turn's is. In that job the scope lease and the turn
+lease are only tried; a busy lease defers the record (counted). The pin serializes
+captures per agent, not per owner: `lib/runtime-scheduler.js` keys the capture
+queue by agent (`enqueueCapture`, `agentId || "default"`) and runs
+`maxConcurrentCapturePerAgent: 1` job at a time (`drainCapture`); a queued turn
+whose caller gives up meanwhile is not captured. So a turn of another owner of
+the same agent waits for one retained record exactly as it would wait for one
+running turn of that owner, and for nothing else.
+
+Before a turn. Only while something is pending or in flight does a turn resolve
+its owner before admission. It parks its admission ticket (it keeps its place,
+nobody waits behind it), resolves its identity with a deadline, and joins the
+attempt of its own scope and its own binding, or starts it; a second attempt is
+never started. It waits at most that key's budget and its own cancellation, and
+never for another owner. Turns of one owner that waited for the same recovery go
+on in their order. A lookup that gets no answer in time ends only that turn:
+`aborted` when its caller cancelled, otherwise the result of a failed lookup (the
+pin's `detailOf(error)`). The identity lookup of the admission itself has the
+same deadline (the caller's, at most `runtime.captureTimeoutMs`); a host that has
+not answered after one second no longer holds the agent's order, the ticket is
+parked until the answer arrives. At the pin that lookup holds no agent-wide order
+at all (`engine/create-engine.js`, `host.workspaceDir` inside
+`replayGuard.run`).
+
+Mid-turn cleanup. When a turn is refused or revoked mid-turn, a failed discard of
+its admission or a failed release of its replay entry is logged and the caller
+still hears `not_captured`; the record then stays for its owner's next recovery.
+The durable acknowledgements after committed rows (`settle`, `keep_partial`) wait
+at most five seconds for the agent's WAL lease instead of without bound; past
+that the turn stays replayable.
+
+Age sweep. Once an hour the pass checks the pending scopes against the age bound
+and discards what is older than seven days; it makes no recovery attempt and
+counts none. Retained plaintext is therefore gone at most seven days and one hour
+after its admission while the engine runs, and at the next open otherwise.
+
+Close. `close()` raises the shutdown signal, which ends every attempt at its next
+check and the pass at once; no attempt starts afterwards. Close waits for the
+queue, the admitted turns, the attempts in flight and the pass within its one
+budget and reports `capture-drain-incomplete` when something is still settling
+(for example an attempt inside a host call).
+
+Status. While a scope or binding waits or is being recovered, or a top-level file
+is owned by nobody, the status is `capture-recovery-deferred` and `ready` stays
+true; the priority of RE-D159 is unchanged.
+
+Wait graph after RE-D162. "Blocks another owner" means: can a turn of another
+owner wait here because of this owner's retained work.
+
+| Path | Waits for | Bound | Blocks another owner |
+|---|---|---|---|
+| Composition (`ProcessCapture::runtime`, `Slot::Composing`) | directory listings, plan files, one directory sync | number of entries | no |
+| Composition, S5 tombstone gate (`recall_pools`) | store open | shutdown | no; not owner-related, same gate as recall |
+| Pass, scope attempt (`CapturePipeline::recover_scope`): count, assess, scope lease | host, policy, `.leases/<scope>.lock` | `captureTimeoutMs` per scope | no; holds no ticket and no slot |
+| Scope attempt, record job (`recover_record`) | the agent's queue slot; leases tried only | `captureTimeoutMs` from the slot, cut by the scope budget | same agent, one record: as at the pin |
+| Pass, binding attempt (`EpisodeStore::recover_key`), also `discard_plans` | host, policy, workspace lease, `.neo-write.lock` | Neo budget above | same workspace, one Neo write step: as at the pin, which has the same write lock |
+| Turn before admission (`accept::execute`, ticket parked) | identity lookup, its own scope's and binding's attempt | caller, at most the key's budget | no |
+| Turn admission, WAL leases (`CaptureWal::begin_mode`) | an identical turn (ticket released), the agent's WAL write | caller | no; a write step on the agent's WAL file |
+| Turn admission, identity lookup | host | caller, at most `captureTimeoutMs`; the agent's order for one second | no |
+| Turn job (queue slot, scope lease, Neo leases) | the running job of the same agent | `captureTimeoutMs` from the slot | same agent, one turn: the pin's order |
+| WAL acknowledgements (`settle`, `keep_partial`) | the agent's WAL lease | five seconds | no; a write step on the agent's WAL file |
+| Close | queue, turns, attempts, pass | close budget | - |

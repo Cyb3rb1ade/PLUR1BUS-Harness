@@ -19,8 +19,9 @@ pin. It reports `ready: false` after close (`closed/engine`), while capture is n
 (`schema-unsupported/store`, RE-D160). One agent's failed job session start answers
 `startup-recovery-incomplete` for that agent's runs only. A session start is bounded (5 s, or a closed
 connection, or shutdown) and then answers `job-session-busy`; `engine.jobs.history` never waits for it. After
-close, status asks no source. While capture is served but
-some owner's retained work is deferred (maintenance, a transient failure, its own recovery budget) or a retained
+close, status asks no source. Capture composition takes an inventory only; retained work is recovered behind it,
+one owner at a time (RE-D162). While capture is served but some owner's retained work waits or is being recovered
+(after the composition, maintenance, a transient failure, its own recovery budget) or a retained
 file cannot be attributed, it reports `capture-recovery-deferred/capture` and keeps `ready`. Which degradation
 wins follows the RE-D159 priority in `docs/engine-stores.md`. Without a store base it keeps the frozen
 `{reason: "composition-pending", capability: "recall"}`. Status creates no file. Transport tests inject an

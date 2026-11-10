@@ -178,6 +178,77 @@ impl CaptureJournal {
         cancel.check()?;
         Ok(inventory)
     }
+    /// One binding's prepared plans as they are now, from its three plan file names; None
+    /// when no file of it holds a plan any more. No directory is listed.
+    pub(in crate::neo) fn binding_plans(
+        &self,
+        canonical: &str,
+        digest: &str,
+        cancel: &Cancel,
+    ) -> Result<Option<PendingPlans>, EngineError> {
+        cancel.check()?;
+        self.root.assert_unchanged()?;
+        let Some(workspaces) = optional(self.root.open_child("workspaces"))? else {
+            return Ok(None);
+        };
+        let Some(directory) = optional(workspaces.open_child(canonical))? else {
+            return Ok(None);
+        };
+        let mut plans = PendingPlans {
+            canonical: canonical.to_owned(),
+            digest: digest.to_owned(),
+            files: Vec::new(),
+            caller: None,
+        };
+        for prefix in [
+            "native-capture-pending-",
+            "native-episode-pending-",
+            "native-embedding-pending-",
+        ] {
+            let filename = format!("{prefix}{digest}.json");
+            if pending_kind(&filename)? != Some(prefix)
+                || journal_io::bytes(&directory, &filename, cancel)?.is_none()
+            {
+                continue;
+            }
+            match self.plan_caller(&directory, &filename, prefix, cancel) {
+                Ok(caller) => {
+                    plans.files.push(filename);
+                    if plans.caller.is_none() {
+                        plans.caller = caller;
+                    }
+                }
+                Err(EngineError::Cancelled(cancelled)) => {
+                    return Err(EngineError::Cancelled(cancelled))
+                }
+                // Unreadable: kept and counted by the inventory, never recovery authority.
+                Err(_) => {}
+            }
+        }
+        Ok(plans.caller.is_some().then_some(plans))
+    }
+    /// The key of the binding a caller's own journal writes use: its workspace directory
+    /// under the Neo root and its binding digest. None for a caller the journal does not
+    /// bind. This asks the host.
+    pub(in crate::neo) fn binding_key(
+        &self,
+        principal: &Principal,
+        agent: &AgentContext,
+    ) -> Result<Option<String>, EngineError> {
+        let binding = match self.bind(principal, agent) {
+            Ok(binding) => binding,
+            Err(EngineError::Store(StoreError::InvalidInput | StoreError::Unavailable)) => {
+                return Ok(None)
+            }
+            Err(error) => return Err(error),
+        };
+        let digest = binding
+            .file
+            .strip_prefix("native-capture-pending-")
+            .and_then(|name| name.strip_suffix(".json"))
+            .ok_or(StoreError::Corrupt)?;
+        Ok(Some(format!("{}/{digest}", binding.layout.canonical)))
+    }
     /// The caller and ownership stored in one plan file; None for a settled (empty) plan.
     fn plan_caller(
         &self,

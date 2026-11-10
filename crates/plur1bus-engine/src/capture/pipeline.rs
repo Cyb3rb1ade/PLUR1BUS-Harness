@@ -60,13 +60,13 @@ pub struct CapturePipeline {
     base_db: PathBuf,
     cutoff_failed: bool,
     admissions: super::admission::Admissions,
-    shutdown: Cancel,
-    /// Owner scopes (agent and owner) with retained work deferred after a transient failure,
-    /// maintenance or their recovery budget (RE-D159); retried before that owner's next turn.
-    pending: std::sync::Mutex<std::collections::BTreeSet<String>>,
-    /// An admission file no owner can be attributed to was found at the last startup
-    /// inventory; it is kept and never blocks anyone.
-    unreadable: std::sync::atomic::AtomicBool,
+    /// Owner scopes (agent and owner) whose retained records wait or are being recovered
+    /// (RE-D162): from the inventory, after a transient failure, maintenance or their
+    /// budget. Recovered by the background pass and before that owner's own next turn.
+    retained: Arc<super::retained::Retained>,
+    /// Top-level entries of the admission root that nobody owns, at the last inventory:
+    /// kept, reported, never blocking anyone.
+    foreign: std::sync::atomic::AtomicUsize,
 }
 
 impl CapturePipeline {
@@ -118,29 +118,40 @@ impl CapturePipeline {
             config,
             base_db,
             cutoff_failed,
-            shutdown: Cancel::never(),
-            pending: std::sync::Mutex::default(),
-            unreadable: std::sync::atomic::AtomicBool::new(false),
+            retained: Arc::default(),
+            foreign: std::sync::atomic::AtomicUsize::new(0),
         })
     }
 
-    /// Bind startup recovery to a shutdown signal; admitted work keeps its own cancellation.
-    #[must_use]
-    pub fn with_recovery_cancel(mut self, shutdown: Cancel) -> Self {
-        self.shutdown = shutdown;
-        self
-    }
-
-    /// Whether retained capture work is still unfinished: a pending entry awaiting its
-    /// owner's next turn (or the end of maintenance), or a malformed admission file.
+    /// Whether retained admission records are still unfinished: an owner scope that waits
+    /// or is being recovered, or a top-level file nobody owns.
     #[must_use]
     pub fn has_unfinished_recovery(&self) -> bool {
-        self.unreadable.load(std::sync::atomic::Ordering::Acquire)
-            || !self
-                .pending
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .is_empty()
+        self.foreign.load(std::sync::atomic::Ordering::Acquire) > 0 || self.retained.waiting()
+    }
+
+    /// Test support: leave a durable admission for `turn`, as a worker killed after
+    /// admission would.
+    #[cfg(test)]
+    #[allow(clippy::unwrap_used, reason = "test support")]
+    pub(crate) fn retain_for_test(&self, turn: &TurnRecord) {
+        let context =
+            RequestContext::build(&turn.principal, &turn.agent, self.host.as_ref()).unwrap();
+        let mode = super::admission::Begin {
+            inherits_rows: false,
+            recovery: false,
+        };
+        drop(
+            self.admissions
+                .begin(
+                    turn,
+                    &context,
+                    &CaptureOptions::default(),
+                    &Cancel::never(),
+                    mode,
+                )
+                .unwrap(),
+        );
     }
 
     /// Supply the configured summary route; absence means Node's route is unavailable.

@@ -9,7 +9,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use sha2::{Digest, Sha256};
 
@@ -27,6 +27,14 @@ pub const REPLAY_GUARD_MAX_ENTRIES: usize = 512;
 /// Inclusive lifetime of completed and pending keys: seven days.
 pub const REPLAY_GUARD_TTL_MS: i64 = 7 * 24 * 60 * 60 * 1000;
 const MAX_PENDING_ROW_IDS: usize = 10_000;
+/// How long a durable acknowledgement waits for the agent's WAL lease (RE-D162). It does
+/// not follow the caller's cancellation, because the rows are already committed, but it
+/// never waits without bound: the library's bounded lock wait (`store/tombstone.rs`
+/// `LOCK_TIMEOUT`). Past it the acknowledgement fails and the turn stays replayable.
+const ACKNOWLEDGE_BUDGET: Duration = Duration::from_secs(5);
+fn acknowledge() -> Cancel {
+    Cancel::with_deadline(Instant::now() + ACKNOWLEDGE_BUDGET)
+}
 
 /// Node's exact key material and its SHA-256, preserving lone UTF-16 surrogates.
 #[must_use]
@@ -449,9 +457,10 @@ impl ReplayRows {
 
     /// Record successful row settlement exactly once, before post-store work.
     pub fn on_rows_settled(&self) -> Result<(), EngineError> {
-        // Once rows committed, finish the durable acknowledgement independently of caller abort.
+        // Once rows committed, finish the durable acknowledgement independently of caller
+        // abort, within its own bounded wait.
         if let Some(ticket) = &self.0.durable {
-            return ticket.settle(&Cancel::never());
+            return ticket.settle(&acknowledge());
         }
         let mut recorded = lock(&self.0.recorded);
         if *recorded {
@@ -467,7 +476,7 @@ impl ReplayRows {
     /// Keep a partly stored capture's rows and remove its pending replay cleanup ids.
     pub fn on_rows_kept(&self) -> Result<(), EngineError> {
         if let Some(ticket) = &self.0.durable {
-            return ticket.keep_partial(&Cancel::never());
+            return ticket.keep_partial(&acknowledge());
         }
         let recorded = lock(&self.0.recorded);
         if !*recorded {

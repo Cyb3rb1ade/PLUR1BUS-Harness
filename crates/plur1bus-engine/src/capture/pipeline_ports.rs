@@ -198,4 +198,35 @@ pub trait NeoCaptureHook: Send + Sync {
     ) -> Result<(), EngineError> {
         Ok(())
     }
+
+    /// Classify prepared plans by owner binding (RE-D162): directory entries and plan files
+    /// only, no host callback, no waiting for a lease.
+    fn inventory(&self, _cancel: &Cancel) -> Result<(), EngineError> {
+        Ok(())
+    }
+
+    /// Whether an owner binding's prepared plans wait or are being recovered.
+    fn has_retained(&self) -> bool {
+        false
+    }
+
+    /// One pass over the waiting bindings, one after the other, each under its own budget;
+    /// `shutdown` ends it.
+    fn recover_retained(&self, _shutdown: &Cancel) {}
+
+    /// Before a turn: join the recovery of this caller's own binding, or start it. It waits
+    /// for no other binding and never fails the turn.
+    fn recover_owner(
+        &self,
+        _turn: &TurnRecord,
+        _context: &RequestContext,
+        _cancel: &Cancel,
+        _shutdown: &Cancel,
+    ) {
+    }
+
+    /// Start no further attempt and wait within `budget` for those in flight.
+    fn close_retained(&self, _budget: std::time::Duration) -> bool {
+        true
+    }
 }

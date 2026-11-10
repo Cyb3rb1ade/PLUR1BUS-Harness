@@ -334,6 +334,12 @@ impl CaptureQueue {
         receiver
     }
 
+    /// The configured execution budget of one capture job (`runtime.captureTimeoutMs`).
+    #[must_use]
+    pub fn capture_timeout(&self) -> Duration {
+        Duration::from_millis(self.shared.config.capture_timeout_ms)
+    }
+
     /// Copy scheduler counters, never callback contents or errors.
     #[must_use]
     pub fn status(&self) -> QueueStatus {

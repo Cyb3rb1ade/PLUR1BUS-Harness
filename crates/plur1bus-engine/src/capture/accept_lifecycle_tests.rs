@@ -92,3 +92,124 @@ fn close_cannot_finish_before_a_started_admission_is_tracked() {
         Some("engine-closed")
     );
 }
+
+/// The first workspace lookup never answers until the fixture lets go; later ones answer.
+struct HangFirst {
+    inner: Arc<FakeHost>,
+    hung: AtomicBool,
+    entered: Mutex<mpsc::Sender<()>>,
+    release: Mutex<mpsc::Receiver<()>>,
+}
+
+impl HostServices for HangFirst {
+    fn state_dir(&self) -> &std::path::Path {
+        self.inner.state_dir()
+    }
+    fn config(&self) -> crate::contract::EngineConfig {
+        self.inner.config()
+    }
+    fn workspace_dir(
+        &self,
+        agent: &crate::contract::AgentId,
+    ) -> Result<Option<std::path::PathBuf>, HostError> {
+        if !self.hung.swap(true, Ordering::AcqRel) {
+            let _ = lock(&self.entered).send(());
+            let _ = lock(&self.release).recv();
+        }
+        self.inner.workspace_dir(agent)
+    }
+    fn llm(&self) -> Option<&dyn crate::contract::LlmPort> {
+        self.inner.llm()
+    }
+    fn secrets(&self) -> Option<&dyn crate::contract::SecretPort> {
+        self.inner.secrets()
+    }
+    fn egress(&self) -> &dyn crate::contract::EgressGate {
+        self.inner.egress()
+    }
+    fn emit(&self, event: &str, payload: serde_json::Value) {
+        self.inner.emit(event, payload);
+    }
+    fn now_ms(&self) -> i64 {
+        self.inner.now_ms()
+    }
+    fn platform(&self) -> &crate::contract::PlatformCapabilities {
+        self.inner.platform()
+    }
+    fn journal_backlog(&self) -> Option<crate::contract::JournalBacklog> {
+        self.inner.journal_backlog()
+    }
+}
+
+/// A worker that only reports whether retained work exists.
+struct Retaining(bool);
+
+impl CaptureWorker for Retaining {
+    fn has_retained(&self) -> bool {
+        self.0
+    }
+    fn capture(
+        &self,
+        _turn: &TurnRecord,
+        _context: &RequestContext,
+        _options: &CaptureOptions,
+        _replay: ReplayRows,
+        _cancel: &Cancel,
+    ) -> Result<CaptureResult, EngineError> {
+        Ok(counts(0, 0, None))
+    }
+}
+
+/// RE-D162 / R2: an identity lookup the host never answers has a deadline. It ends only its
+/// own turn, with what a failed lookup reports, and a later turn of the same agent is not
+/// held up by it: neither in the admission itself nor while retained work makes turns
+/// resolve their owner first.
+#[test]
+fn an_unanswered_identity_lookup_ends_only_its_own_turn() {
+    for retained in [false, true] {
+        let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
+        let (entered, hanging) = mpsc::channel();
+        let (release, gate) = mpsc::channel();
+        let host = Arc::new(HangFirst {
+            inner: Arc::new(FakeHost::new(
+                root.path().to_owned(),
+                serde_json::from_value(json!({})).unwrap(),
+            )),
+            hung: AtomicBool::new(false),
+            entered: Mutex::new(entered),
+            release: Mutex::new(gate),
+        });
+        let queue = Arc::new(
+            CaptureQueue::new(
+                RuntimeConfig::from_value(
+                    &json!({"pressureGateEnabled":false,"captureTimeoutMs":1500}),
+                ),
+                Arc::new(PressureSnapshot::disabled),
+            )
+            .unwrap(),
+        );
+        let replay = ReplayGuard::durable(root.path().join("replay"), Arc::new(|| 0)).unwrap();
+        let worker = Arc::new(Retaining(retained));
+        let runtime = CaptureRuntime::new(host, worker, queue, replay, false).unwrap();
+
+        let first = runtime.accept(turn(), CaptureOptions::default()).unwrap();
+        hanging.recv_timeout(Duration::from_secs(5)).unwrap();
+        let mut later = turn();
+        later.run_id = Some("later".into());
+        let second = runtime.accept(later, CaptureOptions::default()).unwrap();
+
+        let passed = second.done.recv_timeout(Duration::from_secs(10)).unwrap();
+        assert_eq!(passed.reason, None, "retained={retained}");
+        let ended = first.done.recv_timeout(Duration::from_secs(10)).unwrap();
+        assert!(
+            ended
+                .reason
+                .as_deref()
+                .is_some_and(|reason| reason.starts_with("Error textLen=")),
+            "retained={retained}: {:?}",
+            ended.reason
+        );
+        drop(release);
+        assert!(runtime.close(Duration::from_secs(5)), "retained={retained}");
+    }
+}

@@ -27,6 +27,8 @@ pub mod queue;
 pub mod replay_guard;
 /// Node-order result projection without changes to generated contract types.
 pub mod result;
+/// Retained work by key and the one recovery attempt in flight per key (RE-D162).
+pub(crate) mod retained;
 /// Fail-closed, acknowledged capture WAL for productive row writers.
 pub mod wal;
 

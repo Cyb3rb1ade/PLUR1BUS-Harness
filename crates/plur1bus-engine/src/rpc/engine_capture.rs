@@ -1,10 +1,11 @@
 //! Capture over the process writer pool, the shared mood and the RE-05 runtime (RE-D154).
 //!
-//! The runtime is composed once, lazily, behind the S5 startup check. Its construction
-//! recovers durable admissions, the capture WAL and prepared Neo plans before the first
-//! new turn is accepted. Composition runs outside the state lock and is bound to the
-//! shutdown signal, so `close()` stays within its budget. Node assembler behavior the
-//! library does not provide stays absent.
+//! The runtime is composed once, lazily, behind the S5 startup check. The composition only
+//! takes an inventory of retained work (admission records and prepared Neo plans, from
+//! directory entries); their recovery runs behind it, one owner at a time, and before a
+//! turn only for that turn's own owner (RE-D162). Composition runs outside the state lock;
+//! composition and recovery are bound to the shutdown signal, so `close()` stays within
+//! its budget. Node assembler behavior the library does not provide stays absent.
 
 use super::{engine_warm, ProcessEngine};
 use crate::{
@@ -37,8 +38,9 @@ const DEFAULT_CLOSE_BUDGET: Duration = Duration::from_secs(30);
 const RECOVERY_INCOMPLETE: &str = "startup-recovery-incomplete";
 /// Status reason for a configuration the capture composition rejects; nothing to recover.
 const COMPOSITION_INVALID: &str = "composition-invalid";
-/// Status reason while capture is served but some owners' retained work is deferred
-/// (maintenance, a transient failure or its own budget), or a file is unattributable (RE-D159).
+/// Status reason while capture is served but some owner's retained work waits or is being
+/// recovered (after the composition, maintenance, a transient failure or its own budget),
+/// or a file is owned by nobody (RE-D159, RE-D162).
 const RECOVERY_DEFERRED: &str = "capture-recovery-deferred";
 
 /// How far capture is served, for the status priority (RE-D159).
@@ -48,7 +50,7 @@ pub(super) enum Served {
     Invalid,
     /// The composition failed; every capture is refused until it succeeds.
     No,
-    /// Capture is served; some retained work waits for its owner's next turn.
+    /// Capture is served; some retained work waits or is being recovered.
     Deferred,
 }
 
@@ -76,6 +78,9 @@ pub(super) struct ProcessCapture {
     state: Mutex<State>,
     changed: Condvar,
     shutdown: Cancel,
+    /// Test support: the background recovery does not start by itself.
+    #[cfg(test)]
+    held: std::sync::atomic::AtomicBool,
 }
 
 impl Default for ProcessCapture {
@@ -88,6 +93,8 @@ impl Default for ProcessCapture {
             changed: Condvar::new(),
             // A fresh, independent flag: only this engine's close() raises it.
             shutdown: Cancel::never(),
+            #[cfg(test)]
+            held: std::sync::atomic::AtomicBool::new(false),
         }
     }
 }
@@ -142,7 +149,43 @@ impl ProcessCapture {
             .map(|degraded| (degraded, served))
     }
 
-    /// Compose the runtime once (recovery before admission), then return a receipt.
+    /// Test support: the composed pipeline.
+    #[cfg(test)]
+    pub(super) fn pipeline_for_test(&self) -> Arc<CapturePipeline> {
+        match &self.lock().slot {
+            Slot::Ready(composed) => composed.pipeline.clone(),
+            _ => unreachable!("capture is not composed"),
+        }
+    }
+    /// Test support: keep the background recovery from starting after the composition.
+    #[cfg(test)]
+    pub(super) fn hold_recovery(&self) {
+        self.held.store(true, std::sync::atomic::Ordering::Release);
+    }
+    /// Test support: start the held background recovery.
+    #[cfg(test)]
+    pub(super) fn release_recovery(&self) {
+        if let Slot::Ready(composed) = &self.lock().slot {
+            composed.runtime.start_recovery();
+        }
+    }
+    /// Test support: wait until the first background recovery pass has finished.
+    #[cfg(test)]
+    pub(super) fn recovered_for_test(&self, budget: Duration) -> bool {
+        let runtime = match &self.lock().slot {
+            Slot::Ready(composed) => composed.runtime.clone(),
+            _ => return true,
+        };
+        runtime.wait_recovered(Some(budget))
+    }
+    fn holds_recovery(&self) -> bool {
+        #[cfg(test)]
+        return self.held.load(std::sync::atomic::Ordering::Acquire);
+        #[cfg(not(test))]
+        false
+    }
+
+    /// Compose the runtime once (inventory before admission), then return a receipt.
     pub(super) fn accept(
         engine: &ProcessEngine,
         base: &Path,
@@ -153,7 +196,8 @@ impl ProcessCapture {
         Self::runtime(engine, base, Some(&agent))?.accept(turn, options)
     }
 
-    /// Compose (and thereby recover) the runtime without accepting a turn; idempotent.
+    /// Compose the runtime (and thereby start its recovery) without accepting a turn;
+    /// idempotent.
     pub(super) fn open(engine: &ProcessEngine, base: &Path) -> Result<(), EngineError> {
         Self::runtime(engine, base, None).map(|_| ())
     }
@@ -164,8 +208,8 @@ impl ProcessCapture {
         agent: Option<&str>,
     ) -> Result<Arc<CaptureRuntime>, EngineError> {
         let this = &engine.capture;
-        // An owner's pending retained work is retried before its next turn, under that
-        // agent's admission ticket; it never refuses the turn or anyone else (RE-D156).
+        // An owner's retained work is recovered behind the composition and joined by that
+        // owner's own next turn; nobody else waits for it (RE-D162).
         let _ = agent;
         let served = |composed: &Composed| -> Result<Arc<CaptureRuntime>, EngineError> {
             Ok(composed.runtime.clone())
@@ -177,7 +221,8 @@ impl ProcessCapture {
             }
             match &state.slot {
                 Slot::Ready(composed) => return served(composed),
-                // Concurrent first callers wait for the one recovery in progress.
+                // Concurrent first callers wait for the one composition in progress; it takes
+                // an inventory only, so the wait depends on nobody's retained work.
                 Slot::Composing => {
                     state = this
                         .changed
@@ -205,6 +250,9 @@ impl ProcessCapture {
             }
             Ok(composed) => {
                 state.slot = Slot::Ready(composed.clone());
+                if !this.holds_recovery() {
+                    composed.runtime.start_recovery();
+                }
                 served(&composed)
             }
             Err(error) => {
@@ -266,8 +314,8 @@ impl ProcessCapture {
 fn classify_failure(error: EngineError, closed: bool) -> (Option<&'static str>, EngineError) {
     match error {
         _ if closed => (None, unavailable("closed")),
-        // Recovery has no common deadline (RE-D159): each owner's budget defers only that
-        // owner, so a cancellation here is shutdown and no failure state.
+        // The composition recovers nothing (RE-D162), so a cancellation here is shutdown
+        // and no failure state.
         error @ EngineError::Cancelled(_) => (None, error),
         error @ EngineError::Invalid { .. } => (Some(COMPOSITION_INVALID), error),
         error @ EngineError::NotAvailable { .. } => (Some(RECOVERY_INCOMPLETE), error),
@@ -319,26 +367,17 @@ fn compose(
         embedder.clone(),
         classifier,
         policy.clone(),
-    )?
-    .with_recovery_cancel(shutdown.clone());
-    // As at the pin, Neo state exists only when Neo is enabled. Opening the hook recovers
-    // prepared Neo capture/episode plans before any admission; the pin creates the root on
-    // its first write, the native hook pins an existing one.
+    )?;
+    // As at the pin, Neo state exists only when Neo is enabled. The pin creates the root on
+    // its first write, the native hook pins an existing one. Opening the hook recovers
+    // nothing; its prepared plans are inventoried with the admissions below.
     let mut neo = None;
     if config["neo"]["enabled"] != false {
         let neo_root = engine_warm::neo_root(&raw["neo"], base);
         crate::store::paths::secure_dir(&neo_root)?;
-        // Each owner's prepared plans are recovered on their own (RE-D159); only shutdown
-        // or the Neo root itself can fail this open.
         let hook = Arc::new(
-            NativeNeoCaptureHook::open_with_cancel(
-                &neo_root,
-                host.clone(),
-                policy,
-                mood,
-                shutdown,
-            )?
-            .with_embedder(embedder)?,
+            NativeNeoCaptureHook::open_deferred(&neo_root, host.clone(), policy, mood)?
+                .with_embedder(embedder)?,
         );
         pipeline = pipeline.with_neo(Arc::new(UserScopedNeo {
             hook: hook.clone(),
@@ -355,7 +394,17 @@ fn compose(
     let clock = host.clone();
     let replay = ReplayGuard::durable(turns_root(base), Arc::new(move || clock.now_ms()))?;
     // `scheduled = false`: no post-turn-refine job runs in RX; deferral falls back inline.
-    let runtime = CaptureRuntime::new(host, pipeline.clone(), queue, replay, false)?;
+    // Composing takes the inventory of retained admissions and Neo plans: directory entries
+    // only, no host callback, no provider, no waiting for a lease (RE-D162). Only shutdown,
+    // the admission root or the Neo root itself can fail it.
+    let runtime = CaptureRuntime::compose(
+        host,
+        pipeline.clone(),
+        queue,
+        replay,
+        false,
+        shutdown.clone(),
+    )?;
     Ok(Composed {
         runtime: Arc::new(runtime),
         pipeline,
@@ -435,6 +484,30 @@ impl NeoCaptureHook for UserScopedNeo {
             return Ok(());
         }
         self.hook.after_capture(turn, context, cancel)
+    }
+    fn inventory(&self, cancel: &Cancel) -> Result<(), EngineError> {
+        self.hook.inventory(cancel)
+    }
+    fn has_retained(&self) -> bool {
+        self.hook.has_retained()
+    }
+    fn recover_retained(&self, shutdown: &Cancel) {
+        self.hook.recover_retained(shutdown);
+    }
+    fn recover_owner(
+        &self,
+        turn: &TurnRecord,
+        context: &RequestContext,
+        cancel: &Cancel,
+        shutdown: &Cancel,
+    ) {
+        // Only a caller the journal can bind has a binding; that needs no host here.
+        if is_user_principal(&context.owner_user_id) && !context.workspace_key.is_empty() {
+            self.hook.recover_owner(turn, context, cancel, shutdown);
+        }
+    }
+    fn close_retained(&self, budget: Duration) -> bool {
+        self.hook.close_retained(budget)
     }
 }
 
