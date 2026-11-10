@@ -6,6 +6,8 @@
 //! composed separately as their runtime dependencies become available.
 //! Selecting a flat embedding seam never installs a fake memory pipeline.
 
+#[path = "engine_recall.rs"]
+mod engine_recall;
 #[path = "engine_stores.rs"]
 mod engine_stores;
 #[path = "engine_warm.rs"]
@@ -41,6 +43,7 @@ pub struct ProcessEngine {
     store_cancel: Cancel,
     live_stores: Arc<EngineStores>,
     memory: Option<ProcessMemory>,
+    mood: engine_recall::RecallMood,
     operations: Arc<crate::ops::context::OperationContext>,
     checkpoints: crate::store::checkpoint::CheckpointStore,
     system_supplement: Vec<String>,
@@ -181,8 +184,10 @@ impl ProcessEngine {
             "memoryLink":base.is_some(),
             "recallStats":false,"knowledgePromotion":false,"memoryCuration":false
         }))?;
+        // Recall is served once a store is configured; capture is the next pending port.
+        let pending = if base.is_some() { "capture" } else { "recall" };
         let status = decode(json!({
-            "ready": false, "degraded": {"reason":"composition-pending","capability":"recall"},
+            "ready": false, "degraded": {"reason":"composition-pending","capability":pending},
             "agents":0,"contract":"1.17.0","storeSchema":{"current":null,"expected":"1"},
             "jobs":{"ledger":"unavailable","agents":[]},"models":embedding.status(),"journal":null,
             "sharedMemory":{"supported":false,"mode":"unavailable"}
@@ -196,6 +201,7 @@ impl ProcessEngine {
             store_clock,
             store_cancel.clone(),
         ));
+        let mood = engine_recall::RecallMood::new(host.clone(), raw["emotion"].clone());
         let operations = Arc::new(crate::ops::context::OperationContext::new(host));
         let memory = base.map(|base| {
             let provider = embedding.pipeline_embedder();
@@ -242,6 +248,7 @@ impl ProcessEngine {
             store_cancel,
             live_stores,
             memory,
+            mood,
             operations,
             checkpoints,
             system_supplement: crate::recall::system_supplement::build(
@@ -355,9 +362,13 @@ impl Engine for ProcessEngine {
         options: RecallOptions,
         cancel: &Cancel,
     ) -> Result<RecallResult, EngineError> {
-        if query.warm_only == Some(true) && !self.closed.load(Ordering::Acquire) {
+        if !self.closed.load(Ordering::Acquire) {
             if let Some(base) = self.live_stores.configured_base() {
-                return engine_warm::run(self, base, &query, &options, cancel);
+                return if query.warm_only == Some(true) {
+                    engine_warm::run(self, base, &query, &options, cancel)
+                } else {
+                    engine_recall::run(self, base, &query, &options, cancel)
+                };
             }
         }
         cancel.check()?;
@@ -1105,3 +1116,7 @@ mod memory_tests;
 #[cfg(test)]
 #[path = "engine_warm_tests.rs"]
 mod warm_tests;
+
+#[cfg(test)]
+#[path = "engine_recall_tests.rs"]
+mod recall_tests;

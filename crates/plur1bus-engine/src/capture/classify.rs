@@ -107,16 +107,30 @@ impl NativeCaptureClassifier {
         if let Some(engine) = engines.get(&binding) {
             return Ok(engine.clone());
         }
-        let emotion = &self.config["emotion"];
-        let config = json!({"tier2":{"enabled":emotion["t2"]["enabled"]!=false},"tier3":{"enabled":emotion["t3"]["enabled"]!=false,"timeoutMs":emotion["t3"]["timeoutMs"].as_f64().unwrap_or(4000.)},"escalationConfidence":emotion["t3"]["escalationConfidence"].as_f64().unwrap_or(0.85)});
         let host = self.host.clone();
-        let engine = Arc::new(Mutex::new(EmotionEngine::new(
-            &to_json(&config)?,
-            None,
+        let engine = Arc::new(Mutex::new(emotion_engine(
+            &self.config["emotion"],
             Arc::new(move || host.now_ms()),
         )?));
         engines.insert(binding, engine.clone());
         Ok(engine)
+    }
+}
+/// The pin's single `setEmotionConfig` routing, shared by capture and recall.
+pub(crate) fn emotion_engine(
+    emotion: &Value,
+    clock: Arc<dyn Fn() -> i64 + Send + Sync>,
+) -> Result<EmotionEngine, EngineError> {
+    let config = json!({"tier2":{"enabled":emotion["t2"]["enabled"]!=false},"tier3":{"enabled":emotion["t3"]["enabled"]!=false,"timeoutMs":emotion["t3"]["timeoutMs"].as_f64().unwrap_or(4000.)},"escalationConfidence":emotion["t3"]["escalationConfidence"].as_f64().unwrap_or(0.85)});
+    EmotionEngine::new(&to_json(&config)?, None, clock)
+}
+/// `resolveForceTier`: an explicit tier, or automatic routing.
+pub(crate) fn forced_tier(emotion: &Value) -> Option<u8> {
+    match emotion["tier"].as_str().unwrap_or("auto") {
+        "t1" => Some(1),
+        "t2" => Some(2),
+        "t3" => Some(3),
+        _ => None,
     }
 }
 impl CaptureClassifier for NativeCaptureClassifier {
@@ -151,12 +165,7 @@ impl CaptureClassifier for NativeCaptureClassifier {
         let deferred = emotion_config["t3"]["captureMode"] != "inline" && enabled && tier == "auto";
         let engine = self.engine(binding)?;
         let options = AnalysisOptions {
-            force_tier: match tier {
-                "t1" => Some(1),
-                "t2" => Some(2),
-                "t3" => Some(3),
-                _ => None,
-            },
+            force_tier: forced_tier(emotion_config),
             skip_tier3: deferred,
         };
         let result = engine

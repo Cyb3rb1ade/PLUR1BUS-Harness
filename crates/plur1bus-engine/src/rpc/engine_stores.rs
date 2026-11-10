@@ -191,6 +191,13 @@ impl EngineStores {
         )))
     }
 
+    /// The write-capable process pools after S5 recovery, as the pin's recall leases its writer.
+    pub(super) fn recall_pools(&self) -> Result<Arc<NamespaceStores>, EngineError> {
+        let mut state = self.state.lock().map_err(|_| StoreError::Unavailable)?;
+        self.namespaces(&mut state, true)?
+            .ok_or_else(|| StoreError::Unavailable.into())
+    }
+
     pub(super) fn configured_base(&self) -> Option<&std::path::Path> {
         self.base.as_deref()
     }

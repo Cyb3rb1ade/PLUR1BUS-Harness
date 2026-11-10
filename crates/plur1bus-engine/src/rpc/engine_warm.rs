@@ -58,17 +58,7 @@ pub(super) fn run(
     };
     control.timer.record("entry", control.timer.elapsed_ms());
     let context = &admitted.context;
-    let allowed = MigrationStateStore::new(base)
-        .and_then(|store| store.switching())
-        .is_ok_and(|switching| {
-            PolicyStore::new(base).is_ok_and(|policy| {
-                policy.automatic(
-                    &json!({"agentId":context.agent_id,"workspaceIdentity":context.workspace_key}),
-                    switching,
-                )["allowed"]
-                    == true
-            })
-        });
+    let allowed = automatic_allowed(base, context);
     if !control.checkpoint(false) || !allowed {
         return result(&control, Value::Null, false);
     }
@@ -134,7 +124,31 @@ pub(super) fn run(
     result(&control, degraded, missing_reranker)
 }
 
-fn result(
+/// Automatic workspace policy under the generation switch lock; any read failure denies.
+pub(super) fn automatic_allowed(base: &Path, context: &RequestContext) -> bool {
+    MigrationStateStore::new(base)
+        .and_then(|store| store.switching())
+        .is_ok_and(|switching| {
+            PolicyStore::new(base).is_ok_and(|policy| {
+                policy.automatic(
+                    &json!({"agentId":context.agent_id,"workspaceIdentity":context.workspace_key}),
+                    switching,
+                )["allowed"]
+                    == true
+            })
+        })
+}
+
+/// The configured Neo state root, or the pin's default below the store base.
+pub(super) fn neo_root(neo: &Value, base: &Path) -> PathBuf {
+    neo["statePath"]
+        .as_str()
+        .filter(|path| !path.is_empty())
+        .map_or_else(|| base.join("_neo"), PathBuf::from)
+}
+
+/// The pin's empty `recallResult()` with the request's timing.
+pub(super) fn result(
     control: &RecallControl,
     degraded: Value,
     missing_reranker: bool,
@@ -152,7 +166,7 @@ fn result(
     decode(wire)
 }
 
-fn bounded(value: &Value, fallback: usize, lo: usize, hi: usize) -> usize {
+pub(super) fn bounded(value: &Value, fallback: usize, lo: usize, hi: usize) -> usize {
     value
         .as_f64()
         .unwrap_or(fallback as f64)
@@ -339,10 +353,7 @@ struct NeoWarm<'a> {
 
 impl NeoPrelude for NeoWarm<'_> {
     fn read(&self, request: &NeoRequest<'_>) -> Result<JsString, RenderError> {
-        let root = self.config["statePath"]
-            .as_str()
-            .filter(|path| !path.is_empty())
-            .map_or_else(|| self.base.join("_neo"), PathBuf::from);
+        let root = neo_root(self.config, self.base);
         let reader = match MetadataReader::open(&root, &self.context.workspace_key) {
             Ok(reader) => reader,
             Err(crate::contract::StoreError::Io {
