@@ -2,9 +2,10 @@
 //!
 //! Budget, Jaccard dedupe and rerank run afterwards in [`super::finalise`]. With
 //! `defer_final_cap` the pinned pipeline skips the budget and replaces dedupe with a
-//! hard-limit slice. Query
-//! refinement is present and stays off: the pinned engine emits no skip trace when
-//! `queryRefinerEnabled` is false.
+//! hard-limit slice. Query refinement (RE-D151) runs the pin's deterministic refiner
+//! when no hit reaches the minimum score: a second search, merged by id (higher score
+//! wins), with a `query-refinement` trace guard. The pinned engine emits no skip trace
+//! when `queryRefinerEnabled` is false.
 //!
 //! `clocks.now_ms` is the pipeline `now` (lifecycle and expiry). `clocks.temporal_now_ms`
 //! is `Date.now()`, which `parseTemporal` reads instead of that argument. The stage
@@ -162,8 +163,6 @@ pub enum StageError {
     Store(StoreError),
     /// The query embedding failed. Section failures are caught and do not use this variant.
     Embed(EmbedError),
-    /// `queryRefinerEnabled` is true and the hits would be refined. The expander is not ported.
-    RefinementUnavailable,
 }
 
 impl std::fmt::Display for StageError {
@@ -171,9 +170,6 @@ impl std::fmt::Display for StageError {
         match self {
             Self::Store(error) => write!(formatter, "{error}"),
             Self::Embed(error) => write!(formatter, "{error}"),
-            Self::RefinementUnavailable => {
-                formatter.write_str("query refinement is not part of stages 1-7")
-            }
         }
     }
 }
@@ -284,7 +280,13 @@ fn run_stages(
         Ok(())
     });
     phase!("vector_search", false, {
-        state.hits = search_hits(input, &state.vector, sink, &mut state.rejections)?;
+        state.hits = search_hits(
+            input,
+            &state.vector,
+            "initial-acl",
+            sink,
+            &mut state.rejections,
+        )?;
         observations.rejections(&state.rejections);
         state.candidates = state.hits.iter().map(|hit| hit.id.clone()).collect();
         observe_vectors(&mut observations, &state.hits);
@@ -294,7 +296,19 @@ fn run_stages(
         if input.flags.query_refiner
             && should_refine_query(&state.hits, input.limits.recall_min_score)
         {
-            return Err(StageError::RefinementUnavailable);
+            if let Some(merged) = refine_hits(input, &state.hits, sink, &mut state.rejections)? {
+                state.hits = merged;
+                observations.rejections(&state.rejections);
+                observations.guard(
+                    "query-refinement",
+                    true,
+                    &format!(
+                        "refinement triggered; merged {} unique results",
+                        state.hits.len()
+                    ),
+                    None,
+                );
+            }
         }
         Ok(())
     });
@@ -448,6 +462,7 @@ fn shorten(query: &str) -> String {
 fn search_hits(
     input: &StageInput<'_>,
     query_vector: &[f32],
+    acl_stage: &str,
     sink: &dyn DenialSink,
     rejections: &mut Vec<Rejection>,
 ) -> Result<Vec<Hit>, StageError> {
@@ -474,8 +489,58 @@ fn search_hits(
         });
     }
     reject_inactive(input, &mut hits, rejections);
-    hits.retain(|hit| acl_allows(input, hit, "initial-acl", sink, rejections));
+    hits.retain(|hit| acl_allows(input, hit, acl_stage, sink, rejections));
     Ok(hits)
+}
+
+/// The pin's refined second search. Only cancellation escapes; any other embedding
+/// or read failure keeps the original hits, as the pin's `catch` does.
+fn refine_hits(
+    input: &StageInput<'_>,
+    hits: &[Hit],
+    sink: &dyn DenialSink,
+    rejections: &mut Vec<Rejection>,
+) -> Result<Option<Vec<Hit>>, StageError> {
+    let top = hits.first().map(|hit| super::query_refiner::RefinementTop {
+        score: Some(hit.score),
+        entry: hit
+            .row
+            .as_ref()
+            .map(|row| (row.summary.as_str(), row.text.as_str())),
+    });
+    let refined = super::query_refiner::refine_query(input.query, top);
+    let vector = match input
+        .embedder
+        .embed(&[refined], EmbedKind::Query, &Cancel::never())
+    {
+        Ok(vectors) => match vectors.into_iter().next() {
+            Some(vector) => vector,
+            None => return Ok(None),
+        },
+        Err(error @ EmbedError::Cancelled(_)) => return Err(StageError::Embed(error)),
+        Err(_) => return Ok(None),
+    };
+    let mut found = Vec::new();
+    let refined = match search_hits(input, &vector, "refined-acl", sink, &mut found) {
+        Ok(refined) => refined,
+        Err(_) => return Ok(None),
+    };
+    rejections.extend(found);
+    let mut combined = hits.to_vec();
+    for hit in refined {
+        match combined.iter_mut().find(|existing| existing.id == hit.id) {
+            Some(existing) if hit.score > existing.score => *existing = hit,
+            Some(_) => {}
+            None => combined.push(hit),
+        }
+    }
+    combined.sort_by(|left, right| {
+        right
+            .score
+            .partial_cmp(&left.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    Ok(Some(combined))
 }
 
 fn fetch_limit(input: &StageInput<'_>) -> usize {

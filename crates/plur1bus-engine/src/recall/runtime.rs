@@ -283,11 +283,6 @@ fn namespace_error(error: NamespaceError) -> EngineError {
             EngineError::Embedding(error)
         }
         NamespaceError::Finalise(error) => error,
-        NamespaceError::Stage(super::stages::StageError::RefinementUnavailable) => {
-            EngineError::NotAvailable {
-                reason: "query refinement".into(),
-            }
-        }
         NamespaceError::WorkerFailed => EngineError::NotAvailable {
             reason: "recall worker".into(),
         },

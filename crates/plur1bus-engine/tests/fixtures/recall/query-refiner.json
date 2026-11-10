@@ -1,0 +1,4915 @@
+{
+  "source": {
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "path": "lib/query-refiner.js",
+    "sha256": "136e4aa6b2408bffbe6a02791b118818abb5ae4e1c3a25d1565b27373453c389"
+  },
+  "node": {
+    "version": "v24.21.0",
+    "unicode": "17.0",
+    "icu": "78.3"
+  },
+  "tables": {
+    "stopwords": [
+      "der",
+      "die",
+      "das",
+      "den",
+      "dem",
+      "des",
+      "ein",
+      "eine",
+      "einer",
+      "eines",
+      "einem",
+      "einen",
+      "und",
+      "oder",
+      "aber",
+      "sondern",
+      "doch",
+      "jedoch",
+      "denn",
+      "weil",
+      "obwohl",
+      "wenn",
+      "als",
+      "ist",
+      "sind",
+      "war",
+      "waren",
+      "wird",
+      "werden",
+      "wurde",
+      "wurden",
+      "hat",
+      "haben",
+      "hatte",
+      "hatten",
+      "kann",
+      "können",
+      "konnte",
+      "konnten",
+      "soll",
+      "sollen",
+      "sollte",
+      "sollten",
+      "muss",
+      "müssen",
+      "musste",
+      "mussten",
+      "darf",
+      "dürfen",
+      "darfen",
+      "will",
+      "wollen",
+      "wollte",
+      "wollten",
+      "möchte",
+      "möchten",
+      "ich",
+      "du",
+      "er",
+      "sie",
+      "es",
+      "wir",
+      "ihr",
+      "Sie",
+      "mir",
+      "dir",
+      "ihm",
+      "uns",
+      "euch",
+      "ihnen",
+      "mich",
+      "dich",
+      "ihn",
+      "mein",
+      "dein",
+      "sein",
+      "unser",
+      "euer",
+      "meine",
+      "deine",
+      "seine",
+      "ihre",
+      "unsere",
+      "euere",
+      "von",
+      "zu",
+      "zum",
+      "zur",
+      "bei",
+      "mit",
+      "ohne",
+      "durch",
+      "für",
+      "gegen",
+      "um",
+      "über",
+      "unter",
+      "vor",
+      "nach",
+      "in",
+      "an",
+      "auf",
+      "aus",
+      "hinter",
+      "neben",
+      "zwischen",
+      "diese",
+      "dieser",
+      "dieses",
+      "diesen",
+      "diesem",
+      "jene",
+      "jener",
+      "jenes",
+      "jenen",
+      "jenem",
+      "welche",
+      "welcher",
+      "welches",
+      "welchen",
+      "welchem",
+      "was",
+      "wer",
+      "wo",
+      "wann",
+      "wie",
+      "warum",
+      "wohin",
+      "woher",
+      "auch",
+      "nur",
+      "noch",
+      "schon",
+      "immer",
+      "nie",
+      "oft",
+      "sehr",
+      "ganz",
+      "mehr",
+      "weniger",
+      "am",
+      "im",
+      "vom",
+      "ins",
+      "aufs",
+      "the",
+      "a",
+      "and",
+      "or",
+      "but",
+      "if",
+      "then",
+      "else",
+      "when",
+      "where",
+      "why",
+      "how",
+      "is",
+      "are",
+      "were",
+      "be",
+      "been",
+      "being",
+      "have",
+      "has",
+      "had",
+      "do",
+      "does",
+      "did",
+      "would",
+      "shall",
+      "should",
+      "may",
+      "might",
+      "can",
+      "could",
+      "must",
+      "ought",
+      "i",
+      "you",
+      "he",
+      "she",
+      "it",
+      "we",
+      "they",
+      "me",
+      "him",
+      "her",
+      "us",
+      "them",
+      "my",
+      "your",
+      "his",
+      "its",
+      "our",
+      "their",
+      "mine",
+      "yours",
+      "hers",
+      "ours",
+      "theirs",
+      "this",
+      "that",
+      "these",
+      "those",
+      "of",
+      "to",
+      "for",
+      "on",
+      "with",
+      "at",
+      "by",
+      "from",
+      "as",
+      "into",
+      "through",
+      "during",
+      "before",
+      "after",
+      "above",
+      "below",
+      "between",
+      "under",
+      "again",
+      "further",
+      "once",
+      "here",
+      "there",
+      "all",
+      "any",
+      "both",
+      "each",
+      "few",
+      "more",
+      "most",
+      "other",
+      "some",
+      "such",
+      "no",
+      "nor",
+      "not",
+      "only",
+      "own",
+      "same",
+      "so",
+      "than",
+      "too",
+      "very",
+      "just",
+      "now"
+    ],
+    "synonyms": [
+      [
+        "docker",
+        "Container"
+      ],
+      [
+        "container",
+        "Docker"
+      ],
+      [
+        "kubernetes",
+        "K8s"
+      ],
+      [
+        "k8s",
+        "Kubernetes"
+      ],
+      [
+        "setup",
+        "Installation"
+      ],
+      [
+        "installation",
+        "Setup"
+      ],
+      [
+        "config",
+        "Konfiguration"
+      ],
+      [
+        "configuration",
+        "Konfiguration"
+      ],
+      [
+        "konfiguration",
+        "Config"
+      ],
+      [
+        "server",
+        "Host"
+      ],
+      [
+        "host",
+        "Server"
+      ],
+      [
+        "database",
+        "DB"
+      ],
+      [
+        "db",
+        "Database"
+      ],
+      [
+        "api",
+        "Schnittstelle"
+      ],
+      [
+        "schnittstelle",
+        "API"
+      ],
+      [
+        "error",
+        "Fehler"
+      ],
+      [
+        "fehler",
+        "Error"
+      ],
+      [
+        "bug",
+        "Fehler"
+      ],
+      [
+        "deploy",
+        "Deployment"
+      ],
+      [
+        "deployment",
+        "Deploy"
+      ],
+      [
+        "test",
+        "Testing"
+      ],
+      [
+        "testing",
+        "Test"
+      ]
+    ]
+  },
+  "cases": [
+    {
+      "input": "",
+      "removeStopwords": "",
+      "expandQuery": "",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": ""
+        },
+        {
+          "results": [],
+          "output": ""
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": ""
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": ""
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": ""
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": ""
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": ""
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": ""
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": ""
+        }
+      ]
+    },
+    {
+      "input": " ",
+      "removeStopwords": "",
+      "expandQuery": " ",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": ""
+        },
+        {
+          "results": [],
+          "output": ""
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": ""
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": ""
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": ""
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": ""
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": ""
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": ""
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": ""
+        }
+      ]
+    },
+    {
+      "input": "   ",
+      "removeStopwords": "",
+      "expandQuery": "   ",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": ""
+        },
+        {
+          "results": [],
+          "output": ""
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": ""
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": ""
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": ""
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": ""
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": ""
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": ""
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": ""
+        }
+      ]
+    },
+    {
+      "input": "\t\n",
+      "removeStopwords": "",
+      "expandQuery": "\t\n",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": ""
+        },
+        {
+          "results": [],
+          "output": ""
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": ""
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": ""
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": ""
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": ""
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": ""
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": ""
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": ""
+        }
+      ]
+    },
+    {
+      "input": "the",
+      "removeStopwords": "",
+      "expandQuery": "the",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "the"
+        },
+        {
+          "results": [],
+          "output": "the"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "the Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "the"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "the"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "the Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "the"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "the"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "the Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "Der die das",
+      "removeStopwords": "",
+      "expandQuery": "Der die das",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "Der die das"
+        },
+        {
+          "results": [],
+          "output": "Der die das"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "Der die das Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "Der die das"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "Der die das"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "Der die das Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "Der die das"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "Der die das"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "Der die das Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "THE and OR",
+      "removeStopwords": "",
+      "expandQuery": "THE and OR",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "THE and OR"
+        },
+        {
+          "results": [],
+          "output": "THE and OR"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "THE and OR Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "THE and OR"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "THE and OR"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "THE and OR Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "THE and OR"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "THE and OR"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "THE and OR Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "Docker setup",
+      "removeStopwords": "Docker setup",
+      "expandQuery": "Docker setup Container Installation",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "Docker setup Container Installation"
+        },
+        {
+          "results": [],
+          "output": "Docker setup Container Installation"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "Docker setup Container Installation Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "Docker setup Container Installation"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "Docker setup Container Installation"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "Docker setup Container Installation Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "Docker setup Container Installation"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "Docker setup Container Installation"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "Docker setup Container Installation Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "kubernetes config server",
+      "removeStopwords": "kubernetes config server",
+      "expandQuery": "kubernetes config server K8s Konfiguration Host",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "kubernetes config server K8s Konfiguration Host"
+        },
+        {
+          "results": [],
+          "output": "kubernetes config server K8s Konfiguration Host"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "kubernetes config server K8s Konfiguration Host Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "kubernetes config server K8s Konfiguration Host"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "kubernetes config server K8s Konfiguration Host"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "kubernetes config server K8s Konfiguration Host Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "kubernetes config server K8s Konfiguration Host"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "kubernetes config server K8s Konfiguration Host"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "kubernetes config server K8s Konfiguration Host Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "API Fehler beim Deploy",
+      "removeStopwords": "API Fehler beim Deploy",
+      "expandQuery": "API Fehler beim Deploy Schnittstelle Error Deployment",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "API Fehler beim Deploy Schnittstelle Error Deployment"
+        },
+        {
+          "results": [],
+          "output": "API Fehler beim Deploy Schnittstelle Error Deployment"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "API Fehler beim Deploy Schnittstelle Error Deployment Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "API Fehler beim Deploy Schnittstelle Error Deployment"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "API Fehler beim Deploy Schnittstelle Error Deployment"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "API Fehler beim Deploy Schnittstelle Error Deployment Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "API Fehler beim Deploy Schnittstelle Error Deployment"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "API Fehler beim Deploy Schnittstelle Error Deployment"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "API Fehler beim Deploy Schnittstelle Error Deployment Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "Wie konfiguriere ich den Docker Container?",
+      "removeStopwords": "konfiguriere Docker Container",
+      "expandQuery": "Wie konfiguriere ich den Docker Container? Container Docker",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "konfiguriere Docker Container Container Docker"
+        },
+        {
+          "results": [],
+          "output": "konfiguriere Docker Container Container Docker"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "konfiguriere Docker Container Container Docker Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "konfiguriere Docker Container Container Docker"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "konfiguriere Docker Container Container Docker"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "konfiguriere Docker Container Container Docker Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "konfiguriere Docker Container Container Docker"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "konfiguriere Docker Container Container Docker"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "konfiguriere Docker Container Container Docker Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "ÄRGER über die Größe",
+      "removeStopwords": "ÄRGER Größe",
+      "expandQuery": "ÄRGER über die Größe",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "ÄRGER Größe"
+        },
+        {
+          "results": [],
+          "output": "ÄRGER Größe"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "ÄRGER Größe Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "ÄRGER Größe"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "ÄRGER Größe"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "ÄRGER Größe Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "ÄRGER Größe"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "ÄRGER Größe"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "ÄRGER Größe Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "Müller's café naïve résumé",
+      "removeStopwords": "Müller s café naïve résumé",
+      "expandQuery": "Müller's café naïve résumé",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "Müller s café naïve résumé"
+        },
+        {
+          "results": [],
+          "output": "Müller s café naïve résumé"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "Müller s café naïve résumé Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "Müller s café naïve résumé"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "Müller s café naïve résumé"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "Müller s café naïve résumé Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "Müller s café naïve résumé"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "Müller s café naïve résumé"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "Müller s café naïve résumé Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "TEST testing Test",
+      "removeStopwords": "TEST testing Test",
+      "expandQuery": "TEST testing Test Testing Test",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "TEST testing Test Testing Test"
+        },
+        {
+          "results": [],
+          "output": "TEST testing Test Testing Test"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "TEST testing Test Testing Test Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "TEST testing Test Testing Test"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "TEST testing Test Testing Test"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "TEST testing Test Testing Test Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "TEST testing Test Testing Test"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "TEST testing Test Testing Test"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "TEST testing Test Testing Test Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "docker docker container k8s kubernetes",
+      "removeStopwords": "docker docker container k8s kubernetes",
+      "expandQuery": "docker docker container k8s kubernetes Container Docker Kubernetes",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "docker docker container k8s kubernetes Container Docker Kubernetes"
+        },
+        {
+          "results": [],
+          "output": "docker docker container k8s kubernetes Container Docker Kubernetes"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "docker docker container k8s kubernetes Container Docker Kubernetes Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "docker docker container k8s kubernetes Container Docker Kubernetes"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "docker docker container k8s kubernetes Container Docker Kubernetes"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "docker docker container k8s kubernetes Container Docker Kubernetes Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "docker docker container k8s kubernetes Container Docker Kubernetes"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "docker docker container k8s kubernetes Container Docker Kubernetes"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "docker docker container k8s kubernetes Container Docker Kubernetes Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "db database DB",
+      "removeStopwords": "db database DB",
+      "expandQuery": "db database DB Database DB",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "db database DB Database DB"
+        },
+        {
+          "results": [],
+          "output": "db database DB Database DB"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "db database DB Database DB Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "db database DB Database DB"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "db database DB Database DB"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "db database DB Database DB Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "db database DB Database DB"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "db database DB Database DB"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "db database DB Database DB Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "setup installation konfiguration config",
+      "removeStopwords": "setup installation konfiguration config",
+      "expandQuery": "setup installation konfiguration config Installation Setup Config",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "setup installation konfiguration config Installation Setup Config"
+        },
+        {
+          "results": [],
+          "output": "setup installation konfiguration config Installation Setup Config"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "setup installation konfiguration config Installation Setup Config Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "setup installation konfiguration config Installation Setup Config"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "setup installation konfiguration config Installation Setup Config"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "setup installation konfiguration config Installation Setup Config Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "setup installation konfiguration config Installation Setup Config"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "setup installation konfiguration config Installation Setup Config"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "setup installation konfiguration config Installation Setup Config Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "emoji 🚀 deploy 🎉 now",
+      "removeStopwords": "emoji deploy",
+      "expandQuery": "emoji 🚀 deploy 🎉 now Deployment",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "emoji deploy Deployment"
+        },
+        {
+          "results": [],
+          "output": "emoji deploy Deployment"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "emoji deploy Deployment Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "emoji deploy Deployment"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "emoji deploy Deployment"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "emoji deploy Deployment Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "emoji deploy Deployment"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "emoji deploy Deployment"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "emoji deploy Deployment Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "surrogate 𝒳 test",
+      "removeStopwords": "surrogate X test",
+      "expandQuery": "surrogate 𝒳 test Testing",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "surrogate X test Testing"
+        },
+        {
+          "results": [],
+          "output": "surrogate X test Testing"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "surrogate X test Testing Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "surrogate X test Testing"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "surrogate X test Testing"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "surrogate X test Testing Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "surrogate X test Testing"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "surrogate X test Testing"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "surrogate X test Testing Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "CJK 東京 server",
+      "removeStopwords": "CJK 東京 server",
+      "expandQuery": "CJK 東京 server Host",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "CJK 東京 server Host"
+        },
+        {
+          "results": [],
+          "output": "CJK 東京 server Host"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "CJK 東京 server Host Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "CJK 東京 server Host"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "CJK 東京 server Host"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "CJK 東京 server Host Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "CJK 東京 server Host"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "CJK 東京 server Host"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "CJK 東京 server Host Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "é combined accent",
+      "removeStopwords": "é combined accent",
+      "expandQuery": "é combined accent",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "é combined accent"
+        },
+        {
+          "results": [],
+          "output": "é combined accent"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "é combined accent Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "é combined accent"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "é combined accent"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "é combined accent Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "é combined accent"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "é combined accent"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "é combined accent Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "tabs\tand\nnewlines  deploy",
+      "removeStopwords": "tabs newlines deploy",
+      "expandQuery": "tabs\tand\nnewlines  deploy Deployment",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "tabs newlines deploy Deployment"
+        },
+        {
+          "results": [],
+          "output": "tabs newlines deploy Deployment"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "tabs newlines deploy Deployment Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "tabs newlines deploy Deployment"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "tabs newlines deploy Deployment"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "tabs newlines deploy Deployment Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "tabs newlines deploy Deployment"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "tabs newlines deploy Deployment"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "tabs newlines deploy Deployment Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "NBSP server host",
+      "removeStopwords": "NBSP server host",
+      "expandQuery": "NBSP server host Host Server",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "NBSP server host Host Server"
+        },
+        {
+          "results": [],
+          "output": "NBSP server host Host Server"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "NBSP server host Host Server Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "NBSP server host Host Server"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "NBSP server host Host Server"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "NBSP server host Host Server Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "NBSP server host Host Server"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "NBSP server host Host Server"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "NBSP server host Host Server Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "ﬁle ligature config",
+      "removeStopwords": "file ligature config",
+      "expandQuery": "ﬁle ligature config Konfiguration",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "file ligature config Konfiguration"
+        },
+        {
+          "results": [],
+          "output": "file ligature config Konfiguration"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "file ligature config Konfiguration Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "file ligature config Konfiguration"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "file ligature config Konfiguration"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "file ligature config Konfiguration Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "file ligature config Konfiguration"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "file ligature config Konfiguration"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "file ligature config Konfiguration Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "Ｆｕｌｌｗｉｄｔｈ ＡＰＩ",
+      "removeStopwords": "Fullwidth API",
+      "expandQuery": "Ｆｕｌｌｗｉｄｔｈ ＡＰＩ Schnittstelle",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "Fullwidth API Schnittstelle"
+        },
+        {
+          "results": [],
+          "output": "Fullwidth API Schnittstelle"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "Fullwidth API Schnittstelle Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "Fullwidth API Schnittstelle"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "Fullwidth API Schnittstelle"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "Fullwidth API Schnittstelle Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "Fullwidth API Schnittstelle"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "Fullwidth API Schnittstelle"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "Fullwidth API Schnittstelle Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "123 456 error",
+      "removeStopwords": "123 456 error",
+      "expandQuery": "123 456 error Fehler",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "123 456 error Fehler"
+        },
+        {
+          "results": [],
+          "output": "123 456 error Fehler"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "123 456 error Fehler Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "123 456 error Fehler"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "123 456 error Fehler"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "123 456 error Fehler Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "123 456 error Fehler"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "123 456 error Fehler"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "123 456 error Fehler Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "error-handling in API_v2",
+      "removeStopwords": "error handling API v2",
+      "expandQuery": "error-handling in API_v2 Fehler Schnittstelle",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "error handling API v2 Fehler Schnittstelle"
+        },
+        {
+          "results": [],
+          "output": "error handling API v2 Fehler Schnittstelle"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "error handling API v2 Fehler Schnittstelle Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "error handling API v2 Fehler Schnittstelle"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "error handling API v2 Fehler Schnittstelle"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "error handling API v2 Fehler Schnittstelle Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "error handling API v2 Fehler Schnittstelle"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "error handling API v2 Fehler Schnittstelle"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "error handling API v2 Fehler Schnittstelle Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "What did we decide last week about the project?",
+      "removeStopwords": "What decide last week about project",
+      "expandQuery": "What did we decide last week about the project?",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "What decide last week about project"
+        },
+        {
+          "results": [],
+          "output": "What decide last week about project"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "What decide last week about project Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "What decide last week about project"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "What decide last week about project"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "What decide last week about project Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "What decide last week about project"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "What decide last week about project"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "What decide last week about project Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "project fixture item",
+      "removeStopwords": "project fixture item",
+      "expandQuery": "project fixture item",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "project fixture item"
+        },
+        {
+          "results": [],
+          "output": "project fixture item"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "project fixture item Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "project fixture item"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "project fixture item"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "project fixture item Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "project fixture item"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "project fixture item"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "project fixture item Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "Schnittstelle API Fehler Bug",
+      "removeStopwords": "Schnittstelle API Fehler Bug",
+      "expandQuery": "Schnittstelle API Fehler Bug API Schnittstelle Error",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "Schnittstelle API Fehler Bug API Schnittstelle Error"
+        },
+        {
+          "results": [],
+          "output": "Schnittstelle API Fehler Bug API Schnittstelle Error"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "Schnittstelle API Fehler Bug API Schnittstelle Error Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "Schnittstelle API Fehler Bug API Schnittstelle Error"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "Schnittstelle API Fehler Bug API Schnittstelle Error"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "Schnittstelle API Fehler Bug API Schnittstelle Error Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "Schnittstelle API Fehler Bug API Schnittstelle Error"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "Schnittstelle API Fehler Bug API Schnittstelle Error"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "Schnittstelle API Fehler Bug API Schnittstelle Error Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "bug bug bug",
+      "removeStopwords": "bug bug bug",
+      "expandQuery": "bug bug bug Fehler",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "bug bug bug Fehler"
+        },
+        {
+          "results": [],
+          "output": "bug bug bug Fehler"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "bug bug bug Fehler Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "bug bug bug Fehler"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "bug bug bug Fehler"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "bug bug bug Fehler Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "bug bug bug Fehler"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "bug bug bug Fehler"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "bug bug bug Fehler Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "Kann ich das Setup testen",
+      "removeStopwords": "Setup testen",
+      "expandQuery": "Kann ich das Setup testen Installation",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "Setup testen Installation"
+        },
+        {
+          "results": [],
+          "output": "Setup testen Installation"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "Setup testen Installation Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "Setup testen Installation"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "Setup testen Installation"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "Setup testen Installation Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "Setup testen Installation"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "Setup testen Installation"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "Setup testen Installation Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": ".,;:!?",
+      "removeStopwords": "",
+      "expandQuery": ".,;:!?",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": ".,;:!?"
+        },
+        {
+          "results": [],
+          "output": ".,;:!?"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": ".,;:!? Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": ".,;:!?"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": ".,;:!?"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": ".,;:!? Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": ".,;:!?"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": ".,;:!?"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": ".,;:!? Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "a b c d e",
+      "removeStopwords": "b c d e",
+      "expandQuery": "a b c d e",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "b c d e"
+        },
+        {
+          "results": [],
+          "output": "b c d e"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "b c d e Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "b c d e"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "b c d e"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "b c d e Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "b c d e"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "b c d e"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "b c d e Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "Ich will Docker",
+      "removeStopwords": "Docker",
+      "expandQuery": "Ich will Docker Container",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "Docker Container"
+        },
+        {
+          "results": [],
+          "output": "Docker Container"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "Docker Container Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "Docker Container"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "Docker Container"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "Docker Container Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "Docker Container"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "Docker Container"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "Docker Container Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "Straße und Weg",
+      "removeStopwords": "Straße Weg",
+      "expandQuery": "Straße und Weg",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "Straße Weg"
+        },
+        {
+          "results": [],
+          "output": "Straße Weg"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "Straße Weg Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "Straße Weg"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "Straße Weg"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "Straße Weg Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "Straße Weg"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "Straße Weg"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "Straße Weg Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "İstanbul server",
+      "removeStopwords": "İstanbul server",
+      "expandQuery": "İstanbul server Host",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "İstanbul server Host"
+        },
+        {
+          "results": [],
+          "output": "İstanbul server Host"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "İstanbul server Host Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "İstanbul server Host"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "İstanbul server Host"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "İstanbul server Host Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "İstanbul server Host"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "İstanbul server Host"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "İstanbul server Host Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "ΣΊΣΥΦΟΣ deploy",
+      "removeStopwords": "ΣΊΣΥΦΟΣ deploy",
+      "expandQuery": "ΣΊΣΥΦΟΣ deploy Deployment",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "ΣΊΣΥΦΟΣ deploy Deployment"
+        },
+        {
+          "results": [],
+          "output": "ΣΊΣΥΦΟΣ deploy Deployment"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "ΣΊΣΥΦΟΣ deploy Deployment Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "ΣΊΣΥΦΟΣ deploy Deployment"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "ΣΊΣΥΦΟΣ deploy Deployment"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "ΣΊΣΥΦΟΣ deploy Deployment Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "ΣΊΣΥΦΟΣ deploy Deployment"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "ΣΊΣΥΦΟΣ deploy Deployment"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "ΣΊΣΥΦΟΣ deploy Deployment Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "Deploy deployment DEPLOY",
+      "removeStopwords": "Deploy deployment DEPLOY",
+      "expandQuery": "Deploy deployment DEPLOY Deployment Deploy",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "Deploy deployment DEPLOY Deployment Deploy"
+        },
+        {
+          "results": [],
+          "output": "Deploy deployment DEPLOY Deployment Deploy"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "Deploy deployment DEPLOY Deployment Deploy Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "Deploy deployment DEPLOY Deployment Deploy"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "Deploy deployment DEPLOY Deployment Deploy"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "Deploy deployment DEPLOY Deployment Deploy Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "Deploy deployment DEPLOY Deployment Deploy"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "Deploy deployment DEPLOY Deployment Deploy"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "Deploy deployment DEPLOY Deployment Deploy Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "Konfiguration",
+      "removeStopwords": "Konfiguration",
+      "expandQuery": "Konfiguration Config",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "Konfiguration Config"
+        },
+        {
+          "results": [],
+          "output": "Konfiguration Config"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "Konfiguration Config Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "Konfiguration Config"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "Konfiguration Config"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "Konfiguration Config Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "Konfiguration Config"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "Konfiguration Config"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "Konfiguration Config Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "can could would should host",
+      "removeStopwords": "host",
+      "expandQuery": "can could would should host Server",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "host Server"
+        },
+        {
+          "results": [],
+          "output": "host Server"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "host Server Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "host Server"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "host Server"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "host Server Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "host Server"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "host Server"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "host Server Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "​zero width deploy",
+      "removeStopwords": "zero width deploy",
+      "expandQuery": "​zero width deploy Deployment",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "zero width deploy Deployment"
+        },
+        {
+          "results": [],
+          "output": "zero width deploy Deployment"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "zero width deploy Deployment Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "zero width deploy Deployment"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "zero width deploy Deployment"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "zero width deploy Deployment Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "zero width deploy Deployment"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "zero width deploy Deployment"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "zero width deploy Deployment Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "line separator server",
+      "removeStopwords": "line separator server",
+      "expandQuery": "line separator server Host",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "line separator server Host"
+        },
+        {
+          "results": [],
+          "output": "line separator server Host"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "line separator server Host Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "line separator server Host"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "line separator server Host"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "line separator server Host Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "line separator server Host"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "line separator server Host"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "line separator server Host Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "dash—em–en database",
+      "removeStopwords": "dash em en database",
+      "expandQuery": "dash—em–en database DB",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "dash em en database DB"
+        },
+        {
+          "results": [],
+          "output": "dash em en database DB"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "dash em en database DB Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "dash em en database DB"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "dash em en database DB"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "dash em en database DB Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "dash em en database DB"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "dash em en database DB"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "dash em en database DB Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "hyphen-ated k8s",
+      "removeStopwords": "hyphen ated k8s",
+      "expandQuery": "hyphen-ated k8s Kubernetes",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "hyphen ated k8s Kubernetes"
+        },
+        {
+          "results": [],
+          "output": "hyphen ated k8s Kubernetes"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "hyphen ated k8s Kubernetes Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "hyphen ated k8s Kubernetes"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "hyphen ated k8s Kubernetes"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "hyphen ated k8s Kubernetes Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "hyphen ated k8s Kubernetes"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "hyphen ated k8s Kubernetes"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "hyphen ated k8s Kubernetes Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "  leading and trailing  ",
+      "removeStopwords": "leading trailing",
+      "expandQuery": "  leading and trailing  ",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "leading trailing"
+        },
+        {
+          "results": [],
+          "output": "leading trailing"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "leading trailing Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "leading trailing"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "leading trailing"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "leading trailing Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "leading trailing"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "leading trailing"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "leading trailing Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "über Über ÜBER",
+      "removeStopwords": "",
+      "expandQuery": "über Über ÜBER",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "über Über ÜBER"
+        },
+        {
+          "results": [],
+          "output": "über Über ÜBER"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "über Über ÜBER Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "über Über ÜBER"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "über Über ÜBER"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "über Über ÜBER Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "über Über ÜBER"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "über Über ÜBER"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "über Über ÜBER Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "Ich möchte über die API sprechen",
+      "removeStopwords": "API sprechen",
+      "expandQuery": "Ich möchte über die API sprechen Schnittstelle",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "API sprechen Schnittstelle"
+        },
+        {
+          "results": [],
+          "output": "API sprechen Schnittstelle"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "API sprechen Schnittstelle Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "API sprechen Schnittstelle"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "API sprechen Schnittstelle"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "API sprechen Schnittstelle Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "API sprechen Schnittstelle"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "API sprechen Schnittstelle"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "API sprechen Schnittstelle Rakete café naïve"
+        }
+      ]
+    },
+    {
+      "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "removeStopwords": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "expandQuery": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "refineQuery": [
+        {
+          "results": null,
+          "output": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        },
+        {
+          "results": [],
+          "output": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        },
+        {
+          "results": [
+            {
+              "score": 0.1,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "The production cluster uses Kubernetes"
+              }
+            }
+          ],
+          "output": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx Docker Kubernetes rollout"
+        },
+        {
+          "results": [
+            {
+              "score": 0.01,
+              "entry": {
+                "summary": "Docker Kubernetes rollout notes",
+                "text": "ignored below the context floor"
+              }
+            }
+          ],
+          "output": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        },
+        {
+          "results": [
+            {
+              "entry": {
+                "summary": "no score",
+                "text": "never added"
+              }
+            }
+          ],
+          "output": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        },
+        {
+          "results": [
+            {
+              "score": 0.05,
+              "entry": {
+                "text": "Über Größe straße die der Müller Müller MÜLLER äußerst"
+              }
+            }
+          ],
+          "output": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx Größe straße Müller"
+        },
+        {
+          "results": [
+            {
+              "score": 0.2,
+              "entry": {
+                "summary": "",
+                "text": ""
+              }
+            }
+          ],
+          "output": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        },
+        {
+          "results": [
+            {
+              "score": 0.3
+            }
+          ],
+          "output": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        },
+        {
+          "results": [
+            {
+              "score": 0.07,
+              "entry": {
+                "summary": "🚀🚀 Rakete café naïve",
+                "text": "ab abc abcd ABCD abcde"
+              }
+            }
+          ],
+          "output": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx Rakete café naïve"
+        }
+      ]
+    }
+  ]
+}

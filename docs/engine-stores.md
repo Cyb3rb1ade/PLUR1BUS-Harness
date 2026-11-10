@@ -1896,3 +1896,19 @@ undegraded recall. The result carries no decision trace, as at the pin. The
 status keeps `composition-pending/recall` until the engine is ready. Start
 notices, session time, persona and other prompt additions, reminders, the
 retrieval ledger and the Neo prelude are not composed yet.
+
+### Query refinement (RE-D151)
+
+At the pin, query refinement is on by default and deterministic
+(`lib/query-refiner.js`, SHA-256
+`136e4aa6b2408bffbe6a02791b118818abb5ae4e1c3a25d1565b27373453c389` at
+`9f34008c`). When no vector hit reaches the minimum score, the native stages
+remove stopwords, add up to three fixed synonyms, embed the refined text and
+search the same table again. Lifecycle and the `refined-acl` check apply to the
+second result. The two result sets merge by id (the higher score wins, first
+position kept) and sort by score. The stage records a `query-refinement` guard.
+Cancellation stops the stage as before; any other embedding or read failure
+keeps the original hits, as the pin's `catch` does. The tables and 49 recorded
+inputs are bound in `tests/fixtures/recall/query-refiner.json`; the
+`recall/weak-hit-refined` parity scenario covers a hit that only the refined
+query finds. This replaces the RE-04 assumption that refinement stays off.

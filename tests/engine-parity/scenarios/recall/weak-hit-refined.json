@@ -1,0 +1,43 @@
+{
+  "schema": "engine-parity.scenario/1",
+  "store": "store-v1",
+  "config": {
+    "autoRecallMinScore": 0.336
+  },
+  "seams": {
+    "embedder": "hash",
+    "reranker": "none",
+    "llm": "none",
+    "clock": 1768305600000
+  },
+  "steps": [
+    {
+      "op": "recall",
+      "args": {
+        "query": {
+          "query": "Tell me about the docker config?",
+          "principal": {
+            "agentId": "a1",
+            "workspace": "workspace:v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "channel": "telegram",
+            "accountId": "fixture",
+            "chat": {
+              "id": "parity-direct",
+              "kind": "direct"
+            },
+            "trust": "inferred"
+          },
+          "agent": {
+            "origin": "user",
+            "background": false
+          }
+        },
+        "options": {
+          "reranker": "off"
+        }
+      },
+      "expect": "golden",
+      "tolerance": "default"
+    }
+  ]
+}

@@ -49,6 +49,8 @@ mod namespace_routes;
 pub mod namespace_trace;
 /// Configured physical routes, settle-all fan-out and the global retrieval ledger.
 pub mod namespaces;
+/// The pin's deterministic query refinement (RE-D151).
+pub mod query_refiner;
 /// Distance and epistemic score terms.
 pub mod score;
 /// Stages 1–7.

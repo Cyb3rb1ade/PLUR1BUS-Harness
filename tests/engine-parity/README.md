@@ -23,7 +23,9 @@ Use Node 24.21.0 and Rust 1.95. `PLUR1BUS_ENGINE_BIN` can point to a different l
 with no path selects the complete scenario directory. `--report` can also select that directory by itself.
 The report shows each engine's outcome. Missing dependencies and unsupported operations fail the check.
 The four starter cases exercise plain and temporal recall, a capture and its replay, and list/show/forget
-followed by a visibility check. The Rust check is expected to expose any operations still awaiting composition.
+followed by a visibility check. Later cases add warm-only recall and `recall/weak-hit-refined`, a hash-embedder
+recall whose raised `autoRecallMinScore` is met only by the refined query (RE-D151). The Rust check is expected
+to expose any operations still awaiting composition.
 
 ## Record
 

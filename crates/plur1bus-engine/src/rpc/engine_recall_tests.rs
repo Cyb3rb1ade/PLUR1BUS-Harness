@@ -235,41 +235,6 @@ fn cancelled_and_closed_normal_recall_never_reads_or_writes() {
     assert_eq!((error.error, error.reason), ("E_NOT_AVAILABLE", "closed"));
 }
 
-#[test]
-fn weak_hits_fail_closed_while_query_refinement_is_not_ported() {
-    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
-    let root = scratch.path();
-    let engine = ProcessEngine::new(host(root, false), Some(Seam::FlatEmbedder)).unwrap();
-    let identity = engine.embedding().identities().remove(0);
-    // Opposite the flat query at twice its length: score 1/(1+9) is below autoRecallMinScore,
-    // so the pin would refine the query.
-    let vector = engine
-        .embedding()
-        .embed(
-            &["synthetic project archive".into()],
-            EmbedKind::Query,
-            &identity,
-            &Cancel::never(),
-        )
-        .unwrap()
-        .remove(0)
-        .into_iter()
-        .map(|value| -2. * value)
-        .collect();
-    seeded_with(root, &engine, vector);
-    let error = methods::dispatch(
-        &engine,
-        "engine.recall",
-        &params("synthetic project archive", "user"),
-        &Cancel::never(),
-    )
-    .unwrap_err();
-    assert_eq!(
-        (error.error, error.reason),
-        ("E_NOT_AVAILABLE", "operation-unavailable")
-    );
-}
-
 fn params_for(agent: &str, query: &str) -> Value {
     let mut params = params(query, "user");
     params["query"]["principal"]["agentId"] = json!(agent);
@@ -312,11 +277,7 @@ fn a_foreign_or_corrupt_mood_file_is_neither_used_nor_overwritten() {
 fn rows_of_other_agents_owners_and_workspaces_are_never_rendered() {
     let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
     let root = scratch.path();
-    // Until query refinement is ported, an empty authorized result would fail closed.
-    let host = host_with(
-        root,
-        &json!({"recall":{"queryRefinement":{"enabled":false}}}),
-    );
+    let host = host(root, false);
     let second = root.join("second");
     fs::create_dir(&second).unwrap();
     host.set_workspace(&"agent2".parse().unwrap(), second);
@@ -373,11 +334,7 @@ fn rows_of_other_agents_owners_and_workspaces_are_never_rendered() {
 fn a_forgotten_card_is_not_rendered() {
     let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
     let root = scratch.path();
-    // Until query refinement is ported, an empty authorized result would fail closed.
-    let host = host_with(
-        root,
-        &json!({"recall":{"queryRefinement":{"enabled":false}}}),
-    );
+    let host = host(root, false);
     let engine = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
     let (_, row) = seeded(root, &engine);
     let query = params("synthetic project archive", "user");
@@ -433,4 +390,76 @@ fn store_and_neo_failures_after_admission_degrade_with_events() {
         .map(|(name, _)| name)
         .collect::<Vec<_>>();
     assert_eq!(names, ["recall.degraded", "recall.completed"]);
+}
+
+fn phases(result: &Value) -> Vec<String> {
+    result["timing"]["namespacePhases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|phase| phase["phase"].as_str().unwrap().to_owned())
+        .collect()
+}
+
+#[test]
+fn an_empty_table_is_refined_and_answers_without_memories() {
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let engine = ProcessEngine::new(host(root, false), Some(Seam::FlatEmbedder)).unwrap();
+    let space = engine.embedding().identities().remove(0).space.unwrap();
+    let width = space.dimension.as_u64().unwrap() as usize;
+    Store::create(&root.join("db/current/agent"), &space, width).unwrap();
+    let result = recall(&engine, &params("synthetic project archive", "user"));
+    assert_eq!(result["degraded"], Value::Null, "{result}");
+    assert!(!memories(&result).contains("<memory-record"));
+    assert!(phases(&result).contains(&"query_refinement".to_owned()));
+}
+
+#[test]
+fn a_weak_original_query_finds_the_card_through_the_refined_query() {
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    // Unit hash vectors score at least 0.2; this floor makes the unrelated original miss.
+    let host = host_with(root, &json!({"autoRecallMinScore":0.5}));
+    let engine = ProcessEngine::new(host, Some(Seam::HashEmbedder)).unwrap();
+    let query = "Wie konfiguriere ich den Docker?";
+    let refined = crate::recall::query_refiner::refine_query(query, None);
+    assert_eq!(refined, "konfiguriere Docker Container");
+    let identity = engine.embedding().identities().remove(0);
+    let vector = |text: &str| {
+        engine
+            .embedding()
+            .embed(
+                &[text.into()],
+                EmbedKind::Query,
+                &identity,
+                &Cancel::never(),
+            )
+            .unwrap()
+            .remove(0)
+    };
+    let original = vector(query);
+    let target = vector(&refined);
+    let distance: f32 = original
+        .iter()
+        .zip(&target)
+        .map(|(left, right)| (left - right).powi(2))
+        .sum();
+    assert!(1.0 / (1.0 + f64::from(distance)) < 0.5);
+    let (_, row) = seeded_with(root, &engine, target);
+    let result = recall(&engine, &params(query, "user"));
+    assert_eq!(result["degraded"], Value::Null, "{result}");
+    assert!(memories(&result).contains(&row.id), "{result}");
+
+    // With refinement disabled the same request finds nothing.
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let host = host_with(
+        root,
+        &json!({"autoRecallMinScore":0.5,"recall":{"queryRefinement":{"enabled":false}}}),
+    );
+    let engine = ProcessEngine::new(host, Some(Seam::HashEmbedder)).unwrap();
+    let (_, row) = seeded_with(root, &engine, vector(&refined));
+    let result = recall(&engine, &params(query, "user"));
+    assert!(!memories(&result).contains(&row.id), "{result}");
 }

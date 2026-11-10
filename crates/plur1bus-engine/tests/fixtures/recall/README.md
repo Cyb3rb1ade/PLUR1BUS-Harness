@@ -169,3 +169,10 @@ and their standard encodings are removed before cuts, credential patterns use th
 nested textual metadata follows the configured preview cap. The trace itself stays separate from
 memory text. Lossless internal JSON tests expose the frozen generated `String` result mismatch; they
 do not claim process/CLI acceptance before controller ruling F3 and RE-08 wiring.
+
+## Query refiner (RE-D151)
+
+`record-query-refiner.mjs --source <lib/query-refiner.js at 9f34008c> --out <file>` checks the
+source SHA-256 before importing a temporary copy with one appended export of the two tables.
+`query-refiner.json` holds the tables and 49 inputs with `removeStopwords`, `expandQuery` and
+`refineQuery` under nine top-result shapes. Two recordings were byte-identical.
