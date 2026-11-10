@@ -23,6 +23,12 @@ pub(crate) use append::identity as regular_file_identity;
 #[path = "directory_append_tests.rs"]
 mod append_tests;
 
+#[cfg(test)]
+thread_local! {
+    /// Directory syncs this thread requested (cost tests).
+    pub(crate) static ENTRY_SYNCS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct DirectoryId(u64, u64);
 
@@ -110,6 +116,8 @@ impl TrustedDirectory {
     /// Persist directory-entry changes on Unix; Windows relies on synced private child files.
     pub(crate) fn sync_entries(&self) -> Result<(), StoreError> {
         self.assert_unchanged()?;
+        #[cfg(test)]
+        ENTRY_SYNCS.with(|syncs| syncs.set(syncs.get() + 1));
         #[cfg(unix)]
         self.anchor.sync_all().map_err(io_error)?;
         self.assert_unchanged()
@@ -118,9 +126,29 @@ impl TrustedDirectory {
     /// Remove one ordinary single-link child under the caller's cooperating writer lease.
     /// The directory handle prevents Unix ancestor substitution from redirecting deletion.
     pub(crate) fn remove_file(&self, name: &str) -> Result<(), StoreError> {
+        self.remove_file_unsynced(name)?;
+        self.sync_entries()
+    }
+
+    /// [`Self::remove_file`] without the directory sync. A caller that removes many
+    /// children persists them with one [`Self::sync_entries`] at the end.
+    pub(crate) fn remove_file_unsynced(&self, name: &str) -> Result<(), StoreError> {
         valid_child(name)?;
         let file = self.open_file(name)?;
         regular_file_identity(&file)?;
+        self.unlink(name)
+    }
+
+    /// Remove one non-directory entry by name without opening it: a link is removed, never
+    /// followed, and another link to the same file stays. For an entry that cannot be
+    /// trusted as a regular file.
+    pub(crate) fn remove_entry(&self, name: &str) -> Result<(), StoreError> {
+        valid_child(name)?;
+        self.unlink(name)?;
+        self.sync_entries()
+    }
+
+    fn unlink(&self, name: &str) -> Result<(), StoreError> {
         self.assert_unchanged()?;
         #[cfg(unix)]
         {
@@ -133,7 +161,7 @@ impl TrustedDirectory {
         }
         #[cfg(windows)]
         fs::remove_file(self.physical.join(name)).map_err(io_error)?;
-        self.sync_entries()
+        Ok(())
     }
 
     /// Opaque device/volume and inode/file-index identity for a native ownership envelope.

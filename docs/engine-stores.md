@@ -2163,23 +2163,24 @@ another owner's capture, and nothing stays open or grows without bound.
 
 Admissions (`_capture-admissions`):
 
-- A file is named `<scope>-<hash>.json`: `scope` is a 16-hex digest of agent and
-  owner, `hash` the digest of agent and turn key. Leases are per scope
-  (`.leases/<scope>.lock`), so lease files are bounded by the number of owners.
+- A file is named by `scope`, a 16-hex digest of agent and owner, and `hash`, the
+  digest of agent and turn key (`<scope>-<hash>.json` here; `<scope>/<hash>.json`
+  since RE-D162). Leases are per scope (`.leases/<scope>.lock`), so lease files
+  are bounded by the number of owners.
 - Completed and abandoned records are removed (unlink, directory sync) instead of
   being rewritten as `{"record":null}`. Idempotency of a run does not rest on that
   file: a closed envelope read as "fresh" already; the replay WAL
   (`_capture-turns`) keeps a delivered turn from being captured twice.
-- `begin` and `save` never open another file. They list names and sizes of the
-  caller's own scope only: at most 512 open records and 64 MiB per scope, so a
-  full scope refuses only its own owner. A name of another owner with the same
-  agent and turn key is still refused (the Node key excludes the owner).
-- The startup inventory groups files by scope from their names. Closed files
-  written before RE-D159 (`<hash>.json` with `{"record":null}`) are removed; any
-  other file that no scope can be attributed to is kept, reported and never read
-  again; it counts against nobody's capacity. An operator removes or moves such a
-  file out of `_capture-admissions`; the status clears at the next open, when the
-  inventory is computed again. The old 50 000-entry ceiling is gone.
+- `begin` and `save` never open another file. Only the caller's own scope
+  counts: at most 512 open records and 64 MiB per scope, so a full scope refuses
+  only its own owner. What they list, and when another owner's record with the
+  same agent and turn key refuses an admission, is described in RE-D162.
+- The startup inventory classifies the directory by scope from names alone. A
+  file that no scope can be attributed to is kept, reported and never read; it
+  counts against nobody's capacity. An operator removes or moves such a file out
+  of `_capture-admissions`; the status clears at the next open, when the
+  inventory is computed again. The old 50 000-entry ceiling is gone. Files of
+  earlier formats: RE-D162.
 
 Recovery per owner:
 
@@ -2307,3 +2308,34 @@ answer is not reproducible, so no step's idempotency rests on its name),
 reranking and jobs. The vector space stays the record's own `space` field. A
 record written under the earlier whole-configuration digest is closed once
 (`config-changed`); that format only existed on this unpublished branch.
+
+Admission layout. A record is `_capture-admissions/<scope>/<hash>.json`: `scope`
+is the 16-hex digest of agent and owner, `hash` the digest of agent and turn key.
+This replaces the RE-D159 file name. Leases stay `.leases/<scope>.lock`. `begin`
+and `save` list the caller's own scope directory only (names and sizes, no file
+is opened; the cost test counts opened files and listed entries), so a turn's
+cost depends on no other owner's records and on no top-level file. An empty
+scope directory is kept; like the lease files, the directories are bounded by
+the number of owners. Only a fresh admission that inherits rollback IDs from the
+replay WAL (after a kill or an abort) looks into the other scope directories for
+a record of the same agent and turn key and is refused if one exists (the Node
+key excludes the owner). The scope is a 64-bit digest prefix: two owners with the
+same prefix would share lease, capacity and budget, never content, because a
+record is only accepted under the scope its full digests name. This is left as it
+is; a chance collision is negligible and a targeted one needs about 2^64 tries.
+
+Earlier formats. Top-level files named `<hash>.json` (RE-D156) or
+`<scope>-<hash>.json` (RE-D159) are removed when the root is inventoried,
+without migration and whatever they hold, with one directory sync at the end
+instead of one per file. Both formats only ever existed on this unpublished
+branch, so no installation holds a record worth migrating. Every other top-level
+entry is left alone, counted and reported as `capture-recovery-deferred` until an
+operator removes it; the count is taken again at the next open.
+
+Age bound. A retained record whose admission time (`atMs`, host clock) is more
+than seven days old is closed terminally (`recovery-expired`) and its plaintext
+discarded; rows already written stay. A file with a record name in a scope
+directory that is not a well-formed record of that scope defers and reports that
+scope only, and is removed once its modification time is more than seven days
+old. Seven days is the pin's pending TTL (`REPLAY_GUARD_TTL_MS`, inclusive like
+the pin's `fresh`), so the replay entry of such a turn has expired as well.

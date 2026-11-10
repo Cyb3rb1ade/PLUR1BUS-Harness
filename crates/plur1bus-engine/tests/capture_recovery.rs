@@ -241,8 +241,12 @@ fn actual_native_post_store_recovers_after_sigkill_with_original_time_id_and_ter
             use std::os::unix::process::ExitStatusExt;
             assert_eq!(status.signal(), Some(libc::SIGKILL));
         }
+        // RE-D162: a record lives in its owner scope's directory.
         let plan = std::fs::read_dir(root.path().join("stores/_capture-admissions"))
             .unwrap()
+            .map(|e| e.unwrap().path())
+            .filter(|p| p.is_dir() && !p.ends_with(".leases"))
+            .flat_map(|scope| std::fs::read_dir(scope).unwrap())
             .map(|e| e.unwrap().path())
             .find(|p| p.extension().is_some_and(|x| x == "json"))
             .unwrap();

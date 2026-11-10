@@ -21,6 +21,33 @@ impl KernelLease {
         Ok(())
     }
 }
+fn lease_file(directory: &TrustedDirectory, name: &str) -> Result<File, StoreError> {
+    match directory.create_file(name) {
+        Ok(file) => Ok(file),
+        Err(StoreError::Io {
+            kind: std::io::ErrorKind::AlreadyExists,
+        }) => directory.open_file(name),
+        Err(e) => Err(e),
+    }
+}
+/// One attempt without waiting: `None` while another holder has the lease.
+pub(crate) fn try_acquire(
+    directory: &TrustedDirectory,
+    name: &str,
+) -> Result<Option<KernelLease>, StoreError> {
+    let name = format!("{name}.lock");
+    let file = lease_file(directory, &name)?;
+    directory.assert_unchanged()?;
+    match file.try_lock() {
+        Ok(()) => {
+            let lease = KernelLease { file, name };
+            lease.check(directory)?;
+            Ok(Some(lease))
+        }
+        Err(TryLockError::WouldBlock) => Ok(None),
+        Err(TryLockError::Error(e)) => Err(StoreError::from(e)),
+    }
+}
 pub(crate) fn acquire(
     directory: &TrustedDirectory,
     name: &str,
@@ -29,13 +56,7 @@ pub(crate) fn acquire(
 ) -> Result<KernelLease, EngineError> {
     cancel.check()?;
     let name = format!("{name}.lock");
-    let file = match directory.create_file(&name) {
-        Ok(file) => file,
-        Err(StoreError::Io {
-            kind: std::io::ErrorKind::AlreadyExists,
-        }) => directory.open_file(&name)?,
-        Err(e) => return Err(e.into()),
-    };
+    let file = lease_file(directory, &name)?;
     loop {
         cancel.check()?;
         directory.assert_unchanged()?;

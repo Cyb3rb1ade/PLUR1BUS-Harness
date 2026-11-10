@@ -1,5 +1,7 @@
 //! Primary capture work precedes optional Neo queue maintenance on every exit path.
-use super::super::admission::{row_digest, scope_of, Admission, Assessment, Entry, Phase, Record};
+use super::super::admission::{
+    expired, row_digest, scope_of, Admission, Assessment, Begin, Entry, Phase, Record,
+};
 use super::super::failure::{self, FailureClass, MAX_RECOVERY_ATTEMPTS};
 use super::super::replay_guard::{turn_key_of, ReplayGuard};
 use super::super::shared_scope::PolicyDecision;
@@ -19,19 +21,17 @@ impl CaptureWorker for CapturePipeline {
         // Only shutdown ends the startup recovery as a whole; each owner scope has its own
         // budget, and a scope that runs out of it is deferred to its own next turn (RE-D159).
         let inventory = self.admissions.inventory(&self.shutdown)?;
-        self.unreadable.store(
-            inventory.unattributable > 0,
-            std::sync::atomic::Ordering::Release,
-        );
-        if inventory.unattributable > 0 {
+        self.unreadable
+            .store(inventory.foreign > 0, std::sync::atomic::Ordering::Release);
+        if inventory.foreign > 0 {
             self.warn(
                 &StoreError::Corrupt.into(),
                 CaptureLogStage::CapturePipeline,
                 1,
             );
         }
-        for (scope, names) in inventory.scopes {
-            self.recover_scope(replay, &scope, &names)?;
+        for scope in inventory.scopes {
+            self.recover_scope(replay, &scope)?;
         }
         Ok(())
     }
@@ -50,11 +50,7 @@ impl CaptureWorker for CapturePipeline {
         if !was {
             return;
         }
-        let outcome = self
-            .admissions
-            .scope_names(&scope, &self.shutdown)
-            .and_then(|names| self.recover_scope(replay, &scope, &names));
-        if let Err(error) = outcome {
+        if let Err(error) = self.recover_scope(replay, &scope) {
             self.warn(&error, CaptureLogStage::CapturePipeline, 1);
             self.mark_pending(&scope);
         }
@@ -82,35 +78,53 @@ impl CapturePipeline {
 
     /// Recover one owner scope's records under that scope's own budget. Running out of it
     /// defers the rest to the owner's next turn; only shutdown escapes.
-    fn recover_scope(
-        &self,
-        replay: &ReplayGuard,
-        scope: &str,
-        names: &[String],
-    ) -> Result<(), EngineError> {
+    fn recover_scope(&self, replay: &ReplayGuard, scope: &str) -> Result<(), EngineError> {
         let timeout = super::super::queue::RuntimeConfig::from_value(&self.config["runtime"])
             .capture_timeout_ms;
         let budget = self
             .shutdown
             .limited_to(Instant::now() + Duration::from_millis(timeout));
-        let entries = match self.admissions.entries(names, &budget) {
+        let (entries, more) = match self.admissions.entries(scope, &budget) {
             Ok(entries) => entries,
             Err(error) => return self.defer(scope, error),
         };
+        if more {
+            // Records beyond the per-scope bound wait for a later attempt.
+            self.mark_pending(scope);
+        }
+        // RE-D162: retained input older than seven days is discarded, never resumed.
+        let now = self.host.now_ms();
         for entry in entries {
             match entry {
                 Entry::Record(record) => {
-                    if let Err(error) = self.recover_one(replay, scope, &record, &budget) {
+                    let outcome = if expired(record.at_ms, now) {
+                        self.close_terminally(replay, scope, &record, "recovery-expired", &budget)
+                    } else {
+                        self.recover_one(replay, scope, &record, &budget)
+                    };
+                    if let Err(error) = outcome {
                         return self.defer(scope, error);
                     }
                 }
-                Entry::Unreadable => {
-                    // Attributed to this owner only: kept and reported, never read again here.
-                    self.warn(
-                        &StoreError::Corrupt.into(),
-                        CaptureLogStage::CapturePipeline,
-                        1,
-                    );
+                Entry::Unreadable { name, modified_ms } => {
+                    let removed = modified_ms.is_some_and(|at| expired(at, now))
+                        && match self.admissions.remove_unreadable(scope, &name, &budget) {
+                            Ok(()) => true,
+                            Err(error @ EngineError::Cancelled(_)) => {
+                                return self.defer(scope, error)
+                            }
+                            Err(_) => false,
+                        };
+                    if !removed {
+                        // This owner's own scope stays deferred and reported (m5); nobody
+                        // else is affected.
+                        self.warn(
+                            &StoreError::Corrupt.into(),
+                            CaptureLogStage::CapturePipeline,
+                            1,
+                        );
+                        self.mark_pending(scope);
+                    }
                 }
             }
         }
@@ -283,7 +297,13 @@ impl CapturePipeline {
             _ => return Ok(counts(0, 1, Some("not_captured"))),
         }
         cancel.check()?;
-        let mut admission = self.admissions.begin(turn, context, options, cancel)?;
+        let mode = Begin {
+            inherits_rows: !replay.stale_row_ids().is_empty(),
+            recovery,
+        };
+        let mut admission = self
+            .admissions
+            .begin(turn, context, options, cancel, mode)?;
         let result = if admission.record.phase == Phase::PostStore {
             self.finish_post(turn, context, options, replay, &mut admission, cancel)
         } else if replay.primary_settled()? {

@@ -18,7 +18,7 @@ pub(super) use io::row_digest;
 use io::{read, read_with_budget, validate, write};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -30,38 +30,78 @@ const MAX_PENDING: usize = 512;
 pub(super) fn scope_of(agent: &str, owner: &str) -> Result<String, StoreError> {
     Ok(digest(&(agent, owner))?[..16].to_owned())
 }
-/// `<scope16>-<hash64>.json`: the owner scope and the hash of agent and turn key.
-fn name_parts(name: &str) -> Option<(&str, &str)> {
-    let (scope, hash) = name.strip_suffix(".json")?.split_once('-')?;
-    let hex = |value: &str, len: usize| {
-        value.len() == len
-            && value
-                .bytes()
-                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
-    };
-    (hex(scope, 16) && hex(hash, 64)).then_some((scope, hash))
+/// The admission root under the store base and its lease directory.
+const ROOT: &str = "_capture-admissions";
+const LEASES: &str = ".leases";
+fn hex(value: &str, len: usize) -> bool {
+    value.len() == len
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
-/// A file name written before RE-D159 (`<hash64>.json`).
-fn legacy_name(name: &str) -> bool {
-    name.strip_suffix(".json").is_some_and(|hash| {
-        hash.len() == 64
-            && hash
-                .bytes()
-                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+/// `<hash64>.json`, the hash of agent and turn key: a record inside its owner scope's
+/// directory `<scope16>/` (RE-D162).
+fn record_name(name: &str) -> bool {
+    name.strip_suffix(".json").is_some_and(|hash| hex(hash, 64))
+}
+/// A top-level file of one of the two earlier branch formats: `<hash64>.json` (RE-D156) or
+/// `<scope16>-<hash64>.json` (RE-D159).
+fn earlier_format(name: &str) -> bool {
+    name.strip_suffix(".json").is_some_and(|stem| {
+        hex(stem, 64)
+            || stem
+                .split_once('-')
+                .is_some_and(|(scope, hash)| hex(scope, 16) && hex(hash, 64))
     })
 }
-/// Names of one owner scope's files and the bytes they occupy, from directory metadata only.
-struct Usage {
-    names: Vec<String>,
-    bytes: u64,
-    /// Another owner retains a record for the same agent and turn key.
-    collision: bool,
+/// What a top-level entry of the admission root is, from its name and kind alone. There is
+/// no entry count after which this changes (the RE-D156 ceiling of 50 000 entries is gone).
+#[derive(Debug, PartialEq, Eq)]
+pub(super) enum TopLevel {
+    /// The lease directory.
+    Leases,
+    /// An owner scope's directory.
+    Scope,
+    /// A file of an earlier branch format: removed without migration.
+    Earlier,
+    /// Anything else: kept, counted and reported.
+    Foreign,
 }
-/// The admission directory's files grouped by owner scope; nothing is opened.
+pub(super) fn classify(name: &str, directory: bool) -> TopLevel {
+    if directory && name == LEASES {
+        TopLevel::Leases
+    } else if directory && hex(name, 16) {
+        TopLevel::Scope
+    } else if !directory && earlier_format(name) {
+        TopLevel::Earlier
+    } else {
+        TopLevel::Foreign
+    }
+}
+/// Whether retained input is past the seven-day bound (RE-D162): the pin's pending TTL,
+/// inclusive like its `fresh`.
+pub(super) fn expired(at_ms: i64, now_ms: i64) -> bool {
+    now_ms.saturating_sub(at_ms) > super::replay_guard::REPLAY_GUARD_TTL_MS
+}
+/// One owner scope's other records and the bytes they occupy, from its own directory only.
+struct Usage {
+    records: usize,
+    bytes: u64,
+}
+/// The admission root classified from directory entries; nothing is opened.
 pub(super) struct Inventory {
-    pub scopes: BTreeMap<String, Vec<String>>,
-    /// Files no scope can be attributed to: kept, reported, never read again.
-    pub unattributable: usize,
+    /// Owner scopes whose directory holds at least one record file.
+    pub scopes: BTreeSet<String>,
+    /// Top-level entries nobody owns: kept, reported, never read.
+    pub foreign: usize,
+}
+/// How an admission is opened.
+#[derive(Clone, Copy)]
+pub(super) struct Begin {
+    /// The replay WAL hands this turn row IDs of an earlier, unfinished attempt.
+    pub inherits_rows: bool,
+    /// A recovery step: a busy scope lease defers the record instead of waiting.
+    pub recovery: bool,
 }
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -122,8 +162,14 @@ fn is_zero(value: &u32) -> bool {
 pub(super) enum Entry {
     /// A well-formed record, not yet checked against the current host, policy or config.
     Record(Box<Record>),
-    /// A file that is not a well-formed record: never recovered, never blocking others.
-    Unreadable,
+    /// A file with a record name that is not a well-formed record of its scope: never
+    /// recovered, never blocking others. Its scope stays deferred and reported until the
+    /// file is past the age bound and removed (RE-D162).
+    Unreadable {
+        name: String,
+        /// The file's modification time, when it can be read.
+        modified_ms: Option<i64>,
+    },
 }
 /// What the current host, policy and configuration allow for one retained record.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -156,6 +202,9 @@ pub(super) struct Admissions {
 }
 pub(super) struct Admission<'a> {
     owner: &'a Admissions,
+    /// The admission root; the recorded proof names it.
+    root: TrustedDirectory,
+    /// The owner scope's own directory under the root.
     directory: TrustedDirectory,
     locks: TrustedDirectory,
     lease: kernel_lock::KernelLease,
@@ -287,14 +336,14 @@ impl Admissions {
             root_identity: identity(dir),
         })
     }
-    fn filename(&self, record: &Record) -> Result<String, StoreError> {
-        // Caller, workspace and physical IDs are checked in the record, not included in the
-        // name: another chat of the owner, or a restored pathname, finds the old record and
-        // refuses it rather than silently starting fresh.
-        Ok(format!(
-            "{}-{}.json",
+    /// Where a record lives: its owner scope's directory and its file name in it. Caller,
+    /// workspace and physical IDs are checked in the record, not included in the name:
+    /// another chat of the owner, or a restored pathname, finds the old record and refuses
+    /// it rather than silently starting fresh.
+    fn place(&self, record: &Record) -> Result<(String, String), StoreError> {
+        Ok((
             scope_of(&record.proof.agent, &record.proof.owner)?,
-            digest(&(&record.proof.agent, &record.key))?
+            format!("{}.json", digest(&(&record.proof.agent, &record.key))?),
         ))
     }
     /// The owner scope a turn's caller resolves to (a host lookup, no policy).
@@ -302,34 +351,81 @@ impl Admissions {
         let ctx = self.identity_context(turn, cancel)?;
         Ok(scope_of(ctx.agent_id.as_str(), &ctx.owner_user_id)?)
     }
-    /// One scope's files from directory metadata; other owners' files are never opened.
-    fn usage(&self, dir: &TrustedDirectory, scope: &str, own: &str) -> Result<Usage, EngineError> {
-        let suffix = &own[scope.len()..];
+    /// The admission root, if it exists.
+    fn root(&self) -> Result<Option<TrustedDirectory>, EngineError> {
+        let base = match TrustedDirectory::open(&self.base) {
+            Err(StoreError::Io {
+                kind: std::io::ErrorKind::NotFound,
+            }) => return Ok(None),
+            result => result?,
+        };
+        Ok(optional(base.open_child(ROOT))?)
+    }
+    /// One owner scope's existing directory, with the root it lives in.
+    fn scope_dir(
+        &self,
+        scope: &str,
+    ) -> Result<Option<(TrustedDirectory, TrustedDirectory)>, EngineError> {
+        let Some(root) = self.root()? else {
+            return Ok(None);
+        };
+        Ok(optional(root.open_child(scope))?.map(|dir| (root, dir)))
+    }
+    /// The caller's own scope from its own directory's metadata. No other directory is
+    /// read and no file is opened, so the cost of a turn depends on nobody else (RE-D162).
+    fn usage(&self, dir: &TrustedDirectory, own: &str) -> Result<Usage, EngineError> {
         let mut usage = Usage {
-            names: Vec::new(),
+            records: 0,
             bytes: 0,
-            collision: false,
         };
         for entry in std::fs::read_dir(dir.path()).map_err(StoreError::from)? {
             let entry = entry.map_err(StoreError::from)?;
+            #[cfg(test)]
+            io::note_listed();
             let Ok(name) = entry.file_name().into_string() else {
                 continue;
             };
-            let Some((owner, _)) = name_parts(&name) else {
-                continue;
-            };
-            if owner != scope {
-                usage.collision |= name.ends_with(suffix);
+            if !record_name(&name) || name == own {
                 continue;
             }
-            if name != own {
-                let meta = entry.metadata().map_err(StoreError::from)?;
-                usage.bytes = usage.bytes.saturating_add(meta.len());
-                usage.names.push(name);
-            }
+            let meta = entry.metadata().map_err(StoreError::from)?;
+            usage.bytes = usage.bytes.saturating_add(meta.len());
+            usage.records += 1;
         }
         dir.assert_unchanged()?;
         Ok(usage)
+    }
+    /// Whether another owner scope retains a record for the same agent and turn key. Asked
+    /// only for a fresh admission that inherits rollback IDs from the replay WAL (after a
+    /// kill or an abort): the Node key excludes the owner, and a new caller must not use it
+    /// to remove another caller's unsettled rows.
+    fn claimed_elsewhere(
+        &self,
+        root: &TrustedDirectory,
+        scope: &str,
+        name: &str,
+    ) -> Result<bool, EngineError> {
+        for entry in std::fs::read_dir(root.path()).map_err(StoreError::from)? {
+            let Ok(other) = entry.map_err(StoreError::from)?.file_name().into_string() else {
+                continue;
+            };
+            if other == scope || !hex(&other, 16) {
+                continue;
+            }
+            let Ok(dir) = root.open_child(&other) else {
+                continue;
+            };
+            if !matches!(
+                dir.open_file(name),
+                Err(StoreError::Io {
+                    kind: std::io::ErrorKind::NotFound
+                })
+            ) {
+                return Ok(true);
+            }
+        }
+        root.assert_unchanged()?;
+        Ok(false)
     }
     pub fn begin(
         &self,
@@ -337,14 +433,15 @@ impl Admissions {
         ctx: &RequestContext,
         options: &CaptureOptions,
         cancel: &Cancel,
+        mode: Begin,
     ) -> Result<Admission<'_>, EngineError> {
         if self.context(turn, cancel)? != *ctx {
             return Err(StoreError::InvalidInput.into());
         }
         secure_dir(&self.base)?;
         let base = TrustedDirectory::open(&self.base)?;
-        let directory = base.create_child("_capture-admissions")?;
-        let proof = self.proof(turn, &directory, cancel)?;
+        let root = base.create_child(ROOT)?;
+        let proof = self.proof(turn, &root, cancel)?;
         let expected = Record {
             version: 1,
             proof,
@@ -367,14 +464,16 @@ impl Admissions {
             post_skipped: Vec::new(),
             recovery_attempts: 0,
         };
-        let name = self.filename(&expected)?;
-        let scope = name_parts(&name)
-            .ok_or(StoreError::InvalidInput)?
-            .0
-            .to_owned();
-        let locks = directory.create_child(".leases")?;
-        // One lease per owner scope: lease files stay bounded by the number of owners.
-        let lease = kernel_lock::acquire(&locks, &scope, cancel, &mut || {})?;
+        let (scope, name) = self.place(&expected)?;
+        let locks = root.create_child(LEASES)?;
+        // One lease per owner scope: lease files stay bounded by the number of owners. A
+        // recovery step never waits for it; the record is deferred instead (RE-D162).
+        let lease = if mode.recovery {
+            kernel_lock::try_acquire(&locks, &scope)?.ok_or(StoreError::Busy)?
+        } else {
+            kernel_lock::acquire(&locks, &scope, cancel, &mut || {})?
+        };
+        let directory = root.create_child(&scope)?;
         let previous = read(&directory, &name, cancel)?;
         let fresh = previous.is_none();
         let record = previous.unwrap_or(expected.clone());
@@ -390,6 +489,7 @@ impl Admissions {
         validate(&record)?;
         let guard = Admission {
             owner: self,
+            root,
             directory,
             locks,
             lease,
@@ -399,120 +499,144 @@ impl Admissions {
         };
         guard.check(cancel)?;
         if fresh {
-            // Only this owner's files count, by name and size; nobody else's file is opened,
-            // and their policy, configuration or workspace never decide this admission.
-            let usage = self.usage(&guard.directory, &scope, &guard.name)?;
-            // The Node key deliberately excludes the chat/owner. A new caller cannot
-            // use that key to claim another caller's retained input or rollback IDs.
-            if usage.collision {
+            if mode.inherits_rows && self.claimed_elsewhere(&guard.root, &scope, &guard.name)? {
                 return Err(StoreError::Corrupt.into());
             }
-            if usage.names.len() >= MAX_PENDING {
-                return Err(StoreError::Unavailable.into());
-            }
+            // Only this owner's own directory counts; a full scope refuses only its owner.
             guard.save(cancel)?;
         }
         Ok(guard)
     }
-    /// Group the directory by owner scope from names alone (RE-D159). Closed files written
-    /// before RE-D159 are removed; nothing is read for another purpose.
-    fn group(&self, dir: &TrustedDirectory, cancel: &Cancel) -> Result<Inventory, EngineError> {
+    /// Classify the admission root from directory entries alone (RE-D162): which owner
+    /// scopes hold a record file, and what nobody owns. No file is opened for reading and
+    /// no lease is taken. Files of the two earlier branch formats are removed without
+    /// migration, with one directory sync at the end.
+    pub fn inventory(&self, cancel: &Cancel) -> Result<Inventory, EngineError> {
+        cancel.check()?;
         let mut inventory = Inventory {
-            scopes: BTreeMap::new(),
-            unattributable: 0,
+            scopes: BTreeSet::new(),
+            foreign: 0,
         };
-        for entry in std::fs::read_dir(dir.path()).map_err(StoreError::from)? {
+        let Some(root) = self.root()? else {
+            return Ok(inventory);
+        };
+        let mut removed = false;
+        for entry in std::fs::read_dir(root.path()).map_err(StoreError::from)? {
             cancel.check()?;
-            let Ok(name) = entry.map_err(StoreError::from)?.file_name().into_string() else {
-                inventory.unattributable += 1;
+            let entry = entry.map_err(StoreError::from)?;
+            let Ok(name) = entry.file_name().into_string() else {
+                inventory.foreign += 1;
                 continue;
             };
-            if !name.ends_with(".json") {
-                continue;
-            }
-            if let Some((scope, _)) = name_parts(&name) {
-                inventory
-                    .scopes
-                    .entry(scope.to_owned())
-                    .or_default()
-                    .push(name);
-            } else if legacy_name(&name) && matches!(read(dir, &name, cancel), Ok(None)) {
-                // No current writer uses this name, so no lease can race the removal.
-                dir.remove_file(&name)?;
-            } else {
-                inventory.unattributable += 1;
+            let directory = entry.file_type().is_ok_and(|kind| kind.is_dir());
+            match classify(&name, directory) {
+                TopLevel::Leases => {}
+                TopLevel::Scope => match retains(&root, &name) {
+                    Ok(true) => {
+                        inventory.scopes.insert(name);
+                    }
+                    Ok(false) => {}
+                    Err(_) => inventory.foreign += 1,
+                },
+                // No current writer uses these names, so no lease can race the removal.
+                TopLevel::Earlier if root.remove_file_unsynced(&name).is_ok() => removed = true,
+                TopLevel::Earlier | TopLevel::Foreign => inventory.foreign += 1,
             }
         }
-        dir.assert_unchanged()?;
+        if removed {
+            root.sync_entries()?;
+        }
+        root.assert_unchanged()?;
         Ok(inventory)
     }
-    /// Read one owner scope's files with that scope's own budget and count.
-    pub fn entries(&self, names: &[String], cancel: &Cancel) -> Result<Vec<Entry>, EngineError> {
-        let Some(dir) = self.directory()? else {
-            return Ok(vec![]);
+    /// Read one owner scope's record files with that scope's own budget and count. The
+    /// flag reports files beyond the per-scope bound, left for a later attempt.
+    pub fn entries(&self, scope: &str, cancel: &Cancel) -> Result<(Vec<Entry>, bool), EngineError> {
+        let Some((_root, dir)) = self.scope_dir(scope)? else {
+            return Ok((Vec::new(), false));
         };
+        let mut names = Vec::new();
+        for entry in std::fs::read_dir(dir.path()).map_err(StoreError::from)? {
+            cancel.check()?;
+            if let Ok(name) = entry.map_err(StoreError::from)?.file_name().into_string() {
+                if record_name(&name) {
+                    names.push(name);
+                }
+            }
+        }
+        names.sort();
+        let more = names.len() > MAX_PENDING;
+        names.truncate(MAX_PENDING);
         let mut budget = MAX_BYTES;
         let mut entries = Vec::new();
         for name in names {
             cancel.check()?;
-            if entries.len() >= MAX_PENDING {
-                entries.push(Entry::Unreadable);
-                continue;
-            }
-            match self.structural(&dir, name, cancel, &mut budget) {
-                Ok(Some(record)) => entries.push(Entry::Record(Box::new(record))),
-                Ok(None) => {}
+            match self.structural(&dir, scope, &name, cancel, &mut budget) {
+                Ok(record) => entries.push(Entry::Record(Box::new(record))),
                 Err(EngineError::Cancelled(cancelled)) => {
                     return Err(EngineError::Cancelled(cancelled))
                 }
-                Err(_) => entries.push(Entry::Unreadable),
+                Err(_) => entries.push(Entry::Unreadable {
+                    modified_ms: modified(&dir, &name),
+                    name,
+                }),
             }
         }
-        Ok(entries)
+        Ok((entries, more))
     }
-    /// The files of one owner scope, for a retry before that owner's next turn.
-    pub fn scope_names(&self, scope: &str, cancel: &Cancel) -> Result<Vec<String>, EngineError> {
-        Ok(self
-            .inventory(cancel)?
-            .scopes
-            .remove(scope)
-            .unwrap_or_default())
-    }
-    fn directory(&self) -> Result<Option<TrustedDirectory>, EngineError> {
-        let base = match TrustedDirectory::open(&self.base) {
-            Err(StoreError::Io {
-                kind: std::io::ErrorKind::NotFound,
-            }) => return Ok(None),
-            result => result?,
-        };
-        match base.open_child("_capture-admissions") {
-            Err(StoreError::Io {
-                kind: std::io::ErrorKind::NotFound,
-            }) => Ok(None),
-            result => Ok(Some(result?)),
-        }
-    }
+    /// A well-formed record of this scope under this name; anything else is an error.
     fn structural(
         &self,
         dir: &TrustedDirectory,
+        scope: &str,
         name: &str,
         cancel: &Cancel,
         budget: &mut usize,
-    ) -> Result<Option<Record>, EngineError> {
-        if name_parts(name).is_none() {
-            return Err(StoreError::Corrupt.into());
-        }
-        let Some(record) = read_with_budget(dir, name, cancel, budget)? else {
-            return Ok(None);
-        };
+    ) -> Result<Record, EngineError> {
+        // A closed envelope is never written into a scope directory: not a record.
+        let record = read_with_budget(dir, name, cancel, budget)?.ok_or(StoreError::Corrupt)?;
         validate(&record)?;
+        let (owner, file) = self.place(&record)?;
         if record.version != 1
-            || self.filename(&record)? != name
+            || owner != scope
+            || file != name
             || record.key != turn_key_of(&record.turn)?
         {
             return Err(StoreError::Corrupt.into());
         }
-        Ok(Some(record))
+        Ok(record)
+    }
+    /// Remove a file of this scope that is not a well-formed record, once it is past the
+    /// age bound. Under the scope lease: a file that is a record by now is left alone.
+    pub fn remove_unreadable(
+        &self,
+        scope: &str,
+        name: &str,
+        cancel: &Cancel,
+    ) -> Result<(), EngineError> {
+        if !record_name(name) {
+            return Err(StoreError::InvalidInput.into());
+        }
+        let Some((root, dir)) = self.scope_dir(scope)? else {
+            return Ok(());
+        };
+        let locks = root.create_child(LEASES)?;
+        let _lease = kernel_lock::acquire(&locks, scope, cancel, &mut || {})?;
+        let mut budget = MAX_BYTES;
+        if self
+            .structural(&dir, scope, name, cancel, &mut budget)
+            .is_ok()
+        {
+            return Ok(());
+        }
+        cancel.check()?;
+        match dir.remove_entry(name) {
+            Ok(())
+            | Err(StoreError::Io {
+                kind: std::io::ErrorKind::NotFound,
+            }) => Ok(()),
+            Err(error) => Err(error.into()),
+        }
     }
     /// Check one retained record against the current configuration, caller identity,
     /// workspace and policy. Errors are the host's or store's; refusals are assessments.
@@ -527,8 +651,8 @@ impl Admissions {
             PolicyDecision::Maintenance => return Ok(Assessment::Maintenance),
         }
         let base = TrustedDirectory::open(&self.base)?;
-        let dir = base.open_child("_capture-admissions")?;
-        let current = self.proof(&record.turn, &dir, cancel)?;
+        let root = base.open_child(ROOT)?;
+        let current = self.proof(&record.turn, &root, cancel)?;
         let recorded = &record.proof;
         Ok(
             if current.agent != recorded.agent
@@ -544,19 +668,19 @@ impl Admissions {
             },
         )
     }
-    /// Lease a retained record by name and apply `change` to its current version.
+    /// Lease a retained record's scope and apply `change` to the record's current version.
     fn with_record<T>(
         &self,
         record: &Record,
         cancel: &Cancel,
         change: impl FnOnce(&TrustedDirectory, &str, Option<Record>) -> Result<T, EngineError>,
     ) -> Result<T, EngineError> {
-        let base = TrustedDirectory::open(&self.base)?;
-        let dir = base.open_child("_capture-admissions")?;
-        let locks = dir.create_child(".leases")?;
-        let name = self.filename(record)?;
-        let scope = name_parts(&name).ok_or(StoreError::InvalidInput)?.0;
-        let _lease = kernel_lock::acquire(&locks, scope, cancel, &mut || {})?;
+        let (scope, name) = self.place(record)?;
+        let (root, dir) = self.scope_dir(&scope)?.ok_or(StoreError::Io {
+            kind: std::io::ErrorKind::NotFound,
+        })?;
+        let locks = root.create_child(LEASES)?;
+        let _lease = kernel_lock::acquire(&locks, &scope, cancel, &mut || {})?;
         let current = read(&dir, &name, cancel)?;
         if let Some(current) = &current {
             if digest(&current.turn)? != digest(&record.turn)? {
@@ -619,34 +743,50 @@ impl Admissions {
         })
     }
     pub fn pending(&self, record: &Record, cancel: &Cancel) -> Result<bool, EngineError> {
-        let base = TrustedDirectory::open(&self.base)?;
-        let dir = base.open_child("_capture-admissions")?;
-        let name = self.filename(record)?;
+        let (scope, name) = self.place(record)?;
+        let Some((_root, dir)) = self.scope_dir(&scope)? else {
+            return Ok(false);
+        };
         Ok(read(&dir, &name, cancel)?.is_some())
     }
-    /// The admission files by owner scope, from names alone.
-    pub fn inventory(&self, cancel: &Cancel) -> Result<Inventory, EngineError> {
-        cancel.check()?;
-        match self.directory()? {
-            Some(directory) => self.group(&directory, cancel),
-            None => Ok(Inventory {
-                scopes: BTreeMap::new(),
-                unattributable: 0,
-            }),
+}
+fn optional(
+    result: Result<TrustedDirectory, StoreError>,
+) -> Result<Option<TrustedDirectory>, StoreError> {
+    match result {
+        Err(StoreError::Io {
+            kind: std::io::ErrorKind::NotFound,
+        }) => Ok(None),
+        result => result.map(Some),
+    }
+}
+/// Whether an owner scope's directory holds at least one record file (names only).
+fn retains(root: &TrustedDirectory, scope: &str) -> Result<bool, StoreError> {
+    let dir = root.open_child(scope)?;
+    for entry in std::fs::read_dir(dir.path())? {
+        if entry?.file_name().to_str().is_some_and(record_name) {
+            return Ok(true);
         }
     }
+    Ok(false)
+}
+/// A file's own modification time in milliseconds since the epoch; a link is not followed.
+fn modified(dir: &TrustedDirectory, name: &str) -> Option<i64> {
+    let time = std::fs::symlink_metadata(dir.path().join(name))
+        .ok()?
+        .modified()
+        .ok()?;
+    let since = time.duration_since(std::time::UNIX_EPOCH).ok()?;
+    i64::try_from(since.as_millis()).ok()
 }
 impl Admission<'_> {
     pub fn check(&self, cancel: &Cancel) -> Result<(), EngineError> {
         cancel.check()?;
+        self.root.assert_unchanged()?;
         self.directory.assert_unchanged()?;
         self.locks.assert_unchanged()?;
         self.lease.check(&self.locks)?;
-        if self
-            .owner
-            .proof(&self.record.turn, &self.directory, cancel)?
-            != self.record.proof
-        {
+        if self.owner.proof(&self.record.turn, &self.root, cancel)? != self.record.proof {
             return Err(StoreError::InvalidInput.into());
         }
         // Revocation and maintenance are typed, so the caller can close or keep the record.
@@ -656,16 +796,15 @@ impl Admission<'_> {
     pub fn save(&self, cancel: &Cancel) -> Result<(), EngineError> {
         self.check(cancel)?;
         validate(&self.record)?;
-        // The owner scope lease is held: only this owner's sizes count, from metadata.
-        let scope = name_parts(&self.name).ok_or(StoreError::Corrupt)?.0;
-        let usage = self.owner.usage(&self.directory, scope, &self.name)?;
+        // The owner scope lease is held: only this owner's own directory is listed.
+        let usage = self.owner.usage(&self.directory, &self.name)?;
         let value = Envelope {
             record: Some(self.record.clone()),
         };
         let current = serde_json::to_vec(&value)
             .map_err(|_| StoreError::Corrupt)?
             .len() as u64;
-        if usage.names.len() >= MAX_PENDING
+        if usage.records >= MAX_PENDING
             || usage
                 .bytes
                 .checked_add(current)

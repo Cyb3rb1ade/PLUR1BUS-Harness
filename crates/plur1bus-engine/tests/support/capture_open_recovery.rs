@@ -60,11 +60,7 @@ fn open(f: BoundaryFixture) -> Result<capture_pipeline_support::RuntimeGuard, En
         .map(capture_pipeline_support::RuntimeGuard)
 }
 fn admission(root: &std::path::Path) -> std::path::PathBuf {
-    std::fs::read_dir(root.join("stores/_capture-admissions"))
-        .unwrap()
-        .map(|e| e.unwrap().path())
-        .find(|p| p.extension().is_some_and(|x| x == "json"))
-        .unwrap()
+    retained(root).unwrap()
 }
 #[test]
 fn opening_runtime_recovers_original_capture_without_a_new_turn_from_the_host() {
@@ -395,11 +391,15 @@ fn pending(root: &std::path::Path) -> serde_json::Value {
     })
 }
 /// The admission file still on disk, if any.
+/// RE-D162: a record lives in its owner scope's directory under the admission root.
 fn retained(root: &std::path::Path) -> Option<std::path::PathBuf> {
     std::fs::read_dir(root.join("stores/_capture-admissions"))
         .unwrap()
         .map(|e| e.unwrap().path())
-        .find(|p| p.extension().is_some_and(|x| x == "json"))
+        .filter(|p| p.is_dir() && !p.ends_with(".leases"))
+        .flat_map(|scope| std::fs::read_dir(scope).unwrap())
+        .map(|e| e.unwrap().path())
+        .find(|p| p.symlink_metadata().is_ok() && p.extension().is_some_and(|x| x == "json"))
 }
 
 #[test]

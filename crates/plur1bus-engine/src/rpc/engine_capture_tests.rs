@@ -88,6 +88,33 @@ fn rows(root: &Path, agent: &str) -> Vec<MemoryRow> {
         .unwrap()
 }
 
+/// Every file below the admission root: top-level files and the files inside each owner
+/// scope's directory (RE-D162). Lease files are left out.
+fn admission_files(root: &Path) -> Vec<PathBuf> {
+    let mut files = Vec::new();
+    for entry in fs::read_dir(root.join("db/_capture-admissions"))
+        .into_iter()
+        .flatten()
+        .flatten()
+    {
+        if entry.file_name().to_string_lossy().starts_with('.') {
+            continue;
+        }
+        if entry.path().is_dir() {
+            files.extend(
+                fs::read_dir(entry.path())
+                    .into_iter()
+                    .flatten()
+                    .flatten()
+                    .map(|file| file.path()),
+            );
+        } else {
+            files.push(entry.path());
+        }
+    }
+    files
+}
+
 fn memory_params(agent: &str) -> Value {
     json!({"p":principal(agent),"a":{"origin":"user","background":false}})
 }
@@ -218,13 +245,7 @@ fn incognito_and_a_disabled_workspace_write_nothing() {
         json!({"reason":"not_captured","skipped":1,"stored":0})
     );
     // The policy is checked before any admission file is written.
-    let admissions = fs::read_dir(root.join("db/_capture-admissions"))
-        .into_iter()
-        .flatten()
-        .flatten()
-        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "json"))
-        .count();
-    assert_eq!(admissions, 0);
+    assert!(admission_files(root).is_empty());
     assert!(rows(root, "agent").is_empty());
     assert!(!root.join("workspace-agent/.emotional-state.json").exists());
 }
@@ -301,44 +322,139 @@ fn injected_context_is_never_captured() {
     assert_eq!(stored[0].text, ASSISTANT);
 }
 
+/// RE-D162 / m4, m5: files of the earlier branch formats are removed; what nobody owns is kept
+/// and reported; a malformed file in an owner's own scope defers and reports that scope
+/// only. None of it blocks a capture.
 #[test]
-fn a_malformed_admission_file_is_kept_reported_and_blocks_nobody() {
+fn foreign_and_malformed_admission_files_are_reported_and_block_nobody() {
     let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
     let root = scratch.path();
     let engine = ProcessEngine::new(host(root), Some(Seam::FlatEmbedder)).unwrap();
     assert_eq!(capture(&engine, turn("agent", "run-1"))["stored"], 2);
     engine.close(None).unwrap();
     drop(engine);
-    let corrupt = root
-        .join("db/_capture-admissions")
-        .join(format!("{}.json", "0".repeat(64)));
-    fs::write(&corrupt, b"{\"record\":{\"version\":1}}").unwrap();
+    let admissions = root.join("db/_capture-admissions");
+    // The only owner so far: its scope directory.
+    let scope = fs::read_dir(&admissions)
+        .unwrap()
+        .flatten()
+        .map(|entry| entry.path())
+        .find(|path| path.is_dir() && !path.ends_with(".leases"))
+        .unwrap();
+    let reopened = || {
+        let engine = ProcessEngine::new(host(root), Some(Seam::FlatEmbedder)).unwrap();
+        // Status reflects capture composition only after the first open or capture.
+        assert!(engine.capture.degradation().is_none());
+        engine.open(&"agent".parse().unwrap()).unwrap();
+        engine
+    };
+    let deferred = Some((
+        "capture-recovery-deferred".to_owned(),
+        engine_capture::Served::Deferred,
+    ));
 
-    let engine = ProcessEngine::new(host(root), Some(Seam::FlatEmbedder)).unwrap();
-    // Status reflects capture composition only after the first open or capture.
-    assert!(engine.capture.degradation().is_none());
-    let handle = engine.open(&"agent".parse().unwrap()).unwrap();
-    // RE-D159: capture is served; the unattributable file is a deferred state, not unready.
+    // Earlier branch formats are removed without migration, whatever they hold.
+    let earlier = [
+        format!("{}.json", "0".repeat(64)),
+        format!("{}-{}.json", "1".repeat(16), "2".repeat(64)),
+    ];
+    for name in &earlier {
+        fs::write(admissions.join(name), b"{\"record\":{\"version\":1}}").unwrap();
+    }
+    let engine = reopened();
+    assert!(earlier.iter().all(|name| !admissions.join(name).exists()));
+    assert_eq!(capture_state(&engine), None);
+    engine.close(None).unwrap();
+    drop(engine);
+
+    // A top-level file nobody owns: kept and reported; capture is served for everyone.
+    let foreign = admissions.join("notes.json");
+    fs::write(&foreign, b"{\"record\":{\"version\":1}}").unwrap();
+    let engine = reopened();
     assert!(engine.status().ready);
-    let (degraded, served) = engine.capture.degradation().unwrap();
-    assert_eq!(
-        (
-            degraded.reason.as_str(),
-            degraded.capability.as_str(),
-            served
-        ),
-        (
-            "capture-recovery-deferred",
-            "capture",
-            engine_capture::Served::Deferred
-        )
-    );
-    // RE-D156: an unreadable file is kept and reported, but blocks no capture.
+    assert_eq!(capture_state(&engine), deferred);
     assert_eq!(capture(&engine, turn("agent", "run-2"))["stored"], 2);
     assert_eq!(capture(&engine, turn("other", "run-3"))["stored"], 2);
-    assert_eq!(rows(root, "agent").len(), 4);
-    assert!(corrupt.is_file());
-    (handle.close)().unwrap();
+    assert!(foreign.is_file());
+    engine.close(None).unwrap();
+    drop(engine);
+    fs::remove_file(&foreign).unwrap();
+
+    // A malformed file in an owner's own scope (m5): that scope is deferred and reported,
+    // its owner and everyone else still capture, and the file stays until it is too old.
+    let malformed = scope.join(format!("{}.json", "3".repeat(64)));
+    fs::write(&malformed, b"{\"record\":{\"version\":1}}").unwrap();
+    let engine = reopened();
+    assert!(engine.status().ready);
+    assert_eq!(capture_state(&engine), deferred);
+    assert_eq!(capture(&engine, turn("agent", "run-4"))["stored"], 2);
+    assert_eq!(capture(&engine, turn("other", "run-5"))["stored"], 2);
+    assert_eq!(rows(root, "agent").len(), 6);
+    assert!(malformed.is_file());
+    assert_eq!(capture_state(&engine), deferred);
+}
+
+/// RE-D162 / R4: retained input older than seven days is discarded and never resumed. The
+/// bound is inclusive (the pin's pending TTL) and the clock is the host's.
+#[test]
+fn retained_input_older_than_seven_days_is_discarded() {
+    const WEEK: i64 = 7 * 24 * 60 * 60 * 1000;
+    // The fixture host's clock at admission.
+    let admitted_at = 1_768_305_600_000;
+    for (age, kept) in [(WEEK, true), (WEEK + 1, false)] {
+        let scratch = killed("admitted");
+        let root = scratch.path().to_path_buf();
+        assert_eq!(admissions_with_content(&root), 1);
+        let later = host(&root);
+        later.set_now_ms(admitted_at + age);
+        let engine = ProcessEngine::new(later, Some(Seam::FlatEmbedder)).unwrap();
+        engine.open(&"agent".parse().unwrap()).unwrap();
+        assert_eq!(admissions_with_content(&root), 0, "{age}");
+        assert_eq!(
+            rows(&root, "agent").len(),
+            if kept { 2 } else { 0 },
+            "{age}"
+        );
+        assert_eq!(capture_state(&engine), None, "{age}");
+    }
+}
+
+/// RE-D162 / R4, m5: a malformed file in an owner's scope is kept and reported until it is
+/// seven days old, then removed.
+#[test]
+fn a_malformed_scope_file_is_removed_once_it_is_seven_days_old() {
+    const WEEK: i64 = 7 * 24 * 60 * 60 * 1000;
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let engine = ProcessEngine::new(host(root), Some(Seam::FlatEmbedder)).unwrap();
+    assert_eq!(capture(&engine, turn("agent", "run-1"))["stored"], 2);
+    engine.close(None).unwrap();
+    drop(engine);
+    let scope = fs::read_dir(root.join("db/_capture-admissions"))
+        .unwrap()
+        .flatten()
+        .map(|entry| entry.path())
+        .find(|path| path.is_dir() && !path.ends_with(".leases"))
+        .unwrap();
+    let malformed = scope.join(format!("{}.json", "3".repeat(64)));
+    fs::write(&malformed, USER).unwrap();
+    let modified = fs::metadata(&malformed)
+        .unwrap()
+        .modified()
+        .unwrap()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap();
+    let modified = i64::try_from(modified.as_millis()).unwrap();
+    for (age, kept) in [(WEEK, true), (WEEK + 1, false)] {
+        let later = host(root);
+        later.set_now_ms(modified + age);
+        let engine = ProcessEngine::new(later, Some(Seam::FlatEmbedder)).unwrap();
+        engine.open(&"agent".parse().unwrap()).unwrap();
+        assert_eq!(malformed.exists(), kept, "{age}");
+        assert_eq!(capture_state(&engine).is_some(), kept, "{age}");
+        engine.close(None).unwrap();
+    }
+    assert_eq!(admissions_with_content(root), 0);
 }
 
 /// The fixture host blocks the capture worker once its durable admission exists.
@@ -391,13 +507,9 @@ impl HostServices for CrashHost {
             }
             return self.inner.workspace_dir(agent);
         }
-        let admitted = fs::read_dir(self.root.join("db/_capture-admissions"))
-            .into_iter()
-            .flatten()
-            .flatten()
-            .any(|entry| {
-                fs::read_to_string(entry.path()).is_ok_and(|text| text.contains("\"record\":{"))
-            })
+        let admitted = admission_files(&self.root)
+            .iter()
+            .any(|path| fs::read_to_string(path).is_ok_and(|text| text.contains("\"record\":{")))
             && (self.phase != "first-row" || self.first_row_written());
         if admitted {
             fs::write(self.root.join("checkpoint"), "admitted").unwrap();
@@ -520,14 +632,12 @@ fn a_turn_killed_after_admission_is_recovered_exactly_once_on_the_next_open() {
 
 /// Admission files whose record is still pending recovery.
 fn pending_admissions(root: &Path) -> usize {
-    fs::read_dir(root.join("db/_capture-admissions"))
-        .into_iter()
-        .flatten()
-        .flatten()
-        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "json"))
-        .filter(|entry| {
+    admission_files(root)
+        .iter()
+        .filter(|path| path.extension().is_some_and(|ext| ext == "json"))
+        .filter(|path| {
             let value: Value =
-                serde_json::from_slice(&fs::read(entry.path()).unwrap()).unwrap_or(Value::Null);
+                serde_json::from_slice(&fs::read(path).unwrap()).unwrap_or(Value::Null);
             !value["record"].is_null()
         })
         .count()
@@ -1017,11 +1127,10 @@ fn work_deferred_by_maintenance_keeps_ready_and_clears_when_completed() {
         ))
     );
     let retained: Value = serde_json::from_str(
-        &fs::read_dir(root.join("db/_capture-admissions"))
-            .unwrap()
-            .flatten()
-            .find_map(|entry| {
-                fs::read_to_string(entry.path())
+        &admission_files(&root)
+            .iter()
+            .find_map(|path| {
+                fs::read_to_string(path)
                     .ok()
                     .filter(|text| text.contains(USER))
             })
@@ -1059,11 +1168,9 @@ fn neo_plans_with_content(root: &Path) -> usize {
 
 /// Admission files that still hold turn text, whatever their name.
 fn admissions_with_content(root: &Path) -> usize {
-    fs::read_dir(root.join("db/_capture-admissions"))
-        .into_iter()
-        .flatten()
-        .flatten()
-        .filter(|entry| fs::read_to_string(entry.path()).is_ok_and(|text| text.contains(USER)))
+    admission_files(root)
+        .iter()
+        .filter(|path| fs::read_to_string(path).is_ok_and(|text| text.contains(USER)))
         .count()
 }
 
@@ -1140,16 +1247,53 @@ fn completed_turns_leave_no_admission_files() {
         let result = capture(&engine, turn("agent", &format!("run-{index}")));
         assert_eq!(result["stored"], 2, "{result}");
     }
-    let files = fs::read_dir(root.join("db/_capture-admissions"))
-        .unwrap()
-        .flatten()
-        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "json"))
-        .count();
-    assert_eq!(files, 0);
+    assert!(admission_files(root).is_empty());
 }
 
-/// RE-D159 / K2: a directory full of closed entries never refuses capture.
+/// RE-D162 / D4: a directory full of earlier-format entries and files nobody owns never
+/// refuses capture; the former are removed, the latter kept and reported.
 #[test]
+fn a_thousand_earlier_entries_and_foreign_files_never_refuse_capture() {
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let directory = root.join("db/_capture-admissions");
+    fs::create_dir_all(&directory).unwrap();
+    for index in 0..1000_u32 {
+        let content: &[u8] = if index % 2 == 0 {
+            br#"{"record":null}"#
+        } else {
+            USER.as_bytes()
+        };
+        fs::write(directory.join(format!("{index:064x}.json")), content).unwrap();
+    }
+    for index in 0..300_u32 {
+        fs::write(directory.join(format!("note-{index}.json")), b"kept").unwrap();
+    }
+    let engine = ProcessEngine::new(host(root), Some(Seam::FlatEmbedder)).unwrap();
+    let result = capture(&engine, turn("agent", "run-after-history"));
+    assert_eq!(result["stored"], 2, "{result}");
+    assert_eq!(admissions_with_content(root), 0);
+    let kept = fs::read_dir(&directory)
+        .unwrap()
+        .flatten()
+        .filter(|entry| entry.file_name().to_string_lossy().starts_with("note-"))
+        .count();
+    assert_eq!(kept, 300);
+    assert_eq!(
+        capture_state(&engine),
+        Some((
+            "capture-recovery-deferred".into(),
+            engine_capture::Served::Deferred
+        ))
+    );
+}
+
+/// RE-D159 / K2: a directory full of closed entries never refuses capture. Writing and
+/// removing 50 001 files takes longer than a normal test should (about 16 s here), so this
+/// runs with `--ignored`; the test above and `top_level_classification_has_no_index_bound`
+/// cover the behavior in the normal run.
+#[test]
+#[ignore = "50 001 files: about 16 s; run with --ignored"]
 fn fifty_thousand_closed_entries_never_refuse_capture() {
     let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
     let root = scratch.path();
@@ -1210,18 +1354,13 @@ fn hold_admission(root: &Path) -> crate::store::kernel_lease::KernelLease {
 
 /// The kernel lease name guarding a retained admission file.
 fn admission_lease(root: &Path) -> String {
-    let file = fs::read_dir(root.join("db/_capture-admissions"))
-        .unwrap()
-        .flatten()
-        .find(|entry| fs::read_to_string(entry.path()).is_ok_and(|text| text.contains(USER)))
-        .unwrap()
-        .file_name()
-        .to_string_lossy()
-        .into_owned();
-    let stem = file.strip_suffix(".json").unwrap();
-    stem.split_once('-')
-        .map_or(stem, |(scope, _)| scope)
-        .to_owned()
+    // The lease is named after the owner scope, the record's directory (RE-D162).
+    let file = admission_files(root)
+        .into_iter()
+        .find(|path| fs::read_to_string(path).is_ok_and(|text| text.contains(USER)))
+        .unwrap();
+    let scope = file.parent().unwrap().file_name().unwrap();
+    scope.to_string_lossy().into_owned()
 }
 
 /// RE-D159 / W2: another owner's pending work of the same agent never delays or aborts a turn.
