@@ -463,3 +463,16 @@ fn a_weak_original_query_finds_the_card_through_the_refined_query() {
     let result = recall(&engine, &params(query, "user"));
     assert!(!memories(&result).contains(&row.id), "{result}");
 }
+
+#[test]
+fn a_german_prompt_renders_the_german_time_block() {
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let engine = ProcessEngine::new(host(root, false), Some(Seam::FlatEmbedder)).unwrap();
+    seeded(root, &engine);
+    let result = recall(&engine, &params("Wie geht es dir mit dem Archiv?", "user"));
+    assert_eq!(
+        block(&result, "time")["text"],
+        "<time-context>\nErste Aktivität. Aktuelle Zeit: 2026-01-13 13:00 Europe/Zurich (UTC 2026-01-13 12:00).\n</time-context>"
+    );
+}

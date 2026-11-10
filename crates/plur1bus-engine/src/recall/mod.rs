@@ -29,6 +29,8 @@ pub mod hash_embed;
 pub mod knowledge;
 /// Live-row and valid-time checks.
 pub mod lifecycle;
+/// The pin's deterministic recall locale resolution (RE-D152).
+pub mod locale;
 /// Global namespace dedupe, caps and rerank-preserving order.
 pub mod merge;
 /// The post-merge tier budget used before retrieval-ledger persistence.

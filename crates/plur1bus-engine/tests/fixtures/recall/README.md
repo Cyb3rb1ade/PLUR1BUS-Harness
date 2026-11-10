@@ -176,3 +176,10 @@ do not claim process/CLI acceptance before controller ruling F3 and RE-08 wiring
 source SHA-256 before importing a temporary copy with one appended export of the two tables.
 `query-refiner.json` holds the tables and 49 inputs with `removeStopwords`, `expandQuery` and
 `refineQuery` under nine top-result shapes. Two recordings were byte-identical.
+
+## Recall locale (RE-D152)
+
+`record-locale.mjs --source <directory holding lib/i18n.js and lib/i18n-dictionary.js at 9f34008c>
+--out <file>` checks both source hashes before importing a temporary copy with one appended
+export of `GERMAN_WORDS`. `locale.json` holds the word list, 34 `detectLanguage` and ten
+`resolveLocale` cases. Two recordings were byte-identical.

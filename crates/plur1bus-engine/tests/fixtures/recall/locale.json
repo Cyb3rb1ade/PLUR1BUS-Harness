@@ -1,0 +1,546 @@
+{
+  "source": {
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "files": {
+      "lib/i18n.js": "f9846591fc0bb8ec21b66c6ec178c1d9be4ef6619d8d7e6fb09ed9923e81e148",
+      "lib/i18n-dictionary.js": "830eaa06fa58847cc0ed813fe4b1797c481c7a68b4dbd9ffbde26f89e7e7fed5"
+    }
+  },
+  "node": {
+    "version": "v24.21.0",
+    "unicode": "17.0",
+    "icu": "78.3"
+  },
+  "germanWords": [
+    "der",
+    "die",
+    "das",
+    "und",
+    "ist",
+    "zu",
+    "den",
+    "mit",
+    "ich",
+    "auf",
+    "für",
+    "sich",
+    "dem",
+    "nicht",
+    "ein",
+    "eine",
+    "als",
+    "auch",
+    "es",
+    "an",
+    "werden",
+    "aus",
+    "er",
+    "hat",
+    "dass",
+    "sie",
+    "nach",
+    "wird",
+    "bei",
+    "einer",
+    "um",
+    "am",
+    "sind",
+    "noch",
+    "wie",
+    "einen",
+    "so",
+    "zur",
+    "aber",
+    "über",
+    "dich",
+    "dein",
+    "deine",
+    "dir",
+    "mir",
+    "mich",
+    "mein",
+    "meine",
+    "wir",
+    "uns",
+    "unser",
+    "euch",
+    "euer",
+    "ihr",
+    "ihnen",
+    "ja",
+    "nein",
+    "bitte",
+    "danke",
+    "gern",
+    "hallo",
+    "hi",
+    "hej",
+    "moin"
+  ],
+  "detect": [
+    {
+      "messages": [],
+      "detected": "en"
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "project fixture item"
+        }
+      ],
+      "detected": "en"
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "What did we decide last week about the project?"
+        }
+      ],
+      "detected": "en"
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "Hallo, wie geht es dir?"
+        }
+      ],
+      "detected": "de"
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "hallo wie geht es dir"
+        }
+      ],
+      "detected": "de"
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "Ich habe das gemacht"
+        }
+      ],
+      "detected": "de"
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "der"
+        }
+      ],
+      "detected": "en"
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "der der"
+        }
+      ],
+      "detected": "de"
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "DER UND"
+        }
+      ],
+      "detected": "de"
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "der, und"
+        }
+      ],
+      "detected": "en"
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "für mich"
+        }
+      ],
+      "detected": "de"
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "für mich"
+        }
+      ],
+      "detected": "en"
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "über dich"
+        }
+      ],
+      "detected": "de"
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "Ü̈ber dich"
+        }
+      ],
+      "detected": "en"
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "ja nein"
+        }
+      ],
+      "detected": "de"
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "ja nein"
+        }
+      ],
+      "detected": "de"
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "ja​nein"
+        }
+      ],
+      "detected": "en"
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "ja\tbitte\ndanke"
+        }
+      ],
+      "detected": "de"
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "  moin   hi  "
+        }
+      ],
+      "detected": "de"
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "İch und"
+        }
+      ],
+      "detected": "en"
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "ICH UND DU"
+        }
+      ],
+      "detected": "de"
+    },
+    {
+      "messages": [
+        {
+          "role": "assistant",
+          "content": "der die das und"
+        }
+      ],
+      "detected": "en"
+    },
+    {
+      "messages": [
+        {
+          "role": "assistant",
+          "content": "der die das und"
+        },
+        {
+          "role": "user",
+          "content": "hello there"
+        }
+      ],
+      "detected": "en"
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "der"
+        },
+        {
+          "role": "user",
+          "content": "und"
+        }
+      ],
+      "detected": "de"
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "der"
+        },
+        {
+          "role": "user",
+          "content": "hello"
+        },
+        {
+          "role": "user",
+          "content": "world"
+        },
+        {
+          "role": "user",
+          "content": "und"
+        }
+      ],
+      "detected": "en"
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "der und"
+        },
+        {
+          "role": "user",
+          "content": "one"
+        },
+        {
+          "role": "user",
+          "content": "two"
+        },
+        {
+          "role": "user",
+          "content": "three"
+        }
+      ],
+      "detected": "en"
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": 42
+        },
+        {
+          "role": "user",
+          "content": "und der"
+        }
+      ],
+      "detected": "de"
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": null
+        },
+        {
+          "role": "system",
+          "content": "der und"
+        }
+      ],
+      "detected": "en"
+    },
+    {
+      "messages": [
+        {
+          "content": "der und"
+        }
+      ],
+      "detected": "en"
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "Kannst du mir bitte helfen?"
+        }
+      ],
+      "detected": "de"
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "Can you help me with the API?"
+        }
+      ],
+      "detected": "en"
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "Das ist ein Test 🚀 und noch einer"
+        }
+      ],
+      "detected": "de"
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "dass sie es tun"
+        }
+      ],
+      "detected": "de"
+    },
+    {
+      "messages": [
+        {
+          "role": "user",
+          "content": "ihr seid euer eigener chef"
+        }
+      ],
+      "detected": "de"
+    }
+  ],
+  "resolve": [
+    {
+      "args": {},
+      "resolved": "en"
+    },
+    {
+      "args": {
+        "fallback": "de"
+      },
+      "resolved": "de"
+    },
+    {
+      "args": {
+        "messages": [],
+        "fallback": "fr"
+      },
+      "resolved": "fr"
+    },
+    {
+      "args": {
+        "config": "de",
+        "messages": [
+          {
+            "role": "user",
+            "content": "hello world"
+          }
+        ]
+      },
+      "resolved": "de"
+    },
+    {
+      "args": {
+        "config": "",
+        "messages": [
+          {
+            "role": "user",
+            "content": "der und"
+          }
+        ]
+      },
+      "resolved": "de"
+    },
+    {
+      "args": {
+        "ctx": {
+          "lang": "fr"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "der und"
+          }
+        ]
+      },
+      "resolved": "fr"
+    },
+    {
+      "args": {
+        "ctx": {
+          "lang": ""
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hello"
+          }
+        ],
+        "fallback": "de"
+      },
+      "resolved": "en"
+    },
+    {
+      "args": {
+        "ctx": {
+          "messages": [
+            {
+              "role": "user",
+              "content": "der und"
+            }
+          ]
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "der und"
+          }
+        ],
+        "fallback": "en"
+      },
+      "resolved": "de"
+    },
+    {
+      "args": {
+        "ctx": {
+          "messages": [
+            {
+              "role": "user",
+              "content": "hello"
+            }
+          ]
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hello"
+          }
+        ],
+        "fallback": "en"
+      },
+      "resolved": "en"
+    },
+    {
+      "args": {
+        "messages": [
+          {
+            "role": "assistant",
+            "content": "der und"
+          }
+        ],
+        "fallback": "de"
+      },
+      "resolved": "en"
+    }
+  ]
+}

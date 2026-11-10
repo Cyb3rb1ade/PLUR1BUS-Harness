@@ -1912,3 +1912,14 @@ keeps the original hits, as the pin's `catch` does. The tables and 49 recorded
 inputs are bound in `tests/fixtures/recall/query-refiner.json`; the
 `recall/weak-hit-refined` parity scenario covers a hit that only the refined
 query finds. This replaces the RE-04 assumption that refinement stays off.
+
+### Recall locale (RE-D152)
+
+Foreground recall resolves its language the way the pin's
+`resolveCommandLocaleRecall` does for `Engine.recall`: `resolveLocale` over the
+event's single user message (`lib/i18n.js` at `9f34008c`, SHA-256
+`f9846591fc0bb8ec21b66c6ec178c1d9be4ef6619d8d7e6fb09ed9923e81e148`). Two or
+more German function words among the last three user texts select `de`,
+otherwise `en`. The time and reminder blocks use it. The detection is
+deterministic and reads nothing; `tests/fixtures/recall/locale.json` binds the
+word list and 44 recorded cases. SOUL.md tone is not composed.

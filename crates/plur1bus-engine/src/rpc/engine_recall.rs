@@ -22,6 +22,7 @@ use crate::{
         control::RecallControl,
         finalise::FinaliseLimits,
         graph_source::BoundGraphSource,
+        locale::{resolve_locale, LocaleMessage},
         namespace_pipeline::Pipeline,
         neo_prelude::{NeoPrelude, NeoRequest},
         pattern_source::BoundPatternSource,
@@ -262,6 +263,16 @@ fn serve(
     let mut render = RenderRequest::new(AclSubject::from_context(context), now as f64);
     render.config = raw.clone();
     render.prompt = query.query.clone();
+    // `resolveCommandLocaleRecall` over the event's single user message.
+    render.language = resolve_locale(
+        None,
+        None,
+        &[LocaleMessage {
+            role: Some("user"),
+            content: Some(&query.query),
+        }],
+        "en",
+    );
     render.timezone = host_timezone();
     render.has_workspace = workspace.is_some();
     render.temporal_enabled = raw["temporalContext"]["enabled"] != false;
