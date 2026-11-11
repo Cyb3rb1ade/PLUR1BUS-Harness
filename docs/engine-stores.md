@@ -332,6 +332,11 @@ comparators. No binary or model payload is committed.
 
 ## Native Neo append bounds (RX6 N1 / RE-D125)
 
+RE-D169: `engine.neo.maxRecords`, `engine.neo.appendDedupeTailRecords` and `engine.neo.retention.*` take effect only
+with the Rust engine. The Node engine does not receive them (its pinned schema rejects unknown `neo` keys; the
+projection in `buildEngineConfig` follows the installed engine schema) and keeps its fixed limits. Other unknown
+`neo` keys are still passed on and refused by the engine.
+
 The native writer resolves `neo.maxRecords` (40,000) and the independent
 `neo.appendDedupeTailRecords` (5,000) from configuration, never process environment.
 `neo.retention.days` (90) and `neo.retention.softMaxRecords` (5,000) describe future

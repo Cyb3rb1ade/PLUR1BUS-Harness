@@ -26,7 +26,8 @@ const BGE_RERANKER = "woxpas-ai/bge-reranker-v2-m3-onnx";
 export function buildEngineConfig(cfg: HarnessConfig, l: Layout, engineSchema: unknown = installedEngineSchema): Record<string, unknown> {
   assertSharedEnginePrivacy(cfg);
   const user = plain(cfg.engine);
-  const { implementation: _implementation, baseDbPathOverride, baseDbPath: _b, autoRecall: _r, autoCapture: _c, media: _media, ...passthrough } = user;
+  const { implementation: _implementation, baseDbPathOverride, baseDbPath: _b, autoRecall: _r, autoCapture: _c, media: _media, ...rawPassthrough } = user;
+  const passthrough = withoutUnsupportedNativeNeoKeys(rawPassthrough, engineSchema);
   const rer = plain(passthrough.reranker), rec = plain(passthrough.recall);
   const policy = providerPolicy(cfg);
   const memory = plain(plain(cfg).memory);
@@ -44,6 +45,21 @@ export function buildEngineConfig(cfg: HarnessConfig, l: Layout, engineSchema: u
     // Engine 1.16 rejects even a disabled unknown media key. The installed public schema,
     // not a presumed version or a raw engine.* override, decides whether projection is legal.
     ...(supportsMedia ? { media: buildMediaEngineConfig(cfg.memory.mediaEmbedding, l.models) } : {}) };
+}
+
+const NATIVE_NEO_KEYS = ["maxRecords", "appendDedupeTailRecords", "retention"] as const;
+
+/**
+ * RE-D169: the Node engine pin rejects unknown `neo` keys, and the native append bounds only apply to the Rust engine.
+ * A native key is therefore removed unless the installed engine schema declares it; any other key stays, so a typo is
+ * still refused by the engine.
+ */
+function withoutUnsupportedNativeNeoKeys(passthrough: Record<string, any>, engineSchema: unknown): Record<string, any> {
+  if (passthrough.neo === null || typeof passthrough.neo !== "object" || Array.isArray(passthrough.neo)) return passthrough;
+  const declared = plain(plain(plain(plain(engineSchema).properties).neo).properties);
+  const neo = plain(passthrough.neo);
+  for (const k of NATIVE_NEO_KEYS) if (!Object.hasOwn(declared, k)) delete neo[k];
+  return { ...passthrough, neo };
 }
 
 // Owner decision 2026-10-18: cloud and OpenAI-compatible providers are allowed for both roles; refused only for
