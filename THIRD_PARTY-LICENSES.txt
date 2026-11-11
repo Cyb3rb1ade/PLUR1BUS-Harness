@@ -34917,9 +34917,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 ============================================================
 
 SHA256 c10c1f27337546471e5f7e4e97fdd398b35b9d4e126115dcd22de8d8e65abf6f
-cargo:libsqlite3-sys@0.35.0/LICENSE
 cargo:libsqlite3-sys@0.39.1/LICENSE
-cargo:rusqlite@0.37.0/LICENSE
 cargo:rusqlite@0.41.1/LICENSE
 
 Copyright (c) 2014 The rusqlite developers
@@ -34946,7 +34944,6 @@ THE SOFTWARE.
 ============================================================
 
 SHA256 c144680885b29e4719e2a51f0aab5439a1e02d980692b5aaf086cae12727f28b
-cargo:hashlink@0.10.0/LICENSE-APACHE
 cargo:hashlink@0.12.2/LICENSE-APACHE
 
                               Apache License
@@ -39074,6 +39071,7 @@ THE SOFTWARE.
 
 SHA256 e1c1975c3474cce31722836f101a40ffaf1cc784e4d2f38ce3e77b9712934e78
 cargo:sqlite-wasm-rs@0.5.5/LICENSE
+cargo:sqlite-wasm-rs@0.6.3/LICENSE
 
 MIT License
 
@@ -40302,7 +40300,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ============================================================
 
 SHA256 e915669a595b11a200873df8286561881b0e04932f6412a585db6297ba0bc97c
-cargo:hashlink@0.10.0/LICENSE-MIT
 cargo:hashlink@0.12.2/LICENSE-MIT
 
 This work is derived in part from the `linked-hash-map` crate, Copyright (c)

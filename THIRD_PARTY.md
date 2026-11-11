@@ -7,7 +7,7 @@ Regenerate on each native packaging target; optional native npm packages differ 
 ```
 pnpm-lock.yaml: a2d5896256b674fbc02686d654c9c27a2ffd6a34020460a8f11d60e8352e45cb
 Cargo.lock: 900626a394d0f0af89efbb3bed5b2ab3f47a2a0e50401fffd7ab05a8d34e2748
-apps/desktop/Cargo.lock: e6f874888157d78305f8de3aee112cf3a18f1701a44eb1afe51bd95e49cd49f0
+apps/desktop/Cargo.lock: 83edb47237e8714eb2478bbdd785ebad1d92888e64e990f86093cf09517e06d4
 ```
 
 | Ecosystem | Dependency | Version | Licence | Attribution |
@@ -397,7 +397,6 @@ apps/desktop/Cargo.lock: e6f874888157d78305f8de3aee112cf3a18f1701a44eb1afe51bd95
 | cargo | hashbrown | 0.15.5 | MIT OR Apache-2.0 | Amanieu d'Antras <amanieu@gmail.com> |
 | cargo | hashbrown | 0.16.1 | MIT OR Apache-2.0 | Amanieu d'Antras <amanieu@gmail.com> |
 | cargo | hashbrown | 0.17.1 | MIT OR Apache-2.0 |  |
-| cargo | hashlink | 0.10.0 | MIT OR Apache-2.0 | kyren <kerriganw@gmail.com> |
 | cargo | hashlink | 0.12.2 | MIT OR Apache-2.0 |  |
 | cargo | heapless | 0.8.0 | MIT OR Apache-2.0 | Jorge Aparicio <jorge@japaric.io>, Per Lindgren <per.lindgren@ltu.se>, Emil Fresk <emil.fresk@gmail.com> |
 | cargo | heck | 0.4.1 | MIT OR Apache-2.0 | Without Boats <woboats@gmail.com> |
@@ -529,7 +528,6 @@ apps/desktop/Cargo.lock: e6f874888157d78305f8de3aee112cf3a18f1701a44eb1afe51bd95
 | cargo | libloading | 0.9.0 | ISC | Simonas Kazlauskas <libloading@kazlauskas.me> |
 | cargo | libm | 0.2.16 | MIT | Alex Crichton <alex@alexcrichton.com>, Amanieu d'Antras <amanieu@gmail.com>, Jorge Aparicio <japaricious@gmail.com>, Trevor Gross <tg@trevorgross.com> |
 | cargo | libredox | 0.1.25 | MIT | 4lDO2 <4lDO2@protonmail.com> |
-| cargo | libsqlite3-sys | 0.35.0 | MIT | The rusqlite developers |
 | cargo | libsqlite3-sys | 0.39.1 | MIT | The rusqlite developers |
 | cargo | line-clipping | 0.3.8 | MIT OR Apache-2.0 | Josh McKinney |
 | cargo | linux-raw-sys | 0.12.1 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | Dan Gohman <dev@sunfishcode.online> |
@@ -785,11 +783,11 @@ apps/desktop/Cargo.lock: e6f874888157d78305f8de3aee112cf3a18f1701a44eb1afe51bd95
 | cargo | roxmltree | 0.21.1 | MIT OR Apache-2.0 | Yevhenii Reizner <razrfalcon@gmail.com> |
 | cargo | rpassword | 7.5.4 | Apache-2.0 | Conrad Kleinespel <conradk@conradk.com> |
 | cargo | rsqlite-vfs | 0.1.1 | MIT |  |
+| cargo | rsqlite-vfs | 0.2.0 | MIT |  |
 | cargo | rstar | 0.12.2 | MIT OR Apache-2.0 | Stefan Altmayer <stoeoef@gmail.com>, The Georust Developers <mods@georust.org> |
 | cargo | rstest | 0.26.1 | MIT OR Apache-2.0 | Michele d'Amico <michele.damico@gmail.com> |
 | cargo | rstest_macros | 0.26.1 | MIT OR Apache-2.0 | Michele d'Amico <michele.damico@gmail.com> |
 | cargo | rtoolbox | 0.0.6 | Apache-2.0 | Conrad Kleinespel <conradk@conradk.com> |
-| cargo | rusqlite | 0.37.0 | MIT | The rusqlite developers |
 | cargo | rusqlite | 0.41.1 | MIT | The rusqlite developers |
 | cargo | russh-cryptovec | 0.62.0 | Apache-2.0 | Pierre-Étienne Meunier <pe@pijul.org>, Eugeny <e@ajenti.org |
 | cargo | russh-sftp | 2.1.1 | Apache-2.0 |  |
@@ -893,6 +891,7 @@ apps/desktop/Cargo.lock: e6f874888157d78305f8de3aee112cf3a18f1701a44eb1afe51bd95
 | cargo | spm_precompiled | 0.1.4 | Apache-2.0 | Nicolas Patry <patry.nicolas@protonmail.com> |
 | cargo | sponge-cursor | 0.1.0 | MIT OR Apache-2.0 | RustCrypto Developers |
 | cargo | sqlite-wasm-rs | 0.5.5 | MIT | Spxg <unsafe@outlook.es> |
+| cargo | sqlite-wasm-rs | 0.6.3 | MIT | Spxg <noz@live.com> |
 | cargo | sqlparser | 0.59.0 | Apache-2.0 | Apache DataFusion <dev@datafusion.apache.org> |
 | cargo | sqlparser_derive | 0.3.0 | Apache-2.0 | sqlparser-rs authors |
 | cargo | ssh-cipher | 0.3.0 | Apache-2.0 OR MIT | RustCrypto Developers |
