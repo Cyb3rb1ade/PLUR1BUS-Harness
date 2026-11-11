@@ -148,6 +148,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,
@@ -803,6 +804,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,
@@ -1458,6 +1460,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,
@@ -2113,6 +2116,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,
@@ -2768,6 +2772,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,
@@ -3423,6 +3428,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,
@@ -4078,6 +4084,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,
@@ -4733,6 +4740,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,
@@ -5388,6 +5396,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,
@@ -6043,6 +6052,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,
@@ -6698,6 +6708,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,
@@ -7353,6 +7364,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,
@@ -8008,6 +8020,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,
@@ -8663,6 +8676,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,
@@ -9318,6 +9332,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,
@@ -9973,6 +9988,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,
@@ -10628,6 +10644,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,
@@ -11283,6 +11300,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,
@@ -11938,6 +11956,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,
@@ -12593,6 +12612,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,
@@ -13248,6 +13268,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,
@@ -13903,6 +13924,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,
@@ -14558,6 +14580,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,
@@ -15213,6 +15236,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,
@@ -15868,6 +15892,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,
@@ -16523,6 +16548,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,
@@ -17178,6 +17204,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,
@@ -17833,6 +17860,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,
@@ -18488,6 +18516,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,
@@ -19143,6 +19172,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,
@@ -19795,6 +19825,7 @@
       "core": {
         "webHandoffBaseUrl": "",
         "logLevel": "info",
+        "impl": "ts",
         "recall": {
           "softBudgetMs": 400,
           "hardBudgetMs": 600,

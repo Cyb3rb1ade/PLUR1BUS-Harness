@@ -470,7 +470,8 @@ impl Peer {
 
     /// [`Peer::terminate`] for the adopted core of a [`Monitor`](super::child::Monitor): SIGTERM to the core's process
     /// group when it leads one, so what the core started gets it too. Only for a process known to be a harness core
-    /// (the pid may be a foreign process in `terminate_found` and `1staid repair`, which keep [`Peer::terminate`]).
+    /// (the pid may be a foreign process in `terminate_found`, which keeps [`Peer::terminate`]). `1staid repair` uses it
+    /// for a core its pid file pins with the planned instance (P4-10 security review M4: like the supervisor).
     #[cfg(unix)]
     pub fn terminate_tree(&self) -> bool {
         self.signal(libc::SIGTERM, true)
@@ -505,6 +506,60 @@ impl Peer {
             self.kill()
         }
     }
+}
+
+/// Phase 4 (P4-10 security review M4): the legacy TypeScript core behind the Rust front door `front_door`, pinned so it
+/// can be killed with it. On Linux and Windows the OS ends it with its front door (parent-death signal, job object);
+/// macOS has no such binding, and a hung legacy core would outlive a killed front door, holding `run/core-legacy.lock`.
+/// It counts only when `run/core.pid` names `front_door` with an instance, `run/core-legacy.pid` names a process with
+/// that same instance, and, where the OS reports parents (Linux, macOS), that process is `front_door`'s child. Call it
+/// while the front door still lives: once it is gone, its child has another parent. Pinned like a core
+/// ([`Peer::open_at`], the pin on its own `core-legacy` address).
+///
+/// Windows keeps no live parent link (re-review M-b): there the pinned process must name `front_door` as its creator
+/// (Toolhelp32) and be younger than it ([`plur1bus_rpc::process::is_child_of`]), or the record is stale (its legacy core
+/// died and Windows may have given its pid to another process of the user). Such a record is removed and logged and
+/// nothing is killed; the job object, which kills on close, ends the real legacy core with its front door.
+pub fn legacy_core_of(layout: &Layout, front_door: u32) -> Option<Peer> {
+    let record = |name: &str| -> Option<(u32, String)> {
+        let text = std::fs::read_to_string(layout.run().join(name)).ok()?;
+        let mut fields = text.split_whitespace();
+        let pid = fields.next()?.parse().ok()?;
+        Some((pid, fields.next()?.to_lowercase()))
+    };
+    let (core, instance) = record("core.pid")?;
+    let (legacy, legacy_instance) = record("core-legacy.pid")?;
+    if core != front_door || legacy_instance != instance || legacy == front_door || legacy == 0 {
+        return None;
+    }
+    if cfg!(unix) && plur1bus_rpc::process::parent_pid(legacy) != Some(front_door) {
+        return None;
+    }
+    let platform = if cfg!(windows) { "windows" } else { "posix" };
+    let peer = Peer::open_at(
+        legacy,
+        crate::paths::address(&layout.home, platform, "core-legacy"),
+    );
+    // Read while the peer's handle pins `legacy`, so both reads are of the process a later TerminateProcess would end.
+    #[cfg(windows)]
+    {
+        use plur1bus_rpc::process::{is_child_of, origin};
+        let bound = !peer.pin_failed()
+            && origin(front_door)
+                .zip(origin(legacy))
+                .is_some_and(|(door, child)| is_child_of(child, front_door, door.created));
+        if !bound {
+            let path = layout.run().join("core-legacy.pid");
+            if record("core-legacy.pid").is_some_and(|(pid, _)| pid == legacy) {
+                let _ = std::fs::remove_file(&path);
+            }
+            eprintln!(
+                "plur1bus: run/core-legacy.pid names pid {legacy}, which is not the child of the front door {front_door}; not killed, the record is removed"
+            );
+            return None;
+        }
+    }
+    Some(peer)
 }
 
 /// `kill(-pid, sig)`: `sig` to the process group that `pid` leads, which for a core is the group the supervisor made it

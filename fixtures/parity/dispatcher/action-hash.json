@@ -1,0 +1,122 @@
+{
+  "cases": [
+    {
+      "actionHash": "050f1c7c8132a3f17140fdd29899982d70fdeb51c24d2e39536f92d0c780ab6b",
+      "argsJson": "{\"q\":\"a\"}",
+      "capability": "net.submit",
+      "hashInput": "{\"args\":{\"q\":\"a\"},\"capability\":\"net.submit\",\"targets\":[],\"tool\":\"demo.net\"}",
+      "name": "plain",
+      "tool": "demo.net"
+    },
+    {
+      "actionHash": "75c2af36d3e933a28f50466d4013a1b8e6228a8c628c5de481b3ed7a9efc6e9d",
+      "argsJson": "{}",
+      "capability": "net.submit",
+      "hashInput": "{\"args\":{},\"capability\":\"net.submit\",\"targets\":[],\"tool\":\"demo.net\"}",
+      "name": "empty-args",
+      "tool": "demo.net"
+    },
+    {
+      "actionHash": "bdbbae82155bd1d23e5db916f91326a2b59b7ddc943764c4b33f5d92b31fe3f2",
+      "argsJson": "{\"q\":1,\"z\":2}",
+      "capability": "net.submit",
+      "hashInput": "{\"args\":{\"q\":1,\"z\":2},\"capability\":\"net.submit\",\"targets\":[],\"tool\":\"demo.net\"}",
+      "name": "args-key-order-a",
+      "tool": "demo.net"
+    },
+    {
+      "actionHash": "bdbbae82155bd1d23e5db916f91326a2b59b7ddc943764c4b33f5d92b31fe3f2",
+      "argsJson": "{\"z\":2,\"q\":1}",
+      "capability": "net.submit",
+      "hashInput": "{\"args\":{\"q\":1,\"z\":2},\"capability\":\"net.submit\",\"targets\":[],\"tool\":\"demo.net\"}",
+      "name": "args-key-order-b",
+      "tool": "demo.net"
+    },
+    {
+      "actionHash": "6e3bd41c7604eb36c6810be808081fddb3c8faad22e1fc941a0d8cea34fb7068",
+      "argsJson": "{\"q\":2,\"z\":2}",
+      "capability": "net.submit",
+      "hashInput": "{\"args\":{\"q\":2,\"z\":2},\"capability\":\"net.submit\",\"targets\":[],\"tool\":\"demo.net\"}",
+      "name": "args-value-differs",
+      "tool": "demo.net"
+    },
+    {
+      "actionHash": "83929f1673d807d6bb1020dcb8cd4773e53cd7ddd7578baa33392cdb4ab1db39",
+      "argsJson": "{\"q\":\"a\"}",
+      "capability": "net.submit",
+      "hashInput": "{\"args\":{\"q\":\"a\"},\"capability\":\"net.submit\",\"targets\":[],\"tool\":\"demo.other\"}",
+      "name": "tool-name-differs",
+      "tool": "demo.other"
+    },
+    {
+      "actionHash": "01729e129b735ee4d7253ffae59d8ca8ca7bead1d8db6217ba973bcea6f9c823",
+      "argsJson": "{\"q\":\"a\"}",
+      "capability": "net.submit",
+      "hashInput": "{\"args\":{\"q\":\"a\"},\"capability\":\"net.submit\",\"targets\":[\"/work/a\",\"/work/b\"],\"tool\":\"demo.net\"}",
+      "name": "with-targets",
+      "targets": [
+        "/work/a",
+        "/work/b"
+      ],
+      "tool": "demo.net"
+    },
+    {
+      "actionHash": "661bde9a6bb56f7bd262affeb13d5cd1db68bc7fdcb998b180b7cbc67f5ece66",
+      "argsJson": "{\"q\":\"a\"}",
+      "capability": "net.submit",
+      "hashInput": "{\"args\":{\"q\":\"a\"},\"capability\":\"net.submit\",\"targets\":[\"/work/b\",\"/work/a\"],\"tool\":\"demo.net\"}",
+      "name": "targets-order-differs",
+      "targets": [
+        "/work/b",
+        "/work/a"
+      ],
+      "tool": "demo.net"
+    },
+    {
+      "actionHash": "050f1c7c8132a3f17140fdd29899982d70fdeb51c24d2e39536f92d0c780ab6b",
+      "argsJson": "{\"q\":\"a\"}",
+      "capability": "net.submit",
+      "hashInput": "{\"args\":{\"q\":\"a\"},\"capability\":\"net.submit\",\"targets\":[],\"tool\":\"demo.net\"}",
+      "name": "empty-targets",
+      "targets": [],
+      "tool": "demo.net"
+    },
+    {
+      "actionHash": "82aa2c5432d3f0327a331754d7d5f4ed6428cebdd9fb227e4ccf2364dc36e79b",
+      "argsJson": "{\"q\":\"a\"}",
+      "capability": "net.submit",
+      "hashExtra": "env:v1:0123",
+      "hashInput": "{\"args\":{\"q\":\"a\"},\"capability\":\"net.submit\",\"hashExtra\":\"env:v1:0123\",\"targets\":[],\"tool\":\"demo.net\"}",
+      "name": "with-hash-extra",
+      "tool": "demo.net"
+    },
+    {
+      "actionHash": "bad71b25285a81c249435e595b25a89976bb6fe55a19c1bc0e3aa682800e7f7c",
+      "argsJson": "{\"o\":{\"y\":[1,{\"b\":2,\"a\":1}],\"x\":null},\"s\":\"t\"}",
+      "capability": "net.submit",
+      "hashInput": "{\"args\":{\"o\":{\"x\":null,\"y\":[1,{\"a\":1,\"b\":2}]},\"s\":\"t\"},\"capability\":\"net.submit\",\"targets\":[],\"tool\":\"demo.net\"}",
+      "name": "nested-args",
+      "tool": "demo.net"
+    },
+    {
+      "actionHash": "7ecf78c7f15902bf422d9bdad4e0e3fe45ea7e39ecc0575e7c7431368eba58ab",
+      "argsJson": "{\"\\uFF5E\":\"é\",\"\\ud83d\\ude00\":\"日本語\"}",
+      "capability": "net.submit",
+      "hashInput": "{\"args\":{\"😀\":\"日本語\",\"～\":\"é\"},\"capability\":\"net.submit\",\"targets\":[],\"tool\":\"demo.net\"}",
+      "name": "unicode-args",
+      "tool": "demo.net"
+    },
+    {
+      "actionHash": "aa09ca2e3d8d49691cd8e80cf1288ea80a8b1645d569998eb2dcc2156099416e",
+      "argsJson": "{\"a\":1e21,\"b\":0.30000000000000004,\"c\":-0,\"d\":9007199254740993}",
+      "capability": "net.submit",
+      "hashInput": "{\"args\":{\"a\":1e+21,\"b\":0.30000000000000004,\"c\":0,\"d\":9007199254740992},\"capability\":\"net.submit\",\"targets\":[],\"tool\":\"demo.net\"}",
+      "name": "number-forms",
+      "tool": "demo.net"
+    }
+  ],
+  "exporter": "scripts/parity/export-dispatcher.ts",
+  "hash": "sha256 over canonicalJson({capability, tool, args, targets, hashExtra?}), lower-case hex; targets is [] when absent",
+  "schema": "plur1bus.parity-vectors/1",
+  "source": "packages/core/src/tools/dispatcher.ts#ToolDispatcher.#buildCall"
+}

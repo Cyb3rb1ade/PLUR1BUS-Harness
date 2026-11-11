@@ -30,13 +30,15 @@ invalid manifest fails the plan; unknown paths and empty diffs select the full s
 | Shared RPC/config/log schemas or module API | Rust, TypeScript, browser, Python and documentation/hygiene |
 | `hosts/**` or `clients/python/**` | Python/Hermes, WSL and documentation/hygiene |
 | `packages/documents/**` | TypeScript/runtime checks plus golden rendering |
+| `crates/plur1bus-{core,audit,tools,rpc}/**`, `crates/plur1bus/src/supervisor/**`, `crates/plur1bus/src/commands/core.rs`, `crates/plur1bus/src/repair/**`, `packages/module-api/**`, and the front door's TypeScript seam in `packages/core` (`src/core.ts`, `src/bin.ts`, `src/lock.ts`, `test/core-front-door.test.ts`, `test/bin-entry.test.ts`) | Additionally the Rust front door's Windows leg `front-door-windows` (output `front-door`, P4-10 ruling A1) |
 | Engine pin, any Cargo lock, pnpm lock, workflow or unknown path | Full suite |
 
 The reader lists live in `TEST_READ` in `scripts/ci/changes.mjs`. Accepted gap: `error_codes_sync.rs` scans every other
 `docs/**/*.md` (except `docs/superpowers` and `docs/handoff`) for error-code words, so a documentation-only pull request
 that names an unknown code passes `ci-gate` and fails the Rust suite on the next push to `main`, which runs everything.
 
-The category outputs are `rust`, `ts-core`, `web`, `python`, `docs-only`, `workflows`, `engine-pin` and `documents`.
+The category outputs are `rust`, `ts-core`, `web`, `python`, `docs-only`, `workflows`, `engine-pin`, `documents` and
+`front-door`.
 The existing macOS label/path policy still selects the platform legs *within* each affected suite; it cannot turn a
 failed classifier into a successful skip. Main pushes, scheduled nightly and manual CI runs select all suites.
 `merge_group.checks_requested` starts the same workflow and selects all suites, including the full macOS policy and
@@ -55,7 +57,8 @@ retain their existing path rules. Their checks are not folded into this workflow
 `ci-gate` is THE gate of `ci.yml`: the one check to wait for (and, once branch protection is configured, the one to
 require). It runs with `always()` after the required reliable jobs: `docs-hygiene`, `unit` (the
 `unit (ubuntu-24.04)` leg), P5 `core-unit-shard` and `core-unit` when TypeScript is selected, `wsl` and `web-browser` (itself the aggregate over `web-browser-build` and the four shards, and
-the exact-partition check). It requires `changes` to succeed and all category outputs to be literal `true` or `false`.
+the exact-partition check), and `front-door-windows` when the `front-door` paths changed (P4-10 ruling A1: the Rust front
+door's Windows code runs nowhere else; when its paths did not change it is skipped, which the gate accepts). It requires `changes` to succeed and all category outputs to be literal `true` or `false`.
 Every selected required job must report `success`; `failure`, `cancelled`, `skipped`, an absent result or an unknown job in
 `needs` fail the gate. An unselected job may be `skipped` or may have succeeded, but never failed or cancelled. The gate
 reports even when the plan selected nothing, which is why a skipped `unit` matrix (never reports `unit (ubuntu-24.04)`)
@@ -69,7 +72,7 @@ Actions concurrency change below it only runs under the full-platform policy), t
 `core-unit-shard-windows` (`core unit shard i/3 (windows-2025)`) and their partition check `core-unit-windows`, which
 follow the same policy,
 `python-host` (including the experimental `windows-11-arm` leg), `system`, `service`, `sandbox`, `release-scripts`,
-`documents-golden`, `host-tool-eval` (the deterministic host tool/policy scenarios of D106 P4, fake OS ports, no live model), the build and shards of the browser suite (their verdict is in `web-browser`) and the advisory
+`documents-golden`, `host-tool-eval` (the deterministic host tool/policy scenarios of D106 P4, fake OS ports, no live model), `core-parity` (P4-02: the TS-core transcript self-test in `tests/core-parity/` and the `scripts/parity/module-map.mjs --check` freshness check; runs when the TS core changes and stays out of the gate; P4-10 ruling A3: on the nightly schedule and on manual runs it also builds `core.js` and the `plur1bus-core` release binary and runs the front door's parity acceptance `tests/core-parity/p4-10-parity.ts --g1 --floor`, about 25 minutes, with its JSON report as the `p4-10-parity` artifact, never on a pull request; the freshness check is deliberately not part of `docs:check`, and `MODULE-MAP.md` carries no line counts, so it changes only when a file is added, removed or renamed or a rule changes), the build and shards of the browser suite (their verdict is in `web-browser`) and the advisory
 `perf-startup` and `perf-budgets` jobs. They still run for their selected suites and show up as checks; a red one is a
 reason to look, not an automatic block. To promote a job, add it to `selections` in `scripts/ci/gate.mjs`, to the gate's
 `needs` and remove it from `UNGATED`; the workflow contract test fails until all three agree. Other workflows
@@ -253,6 +256,32 @@ The separate [K2a plan](superpowers/plans/2026-11-01-k2a-native-card-worktrees.m
 requirements, including trusted assignment, exec-only scope, mandatory Linux task limits and large-repository alias checks.
 See [the B1 operator instructions](turn-eval.md#b1-coding-benchmark) for prerequisites, runtime limits, capture and pairing.
 
+## Phase 4 freeze (D129)
+
+The TypeScript core is frozen while it moves to Rust (D129, D131, ADR-019): no fixes and no features in `packages/*/src/`
+except `packages/web` (the UI; `apps/desktop/ui` is not under `packages/` and is unaffected). The frozen set is every
+`packages/*` directory minus `web`, read from the file system, so a new package is frozen by default. `ci-gate` runs
+`scripts/ci/phase4-freeze.mjs` on pull requests (its checkout is `fetch-depth: 0`; the range is the event's
+`BASE_SHA..HEAD_SHA`, merge commits skipped). Each commit that changes a frozen `src/` file needs a trailer line:
+
+```text
+Phase4: seam <WP> | cut <WP> | vectors <WP> | running-work <TK|LP|RX|RY> | generated
+```
+
+`<WP>` is `P4-NN` with an optional letter, or `RE-NN` with an optional `/TN` task (`P4-10`, `P4-12a`, `RE-10/T3`).
+`seam` is the TypeScript side of a cut, `cut` deletes code, `vectors` is test-only exporters and recorders,
+`running-work` is the work D129 names as running (TK, LP, RX, RY) and `generated` is regenerated code after a schema
+change. A missing or malformed trailer fails the check and the output lists commit, files and the expected form.
+
+Exempt: commits authored before `2026-11-08T00:00:00Z` (the author date survives a rebase, so already open PRs keep
+passing), the `pnpm gen` outputs named in `GENERATED` in the script (today none lives under a frozen `src/`), and
+everything outside `packages/*/src/`. The guard runs on pull requests only: the merge queue does not re-check it, because
+a squash would drop the per-commit trailers. The workflow does have `merge_group` triggers (see "Merge queue: owner
+activation" above), but queue activation is still an owner decision and no queue is in use; if one is enabled, this
+guard does not run in it, for that reason. `running-work` covers the packages TK, LP, RX and RY that were assigned before
+or alongside Phase 4. `generated` alone is valid only when every changed frozen file is a generator output named in
+`GENERATED`; next to another valid value it adds nothing. Tests: `node --test scripts/ci/phase4-freeze.test.mjs`.
+
 ## Using it
 
 Add the `ci:macos` label to a PR to get the full platform matrix (macOS, and also the Windows and Windows ARM legs listed
@@ -268,6 +297,7 @@ so on) would stay pending on a PR that skips it; migrate to the aggregate `ci-ga
 | `unit` | Gated (ubuntu-24.04). Toolchain, fixture drift, lint, offline TypeScript tests outside Core, Rust fmt/clippy/tests |
 | `core-unit-shard`, `core-unit` | Gated. Three measured Ubuntu Core shards plus the exact-partition check; missing manifests, failure and cancellation block |
 | `unit-os` | Not gated; only under the full-platform policy. The same steps as `unit` on `macos-15` and `windows-2025`, check names `unit (macos-15)` and `unit (windows-2025)`: full offline TypeScript workspace tests on macOS, every package but Core on Windows |
+| `front-door-windows` | Gated when selected (output `front-door`; every full run). On `windows-2025`: the Rust tests of `plur1bus-core` (the whole `front_door` scenario binary), `plur1bus-audit`, `plur1bus-tools` and `plur1bus-rpc` (also `--features server`), the supervisor's core-slot spec, the `core` command and 1staid's legacy-core kill in `plur1bus`, and the TypeScript seam (`module-api` `front-door-link`, `core` `core-front-door` and `bin-entry`). Linux and macOS run the same tests in `unit` |
 | `core-unit-shard-windows`, `core-unit-windows` | Not gated; only under the full-platform policy. Core on `windows-2025` in the three measured Ubuntu shards (`core unit shard i/3 (windows-2025)`) plus their exact-partition check |
 | `web-browser-macos` | Not gated (since 2026-10-28). Runs for proceed + web + macos and reports its own check |
 | `web-browser` | Gated. Aggregate over `web-browser-build` and the four `web-browser shard i/4` jobs plus the exact-partition check |

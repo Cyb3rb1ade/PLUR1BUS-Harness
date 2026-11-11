@@ -120,7 +120,7 @@
         "rotation-target-exists",
         "lock-timeout"
       ],
-      "description": "Fixed refusal code emitted by audit_chain.rs; contains no record details."
+      "description": "Fixed refusal code emitted by the audit chain writer (crates/plur1bus-audit); contains no record details."
     }
   },
   "$defs": {

@@ -259,6 +259,14 @@ fn set_error_reply(id: &Value, e: SetError) -> Value {
             r["error"]["data"]["ids"] = json!({ "currentRevision": current });
             r
         }
+        SetError::CoreBinaryMissing(message) => error_reply(
+            id,
+            "E_CONFIG_INVALID",
+            &message,
+            Some("core-binary-missing"),
+            None,
+            None,
+        ),
         SetError::Unavailable => config_unavailable(id),
         SetError::Io(detail) => error_reply(
             id,

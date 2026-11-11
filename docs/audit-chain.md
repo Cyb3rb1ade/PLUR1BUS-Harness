@@ -225,7 +225,7 @@ Record `lastSeq` and `lastHash` from `plur1bus audit verify --json` somewhere th
 - **The chain** (append, `audit.verify`, rotation, torn tail, anchor) is written and tested in `packages/core` (`test/audit/`). The Rust
   CLI also writes the chain directly. Shared UTF-8/hash/CRLF/null-target vectors live in `tests/fixtures/audit-chain-v1.json`. A Rust test runs three Rust and three TypeScript child processes against one home, verifies all 180 records through the TypeScript verifier, then changes a line and checks the finding. This runs on the test host; local macOS execution is not native Windows/Linux evidence.
   The crash-window verdicts (heal one trailing line, refuse everything else) are vectors in `tests/fixtures/audit-chain-recovery-v1.json`, run by both writers
-  (`packages/core/test/audit/shared-recovery.test.ts`, `crates/plur1bus/src/audit_chain.rs`); a second Rust test lets the TypeScript verifier read what `audit reanchor` leaves behind.
+  (`packages/core/test/audit/shared-recovery.test.ts`, `crates/plur1bus-audit/src/chain.rs`, shared by the CLI and the Rust core since P4-03); a second Rust test lets the TypeScript verifier read what `audit reanchor` leaves behind.
 - **The two Rust appenders** that sit next to it, `logs/audit.log` (`crates/plur1bus/src/audit.rs`) and the offline memory journal
   (`src/journal.rs`), are tested for append-only writes (no earlier byte is rewritten), one physical line per entry whatever the content,
   eight concurrent writers without interleaved lines, private permissions, and a last line left torn by a crash: the next entry now starts

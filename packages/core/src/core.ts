@@ -31,14 +31,14 @@ import { createD111Events } from "./discovery/events-logger.ts";
 import { createPinnedClient, ScanError } from "./discovery/http.ts";
 import type { DiscoveryProviderDefinition } from "./discovery/real-adapters.ts";
 import { randomBytes, randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { hostname, userInfo } from "node:os";
 import type { Engine, EngineStatus, HostServices, ModelsStatus } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import { type HarnessConfig } from "@plur1bus/config-schema";
 import { createSecretRedaction } from "./secrets/redaction.ts";
 import { loadConfigDisclosurePolicy, watchConfigDisclosurePolicy } from "./config-disclosure.ts";
 import { logConfigWarnings } from "./config-warnings.ts";
-import { apiPrincipal, checkAdoptionNonce, createOrphanWatch, readRunToken, engineRunFiles, type OrphanWatch, type SecurePathOptions } from "@plur1bus/module-api";
+import { apiPrincipal, checkAdoptionNonce, createOrphanWatch, readRunToken, engineRunFiles, unitAddress, type OrphanWatch, type SecurePathOptions } from "@plur1bus/module-api";
 import { RPC_VERSION, SCHEMA, buildCapabilities, precompileMethods, type CoreStatusResult, type JobsStatus, type ProcessState } from "@plur1bus/rpc-schema";
 import { ActivityTracker } from "./activity.ts";
 import { ADMIN_METHODS } from "./admin-ops.ts";
@@ -209,6 +209,13 @@ export interface CoreOptions {
   lifeline?: NodeJS.ReadableStream;
   /** Called when the core has been orphaned for `supervisor.graceMs`, in place of calling stop() directly. */
   onOrphanGraceExpired?: () => void;
+  /** Phase 4 seam (P4-10, `--behind-front-door`): this core runs as core-legacy behind the Rust front door, which spawned it
+   *  and holds its `lifeline`. It listens on the `core-legacy` address, takes its credentials from the files the front door
+   *  wrote into run/ for it (core-legacy.credentials: the owner and API tokens; core-legacy.token, which every core.auth
+   *  must carry as `frontDoor`), holds run/core-legacy.lock instead of state/core.lock, writes only run/core-legacy.pid, stamps
+   *  engine-models.json with the front door's identity, and stops at once when the front door goes (no grace; nothing can
+   *  adopt it). `supervised`: the front door runs under the supervisor, so configuration comes from its `config.watch`. */
+  behindFrontDoor?: "supervised" | "standalone";
   /** B7 (H3B-R8): load the configuration from the supervisor's `config.watch` (falling back to config.json), and
    *  follow its `config.changed`. bin.ts sets it for `--lifeline stdin`; absent, the core reads config.json once. */
   supervisorConfig?: { attempts?: number; connectTimeoutMs?: number };
@@ -267,6 +274,25 @@ function projectJobs(jobs: EngineStatus["jobs"] | undefined): JobsStatus | null 
   };
 }
 
+/** P4-10: run/core-legacy.credentials, `{ core, api }`, which the front door wrote for this core alone before it spawned
+ *  it. The public run/core.token and run/api-delegation.token appear only once this core is ready, right before the front
+ *  door listens, as a TypeScript core writes them right before it listens. Never logged; an error names no value. */
+function frontDoorCredentials(text: string): { core: string; api: string } {
+  let v: unknown;
+  try { v = JSON.parse(text); } catch { v = undefined; }
+  const hex64 = (s: unknown): s is string => typeof s === "string" && /^[0-9a-f]{64}$/.test(s);
+  const c = v as { core?: unknown; api?: unknown } | undefined;
+  if (!c || !hex64(c.core) || !hex64(c.api)) throw new Error("run/core-legacy.credentials is not the front door's credentials file");
+  return { core: c.core, api: c.api };
+}
+
+/** P4-10: `<pid> <instanceId>` of run/core.pid, which the front door wrote before it spawned this core. */
+function frontDoorIdentity(corePid: string): { pid: number; instanceId: string } {
+  const [pid, instanceId] = readFileSync(corePid, "utf8").trim().split(/\s+/);
+  if (!/^[1-9][0-9]*$/.test(pid ?? "") || !instanceId) throw new Error("run/core.pid does not name the front door");
+  return { pid: Number(pid), instanceId };
+}
+
 /** The caller the CLI sends (crates/plur1bus/src/identity.rs: host name, OS user), so the recall-path warm-up reads
  *  as the CLI principal. */
 function cliCaller(): { channel: "cli"; accountId: string; userId: string } {
@@ -280,9 +306,20 @@ export function createCore(o: CoreOptions): Core {
   const l = layout(home); const clock = o.clock ?? Date.now;
   const importHold = createImportMaintenanceHold(process.env.PLUR1BUS_IMPORT_MAINTENANCE);
   const instanceId = o.instanceId ?? randomUUID();
-  const token = randomBytes(32).toString("hex");
-  const apiToken = randomBytes(32).toString("hex");
-  const address = coreAddress(home);
+  // P4-10 seam (`behindFrontDoor`): the front door owns run/core.token, run/api-delegation.token and run/core.pid; before it
+  // spawned this process it wrote run/core.pid, run/core-legacy.credentials and run/core-legacy.token, which this core
+  // reads; it serves on its own address.
+  const frontDoor = o.behindFrontDoor !== undefined;
+  const supervisedSpawn = frontDoor ? o.behindFrontDoor === "supervised" : o.lifeline !== undefined || o.supervisorConfig !== undefined;
+  const credentials = frontDoor ? frontDoorCredentials(readRunToken(home, path.join(l.run, "core-legacy.credentials"))) : undefined;
+  const token = credentials?.core ?? randomBytes(32).toString("hex");
+  const apiToken = credentials?.api ?? randomBytes(32).toString("hex");
+  const frontDoorToken = frontDoor ? readRunToken(home, path.join(l.run, "core-legacy.token")) : undefined;
+  const address = frontDoor ? unitAddress(home, "core-legacy") : coreAddress(home);
+  // Behind the front door the lock goes to run/: state/ is a data root (backups, restores, the import's target
+  // fingerprint), which knows only state/core.lock, the front door's.
+  const coreLockPath = frontDoor ? path.join(l.run, "core-legacy.lock") : l.coreLock;
+  const pidPath = frontDoor ? path.join(l.run, "core-legacy.pid") : l.corePid;
   const startedAt = clock();
   let activityCapacity = () => 1000;
   const activity = new ActivityTracker(clock, () => activityCapacity());
@@ -513,12 +550,12 @@ export function createCore(o: CoreOptions): Core {
     // exports nothing and deliberately falls back to the children's own securePath (plan H3b-b, Review Focus 5), so
     // the core must not assume the supervisor owns run/: supervised, it exits and the supervisor restarts it.
     if (!runSecured.applied && runSecured.reason === "acl-tool-unavailable") {
-      const supervised = o.lifeline !== undefined || o.supervisorConfig !== undefined;
+      const supervised = supervisedSpawn;
       const msg = "refusing to start: the access control list of run/ could not be restricted to this user (icacls failed or is blocked" + (supervised ? ", and the supervisor did not secure run/ either (no PLUR1BUS_RUN_ACL=inherited)" : "") + "), so the core would write its token into a directory that other accounts may read; fix icacls or use a private PLUR1BUS_HOME";
       log.error(msg, { run: l.run, supervised });
       throw new Error(msg);
     }
-    toolsService = new ToolsClient({ home: l.home, supervised: o.lifeline !== undefined || o.supervisorConfig !== undefined, orphanGraceMs: config.supervisor.graceMs });
+    toolsService = new ToolsClient({ home: l.home, supervised: supervisedSpawn, orphanGraceMs: config.supervisor.graceMs });
     platform.securePath(l.catalog, { mode: 0o700 });
     platform.securePath(l.systemJobs, { mode: 0o700 });
     const egress = createEgress({ config: () => cs.current().egress, now: clock, ...(o.discovery?.resolver ? { resolver: o.discovery.resolver } : {}) });
@@ -536,7 +573,8 @@ export function createCore(o: CoreOptions): Core {
       trace: (e) => log.debug("web.search", { provider: e.provider ?? "none", queryChars: e.queryChars, results: e.results ?? 0, ms: e.ms, ...(e.error ? { error: e.error } : {}) }),
     });
     orphans = createOrphanWatch({
-      graceMs: config.supervisor.graceMs, clock,
+      // P4-10: behind the front door the lifeline is the front door's, and nothing can adopt this core: no grace.
+      graceMs: frontDoor ? 0 : config.supervisor.graceMs, clock,
       onOrphaned: (since) => {
         // A lifeline lost while starting is applied once the core is ready; one lost while stopping is irrelevant.
         if (state.state !== "ready" && state.state !== "degraded") return;
@@ -561,6 +599,15 @@ export function createCore(o: CoreOptions): Core {
       log.warn("orphan grace expired, stopping", { graceMs: cfg().supervisor.graceMs });
       if (o.onOrphanGraceExpired) o.onOrphanGraceExpired(); else void stop();
     };
+    // P4-10 (security review M3): behind the front door, a lifeline lost before ready means the front door is gone and
+    // the kernel has freed its state/core.lock. This core then gives up its start at the next of these steps (before its
+    // lock, after the engine opened, before it listens) instead of finishing it: the start fails and cleans up like any
+    // failed start (bin.ts exits 1). A TypeScript core alone keeps the old rule (the grace is applied once it is ready).
+    const abandonIfFrontDoorGone = () => {
+      if (frontDoor && state.state === "starting" && orphans?.orphanedSince != null) {
+        throw new Error("the front door is gone (its lifeline ended before this core was ready): start abandoned");
+      }
+    };
     // Watched from the start (S4), so an adoption during the engine start replaces the spawner's stdin, never the reverse.
     if (o.lifeline) orphans.watchStream(o.lifeline);
     // Spec §6.1 live keys: applied as they arrive. `core.recall.*`, `core.capture.waitMs`, `core.shutdownBudgetMs` and
@@ -574,7 +621,7 @@ export function createCore(o: CoreOptions): Core {
       }
       if (next.core.logLevel !== prev.core.logLevel) log.setLevel(next.core.logLevel);
       if (next.logs.maxBytes !== prev.logs.maxBytes || next.logs.keep !== prev.logs.keep) log.setRotation({ maxBytes: next.logs.maxBytes, keep: next.logs.keep });
-      if (next.supervisor.graceMs !== prev.supervisor.graceMs) watchedOrphans.setGraceMs(next.supervisor.graceMs);
+      if (!frontDoor && next.supervisor.graceMs !== prev.supervisor.graceMs) watchedOrphans.setGraceMs(next.supervisor.graceMs);
       if (plan.changed.some((k) => k.startsWith("models.scan.") || k.startsWith("appleFm") || k === "providers" || k.startsWith("providers.") || k === "privacy" || k.startsWith("privacy."))) scanScheduler?.replan();
       // An agent that left the configuration loses its dream schedule at once (forgetAgent refuses one the registry still lists).
       for (const id of Object.keys(prev.agents)) if (!Object.hasOwn(next.agents, id)) forgetRemovedAgent(dreams?.scheduler, id, log);
@@ -584,7 +631,10 @@ export function createCore(o: CoreOptions): Core {
       log.debug("live keys applied", { keys: plan.restart.live });
     });
     try {
-      lock = acquireCoreLock(l.coreLock, instanceId);
+      abandonIfFrontDoorGone();
+      // P4-10 (security review M3): a core that is not behind the front door also takes run/core-legacy.lock, so it
+      // never starts beside a legacy core that outlived its front door (see acquireCoreLock).
+      lock = frontDoor ? acquireCoreLock(coreLockPath, instanceId) : acquireCoreLock(coreLockPath, instanceId, { legacy: path.join(l.run, "core-legacy.lock") });
       assertNoPendingMaintenance(l.home);
       // Under the supervisor the agents follow its configuration; on its own the core follows config.json's edits.
       // Decided per call (M7): a core that fell back to the file and later re-watched switches over, and back.
@@ -629,6 +679,7 @@ export function createCore(o: CoreOptions): Core {
         canMutateConfig: () => cs.source === "supervisor",
       });
       o.inspectHost?.(host);
+      abandonIfFrontDoorGone();
       // A backup restore left rows that may hold memories forgotten since: re-apply the committed tombstones before the engine
       // is built and before the socket listens, so before the first recall. Never throws; a gap leaves the marker and a warning.
       await reapplyTombstonesAfterRestore({ layout: l, baseDbPath: String(engineConfig.baseDbPath), logger, ...(o.tombstoneReapply ? { load: o.tombstoneReapply } : {}) });
@@ -637,6 +688,7 @@ export function createCore(o: CoreOptions): Core {
       const eng = lifecycleEngine(selectedEngine, lifecycle); engine = eng;
       assertEngineContract(eng);
       const es = await eng.status();
+      abandonIfFrontDoorGone();
       cacheEngineStatus(es);
       storeSchema = es.storeSchema;
       if (storeSchema.current !== null && storeSchema.current !== storeSchema.expected) {
@@ -1248,15 +1300,20 @@ export function createCore(o: CoreOptions): Core {
       server = createRpcServer({
         engineToken: () => { try { return readRunToken(l.home, engineRunFiles(l.home).token); } catch { return undefined; } },
         canReadAgent: async (ctx, agentId) => authorize(await resolvePrincipal(ctx, "events.subscribe", { agentId }), "agent.read", { kind: "agent", agentId }, { now: clock() }).effect === "allow",
-        address, token, apiToken, authorizeClient: hostClients.authorize, apiPrincipalOf: apiIdentity.forwarded, onApiAuthenticated: apiIdentity.authenticated, apiPersonOfConnection: async (connectionId, p) => { const who = apiIdentity.resolve({ requestId: "audience", connectionId, signal: shutdown.signal }); return who?.kind === "person" && who.userId === p.userId ? who.userId : null; }, personOfConnection: async connectionId => { const p = await resolvePrincipal({ requestId: "audience", connectionId, signal: shutdown.signal }, "events.subscribe", {}); return p?.kind === "person" ? p.userId : null; }, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
+        address, token, apiToken, ...(frontDoorToken !== undefined ? { frontDoorToken } : {}), authorizeClient: hostClients.authorize, apiPrincipalOf: apiIdentity.forwarded, onApiAuthenticated: apiIdentity.authenticated, apiPersonOfConnection: async (connectionId, p) => { const who = apiIdentity.resolve({ requestId: "audience", connectionId, signal: shutdown.signal }); return who?.kind === "person" && who.userId === p.userId ? who.userId : null; }, personOfConnection: async connectionId => { const p = await resolvePrincipal({ requestId: "audience", connectionId, signal: shutdown.signal }, "events.subscribe", {}); return p?.kind === "person" ? p.userId : null; }, hello: () => ({ contract: eng.contract, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities }), methods, logger,
         onConnectionClosed: (id) => { turnComposition?.codeSessions?.connectionClosed(id); apiIdentity.closed(id); orphans?.connectionClosed(id); void turnComposition?.voice.v3.connectionClosed(id); },
         onCall: (method, result) => metrics.rpcCall(method, result),
       });
 
+      abandonIfFrontDoorGone();
       wroteRunFiles = true;
-      writeFileSync(l.coreToken, token, { mode: 0o600 });
-      writeFileSync(path.join(l.run, "api-delegation.token"), apiToken, { mode: 0o600 });
-      platform.securePath(path.join(l.run, "api-delegation.token"));
+      if (!frontDoor) {
+        writeFileSync(l.coreToken, token, { mode: 0o600 });
+        writeFileSync(path.join(l.run, "api-delegation.token"), apiToken, { mode: 0o600 });
+        platform.securePath(path.join(l.run, "api-delegation.token"));
+      }
+      // P4-10: behind the front door, privacy.rs matches this file against run/core.pid, which names the front door.
+      const published = frontDoor ? frontDoorIdentity(l.corePid) : { pid: process.pid, instanceId };
       // A private, credential-free description of the bound endpoints lets Rust reject unsafe live transitions.
       const engineModelsPath = path.join(l.run, "engine-models.json");
       const endpoints = engineModelEndpoints(engineConfig as Record<string, unknown>).map(e => {
@@ -1264,10 +1321,11 @@ export function createCore(o: CoreOptions): Core {
         try { if (e.endpoint) endpoint = new URL(e.endpoint).origin; } catch { /* unknown is fail closed */ }
         return { role: e.role, endpoint };
       });
-      writeFileSync(engineModelsPath, JSON.stringify({ version: 1, pid: process.pid, instanceId, endpoints }), { mode: 0o600 });
+      writeFileSync(engineModelsPath, JSON.stringify({ version: 1, pid: published.pid, instanceId: published.instanceId, endpoints }), { mode: 0o600 });
       platform.securePath(engineModelsPath);
-      writeFileSync(l.corePid, `${process.pid} ${instanceId}\n`, { mode: 0o600 }); // S6
-      platform.securePath(l.coreToken); platform.securePath(l.corePid);
+      writeFileSync(pidPath, `${process.pid} ${instanceId}\n`, { mode: 0o600 }); // S6
+      if (!frontDoor) platform.securePath(l.coreToken);
+      platform.securePath(pidPath);
       toolsService.start();
       extensionSpawnSecrets = await startExtensionSpawnSecrets({ home: l.home, token, store: secretStore,
         definition: name => installedExtensionSecretDefinition(l.home, name) });
@@ -1362,7 +1420,7 @@ export function createCore(o: CoreOptions): Core {
       if (o.discovery?.scheduler !== false) backgroundScan.start();
       prepareDreams();
       if (o.dreams?.scheduler ?? o.testInternals === undefined) void dreams?.start().catch((err) => logger.error("dreaming scheduler failed to start", { err }));
-      logger.info("core ready", { instanceId, address, supervised: o.lifeline !== undefined });
+      logger.info("core ready", { instanceId, address, supervised: o.lifeline !== undefined, ...(frontDoor ? { behindFrontDoor: true } : {}) });
       void initialDoctorCheck?.().catch(() => {});
       const runUserJobs = () => { if (userJobs && !shutdown.signal.aborted) void userJobs.tick().catch(() => log.warn("recurring scheduler failed")); };
       userJobsTimer = setInterval(runUserJobs, 30_000); userJobsTimer.unref(); runUserJobs();
@@ -1442,7 +1500,8 @@ export function createCore(o: CoreOptions): Core {
       logger?.warn("adoption refused", { connectionId, tokenFile: check.tokenFile });
       throw new RpcError("E_UNAUTHORIZED", "adoption refused", { reason: "adopt-nonce" });
     }
-    orphans?.watchConnection(connectionId);
+    // P4-10: behind the front door the nonce and the caller's rights are checked here, but the lifeline is the front door's.
+    if (!frontDoor) orphans?.watchConnection(connectionId);
     logger?.info("adopted", { connectionId, state: state.state });
     // B7: the adopting supervisor may run another configuration than the one this core follows.
     void source?.resubscribe();
@@ -1451,7 +1510,9 @@ export function createCore(o: CoreOptions): Core {
 
   function removeRunFiles(): void {
     if (!wroteRunFiles) return; // a refused core never touches the running core's token and pid
-    rmSync(path.join(l.run, "engine-models.json"), { force: true }); rmSync(l.coreToken, { force: true }); rmSync(path.join(l.run, "api-delegation.token"), { force: true }); rmSync(l.corePid, { force: true }); wroteRunFiles = false;
+    rmSync(path.join(l.run, "engine-models.json"), { force: true }); rmSync(pidPath, { force: true });
+    if (!frontDoor) { rmSync(l.coreToken, { force: true }); rmSync(path.join(l.run, "api-delegation.token"), { force: true }); } // the front door's (P4-10)
+    wroteRunFiles = false;
   }
 
   /** Runs one shutdown step: a failure is logged and collected, never propagated. */

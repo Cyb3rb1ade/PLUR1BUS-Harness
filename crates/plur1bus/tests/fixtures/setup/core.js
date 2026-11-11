@@ -26,16 +26,19 @@
 // FAKE_CORE_WATCH_CONFIG=1: before listening, call config.watch on the supervisor (auth with run/supervisor.token) and
 // wait up to 10 s for its reply, like core.js under a supervisor (B7); event `config-watched` { revision } or
 // `config-watch-failed`. The connection stays open.
+// FAKE_CORE_IGNORE_SIGTERM=1: SIGTERM is caught and does nothing, as a hung Rust front door catches it and never gets to
+// its stop (re-review M-c): only a SIGKILL ends it.
 // Every event (started, listening, hung, shutdown, orphaned, adopted, exiting) is appended as one JSON line to $FAKE_CORE_EVENTS.
 // The lifeline (S4) is stdin with --lifeline stdin, then the connection of the last successful core.adopt (whose nonce
 // must equal run/supervisor.token, compared lower-cased). Losing the current lifeline reports `orphaned` and exits 0
 // after FAKE_CORE_GRACE_MS (default 1000) unless a core.adopt arrives first.
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 
 const { values } = parseArgs({
@@ -96,6 +99,7 @@ try {
 // closes the file (a second core would then get the lock). The exit handler keeps it reachable and releases it.
 globalThis.fakeCoreLock = lock;
 process.on("exit", () => { try { globalThis.fakeCoreLock.close(); } catch { /* already closed */ } });
+if (process.env.FAKE_CORE_IGNORE_SIGTERM === "1") process.on("SIGTERM", () => {});
 // Started with --expose-gc (the tests' hand-started cores): collect garbage often, so a lock that is only weakly
 // held is lost at once instead of whenever V8 gets to it.
 if (typeof globalThis.gc === "function") setInterval(() => globalThis.gc(), 50).unref();
@@ -364,6 +368,21 @@ function watchConfig() {
   });
 }
 
+// FAKE_CORE_LEGACY=1 (P4-10 security review M4): once it listens, this core plays a Rust front door and starts a hung
+// legacy core behind it (fake-legacy-hang.mjs) that serves the core-legacy address, records itself in
+// run/core-legacy.pid with this core's instance, and ignores SIGTERM, SIGINT and its lifeline; event `legacy`
+// { legacyPid } once that one listens. Not in a process group this core leads.
+function startLegacy() {
+  const legacyAddress = process.platform === "win32"
+    ? `\\\\.\\pipe\\plur1bus-${createHash("sha256").update(home.toLowerCase()).digest("hex").slice(0, 16)}-core-legacy`
+    : path.join(run, "core-legacy.sock");
+  const script = fileURLToPath(new URL("./fake-legacy-hang.mjs", import.meta.url));
+  const child = spawn(process.execPath, [script, legacyAddress, "--behind-front-door", "hang"], { stdio: ["pipe", "pipe", "inherit"] });
+  globalThis.fakeCoreLegacy = child;
+  writeFileSync(path.join(run, "core-legacy.pid"), `${child.pid} ${instanceId}\n`, { mode: 0o600 });
+  child.stdout.once("data", () => event("legacy", { legacyPid: child.pid }));
+}
+
 if (kind !== "no-listen" && internals && process.env.FAKE_CORE_WATCH_CONFIG === "1") await watchConfig();
 
 if (kind !== "no-listen") {
@@ -373,6 +392,7 @@ if (kind !== "no-listen") {
   const listen = () => server.listen(address, () => {
     event("listening");
     secureRunFiles();
+    if (process.env.FAKE_CORE_LEGACY === "1") startLegacy();
     // From the moment it reports ready: securing run/ takes a second or more on a Windows runner, and a core that
     // crashes before that is never ready (a test waiting for ready would see only crashes, then the give-up).
     if (kind === "crash-after") whenSecured(() => setTimeout(() => exit(1), Number(a)));

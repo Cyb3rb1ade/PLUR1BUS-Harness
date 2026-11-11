@@ -41,6 +41,7 @@ fn pair<P: DeserializeOwned + Serialize, R: DeserializeOwned + Serialize>(name: 
 fn method_fixture(name: &str, f: &Value) {
     use types::*;
     match name {
+        "bridge.hello" => pair::<BridgeHelloParams, BridgeHelloResult>(name, f),
         "team.get" => pair::<TeamGetParams, TeamGetResult>(name, f),
         "team.list" => pair::<TeamListParams, TeamListResult>(name, f),
         "team.create" => pair::<TeamCreateParams, TeamCreateResult>(name, f),
@@ -1073,7 +1074,7 @@ fn rpc_version_const_matches_the_schema() {
         plur1bus_rpc::RPC_VERSION,
         schema["x-rpc-version"].as_str().unwrap()
     );
-    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.24.0");
+    assert_eq!(plur1bus_rpc::RPC_VERSION, "1.25.0");
     assert!(schema["$id"]
         .as_str()
         .unwrap()

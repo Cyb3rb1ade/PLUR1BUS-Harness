@@ -20,7 +20,10 @@ const methods = (SCHEMA as any).$defs.methods as Record<string, MethodDef>;
 const coreMethods = Object.keys(methods).filter((n) => methods[n]!["x-server"] === "core").sort();
 const engineMethods = Object.keys(methods).filter((n) => methods[n]!["x-server"] === "engine").sort();
 const hostMethods = coreMethods.filter((n) => n.startsWith("host."));
-const SERVERS = ["core", "supervisor", "module", "engine", "tools"] as const;
+const bridgeMethods = Object.keys(methods).filter((n) => methods[n]!["x-server"] === "bridge").sort();
+// "bridge" (Phase 4, docs/phase4/bridge.md) is served by the Rust front door to the legacy core only: the front door checks the
+// connection's principal (core.auth with run/core-legacy.token), no RBAC role is involved, so it has no RPC_RULES entry.
+const SERVERS = ["core", "supervisor", "module", "engine", "tools", "bridge"] as const;
 const rbacDoc = readFileSync(new URL("../../../docs/rbac.md", import.meta.url), "utf8");
 const DOC_ROLES = ["owner", "admin", "operator", "member", "viewer"];
 
@@ -96,6 +99,12 @@ describe("matrix: inputs", () => {
       assert.ok(m.startsWith("tools."), `${m}: tools server namespace`);
       assert.ok(isForbiddenMethod(m), `${m}: Core-only native method`);
     }
+    assert.ok(bridgeMethods.includes("bridge.hello"), "bridge server methods are part of the matrix");
+    for (const m of bridgeMethods) {
+      assert.ok(m.startsWith("bridge.") || m.startsWith("legacy."), `${m}: bridge server namespace (docs/phase4/bridge.md)`);
+      assert.equal((methods[m] as Record<string, unknown>)["x-stability"], "experimental", `${m}: bridge methods are experimental`);
+      assert.ok(!RPC_RULES[m], `${m}: the bridge principal is checked by the front door, not by an RBAC rule`);
+    }
   });
   it("docs/rbac.md names the five roles", () => {
     for (const r of DOC_ROLES) assert.match(rbacDoc, new RegExp(`\\b${r}\\b`, "i"), r);
@@ -166,7 +175,7 @@ describe("B. every write method is forbidden in WebMCP or explicitly exposed", (
       assert.ok(isForbiddenMethod(m) || m in WRITE_EXPOSED, `${m}: write method exposed without a recorded reason`);
     });
   }
-  it("supervisor/module/engine methods and engine-only host methods are never offered, even with the engine feature and explicit include", () => {
+  it("supervisor/module/engine/tools/bridge methods and engine-only host methods are never offered, even with the engine feature and explicit include", () => {
     const all = Object.keys(methods);
     for (const server of SERVERS) {
       const caps = buildCapabilities(["engine"], server);

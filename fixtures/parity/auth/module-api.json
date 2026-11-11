@@ -1,0 +1,792 @@
+{
+  "adoption-nonce": [
+    {
+      "file": "@sup@",
+      "name": "exact",
+      "nonce": "@sup@",
+      "valid": true
+    },
+    {
+      "file": "@sup@",
+      "name": "upper-cased-nonce",
+      "nonce": "@SUP@",
+      "valid": true
+    },
+    {
+      "file": "@SUP@",
+      "name": "upper-cased-file",
+      "nonce": "@sup@",
+      "valid": true
+    },
+    {
+      "file": "@sup@\n",
+      "name": "file-with-newline",
+      "nonce": "@sup@",
+      "valid": true
+    },
+    {
+      "file": "  @sup@  \n",
+      "name": "file-with-spaces",
+      "nonce": "@sup@",
+      "valid": true
+    },
+    {
+      "file": "@sup@",
+      "name": "nonce-with-newline",
+      "nonce": "@sup@\n",
+      "valid": false
+    },
+    {
+      "file": "@sup@",
+      "name": "other-nonce",
+      "nonce": "@other@",
+      "valid": false
+    },
+    {
+      "file": "@sup@",
+      "name": "short-nonce",
+      "nonce": "abc",
+      "valid": false
+    },
+    {
+      "file": "@sup@",
+      "name": "empty-nonce",
+      "nonce": "",
+      "valid": false
+    },
+    {
+      "file": "@sup@",
+      "name": "non-ascii-nonce",
+      "nonce": "İ@sup@",
+      "valid": false
+    },
+    {
+      "file": null,
+      "name": "file-missing",
+      "nonce": "@sup@",
+      "valid": false
+    },
+    {
+      "file": "short",
+      "name": "file-malformed",
+      "nonce": "short",
+      "valid": false
+    },
+    {
+      "file": "",
+      "name": "file-empty",
+      "nonce": "",
+      "valid": false
+    }
+  ],
+  "api-delegation": [
+    {
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\"}",
+      "name": "minimal",
+      "valid": true
+    },
+    {
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"transport\":\"loopback\"}",
+      "name": "transport-loopback",
+      "valid": true
+    },
+    {
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"transport\":\"remote\"}",
+      "name": "transport-remote",
+      "valid": true
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"transport\":\"lan\"}",
+      "name": "transport-other",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"transport\":null}",
+      "name": "transport-null",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "apiToken": "none",
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\"}",
+      "name": "no-api-token-configured",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@other@\"}",
+      "name": "other-token",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@API@\"}",
+      "name": "upper-cased-token",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\"}",
+      "name": "token-missing",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":5}",
+      "name": "token-number",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-cli\",\"token\":\"@api@\"}",
+      "name": "client-id-other",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"token\":\"@api@\"}",
+      "name": "client-id-missing",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"scope\":\"all\"}",
+      "name": "extra-member",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "[{\"clientId\":\"harness-api\",\"token\":\"@api@\"}]",
+      "name": "array",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "null",
+      "name": "null",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "\"harness-api\"",
+      "name": "string",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\"}}",
+      "name": "principal-member",
+      "valid": true
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":null}",
+      "name": "principal-null",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":[{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\"}]}",
+      "name": "principal-array",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"bot-1\",\"kind\":\"agent\",\"role\":\"owner\"}}",
+      "name": "principal-agent-owner",
+      "valid": true
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"robot\",\"role\":\"member\"}}",
+      "name": "principal-kind-other",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"root\"}}",
+      "name": "principal-role-other",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\"}}",
+      "name": "principal-role-missing",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":[\"owner\"]}}",
+      "name": "principal-role-in-an-array",
+      "note": "P4D-8: module-api coerces role and kind with String(), so a one-element array passes; the Rust port refuses it",
+      "valid": true
+    },
+    {
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":[\"person\"],\"role\":\"member\"}}",
+      "name": "principal-kind-in-an-array",
+      "note": "P4D-8: module-api coerces role and kind with String(), so a one-element array passes; the Rust port refuses it",
+      "valid": true
+    },
+    {
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":[[\"admin\"]]}}",
+      "name": "principal-role-in-nested-arrays",
+      "note": "P4D-8: module-api coerces role and kind with String(), so a one-element array passes; the Rust port refuses it",
+      "valid": true
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":[\"owner\",\"admin\"]}}",
+      "name": "principal-role-two-element-array",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"isAdmin\":true}}",
+      "name": "principal-extra-member",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"-alice\",\"kind\":\"person\",\"role\":\"member\"}}",
+      "name": "user-id-leading-dash",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"person\",\"role\":\"member\"}}",
+      "name": "user-id-256",
+      "valid": true
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"kind\":\"person\",\"role\":\"member\"}}",
+      "name": "user-id-257",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"älice\",\"kind\":\"person\",\"role\":\"member\"}}",
+      "name": "user-id-non-ascii",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\\n\",\"kind\":\"person\",\"role\":\"member\"}}",
+      "name": "user-id-trailing-newline",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":7,\"kind\":\"person\",\"role\":\"member\"}}",
+      "name": "user-id-number",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"agentRights\":{\"bernd\":\"use\",\"ops-2\":\"manage\"}}}",
+      "name": "agent-rights",
+      "valid": true
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"agentRights\":{\"bernd\":\"own\"}}}",
+      "name": "agent-rights-value-other",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"agentRights\":{\"_bernd\":\"use\"}}}",
+      "name": "agent-rights-key-bad",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"agentRights\":[]}}",
+      "name": "agent-rights-array",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"projectRights\":{\"p1\":\"lead\",\"p2\":\"member\"}}}",
+      "name": "project-rights",
+      "valid": true
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"projectRights\":{\"p1\":\"owner\"}}}",
+      "name": "project-rights-value-other",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"tokenId\":\"tttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt\"}}",
+      "name": "token-id-128",
+      "valid": true
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"tokenId\":\"ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt\"}}",
+      "name": "token-id-129",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"tokenId\":\"t.1\"}}",
+      "name": "token-id-bad",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"tokenScopes\":[\"memory:read\",\"\"]}}",
+      "name": "token-scopes",
+      "valid": true
+    },
+    {
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"tokenScopes\":[\"😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀\"]}}",
+      "name": "token-scopes-256-units",
+      "valid": true
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"tokenScopes\":[\"😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀\"]}}",
+      "name": "token-scopes-258-units",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"tokenScopes\":[1]}}",
+      "name": "token-scopes-not-strings",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"tokenScopes\":\"memory:read\"}}",
+      "name": "token-scopes-not-an-array",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"binding\":{\"audience\":\"mcp\",\"agentId\":\"bernd\"}}}",
+      "name": "binding-mcp",
+      "valid": true
+    },
+    {
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"binding\":{\"audience\":\"a2a\",\"agentId\":\"bernd\",\"projectId\":\"p1\",\"system\":\"sys\",\"groups\":[\"g1\",\"g2\"],\"memory\":{\"recall\":{\"workspace\":true,\"user\":false,\"agentPrivate\":true,\"project\":false},\"filter\":[\"health\",\"credential\"],\"disclose\":\"never\",\"capture\":false}}}}",
+      "name": "binding-a2a-full",
+      "valid": true
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"binding\":{\"audience\":\"web\",\"agentId\":\"bernd\"}}}",
+      "name": "binding-audience-other",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"binding\":{\"audience\":\"mcp\",\"agentId\":\" bernd \"}}}",
+      "name": "binding-agent-id-padded",
+      "valid": true
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"binding\":{\"audience\":\"mcp\",\"agentId\":\"   \"}}}",
+      "name": "binding-agent-id-blank",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"binding\":{\"audience\":\"mcp\",\"agentId\":\" bernd　\"}}}",
+      "name": "binding-agent-id-nbsp-padded",
+      "valid": true
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"binding\":{\"audience\":\"mcp\",\"agentId\":\"ber\\u0007nd\"}}}",
+      "name": "binding-agent-id-control",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"binding\":{\"audience\":\"mcp\",\"agentId\":\"bernd\"}}}",
+      "name": "binding-agent-id-delete",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"binding\":{\"audience\":\"mcp\",\"agentId\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}}}",
+      "name": "binding-agent-id-128",
+      "valid": true
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"binding\":{\"audience\":\"mcp\",\"agentId\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}}}",
+      "name": "binding-agent-id-129",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"binding\":{\"audience\":\"mcp\",\"agentId\":\" bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb \"}}}",
+      "name": "binding-agent-id-129-padded-to-128",
+      "valid": true
+    },
+    {
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"binding\":{\"audience\":\"mcp\",\"agentId\":\"😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀\"}}}",
+      "name": "binding-agent-id-astral-64",
+      "valid": true
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"binding\":{\"audience\":\"mcp\",\"agentId\":\"😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀\"}}}",
+      "name": "binding-agent-id-astral-65",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"binding\":{\"audience\":\"mcp\"}}}",
+      "name": "binding-agent-id-missing",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"binding\":{\"audience\":\"mcp\",\"agentId\":\"bernd\",\"projectId\":\"\"}}}",
+      "name": "binding-project-id-blank",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"binding\":{\"audience\":\"mcp\",\"agentId\":\"bernd\",\"system\":3}}}",
+      "name": "binding-system-number",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"binding\":{\"audience\":\"mcp\",\"agentId\":\"bernd\",\"groups\":[\"ggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg\"]}}}",
+      "name": "binding-group-65",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"binding\":{\"audience\":\"mcp\",\"agentId\":\"bernd\",\"groups\":\"g1\"}}}",
+      "name": "binding-groups-not-an-array",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"binding\":{\"audience\":\"mcp\",\"agentId\":\"bernd\",\"scope\":\"x\"}}}",
+      "name": "binding-extra-member",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"binding\":[{\"audience\":\"mcp\",\"agentId\":\"bernd\"}]}}",
+      "name": "binding-array",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"binding\":{\"audience\":\"mcp\",\"agentId\":\"bernd\",\"memory\":{\"recall\":{\"user\":\"yes\"}}}}}",
+      "name": "binding-memory-recall-not-boolean",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"binding\":{\"audience\":\"mcp\",\"agentId\":\"bernd\",\"memory\":{\"recall\":{\"everything\":true}}}}}",
+      "name": "binding-memory-recall-unknown",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"binding\":{\"audience\":\"mcp\",\"agentId\":\"bernd\",\"memory\":{\"filter\":[\"secrets\"]}}}}",
+      "name": "binding-memory-filter-unknown",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"binding\":{\"audience\":\"mcp\",\"agentId\":\"bernd\",\"memory\":{\"filter\":[1]}}}}",
+      "name": "binding-memory-filter-not-strings",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"binding\":{\"audience\":\"mcp\",\"agentId\":\"bernd\",\"memory\":{\"disclose\":\"always\"}}}}",
+      "name": "binding-memory-disclose-other",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"binding\":{\"audience\":\"mcp\",\"agentId\":\"bernd\",\"memory\":{\"capture\":1}}}}",
+      "name": "binding-memory-capture-not-boolean",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"binding\":{\"audience\":\"mcp\",\"agentId\":\"bernd\",\"memory\":{\"retain\":true}}}}",
+      "name": "binding-memory-unknown",
+      "reason": "api-delegation",
+      "valid": false
+    },
+    {
+      "error": "E_UNAUTHORIZED",
+      "inputJson": "{\"clientId\":\"harness-api\",\"token\":\"@api@\",\"principal\":{\"userId\":\"alice\",\"kind\":\"person\",\"role\":\"member\",\"binding\":{\"audience\":\"mcp\",\"agentId\":\"bernd\",\"memory\":[]}}}",
+      "name": "binding-memory-array",
+      "reason": "api-delegation",
+      "valid": false
+    }
+  ],
+  "engine-delegation": [
+    {
+      "engineFile": "fresh",
+      "name": "both-tokens",
+      "paramsJson": "{\"token\":\"@engine@\",\"engine\":{\"clientId\":\"plur1bus-engine\",\"token\":\"@engine@\"}}",
+      "valid": true
+    },
+    {
+      "engineFile": "upper",
+      "name": "upper-cased-file-and-tokens",
+      "paramsJson": "{\"token\":\"@ENGINE@\",\"engine\":{\"clientId\":\"plur1bus-engine\",\"token\":\"@ENGINE@\"}}",
+      "valid": true
+    },
+    {
+      "engineFile": "fresh",
+      "error": "E_UNAUTHORIZED",
+      "name": "upper-cased-tokens-lower-file",
+      "paramsJson": "{\"token\":\"@ENGINE@\",\"engine\":{\"clientId\":\"plur1bus-engine\",\"token\":\"@ENGINE@\"}}",
+      "reason": "engine-delegation",
+      "valid": false
+    },
+    {
+      "engineFile": "fresh",
+      "error": "E_UNAUTHORIZED",
+      "name": "params-token-differs",
+      "paramsJson": "{\"token\":\"@other@\",\"engine\":{\"clientId\":\"plur1bus-engine\",\"token\":\"@engine@\"}}",
+      "reason": "engine-delegation",
+      "valid": false
+    },
+    {
+      "engineFile": "fresh",
+      "error": "E_UNAUTHORIZED",
+      "name": "engine-token-other",
+      "paramsJson": "{\"token\":\"@other@\",\"engine\":{\"clientId\":\"plur1bus-engine\",\"token\":\"@other@\"}}",
+      "reason": "engine-delegation",
+      "valid": false
+    },
+    {
+      "engineFile": "fresh",
+      "error": "E_UNAUTHORIZED",
+      "name": "client-id-other",
+      "paramsJson": "{\"token\":\"@engine@\",\"engine\":{\"clientId\":\"harness-api\",\"token\":\"@engine@\"}}",
+      "reason": "engine-delegation",
+      "valid": false
+    },
+    {
+      "engineFile": "fresh",
+      "error": "E_UNAUTHORIZED",
+      "name": "extra-member",
+      "paramsJson": "{\"token\":\"@engine@\",\"engine\":{\"clientId\":\"plur1bus-engine\",\"token\":\"@engine@\",\"role\":\"owner\"}}",
+      "reason": "engine-delegation",
+      "valid": false
+    },
+    {
+      "engineFile": "fresh",
+      "error": "E_UNAUTHORIZED",
+      "name": "engine-not-an-object",
+      "paramsJson": "{\"token\":\"@engine@\",\"engine\":\"@engine@\"}",
+      "reason": "engine-delegation",
+      "valid": false
+    },
+    {
+      "engineFile": "fresh",
+      "error": "E_UNAUTHORIZED",
+      "name": "engine-token-number",
+      "paramsJson": "{\"token\":\"@engine@\",\"engine\":{\"clientId\":\"plur1bus-engine\",\"token\":1}}",
+      "reason": "engine-delegation",
+      "valid": false
+    },
+    {
+      "engineFile": "missing",
+      "error": "E_UNAUTHORIZED",
+      "name": "file-missing",
+      "paramsJson": "{\"token\":\"@engine@\",\"engine\":{\"clientId\":\"plur1bus-engine\",\"token\":\"@engine@\"}}",
+      "reason": "engine-delegation",
+      "valid": false
+    },
+    {
+      "engineFile": "malformed",
+      "error": "E_UNAUTHORIZED",
+      "name": "file-malformed",
+      "paramsJson": "{\"token\":\"short\",\"engine\":{\"clientId\":\"plur1bus-engine\",\"token\":\"short\"}}",
+      "reason": "engine-delegation",
+      "valid": false
+    }
+  ],
+  "request-id": [
+    {
+      "idJson": "1",
+      "valid": true
+    },
+    {
+      "idJson": "-7",
+      "valid": true
+    },
+    {
+      "idJson": "0",
+      "valid": true
+    },
+    {
+      "idJson": "-0",
+      "valid": true
+    },
+    {
+      "idJson": "1.0",
+      "valid": true
+    },
+    {
+      "idJson": "1e3",
+      "valid": true
+    },
+    {
+      "idJson": "1E+2",
+      "valid": true
+    },
+    {
+      "idJson": "9007199254740993",
+      "valid": true
+    },
+    {
+      "idJson": "1e300",
+      "valid": true
+    },
+    {
+      "detail": "/id must be integer,string",
+      "echoed": "1.5",
+      "idJson": "1.5",
+      "valid": false
+    },
+    {
+      "detail": "/id must be integer,string",
+      "echoed": "-2.25",
+      "idJson": "-2.25",
+      "valid": false
+    },
+    {
+      "detail": "/id must be integer,string",
+      "echoed": "1e-7",
+      "idJson": "1e-7",
+      "valid": false
+    },
+    {
+      "detail": "/id must be integer,string",
+      "echoed": "null",
+      "idJson": "1e400",
+      "valid": false
+    },
+    {
+      "detail": "/id must be integer,string",
+      "echoed": "null",
+      "idJson": "-1e400",
+      "valid": false
+    },
+    {
+      "idJson": "\"a\"",
+      "valid": true
+    },
+    {
+      "idJson": "\"\"",
+      "valid": true
+    },
+    {
+      "idJson": "\"fd\"",
+      "valid": true
+    },
+    {
+      "detail": "/id must be integer,string",
+      "echoed": "null",
+      "idJson": "null",
+      "valid": false
+    },
+    {
+      "detail": "/id must be integer,string",
+      "echoed": "true",
+      "idJson": "true",
+      "valid": false
+    },
+    {
+      "detail": "/id must be integer,string",
+      "echoed": "false",
+      "idJson": "false",
+      "valid": false
+    },
+    {
+      "detail": "/id must be integer,string",
+      "echoed": "{}",
+      "idJson": "{}",
+      "valid": false
+    },
+    {
+      "detail": "/id must be integer,string",
+      "echoed": "{\"x\":1}",
+      "idJson": "{\"x\":1}",
+      "valid": false
+    },
+    {
+      "detail": "/id must be integer,string",
+      "echoed": "[]",
+      "idJson": "[]",
+      "valid": false
+    },
+    {
+      "detail": "/id must be integer,string",
+      "echoed": "[1]",
+      "idJson": "[1]",
+      "valid": false
+    },
+    {
+      "detail": "/id must be integer,string",
+      "echoed": "[\"a\"]",
+      "idJson": "[\"a\"]",
+      "valid": false
+    }
+  ]
+}

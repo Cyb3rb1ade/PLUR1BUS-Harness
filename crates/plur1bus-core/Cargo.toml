@@ -1,0 +1,56 @@
+[package]
+name = "plur1bus-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "The PLUR1BUS core in Rust (Phase 4, ADR-019): the front door on run/core.sock (P4-10), relaying to the legacy TypeScript core behind it."
+
+[lints]
+workspace = true
+
+[lib]
+name = "plur1bus_core"
+path = "src/lib.rs"
+
+[[bin]]
+name = "plur1bus-core"
+path = "src/main.rs"
+
+[dependencies]
+# `server`: the generated `CoreMethods` trait, its dispatcher and the pruned validators (P4-03).
+plur1bus-rpc = { path = "../plur1bus-rpc", features = ["server"] }
+clap.workspace = true
+sha2 = "0.10"
+# P4-03 review F1: the front door parses frames itself, so it needs JSON.parse's exact float rounding on its own
+# dependency edge, not only through feature unification with plur1bus-canon.
+serde_json = { workspace = true, features = ["float_roundtrip", "raw_value"] }
+# P4-10 security review M1/L3: the tolerant peek reads a frame's routing members with serde's `IgnoredAny` and `RawValue`
+# (`raw_value` is a feature of the serde_json already locked; serde is the workspace's), so a frame JSON.parse accepts but
+# serde_json would refuse (a lone surrogate escape, nesting deeper than 128) is still routed and relayed as written.
+serde.workspace = true
+# The validators `plur1bus_rpc::server::compile` returns (the version and features plur1bus-rpc's `server` feature locks).
+jsonschema = { version = "0.26", default-features = false }
+# P4-10: the core lock (state/core.lock, the TypeScript core's SQLite byte range) and create_private for run files.
+plur1bus-audit = { path = "../plur1bus-audit" }
+# P4-10: run/core.token and friends (32 random bytes), kept in zeroized memory; the instance id. Versions the CLI and the
+# tools service already lock.
+getrandom = "0.3"
+zeroize = "=1.9.0"
+uuid = { version = "1", features = ["v4"] }
+
+[target.'cfg(unix)'.dependencies]
+# SIGTERM/SIGINT take the stop path (the supervisor's own choice of crate and features).
+signal-hook = { version = "0.3", default-features = false, features = ["iterator"] }
+
+[dev-dependencies]
+tempfile.workspace = true
+# Mode W fake server (tests/support/): the engine's tokio, loopback sockets only.
+tokio = { version = "=1.53.3", features = ["rt-multi-thread", "net", "io-util"] }
+# The WebSocket handshake's Sec-WebSocket-Accept (RFC 6455: base64 of SHA-1); both versions are already locked.
+sha1 = "=0.11.0"
+base64 = "=0.22.1"
+
+# P4-10: the front door against a fake legacy core in this test binary (its `main` dispatches on the first argument).
+[[test]]
+name = "front_door"
+harness = false

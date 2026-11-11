@@ -351,11 +351,27 @@ pub fn terminate_hung(ctx: &Ctx, step: &Step) -> Result<Value, String> {
         }
     };
     let t0 = Instant::now();
+    // P4-10 security review M4: the core may be a Rust front door with a legacy core behind it, which can hang too and
+    // outlive it (macOS has no parent-death binding; a group signal does not reach it when the front door leads no
+    // group). It is looked up while the front door still lives (its parent then is the front door) and killed after it.
+    // The core's own signals go to its process group like the supervisor's ([`Peer::terminate_tree`]).
+    let core = role.kind == RoleKind::Core;
+    let legacy = core
+        .then(|| adopt::legacy_core_of(ctx.layout, pid))
+        .flatten();
+    let terminate = || {
+        #[cfg(unix)]
+        if core {
+            return peer.terminate_tree();
+        }
+        peer.terminate()
+    };
+    let kill = || if core { peer.kill_tree() } else { peer.kill() };
     let mut signal = "terminate";
-    let mut gone = peer.terminate() && wait_gone(&peer, TERM_GRACE);
+    let mut gone = terminate() && wait_gone(&peer, TERM_GRACE);
     if !gone {
         signal = "kill";
-        if !peer.kill() && peer.alive() {
+        if !kill() && peer.alive() {
             return Err(format!(
                 "pid {pid} still exists but no longer serves the {} address, so it cannot be verified and is not killed",
                 role.name
@@ -366,11 +382,38 @@ pub fn terminate_hung(ctx: &Ctx, step: &Step) -> Result<Value, String> {
     if !gone {
         return Err(format!("pid {pid} is still running after the kill"));
     }
+    let legacy = match legacy {
+        Some(legacy) => {
+            if legacy.alive() {
+                legacy.kill();
+            }
+            if !wait_gone(&legacy, KILL_WAIT) {
+                return Err(format!(
+                    "the legacy core (pid {}) behind pid {pid} is still running after the kill",
+                    legacy.pid
+                ));
+            }
+            remove_legacy_record(ctx.layout, legacy.pid);
+            json!({ "pid": legacy.pid })
+        }
+        None => Value::Null,
+    };
     let removed = remove_run_files(ctx.layout, &role, pid)?;
     Ok(json!({
         "role": d["role"], "name": name, "pid": pid, "instanceId": instance, "signal": signal,
-        "elapsedMs": t0.elapsed().as_millis() as u64, "removed": removed,
+        "elapsedMs": t0.elapsed().as_millis() as u64, "removed": removed, "legacy": legacy,
     }))
+}
+
+/// Removes `run/core-legacy.pid` when it still names the legacy core `pid` that was just killed.
+fn remove_legacy_record(layout: &Layout, pid: u32) {
+    let path = layout.run().join("core-legacy.pid");
+    let names = fs::read_to_string(&path).ok().is_some_and(|text| {
+        text.split_whitespace().next().and_then(|p| p.parse().ok()) == Some(pid)
+    });
+    if names {
+        let _ = remove_retrying(&path);
+    }
 }
 
 /// Removes `fs::remove_file(path)`, retrying a Windows sharing or lock violation (another process still closing its
@@ -393,7 +436,7 @@ fn remove_retrying(path: &Path) -> io::Result<bool> {
 }
 
 /// The unit's pid file, token and (unix) socket, when its pid file still names `pid` or is gone; nothing when another
-/// process has written it since.
+/// process has written it since. The core's include a legacy core's record, link token and socket (final review FR-M2).
 fn remove_run_files(layout: &Layout, role: &Role, pid: u32) -> Result<Vec<String>, String> {
     let ep = layout.endpoints(role, platform());
     if pid_file(&ep).is_some_and(|(p, _)| p != pid) {
@@ -403,13 +446,28 @@ fn remove_run_files(layout: &Layout, role: &Role, pid: u32) -> Result<Vec<String
     if role.kind == crate::supervisor::state::RoleKind::Tools {
         files.push(layout.run().join("tools-core.token"));
     }
+    let mut addresses = vec![ep.address.clone()];
+    if role.kind == RoleKind::Core {
+        // Final review FR-M2: what a legacy core behind a front door that died abruptly leaves (its record, its link token,
+        // its socket): no core of the home writes them again once it is back on `ts`, and a reused pid in the record would
+        // refuse the import as `target-running`.
+        files.push(layout.run().join("core-legacy.pid"));
+        files.push(layout.run().join("core-legacy.token"));
+        addresses.push(crate::paths::address(
+            &layout.home,
+            platform(),
+            "core-legacy",
+        ));
+    }
     if cfg!(unix) {
-        let socket = std::path::PathBuf::from(&ep.address);
-        // Only a socket file inside run/, and only while nothing accepts on it.
-        if socket.parent() == Some(layout.run().as_path())
-            && plur1bus_rpc::transport::connect(&ep.address, Duration::from_millis(300)).is_err()
-        {
-            files.push(socket);
+        for address in addresses {
+            let socket = std::path::PathBuf::from(&address);
+            // Only a socket file inside run/, and only while nothing accepts on it.
+            if socket.parent() == Some(layout.run().as_path())
+                && plur1bus_rpc::transport::connect(&address, Duration::from_millis(300)).is_err()
+            {
+                files.push(socket);
+            }
         }
     }
     let mut removed = Vec::new();
@@ -814,6 +872,11 @@ mod tests {
 
     impl HungCore {
         fn start() -> HungCore {
+            Self::start_with(false)
+        }
+
+        /// `legacy`: the hung core plays a Rust front door with a hung legacy core behind it (`FAKE_CORE_LEGACY`).
+        fn start_with(legacy: bool) -> HungCore {
             let dir = tempfile::tempdir().unwrap();
             let layout = Layout::new(dir.path().join("h"));
             fs::create_dir_all(&layout.home).unwrap();
@@ -826,6 +889,7 @@ mod tests {
                 .arg(&layout.home)
                 .env("FAKE_CORE_MODE", "hang-after:0")
                 .env("FAKE_CORE_EVENTS", &events)
+                .env("FAKE_CORE_LEGACY", if legacy { "1" } else { "0" })
                 .stdin(std::process::Stdio::null())
                 .stdout(std::process::Stdio::null())
                 .stderr(std::process::Stdio::null())
@@ -833,7 +897,9 @@ mod tests {
                 .unwrap();
             // Windows: an icacls child secures the run files after listen; wait for it, so nothing still holds one.
             let ready = |text: &str| {
-                text.contains("\"hung\"") && (!cfg!(windows) || text.contains("\"secured\""))
+                text.contains("\"hung\"")
+                    && (!cfg!(windows) || text.contains("\"secured\""))
+                    && (!legacy || text.contains("\"legacy\""))
             };
             let deadline = Instant::now() + Duration::from_secs(20);
             while !ready(&fs::read_to_string(&events).unwrap_or_default()) {
@@ -1166,6 +1232,116 @@ mod tests {
         assert!(!core.layout.run().join("core.pid").exists());
         let detail = plan.steps[0].detail.as_ref().unwrap();
         assert_eq!(detail["pid"], json!(core.child.id()));
+    }
+
+    /// Final review FR-M2: the core's run files include a legacy core's, so a home that goes back to `ts` after a front
+    /// door died abruptly keeps no stale `run/core-legacy.pid` (a reused pid there would refuse the import as
+    /// `target-running`): the record, the link token and, while nothing answers on it, the legacy socket go with the core.
+    #[test]
+    fn a_terminated_cores_run_files_include_a_legacy_cores_leftovers() {
+        let mut core = HungCore::start();
+        let run = core.layout.run();
+        let mut gone = std::process::Command::new(std::env::current_exe().unwrap())
+            .arg("--list")
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+        let dead = gone.id();
+        gone.wait().unwrap();
+        fs::write(
+            run.join("core-legacy.pid"),
+            format!("{dead} 5d0f6c1e-2b3a-4c5d-8e9f-0a1b2c3d4e5f\n"),
+        )
+        .unwrap();
+        fs::write(
+            run.join("core-legacy.token"),
+            "a dead legacy core's link token",
+        )
+        .unwrap();
+        #[cfg(unix)]
+        drop(std::os::unix::net::UnixListener::bind(run.join("core-legacy.sock")).unwrap()); // nothing answers on it
+        let runner = FakeRunner::new(core.layout.home.clone());
+        let ctx = Ctx::for_host(&core.layout, &runner);
+        let step =
+            hung_step(&Role::core(), inspect(&core.layout, &Role::core())).expect("a hung step");
+        let mut plan = Plan { steps: vec![step] };
+        let mut s = Script {
+            answers: vec![],
+            asked: vec![],
+        };
+        execute(&mut plan, &ctx, &mut s, true);
+        assert_eq!(
+            plan.steps[0].status,
+            StepStatus::Done,
+            "{:?}",
+            plan.steps[0]
+        );
+        let _ = core.child.wait();
+        let removed = &plan.steps[0].detail.as_ref().unwrap()["removed"];
+        for name in ["core-legacy.pid", "core-legacy.token"]
+            .into_iter()
+            .chain(cfg!(unix).then_some("core-legacy.sock"))
+        {
+            assert!(!run.join(name).exists(), "{name} is left");
+            assert!(
+                removed.as_array().unwrap().contains(&json!(name)),
+                "{name}: {removed}"
+            );
+        }
+    }
+
+    /// P4-10 security review M4: the hung core is a Rust front door whose legacy core (`run/core-legacy.pid`, the front
+    /// door's instance, its child) hangs as well, ignoring SIGTERM and its lifeline, in no process group the front door
+    /// leads. The repair kills it with the front door: no `--behind-front-door` process is left. Cross-platform.
+    #[test]
+    fn a_hung_front_doors_legacy_core_is_killed_with_it() {
+        let mut core = HungCore::start_with(true);
+        let recorded = fs::read_to_string(core.layout.run().join("core-legacy.pid")).unwrap();
+        let legacy: u32 = recorded.split_whitespace().next().unwrap().parse().unwrap();
+        let alive =
+            |pid| plur1bus_rpc::process::alive(pid) != plur1bus_rpc::process::Liveness::Gone;
+        assert!(alive(legacy));
+        let runner = FakeRunner::new(core.layout.home.clone());
+        let ctx = Ctx::for_host(&core.layout, &runner);
+        let step =
+            hung_step(&Role::core(), inspect(&core.layout, &Role::core())).expect("a hung step");
+        let mut plan = Plan { steps: vec![step] };
+        let mut s = Script {
+            answers: vec![],
+            asked: vec![],
+        };
+        execute(&mut plan, &ctx, &mut s, true);
+        let left = Instant::now() + Duration::from_secs(5);
+        while alive(legacy) {
+            if Instant::now() > left {
+                // Leave nothing behind for the next test, then fail.
+                #[cfg(unix)]
+                // SAFETY: the fixture's own hung legacy process, recorded by this test's fake core.
+                unsafe {
+                    libc::kill(legacy as libc::pid_t, libc::SIGKILL);
+                }
+                #[cfg(windows)]
+                let _ = std::process::Command::new("taskkill")
+                    .args(["/F", "/PID", &legacy.to_string()])
+                    .output();
+                panic!(
+                    "the legacy core {legacy} outlived its front door: {:?}",
+                    plan.steps[0]
+                );
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert_eq!(
+            plan.steps[0].status,
+            StepStatus::Done,
+            "{:?}",
+            plan.steps[0]
+        );
+        let _ = core.child.wait();
+        assert!(
+            !core.layout.run().join("core-legacy.pid").exists(),
+            "the legacy record goes with it"
+        );
     }
 
     #[test]

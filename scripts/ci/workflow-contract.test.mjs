@@ -186,7 +186,7 @@ test('unit-os preserves every unit step while Ubuntu and Windows run Core only i
     '      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0\n' +
     "        if: matrix.os == 'macos-15'\n" +
     '        with: { go-version: "1.27.1", cache: false }\n' +
-    '      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0\n' +
+    '      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0\n' +
     "        if: matrix.os == 'macos-15'\n" +
     '        with: { python-version: "3.13" }\n';
   assert.ok(stepsOf(jobs.unit).includes(rustToolchain));
@@ -457,4 +457,43 @@ test('native installation and served-stack acceptance carry the required CLI and
   assert.match(release, /cp "target\/\$TRIPLE\/release\/plur1bus-tools\$ext" "out\/plur1bus-tools-\$TARGET\$ext"/);
   assert.match(release, /for binary in out\/plur1bus-darwin-arm64 out\/plur1bus-tools-darwin-arm64; do/);
   assert.match(release, /name: signed-darwin-arm64\n\s+path: \|\n\s+out\/plur1bus-darwin-arm64\n\s+out\/plur1bus-tools-darwin-arm64/);
+});
+
+test('the front door Windows leg runs the front door suites on windows-2025 under its own selection (P4-10 A1)', () => {
+  const job = jobBlocks(workflow())['front-door-windows'];
+  assert.match(job, /^    runs-on: windows-2025$/m);
+  assert.match(job, /^    if: needs\.changes\.outputs\.proceed == 'true' && needs\.changes\.outputs\.front-door == 'true'$/m);
+  const steps = stepsOf(job);
+  assert.match(steps, /cargo test --locked --no-fail-fast -p plur1bus-core -p plur1bus-audit -p plur1bus-rpc\n/);
+  assert.match(steps, /cargo test --locked --no-fail-fast -p plur1bus-tools --lib --bins --test service\n/);
+  // The leg proves the front door: of plur1bus-tools only the service (lib, binary, `service`), never its TK team suites,
+  // which `unit` runs, so a failure there cannot stop the leg before its Windows proof. Every test step runs even when an
+  // earlier one failed (the job still fails then: it stays gating).
+  for (const line of steps.split('\n').filter(l => /cargo test /.test(l) && !/--no-run/.test(l) && /-p plur1bus-tools\b/.test(l))) {
+    assert.match(line, /-p plur1bus-tools --lib --bins --test service$/, line);
+  }
+  const testSteps = steps.split(/(?=^      - )/m).filter(step => /cargo test (?![^\n]*--no-run)|node "\$\{flags\[@\]\}"/.test(step));
+  assert.equal(testSteps.length, 5, 'core/audit/rpc, tools service, RPC server half, supervisor slot, TypeScript seam');
+  for (const step of testSteps) assert.match(step, /^        if: \$\{\{ !cancelled\(\) \}\}$/m, step);
+  assert.match(steps, /cargo test --locked -p plur1bus --bin plur1bus -- supervisor::child::tests::the_rust_core_spec_runs_the_front_door_with_the_lifeline_and_instance /);
+  for (const file of ['test/front-door-link.test.ts', 'test/core-front-door.test.ts', 'test/bin-entry.test.ts']) assert(steps.includes(file), file);
+  // A gate job must never run a test with the core binaries swapped (the core spec test returns early with them set).
+  assert.doesNotMatch(job, /PLUR1BUS_CORE_(?:JS|BIN)/);
+  for (const files of [['crates/plur1bus-core/src/lib.rs'], ['packages/module-api/src/rpc-server.ts'], ['packages/core/src/bin.ts']]) {
+    assert.equal(classify({ event: 'pull_request', files })['front-door'], true, String(files));
+  }
+  assert.equal(classify({ event: 'pull_request', files: ['packages/web/src/app.tsx'] })['front-door'], false);
+});
+
+test('the P4-10 parity run is advisory and nightly or manual only, never on a pull request (P4-10 A3)', () => {
+  const jobs = jobBlocks(workflow());
+  const job = jobs['core-parity'];
+  assert(UNGATED.includes('core-parity') && !/\bcore-parity\b/.test(/^    needs: \[([^\]]+)\]/m.exec(jobs['ci-gate'])[1]));
+  const steps = stepsOf(job).split(/(?=^      - )/m);
+  const parity = steps.filter(step => /p4-10-parity|plur1bus-core|P4-10 parity/.test(step));
+  assert(parity.some(step => step.includes('tests/core-parity/p4-10-parity.ts --g1 --floor')), 'the run itself');
+  for (const step of parity) {
+    assert.match(step, /^        if: (?:always\(\) && )?\(?github\.event_name == 'schedule' \|\| github\.event_name == 'workflow_dispatch'\)?$/m, step);
+  }
+  assert.doesNotMatch(job, /pull_request/);
 });

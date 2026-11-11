@@ -18,19 +18,31 @@ const TEST_READ = [
   [/^skills\//, ['rust', 'ts-core']], // bundled skills: skill_freshness.rs, setup tests, error_codes_sync.rs, tests/system/setup.test.ts
 ];
 const testRead = file => TEST_READ.find(([re]) => re.test(file))?.[1];
+// P4-10 ruling A1: what the Rust front door's Windows leg (`front-door-windows`) covers: the front door and the crates it is
+// built from, the supervisor that spawns it, module-api and the TypeScript seam it runs behind.
+const FRONT_DOOR = [
+  /^crates\/plur1bus-(?:core|audit|tools|rpc|config)\//,
+  /^crates\/plur1bus\/src\/supervisor\//,
+  /^crates\/plur1bus\/src\/(?:commands\/core\.rs|repair\/)/, // the core command and 1staid, which the Windows leg tests
+  /^crates\/plur1bus\/src\/paths\.rs$/, // the path rules the CLI and the front door share
+  /^crates\/plur1bus\/tests\/fixtures\/fake-(?:core|legacy-hang)\.mjs$/, // fakes the front door's tests start
+  /^packages\/module-api\//,
+  /^packages\/core\/(?:src\/(?:core|bin|lock)\.ts|test\/(?:core-front-door|bin-entry)\.test\.ts)$/,
+];
 const documentary = file => (file.startsWith('docs/') && !testRead(file)) ||
   /^(?:README|AGENTS|THIRD_PARTY|CONTRIBUTING|SECURITY|CHANGELOG|CODE_OF_CONDUCT|LICENSE|NOTICE)\.(?:md|markdown)$/i.test(file) ||
   /^(?:packages|modules)\/[^/]+\/(?:README|CHANGELOG)\.(?:md|markdown)$/i.test(file);
 
 export function classify({ event, files, enginePinChanged = false }) {
   if (!Array.isArray(files) || files.some(f => typeof f !== 'string')) throw new Error('files must be an array of paths');
-  const r = { rust: false, 'ts-core': false, web: false, python: false, 'docs-only': false,
+  const r = { rust: false, 'ts-core': false, web: false, python: false, 'docs-only': false, 'front-door': false,
     workflows: files.some(f => f.startsWith('.github/workflows/')), 'engine-pin': enginePinChanged, documents: false };
-  const all = () => { for (const k of ['rust', 'ts-core', 'web', 'python', 'documents']) r[k] = true; };
+  const all = () => { for (const k of ['rust', 'ts-core', 'web', 'python', 'documents', 'front-door']) r[k] = true; };
   if (event !== 'pull_request' || !files.length || enginePinChanged || r.workflows || files.some(f => f === 'Cargo.lock' || f.endsWith('/Cargo.lock'))) { all(); return r; }
   if (files.every(documentary)) { r['docs-only'] = true; return r; }
   for (const file of files) {
     if (documentary(file)) continue;
+    if (FRONT_DOOR.some(re => re.test(file))) r['front-door'] = true;
     const families = testRead(file);
     if (families) { for (const k of families) r[k] = true; continue; }
     if (/^packages\/(?:rpc-schema|config-schema|log-schema|module-api)\//.test(file)) {

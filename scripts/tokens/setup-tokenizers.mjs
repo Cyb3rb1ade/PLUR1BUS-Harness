@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 const LICENSES = new Set(["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "0BSD", "CC0-1.0"]);
 const HASH = /^[a-f0-9]{64}$/;
 const NAME = /^[a-z0-9][a-z0-9._-]*$/;
-const DEFAULT_MANIFEST = new URL("../../crates/plur1bus-engine/src/tokens/artifacts.json", import.meta.url);
+const DEFAULT_MANIFEST = new URL("../../crates/plur1bus-tokens/src/artifacts.json", import.meta.url);
 const EMBEDDING_MANIFEST = new URL("../../crates/plur1bus-engine/tests/fixtures/vectors/tokenizer-artifacts.json", import.meta.url);
 const NOTICE = new URL("./NOTICE", import.meta.url);
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");

@@ -69,7 +69,7 @@ ${Object.entries(schema.$defs.notifications).filter(([, d]) => d["x-stability"] 
 
 Everything else is experimental and may change in any minor release (ADR-016 §4).
 
-${["core", "supervisor", "module", "engine", "tools"].map(server => `### ${server} server\n\n${Object.entries(schema.$defs.methods).filter(([, d]) => d["x-server"] === server).map(([n, d]) => `- \`${n}\`: ${d["x-stability"]}, since ${d["x-since"]}${d["x-feature"] ? ` (feature ${d["x-feature"]})` : ""}`).join("\n")}`).join("\n\n")}
+${["core", "supervisor", "module", "engine", "tools", "bridge"].map(server => `### ${server} server\n\n${Object.entries(schema.$defs.methods).filter(([, d]) => d["x-server"] === server).map(([n, d]) => `- \`${n}\`: ${d["x-stability"]}, since ${d["x-since"]}${d["x-feature"] ? ` (feature ${d["x-feature"]})` : ""}`).join("\n")}`).join("\n\n")}
 
 ## Methods
 `;

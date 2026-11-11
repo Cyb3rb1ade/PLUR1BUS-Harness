@@ -37,6 +37,21 @@ describe("core lock", () => {
     assert.throws(() => acquireCoreLock(path, "i3"), (e: any) => e.error === "E_LOCKED", "b still holds the lock");
     b.release();
   });
+  it("a stock core is refused while a legacy core still holds run/core-legacy.lock, and leaves state/core.lock free (P4-10 security review M3)", async () => {
+    // A front door died abruptly: the kernel freed state/core.lock, the legacy core behind it still stops and writes.
+    const home = tempDir("p1b-lock-");
+    const state = join(home, "state", "core.lock"), legacy = join(home, "run", "core-legacy.lock");
+    const child = spawn(process.execPath, ["--experimental-strip-types", "--conditions=source", "--no-warnings", holder, legacy], { stdio: ["ignore", "pipe", "inherit"] });
+    await new Promise<void>((r) => child.stdout.once("data", () => r()));
+    try {
+      assert.throws(() => acquireCoreLock(state, "stock", { legacy }), (e: any) => e.error === "E_LOCKED" && e.reason === "core-lock-held" && /core-legacy\.lock/.test(e.detail));
+      const free = acquireCoreLock(state, "after"); free.release(); // the refusal released state/core.lock again
+    } finally { child.kill("SIGKILL"); await new Promise((r) => child.once("exit", r)); }
+    const both = acquireCoreLock(state, "stock", { legacy });
+    assert.throws(() => acquireCoreLock(state, "second"), (e: any) => e.error === "E_LOCKED");
+    both.release();
+    acquireCoreLock(legacy, "legacy").release(); // release() freed both
+  });
   it("a second acquire in the same process while held is E_LOCKED", () => {
     const path = join(tempDir("p1b-lock-"), "core.lock");
     const a = acquireCoreLock(path, "i1");

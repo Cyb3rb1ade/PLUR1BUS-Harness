@@ -32,6 +32,7 @@ jobs:
       proceed: ${{ steps.plan.outputs.proceed }}
       macos: ${{ steps.plan.outputs.macos }}
       python_matrix: ${{ steps.plan.outputs.python_matrix }}
+      front-door: ${{ steps.plan.outputs.front-door }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { fetch-depth: 0 }
@@ -123,7 +124,7 @@ jobs:
       - run: pnpm build
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with: { go-version: "1.27.1", cache: false }
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with: { python-version: "3.13" }
       - name: B1 coding checker selftest (24 tasks, three seeds, no model)
         if: runner.os == 'Linux'
@@ -199,7 +200,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ runner.temp }}/plur1bus-tokenizers
-          key: tokenizers-v1-${{ hashFiles('crates/plur1bus-engine/src/tokens/artifacts.json', 'scripts/tokens/tiktoken-to-json.mjs') }}
+          key: tokenizers-v1-${{ hashFiles('crates/plur1bus-tokens/src/artifacts.json', 'scripts/tokens/tiktoken-to-json.mjs') }}
       - name: install pinned tokenizer files
         if: ${{ !cancelled() && needs.changes.outputs.rust == 'true' }}
         run: node scripts/tokens/setup-tokenizers.mjs
@@ -283,7 +284,7 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         if: matrix.os == 'macos-15'
         with: { go-version: "1.27.1", cache: false }
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         if: matrix.os == 'macos-15'
         with: { python-version: "3.13" }
       - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
@@ -329,7 +330,7 @@ jobs:
       - run: pnpm build
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with: { go-version: "1.27.1", cache: false }
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with: { python-version: "3.13" }
       - name: B1 coding checker selftest (24 tasks, three seeds, no model)
         if: runner.os == 'Linux'
@@ -409,7 +410,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ runner.temp }}/plur1bus-tokenizers
-          key: tokenizers-v1-${{ hashFiles('crates/plur1bus-engine/src/tokens/artifacts.json', 'scripts/tokens/tiktoken-to-json.mjs') }}
+          key: tokenizers-v1-${{ hashFiles('crates/plur1bus-tokens/src/artifacts.json', 'scripts/tokens/tiktoken-to-json.mjs') }}
       - name: install pinned tokenizer files
         if: ${{ !cancelled() && needs.changes.outputs.rust == 'true' }}
         run: node scripts/tokens/setup-tokenizers.mjs
@@ -477,7 +478,7 @@ jobs:
         with: { toolchain: "1.95", components: "clippy, rustfmt" }
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with: { go-version: "1.27.1", cache: false }
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with: { python-version: "3.13" }
       - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
         with:
@@ -583,7 +584,7 @@ jobs:
         with: { toolchain: "1.95", components: "clippy, rustfmt" }
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with: { go-version: "1.27.1", cache: false }
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with: { python-version: "3.13" }
       - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
         with:
@@ -654,6 +655,74 @@ jobs:
         env:
           SHARDS: ${{ needs.core-unit-shard-windows.result }}
         run: test "$SHARDS" = success
+
+  # Gated (P4-10 ruling A1): the Rust front door's Windows leg, the only place its Windows code runs. Selected by
+  # `changes.front-door` (the front door and the crates it is built from, the supervisor, module-api and the TypeScript
+  # seam it runs behind; every full run); skipped otherwise, which the gate accepts. Never PLUR1BUS_CORE_JS/_BIN here.
+  front-door-windows:
+    needs: changes
+    if: needs.changes.outputs.proceed == 'true' && needs.changes.outputs.front-door == 'true'
+    runs-on: windows-2025
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24.21.0, cache: pnpm }
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)
+        with: { toolchain: "1.95", components: "clippy, rustfmt" }
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache-on-failure: false
+      - name: frozen dependencies (engine credential scoped to this step)
+        shell: bash
+        env:
+          GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+        run: |
+          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"; else base="https://github.com/"; fi
+          n=0
+          for from in $([ -n "${GH_ENGINE_READ_TOKEN}" ] && echo "https://github.com/") "git@github.com:" "ssh://git@github.com/"; do
+            export "GIT_CONFIG_KEY_$n=url.${base}.insteadOf" "GIT_CONFIG_VALUE_$n=$from"
+            n=$((n + 1))
+          done
+          export GIT_CONFIG_COUNT=$n
+          unset GH_ENGINE_READ_TOKEN base
+          pnpm install --frozen-lockfile
+      - run: pnpm gen && pnpm build
+      - name: build the Rust test binaries
+        timeout-minutes: 30
+        run: cargo test --locked -p plur1bus-core -p plur1bus-audit -p plur1bus-tools -p plur1bus-rpc -p plur1bus --no-run
+      # front_door in full (every scenario, the F5 handshake and both F7 stopping-order tests among them; the T-M4 squat
+      # scenario is Unix only, a named gap), the job object and the console handler, LockFileEx, the transport.
+      # Every test step runs even when an earlier one failed (`!cancelled()`), so each Windows proof reports; the job still
+      # fails then. Only front-door suites run here: plur1bus-tools' TK team suites (team_*) belong to `unit`.
+      - name: front door, lock and transport (Rust)
+        if: ${{ !cancelled() }}
+        timeout-minutes: 20
+        run: cargo test --locked --no-fail-fast -p plur1bus-core -p plur1bus-audit -p plur1bus-rpc
+      - name: the tools service and its pipe client (Rust)
+        if: ${{ !cancelled() }}
+        timeout-minutes: 10
+        run: cargo test --locked --no-fail-fast -p plur1bus-tools --lib --bins --test service
+      - name: the RPC server half (Rust)
+        if: ${{ !cancelled() }}
+        timeout-minutes: 10
+        run: cargo test --locked -p plur1bus-rpc --features server
+      - name: the supervisor's core slot, the core command and 1staid's legacy kill (Rust)
+        if: ${{ !cancelled() }}
+        timeout-minutes: 10
+        run: cargo test --locked -p plur1bus --bin plur1bus -- supervisor::child::tests::the_rust_core_spec_runs_the_front_door_with_the_lifeline_and_instance commands::core::tests repair::risky::tests::a_hung_front_doors_legacy_core_is_killed_with_it
+      - name: the TypeScript seam (module-api front-door-link, core core-front-door and bin-entry)
+        if: ${{ !cancelled() }}
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          prerequisites="$(node -e 'console.log(require("node:url").pathToFileURL(process.cwd() + "/scripts/test-prerequisites.mjs").href)')"
+          flags=(--import "$prerequisites" --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test --test-concurrency=1 --test-timeout=120000)
+          (cd packages/module-api && node "${flags[@]}" test/front-door-link.test.ts)
+          (cd packages/core && node "${flags[@]}" test/core-front-door.test.ts test/bin-entry.test.ts)
 
   system:
     needs: [changes, unit]
@@ -1262,6 +1331,59 @@ jobs:
         if: always()
         with: { name: host-tool-eval-fixture, path: artifacts/tool-eval/ }
 
+  # Advisory (P4-02): TS-core parity harness self-test and module-map freshness. Not a ci-gate dependency until P4-10.
+  # P4-10 ruling A3: on the nightly schedule and on manual runs it also runs the front door's parity acceptance
+  # (tests/core-parity/p4-10-parity.ts: T, G1 and the noise floor, about 25 minutes); never on a pull request, never gated.
+  core-parity:
+    needs: changes
+    if: needs.changes.outputs.proceed == 'true' && needs.changes.outputs.ts-core == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 75 || 15 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with: { version: 10.28.0 }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 24.21.0, cache: pnpm }
+      - name: frozen dependencies (engine credential scoped to this step)
+        shell: bash
+        env:
+          GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
+        run: |
+          if [ -n "${GH_ENGINE_READ_TOKEN}" ]; then base="https://x-access-token:${GH_ENGINE_READ_TOKEN}@github.com/"; else base="https://github.com/"; fi
+          n=0
+          for from in $([ -n "${GH_ENGINE_READ_TOKEN}" ] && echo "https://github.com/") "git@github.com:" "ssh://git@github.com/"; do
+            export "GIT_CONFIG_KEY_$n=url.${base}.insteadOf" "GIT_CONFIG_VALUE_$n=$from"
+            n=$((n + 1))
+          done
+          export GIT_CONFIG_COUNT=$n
+          unset GH_ENGINE_READ_TOKEN base
+          pnpm install --frozen-lockfile
+      - name: generate RPC schema types
+        run: node packages/rpc-schema/src/build.mjs
+      - name: transcript self-test (record, replay, normalise, diff against the TS core)
+        run: node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning --test --test-concurrency=1 tests/core-parity/*.test.ts
+      - name: module map freshness
+        run: node scripts/parity/module-map.mjs --check
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable (toolchain fixed by with)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        with: { toolchain: "1.95" }
+      - name: P4-10 parity prerequisites (the built core.js and the front door binary)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        timeout-minutes: 20
+        run: |
+          pnpm --filter @plur1bus/core build
+          cargo build --locked --release -p plur1bus-core
+      - name: P4-10 parity (front door vs the TypeScript core; advisory)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        timeout-minutes: 45
+        run: |
+          mkdir -p artifacts
+          node --experimental-strip-types --conditions=source --no-warnings=ExperimentalWarning tests/core-parity/p4-10-parity.ts --g1 --floor --json artifacts/p4-10-parity.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        with: { name: p4-10-parity, path: artifacts/p4-10-parity.json, if-no-files-found: ignore }
+
   # Independent advisory job. Existing jobs/gates are intentionally untouched.
   perf-startup:
     needs: changes
@@ -1489,22 +1611,31 @@ jobs:
           pnpm docs:check
 
   # THE gate: the one check to wait for (docs/ci.md, CLAUDE.md). Its required set is (scripts/ci/gate.mjs:
-  # docs-hygiene, `unit` = ubuntu-24.04, Core shards/partition, wsl, and the `web-browser` aggregate over the browser build and every shard). Slow,
+  # docs-hygiene, `unit` = ubuntu-24.04, Core shards/partition, wsl, the `web-browser` aggregate over the browser build and every shard,
+  # and the front door's Windows leg `front-door-windows`, P4-10). Slow,
   # flaky or experimental jobs are deliberately not in `needs` (`unit-os`, the macOS browser shards, system, service,
   # python-host, sandbox, startup and budget advisories, ...): the gate would otherwise wait for them. A non-macOS label event is a no-op run (`changes` sets
   # proceed=false); its gate is named differently so that it can never stand in for the `ci-gate` of the real run of the
   # same head commit, and the concurrency group above keeps it from cancelling that run.
   ci-gate:
     name: ${{ (github.event.action == 'labeled' && github.event.label.name != 'ci:macos') && 'ci-gate (label no-op)' || 'ci-gate' }}
-    needs: [changes, docs-hygiene, unit, core-unit-shard, core-unit, wsl, web-browser]
+    needs: [changes, docs-hygiene, unit, core-unit-shard, core-unit, wsl, web-browser, front-door-windows]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { fetch-depth: 0 } # the Phase 4 freeze guard reads the PR's commits, not just its tree
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with: { node-version: 24.21.0 }
       - name: explicit selections and dependency outcomes
         env:
           NEEDS: ${{ toJSON(needs) }}
         run: node scripts/ci/gate.mjs
+      # D129: pull requests only (a merge-queue squash would drop the per-commit trailers); a failure here fails ci-gate.
+      - name: Phase 4 freeze (D129)
+        if: always() && github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/ci/phase4-freeze.mjs

@@ -1,0 +1,26 @@
+[package]
+name = "plur1bus-audit"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "The audit chain writer shared by the CLI and the Rust core (Phase 4, P4-03)."
+
+[lints]
+workspace = true
+
+# The versions and features `crates/plur1bus` used for this code before the move.
+[dependencies]
+serde_json.workspace = true
+sha2 = "0.10"
+uuid = { version = "1", features = ["v4"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+# `restrict_to_user`: the protected user-and-SYSTEM DACL of `create_private`.
+plur1bus-rpc = { path = "../plur1bus-rpc" }
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_IO"] }
+
+[dev-dependencies]
+tempfile.workspace = true

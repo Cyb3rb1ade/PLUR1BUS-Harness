@@ -104,14 +104,17 @@ export interface Capabilities {
 /** The process that serves a method or emits a notification: every one carries `x-server` (ruling S2). Since 1.3.0 a
  *  notification may be `supervisor` too (`config.changed`, sent on a `config.watch` connection), and a method may be
  *  `module` (served by every module process: `module.auth`, `module.status`, `module.adopt`, `module.shutdown`).
- *  Since 1.7.0 `engine` serves the engine process; its engine.event projection preserves the legacy Core emitter. */
-export type RpcServerRole = "core" | "supervisor" | "module" | "engine" | "tools";
-const serverOf = (def: { "x-server"?: string }): RpcServerRole => (def["x-server"] === "supervisor" || def["x-server"] === "module" || def["x-server"] === "engine" || def["x-server"] === "tools" ? def["x-server"] : "core");
+ *  Since 1.7.0 `engine` serves the engine process; its engine.event projection preserves the legacy Core emitter.
+ *  Since 1.25.0 `bridge` (Phase 4, P4-10, methods only) is served by the Rust front door to the legacy core behind it;
+ *  it is temporary and every bridge method is deprecated from the start (docs/phase4/bridge.md). */
+export type RpcServerRole = "core" | "supervisor" | "module" | "engine" | "tools" | "bridge";
+const serverOf = (def: { "x-server"?: string }): RpcServerRole => (def["x-server"] === "supervisor" || def["x-server"] === "module" || def["x-server"] === "engine" || def["x-server"] === "tools" || def["x-server"] === "bridge" ? def["x-server"] : "core");
 
 const byServer = (names: readonly string[], defs: Record<string, { "x-server"?: string }>): Readonly<Record<RpcServerRole, readonly string[]>> => Object.freeze({
   core: Object.freeze(names.filter((n) => serverOf(defs[n]!) === "core")),
   supervisor: Object.freeze(names.filter((n) => serverOf(defs[n]!) === "supervisor")),
   tools: Object.freeze(names.filter((n) => serverOf(defs[n]!) === "tools")),
+  bridge: Object.freeze(names.filter((n) => serverOf(defs[n]!) === "bridge")),
   module: Object.freeze(names.filter((n) => serverOf(defs[n]!) === "module")),
   engine: Object.freeze(names.filter((n) => serverOf(defs[n]!) === "engine" || (defs[n] as any)?.["x-engine-notification"])),
 });

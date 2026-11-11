@@ -15,45 +15,8 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
 
-/// Opens `path` for writing, creating it private to the user: mode 0600 on unix (also applied to an existing file),
-/// a protected DACL for the user and SYSTEM on Windows, set before any content is written. `truncate` empties an
-/// existing file; without it, a new file is created and an existing one is left as it is (`create_new` semantics are
-/// not needed by the callers).
-pub(crate) fn create_private(path: &Path, truncate: bool) -> io::Result<fs::File> {
-    let mut o = fs::OpenOptions::new();
-    o.write(true).create(true).truncate(truncate);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        o.mode(0o600);
-    }
-    #[cfg(windows)]
-    {
-        use std::os::windows::fs::OpenOptionsExt;
-        use windows_sys::Win32::Foundation::GENERIC_WRITE;
-        use windows_sys::Win32::Storage::FileSystem::WRITE_DAC;
-        o.access_mode(GENERIC_WRITE | WRITE_DAC);
-    }
-    let f = o.open(path)?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        f.set_permissions(fs::Permissions::from_mode(0o600))?;
-    }
-    #[cfg(windows)]
-    {
-        use std::os::windows::io::AsRawHandle;
-        plur1bus_rpc::win::restrict_to_user(f.as_raw_handle())?;
-    }
-    Ok(f)
-}
-
-pub(crate) fn now_ms() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0)
-}
+// P4-03: both moved to `crates/plur1bus-audit` with the chain writer; every `crate::audit::create_private` call is unchanged.
+pub(crate) use plur1bus_audit::{create_private, now_ms};
 
 /// Appends one audit line; `detail` is redacted first (`audit_redact.rs`, rules from `redaction.json`). The line is
 /// written with a single `write_all` on an `O_APPEND` handle, so a crash never leaves a partial line in the middle of

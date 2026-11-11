@@ -201,7 +201,7 @@ test("CI verifies pinned tokenizer caches before every workspace Cargo test with
     const cacheStep = job.split(/(?=^      - )/m).find((step) => /path: \$\{\{ runner.temp \}\}\/plur1bus-tokenizers/.test(step));
     assert.ok(cacheStep, `${name}: cache tokenizer files outside the workspace`);
     assert.match(cacheStep, /actions\/cache@[a-f0-9]{40}/, name);
-    assert.match(cacheStep, /hashFiles\('crates\/plur1bus-engine\/src\/tokens\/artifacts.json'/, name);
+    assert.match(cacheStep, /hashFiles\('crates\/plur1bus-tokens\/src\/artifacts.json'/, name);
     assert.match(job, /node --test scripts\/tokens\/\*\.test\.mjs/, name);
   }
 });

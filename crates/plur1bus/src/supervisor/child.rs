@@ -24,7 +24,9 @@ use super::state::{
     RestartDecision, RestartPolicy, Role, RoleKind, Slot,
 };
 use super::{broadcast_module_state, now_ms, spawn_guarded, Lifeline, Shared, SupervisorState};
-use crate::commands::core::{locate_core_js, locate_node};
+use crate::commands::core::{
+    core_bin_missing, core_env, core_impl, locate_core_bin, locate_core_js, locate_node, CoreImpl,
+};
 use crate::modules::Installed;
 use crate::paths::Layout;
 use plur1bus_rpc::{Client, ConnectOptions};
@@ -49,9 +51,32 @@ pub struct ChildSpec {
 }
 
 /// The core in supervised mode: `node <core.js> --home <home> --lifeline stdin --instance <id>`, plus
-/// `--test-internals <v>` when `PLUR1BUS_TEST_INTERNALS` is set (exactly like `core run`). Fails when core.js is
-/// missing.
+/// `--test-internals <v>` when `PLUR1BUS_TEST_INTERNALS` is set (exactly like `core run`). With `core.impl: "rust"` (or
+/// `PLUR1BUS_CORE_IMPL=rust`, P4-10) the slot runs the front door instead, `plur1bus-core serve --home <home> --lifeline
+/// stdin --instance <id>`, which starts the TypeScript core behind it from the located Node and core.js. A restart
+/// builds it again when `core.impl` changed ([`core_spec_stale`]), so the switch takes effect at the core's restart.
+/// Fails when core.js (or plur1bus-core) is missing.
 pub fn core_spec(layout: &Layout, instance_id: &str) -> Result<ChildSpec, String> {
+    core_spec_for(layout, instance_id, core_impl(layout)?)
+}
+
+/// Whether a core restart must build its spec again (P4-10): there is none yet, `core.impl` cannot be read (so the
+/// rebuild reports it), or it now names the other implementation than the spec runs (`plur1bus-core` is the front
+/// door, anything else the TypeScript core). An unchanged `core.impl` keeps the spec the monitor was given.
+fn core_spec_stale(spec: Option<&ChildSpec>, configured: Result<CoreImpl, String>) -> bool {
+    let Some(spec) = spec else { return true };
+    let runs_front_door = spec
+        .program
+        .file_stem()
+        .is_some_and(|stem| stem == "plur1bus-core");
+    match configured {
+        Ok(CoreImpl::Rust) => !runs_front_door,
+        Ok(CoreImpl::Ts) => runs_front_door,
+        Err(_) => true,
+    }
+}
+
+fn core_spec_for(layout: &Layout, instance_id: &str, imp: CoreImpl) -> Result<ChildSpec, String> {
     let core_js = locate_core_js(layout);
     if !core_js.exists() {
         return Err(format!(
@@ -59,8 +84,7 @@ pub fn core_spec(layout: &Layout, instance_id: &str) -> Result<ChildSpec, String
             core_js.display()
         ));
     }
-    let mut args: Vec<OsString> = vec![
-        core_js.into(),
+    let lifeline: [OsString; 6] = [
         "--home".into(),
         layout.home.clone().into(),
         "--lifeline".into(),
@@ -68,22 +92,31 @@ pub fn core_spec(layout: &Layout, instance_id: &str) -> Result<ChildSpec, String
         "--instance".into(),
         instance_id.into(),
     ];
-    if let Some(ti) = std::env::var_os("PLUR1BUS_TEST_INTERNALS") {
-        args.push("--test-internals".into());
-        args.push(ti);
-    }
+    let (program, args) = match imp {
+        CoreImpl::Ts => {
+            let mut args: Vec<OsString> = vec![core_js.into()];
+            args.extend(lifeline);
+            if let Some(ti) = std::env::var_os("PLUR1BUS_TEST_INTERNALS") {
+                args.push("--test-internals".into());
+                args.push(ti);
+            }
+            (locate_node(layout), args)
+        }
+        CoreImpl::Rust => {
+            let bin = locate_core_bin(layout);
+            if !bin.is_file() {
+                return Err(core_bin_missing(&bin));
+            }
+            let mut args: Vec<OsString> = vec!["serve".into()];
+            args.extend(lifeline);
+            (bin, args)
+        }
+    };
     Ok(ChildSpec {
         role: "core".into(),
-        program: locate_node(layout),
+        program,
         args,
-        env: crate::commands::core::attest_env()
-            .into_iter()
-            .chain(crate::commands::core::native_worker_env())
-            .chain([(
-                "PLUR1BUS_TOOLS_BIN".into(),
-                crate::commands::core::locate_tools_bin(layout).into_os_string(),
-            )])
-            .collect(),
+        env: core_env(layout, imp),
         cwd: None,
     })
 }
@@ -456,6 +489,8 @@ struct Gen {
     last_ok: Mutex<Instant>,
     /// `Some` for an adopted core (then `process` and `stdin` are `None`): the pid the OS named as its server.
     peer: Option<Peer>,
+    /// The core's home (the core slot only): a Rust front door's legacy core is killed with it ([`Gen::kill`]).
+    legacy_home: Option<Layout>,
     /// Adopted core: `control` still holds the lifeline connection.
     lifeline_in_control: AtomicBool,
     /// Adopted core: the lifeline failed (EOF, timeout, I/O error), so the waiter checks whether the process is gone.
@@ -480,13 +515,22 @@ impl Gen {
     /// SIGKILL / TerminateProcess, unless it has already exited. Unix: to the core's whole process group (the core
     /// leads one, `process_group(0)` in [`Monitor::spawn`]), so what the core started does not outlive it; the pid
     /// alone when no group signal could be sent. An adopted core only while the OS still names its pid as the core
-    /// socket's server ([`Peer::kill_tree`]). Windows: the process alone (no job object).
+    /// socket's server ([`Peer::kill_tree`]). Windows: the process alone (no job object of the supervisor's).
+    ///
+    /// Phase 4 (P4-10 security review M4): where the group does not reach a Rust front door's legacy core (an adopted
+    /// front door, and Windows), the legacy core `run/core-legacy.pid` names is killed too
+    /// ([`super::adopt::legacy_core_of`], looked up before the front door goes), so a hung one cannot outlive it.
     fn kill(&self) {
+        let legacy = if self.peer.is_some() || cfg!(windows) {
+            self.legacy_home
+                .as_ref()
+                .and_then(|home| super::adopt::legacy_core_of(home, self.pid))
+        } else {
+            None
+        };
         if let Some(p) = &self.peer {
             p.kill_tree();
-            return;
-        }
-        if let Some(c) = relock(&self.process).as_mut() {
+        } else if let Some(c) = relock(&self.process).as_mut() {
             // Not yet reaped (the lock is held, so only this call could reap it): its pid is still the group's id and
             // its leader. An exited one is swept by the waiter ([`sweep_group`]).
             #[cfg(unix)]
@@ -494,6 +538,9 @@ impl Gen {
                 signal_led_group(self.pid, libc::SIGKILL);
             }
             let _ = c.kill();
+        }
+        if let Some(legacy) = legacy {
+            legacy.kill();
         }
     }
     /// SIGTERM, unless it has already exited: to the core's process group like [`Gen::kill`]. The process is not
@@ -534,6 +581,11 @@ pub struct Monitor {
 }
 
 impl Monitor {
+    /// The home a generation of this slot kills a Rust front door's legacy core in ([`Gen::kill`]): the core slot's only.
+    fn legacy_home(&self) -> Option<Layout> {
+        (self.ctx.role.kind == RoleKind::Core).then(|| self.ctx.layout.clone())
+    }
+
     /// Spawns `role`'s child at once. The first process gets the spec's own `--instance`, each later one a fresh id.
     pub fn start(shared: Arc<Shared>, layout: &Layout, role: Role, spec: ChildSpec) -> Monitor {
         let mut m = Monitor::new(shared, layout, Some(spec), role);
@@ -586,6 +638,7 @@ impl Monitor {
             exited: AtomicBool::new(false),
             last_ok: Mutex::new(now),
             peer: Some(peer),
+            legacy_home: m.legacy_home(),
             lifeline_in_control: AtomicBool::new(true),
             lifeline_lost: AtomicBool::new(false),
             parked: Mutex::new(None),
@@ -702,7 +755,12 @@ impl Monitor {
                 }
                 Err(e) => return mark_unspawnable(&self.shared, &name, &e),
             }
-        } else if self.spec.is_none() {
+        } else if self.spec.is_none()
+            || (self.ctx.role.kind == RoleKind::Core
+                && self.spawned
+                && core_spec_stale(self.spec.as_ref(), core_impl(&self.ctx.layout)))
+        {
+            // P4-10: a restart of the core builds its spec again when `core.impl` now names the other implementation.
             match spec_for(
                 &self.ctx.layout,
                 &self.ctx.role,
@@ -889,6 +947,7 @@ impl Monitor {
             exited: AtomicBool::new(false),
             last_ok: Mutex::new(Instant::now()),
             peer: None,
+            legacy_home: self.legacy_home(),
             lifeline_in_control: AtomicBool::new(false),
             lifeline_lost: AtomicBool::new(false),
             parked: Mutex::new(None),
@@ -2083,6 +2142,100 @@ mod tests {
     }
 
     #[test]
+    fn the_rust_core_spec_runs_the_front_door_with_the_lifeline_and_instance() {
+        if std::env::var_os("PLUR1BUS_CORE_JS").is_some()
+            || std::env::var_os("PLUR1BUS_CORE_BIN").is_some()
+        {
+            return; // the environment overrides the lookup; nothing to check here
+        }
+        let dir = std::env::temp_dir().join(format!("p1b rust spec {}", std::process::id()));
+        let core_js = dir.join("runtime").join("core").join("core.js");
+        let bin = dir.join("runtime").join("bin").join(if cfg!(windows) {
+            "plur1bus-core.exe"
+        } else {
+            "plur1bus-core"
+        });
+        std::fs::create_dir_all(core_js.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(bin.parent().unwrap()).unwrap();
+        std::fs::write(&core_js, "").unwrap();
+        let layout = Layout::new(dir.clone());
+        let id = "0b7a6a6e-2f1d-4c1e-9a55-6d7e8f901234";
+        let missing = core_spec_for(&layout, id, CoreImpl::Rust).unwrap_err();
+        assert!(missing.contains("plur1bus-core not found"), "{missing}");
+        // Final review FR-I1: a hand-set `rust` without a binary says how to go back.
+        assert!(
+            missing.contains("plur1bus config set core.impl ts"),
+            "{missing}"
+        );
+        std::fs::write(&bin, "").unwrap();
+        let spec = core_spec_for(&layout, id, CoreImpl::Rust);
+        let _ = std::fs::remove_dir_all(&dir);
+        let spec = spec.unwrap();
+        assert_eq!(spec.program, bin);
+        let args: Vec<String> = spec
+            .args
+            .iter()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(
+            args,
+            [
+                "serve",
+                "--home",
+                &dir.to_string_lossy(),
+                "--lifeline",
+                "stdin",
+                "--instance",
+                id
+            ]
+        );
+        assert_eq!(instance_of(&spec).as_deref(), Some(id));
+        let env: Vec<String> = spec
+            .env
+            .iter()
+            .map(|(k, _)| k.to_string_lossy().into_owned())
+            .collect();
+        assert!(env.contains(&"PLUR1BUS_NODE".into()) && env.contains(&"PLUR1BUS_CORE_JS".into()));
+    }
+
+    #[test]
+    fn a_core_restart_rebuilds_the_spec_only_when_core_impl_changed() {
+        let spec = |program: &str| ChildSpec {
+            role: "core".into(),
+            program: PathBuf::from(program),
+            args: Vec::new(),
+            env: Vec::new(),
+            cwd: None,
+        };
+        let front_door = if cfg!(windows) {
+            r"C:\p1b\runtime\bin\plur1bus-core.exe"
+        } else {
+            "/p1b/runtime/bin/plur1bus-core"
+        };
+        // A spec given to `Monitor::start` (a test's own program included) is kept while the implementation is the same.
+        assert!(!core_spec_stale(
+            Some(&spec("/usr/bin/node")),
+            Ok(CoreImpl::Ts)
+        ));
+        assert!(!core_spec_stale(
+            Some(&spec(front_door)),
+            Ok(CoreImpl::Rust)
+        ));
+        // `core.impl` (restart class `core`) switched since the spec was built: the restart builds the other one.
+        assert!(core_spec_stale(
+            Some(&spec("/usr/bin/node")),
+            Ok(CoreImpl::Rust)
+        ));
+        assert!(core_spec_stale(Some(&spec(front_door)), Ok(CoreImpl::Ts)));
+        // No spec yet, or an invalid PLUR1BUS_CORE_IMPL: build it, so the error is reported as unspawnable.
+        assert!(core_spec_stale(None, Ok(CoreImpl::Ts)));
+        assert!(core_spec_stale(
+            Some(&spec("/usr/bin/node")),
+            Err("bad value".into())
+        ));
+    }
+
+    #[test]
     fn core_spec_fails_without_core_js() {
         if std::env::var_os("PLUR1BUS_CORE_JS").is_some() {
             return;
@@ -2206,6 +2359,7 @@ mod tests {
             exited: AtomicBool::new(false),
             last_ok: Mutex::new(Instant::now()),
             peer: None,
+            legacy_home: None,
             lifeline_in_control: AtomicBool::new(false),
             lifeline_lost: AtomicBool::new(false),
             parked: Mutex::new(None),

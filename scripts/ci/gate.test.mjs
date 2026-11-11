@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { evaluateGate, selections, UNGATED } from './gate.mjs';
 
 const flags = (extra = {}) => ({ proceed: 'true', macos: 'false', rust: 'false', 'ts-core': 'false', web: 'false', python: 'false',
-  documents: 'false', workflows: 'false', 'engine-pin': 'false', 'docs-only': 'true', ...extra });
+  documents: 'false', workflows: 'false', 'engine-pin': 'false', 'docs-only': 'true', 'front-door': 'false', ...extra });
 function needs(outputs, results = {}) {
   return { changes: { result: 'success', outputs }, ...Object.fromEntries(
     Object.entries(selections(outputs)).map(([job, required]) => [job, { result: results[job] ?? (required ? 'success' : 'skipped') }])) };
@@ -16,9 +16,9 @@ test('docs-only runs only docs/hygiene and deliberately omits every expensive jo
 });
 
 test('the full matrix requires complete success from every required job', () => {
-  const outputs = flags({ macos: 'true', rust: 'true', 'ts-core': 'true', web: 'true', python: 'true', documents: 'true', workflows: 'true', 'docs-only': 'false' });
+  const outputs = flags({ macos: 'true', rust: 'true', 'ts-core': 'true', web: 'true', python: 'true', documents: 'true', workflows: 'true', 'docs-only': 'false', 'front-door': 'true' });
   assert(Object.values(selections(outputs)).every(Boolean));
-  assert.deepEqual(Object.keys(selections(outputs)).sort(), ['core-unit', 'core-unit-shard', 'docs-hygiene', 'unit', 'web-browser', 'wsl']);
+  assert.deepEqual(Object.keys(selections(outputs)).sort(), ['core-unit', 'core-unit-shard', 'docs-hygiene', 'front-door-windows', 'unit', 'web-browser', 'wsl']);
   assert.deepEqual(evaluateGate(needs(outputs)), []);
   for (const job of Object.keys(selections(outputs))) for (const result of ['failure', 'cancelled', 'skipped', '', undefined]) {
     const input = needs(outputs);
@@ -82,5 +82,21 @@ test('Core shards and their exact-partition gate are required only for selected 
         assert(evaluateGate(input).some(error => error.includes(job)), `${job}:${result}`);
       }
     }
+  }
+});
+
+test('the front door Windows leg is required when its paths change: skipped is fine without, failure never is (P4-10 A1)', () => {
+  const off = flags({ rust: 'true', 'docs-only': 'false' });
+  assert.equal(selections(off)['front-door-windows'], false);
+  assert.deepEqual(evaluateGate(needs(off, { 'front-door-windows': 'skipped' })), []);
+  assert.deepEqual(evaluateGate(needs(off, { 'front-door-windows': 'success' })), []);
+  assert(evaluateGate(needs(off, { 'front-door-windows': 'failure' })).some(e => e.includes('front-door-windows')));
+  const on = flags({ rust: 'true', 'docs-only': 'false', 'front-door': 'true' });
+  assert.equal(selections(on)['front-door-windows'], true);
+  assert.deepEqual(evaluateGate(needs(on)), []);
+  for (const result of ['failure', 'cancelled', 'skipped', undefined]) {
+    const input = needs(on);
+    input['front-door-windows'] = result === undefined ? undefined : { result };
+    assert(evaluateGate(input).some(e => e.includes('front-door-windows')), String(result));
   }
 });

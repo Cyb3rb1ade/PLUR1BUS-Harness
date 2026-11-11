@@ -17,6 +17,8 @@ path = "src/main.rs"
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
 plur1bus-containers = { path = "../plur1bus-containers" }
 plur1bus-rpc = { path = "../plur1bus-rpc" }
+# The audit chain writer and `create_private`, shared with the Rust core since P4-03.
+plur1bus-audit = { path = "../plur1bus-audit" }
 plur1bus-config = { path = "../plur1bus-config" }
 plur1bus-log-schema = { path = "../plur1bus-log-schema" }
 plur1bus-remote-fs = { path = "../plur1bus-remote-fs" }
