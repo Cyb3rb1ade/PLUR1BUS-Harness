@@ -27,6 +27,11 @@ pub enum ReapplyMutation {
 pub trait ReapplyTarget: TombstoneLookup {
     /// Set status=deleted and epistemicStatus=invalidated without changing text/vector/timestamps.
     fn tombstone(&self, agent: &str, memory_id: &str) -> Result<ReapplyMutation, StoreError>;
+    /// Whether this target may still write. When false, `reapply` reads the registry without
+    /// repairing a torn tail (a write); a torn tail then counts as corrupt (fail closed).
+    fn writable(&self) -> bool {
+        true
+    }
 }
 
 /// Existing physical generation. Registry location is supplied separately to `reapply`:
@@ -124,6 +129,10 @@ impl NamespaceReapplyTarget {
 
 impl TombstoneLookup for NamespaceReapplyTarget {
     fn agent_exists(&self, agent: &str) -> Result<bool, StoreError> {
+        // After close no store is opened (`registryErrors`, fail closed).
+        self.gate
+            .assert_open()
+            .map_err(|_| StoreError::Unavailable)?;
         Ok(self.stores.existing_write_store(agent)?.is_some())
     }
     fn status(&self, agent: &str, memory_id: &str) -> Result<Option<String>, StoreError> {
@@ -139,6 +148,9 @@ impl TombstoneLookup for NamespaceReapplyTarget {
 }
 
 impl ReapplyTarget for NamespaceReapplyTarget {
+    fn writable(&self) -> bool {
+        self.gate.assert_open().is_ok()
+    }
     fn tombstone(&self, agent: &str, memory_id: &str) -> Result<ReapplyMutation, StoreError> {
         use std::sync::atomic::Ordering;
         if self.busy.load(Ordering::Acquire) {
@@ -277,7 +289,8 @@ pub fn reapply(
                 continue;
             }
         };
-        let rows = match registry.read(apply) {
+        // A torn tail is repaired only when applying and the target may still write.
+        let rows = match registry.read(apply && target.writable()) {
             Ok(rows) if rows.corrupt_lines == 0 => rows.tombstones,
             Ok(rows) => {
                 report.registry_errors.push(json!({"agent":agent,"error":format!("corrupt registry lines: {}", rows.corrupt_lines)}));

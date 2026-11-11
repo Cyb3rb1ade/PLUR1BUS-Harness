@@ -7,7 +7,7 @@
 
 use super::*;
 use crate::{
-    contract::{testing::FakeHost, SnapshotFailure, SnapshotGrant, SnapshotOps},
+    contract::{testing::FakeHost, SnapshotFailure, SnapshotGrant, SnapshotMethod, SnapshotOps},
     rpc::snapshot::ProcessSnapshots,
     store::Store,
 };
@@ -219,7 +219,17 @@ fn composition_concurrency_and_close_answer_at_once() {
         snapshots.reapply(&SnapshotGrant::for_test(revoked), &Cancel::never()),
         Err(SnapshotFailure::Engine(EngineError::Cancelled(_)))
     ));
+    let audit = || std::fs::read_to_string(state.join("engine-maintenance.jsonl")).unwrap();
+    let audited = audit();
     process.close(None).unwrap();
+    // N1: after close an invalid call is refused as closed and writes no audit line.
+    for method in [SnapshotMethod::Create, SnapshotMethod::Reapply] {
+        let refused = snapshots
+            .refuse(&grant, method, &Cancel::never())
+            .map(|()| Value::Null);
+        assert_eq!(reason(refused), "closed");
+    }
+    assert_eq!(audit(), audited);
     assert_eq!(reason(reapply(&snapshots)), "closed");
     assert_eq!(
         reason(snapshots.create(&grant, &out, &Cancel::never())),

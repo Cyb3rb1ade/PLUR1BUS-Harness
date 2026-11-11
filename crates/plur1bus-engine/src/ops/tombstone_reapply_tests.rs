@@ -195,18 +195,61 @@ fn a_held_gate_costs_one_wait_per_run_not_one_per_id() {
     assert_eq!(fixture.run().applied.len(), 3);
 }
 
-/// M2: after close no write step passes and the verification reads no row either.
+/// M2: a close during the run: no further patch passes and the verification reads no row.
 #[test]
 fn after_close_neither_the_patch_nor_the_verification_reads_a_row() {
     let fixture = Fixture::new();
-    fixture.gate.close_within(Duration::ZERO);
-    let report = fixture.run();
-    let mut expected = all("storage");
+    let mut target = NamespaceReapplyTarget::new(fixture.stores.clone(), fixture.gate.clone());
+    let gate = fixture.gate.clone();
+    // The engine closes while the first patch holds the gate; that patch still completes.
+    target.after_gate = Some(Box::new(move || {
+        gate.close_within(Duration::ZERO);
+    }));
+    let report = reapply(&fixture.base, &target, true, &Cancel::never()).unwrap();
+    assert_eq!(
+        serde_json::to_value(&report.applied).unwrap(),
+        json!([{"agent":"agent","memoryId":IDS[0]}])
+    );
+    let mut expected: Vec<Value> = all("storage").into_iter().skip(1).collect();
     expected.extend(all("verify: storage"));
     assert_eq!(errors(&report), json!(expected));
     assert!(report.active_after_reapply.is_empty());
     assert!(report.failed());
-    assert!(IDS.iter().all(|id| fixture.status(id) == "active"));
+    let stores = &fixture.stores;
+    let store = stores.existing_write_store("agent").unwrap().unwrap();
+    let states: Vec<_> = IDS
+        .iter()
+        .map(|id| store.get(id).unwrap().unwrap().status)
+        .collect();
+    assert_eq!(states, ["deleted", "active", "active"]);
+}
+
+/// Fix 2: a reapply after close opens no store and repairs no torn registry tail (a write);
+/// the run fails closed and the registry bytes stay unchanged.
+#[test]
+fn a_reapply_after_close_opens_nothing_and_writes_nothing() {
+    let fixture = Fixture::new();
+    let registry = fixture.temp.path().join("_tombstones/agent.jsonl");
+    let mut torn = fs::read(&registry).unwrap();
+    torn.extend_from_slice(b"{\"schemaVersion\":1,\"memoryId\":\"torn");
+    fs::write(&registry, &torn).unwrap();
+    fixture.gate.close_within(Duration::ZERO);
+    let report = fixture.run();
+    assert!(report.failed());
+    assert!(report.applied.is_empty() && report.already_tombstoned.is_empty());
+    assert!(report.errors.is_empty() && report.active_after_reapply.is_empty());
+    assert_eq!(report.registry_errors.len(), 1, "{report:?}");
+    assert_eq!(fs::read(&registry).unwrap(), torn, "no tail repair");
+    assert!(!registry.with_extension("corrupt.log").exists());
+    // Without a torn tail the closed target answers before any store is opened.
+    let clean = Fixture::new();
+    clean.gate.close_within(Duration::ZERO);
+    let report = clean.run();
+    assert_eq!(
+        serde_json::to_value(&report.registry_errors).unwrap(),
+        json!([{"agent":"agent","error":"storage"}])
+    );
+    assert!(report.errors.is_empty() && report.applied.is_empty());
 }
 
 /// Child half of M7: the third patch halts after the gate was taken, before the write.

@@ -264,6 +264,10 @@ impl SnapshotOps for ProcessSnapshots {
         cancel: &Cancel,
     ) -> Result<(), SnapshotFailure> {
         grant.check(cancel)?;
+        // After close or stop no step starts, not even an audit line.
+        if self.routes.stopped() {
+            return Err(unavailable("closed"));
+        }
         if method == SnapshotMethod::Verify {
             return Ok(());
         }

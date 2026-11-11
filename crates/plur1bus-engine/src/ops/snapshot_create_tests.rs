@@ -258,7 +258,15 @@ fn only_staging_of_a_gone_process_is_swept() {
     }
     // A file with a staging name is never removed.
     fs::write(root_path.join(format!("plur1bus-d.tmp-{gone}")), b"").unwrap();
-    sweep_stale_staging(&root, &Cancel::never()).unwrap();
+    // A close before the sweep removes nothing.
+    let closed = || -> Result<(), SnapshotError> { Err(SnapshotError::Cancelled) };
+    assert_eq!(
+        sweep_stale_staging(&root, &closed),
+        Err(SnapshotError::Cancelled)
+    );
+    assert!(root_path.join(format!("plur1bus-a.tmp-{gone}")).exists());
+    let open = || -> Result<(), SnapshotError> { Ok(()) };
+    sweep_stale_staging(&root, &open).unwrap();
     let mut left: Vec<_> = fs::read_dir(&root_path)
         .unwrap()
         .map(|e| e.unwrap().file_name().into_string().unwrap())
@@ -311,9 +319,23 @@ fn prune_keeps_the_newest_and_the_protected_snapshot_only() {
     finished(&root_path, "plur1bus-z.tmp-1", "1999-01-01T00:00:00.000Z");
     fs::write(root_path.join("plur1bus-file"), b"").unwrap();
     let root = TrustedDirectory::open(&root_path).unwrap();
-    let cancel = Cancel::never();
+    // A close during the prune stops it before the next removal: c went, b stays.
+    let closes_after_c = || -> Result<(), SnapshotError> {
+        if root_path.join("plur1bus-c").exists() {
+            Ok(())
+        } else {
+            Err(SnapshotError::Cancelled)
+        }
+    };
     assert_eq!(
-        prune(&root, 2, Some("plur1bus-a"), &cancel).unwrap(),
+        prune(&root, 2, Some("plur1bus-a"), &closes_after_c),
+        Err(SnapshotError::Cancelled)
+    );
+    assert!(root_path.join("plur1bus-b").exists());
+    finished(&root_path, "plur1bus-c", "2026-01-03T00:00:00.000Z");
+    let open = || -> Result<(), SnapshotError> { Ok(()) };
+    assert_eq!(
+        prune(&root, 2, Some("plur1bus-a"), &open).unwrap(),
         vec!["plur1bus-c".to_owned(), "plur1bus-b".to_owned()]
     );
     let mut left: Vec<_> = fs::read_dir(&root_path)
@@ -333,11 +355,11 @@ fn prune_keeps_the_newest_and_the_protected_snapshot_only() {
             "plur1bus-z.tmp-1"
         ]
     );
-    assert!(prune(&root, 0, None, &cancel).is_err());
+    assert!(prune(&root, 0, None, &open).is_err());
     let cancelled = Cancel::never();
     cancelled.cancel();
     assert_eq!(
-        prune(&root, 1, None, &cancelled),
+        prune(&root, 1, None, &|| check(&cancelled)),
         Err(SnapshotError::Cancelled)
     );
 }
@@ -437,4 +459,67 @@ fn a_base_inside_a_root_spelled_with_other_case_is_refused_where_the_names_alias
     } else {
         assert_eq!(result, Ok(()));
     }
+}
+
+fn copy_tree(from: &Path, to: &Path) {
+    private(to);
+    for entry in fs::read_dir(from).unwrap() {
+        let entry = entry.unwrap();
+        let target = to.join(entry.file_name());
+        if entry.file_type().unwrap().is_dir() {
+            copy_tree(&entry.path(), &target);
+        } else {
+            fs::copy(entry.path(), &target).unwrap();
+        }
+    }
+}
+
+/// N2: an engine close right after the rename leaves the published snapshot valid and skips
+/// the root fsync and the prune: six snapshots before the run, seven after, with the warning.
+#[test]
+fn an_engine_close_after_the_rename_keeps_the_snapshot_and_skips_fsync_and_prune() {
+    let temp = temp();
+    let (state, base) = state(temp.path());
+    let roots = SnapshotRoots::new(&state);
+    let out = state.join("memory/.snapshots");
+    let mut first = None;
+    for second in 0..5 {
+        let mut request = make_request(&state, &base, &out);
+        request.now_ms += second * 1_000;
+        let report = prepare(&roots, request)
+            .unwrap()
+            .execute(&Cancel::never())
+            .unwrap();
+        assert!(report.pruned.is_empty());
+        first.get_or_insert(report.dir);
+    }
+    // A sixth, older snapshot (a copy, so no prune ran to keep it).
+    copy_tree(
+        &first.unwrap(),
+        &out.join("plur1bus-20260101T115959Z-snapshot"),
+    );
+    let count = || fs::read_dir(&out).unwrap().count();
+    assert_eq!(count(), 6);
+
+    let name = "plur1bus-20260101T120010Z-snapshot";
+    let published = || out.join(name).exists();
+    let mut request = make_request(&state, &base, &out);
+    request.now_ms += 10_000;
+    request.stopped = Some(&published);
+    let plan = prepare(&roots, request).unwrap();
+    assert_eq!(plan.id(), name);
+    let report = plan.execute(&Cancel::never()).unwrap();
+    assert_eq!(report.dir, out.join(name));
+    assert!(report.pruned.is_empty());
+    assert_eq!(
+        report.warnings,
+        ["fsync and pruning skipped after cancellation"]
+    );
+    assert_eq!(count(), 7, "no older snapshot was pruned");
+    assert_eq!(
+        crate::ops::snapshot::verify_snapshot(&report.dir)
+            .unwrap()
+            .files,
+        3
+    );
 }

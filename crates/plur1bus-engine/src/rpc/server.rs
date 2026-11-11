@@ -564,6 +564,10 @@ impl Shared {
         let Some(port) = self.snapshots.as_deref() else {
             return WireError::not_available();
         };
+        // A stopping server starts no audit step, like every other call after the stop.
+        if self.stopping.load(Ordering::Acquire) {
+            return WireError::not_available();
+        }
         let link = AuthenticatedCoreLink {
             instance: format!("{instance}:{}", connection.id),
             cancellation: connection.cancel.clone(),

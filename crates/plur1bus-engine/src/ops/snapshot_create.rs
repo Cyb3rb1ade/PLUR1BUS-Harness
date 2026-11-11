@@ -26,6 +26,8 @@ const SLUG: &str = "snapshot";
 
 /// Called after each copied payload file with its snapshot-relative path.
 pub type Progress<'a> = &'a dyn Fn(&str) -> Result<(), SnapshotError>;
+/// A step boundary: `Err(Cancelled)` once the caller cancelled or the engine began to close.
+pub type Step<'a> = &'a dyn Fn() -> Result<(), SnapshotError>;
 
 /// The two permitted snapshot roots of one state directory: the Core's backup staging
 /// (`<state>/backup-staging`) and the engine's own root (`<state>/memory/.snapshots`).
@@ -388,11 +390,12 @@ fn free_bytes(path: &Path) -> Result<u64, SnapshotError> {
 }
 
 /// Remove `plur1bus-*.tmp-<pid>` directories whose creating process is gone (pin
-/// `sweepStaleStaging`). Links and files are never followed or removed.
-fn sweep_stale_staging(root: &TrustedDirectory, cancel: &Cancel) -> Result<(), SnapshotError> {
+/// `sweepStaleStaging`). Links and files are never followed or removed. `step` (cancellation
+/// and the engine's close) is checked before every entry.
+fn sweep_stale_staging(root: &TrustedDirectory, step: Step<'_>) -> Result<(), SnapshotError> {
     let own = std::process::id();
     for entry in fs::read_dir(root.path()).map_err(|_| SnapshotError::Storage)? {
-        cancel.check().map_err(|_| SnapshotError::Cancelled)?;
+        step()?;
         let entry = entry.map_err(|_| SnapshotError::Storage)?;
         let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
             continue;
@@ -457,6 +460,7 @@ fn publish(
     const LIMIT: std::time::Duration = std::time::Duration::from_secs(10);
     const SHARING_VIOLATION: i32 = 32;
     const LOCK_VIOLATION: i32 = 33;
+    const SLICE: std::time::Duration = std::time::Duration::from_millis(100);
     let started = std::time::Instant::now();
     let mut delay = std::time::Duration::from_millis(50);
     loop {
@@ -473,9 +477,18 @@ fn publish(
         if !transient || left.is_zero() {
             return Err(SnapshotError::Storage);
         }
-        std::thread::sleep(delay.min(left));
+        // The backoff sleeps in slices of at most 100 ms; cancellation and close are seen
+        // between slices.
+        let until = std::time::Instant::now() + delay.min(left);
+        loop {
+            step()?;
+            let rest = until.saturating_duration_since(std::time::Instant::now());
+            if rest.is_zero() {
+                break;
+            }
+            std::thread::sleep(rest.min(SLICE));
+        }
         delay = (delay * 2).min(std::time::Duration::from_secs(1));
-        step()?;
         if exists(to)? {
             return Err(SnapshotError::Storage);
         }
@@ -516,7 +529,7 @@ impl CreatePlan<'_> {
         step()?;
         crate::store::paths::secure_dir(&self.root).map_err(SnapshotError::from)?;
         let root = TrustedDirectory::open(&self.root)?;
-        sweep_stale_staging(&root, cancel)?;
+        sweep_stale_staging(&root, &step)?;
         let mut size = 0_u64;
         for source in &self.sources {
             step()?;
@@ -619,7 +632,7 @@ impl CreatePlan<'_> {
             if root.sync_entries().is_err() {
                 warnings.push("fsync of the snapshot root failed".to_owned());
             }
-            match prune(&root, MAX_SNAPSHOTS, Some(&self.id), cancel) {
+            match prune(&root, MAX_SNAPSHOTS, Some(&self.id), &step) {
                 Ok(removed) => pruned = removed,
                 Err(_) => warnings.push("pruning old snapshots failed".to_owned()),
             }
@@ -671,19 +684,20 @@ fn created_at(root: &TrustedDirectory, name: &str) -> Result<Option<String>, Sna
 }
 
 /// The pin's `pruneInternal`: keep the newest `max_keep` finished snapshots (and `protect`),
-/// never a staging directory, a link, a legacy tarball or an unrelated entry.
+/// never a staging directory, a link, a legacy tarball or an unrelated entry. `step`
+/// (cancellation and the engine's close) is checked before every entry and every removal.
 pub fn prune(
     root: &TrustedDirectory,
     max_keep: usize,
     protect: Option<&str>,
-    cancel: &Cancel,
+    step: Step<'_>,
 ) -> Result<Vec<String>, SnapshotError> {
     if max_keep == 0 {
         return Err(SnapshotError::Storage);
     }
     let mut snapshots = Vec::new();
     for entry in fs::read_dir(root.path()).map_err(|_| SnapshotError::Storage)? {
-        check(cancel)?;
+        step()?;
         let entry = entry.map_err(|_| SnapshotError::Storage)?;
         let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
             continue;
@@ -713,7 +727,7 @@ pub fn prune(
         if index < max_keep || Some(name.as_str()) == protect || removed.len() >= excess {
             continue;
         }
-        check(cancel)?;
+        step()?;
         root.assert_unchanged()?;
         match fs::remove_dir_all(root.path().join(name)) {
             Ok(()) => {}
