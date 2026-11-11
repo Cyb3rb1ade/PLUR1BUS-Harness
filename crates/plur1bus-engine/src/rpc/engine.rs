@@ -51,6 +51,8 @@ pub struct ProcessEngine {
     memory: Option<ProcessMemory>,
     proposals: engine_memory::ProposalsPort,
     curation: engine_memory::CurationPort,
+    #[cfg_attr(not(test), allow(dead_code, reason = "test hooks set the budget"))]
+    embed_budget: Arc<engine_memory::EmbedBudget>,
     mood: engine_recall::RecallMood,
     capture: engine_capture::ProcessCapture,
     jobs: Arc<engine_jobs::ProcessJobs>,
@@ -247,6 +249,7 @@ impl ProcessEngine {
         });
         let slot_host = host.clone();
         let operations = Arc::new(crate::ops::context::OperationContext::new(host));
+        let embed_budget = engine_memory::EmbedBudget::new(&raw, store_cancel.clone());
         let mut proposal_sharing = None;
         let memory = base.map(|base| {
             let provider = embedding.pipeline_embedder();
@@ -256,10 +259,13 @@ impl ProcessEngine {
                 provider.clone(),
                 base.clone(),
             ));
+            // Share embeds under the mutation gate: bounded by shutdown and budget (RE-D165).
+            let budgeted =
+                engine_memory::BudgetedEmbedder::wrap(provider.clone(), embed_budget.clone());
             let sharing = || ShareServices {
                 reader: reader.clone(),
                 stores: live_stores.clone(),
-                providers: vec![provider.clone()],
+                providers: vec![budgeted.clone()],
             };
             proposal_sharing = Some(sharing());
             let writer = MemoryWriter::new(operations.clone(), live_stores.clone(), base.clone())
@@ -277,8 +283,10 @@ impl ProcessEngine {
                 operations: operations.clone(),
                 stores: live_stores.clone(),
                 neo_root: engine_warm::neo_root(&raw["neo"], &base),
+                neo_enabled,
                 base,
                 embedder: provider,
+                embed_budget: embed_budget.clone(),
                 host: slot_host.clone(),
                 raw: raw.clone(),
                 shutdown: store_cancel.clone(),
@@ -304,6 +312,7 @@ impl ProcessEngine {
             memory,
             proposals,
             curation,
+            embed_budget,
             mood,
             capture: engine_capture::ProcessCapture::default(),
             jobs,
@@ -337,6 +346,20 @@ impl ProcessEngine {
     /// Invalidate the outbound policy cache after a reverse-host policy notification.
     pub fn invalidate_egress(&self) {
         self.embedding.invalidate_egress();
+    }
+
+    /// Test budgets: the embedding budget, the gate wait and a hook inside every budgeted
+    /// embedding call (RE-D165).
+    #[cfg(test)]
+    pub(crate) fn set_memory_budgets(
+        &self,
+        embed: Duration,
+        gate: Duration,
+        hook: Option<engine_memory::EmbedHook>,
+    ) {
+        self.embed_budget.set(embed);
+        self.embed_budget.set_hook(hook);
+        self.operations.set_mutation_wait(gate);
     }
 
     /// Deterministic test receipts for an explicitly authorized offline clock.
@@ -402,6 +425,7 @@ impl Engine for ProcessEngine {
         Ok(handle)
     }
     fn close(&self, budget: Option<Duration>) -> Result<(), EngineError> {
+        let started = std::time::Instant::now();
         self.closed.store(true, Ordering::Release);
         // Stop store opening first: a capture composition still in S5 recovery aborts too.
         self.store_cancel.cancel();
@@ -410,7 +434,13 @@ impl Engine for ProcessEngine {
         // Admitted capture work settles within the budget before stores are released (RE-D144).
         let drained = self.capture.close(budget);
         self.embedding.close();
-        self.operations.close();
+        // Memory operations: their tokens end with `store_cancel` above and gate waiters are
+        // refused; the drain waits at most what is left of the close budget (RE-D165). One
+        // still inside a provider call finishes on its own thread and cannot write any more.
+        let left = budget
+            .unwrap_or(Duration::from_secs(30))
+            .saturating_sub(started.elapsed());
+        let _ = self.operations.close_within(left);
         let stores_closed = self.live_stores.close();
         self.subscribers
             .lock()
@@ -870,10 +900,22 @@ impl crate::ops::status::StatusSources for ProcessStatusSources {
         Ok(self.embedding.identities().into_iter().next())
     }
     fn shared(&self) -> Result<SharedMemorySupport, EngineError> {
-        // Unchanged frozen report. Share and propose are served since RE-D165, and each call
-        // decides the actual pool support (`unsupported` when absent); the status does not
-        // open a store to learn it (KNOWN-GAP, RE-D165).
-        decode(json!({"supported":false,"mode":"unavailable"}))
+        // Share and propose are served (RE-D165). The platform's mode as at the pin
+        // (`defaultSharedMemoryMode`: descriptor aliases on Linux, verified paths on macOS
+        // and Windows); once a read composed the shared routes, their pinned roots decide, as
+        // they decide every share call (`unsafe-root` when tainted). No store, pool or host
+        // call is made here.
+        let mode = if cfg!(target_os = "linux") {
+            "fd-capability"
+        } else if cfg!(any(target_os = "macos", windows)) {
+            "verified-path"
+        } else {
+            return decode(json!({"supported":false,"mode":"unavailable","reason":"platform"}));
+        };
+        if self.stores.shared_support() == Some(false) {
+            return decode(json!({"supported":false,"mode":"unavailable","reason":"unsafe-root"}));
+        }
+        decode(json!({"supported":true,"mode":mode}))
     }
     fn opened_agents(&self) -> usize {
         self.stores.count()

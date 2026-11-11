@@ -114,21 +114,28 @@ impl NativeMemory {
         // skips Neo for it (RE-D155, RE-D165); the pin writes Neo for every owner (RY-A).
         let neo_owner = crate::context::is_user_principal(&admission.request.owner_user_id)
             && !admission.request.workspace_key.is_empty();
-        let effects = if admission.config["neo"]["enabled"] == false || !neo_owner {
-            None
-        } else {
-            Some(Arc::new(NativeCorrectionEffects::open(
-                self.journal.clone(),
+        let journal = self
+            .journal
+            .as_ref()
+            .filter(|_| admission.config["neo"]["enabled"] != false && neo_owner);
+        let effects = match journal {
+            None => None,
+            Some(journal) => Some(Arc::new(NativeCorrectionEffects::open(
+                journal.clone(),
                 self.context.host_handle(),
                 self.writer.stores.clone(),
                 EffectAuthority {
                     principal: principal.clone(),
                     agent: agent.clone(),
-                    cancel: Cancel::never(),
+                    // A composition bounds the effects (shutdown and budget, RE-D165).
+                    cancel: self
+                        .effect_cancel
+                        .as_ref()
+                        .map_or_else(Cancel::never, |cancel| cancel()),
                     base_db: self.base.clone(),
                 },
             )?)
-                as Arc<dyn crate::ops::correction::CorrectionEffects>)
+                as Arc<dyn crate::ops::correction::CorrectionEffects>),
         };
         let mut writer = MemoryWriter::new(
             self.context.clone(),

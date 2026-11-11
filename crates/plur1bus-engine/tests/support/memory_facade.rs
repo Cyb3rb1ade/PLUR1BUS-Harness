@@ -89,7 +89,7 @@ fn native_with_shared(
             unimport_effects: Arc::new(FileUnimportEffects),
             embedder: f.embed.clone(),
             sharing_providers: vec![f.embed.clone()],
-            journal: f.journal.clone(),
+            journal: Some(f.journal.clone()),
             jobs_root: None,
             import_encoding: ImportEncoding::default(),
         },

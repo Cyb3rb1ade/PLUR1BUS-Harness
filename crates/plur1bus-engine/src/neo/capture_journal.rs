@@ -89,7 +89,7 @@ pub struct CaptureJournal {
 /// (`engine/create-engine.js:867` `neoAgentEndBudgetMs`), which
 /// `engine/capture/capture-turn.js:359` applies to a turn's Neo step through
 /// `deriveBudgetedSignal`, never more than the turn's capture budget.
-pub(in crate::neo) fn neo_budget(host: &dyn HostServices) -> Duration {
+pub(crate) fn neo_budget(host: &dyn HostServices) -> Duration {
     let config = serde_json::to_value(host.config())
         .ok()
         .and_then(|raw| crate::config::effective_config(&raw).ok())

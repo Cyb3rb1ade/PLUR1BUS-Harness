@@ -251,6 +251,16 @@ impl EngineStores {
         state.pools = None;
         Ok(())
     }
+    /// The support the composed shared routes report (their pinned roots still unchanged),
+    /// without opening a store, a pool or calling the host. `None` while no read composed
+    /// them yet, or while another call holds the state lock (status never waits for it).
+    pub(super) fn shared_support(&self) -> Option<bool> {
+        let state = self.state.try_lock().ok()?;
+        state
+            .memory_routes
+            .as_ref()
+            .map(|routes| SharedStores::supported(routes.as_ref()))
+    }
     pub(super) fn count(&self) -> usize {
         self.count.load(Ordering::Acquire)
     }

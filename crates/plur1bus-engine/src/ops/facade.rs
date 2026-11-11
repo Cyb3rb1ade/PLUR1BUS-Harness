@@ -53,8 +53,10 @@ pub struct MemoryPorts {
     pub embedder: Arc<dyn EmbeddingProvider>,
     /// Explicit active/retained shared destination providers.
     pub sharing_providers: Vec<Arc<dyn EmbeddingProvider>>,
-    /// Original host/policy-bound Neo journal, not a caller-derived root.
-    pub journal: Arc<CaptureJournal>,
+    /// Original host/policy-bound Neo journal, not a caller-derived root. `None` composes the
+    /// facade without Neo: correct and accept run without Neo effects, unimport without graph
+    /// cleanup, and promote and curation, which need the journal's leases, refuse.
+    pub journal: Option<Arc<CaptureJournal>>,
     /// Explicit jobs root for rollback guards; no discovery is performed here.
     pub jobs_root: Option<PathBuf>,
     /// Validated host import encoding policy.
@@ -72,10 +74,49 @@ pub struct NativeMemory {
     importer: Importer,
     rebinder: Rebinder,
     unimporter: Unimporter,
-    promotion: NativePromotion,
-    curation: NativeCuration,
-    journal: Arc<CaptureJournal>,
+    promotion: Option<NativePromotion>,
+    curation: Option<NativeCuration>,
+    journal: Option<Arc<CaptureJournal>>,
     embedder: Arc<dyn EmbeddingProvider>,
+    effect_cancel: Option<EffectCancel>,
+    no_journal: NoJournal,
+}
+/// The token each correction's Neo effects run on (shutdown and budget of a composition).
+pub type EffectCancel = Arc<dyn Fn() -> Cancel + Send + Sync>;
+/// Curation without a Neo journal: there is nothing to read or revise. The caller is admitted
+/// as `NativeCuration` admits it first, so a refused caller gets the same refusal.
+struct NoJournal(Arc<OperationContext>);
+impl NoJournal {
+    fn refuse(&self, p: &Principal, a: &AgentContext) -> EngineError {
+        let admitted = self
+            .0
+            .enter(p, a)
+            .and_then(|operation| self.0.destructive_workspace(&operation.context));
+        admitted.err().unwrap_or_else(no_journal)
+    }
+}
+impl MemoryCurationOps for NoJournal {
+    fn list(
+        &self,
+        _: crate::contract::MemoryCurationListQuery,
+        p: &Principal,
+        a: &AgentContext,
+    ) -> Result<crate::contract::MemoryCurationListResult, EngineError> {
+        Err(self.refuse(p, a))
+    }
+    fn resolve(
+        &self,
+        _: &str,
+        _: crate::contract::MemoryCurationAction,
+        p: &Principal,
+        a: &AgentContext,
+    ) -> Result<crate::contract::MemoryCurationResolveResult, EngineError> {
+        Err(self.refuse(p, a))
+    }
+}
+/// The refusal `CaptureJournal::bind` gives a caller without a Neo partition.
+fn no_journal() -> EngineError {
+    crate::contract::StoreError::InvalidInput.into()
 }
 impl NativeMemory {
     /// Compose lazily without opening a table, creating directories or calling providers.
@@ -96,6 +137,17 @@ impl NativeMemory {
             ),
         );
         let receipts = Arc::new(ImportLedger::new(&base));
+        let mut unimporter = Unimporter::new(
+            context.clone(),
+            ports.unimport,
+            receipts.clone(),
+            ports.unimport_effects,
+            base.clone(),
+            ports.jobs_root,
+        );
+        if let Some(journal) = &ports.journal {
+            unimporter = unimporter.with_graph_cleanup(journal.clone());
+        }
         Self {
             importer: Importer::new(
                 context.clone(),
@@ -106,25 +158,32 @@ impl NativeMemory {
                 ports.import_encoding,
             ),
             rebinder: Rebinder::new(context.clone(), ports.rebind, base.clone()),
-            unimporter: Unimporter::new(
-                context.clone(),
-                ports.unimport,
-                receipts,
-                ports.unimport_effects,
-                base.clone(),
-                ports.jobs_root,
-            )
-            .with_graph_cleanup(ports.journal.clone()),
-            promotion: NativePromotion::new(reader.clone(), ports.journal.clone()),
-            curation: NativeCuration::new(context.clone(), ports.journal.clone()),
+            unimporter,
+            promotion: ports
+                .journal
+                .clone()
+                .map(|journal| NativePromotion::new(reader.clone(), journal)),
+            curation: ports
+                .journal
+                .clone()
+                .map(|journal| NativeCuration::new(context.clone(), journal)),
             proposals: Proposals::new(writer.clone()),
+            no_journal: NoJournal(context.clone()),
             context,
             base,
             reader,
             writer,
             journal: ports.journal,
             embedder: ports.embedder,
+            effect_cancel: None,
         }
+    }
+    /// Run each correction's Neo effects on the token `cancel` returns instead of an unbounded
+    /// one (a composition's shutdown and budget, RE-D165).
+    #[must_use]
+    pub fn with_effect_cancel(mut self, cancel: EffectCancel) -> Self {
+        self.effect_cancel = Some(cancel);
+        self
     }
     /// [`MemoryOps::promote`] within the caller's cancellation and deadline. A process composition
     /// passes its shutdown-linked budget here instead of the trait's unbounded token.
@@ -135,11 +194,26 @@ impl NativeMemory {
         a: &AgentContext,
         cancel: &Cancel,
     ) -> Result<MemoryPromotionResult, EngineError> {
-        self.promotion.run(&request.ids, p, a, cancel)
+        match &self.promotion {
+            Some(promotion) => promotion.run(&request.ids, p, a, cancel),
+            // Admitted as `NativePromotion::run` admits first, then refused for the journal.
+            None => {
+                cancel.check()?;
+                let operation = self.context.enter(p, a)?;
+                let ctx = &operation.context;
+                if ctx.background() || !matches!(ctx.origin_wire(), "user" | "system") {
+                    return Err(super::context::error(
+                        crate::contract::MemoryOpErrorCode::Denied,
+                    ));
+                }
+                Err(no_journal())
+            }
+        }
     }
-    /// The native curation component, whose `*_with_cancel` entries take a bounded token.
-    pub fn native_curation(&self) -> &NativeCuration {
-        &self.curation
+    /// The native curation component, whose `*_with_cancel` entries take a bounded token;
+    /// `None` without a Neo journal.
+    pub fn native_curation(&self) -> Option<&NativeCuration> {
+        self.curation.as_ref()
     }
 }
 
@@ -262,7 +336,10 @@ impl MemoryOps for NativeMemory {
         self.promote_with_cancel(&request, p, a, &Cancel::never())
     }
     fn curation(&self) -> &dyn MemoryCurationOps {
-        &self.curation
+        match &self.curation {
+            Some(curation) => curation,
+            None => &self.no_journal,
+        }
     }
 }
 

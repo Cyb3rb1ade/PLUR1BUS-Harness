@@ -108,6 +108,9 @@ impl From<EngineError> for WireError {
                     "embedding-unavailable" => "embedding-unavailable",
                     "reranker-unavailable" => "reranker-unavailable",
                     "host-unavailable" => "host-unavailable",
+                    // The server's saturation reason, also a mutation gate still held after
+                    // its wait (RE-D165): temporarily busy, retry.
+                    "engine-busy" => "engine-busy",
                     _ => "operation-unavailable",
                 },
                 "engine operation unavailable",

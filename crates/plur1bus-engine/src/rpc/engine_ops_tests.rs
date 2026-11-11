@@ -206,13 +206,72 @@ fn process_correct_without_a_user_principal_skips_neo_instead_of_failing() {
         f.reopen().get(successor).unwrap().unwrap().text,
         "The color is green"
     );
-    let neo = f.base.join("_neo");
-    assert!(neo.is_dir());
-    assert!(!neo.join("workspaces").exists());
+    // No Neo partition: the Neo root is neither opened nor created (RE-D165).
+    assert!(!f.base.join("_neo").exists());
 }
 
-/// §5 negative vector (RX3 C7): the store guard's category check never blocks `/share` of
-/// a card that already carries a category, known or legacy.
+/// R4: the Neo root is created only for an admitted caller with a Neo partition, and never
+/// with Neo switched off.
+#[test]
+fn the_neo_root_appears_only_for_an_admitted_user_caller_with_neo_enabled() {
+    let off = Fixture::new(json!({"neo":{"enabled":false}}));
+    off.private()
+        .upsert(&[off.card(LIVE, "agent", "The color is blue")])
+        .unwrap();
+    let request = with(
+        off.user("agent"),
+        json!({"id":LIVE,"newText":"The color is red"}),
+    );
+    assert_eq!(
+        off.call("engine.memory.correct", &request).unwrap()["archived"],
+        true
+    );
+    assert!(!off.base.join("_neo").exists(), "Neo off: never created");
+
+    let on = Fixture::new(json!({}));
+    on.private()
+        .upsert(&[on.card(LIVE, "agent", "The color is blue")])
+        .unwrap();
+    let request = with(
+        on.user("agent"),
+        json!({"id":LIVE,"newText":"The color is red"}),
+    );
+    let mut system = request.clone();
+    system["a"]["origin"] = json!("system");
+    // A system caller may promote, so only correct and curation refuse it here.
+    for (refused, promote) in [(background(request.clone()), true), (system, false)] {
+        assert_eq!(
+            on.call("engine.memory.correct", &refused)
+                .unwrap_err()
+                .reason,
+            "denied"
+        );
+        if promote {
+            let promote = with(refused.clone(), json!({"req":{"ids":[LIVE]}}));
+            assert!(on.call("engine.memory.promote", &promote).is_err());
+        }
+        assert!(on
+            .call(
+                "engine.memory.curation.list",
+                &with(refused, json!({"q":{}}))
+            )
+            .is_err());
+    }
+    assert!(
+        !on.base.join("_neo").exists(),
+        "refused callers create nothing"
+    );
+    assert_eq!(
+        on.call("engine.memory.correct", &request).unwrap()["archived"],
+        true
+    );
+    assert!(on.base.join("_neo").is_dir());
+}
+
+/// §5 negative vector (RX3 C7), kept as a regression guard: share never validates the
+/// card's category. The C7 store guard (`ops::memory_guards`) applies only to the capture
+/// store path (`capture/normal_store.rs`), as at the pin, where share and correct do not
+/// call it either; this test would turn red if a future share path did.
 #[test]
 fn share_with_an_existing_category_stays_allowed() {
     let f = Fixture::new(json!({"neo":{"enabled":false}}));
@@ -295,6 +354,13 @@ fn process_share_propose_and_proposals_follow_the_sharer_and_refuse_strangers() 
     ] {
         assert_eq!(f.call(method, &stranger).unwrap_err().reason, "not-found");
     }
+    let mut stranger_list = with(sharer.clone(), json!({"q":{}}));
+    stranger_list["p"]["user"] = json!(harness_user_principal("synthetic-stranger"));
+    assert_eq!(
+        f.call("engine.memory.proposals.list", &stranger_list)
+            .unwrap()["items"],
+        json!([])
+    );
     let rejected = f
         .call(
             "engine.memory.proposals.reject",
@@ -378,6 +444,15 @@ fn process_unimport_previews_without_neo_and_keeps_modified_cards() {
         "denied"
     );
     request["a"]["origin"] = json!("system");
+    // Another agent's run, asked for by this caller: refused before anything is read.
+    let mut mismatch = request.clone();
+    mismatch["req"]["agentId"] = json!("other");
+    assert_eq!(
+        f.call("engine.memory.unimport", &mismatch)
+            .unwrap_err()
+            .reason,
+        "invalid-input"
+    );
     let preview = f.call("engine.memory.unimport", &request).unwrap();
     assert_eq!(preview["dryRun"], true);
     assert_eq!(preview["selected"], 2.0);
@@ -490,15 +565,22 @@ fn process_stats_return_counters_without_query_text_and_per_agent() {
     assert_eq!(items[0]["recalls"], 1.0);
     let wire = result.to_string();
     assert!(!wire.contains(secret) && !wire.contains("garden"));
+    // Isolation per agent: the other agent sees a card with the same ID in its own store,
+    // so visibility does not hide anything; its counters are its own (zero), never these.
+    Store::create(&f.base.join("current/other"), &f.identity(), f.width())
+        .unwrap()
+        .upsert(&[f.card(LIVE, "other", "The other agent's garden gate")])
+        .unwrap();
     let other = f
         .call(
             "engine.memory.stats",
-            &with(f.plain("other"), json!({"ids":[FOREIGN]})),
+            &with(f.plain("other"), json!({"ids":[LIVE]})),
         )
         .unwrap();
-    // Isolation per agent: the other agent never sees this agent's counters.
     assert_eq!(other["agentId"], "other");
-    assert_eq!(other["items"], json!([]), "{other}");
+    assert_eq!(other["items"].as_array().unwrap().len(), 1, "{other}");
+    assert_eq!(other["items"][0]["id"], LIVE);
+    assert_eq!(other["items"][0]["recalls"], 0.0, "{other}");
     let too_many: Vec<String> = (0..501)
         .map(|n| format!("{n:08}-0000-4000-8000-000000000000"))
         .collect();
@@ -544,6 +626,24 @@ fn process_promote_publishes_in_the_foreground_and_starts_no_job() {
     assert!(!f.base.join("_jobs").exists());
     let again = f.call("engine.memory.promote", &request).unwrap();
     assert_eq!(again["items"][0]["reason"], "already-promoted");
+    // Another owner's card is never published, and its text never reaches the document.
+    Store::open(
+        &f.base.join("current/agent"),
+        OpenMode::ReadWrite,
+        Some(&f.identity()),
+    )
+    .unwrap()
+    .upsert(&[f.card(FOREIGN, "other", "Another owner's secret rule")])
+    .unwrap();
+    let foreign = with(f.user("agent"), json!({"req":{"ids":[FOREIGN]}}));
+    let refused = f.call("engine.memory.promote", &foreign).unwrap();
+    assert_eq!(refused["items"][0]["outcome"], "skipped", "{refused}");
+    assert_eq!(refused["items"][0]["reason"], "not-found");
+    assert!(
+        !std::fs::read_to_string(f.workspace.join("memory/KNOWLEDGE.md"))
+            .unwrap()
+            .contains("secret rule")
+    );
     // Fail closed: an owner without a user principal has no Neo partition to fence on.
     let plain = with(f.plain("agent"), json!({"req":{"ids":[LIVE]}}));
     assert_eq!(
@@ -640,4 +740,238 @@ fn admin_share_and_forget_stay_unavailable_and_unconfigured_ops_stay_pending() {
         );
     }
     assert!(!temp.path().join("state").exists());
+}
+
+/// The caller's own C4 behavior card, bound to its workspace partition, as capture writes it.
+fn seed_behavior(f: &Fixture, request: &Value) {
+    let context = RequestContext::build(
+        &serde_json::from_value(request["p"].clone()).unwrap(),
+        &serde_json::from_value(request["a"].clone()).unwrap(),
+        f.host.as_ref(),
+    )
+    .unwrap();
+    let directory = f
+        .base
+        .join("_neo/workspaces")
+        .join(crate::neo::merged::Layout::for_key(&context.workspace_key).canonical);
+    std::fs::create_dir_all(&directory).unwrap();
+    let record = json!({"id":"beh_revision","workspaceKey":context.workspace_key,
+        "agentId":"agent","scope":"agent_private","ownerUserId":context.owner_user_id,
+        "status":"conflict","confidence":0.5,"salience":0.4,"embeddingStatus":"pending",
+        "createdAt":"2026-11-08T10:00:00.000Z","statement":"Synthetic fixture decision",
+        "sourceSignals":["reaction-one"]});
+    std::fs::write(
+        directory.join("behavior-cards.jsonl"),
+        format!("{record}\n"),
+    )
+    .unwrap();
+}
+
+#[test]
+fn process_curation_resolves_the_callers_candidate_and_hides_it_from_other_owners() {
+    let f = Fixture::new(json!({}));
+    f.host.set_now_ms(1_794_139_200_000);
+    let owner = with(f.user("agent"), json!({"q":{}}));
+    // The first call creates the Neo root for this admitted owner.
+    assert_eq!(
+        f.call("engine.memory.curation.list", &owner).unwrap()["items"],
+        json!([])
+    );
+    seed_behavior(&f, &owner);
+    let listed = f.call("engine.memory.curation.list", &owner).unwrap();
+    assert_eq!(listed["items"].as_array().unwrap().len(), 1, "{listed}");
+    assert_eq!(listed["items"][0]["id"], "beh_revision");
+
+    let mut stranger = owner.clone();
+    stranger["p"]["user"] = json!(harness_user_principal("synthetic-stranger"));
+    assert_eq!(
+        f.call("engine.memory.curation.list", &stranger).unwrap()["items"],
+        json!([])
+    );
+    assert_eq!(
+        f.call(
+            "engine.memory.curation.keep",
+            &with(stranger, json!({"id":"beh_revision"}))
+        )
+        .unwrap_err()
+        .reason,
+        "not-found"
+    );
+
+    let kept = f
+        .call(
+            "engine.memory.curation.keep",
+            &with(f.user("agent"), json!({"id":"beh_revision"})),
+        )
+        .unwrap();
+    assert_eq!(kept["ok"], true);
+    assert_eq!(kept["status"], "promoted");
+    assert_eq!(
+        f.call("engine.memory.curation.list", &owner).unwrap()["items"],
+        json!([])
+    );
+    let audit =
+        std::fs::read_to_string(f.workspace.join(".adaptive-learning/destructive-ops.jsonl"))
+            .unwrap();
+    assert!(audit.contains("engine.memory.curation"));
+}
+
+/// R1: a hung embedding under the mutation gate. Another owner's write waits only for the
+/// gate budget and gets `engine-busy`; capture and recall are not involved at all; the hung
+/// call ends after its embedding budget; afterwards the other owner's write succeeds.
+#[test]
+fn a_hung_embedding_holds_the_gate_only_within_its_budget() {
+    let f = Fixture::new(json!({"neo":{"enabled":false}}));
+    f.host.set_now_ms(1_768_305_600_000);
+    f.private()
+        .upsert(&[f.card(LIVE, "agent", "The garden gate is green")])
+        .unwrap();
+    Store::create(&f.base.join("current/other"), &f.identity(), f.width())
+        .unwrap()
+        .upsert(&[f.card(FOREIGN, "other", "The other owner's card")])
+        .unwrap();
+    let (entered, hung) = mpsc::channel::<()>();
+    let entered = Mutex::new(entered);
+    // The hook stands for a provider that never answers: it returns only when the call's
+    // own token ends (budget or shutdown).
+    let hook: engine_memory::EmbedHook = Arc::new(move |token: &Cancel| {
+        let _ = entered
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .send(());
+        while !token.is_cancelled() {
+            std::thread::sleep(Duration::from_millis(2));
+        }
+    });
+    let embed_budget = Duration::from_secs(2);
+    f.engine
+        .set_memory_budgets(embed_budget, Duration::from_millis(200), Some(hook));
+    let correct = with(
+        f.plain("agent"),
+        json!({"id":LIVE,"newText":"The garden gate is blue"}),
+    );
+    let forget = with(f.plain("other"), json!({"id":FOREIGN}));
+    std::thread::scope(|scope| {
+        let started = std::time::Instant::now();
+        let hung_call = scope.spawn(|| f.call("engine.memory.correct", &correct));
+        hung.recv_timeout(Duration::from_secs(30)).unwrap();
+        // Another owner's write: refused as busy after the gate wait, not after the hang.
+        assert_eq!(
+            f.call("engine.memory.forget", &forget).unwrap_err().reason,
+            "engine-busy"
+        );
+        // Recall and capture of the other owner never take the gate.
+        let recall = methods::dispatch(
+            &f.engine,
+            "engine.recall",
+            &json!({"query":{"query":"Which card is this?","principal":f.plain("other")["p"],
+                "agent":{"origin":"user","background":false}},"options":{"reranker":"off"}}),
+            &Cancel::never(),
+        );
+        assert!(recall.is_ok(), "{recall:?}");
+        let turn: TurnRecord = serde_json::from_value(json!({"agentId":"other",
+            "principal":f.plain("other")["p"],"agent":{"origin":"user","background":false},
+            "sessionKey":"agent:other:main","runId":"run-gate","incognito":false,
+            "messages":[{"role":"user","content":"Please remember that the gate test uses blue."},
+                {"role":"assistant","content":"Noted."}]}))
+        .unwrap();
+        let handle = f
+            .engine
+            .capture(turn, serde_json::from_value(json!({})).unwrap())
+            .unwrap();
+        assert!(handle.done.recv_timeout(Duration::from_secs(60)).is_ok());
+        assert!(
+            !hung_call.is_finished(),
+            "the hung call is still inside its budget"
+        );
+        // The hung call ends with the library's error for an unavailable provider.
+        assert_eq!(hung_call.join().unwrap().unwrap_err().reason, "storage");
+        assert!(started.elapsed() < embed_budget + Duration::from_secs(20));
+    });
+    f.engine
+        .set_memory_budgets(Duration::from_secs(15), Duration::from_secs(20), None);
+    assert_eq!(
+        f.call("engine.memory.forget", &forget).unwrap()["archived"],
+        true
+    );
+    assert_eq!(
+        f.reopen().get(LIVE).unwrap().unwrap().text,
+        "The garden gate is green"
+    );
+}
+
+/// R1: `close` during a hung embedding ends the hung call through its token and stays
+/// within its budget.
+#[test]
+fn close_ends_a_hung_embedding_within_its_budget() {
+    let f = Fixture::new(json!({"neo":{"enabled":false}}));
+    f.private()
+        .upsert(&[f.card(LIVE, "agent", "The garden gate is green")])
+        .unwrap();
+    let (entered, hung) = mpsc::channel::<()>();
+    let entered = Mutex::new(entered);
+    let hook: engine_memory::EmbedHook = Arc::new(move |token: &Cancel| {
+        let _ = entered
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .send(());
+        while !token.is_cancelled() {
+            std::thread::sleep(Duration::from_millis(2));
+        }
+    });
+    f.engine.set_memory_budgets(
+        Duration::from_secs(600),
+        Duration::from_secs(600),
+        Some(hook),
+    );
+    let correct = with(
+        f.plain("agent"),
+        json!({"id":LIVE,"newText":"The garden gate is blue"}),
+    );
+    std::thread::scope(|scope| {
+        let hung_call = scope.spawn(|| f.call("engine.memory.correct", &correct));
+        hung.recv_timeout(Duration::from_secs(30)).unwrap();
+        let closing = std::time::Instant::now();
+        let budget = Duration::from_secs(5);
+        let _ = f.engine.close(Some(budget));
+        assert!(closing.elapsed() < budget + Duration::from_secs(5));
+        assert!(hung_call.join().unwrap().is_err());
+    });
+    assert_eq!(
+        f.reopen().get(LIVE).unwrap().unwrap().text,
+        "The garden gate is green"
+    );
+}
+
+/// R3: the status reports shared memory as the share calls find it.
+#[test]
+fn status_reports_shared_memory_as_share_calls_find_it() {
+    let f = Fixture::new(json!({"neo":{"enabled":false}}));
+    f.private()
+        .upsert(&[f.card(LIVE, "agent", "Prefers tea in the afternoon")])
+        .unwrap();
+    let before = f.engine.status().shared_memory;
+    let shared = f.call(
+        "engine.memory.share",
+        &with(f.user("agent"), json!({"id":LIVE,"target":"user"})),
+    );
+    let after = f.engine.status().shared_memory;
+    let expected = cfg!(any(target_os = "linux", target_os = "macos", windows));
+    assert_eq!(before.supported, expected);
+    assert_eq!(after.supported, expected);
+    assert_eq!(shared.is_ok(), after.supported, "{shared:?}");
+    let mode = serde_json::to_value(after.mode).unwrap();
+    if cfg!(target_os = "linux") {
+        assert_eq!(mode, "fd-capability");
+    } else if cfg!(any(target_os = "macos", windows)) {
+        assert_eq!(mode, "verified-path");
+    }
+    // Without a store base the frozen report stays: nothing is served.
+    let temp = tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let host = Arc::new(FakeHost::new(
+        temp.path().join("state"),
+        serde_json::from_value(json!({})).unwrap(),
+    ));
+    let unconfigured = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
+    assert!(!unconfigured.status().shared_memory.supported);
 }
