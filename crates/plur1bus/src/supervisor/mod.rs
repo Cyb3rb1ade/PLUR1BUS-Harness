@@ -936,15 +936,7 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             core_ready_floor,
             config,
             cpu: cores,
-            slots: if opts.no_core {
-                vec![Slot::new(Role::core(), time_scale)]
-            } else {
-                vec![
-                    Slot::new(Role::core(), time_scale),
-                    Slot::new(Role::tools(), time_scale),
-                    Slot::new(Role::api(), time_scale),
-                ]
-            },
+            slots: initial_slots(opts.no_core, time_scale),
             stopping: None,
             restart_jobs: VecDeque::new(),
             restart_running: false,
@@ -1005,10 +997,14 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     // up with a fatal child (H3-R11), and `daemon.start` tries again.
     let mut monitors = Monitors::new();
     if !opts.no_core {
-        // RE-D172: the engine (when selected) first; the core's start does not wait for it to be ready.
-        reconcile_engine(&shared, layout, &token, &mut monitors);
+        // RE-D172: the engine (when selected) first; the core's start does not wait for it. Neither starts while an
+        // import maintenance holds the home (B7); its end starts them. With the Node engine selected, a still-held
+        // engine lock may hold the core back, for a bounded time (B3).
         if !imports::busy(&shared) {
-            start_child(&shared, layout, &token, &Role::core(), &mut monitors);
+            reconcile_engine(&shared, layout, &mut monitors);
+            if engine_lock_gate(&shared, layout, &token) {
+                start_child(&shared, layout, &token, &Role::core(), &mut monitors);
+            }
         }
         start_child(&shared, layout, &token, &Role::tools(), &mut monitors);
         start_child(&shared, layout, &token, &Role::api(), &mut monitors);
@@ -1078,7 +1074,9 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
         match next {
             Err(stop) => break stop,
             Ok(Next::Import(job)) => {
-                import_maintenance::run(&shared, layout, &token, &mut monitors, job)
+                import_maintenance::run(&shared, layout, &token, &mut monitors, job);
+                // B7: an engine selected while the maintenance ran starts once it is over.
+                reconcile_engine(&shared, layout, &mut monitors);
             }
             Ok(Next::Job(jobs)) => run_restart_jobs(&shared, layout, &token, &mut monitors, jobs),
             Ok(Next::Op(op)) => run_module_op(&shared, layout, &token, &mut monitors, op),
@@ -1120,7 +1118,9 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     // all inside one budget plus one grace (M3, H3B-R25). A module is asked to finish by the end of the budget and
     // killed there; the grace is the core's reserve: after other children it gets what is left of the budget, at least
     // half the grace, and otherwise its full RPC allowance. It is killed at the fixed grace deadline in either case.
-    // The engine follows the core (the core may still write while it stops) with what is left, at least half a grace.
+    // The engine follows the core (the core may still write while it stops) with what is left of the budget (at least
+    // ENGINE_STOP_FLOOR as its RPC allowance) and is killed at the core's own hard deadline: the whole stop still ends
+    // within one budget plus one grace (B9).
     let order = stop_order(&shared.lock().slots);
     let grace = child::stop_grace(time_scale);
     let mut stopped_budget_peers = 0;
@@ -1165,12 +1165,47 @@ fn stop_order(slots: &[Slot]) -> Vec<(String, RoleKind)> {
     order
 }
 
-/// RE-D172: the engine slot exists exactly while `engine.implementation` is `rust`. Called at the supervisor's start
-/// and before every start or restart of the core: a newly selected engine gets its slot right after the core's and is
-/// started (probing for one to adopt first) before the core, whose start does not wait for it; an engine no longer
-/// selected is stopped within the default stop budget plus grace and its slot removed. A configuration that cannot be
-/// read changes nothing (the core's start reports it), and nothing starts once a stop began.
-fn reconcile_engine(shared: &Arc<Shared>, layout: &Layout, token: &str, monitors: &mut Monitors) {
+/// The engine slot's name (RE-D172).
+const ENGINE: &str = "engine";
+
+/// The engine's smallest RPC allowance in `daemon.stop` once the budget is spent (B9); its kill stays at the core's
+/// hard deadline.
+const ENGINE_STOP_FLOOR: Duration = Duration::from_millis(100);
+
+/// How long, past the engine's orphan grace (`supervisor.graceMs` × scale), a start of the Node core waits for a held
+/// `run/engine.process.lock` to be released (B3).
+const ENGINE_LOCK_MARGIN: Duration = Duration::from_secs(5);
+
+/// The slots a supervisor starts with: the core, the tools and the API (only the core under `--no-core`). The core's
+/// slot reports `starting` from the start (B1), so `daemon.status` lists it first whatever starts before it (the
+/// engine); under `--no-core` it never has a state.
+fn initial_slots(no_core: bool, scale: f64) -> Vec<Slot> {
+    let mut core = Slot::new(Role::core(), scale);
+    if no_core {
+        return vec![core];
+    }
+    core.child = Some(ChildState {
+        since_ms: now_ms(),
+        ..ChildState::fresh(&Role::core())
+    });
+    vec![
+        core,
+        Slot::new(Role::tools(), scale),
+        Slot::new(Role::api(), scale),
+    ]
+}
+
+/// RE-D172: the engine slot exists exactly while `engine.implementation` is `rust`. Called at the supervisor's start,
+/// before every start or restart of the core, and after an import maintenance: a newly selected engine gets its slot
+/// right after the core's and is started ([`start_engine`], never waiting on it); an engine crashed for good gets one
+/// new try (B4: a corrected configuration brings it back without `daemon start`); an engine no longer selected is
+/// stopped within the default stop budget plus grace, and its slot, monitor and out log are removed (B13). A
+/// configuration that cannot be read changes nothing (the core's start reports it). Nothing starts once a stop began,
+/// and nothing while an import maintenance holds the home (B7).
+fn reconcile_engine(shared: &Arc<Shared>, layout: &Layout, monitors: &mut Monitors) {
+    if imports::busy(shared) {
+        return;
+    }
     let Ok(selected) = plur1bus_config::read(&layout.config_path())
         .map_err(drop)
         .and_then(|config| crate::engine_process::selected(&config).map_err(drop))
@@ -1178,12 +1213,17 @@ fn reconcile_engine(shared: &Arc<Shared>, layout: &Layout, token: &str, monitors
         return;
     };
     let role = Role::engine();
-    let (present, scale) = {
+    let (present, crashed_for_good, scale) = {
         let st = shared.lock();
         if st.stopping.is_some() || st.no_core {
             return;
         }
-        (st.slot(&role.name).is_some(), st.time_scale)
+        let slot = st.slot(ENGINE);
+        (
+            slot.is_some(),
+            slot.is_some_and(|s| state::crashed_for_good(s.child.as_ref(), s.backoff.given_up())),
+            st.time_scale,
+        )
     };
     match (selected, present) {
         (true, false) => {
@@ -1198,12 +1238,26 @@ fn reconcile_engine(shared: &Arc<Shared>, layout: &Layout, token: &str, monitors
             }
             shared
                 .log
-                .info("engine slot added", json!({ "child": role.name }));
-            start_child(shared, layout, token, &role, monitors);
+                .info("engine slot added", json!({ "child": ENGINE }));
+            start_engine(shared, layout, monitors);
+        }
+        (true, true)
+            if crashed_for_good
+                && !monitors.get(ENGINE).is_some_and(child::Monitor::is_running) =>
+        {
+            if let Some(slot) = shared.lock().slot_mut(ENGINE) {
+                slot.backoff.reset();
+            }
+            shared.log.info(
+                "engine crashed for good; trying it again with the core",
+                json!({}),
+            );
+            spawn_child(shared, layout, &role, monitors);
         }
         (false, true) => {
-            if let Some(mut monitor) = monitors.remove(&role.name) {
+            if let Some(mut monitor) = monitors.remove(ENGINE) {
                 monitor.stop(DEFAULT_STOP_BUDGET);
+                monitor.release_out_log();
             }
             shared
                 .lock()
@@ -1211,10 +1265,125 @@ fn reconcile_engine(shared: &Arc<Shared>, layout: &Layout, token: &str, monitors
                 .retain(|s| s.role.kind != RoleKind::Engine);
             shared
                 .log
-                .info("engine slot removed", json!({ "child": role.name }));
+                .info("engine slot removed", json!({ "child": ENGINE }));
         }
         _ => {}
     }
+}
+
+/// B2: starts the engine without ever holding up the core. Nothing serving its address (the normal case: a failed
+/// connect) → spawn now. Something serving → the probe (adopt a serving engine, end a hung or foreign one) is left to
+/// the scheduler, which runs it after the core has started ([`restart_child`] with `probe_first`).
+fn start_engine(shared: &Arc<Shared>, layout: &Layout, monitors: &mut Monitors) {
+    let address = layout.endpoints(&Role::engine(), platform()).address;
+    if plur1bus_rpc::transport::connect(&address, adopt::PROBE_TIMEOUT).is_ok() {
+        if let Some(slot) = shared.lock().slot_mut(ENGINE) {
+            slot.probe_first = true;
+            slot.start_requested = true;
+        }
+        shared.wake.notify_all();
+        shared.log.info(
+            "engine endpoint already served; probing it after the core started",
+            json!({}),
+        );
+        return;
+    }
+    if shared.lock().stopping.is_none() {
+        spawn_child(shared, layout, &Role::engine(), monitors);
+    }
+}
+
+/// Whether another process holds `run/engine.process.lock`, the OS lock every running Rust engine holds (and
+/// `backup restore` fences): an exclusive try-lock that fails with "would block". No file, or a free one: `false`.
+fn engine_lock_held(layout: &Layout) -> bool {
+    let mut options = fs::OpenOptions::new();
+    options.read(true).write(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC);
+    }
+    let Ok(file) = options.open(layout.run().join("engine.process.lock")) else {
+        return false;
+    };
+    matches!(file.try_lock(), Err(fs::TryLockError::WouldBlock))
+}
+
+/// B3: with the Node engine selected, the core must not start beside a Rust engine that still writes the home (one
+/// left by a killed supervisor after an offline switch to `node`). Returns whether the core may start. A free or
+/// missing `run/engine.process.lock` (the normal case) costs one try-lock and nothing else. A held one: an engine whose
+/// identity the adoption probe proves is stopped with the usual deadlines (a hung or foreign one is terminated), then
+/// the lock is awaited for at most the engine's orphan grace (`supervisor.graceMs` × scale) plus 5 s. Still held → the
+/// core stays down, crashed for good with `engine-lock-held` (fail closed: two writers of one store), until
+/// `daemon start`.
+fn engine_lock_gate(shared: &Arc<Shared>, layout: &Layout, token: &str) -> bool {
+    let node = plur1bus_config::read(&layout.config_path())
+        .ok()
+        .and_then(|config| crate::engine_process::selected(&config).ok())
+        == Some(false);
+    if !node || !engine_lock_held(layout) {
+        return true;
+    }
+    let role = Role::engine();
+    shared.log.warn(
+        "engine lock held with the node engine selected; ending that engine before the core starts",
+        json!({}),
+    );
+    match adopt::probe_child(layout, &role, adopt::PROBE_TIMEOUT) {
+        adopt::Probe::Serving { peer, client, .. } => match adopt::adopt(client, &role, token) {
+            Ok((lifeline, status)) => {
+                let mut monitor = child::Monitor::adopt(
+                    shared.clone(),
+                    layout,
+                    role.clone(),
+                    None,
+                    peer,
+                    lifeline,
+                    &status,
+                );
+                monitor.stop(DEFAULT_STOP_BUDGET);
+                monitor.release_out_log();
+            }
+            Err(e) => shared.log.warn(
+                "cannot adopt the engine that holds the lock",
+                json!({ "err": e.to_string() }),
+            ),
+        },
+        adopt::Probe::Hung { peer } | adopt::Probe::Foreign { peer, .. } => {
+            adopt::terminate_found(shared, layout, &role, peer, "hung");
+        }
+        adopt::Probe::Absent => {}
+    }
+    let (grace_ms, scale) = {
+        let st = shared.lock();
+        (st.config.grace_ms, st.time_scale)
+    };
+    let deadline =
+        Instant::now() + Duration::from_millis(grace_ms).mul_f64(scale) + ENGINE_LOCK_MARGIN;
+    loop {
+        if !engine_lock_held(layout) {
+            shared
+                .log
+                .info("engine lock released; starting the core", json!({}));
+            return true;
+        }
+        if shared.lock().stopping.is_some() {
+            return false;
+        }
+        if Instant::now() >= deadline {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    child::mark_unspawnable(
+        shared,
+        "core",
+        &(
+            state::CrashReason::EngineLockHeld,
+            "run/engine.process.lock is still held although the node engine is selected; stop the process that holds it, then run `plur1bus daemon start`".into(),
+        ),
+    );
+    false
 }
 
 /// The child's RPC allowance and fixed stop deadline; prior children spend one shared budget (H3B-R25).
@@ -1230,13 +1399,9 @@ fn child_stop_timing(
     let left = budget_end.saturating_duration_since(now);
     match kind {
         RoleKind::Api | RoleKind::Tools | RoleKind::Module => (left, budget_end),
-        // RE-D172: stopped after the core, so the core's grace may already be spent; the engine still gets half a
-        // grace to close its stores, and never more than the core's hard deadline or that half grace, whichever ends
-        // later.
-        RoleKind::Engine => (
-            left.max(grace / 2),
-            (budget_end + grace).max(now + grace / 2),
-        ),
+        // RE-D172 (B9): stopped after the core, with what is left of the budget (at least the small floor as its RPC
+        // allowance) and killed at the core's own hard deadline, so the stop never passes one budget plus one grace.
+        RoleKind::Engine => (left.max(ENGINE_STOP_FLOOR), budget_end + grace),
         RoleKind::Core => {
             // ADR-012 §10.12: without an earlier child, Core keeps its full nominal RPC budget. Scheduling or
             // import cleanup never renews the acceptance-anchored hard deadline enforced by stop_until.
@@ -1359,8 +1524,14 @@ fn run_restart_jobs(
     let reconcile = (!no_core && !modules.is_empty())
         .then(|| reconcile_stop(shared, layout, monitors, &modules, oldest));
     if core_wanted && !no_core {
+        // B6: the engine reads config.json only at its start, so a requested core restart restarts a running engine
+        // too (unless it started after the request), between the core's stop and its start.
+        let engine_before = monitors.get(ENGINE).and_then(child::Monitor::running_since);
         // RE-D172: `engine.implementation` is a core-class key; the engine slot follows it before the core restarts.
-        reconcile_engine(shared, layout, token, monitors);
+        reconcile_engine(shared, layout, monitors);
+        let restart_engine = engine_before.is_some()
+            && !state::restart_already_done(engine_before, oldest)
+            && monitors.get(ENGINE).and_then(child::Monitor::running_since) == engine_before;
         let core = Role::core();
         let fresh = state::restart_already_done(
             monitors
@@ -1373,6 +1544,18 @@ fn run_restart_jobs(
                 "core restart skipped: the running core started after it was requested",
                 json!({ "jobs": jobs.len() }),
             ),
+            Some(_) if restart_engine => {
+                let mut core_monitor = monitors.remove(&core.name).expect("checked above");
+                core_monitor.restart_requested_around(DEFAULT_STOP_BUDGET, || {
+                    if let Some(engine) = monitors.get_mut(ENGINE) {
+                        engine.stop_restarting(DEFAULT_STOP_BUDGET);
+                        if shared.lock().stopping.is_none() {
+                            engine.spawn();
+                        }
+                    }
+                });
+                monitors.insert(core.name.clone(), core_monitor);
+            }
             Some(m) => m.restart_requested(DEFAULT_STOP_BUDGET),
             None => {
                 if let Some(slot) = shared.lock().slot_mut(&core.name) {
@@ -1453,23 +1636,33 @@ fn restart_child(
     role: &Role,
     monitors: &mut Monitors,
 ) {
-    if role.kind == RoleKind::Core {
-        // RE-D172: every start or restart of the core first brings the engine slot to the configured selection.
-        reconcile_engine(shared, layout, token, monitors);
-    }
     let running = monitors
         .get(&role.name)
         .is_some_and(child::Monitor::is_running);
-    let lock_held = {
-        let st = shared.lock();
-        st.slot(&role.name)
+    if role.kind == RoleKind::Core && !running {
+        // RE-D172: every start or restart of the core first brings the engine slot to the configured selection, and
+        // (Node engine selected) waits, bounded, for a still-held engine lock (B3).
+        reconcile_engine(shared, layout, monitors);
+        if !engine_lock_gate(shared, layout, token) {
+            return;
+        }
+    }
+    let (lock_held, probe_first) = {
+        let mut st = shared.lock();
+        let lock_held = st
+            .slot(&role.name)
             .and_then(|s| s.child.as_ref())
             .and_then(|c| c.last_exit.as_ref())
             .and_then(|e| e.reason.as_deref())
-            == Some(state::CrashReason::LockHeld.as_str())
+            == Some(state::CrashReason::LockHeld.as_str());
+        // B2: an engine endpoint found serving at start is probed here, on the scheduler, after the core started.
+        let probe_first = st
+            .slot_mut(&role.name)
+            .is_some_and(|s| std::mem::take(&mut s.probe_first));
+        (lock_held, probe_first)
     };
     if !running
-        && lock_held
+        && (lock_held || probe_first)
         && (probe_and_adopt(shared, layout, token, role, monitors)
             || shared.lock().stopping.is_some())
     {
@@ -1714,27 +1907,46 @@ mod tests {
     }
 
     #[test]
-    fn the_engine_stops_after_the_core_with_at_least_half_a_grace() {
+    fn the_engine_stops_after_the_core_inside_one_budget_plus_one_grace() {
         let stop = StopRequest {
             budget: Duration::from_millis(2000),
             source: StopSource::Rpc,
             requested_at: Instant::now(),
         };
         let grace = Duration::from_millis(100);
+        let hard = stop.requested_at + stop.budget + grace;
         let early = stop.requested_at + Duration::from_millis(500);
         assert_eq!(
             child_stop_timing(stop, RoleKind::Engine, grace, 1, early),
-            (
-                Duration::from_millis(1500),
-                stop.requested_at + stop.budget + grace
-            )
+            (Duration::from_millis(1500), hard)
         );
-        // The core used its whole grace: the engine still gets half a grace, then it is killed.
-        let late = stop.requested_at + stop.budget + grace;
-        assert_eq!(
-            child_stop_timing(stop, RoleKind::Engine, grace, 1, late),
-            (grace / 2, late + grace / 2)
-        );
+        // B9: after the budget the engine asks for the small floor only, and the kill stays at the core's hard
+        // deadline, whenever the core finished: the whole stop never passes one budget plus one grace.
+        for after in [stop.budget, stop.budget + grace / 2, stop.budget + grace] {
+            let (budget, deadline) =
+                child_stop_timing(stop, RoleKind::Engine, grace, 1, stop.requested_at + after);
+            assert_eq!(budget, ENGINE_STOP_FLOOR, "{after:?}");
+            assert_eq!(deadline, hard, "{after:?}");
+        }
+    }
+
+    /// B1: the core's slot reports `starting` from the supervisor's start, so `daemon.status` lists it first even while
+    /// only the engine (started before it) has a process; under `--no-core` it has no state at all.
+    #[test]
+    fn the_core_is_listed_first_from_the_start() {
+        let mut st = test_state();
+        st.no_core = false;
+        st.slots = initial_slots(false, 1.0);
+        let mut engine = Slot::new(Role::engine(), 1.0);
+        engine.child = Some(ChildState::fresh(&Role::engine()));
+        st.slots.insert(1, engine);
+        let status = st.status_json();
+        assert_eq!(status["children"][0]["kind"], "core", "{status}");
+        assert_eq!(status["children"][0]["process"]["state"], "starting");
+        assert_eq!(status["children"][0]["pid"], Value::Null);
+        assert_eq!(status["children"][1]["kind"], "engine", "{status}");
+        assert!(initial_slots(true, 1.0)[0].child.is_none());
+        assert_eq!(initial_slots(true, 1.0).len(), 1);
     }
 
     #[test]

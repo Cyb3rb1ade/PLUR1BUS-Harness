@@ -171,6 +171,7 @@ fn start(h: &Home, env: &[(&str, &str)]) -> Supervisor {
         .env_remove("FAKE_ENGINE_MODE")
         .env_remove("FAKE_ENGINE_LATER_MODE")
         .env_remove("FAKE_ENGINE_STATUS")
+        .env_remove("FAKE_ENGINE_LOCK_HELPER")
         .envs(env.iter().copied())
         .stdin(Stdio::null())
         .stdout(Stdio::null())
@@ -227,7 +228,8 @@ fn validator() -> jsonschema::Validator {
         .unwrap()
 }
 
-/// `daemon.status`, validated against the schema.
+/// `daemon.status`, validated against the schema. Ruling 2 (B1): whenever there are children at all, the core is
+/// the first of them, from the supervisor's first answer on (the engine is started before it).
 fn status(c: &mut Client) -> Value {
     let st = c.call("daemon.status", json!({})).unwrap();
     let errors: Vec<String> = validator()
@@ -235,7 +237,101 @@ fn status(c: &mut Client) -> Value {
         .map(|e| e.to_string())
         .collect();
     assert!(errors.is_empty(), "{errors:?} in {st}");
+    if let Some(first) = st["children"].get(0) {
+        assert_eq!(
+            first["kind"], "core",
+            "the core is always listed first: {st}"
+        );
+    }
     st
+}
+
+fn core_events(h: &Home, name: &str) -> Vec<Value> {
+    Home::lines(&h.core_events)
+        .into_iter()
+        .filter(|e| e["event"] == name)
+        .collect()
+}
+
+fn kill_pid(pid: u64) {
+    #[cfg(unix)]
+    assert!(Command::new("kill")
+        .args(["-KILL", &pid.to_string()])
+        .status()
+        .unwrap()
+        .success());
+    #[cfg(windows)]
+    assert!(Command::new("taskkill")
+        .args(["/F", "/PID", &pid.to_string()])
+        .status()
+        .unwrap()
+        .success());
+}
+
+/// The argv of this test binary's [`engine_lock_holder_helper`]: a process that takes `run/engine.process.lock` with
+/// the OS lock the supervisor tests (`File::lock`, like `backup/writer_guard.rs`) and holds it until its stdin closes.
+fn lock_helper_argv() -> Vec<String> {
+    vec![
+        std::env::current_exe().unwrap().display().to_string(),
+        "engine_lock_holder_helper".into(),
+        "--exact".into(),
+        "--ignored".into(),
+        "--nocapture".into(),
+        "--test-threads=1".into(),
+    ]
+}
+
+/// A lock holder the test owns directly (not an engine): killed when dropped.
+struct LockHolder(Child);
+impl LockHolder {
+    fn start(path: &Path) -> Self {
+        use std::io::BufRead;
+        let argv = lock_helper_argv();
+        let mut child = Command::new(&argv[0])
+            .args(&argv[1..])
+            .env("ENGINE_LOCK_HOLDER_PATH", path)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+        let mut lines = std::io::BufReader::new(child.stdout.take().unwrap()).lines();
+        assert!(
+            lines.any(|l| l.is_ok_and(|l| l.contains("engine-lock-held"))),
+            "the lock helper did not take the lock"
+        );
+        Self(child)
+    }
+}
+impl Drop for LockHolder {
+    fn drop(&mut self) {
+        let _ = self.0.kill();
+        let _ = self.0.wait();
+    }
+}
+
+/// Helper process for the B3 tests (run by [`lock_helper_argv`], a no-op otherwise): holds the OS lock on
+/// `ENGINE_LOCK_HOLDER_PATH` until its stdin closes.
+#[test]
+#[ignore = "helper process for the engine lock tests; does nothing without ENGINE_LOCK_HOLDER_PATH"]
+fn engine_lock_holder_helper() {
+    use std::io::{Read, Write};
+    let Some(path) = std::env::var_os("ENGINE_LOCK_HOLDER_PATH") else {
+        return;
+    };
+    let file = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(path)
+        .unwrap();
+    file.lock().unwrap();
+    let mut out = std::io::stdout();
+    writeln!(out, "engine-lock-held").unwrap();
+    out.flush().unwrap();
+    let _ = std::io::stdin().read_to_end(&mut Vec::new());
+    drop(file);
 }
 
 fn child<'a>(st: &'a Value, role: &str) -> Option<&'a Value> {
@@ -353,29 +449,344 @@ fn an_engine_crash_is_restarted_with_backoff_and_the_core_survives() {
     stop(&mut sup, &mut c);
 }
 
+/// B4 (variant c): an engine exit 3 (another owner, a stamp still inside its age rule) is retried like the core's
+/// `lock-held`, probing first, and does not count toward the give-up.
 #[test]
-fn engine_exit_3_is_fatal_and_not_restarted() {
+fn engine_exit_3_is_retried_with_backoff() {
     let h = Home::new(Some("rust"));
-    let mut sup = start(&h, &[("FAKE_ENGINE_MODE", "exit:3")]);
+    let mut sup = start(
+        &h,
+        &[
+            ("FAKE_ENGINE_MODE", "exit:3"),
+            ("FAKE_ENGINE_LATER_MODE", "ok"),
+        ],
+    );
     let mut c = client(&h.home);
-    let st = wait_status(&mut c, "engine crashed and core ready", |st| {
-        state(child(st, "engine")) == "crashed" && state(child(st, "core")) == "ready"
+    let st = wait_status(&mut c, "the engine ready after its exit 3", |st| {
+        state(child(st, "engine")) == "ready" && state(child(st, "core")) == "ready"
     });
     let engine = child(&st, "engine").unwrap();
     assert_eq!(engine["lastExit"]["code"], 3, "{st}");
-    assert_eq!(engine["process"]["reason"], "lock-held", "{st}");
-    assert_eq!(
-        engine["nextRestartAt"],
-        Value::Null,
-        "no restart is scheduled: {st}"
+    assert_eq!(engine["lastExit"]["reason"], "lock-held", "{st}");
+    assert!(engine["restarts"].as_u64().unwrap() >= 1, "{st}");
+    let exited = h
+        .log_records()
+        .into_iter()
+        .find(|r| r["msg"] == "engine exited")
+        .unwrap();
+    assert!(exited["nextRestartAt"].is_u64(), "{exited}");
+    stop(&mut sup, &mut c);
+}
+
+/// B4: an exit 3 that persists past the stamp ceiling (660 s × scale) turns fatal `lock-held`; only then is nothing
+/// scheduled any more.
+#[test]
+fn a_persistent_engine_exit_3_turns_fatal_after_the_stamp_ceiling() {
+    let h = Home::new(Some("rust"));
+    // 660 s × 0.005 = 3.3 s of retries (the backoff caps at 60 s × 0.005 = 0.3 s).
+    let mut sup = start(
+        &h,
+        &[
+            ("FAKE_ENGINE_MODE", "exit:3"),
+            ("PLUR1BUS_SUPERVISOR_TIME_SCALE", "0.005"),
+        ],
     );
-    assert_eq!(engine["restarts"], 0, "{st}");
-    assert_eq!(h.engine_events("started").len(), 1);
-    // Only `daemon start` tries again.
-    c.call("daemon.start", json!({})).unwrap();
-    wait_until("a second engine start", || {
-        h.engine_events("started").len() == 2
+    let mut c = client(&h.home);
+    let st = wait_status(&mut c, "the engine fatal after the ceiling", |st| {
+        let engine = child(st, "engine");
+        state(engine) == "crashed" && engine.unwrap()["nextRestartAt"].is_null()
     });
+    let engine = child(&st, "engine").unwrap();
+    assert_eq!(engine["process"]["reason"], "lock-held", "{st}");
+    assert_eq!(engine["lastExit"]["code"], 3, "{st}");
+    // Retried more than the five exits that would have given up any other crash.
+    assert!(h.engine_events("started").len() > 5, "{st}");
+    let first = h.engine_events("started")[0]["at"].as_u64().unwrap();
+    let last = h.engine_events("exiting").last().unwrap()["at"]
+        .as_u64()
+        .unwrap();
+    assert!(
+        last - first >= 3_300,
+        "fatal only after the ceiling: {}",
+        last - first
+    );
+    stop(&mut sup, &mut c);
+}
+
+/// B4: an engine crashed for good (here an exit 2, `config-invalid`) gets one new try at the next core restart, so a
+/// corrected configuration brings it back without `daemon start`.
+#[test]
+fn a_fatal_engine_gets_a_new_try_at_the_next_core_restart() {
+    let h = Home::new(Some("rust"));
+    let mut sup = start(
+        &h,
+        &[
+            ("FAKE_ENGINE_MODE", "exit:2"),
+            ("FAKE_ENGINE_LATER_MODE", "ok"),
+        ],
+    );
+    let mut c = client(&h.home);
+    let st = wait_status(&mut c, "a fatal engine beside a ready core", |st| {
+        state(child(st, "engine")) == "crashed" && state(child(st, "core")) == "ready"
+    });
+    assert_eq!(
+        child(&st, "engine").unwrap()["process"]["reason"],
+        "config-invalid"
+    );
+    assert_eq!(child(&st, "engine").unwrap()["nextRestartAt"], Value::Null);
+    kill_pid(child(&st, "core").unwrap()["pid"].as_u64().unwrap());
+    let st = wait_status(&mut c, "the engine back after the core restart", both_ready);
+    assert!(
+        child(&st, "core").unwrap()["restarts"].as_u64().unwrap() >= 1,
+        "{st}"
+    );
+    assert_eq!(h.engine_events("started").len(), 2);
+    stop(&mut sup, &mut c);
+}
+
+/// B2: an engine found hung (or foreign) at the supervisor's start is handled after the core started: the core's start
+/// never waits for the engine's probe or its termination.
+#[test]
+fn a_hung_or_foreign_engine_found_at_start_does_not_delay_the_core() {
+    for case in ["hung", "foreign"] {
+        let h = Home::new(Some("rust"));
+        let env = [("FAKE_ENGINE_GRACE_MS", "60000")];
+        let mut first = start(&h, &env);
+        let mut c = client(&h.home);
+        let st = wait_status(&mut c, "core and engine ready", both_ready);
+        let old = child(&st, "engine").unwrap()["pid"].as_u64().unwrap();
+        first.child.kill().unwrap();
+        first.child.wait().unwrap();
+        drop(c);
+        wait_until("the old core gone", || {
+            !core_events(&h, "exiting").is_empty()
+        });
+        if case == "hung" {
+            std::fs::write(h.home.join("state/fake-engine-hang"), "").unwrap();
+        } else {
+            // The pid file now names another incarnation: the engine answers, but as a stranger.
+            std::fs::write(
+                h.home.join("run/engine.pid"),
+                format!("{old} 00000000-0000-4000-8000-00000000beef\n"),
+            )
+            .unwrap();
+        }
+        // Scale 1: the probe alone may take 2.5 s and the termination at least 2 s more.
+        let t0 = Instant::now();
+        let mut second = start(&h, &[env[0], ("PLUR1BUS_SUPERVISOR_TIME_SCALE", "1")]);
+        let mut c = client(&h.home);
+        wait_status(&mut c, "core ready", |st| {
+            state(child(st, "core")) == "ready"
+        });
+        let elapsed = t0.elapsed();
+        assert!(
+            elapsed < Duration::from_millis(2_500),
+            "{case}: the core waited {elapsed:?} for the engine"
+        );
+        let core = h.log_position("core spawned").unwrap();
+        wait_until("the engine probe", || {
+            h.log_position("engine probe").is_some()
+        });
+        assert!(
+            core < h.log_position("engine probe").unwrap(),
+            "{case}: {:?}",
+            h.log_records()
+        );
+        // The scheduler then ends the old engine and starts another.
+        let _ = std::fs::remove_file(h.home.join("state/fake-engine-hang"));
+        wait_until("the old engine gone", || {
+            plur1bus_rpc::process::alive(old as u32) == plur1bus_rpc::process::Liveness::Gone
+        });
+        drop(first);
+        stop(&mut second, &mut c);
+    }
+}
+
+/// B3: an engine left running by a killed supervisor, with the selection switched to `node` offline, is ended before
+/// the Node core starts: two writers never share the stores.
+#[test]
+fn an_engine_left_running_is_stopped_before_a_node_core_starts() {
+    let h = Home::new(Some("rust"));
+    let helper = serde_json::to_string(&lock_helper_argv()).unwrap();
+    let env = [
+        ("FAKE_ENGINE_GRACE_MS", "60000"),
+        ("FAKE_ENGINE_LOCK_HELPER", helper.as_str()),
+    ];
+    let mut first = start(&h, &env);
+    let mut c = client(&h.home);
+    let st = wait_status(&mut c, "core and engine ready", both_ready);
+    let old = child(&st, "engine").unwrap()["pid"].as_u64().unwrap();
+    assert_eq!(h.engine_events("os-lock").len(), 1);
+    first.child.kill().unwrap();
+    first.child.wait().unwrap();
+    drop(c);
+    wait_until("the old core gone", || {
+        !core_events(&h, "exiting").is_empty()
+    });
+    h.write_config(json!({ "schemaVersion": 1, "engine": { "implementation": "node" } }));
+    let mut second = start(&h, &env);
+    let mut c = client(&h.home);
+    let st = wait_status(&mut c, "a node core ready", |st| {
+        state(child(st, "core")) == "ready"
+    });
+    assert!(child(&st, "engine").is_none(), "{st}");
+    let gone = h
+        .engine_events("exiting")
+        .into_iter()
+        .find(|e| e["pid"] == old)
+        .expect("the old engine ended");
+    let core_started = core_events(&h, "started").last().unwrap()["at"]
+        .as_u64()
+        .unwrap();
+    assert!(
+        gone["at"].as_u64().unwrap() <= core_started,
+        "{gone} vs {core_started}"
+    );
+    assert_eq!(
+        h.engine_events("shutdown").len(),
+        1,
+        "stopped through engine.shutdown"
+    );
+    drop(first);
+    stop(&mut second, &mut c);
+}
+
+/// B3: a holder of `run/engine.process.lock` that cannot be stopped keeps the Node core off (fail closed), for at
+/// most the orphan grace plus 5 s, with its own reason.
+#[test]
+fn an_engine_lock_that_stays_held_keeps_the_node_core_off() {
+    let h = Home::new(None);
+    h.write_config(json!({ "schemaVersion": 1, "supervisor": { "graceMs": 10000 } }));
+    std::fs::create_dir_all(h.home.join("run")).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(h.home.join("run"), std::fs::Permissions::from_mode(0o700))
+            .unwrap();
+    }
+    let _holder = LockHolder::start(&h.home.join("run/engine.process.lock"));
+    let mut sup = start(&h, &[]);
+    let mut c = client(&h.home);
+    let st = wait_status(&mut c, "the core held off", |st| {
+        state(child(st, "core")) == "crashed"
+    });
+    let core = child(&st, "core").unwrap();
+    assert_eq!(core["process"]["reason"], "engine-lock-held", "{st}");
+    assert_eq!(core["nextRestartAt"], Value::Null, "{st}");
+    assert!(core_events(&h, "started").is_empty(), "no core ran");
+    let checks = firstaid(&h.home);
+    let row = checks.iter().find(|r| r["id"] == "core.state").unwrap();
+    assert!(
+        row["summary"]
+            .as_str()
+            .unwrap()
+            .contains("engine-lock-held"),
+        "{row:#}"
+    );
+    stop(&mut sup, &mut c);
+}
+
+/// B3: without a held engine lock (no file, or a free one) the Node core starts exactly as before.
+#[test]
+fn without_a_held_engine_lock_the_node_core_starts_at_once() {
+    for lock_file in [false, true] {
+        let h = Home::new(None);
+        if lock_file {
+            std::fs::create_dir_all(h.home.join("run")).unwrap();
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                std::fs::set_permissions(
+                    h.home.join("run"),
+                    std::fs::Permissions::from_mode(0o700),
+                )
+                .unwrap();
+            }
+            std::fs::write(h.home.join("run/engine.process.lock"), "").unwrap();
+        }
+        let mut sup = start(&h, &[]);
+        let mut c = client(&h.home);
+        wait_status(&mut c, "core ready", |st| {
+            state(child(st, "core")) == "ready"
+        });
+        assert!(
+            !h.log_records()
+                .iter()
+                .any(|r| r["msg"].as_str().is_some_and(|m| m.contains("engine lock"))),
+            "{:?}",
+            h.log_records()
+        );
+        stop(&mut sup, &mut c);
+    }
+}
+
+/// B6: a requested core restart (a core-class configuration change) also restarts the engine, which reads config.json
+/// only at its start: core stopped, engine stopped, engine started, core started.
+#[test]
+fn a_requested_core_restart_restarts_the_engine_too() {
+    let h = Home::new(Some("rust"));
+    let mut sup = start(&h, &[]);
+    let mut c = client(&h.home);
+    let st = wait_status(&mut c, "core and engine ready", both_ready);
+    let (core, engine) = (
+        child(&st, "core").unwrap()["pid"].clone(),
+        child(&st, "engine").unwrap()["pid"].clone(),
+    );
+    let r = c
+        .call(
+            "config.set",
+            json!({ "changes": [{ "key": "core.recall.capChars", "value": 20000 }] }),
+        )
+        .unwrap();
+    assert_eq!(r["restart"]["core"], true, "{r}");
+    wait_status(&mut c, "a new core and a new engine", |st| {
+        both_ready(st)
+            && child(st, "core").unwrap()["pid"] != core
+            && child(st, "engine").unwrap()["pid"] != engine
+    });
+    let records = h.log_records();
+    let at = |msg: &str, nth: usize| {
+        records
+            .iter()
+            .enumerate()
+            .filter(|(_, r)| r["msg"] == msg)
+            .nth(nth)
+            .unwrap_or_else(|| panic!("{msg} #{nth}: {records:?}"))
+            .0
+    };
+    assert!(
+        at("stopping core", 0) < at("stopping engine", 0),
+        "{records:?}"
+    );
+    assert!(
+        at("stopping engine", 0) < at("engine spawned", 1),
+        "{records:?}"
+    );
+    assert!(
+        at("engine spawned", 1) < at("core spawned", 1),
+        "{records:?}"
+    );
+    stop(&mut sup, &mut c);
+}
+
+/// B6: a core crash restarts only the core; the engine keeps running.
+#[test]
+fn a_core_crash_leaves_the_engine_running() {
+    let h = Home::new(Some("rust"));
+    let mut sup = start(&h, &[]);
+    let mut c = client(&h.home);
+    let st = wait_status(&mut c, "core and engine ready", both_ready);
+    let (core, engine) = (
+        child(&st, "core").unwrap()["pid"].clone(),
+        child(&st, "engine").unwrap()["pid"].clone(),
+    );
+    kill_pid(core.as_u64().unwrap());
+    let st = wait_status(&mut c, "the core restarted", |st| {
+        state(child(st, "core")) == "ready" && child(st, "core").unwrap()["pid"] != core
+    });
+    assert_eq!(child(&st, "engine").unwrap()["pid"], engine, "{st}");
+    assert_eq!(child(&st, "engine").unwrap()["restarts"], 0, "{st}");
+    assert_eq!(h.engine_events("started").len(), 1);
     stop(&mut sup, &mut c);
 }
 
@@ -692,10 +1103,15 @@ fn a_hanging_engine_does_not_delay_core_readiness() {
         .find(|r| r["msg"] == "core ready")
         .unwrap();
     assert!(ready["readyMs"].as_u64().unwrap() < 10_000, "{ready}");
-    // The stop is bounded by its deadline although the engine never answers engine.shutdown.
+    // B9: the stop stays inside one budget plus one grace although the engine never answers engine.shutdown: budget
+    // 2 s + grace 5 s × 0.1, plus at most the reaping after a kill (1 s) and the process exit.
     let t0 = Instant::now();
     stop(&mut sup, &mut c);
-    assert!(t0.elapsed() < Duration::from_secs(20), "{:?}", t0.elapsed());
+    assert!(
+        t0.elapsed() < Duration::from_millis(2_000 + 500 + 1_000 + 500),
+        "{:?}",
+        t0.elapsed()
+    );
 }
 
 #[test]
@@ -715,9 +1131,12 @@ fn daemon_stop_stops_the_core_before_the_engine() {
     assert_eq!(h.engine_events("shutdown").len(), 1);
 }
 
+/// The fake engine's pipe has Node's default DACL, so this proves only that `windows.pipe-acl` reads the engine pipe
+/// when the Rust engine is selected. The real engine's user-and-SYSTEM DACL is tested in the engine crate
+/// (`crates/plur1bus-engine`, its Windows transport tests on Windows CI).
 #[cfg(windows)]
 #[test]
-fn windows_pipe_acl_applies_to_the_engine_pipe() {
+fn windows_pipe_acl_check_reads_the_engine_pipe() {
     let h = Home::new(Some("rust"));
     let mut sup = start(&h, &[]);
     let mut c = client(&h.home);
@@ -772,4 +1191,82 @@ fn the_real_engine_runs_in_the_slot_with_the_flat_embedder() {
     );
     stop(&mut sup, &mut c);
     assert!(!h.home.join("run/engine.pid").exists());
+}
+
+fn real_engine_env(bin: &str) -> [(&str, &str); 2] {
+    [
+        ("PLUR1BUS_ENGINE_BIN", bin),
+        ("PLUR1BUS_TEST_INTERNALS", "flat-embedder"),
+    ]
+}
+
+/// B5 (a): the real engine killed with SIGKILL is restarted by the supervisor; the successor takes over the dead
+/// process's stamp on the same host at once (no exit 3) and is ready again.
+#[cfg(unix)]
+#[test]
+#[ignore = "needs a built plur1bus-engine in PLUR1BUS_ENGINE_BIN"]
+fn the_real_engine_is_restarted_after_sigkill() {
+    let bin = std::env::var("PLUR1BUS_ENGINE_BIN").expect("PLUR1BUS_ENGINE_BIN");
+    let h = Home::new(Some("rust"));
+    let mut sup = start(&h, &real_engine_env(&bin));
+    let mut c = client(&h.home);
+    let st = wait_status(&mut c, "core and engine ready", both_ready);
+    let pid = child(&st, "engine").unwrap()["pid"].clone();
+    kill_pid(pid.as_u64().unwrap());
+    let st = wait_status(&mut c, "a new engine ready", |st| {
+        child(st, "engine").is_some_and(|e| e["pid"] != pid && e["process"]["state"] == "ready")
+    });
+    let engine = child(&st, "engine").unwrap();
+    assert!(engine["restarts"].as_u64().unwrap() >= 1, "{st}");
+    assert_eq!(engine["lastExit"]["signal"], "SIGKILL", "{st}");
+    assert!(
+        !h.log_records()
+            .iter()
+            .any(|r| r["msg"] == "engine exited" && r["code"] == 3),
+        "the successor took the stamp over without exit 3: {:?}",
+        h.log_records()
+    );
+    stop(&mut sup, &mut c);
+}
+
+/// B5 (b): a supervisor restart adopts the running real engine through `engine.adopt` (the supervisor token as nonce);
+/// no second engine process is started.
+#[test]
+#[ignore = "needs a built plur1bus-engine in PLUR1BUS_ENGINE_BIN"]
+fn the_real_engine_is_adopted_after_a_supervisor_restart() {
+    let bin = std::env::var("PLUR1BUS_ENGINE_BIN").expect("PLUR1BUS_ENGINE_BIN");
+    let h = Home::new(Some("rust"));
+    let env = real_engine_env(&bin);
+    let env = [env[0], env[1], ("FAKE_CORE_GRACE_MS", "30000")];
+    let mut first = start(&h, &env);
+    let mut c = client(&h.home);
+    let st = wait_status(&mut c, "core and engine ready", both_ready);
+    let pid = child(&st, "engine").unwrap()["pid"].clone();
+    first.child.kill().unwrap();
+    first.child.wait().unwrap();
+    drop(c);
+    let mut second = start(&h, &env);
+    let mut c = client(&h.home);
+    let st = wait_status(&mut c, "the same engine adopted", |st| {
+        state(child(st, "core")) == "ready"
+            && child(st, "engine").is_some_and(|e| {
+                e["pid"] == pid && e["adopted"] == true && e["process"]["state"] == "ready"
+            })
+    });
+    assert_eq!(child(&st, "engine").unwrap()["restarts"], 0, "{st}");
+    assert_eq!(
+        h.log_records()
+            .iter()
+            .filter(|r| r["msg"] == "engine spawned")
+            .count(),
+        1,
+        "no second engine process"
+    );
+    let recorded = std::fs::read_to_string(h.home.join("run/engine.pid")).unwrap();
+    assert_eq!(
+        recorded.split_whitespace().next(),
+        Some(pid.to_string().as_str())
+    );
+    drop(first);
+    stop(&mut second, &mut c);
 }

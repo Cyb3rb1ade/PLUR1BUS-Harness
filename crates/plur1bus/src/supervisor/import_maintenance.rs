@@ -48,8 +48,10 @@ fn stop_writers(
         .lock()
         .slots
         .iter()
-        // RE-D172: the engine keeps running like the tools; maintenance restarts the core, and an engine stopped here
-        // would not be started again by the core's restart.
+        // RE-D172: not a writer stopped here, like the tools. A maintenance never runs beside a Rust engine: the Core's
+        // preflight refuses it (`exclusiveWriter` is false with engine.implementation `rust`, so the issue
+        // `exclusive-writer-unproven` leaves no preflight ticket), `import_admission::queue` refuses it while an engine
+        // slot exists, and the supervisor starts no engine while a maintenance holds the home (B7).
         .filter(|slot| {
             !matches!(
                 slot.role.kind,

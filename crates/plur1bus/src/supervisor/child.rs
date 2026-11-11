@@ -741,6 +741,12 @@ impl Monitor {
         }
     }
 
+    /// Drops this monitor's out log from [`Shared::out_logs`] (RE-D172, B13): called when its slot is removed for
+    /// good, so switching the engine on and off does not grow the list.
+    pub fn release_out_log(&self) {
+        relock(&self.shared.out_logs).retain(|out| !Arc::ptr_eq(out, &self.ctx.out));
+    }
+
     /// Whether a spawned process has not exited yet.
     pub fn is_running(&self) -> bool {
         self.current
@@ -1147,6 +1153,13 @@ impl Monitor {
     /// `none`), so it never counts toward the give-up budget. A core that is `crashed` for good (fatal or given up)
     /// has its backoff reset first.
     pub fn restart_requested(&mut self, budget: Duration) {
+        self.restart_requested_around(budget, || {});
+    }
+
+    /// [`Monitor::restart_requested`] with `between` run after the stop and before the spawn (RE-D172, B6: the
+    /// engine's own stop and start sit there, so a requested core restart runs core stop → engine stop → engine start →
+    /// core start).
+    pub fn restart_requested_around(&mut self, budget: Duration, between: impl FnOnce()) {
         let pid = self
             .current
             .as_ref()
@@ -1168,6 +1181,7 @@ impl Monitor {
             json!({ "pid": pid }),
         );
         self.stop(budget);
+        between();
         if self.shared.lock().stopping.is_some() {
             return;
         }
@@ -1907,21 +1921,26 @@ fn record_exit(
         ExitClass::Retryable { reason } => {
             let lock_held = reason.as_deref() == Some(CrashReason::LockHeld.as_str());
             let reason = forced.map(|r| r.to_string()).or(reason);
-            let decision = if lock_held {
-                slot.backoff.on_lock_held_exit(now)
+            let decision = if lock_held && slot.role.kind == RoleKind::Engine {
+                // RE-D172 (B4): the engine's exit 3 is retried like the core's, up to the stamp ceiling.
+                slot.backoff
+                    .on_lock_held_exit_within(now, super::state::ENGINE_LOCK_HELD_CEILING)
+            } else if lock_held {
+                Some(slot.backoff.on_lock_held_exit(now))
             } else {
-                slot.backoff.on_exit(now)
+                Some(slot.backoff.on_exit(now))
             };
             match decision {
-                RestartDecision::After(d) => {
+                Some(RestartDecision::After(d)) => {
                     slot.restart_at = Some(now + d);
                     (crashed(&reason), reason, Some(at + d.as_millis() as u64))
                 }
-                RestartDecision::GiveUp => (
+                Some(RestartDecision::GiveUp) => (
                     crashed(&Some(CrashReason::GaveUp.to_string())),
                     reason,
                     None,
                 ),
+                None => (crashed(&reason), reason, None),
             }
         }
     };
@@ -1968,6 +1987,28 @@ fn mark_exited(g: &Gen) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// RE-D172 (B13): adding and removing the engine slot again and again leaves `out_logs` where it was.
+    #[test]
+    fn a_released_monitor_leaves_no_out_log_behind() {
+        let temp = tempfile::tempdir().unwrap();
+        let layout = Layout::new(temp.path().to_path_buf());
+        let shared = Arc::new(Shared {
+            state: Mutex::new(super::super::test_state()),
+            maintenance: Default::default(),
+            wake: Default::default(),
+            config: Mutex::new(super::super::config::initial(&layout)),
+            log: super::super::Log::none(),
+            subscribers: Default::default(),
+            out_logs: Default::default(),
+        });
+        for _ in 0..5 {
+            let monitor = Monitor::new(shared.clone(), &layout, None, Role::engine());
+            assert_eq!(relock(&shared.out_logs).len(), 1);
+            monitor.release_out_log();
+            assert_eq!(relock(&shared.out_logs).len(), 0);
+        }
+    }
 
     struct ChunkedOutput {
         bytes: std::io::Cursor<Vec<u8>>,
