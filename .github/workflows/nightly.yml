@@ -316,7 +316,7 @@ jobs:
       - name: remove the eval home
         if: always()
         run: rm -rf "${{ runner.temp }}/coding-smoke-home"
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ always() && steps.coding-canary.outcome == 'success' && hashFiles('artifacts/coding-smoke/report.json') != '' }}
         with:
           name: coding-bench-smoke-${{ matrix.model }}
@@ -411,7 +411,7 @@ jobs:
       - name: remove the eval home
         if: always()
         run: rm -rf "${{ runner.temp }}/coding-bench-home"
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ always() && steps.coding-canary.outcome == 'success' && hashFiles('artifacts/coding-bench/report.json') != '' }}
         with:
           name: coding-bench-live-${{ matrix.model }}
