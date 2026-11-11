@@ -267,9 +267,11 @@ impl ProcessEngine {
         let proposals =
             engine_memory::ProposalsPort::new(slot.clone(), proposal_sharing, closed.clone());
         let curation = engine_memory::CurationPort::new(slot, closed.clone());
-        // RE-D167: an A1 flag is set only where its surface is served. `recallStats` needs the
-        // stats reader and the recall counting hook, which `engine_recall::run` drives over the
-        // same configured base; `memoryCuration` needs the curation slot for list/resolve.
+        // RE-D167: an A1 flag is set only where its surface is served. `recallStats` means "a
+        // base is configured, so the stats reader and the recall counting hook are wired" (both
+        // hang on that base, so it equals `memoryLink`). If the counting sidecar fails at run
+        // time, recall continues without counting (`engine_recall::run`) and the flag stays
+        // true; `stats` then answers `storage`. `memoryCuration` needs the curation slot.
         // `knowledgePromotion` stays off in RX: it also covers the `knowledge-update` job, which
         // answers `job-authority-unbound` until RY-A binds its authority (F13). KNOWN-GAP → RY-A.
         let recall_stats = memory.is_some() && live_stores.configured_base().is_some();

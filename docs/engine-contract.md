@@ -5,7 +5,8 @@ Generated from `crates/plur1bus-engine/schema/engine-contract.schema.json` by `s
 Engine contract 1.18.0: the pinned contract 1.17.0 plus the A1 curated-memory members (RE-D167). Runtime ports and cancellation remain hand-written Rust contracts.
 
 Source engine commit: `9f34008c143c5da87b2194b5a28442b407ff8ba7`. Additive A1 commit: `9b935ce1f970bd92a931aa99a58c620669c8085f`.
-The A1 members are assigned contract 1.18.0 (RE-D167).
+The A1 members are assigned contract 1.18.0 (RE-D167). `ContractVersion` grew by `1.18.0` beside the pin's `1.17.0`;
+a new enum member in results is additive under ADR-016 §2, so the RPC version is not raised.
 Type summaries describe the schema. Method signatures preserve its `x-methods` parameters and resolved result shapes;
 the Rust traits, cancellation parameters and runtime ports live under `crates/plur1bus-engine/src/contract/`.
 The schema block in each section retains every constraint, annotation and runtime-member definition.

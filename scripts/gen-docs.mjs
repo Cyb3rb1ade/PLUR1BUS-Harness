@@ -361,7 +361,8 @@ Generated from \`crates/plur1bus-engine/schema/engine-contract.schema.json\` by 
 ${engineContract.description}
 
 Source engine commit: \`${engineContract["x-source-commit"]}\`. Additive A1 commit: \`${engineContract["x-a1-commit"]}\`.
-The A1 members are assigned contract 1.18.0 (RE-D167).
+The A1 members are assigned contract 1.18.0 (RE-D167). \`ContractVersion\` grew by \`1.18.0\` beside the pin's \`1.17.0\`;
+a new enum member in results is additive under ADR-016 §2, so the RPC version is not raised.
 Type summaries describe the schema. Method signatures preserve its \`x-methods\` parameters and resolved result shapes;
 the Rust traits, cancellation parameters and runtime ports live under \`crates/plur1bus-engine/src/contract/\`.
 The schema block in each section retains every constraint, annotation and runtime-member definition.

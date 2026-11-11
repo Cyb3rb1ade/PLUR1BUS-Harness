@@ -2863,8 +2863,14 @@ keep their own components and behavior.
   the process reports `contract: "1.18.0"` (`ContractVersion` keeps the pin's
   `1.17.0` beside it, so recorded pin payloads still decode). A flag is set only
   where its surface is served (`ProcessEngine::new` in `rpc/engine.rs`):
-  `recallStats` when the stats reader is composed and recall counts over the same
-  configured base, `memoryCuration` when the curation slot serves list/resolve.
+  `recallStats` when a base is configured, so the stats reader and the recall
+  counting hook are wired (it equals `memoryLink`; if the counting sidecar fails
+  at run time, recall continues without counting, `rpc/engine_recall.rs`, the
+  flag stays `true` and `stats` answers `storage`), `memoryCuration` when the
+  curation slot serves list/resolve. The Core reads the flags of the last
+  handshake per use: curation and `knowledge.update` per call, the dreams'
+  statistics and promotion per run (`a1CandidateMemory`), so an engine that
+  starts after the Core is used without a Core restart.
   `knowledgePromotion` stays `false` in RX: the flag also covers the
   `knowledge-update` job, which answers `job-authority-unbound` until RY-A binds
   its authority (F13), so the Core would plan a job that always fails.

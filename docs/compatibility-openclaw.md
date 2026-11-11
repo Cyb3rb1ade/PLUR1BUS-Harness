@@ -75,32 +75,35 @@ and the log-redaction fixes (#225, #229, #231); the contract is unchanged at 1.1
 
 ## 3. The contract floor rule
 
-The Harness accepts an engine whose `contract` is `<int>.<int>.<int>`, **major equal to 1**, **minor ≥ 8**.
+The Harness accepts an engine whose `contract` is `<int>.<int>.<int>`, **major equal to 1**, **minor ≥ 15**.
 Anything else makes the core refuse to start with `E_RPC_VERSION`.
 
 | Constant | Value | Source |
 |---|---|---|
 | `CORE_CONTRACT` (the contract the Harness is built and pinned against) | `1.18.0` (RE-D167: the A1 members; the Node pin still reports `1.17.0` and is accepted, A1 opens only behind the engine's `recallStats`, `knowledgePromotion` and `memoryCuration` flags) | `packages/core/src/engine.ts`; mirrored in `crates/plur1bus/src/install/manifest.rs` (`CORE_CONTRACT`) |
 | `SUPPORTED_CONTRACT_MAJOR` | `1` | `packages/core/src/engine.ts` |
-| `MIN_CONTRACT_MINOR` (floor = `1.8.0`) | `8` | `packages/core/src/engine.ts` |
+| `MIN_CONTRACT_MINOR` (floor = `1.15.0`) | `15` | `packages/core/src/engine.ts` |
 
 - **Check:** `assertEngineContract` in `packages/core/src/engine.ts` throws `E_RPC_VERSION` with `reason =
   engine-contract-major` (not a `<int>.<int>.<int>` string, or major ≠ 1) or `reason = engine-contract-minor`
-  (major 1, minor < 8).
-- **The floor is deliberately below the pin.** The comment on `MIN_CONTRACT_MINOR` states that the floor stays 1.8.0
-  because the core process needs no newer member. The importer (a separate entry, `dist/import.js`) calls `memory.link`
+  (major 1, minor < 15).
+- **The floor is deliberately below the pin.** The comment on `MIN_CONTRACT_MINOR` states that contract 1.15 is
+  required because older engines ignore `host.fetch` and `host.secrets` and bypass per-request egress; no newer member
+  is required at startup. The importer (a separate entry, `dist/import.js`) calls `memory.link`
   only after feature-testing `engine.capabilities.memoryLink` (1.16.0) and falls back to a ledger-only link without it
-  (`packages/core/src/import/importers/card-links.ts`), so an engine at 1.8.0 to 1.15.0 passes the startup check (HB2).
-  Whether such an engine passes the core's tests: unverified (the test suite pins 1.17.0). Without `validate` (before 1.17.0) a re-embedding run stops in `validating` (`engine-validate-unavailable`) and `admin.embedding.check` answers `canSwitch: false`.
+  (`packages/core/src/import/importers/card-links.ts`), so an engine at 1.15.0 passes the startup check (HB2), and the
+  A1 surfaces open only behind their capability flags (1.18.0, RE-D167), so the Node pin at 1.17.0 runs without them.
+  Whether a 1.15.0 or 1.16.0 engine passes the core's tests: unverified (the test suite pins 1.17.0). Without `validate` (before 1.17.0) a re-embedding run stops in `validating` (`engine-validate-unavailable`) and `admin.embedding.check` answers `canSwitch: false`.
 - **The two constants cannot drift apart silently.** The Rust test `core_contract_matches_the_typescript_core_contract`
   in `crates/plur1bus/src/install/manifest.rs` reads `packages/core/src/engine.ts` and asserts equality of
   `CORE_CONTRACT`.
 - **Installed-core check in `1staid check` is stricter than the floor.** `check_runtime_core` in
   `crates/plur1bus/src/commands/firstaid_install.rs` reports `warn` when a running core's contract has a different
-  major or is **older than the manifest's** `core.contract` (the manifest value is `CORE_CONTRACT`, `1.16.0`), or when
+  major or is **older than the manifest's** `core.contract` (setup records the contract the running core reported, `crates/plur1bus/src/install/setup.rs`;
+  the Rust `CORE_CONTRACT` is used there only in tests), or when
   its `rpc` differs; a newer additive minor is accepted (`contract_compatible`: same major and `running >= installed`).
   It is a warning, not a refusal; the core still answers. Two different rules, by design: startup refusal uses the
-  floor (1.8.0), the installation health check compares against what the installer shipped (1.16.0).
+  floor (1.15.0), the installation health check compares against what setup recorded.
 - **Major 2 is out of range.** `runCommand` is deprecated in plugin contract 1.5.0 and removed in 2.0
   (plugin `docs/engine-api.md`); the Harness refuses any major other than 1 until a deliberate bump.
 
