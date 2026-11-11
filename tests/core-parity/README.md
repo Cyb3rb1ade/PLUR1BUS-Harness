@@ -52,6 +52,13 @@ numbered by first appearance, times and pids under listed keys are masked, notif
 and their position between responses are free), responses in the order of their requests. `--strict-order` compares the full
 frame sequence. A difference prints as `conn 0, response to #3 media.preferences.get: $.result.global: expected true, got false`.
 
+**Platform values.** A few values depend on the host OS, not on the core. `PLATFORM_VALUES` in `transcript.ts` lists each
+with its method and its result path, never by key name: today only `core.status` `result.engine.sharedMemory.mode`, where
+the engine reports `fd-capability` on Linux and `verified-path` on macOS. Exactly these two values become
+`<shared-memory-mode>`, both when `record.ts` writes a transcript and on both sides of a comparison, so a transcript recorded
+on a Mac replays on the Linux CI. Any other value there (`unavailable`, or a new one) and the same values at any other path
+stay as they are and still show as a difference.
+
 **Error texts (controller ruling, P4-03).** Error codes (`error.code`, `error.data.error`) and `reason` strings must match
 exactly. The free-text `message` and the `detail` of `E_INVALID_PARAMS` are not contract (ADR-016): the Rust validator
 (`jsonschema`) words its findings differently from ajv, so the comparison replaces both with `<text>` for an

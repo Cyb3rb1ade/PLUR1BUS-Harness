@@ -8,6 +8,9 @@
 //    different uuids match, while a uuid used twice in one run and twice-but-differently in the other does not;
 //  - times and pids: numbers under the keys in TIME_KEYS / PID_KEYS become `<time>` / `<pid>` (null stays null, so a
 //    field that is null on one side and a number on the other is a difference); ISO-8601 strings become `<iso>`;
+//  - platform values: a value listed in PLATFORM_VALUES, at its one result path of its one method, becomes its
+//    placeholder (`core.status` `engine.sharedMemory.mode`: `fd-capability` on Linux, `verified-path` on macOS). Any
+//    other value there, and the same values anywhere else, are compared as they are. `record.ts` writes the placeholder;
 //  - order: per connection the requests are compared in order, the responses in the order of their requests, and the
 //    notifications as a multiset (their relative order and their position between responses are free). `strictOrder`
 //    compares the full frame sequence of each connection instead.
@@ -26,6 +29,39 @@ const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})
 export const TIME_KEYS: ReadonlySet<string> = new Set(["since", "at", "ts", "timestamp", "createdAt", "updatedAt", "checkedAt", "observedAt", "startedAt", "finishedAt", "lastVerifiedAt", "lastAnchorAdvanced", "uptimeMs",
   "acceptedAt", "expiresAt", "durationMs", "elapsedMs", "totalMs", "ms"]);
 export const PID_KEYS: ReadonlySet<string> = new Set(["pid"]);
+
+/** Values that depend on the host platform, not on the core, bound to one path of one method's result. The engine
+ *  reports how it shares memory: `fd-capability` where it can pass descriptors (Linux), `verified-path` where it falls
+ *  back to verified paths (macOS; `crates/plur1bus-engine/src/store/directory.rs`). Either is the same core behaviour;
+ *  `unavailable` (or anything new) is not, so it stays visible. Transcripts recorded on a Mac replay on the Linux CI. */
+export const PLATFORM_VALUES: readonly { method: string; path: readonly string[]; values: ReadonlySet<string>; placeholder: string }[] = [
+  { method: "core.status", path: ["engine", "sharedMemory", "mode"], values: new Set(["fd-capability", "verified-path"]), placeholder: "<shared-memory-mode>" },
+];
+
+/** Replaces the PLATFORM_VALUES in the responses of one transcript with their placeholders (requests matched by
+ *  connection and id within that transcript). Returns new lines; the input is not changed. Idempotent. */
+export function normalisePlatformValues(lines: readonly TranscriptLine[]): TranscriptLine[] {
+  const methods = new Map<string, string>();
+  for (const l of lines) if (l.dir === "in") methods.set(`${l.conn}:${JSON.stringify((l.msg as any)?.id)}`, String((l.msg as any)?.method));
+  return lines.map((l) => {
+    const msg = l.msg as any;
+    if (l.dir !== "out" || msg?.id === undefined || msg?.method !== undefined || !msg?.result || typeof msg.result !== "object") return l;
+    const rules = PLATFORM_VALUES.filter((r) => r.method === methods.get(`${l.conn}:${JSON.stringify(msg.id)}`));
+    let result = msg.result;
+    for (const rule of rules) result = replaceAt(result, rule.path, rule.values, rule.placeholder);
+    return result === msg.result ? l : { ...l, msg: { ...msg, result } };
+  });
+}
+
+/** `v` with the string at `path` replaced when it is one of `values`; `v` itself (unchanged) otherwise. */
+function replaceAt(v: unknown, path: readonly string[], values: ReadonlySet<string>, placeholder: string): unknown {
+  if (!v || typeof v !== "object" || Array.isArray(v) || path.length === 0) return v;
+  const [head, ...rest] = path as [string, ...string[]];
+  if (!Object.hasOwn(v, head)) return v;
+  const x = (v as Record<string, unknown>)[head];
+  const next = rest.length === 0 ? (typeof x === "string" && values.has(x) ? placeholder : x) : replaceAt(x, rest, values, placeholder);
+  return next === x ? v : { ...(v as Record<string, unknown>), [head]: next };
+}
 
 export function parseTranscript(text: string): TranscriptLine[] {
   const out: TranscriptLine[] = [];
@@ -121,7 +157,7 @@ function diffValues(path: string, want: unknown, got: unknown, out: string[]): v
 
 export function compareTranscripts(expected: readonly TranscriptLine[], actual: readonly TranscriptLine[], opts: CompareOptions = {}): CompareResult {
   const strict = opts.strictOrder === true;
-  const want = normaliseTranscript(canonical(expected, strict)), got = normaliseTranscript(canonical(actual, strict));
+  const want = normaliseTranscript(canonical(normalisePlatformValues(expected), strict)), got = normaliseTranscript(canonical(normalisePlatformValues(actual), strict));
   const requestMethods = new Map<string, string>(); // `${conn}:${id}` -> method, from the expected side then the actual side
   for (const l of [...expected, ...actual]) if (l.dir === "in") requestMethods.set(`${l.conn}:${msgOf(l)?.id}`, String(msgOf(l)?.method));
   const label = (l: TranscriptLine): string => {

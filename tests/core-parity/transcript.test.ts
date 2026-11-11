@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { compareTranscripts, normaliseTranscript, parseTranscript, serialiseTranscript, type TranscriptLine } from "./transcript.ts";
+import { compareTranscripts, normalisePlatformValues, normaliseTranscript, parseTranscript, serialiseTranscript, type TranscriptLine } from "./transcript.ts";
 
 const req = (seq: number, conn: number, id: number, method: string, params: unknown = {}): TranscriptLine => ({ seq, conn, dir: "in", msg: { jsonrpc: "2.0", id, method, params } });
 const res = (seq: number, conn: number, id: number, result: unknown): TranscriptLine => ({ seq, conn, dir: "out", msg: { jsonrpc: "2.0", id, result } });
@@ -86,6 +86,37 @@ describe("comparison", () => {
   it("compares the requests that were sent too", () => {
     const r = compareTranscripts([req(1, 0, 1, "a.b", { q: 1 })], [req(1, 0, 1, "a.b", { q: 2 })]);
     assert.deepEqual(r.diffs, ["conn 0, request #1 a.b: $.params.q: expected 1, got 2"]);
+  });
+});
+
+describe("platform-dependent values (core.status engine.sharedMemory.mode)", () => {
+  const status = (mode: string, method = "core.status", result: (m: string) => unknown = (m) => ({ engine: { sharedMemory: { supported: true, mode: m } } })) =>
+    [req(1, 0, 1, "core.auth"), res(2, 0, 1, { ok: true }), req(3, 0, 2, method), res(4, 0, 2, result(mode))];
+
+  it("the two platform modes count as equal: a macOS recording (verified-path) replays on Linux (fd-capability)", () => {
+    assert.deepEqual(compareTranscripts(status("verified-path"), status("fd-capability")), { ok: true, diffs: [] });
+    assert.deepEqual(compareTranscripts(status("fd-capability"), status("verified-path")), { ok: true, diffs: [] });
+  });
+
+  it("any other mode is still a difference, also against a normalised recording", () => {
+    assert.deepEqual(compareTranscripts(status("verified-path"), status("unavailable")).diffs,
+      ['conn 0, response to #2 core.status: $.result.engine.sharedMemory.mode: expected "<shared-memory-mode>", got "unavailable"']);
+    assert.equal(compareTranscripts(normalisePlatformValues(status("fd-capability")), status("unavailable")).ok, false);
+    assert.equal(compareTranscripts(status("unavailable"), status("unavailable")).ok, true);
+  });
+
+  it("is bound to that path of the core.status result: the same values elsewhere are compared as they are", () => {
+    assert.equal(compareTranscripts(status("verified-path", "x.status"), status("fd-capability", "x.status")).ok, false);
+    const flat = (m: string) => ({ mode: m, engine: { mode: m, sharedMemory: { supported: true, mode: "verified-path" } } });
+    assert.equal(compareTranscripts(status("verified-path", "core.status", flat), status("fd-capability", "core.status", flat)).ok, false);
+  });
+
+  it("the recording keeps a placeholder for the two platform modes only, and leaves everything else as recorded", () => {
+    const recorded = normalisePlatformValues(status("verified-path"));
+    assert.deepEqual((recorded[3]!.msg as any).result, { engine: { sharedMemory: { supported: true, mode: "<shared-memory-mode>" } } });
+    assert.deepEqual(recorded.slice(0, 3), status("verified-path").slice(0, 3));
+    assert.deepEqual(normalisePlatformValues(status("unavailable")), status("unavailable"));
+    assert.deepEqual(normalisePlatformValues(recorded), recorded, "idempotent");
   });
 });
 
