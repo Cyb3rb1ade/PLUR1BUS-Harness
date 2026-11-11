@@ -488,9 +488,9 @@ pub fn restore(
         // this restore wrote it: an earlier restore's copies are the only way back until the core has re-applied.
         if marker_created {
             let current = format!("pre-restore-{id}");
-            let backups = pre.parent().unwrap_or(home);
+            let backups = super::create::backups_dir(layout);
             report.retention_warnings =
-                super::retention::purge_pre_restore(backups, keep, &current);
+                super::retention::purge_pre_restore(&backups, keep, &current);
         } else {
             report.retention_warnings.push(
                 "--keep: no pre-restore copy was deleted: an earlier restore is not finished (state/.restore-reapply-tombstones is still there: the tombstone re-apply is still owed); the older copies stay"

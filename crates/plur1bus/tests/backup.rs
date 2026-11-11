@@ -1152,10 +1152,14 @@ const OLD_PRE: [&str; 4] = [
 ];
 const MARKER: &str = "state/.restore-reapply-tombstones";
 
-fn plant_pre(home: &Path, name: &str) {
-    let d = home.join("backups").join(name);
+fn plant_pre_in(backups: &Path, name: &str) {
+    let d = backups.join(name);
     fs::create_dir_all(&d).unwrap();
     fs::write(d.join("old-state"), name).unwrap();
+}
+
+fn plant_pre(home: &Path, name: &str) {
+    plant_pre_in(&home.join("backups"), name);
 }
 
 fn plant_old_copies(home: &Path) {
@@ -1353,7 +1357,15 @@ fn keep_never_touches_symlinks_files_archives_or_foreign_names() {
 
 #[test]
 fn an_invalid_keep_fails_before_any_change() {
-    for bad in ["0", "x", "-1", "1.5", ""] {
+    for bad in [
+        "0",
+        "x",
+        "-1",
+        "1.5",
+        "",
+        "1000000000",
+        "18446744073709551616",
+    ] {
         let (_d, home, a) = setup();
         old_home(&home);
         plant_old_copies(&home);
@@ -1369,6 +1381,67 @@ fn an_invalid_keep_fails_before_any_change() {
         assert_eq!(out.status.code(), Some(2), "--keep {bad:?}");
         assert_eq!(tree(&home), before, "--keep {bad:?} must change nothing");
     }
+}
+
+#[test]
+fn the_largest_accepted_keep_keeps_everything() {
+    let (_d, home, a) = setup();
+    old_home(&home);
+    plant_old_copies(&home);
+    build(&a, &fixture());
+    restore_with(&home, &a, &["--keep", "999999999"]);
+    let fresh = fresh_copy(&home, &OLD_PRE);
+    let mut want: Vec<String> = OLD_PRE.iter().map(|s| s.to_string()).collect();
+    want.push(fresh);
+    want.sort();
+    assert_eq!(backups_entries(&home), want);
+}
+
+#[test]
+fn a_restore_that_replaces_nothing_makes_no_copy_and_keeps_the_n_newest_existing_ones() {
+    let (_d, home, a) = setup(); // an empty home: every unit is `create`, nothing is moved aside
+    plant_old_copies(&home);
+    build(&a, &fixture());
+    let out = restore_with(&home, &a, &["--keep", "2"]);
+    let v = doc(&out);
+    assert_eq!(v["applied"], true);
+    assert!(v["preRestore"].is_null(), "{v}");
+    assert_eq!(
+        backups_entries(&home),
+        vec![OLD_PRE[2].to_string(), OLD_PRE[3].to_string()]
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn keep_deletes_nothing_through_a_backups_directory_that_is_a_symlink() {
+    let (d, home, a) = setup();
+    old_home(&home);
+    build(&a, &fixture());
+    // `backups/` moved to another disk, possibly shared with a second home.
+    let shared = d.path().join("shared-backups");
+    fs::create_dir_all(&shared).unwrap();
+    for n in OLD_PRE {
+        plant_pre_in(&shared, n);
+    }
+    std::os::unix::fs::symlink(&shared, home.join("backups")).unwrap();
+    let out = restore_with(&home, &a, &["--keep", "1"]);
+    assert_eq!(doc(&out)["applied"], true);
+    let mut names: Vec<String> = fs::read_dir(&shared)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    names.sort();
+    for n in OLD_PRE {
+        assert!(names.iter().any(|x| x == n), "{n} must stay: {names:?}");
+    }
+    assert_eq!(
+        names.len(),
+        OLD_PRE.len() + 1,
+        "plus the fresh copy: {names:?}"
+    );
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(err.contains("--keep") && err.contains("symlink"), "{err}");
 }
 
 #[test]
@@ -1515,6 +1588,42 @@ fn refused_admission_leaves_no_staging_no_pre_restore_and_the_current_cache() {
 // at the next start and not rolled back by itself. What holds, and is pinned here: no data is lost, the marker is
 // there from the cut `marker` on, no lock outlives the process, and repeating the restore converges.
 // ---------------------------------------------------------------------------------------------------------------------
+
+#[test]
+fn the_hold_seam_is_inert_without_the_test_internals_gate() {
+    let root = tempfile::tempdir().unwrap();
+    let archive = root.path().join("b.tar.gz");
+    build(&archive, &fixture());
+    let home = root.path().join("home");
+    fs::create_dir_all(&home).unwrap();
+    old_home(&home);
+    let checkpoint = root.path().join("checkpoint");
+    let out = cli(&home)
+        .env_remove("PLUR1BUS_ALLOW_TEST_INTERNALS")
+        .env("PLUR1BUS_TEST_BACKUP_FAIL_AT", "hold:marker")
+        .env("PLUR1BUS_TEST_BACKUP_HOLD_FILE", &checkpoint)
+        .args(["backup", "restore", "--yes"])
+        .arg(&archive)
+        .assert()
+        .success()
+        .get_output()
+        .clone();
+    assert_eq!(doc(&out)["applied"], true);
+    assert!(!checkpoint.exists(), "no gate, no hold");
+    // With the gate but without a checkpoint file there is nothing to wait for either.
+    let home2 = root.path().join("home2");
+    fs::create_dir_all(&home2).unwrap();
+    old_home(&home2);
+    let out = cli(&home2)
+        .env("PLUR1BUS_TEST_BACKUP_FAIL_AT", "hold:marker")
+        .args(["backup", "restore", "--yes"])
+        .arg(&archive)
+        .assert()
+        .success()
+        .get_output()
+        .clone();
+    assert_eq!(doc(&out)["applied"], true);
+}
 
 #[cfg(unix)]
 mod crash {
@@ -1710,6 +1819,13 @@ mod crash {
             assert_eq!(home.join(MARKER).exists(), marker, "{at}: marker");
             let staging = staging_dir(&home).expect("a killed restore leaves its staging tree");
             let pre = pre_dir(&home);
+            if matches!(at, "absent:0" | "done") {
+                assert_eq!(
+                    fs::read_dir(&staging).unwrap().count(),
+                    0,
+                    "{at}: every unit left the staging tree"
+                );
+            }
             if placed == 0 && aside.is_none() {
                 assert!(pre.is_none(), "{at}: nothing was moved aside yet");
             }
@@ -1794,6 +1910,24 @@ mod crash {
                 );
             }
             // The state the repeat displaced is the half state of the killed run: still whole under its pre-restore tree.
+            if let Some(killed) = pre.as_ref() {
+                for (k, (_, target)) in UNITS.iter().enumerate() {
+                    if k < placed || aside == Some(k) {
+                        assert_eq!(
+                            snap(&killed.join(target)),
+                            old[k],
+                            "{at}: the killed run's copy of {target} is still whole"
+                        );
+                    }
+                }
+                if absent_aside {
+                    assert_eq!(
+                        snap(&killed.join(ABSENT)),
+                        old_absent,
+                        "{at}: the killed run's copy of the absent unit"
+                    );
+                }
+            }
             let latest = fresh_after_repeat(&home, pre.as_deref());
             assert!(latest.is_dir(), "{at}");
         }
@@ -1809,41 +1943,5 @@ mod crash {
             .collect();
         assert_eq!(found.len(), 1, "{found:?}");
         found[0].clone()
-    }
-
-    #[test]
-    fn the_hold_seam_is_inert_without_the_test_internals_gate() {
-        let root = tempfile::tempdir().unwrap();
-        let archive = root.path().join("b.tar.gz");
-        build(&archive, &fixture());
-        let home = root.path().join("home");
-        fs::create_dir_all(&home).unwrap();
-        old_home(&home);
-        let checkpoint = root.path().join("checkpoint");
-        let out = cli(&home)
-            .env_remove("PLUR1BUS_ALLOW_TEST_INTERNALS")
-            .env("PLUR1BUS_TEST_BACKUP_FAIL_AT", "hold:marker")
-            .env("PLUR1BUS_TEST_BACKUP_HOLD_FILE", &checkpoint)
-            .args(["backup", "restore", "--yes"])
-            .arg(&archive)
-            .assert()
-            .success()
-            .get_output()
-            .clone();
-        assert_eq!(doc(&out)["applied"], true);
-        assert!(!checkpoint.exists(), "no gate, no hold");
-        // With the gate but without a checkpoint file there is nothing to wait for either.
-        let home2 = root.path().join("home2");
-        fs::create_dir_all(&home2).unwrap();
-        old_home(&home2);
-        let out = cli(&home2)
-            .env("PLUR1BUS_TEST_BACKUP_FAIL_AT", "hold:marker")
-            .args(["backup", "restore", "--yes"])
-            .arg(&archive)
-            .assert()
-            .success()
-            .get_output()
-            .clone();
-        assert_eq!(doc(&out)["applied"], true);
     }
 }

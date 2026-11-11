@@ -208,7 +208,9 @@ Ohne Zusatz bleibt jede Pre-Restore-Kopie `<home>/backups/pre-restore-<UTC>-<8 H
 vollständig gelungenen Austausch nur die N neuesten Kopien; die eben erzeugte zählt mit und wird nie entfernt.
 Sortiert wird nach dem Zeitstempel im Namen, dann nach dem Namen. Kandidaten sind ausschließlich echte Verzeichnisse
 direkt unter `backups/` mit genau diesem Namensmuster; Symlinks, Dateien, Archive (`plur1bus-backup-*.tar.gz`) und alle
-anderen Namen werden nie angefasst.
+anderen Namen werden nie angefasst. Ist `<home>/backups` selbst ein Symlink (zum Beispiel auf eine andere Platte, die
+sich mehrere Homes teilen), löscht `--keep` dort nichts und warnt auf stderr. Ersetzt ein Restore nichts (leeres Home),
+entsteht keine eigene Kopie; dann bleiben die N neuesten vorhandenen.
 
 * Nichts wird gelöscht bei `--dry-run`, nach einem Fehler oder Rollback und **solange ein früherer Restore noch nicht
   durch den Core-Start abgeschlossen ist**: Existierte `state/.restore-reapply-tombstones` schon vor diesem Restore, bleiben
@@ -218,7 +220,10 @@ anderen Namen werden nie angefasst.
 
 ### Abgebrochener Restore (ohne Journal)
 
-Die Rust-CLI führt **kein Restore-Journal**. Wird ein Restore hart beendet (SIGKILL, Stromausfall), gilt:
+Die Rust-CLI führt **kein Restore-Journal**. Wird der Restore-Prozess hart beendet (SIGKILL; getestet), gilt unten
+Folgendes. Für einen Stromausfall oder Absturz des Rechners ist das **nicht getestet und nicht zugesagt**: Dateiinhalte
+werden synchronisiert, Verzeichnis-Renames und das Anlegen des Markers aber nicht per `fsync` auf das Verzeichnis;
+Reihenfolge und Dauerhaftigkeit hängen vom Dateisystem ab.
 
 * **Kein Datenverlust:** Jede Einheit liegt vollständig am Live-Ort (alt oder neu) oder vollständig unter
   `backups/pre-restore-<id>/<Ziel>`; noch nicht platzierte Einheiten liegen vollständig im Staging `<home>/.restore-<id>`.

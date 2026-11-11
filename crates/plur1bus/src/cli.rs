@@ -1242,7 +1242,9 @@ pub enum BackupCmd {
     ///
     /// The pre-restore copies stay for good unless `--keep N` is given: after a restore that went through completely,
     /// only the N newest `pre-restore-<UTC>-<id>` directories stay (the one just made counts and is never removed);
-    /// symlinks, files, archives and other names in `backups/` are never touched. Nothing is deleted while an earlier
+    /// symlinks, files, archives and other names in `backups/` are never touched, and nothing is deleted when `backups/`
+    /// itself is a symlink (a warning says so). A restore that replaces nothing makes no copy; then the N newest existing
+    /// ones stay. Nothing is deleted while an earlier
     /// restore's `state/.restore-reapply-tombstones` marker is still there (a warning on stderr says so), after a
     /// failed or rolled-back restore, or on `--dry-run`. A copy that cannot be removed is a warning on stderr; the
     /// restore still succeeded.

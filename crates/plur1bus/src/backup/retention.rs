@@ -33,6 +33,28 @@ fn is_pre_restore_name(name: &str) -> bool {
 /// never removed, whatever its stamp. Returns one warning per entry that could not be listed or removed.
 pub fn purge_pre_restore(backups: &Path, keep: usize, current: &str) -> Vec<String> {
     let mut warnings = Vec::new();
+    // `backups/` itself must be a real directory of this home: through a symlink (or junction) the copies listed could
+    // belong to another home or another disk the operator linked in. Checked right before listing; the restore that made
+    // the copy is not affected.
+    match fs::symlink_metadata(backups) {
+        Ok(m) if m.file_type().is_dir() && !m.file_type().is_symlink() => {}
+        Ok(m) => {
+            let what = if m.file_type().is_symlink() {
+                "a symlink"
+            } else {
+                "not a directory"
+            };
+            warnings.push(format!(
+                "--keep: nothing was deleted: {} is {what}, not a real directory; the pre-restore copies there stay",
+                backups.display()
+            ));
+            return warnings;
+        }
+        Err(e) => {
+            warnings.push(format!("cannot inspect {}: {e}", backups.display()));
+            return warnings;
+        }
+    }
     let entries = match fs::read_dir(backups) {
         Ok(rd) => rd,
         Err(e) => {
@@ -182,6 +204,34 @@ mod tests {
             assert_eq!(w.len(), 1, "{w:?}");
             assert!(w[0].contains(stuck), "{w:?}");
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_backups_directory_that_is_a_symlink_or_a_file_is_never_purged() {
+        let d = tempfile::tempdir().unwrap();
+        let target = d.path().join("elsewhere");
+        let names = [
+            "pre-restore-20200101T000000Z-aaaaaaa1",
+            "pre-restore-20200102T000000Z-aaaaaaa2",
+            "pre-restore-20200103T000000Z-aaaaaaa3",
+        ];
+        for n in names {
+            mk(&target, n);
+        }
+        let link = d.path().join("backups");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+        let w = purge_pre_restore(&link, 1, names[2]);
+        assert_eq!(w.len(), 1, "{w:?}");
+        assert!(w[0].contains("--keep") && w[0].contains("symlink"), "{w:?}");
+        assert_eq!(left(&target), names.to_vec());
+        // A dangling link and a plain file are refused the same way.
+        let gone = d.path().join("gone");
+        std::os::unix::fs::symlink(d.path().join("nowhere"), &gone).unwrap();
+        assert_eq!(purge_pre_restore(&gone, 1, "x").len(), 1);
+        let file = d.path().join("file");
+        fs::write(&file, "f").unwrap();
+        assert_eq!(purge_pre_restore(&file, 1, "x").len(), 1);
     }
 
     #[cfg(unix)]
