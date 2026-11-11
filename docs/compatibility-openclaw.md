@@ -80,7 +80,7 @@ Anything else makes the core refuse to start with `E_RPC_VERSION`.
 
 | Constant | Value | Source |
 |---|---|---|
-| `CORE_CONTRACT` (the contract the Harness is built and pinned against) | `1.17.0` | `packages/core/src/engine.ts`; mirrored in `crates/plur1bus/src/install/manifest.rs` (`CORE_CONTRACT`) |
+| `CORE_CONTRACT` (the contract the Harness is built and pinned against) | `1.18.0` (RE-D167: the A1 members; the Node pin still reports `1.17.0` and is accepted, A1 opens only behind the engine's `recallStats`, `knowledgePromotion` and `memoryCuration` flags) | `packages/core/src/engine.ts`; mirrored in `crates/plur1bus/src/install/manifest.rs` (`CORE_CONTRACT`) |
 | `SUPPORTED_CONTRACT_MAJOR` | `1` | `packages/core/src/engine.ts` |
 | `MIN_CONTRACT_MINOR` (floor = `1.8.0`) | `8` | `packages/core/src/engine.ts` |
 

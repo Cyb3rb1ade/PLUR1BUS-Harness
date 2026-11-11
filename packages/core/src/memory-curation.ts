@@ -7,12 +7,13 @@ import { deriveUserPrincipal } from "./identity/principals.ts";
 import { mapMemoryOpError, requireAgent } from "./memory-ops.ts";
 import { authenticatedPrincipal } from "./rbac/guard.ts";
 import { authorize } from "./rbac/authorize.ts";
+import { hasA1Capability } from "./engine/capabilities.ts";
 import { RpcError } from "./rpc/errors.ts";
 import type { Handler } from "./rpc/server.ts";
 
 export const CURATION_METHODS = ["memory.curation.list", "memory.curation.resolve"] as const;
 
-// Public Engine 1.17.0 structural contract while only the Controller changes the pin.
+// Public Engine 1.18.0 structural contract while only the Controller changes the pin.
 // No private Engine import; absence remains a visible refusal, never a local substitute queue.
 interface Curation117 {
   list(q: { limit?: number }, p: Principal, a: typeof AGENT_CONTEXT_CLI): Promise<{ agentId: string; items: { id: string; status: string; text: string; category: string | null }[]; truncated: boolean }>;
@@ -25,7 +26,7 @@ export function buildMemoryCurationMethods(d: { engine: Engine; agents: AgentReg
     if (who.kind !== "person" || authorize(who, "agent.manage", { kind: "agent", agentId: p.agentId }).effect !== "allow") throw new RpcError("E_DENIED", "human agent management required", { reason: "curation-not-permitted" });
     const workspace = requireAgent(d.agents, p.agentId);
     const api = (d.engine.memory as typeof d.engine.memory & { curation?: Curation117 }).curation;
-    if (!api || typeof api.list !== "function" || typeof api.resolve !== "function") throw new RpcError("E_NOT_AVAILABLE", "curation requires Engine contract 1.17.0", { reason: "engine-contract-unavailable" });
+    if (!hasA1Capability(d.engine, "memoryCuration") || !api || typeof api.list !== "function" || typeof api.resolve !== "function") throw new RpcError("E_NOT_AVAILABLE", "curation requires Engine contract 1.18.0", { reason: "engine-contract-unavailable" });
     try {
       const { principal } = callerToPrincipal({ channel: "cli", accountId: "curation", userId: who.userId }, p.agentId, workspace);
       principal.user = deriveUserPrincipal(who.userId);

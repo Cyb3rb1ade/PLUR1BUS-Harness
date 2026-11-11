@@ -9,6 +9,11 @@ import type * as E from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import { validateParams } from "@plur1bus/rpc-schema";
 import { mapMemoryOpError } from "../../src/memory-ops.ts";
 import { EngineClient } from "../../src/engine/client.ts";
+import { hasA1Capability } from "../../src/engine/capabilities.ts";
+import { createKnowledgeUpdateJob } from "../../src/knowledge/job.ts";
+import { buildMemoryCurationMethods } from "../../src/memory-curation.ts";
+import { guardMethods } from "../../src/rbac/guard.ts";
+import { tempDir } from "../helpers/temp-dir.ts";
 
 const identity = { fingerprintId: "fp", provider: "local", model: "fixture", dimensions: 3 };
 const models: E.ModelsStatus = {
@@ -26,7 +31,7 @@ const signal = new AbortController().signal;
 const query: E.RecallQuery = { query: "hello", principal, agent, signal };
 const recall = { blocks: [], capChars: 10, degraded: null, timing: { phases: null, totalMs: 1 }, deferrals: [] };
 
-async function fixture(o: { memoryLink?: boolean; onEvent?: (name: E.EngineEventName, payload: unknown) => void; contract?: string; stall?: readonly string[]; respond?: (method: string, params: Record<string, unknown>, socket: Socket) => unknown } = {}) {
+async function fixture(o: { memoryLink?: boolean; engineCapabilities?: Record<string, boolean>; onEvent?: (name: E.EngineEventName, payload: unknown) => void; contract?: string; stall?: readonly string[]; respond?: (method: string, params: Record<string, unknown>, socket: Socket) => unknown } = {}) {
   const home = await mkdtemp(join(tmpdir(), "engine-client-"));
   await mkdir(join(home, "run"), { mode: 0o700 });
   const address = process.platform === "win32" ? `\\\\.\\pipe\\plur1bus-engine-test-${randomUUID()}` : join(home, "run", "engine.sock");
@@ -48,7 +53,7 @@ async function fixture(o: { memoryLink?: boolean; onEvent?: (name: E.EngineEvent
           continue;
         }
         let result: unknown;
-        if (request.method === "engine.auth") result = { contract: o.contract ?? "1.17.0", rpc: "1.7.0", instanceId: "instance", pid: process.pid, capabilities: { methods: { "engine.memory.link": { stability: "experimental", since: "1.7.0" } }, notifications: {}, extensionPoints: {}, features: [] }, ...(o.memoryLink === undefined ? {} : { engineCapabilities: { memoryLink: o.memoryLink } }) };
+        if (request.method === "engine.auth") result = { contract: o.contract ?? "1.17.0", rpc: "1.7.0", instanceId: "instance", pid: process.pid, capabilities: { methods: { "engine.memory.link": { stability: "experimental", since: "1.7.0" } }, notifications: {}, extensionPoints: {}, features: [] }, ...(o.memoryLink === undefined && o.engineCapabilities === undefined ? {} : { engineCapabilities: { ...(o.memoryLink === undefined ? {} : { memoryLink: o.memoryLink }), ...o.engineCapabilities } }) };
         else if (request.method === "engine.status") result = status;
         else if (request.method === "engine.jobs.list") result = [{ name: "afterthought" }];
         else if (request.method === "engine.embedding.identities") result = [identity];
@@ -378,4 +383,59 @@ test("EngineClient authorizes a job agent only for that in-flight Core request",
     assert.equal(authorized, true);
     assert.equal(f.client.canCompleteFor?.("a") ?? false, false);
   } finally { await f.close(); }
+});
+
+// RE-D167 seam (F1): the Core uses an A1 surface only behind the engine's advertised flag, never by contract minor.
+async function a1Seam(o: Parameters<typeof fixture>[0]) {
+  const f = await fixture({
+    ...o,
+    respond: (method, params) => {
+      if (method === "engine.jobs.list") return [{ name: "knowledge-update" }];
+      if (method === "engine.memory.curation.list") return { agentId: (params.p as { agentId: string }).agentId, items: [], truncated: false };
+      return undefined;
+    },
+  });
+  await f.client.status();
+  const workspace = tempDir("a1-seam-");
+  const curation = guardMethods(buildMemoryCurationMethods({
+    engine: f.client, agents: { list: () => ["anna"], has: () => true, scaffold() {}, workspaceOf: () => workspace } as never,
+    logger: { debug() {}, info() {}, warn() {}, error() {} } as never, isStopping: () => false,
+  }), { resolve: () => ({ userId: "owner", role: "owner", kind: "person" }), now: () => 1 });
+  const listCuration = () => curation["memory.curation.list"]!({ agentId: "anna" }, { requestId: "x", connectionId: "x", signal: new AbortController().signal });
+  const knowledge = createKnowledgeUpdateJob({ engine: f.client, agents: () => ["anna"], now: () => 0 });
+  const runKnowledge = () => knowledge.run({}, { signal: new AbortController().signal, runId: "sys", trigger: "manual" });
+  return { ...f, listCuration, runKnowledge };
+}
+
+test("a 1.17.0 engine without A1 flags is accepted and every A1 surface stays off in the Core", async () => {
+  const f = await a1Seam({ contract: "1.17.0" });
+  try {
+    assert.equal(f.client.contract, "1.17.0");
+    assert.deepEqual({ ...f.client.capabilities }, { memoryLink: true, recallStats: false, knowledgePromotion: false, memoryCuration: false });
+    for (const flag of ["recallStats", "knowledgePromotion", "memoryCuration"] as const) assert.equal(hasA1Capability(f.client, flag), false, flag);
+    await assert.rejects(f.listCuration(), (e: any) => e.error === "E_NOT_AVAILABLE" && e.reason === "engine-contract-unavailable");
+    assert.deepEqual(await f.runKnowledge(), { outcome: "skipped", reason: "engine-contract-unavailable", detail: { requiredContract: "1.18.0" } });
+    assert.ok(!f.calls.some(c => c.method.startsWith("engine.memory.curation.") || c.method === "engine.jobs.run"));
+  } finally { await f.close(); }
+});
+
+test("a 1.18.0 engine with the RX flags opens stats and curation and keeps knowledge promotion off", async () => {
+  const f = await a1Seam({ contract: "1.18.0", engineCapabilities: { memoryLink: true, recallStats: true, memoryCuration: true, knowledgePromotion: false } });
+  try {
+    assert.equal(f.client.contract, "1.18.0");
+    assert.deepEqual({ ...f.client.capabilities }, { memoryLink: true, recallStats: true, knowledgePromotion: false, memoryCuration: true });
+    assert.equal(hasA1Capability(f.client, "recallStats"), true);
+    assert.equal(hasA1Capability(f.client, "memoryCuration"), true);
+    assert.equal(hasA1Capability(f.client, "knowledgePromotion"), false);
+    assert.deepEqual(await f.listCuration(), { agentId: "anna", items: [], truncated: false });
+    assert.ok(f.calls.some(c => c.method === "engine.memory.curation.list"));
+    assert.deepEqual(await f.runKnowledge(), { outcome: "skipped", reason: "engine-contract-unavailable", detail: { requiredContract: "1.18.0" } });
+    assert.ok(!f.calls.some(c => c.method === "engine.jobs.run"));
+  } finally { await f.close(); }
+});
+
+test("a non-boolean A1 flag counts as absent", async () => {
+  const f = await fixture({ contract: "1.18.0", engineCapabilities: { recallStats: "yes" as unknown as boolean } });
+  try { await f.client.status(); assert.equal(f.client.capabilities.recallStats, false); assert.equal(hasA1Capability(f.client, "recallStats"), false); }
+  finally { await f.close(); }
 });

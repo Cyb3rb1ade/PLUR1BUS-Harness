@@ -3,7 +3,7 @@ import { normalizeEmbeddingConfig } from "@cyb3rb1ade/plur1bus-memory/lib/provid
 import type { Engine, HostServices } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
 import { RpcError } from "./rpc/errors.ts";
 
-export const CORE_CONTRACT = "1.17.0";
+export const CORE_CONTRACT = "1.18.0";
 /** The engine contract's supported major version (ADR-016 §1): the core accepts major 1 only. */
 export const SUPPORTED_CONTRACT_MAJOR = 1;
 /** Contract 1.15 is required: older engines ignore host.fetch and host.secrets and bypass per-request egress. */

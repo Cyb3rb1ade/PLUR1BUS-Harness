@@ -1,4 +1,4 @@
-// Public memory cards provide identity/age; Engine 1.17.0 (A1) adds persistent recall
+// Public memory cards provide identity/age; Engine 1.18.0 (A1) adds persistent recall
 // statistics and confirmed promotion. The pinned contract is allowed to lack both.
 // ADR-009 Q5: dreaming considers agent-private cards only; no invented recall signals.
 import type { AgentContext, Principal, MemoryListQuery } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";

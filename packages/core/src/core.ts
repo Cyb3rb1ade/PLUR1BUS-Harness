@@ -57,6 +57,7 @@ import { flattenPatch, openConfigSource, type ConfigSource } from "./config-sour
 import { assertEngineContract } from "./engine.ts";
 import { selectEngine } from "./engine/select.ts";
 import { EngineClient } from "./engine/client.ts";
+import { hasA1Capability } from "./engine/capabilities.ts";
 import { registerHostMethods } from "./engine/host-methods.ts";
 import { isEngineContext } from "./engine/engine-principal.ts";
 import { buildEngineConfig, checkEngineConfigLicences, checkEngineEgress } from "./engine-config.ts";
@@ -1354,7 +1355,7 @@ export function createCore(o: CoreOptions): Core {
         const logger = backgroundLogger;
         // M1b-3: a dreams store that cannot open must not take the memory service down; `dreams.*` then answers not-available.
         try {
-          // A1 is optional until the Controller pins Engine contract 1.17.0.
+          // A1 is optional until the Controller pins Engine contract 1.18.0; each surface opens only behind its flag (RE-D167).
           // These are public host operations under the agent's existing principal,
           // never calls made by a model or a background AgentContext.
           const dreamMemory = eng.memory as typeof eng.memory & A1MemoryOperations;
@@ -1375,10 +1376,10 @@ export function createCore(o: CoreOptions): Core {
                 if (!ws) return [];
                 return readCandidateMemory(query => dreamMemory.list(query, dreamPrincipal(agentId), dreamContext));
               },
-              ...(typeof dreamMemory.stats === "function" ? {
+              ...(hasA1Capability(eng, "recallStats") && typeof dreamMemory.stats === "function" ? {
                 stats: (agentId: string, ids: readonly string[]) => dreamMemory.stats!(ids, dreamPrincipal(agentId), dreamContext),
               } : {}),
-              ...(typeof dreamMemory.promote === "function" ? {
+              ...(hasA1Capability(eng, "knowledgePromotion") && typeof dreamMemory.promote === "function" ? {
                 promote: (agentId: string, ids: readonly string[]) => dreamMemory.promote!({ ids }, dreamPrincipal(agentId), dreamContext),
               } : {}),
             },

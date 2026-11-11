@@ -527,7 +527,7 @@ export class DreamScheduler {
     if (promotable.length > 0) {
       if (!this.#o.candidates?.promote) {
         counts.promotionUnavailable = promotable.length;
-        this.#log(logFile, "promotion unavailable: needs Engine contract 1.17.0 (Controller pin)");
+        this.#log(logFile, "promotion unavailable: needs Engine contract 1.18.0 (Controller pin)");
       } else {
         if (signal.aborted) return finish("aborted", this.#stop.signal.aborted ? REASON.shutdown : REASON.cancelled, tally(), usage());
         try {

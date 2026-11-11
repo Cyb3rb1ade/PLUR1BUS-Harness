@@ -1,10 +1,13 @@
 // A2: the harness schedules a model-free system job; only the Engine owns promotion.
+import { hasA1Capability } from "../engine/capabilities.ts";
 import { RpcError } from "../rpc/errors.ts";
 import type { SystemJobHandler, SystemJobOutcome } from "../system-jobs/index.ts";
 
 export const KNOWLEDGE_RETRY_BACKOFF_MS = 30_000;
 export const KNOWLEDGE_UPDATE_INTERVAL_MS = 15 * 60_000;
 export interface KnowledgeJobEngine {
+  /** RE-D167: the job runs only behind `knowledgePromotion`. */
+  readonly capabilities?: object;
   jobs: {
     list(): { name: string }[];
     run(job: string, agentId: string, options: { trigger: "manual" | "cron" | "harness"; signal: AbortSignal }): Promise<{ runId?: string; outcome: string; reason?: string }>;
@@ -16,7 +19,7 @@ export interface KnowledgeJobDeps {
   lastRunAt?: number;
 }
 
-/** Compatibility boundary: Engine 1.17.0 is required for knowledge-update; older pins report an explicit skip. */
+/** Compatibility boundary: Engine 1.18.0 is required for knowledge-update; older pins report an explicit skip. */
 export function createKnowledgeUpdateJob(deps: KnowledgeJobDeps): SystemJobHandler {
   const now = deps.now();
   let next = deps.lastRunAt !== undefined && Number.isFinite(deps.lastRunAt) && deps.lastRunAt >= 0
@@ -37,7 +40,7 @@ export function createKnowledgeUpdateJob(deps: KnowledgeJobDeps): SystemJobHandl
       if (context.signal.aborted) return { outcome: "abandoned", reason: "aborted", detail: null };
       if (running) return { outcome: "skipped", reason: "already-running", detail: null };
       next = deps.now() + KNOWLEDGE_UPDATE_INTERVAL_MS;
-      if (!deps.engine.jobs.list().some(job => job.name === "knowledge-update")) return { outcome: "skipped", reason: "engine-contract-unavailable", detail: { requiredContract: "1.17.0" } };
+      if (!hasA1Capability(deps.engine, "knowledgePromotion") || !deps.engine.jobs.list().some(job => job.name === "knowledge-update")) return { outcome: "skipped", reason: "engine-contract-unavailable", detail: { requiredContract: "1.18.0" } };
       running = true;
       const results: { agentId: string; runId?: string; outcome: string; reason?: string }[] = [];
       try {
