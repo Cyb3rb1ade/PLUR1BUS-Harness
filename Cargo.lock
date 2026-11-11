@@ -5586,6 +5586,7 @@ dependencies = [
  "libc",
  "minisign",
  "minisign-verify",
+ "plur1bus-audit",
  "plur1bus-config",
  "plur1bus-containers",
  "plur1bus-ext",
@@ -5631,6 +5632,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "plur1bus-audit"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "plur1bus-rpc",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "uuid",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "plur1bus-canon"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "sha2 0.10.9",
+]
+
+[[package]]
 name = "plur1bus-config"
 version = "0.1.0"
 dependencies = [
@@ -5653,6 +5675,27 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "tempfile",
+]
+
+[[package]]
+name = "plur1bus-core"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "clap",
+ "getrandom 0.3.4",
+ "jsonschema",
+ "plur1bus-audit",
+ "plur1bus-rpc",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2 0.10.9",
+ "signal-hook",
+ "tempfile",
+ "tokio",
+ "uuid",
+ "zeroize",
 ]
 
 [[package]]
@@ -5685,6 +5728,7 @@ dependencies = [
  "plur1bus-config",
  "plur1bus-log-schema",
  "plur1bus-rpc",
+ "plur1bus-tokens",
  "prettyplease 0.2.37",
  "regex",
  "regress 0.10.5",
@@ -5756,7 +5800,9 @@ dependencies = [
 name = "plur1bus-rpc"
 version = "0.1.0"
 dependencies = [
+ "jsonschema",
  "libc",
+ "plur1bus-config",
  "prettyplease 0.2.37",
  "regress 0.10.5",
  "schemars 0.8.22",
@@ -5766,6 +5812,29 @@ dependencies = [
  "tempfile",
  "typify",
  "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "plur1bus-store"
+version = "0.1.0"
+dependencies = [
+ "rusqlite",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "plur1bus-tokens"
+version = "0.1.0"
+dependencies = [
+ "jsonschema",
+ "regex",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "tokenizers",
+ "url",
 ]
 
 [[package]]

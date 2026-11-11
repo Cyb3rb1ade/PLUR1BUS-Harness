@@ -1,11 +1,30 @@
 import { spawn, execFileSync, type ChildProcess } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, symlinkSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { modelCacheSnapshot } from "./model-cache-diagnostics.ts";
 
 export const BIN = resolve(process.env.PLUR1BUS_BIN ?? "target/release/plur1bus");
 export const CORE_JS = resolve(process.env.PLUR1BUS_CORE_JS ?? "packages/core/dist/core.js");
+/** P4-02, parity mode S. Which core implementation the system suites run against. `ts` (default) is the TypeScript
+ *  core behind `plur1bus core run` and the supervisor's core slot. `rust` (P4-10) is the front door `plur1bus-core` with the
+ *  legacy TypeScript core behind it: the CLI and the supervisor read `PLUR1BUS_CORE_IMPL` from the environment
+ *  `coreEnv` passes them. Without the binary `rust` throws: it must never fall back to `ts`, which would let a green rust
+ *  leg mean nothing. */
+export type CoreImpl = "ts" | "rust";
+export function selectCoreImpl(env: NodeJS.ProcessEnv = process.env, exists: (path: string) => boolean = existsSync): CoreImpl {
+  const v = env.PLUR1BUS_CORE_IMPL;
+  if (v === undefined || v === "" || v === "ts") return "ts";
+  if (v !== "rust") throw new Error(`PLUR1BUS_CORE_IMPL must be "ts" or "rust", got ${JSON.stringify(v)}`);
+  const bin = coreBin(env);
+  if (!exists(bin)) throw new Error(`PLUR1BUS_CORE_IMPL=rust: plur1bus-core not built (P4-03/P4-10): no binary at ${bin}; refusing to run the ts core instead`);
+  return "rust";
+}
+/** The front door binary of the `rust` leg: `PLUR1BUS_CORE_BIN`, else beside the CLI under test. */
+export function coreBin(env: NodeJS.ProcessEnv = process.env): string {
+  return resolve(env.PLUR1BUS_CORE_BIN ?? join(dirname(BIN), process.platform === "win32" ? "plur1bus-core.exe" : "plur1bus-core"));
+}
+
 /** PLUR1BUS_REAL_MODELS=1: real embedder + reranker (downloads the models); otherwise the R17 flat-embedder seam. */
 export const REAL = process.env.PLUR1BUS_REAL_MODELS === "1";
 /** The flat seam's variant: `flat-embedder` (default) or `flat-embedder-cold` (PLUR1BUS_SYSTEM_INTERNALS; the first 2
@@ -70,8 +89,10 @@ const STARTUP_TIMEOUT_MS = REAL ? 120_000 : 30_000;
  *  seam unless real models run. `extra` adds to it (e.g. `PLUR1BUS_SUPERVISOR_TIME_SCALE`, honoured only with
  *  `PLUR1BUS_ALLOW_TEST_INTERNALS=1`). A supervisor passes its environment on to the cores it spawns. */
 export function coreEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
+  const impl = selectCoreImpl(); // every core start goes through here (startCore, startDaemon, restartSupervisor)
   return {
     ...process.env, PLUR1BUS_CORE_JS: CORE_JS, PLUR1BUS_NODE: process.execPath,
+    ...(impl === "rust" ? { PLUR1BUS_CORE_IMPL: "rust", PLUR1BUS_CORE_BIN: coreBin() } : {}),
     ...(REAL ? {} : { PLUR1BUS_ALLOW_TEST_INTERNALS: "1", PLUR1BUS_TEST_INTERNALS: FLAT_INTERNALS }),
     ...extra,
   };
@@ -208,6 +229,15 @@ export function coreChild(h: string): any | null {
 /** The supervised core's pid as the supervisor reports it, or null (no supervisor, or no core process right now). */
 export function corePid(h: string): number | null {
   return coreChild(h)?.pid ?? null;
+}
+
+/** P4-10: on the `rust` leg the core is two processes, the front door (the supervisor's core child) and the TypeScript
+ *  core behind it, which records itself in run/core-legacy.pid. Its pid there; null on the `ts` leg. */
+export function coreLegacyPid(h: string): number | null {
+  if (selectCoreImpl() !== "rust") return null;
+  const pid = Number(readFileSync(join(h, "run", "core-legacy.pid"), "utf8").trim().split(/\s+/)[0]);
+  if (!Number.isSafeInteger(pid) || pid <= 0) throw new Error("run/core-legacy.pid names no process");
+  return pid;
 }
 
 /** Whether `pid` names a live process. A zombie (exited, not yet reaped by its parent) counts as gone. */

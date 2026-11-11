@@ -58,6 +58,9 @@ pub enum SetError {
     Invalid(Vec<String>),
     /// The engine store would share a foreign host state directory (`E_CONFIG_INVALID`).
     ForeignHostStorePath(crate::coexistence::StoreViolation),
+    /// `core.impl` would switch to `rust` while no `plur1bus-core` binary is found (`E_CONFIG_INVALID
+    /// reason=core-binary-missing`, final review FR-I1); the message says where it was looked for.
+    CoreBinaryMissing(String),
     /// `ifRevision` names another revision than the running one (`E_CONFLICT reason=config-changed`).
     Conflict {
         current: String,
@@ -555,6 +558,11 @@ fn set_inner(
         ) {
             return Err(SetError::ForeignHostStorePath(violation));
         }
+        if let Some(message) =
+            crate::commands::core::rust_core_refusal(layout, &running, &plan.after)
+        {
+            return Err(SetError::CoreBinaryMissing(message));
+        }
         let restart = restart_json(&plan.restart);
         if dry_run || (plan.changed.is_empty() && st.rejected.is_none()) {
             (!dry_run, plan.changed, restart, current, None, false)
@@ -990,5 +998,47 @@ mod tests {
             relock(&shared.config).running.as_ref().unwrap()["approvals"]["maxGrantDays"],
             30
         );
+    }
+
+    /// Final review FR-I1: `plur1bus-core` is shipped nowhere until the flip, so `core.impl: "rust"` is refused while no
+    /// binary can be found (`E_CONFIG_INVALID core-binary-missing`, dry run included), naming where it was looked for;
+    /// nothing is written. With a binary in place the switch is accepted (a dry run: no core restart is waited for).
+    #[test]
+    fn core_impl_rust_is_refused_while_no_plur1bus_core_binary_is_found() {
+        if std::env::var_os("PLUR1BUS_CORE_BIN").is_some() {
+            return; // the environment names the binary; nothing to look for
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        let bin = crate::commands::core::locate_core_bin(&layout);
+        if bin.is_file() {
+            return; // one lies beside this test executable: the missing case cannot be made here
+        }
+        let shared = shared_for(&layout);
+        set(&shared, &layout, max_grant_days(30), None, false).unwrap();
+        let before = fs::read(layout.config_path()).unwrap();
+        let rust = || vec![("core.impl".to_string(), json!("rust"))];
+        for dry_run in [true, false] {
+            match set(&shared, &layout, rust(), None, dry_run) {
+                Err(SetError::CoreBinaryMissing(message)) => {
+                    assert!(message.contains(&bin.display().to_string()), "{message}");
+                    assert!(message.contains("developer build"), "{message}");
+                }
+                other => panic!("dry run {dry_run}: {other:?}"),
+            }
+        }
+        assert_eq!(
+            fs::read(layout.config_path()).unwrap(),
+            before,
+            "nothing written"
+        );
+        assert_eq!(
+            relock(&shared.config).running.as_ref().unwrap()["core"]["impl"],
+            "ts"
+        );
+        fs::create_dir_all(bin.parent().unwrap()).unwrap();
+        fs::write(&bin, "").unwrap();
+        let ok = set(&shared, &layout, rust(), None, true).unwrap();
+        assert_eq!(ok["changed"], json!(["core.impl"]), "{ok}");
     }
 }

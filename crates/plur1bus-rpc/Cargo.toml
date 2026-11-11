@@ -5,16 +5,25 @@ edition.workspace = true
 license.workspace = true
 build = "build.rs"
 
+[features]
+# The server half for Rust servers (`plur1bus-core`, P4-03): one generated method trait per `x-server` value, their
+# dispatchers, and params/result validators compiled from pruned schema roots. The client-only builds leave it off.
+server = ["dep:jsonschema", "dep:plur1bus-config", "serde_json/float_roundtrip"]
+
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
 regress = "0.10"
+# Feature `server` only. The same versions and features the CLI and the engine already lock.
+jsonschema = { version = "0.26", default-features = false, optional = true }
+# `ajv_date_time`: ajv-formats' `date-time` rule, which the CLI already uses for config.json.
+plur1bus-config = { path = "../plur1bus-config", optional = true }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Networking_WinSock", "Win32_Security", "Win32_Security_Authorization", "Win32_Storage_FileSystem", "Win32_System_IO", "Win32_System_Performance", "Win32_System_Pipes", "Win32_System_SystemInformation", "Win32_System_SystemServices", "Win32_System_Threading"] }
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Networking_WinSock", "Win32_Security", "Win32_Security_Authorization", "Win32_Storage_FileSystem", "Win32_System_Console", "Win32_System_Diagnostics_ToolHelp", "Win32_System_IO", "Win32_System_JobObjects", "Win32_System_Performance", "Win32_System_Pipes", "Win32_System_SystemInformation", "Win32_System_SystemServices", "Win32_System_Threading"] }
 
 [build-dependencies]
 typify = "0.8"
@@ -25,3 +34,7 @@ prettyplease = "0.2"
 
 [dev-dependencies]
 tempfile.workspace = true
+
+[[test]]
+name = "server_dispatch"
+required-features = ["server"]

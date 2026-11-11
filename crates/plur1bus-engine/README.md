@@ -250,8 +250,10 @@ RE-08 supplies host credentials and authorized auxiliary sources, and retains th
 
 ### Token counting (RE-14/T2)
 
+The counter and the cache-profile table live in `crates/plur1bus-tokens` since P4-03 (shared with the Rust core); the
+engine re-exports them as `tokens` and `cache_profiles`.
 `tokens::TokenCounter::heuristic()` exposes the table's tokenizer families without reading files.
-`TokenCounter::from_directory(&path)` verifies the pinned files listed in `src/tokens/artifacts.json`, then loads
+`TokenCounter::from_directory(&path)` verifies the pinned files listed in `crates/plur1bus-tokens/src/artifacts.json`, then loads
 them once. `count(&CountRequest)` performs no file or network I/O. Missing or damaged artifacts remain explicit
 family states and return `heuristic`; `families()` distinguishes missing, invalid, hash-mismatched, unconfigured,
 and license-pending artifacts. Gemma 3 and Grok remain estimators without owner approval (RE-D25).

@@ -1,0 +1,61 @@
+{
+  "exchanges": [
+    {
+      "name": "start",
+      "receive": [
+        {
+          "session": {
+            "id": "vendor-session-test"
+          },
+          "type": "session.started"
+        }
+      ],
+      "send": [
+        {
+          "model": "fixture-voice",
+          "type": "session.start"
+        }
+      ]
+    },
+    {
+      "name": "audio",
+      "receive": [
+        {
+          "delta": "AwQ=",
+          "type": "session.output_audio.delta"
+        }
+      ],
+      "send": [
+        {
+          "audio": "AQI=",
+          "type": "session.input_audio.append"
+        }
+      ]
+    },
+    {
+      "name": "close",
+      "receive": [
+        {
+          "event_id": "final",
+          "type": "session.closed",
+          "usage": {
+            "seconds": 1
+          }
+        }
+      ],
+      "send": [
+        {
+          "type": "session.close"
+        }
+      ]
+    }
+  ],
+  "exporter": "scripts/parity/export-wire.ts",
+  "handshake": {
+    "accept": "HY16VqasGjY/80Gfoa4z/IEQYY0=",
+    "key": "cDRhLXdpcmUtZml4dHVyZQ=="
+  },
+  "schema": "plur1bus.parity-wire/1",
+  "source": "packages/core/test/voice/local-socket.ts#localVoiceSocket",
+  "transport": "websocket"
+}

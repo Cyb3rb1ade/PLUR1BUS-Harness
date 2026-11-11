@@ -181,9 +181,138 @@ pub(crate) fn locate_tools_bin(layout: &Layout) -> PathBuf {
     layout.home.join("runtime/bin").join(name)
 }
 
+/// Phase 4 (P4-10): which core serves `run/core.sock`. `Ts` is the TypeScript core alone (the default until the flip
+/// PR); `Rust` is the front door `plur1bus-core` with the TypeScript core behind it as `core-legacy`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum CoreImpl {
+    Ts,
+    Rust,
+}
+
+/// `PLUR1BUS_CORE_IMPL` (`ts` or `rust`; the tests' switch) wins, then `core.impl` in `config.json`, then `ts`. An unknown
+/// value of the variable is an error, never a silent default.
+pub(crate) fn core_impl(layout: &Layout) -> Result<CoreImpl, String> {
+    let config = std::fs::read(layout.config_path())
+        .ok()
+        .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok());
+    core_impl_from(
+        std::env::var("PLUR1BUS_CORE_IMPL").ok().as_deref(),
+        config.as_ref(),
+    )
+}
+
+fn core_impl_from(
+    env: Option<&str>,
+    config: Option<&serde_json::Value>,
+) -> Result<CoreImpl, String> {
+    match env {
+        Some("ts") => return Ok(CoreImpl::Ts),
+        Some("rust") => return Ok(CoreImpl::Rust),
+        None | Some("") => {}
+        Some(other) => {
+            return Err(format!(
+                "PLUR1BUS_CORE_IMPL must be \"ts\" or \"rust\", got {other:?}"
+            ))
+        }
+    }
+    let configured = config
+        .and_then(|c| c.pointer("/core/impl"))
+        .and_then(serde_json::Value::as_str);
+    Ok(if configured == Some("rust") {
+        CoreImpl::Rust
+    } else {
+        CoreImpl::Ts
+    })
+}
+
+/// The Rust core binary (P4-10): `$PLUR1BUS_CORE_BIN`, then `plur1bus-core` beside this executable, then
+/// `<home>/runtime/bin/plur1bus-core`. Not checked for existence here.
+pub(crate) fn locate_core_bin(layout: &Layout) -> PathBuf {
+    let mut places = core_bin_places(layout);
+    let last = places.pop().unwrap_or_default();
+    places.into_iter().find(|p| p.is_file()).unwrap_or(last)
+}
+
+/// Where [`locate_core_bin`] looks, in order: `$PLUR1BUS_CORE_BIN` alone when it is set.
+fn core_bin_places(layout: &Layout) -> Vec<PathBuf> {
+    if let Some(path) = std::env::var_os("PLUR1BUS_CORE_BIN") {
+        return vec![PathBuf::from(path)];
+    }
+    let name = if cfg!(windows) {
+        "plur1bus-core.exe"
+    } else {
+        "plur1bus-core"
+    };
+    std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|dir| dir.join(name)))
+        .into_iter()
+        .chain([layout.home.join("runtime/bin").join(name)])
+        .collect()
+}
+
+/// Final review FR-I1: `plur1bus-core` is shipped nowhere until the flip, so a `config.set` that switches `core.impl` to
+/// `rust` (from anything else) is refused while no binary is found: the message (reason `core-binary-missing`) says
+/// where it was looked for and that `rust` needs a developer build. `None` when the switch can go ahead.
+pub(crate) fn rust_core_refusal(
+    layout: &Layout,
+    before: &serde_json::Value,
+    after: &serde_json::Value,
+) -> Option<String> {
+    let rust = |c: &serde_json::Value| {
+        c.pointer("/core/impl").and_then(serde_json::Value::as_str) == Some("rust")
+    };
+    if !rust(after) || rust(before) || locate_core_bin(layout).is_file() {
+        return None;
+    }
+    let places: Vec<String> = core_bin_places(layout)
+        .iter()
+        .map(|p| p.display().to_string())
+        .collect();
+    Some(format!(
+        "core.impl \"rust\" needs a developer build: no plur1bus-core binary at {} (build it with `cargo build -p plur1bus-core`, or set PLUR1BUS_CORE_BIN); nothing was changed",
+        places.join(", ")
+    ))
+}
+
+/// Why a core with `core.impl: "rust"` cannot start: no binary at `path`, and the way back (final review FR-I1).
+pub(crate) fn core_bin_missing(path: &std::path::Path) -> String {
+    format!(
+        "plur1bus-core not found at {}: core.impl \"rust\" needs a developer build (or PLUR1BUS_CORE_BIN); `plur1bus config set core.impl ts` goes back to the TypeScript core",
+        path.display()
+    )
+}
+
+/// The environment the core process gets from the CLI or the supervisor, whichever implementation runs: the attestation
+/// helper, the native worker pin and the tools binary; for the Rust front door also the located Node runtime and
+/// core.js, from which it starts the legacy core.
+pub(crate) fn core_env(
+    layout: &Layout,
+    imp: CoreImpl,
+) -> Vec<(std::ffi::OsString, std::ffi::OsString)> {
+    let mut env = attest_env();
+    env.extend(native_worker_env());
+    env.push((
+        "PLUR1BUS_TOOLS_BIN".into(),
+        locate_tools_bin(layout).into_os_string(),
+    ));
+    if imp == CoreImpl::Rust {
+        env.push(("PLUR1BUS_NODE".into(), locate_node(layout).into_os_string()));
+        env.push((
+            "PLUR1BUS_CORE_JS".into(),
+            locate_core_js(layout).into_os_string(),
+        ));
+    }
+    env
+}
+
 /// Locates the Node runtime ([`locate_node`]) and dist/core.js ([`locate_core_js`]) and runs the core in the
-/// foreground.
+/// foreground: the TypeScript core, or with `core.impl: "rust"` the Rust front door with the TypeScript core behind it.
 pub fn run(out: &Out, layout: &Layout) -> ! {
+    let imp = match core_impl(layout) {
+        Ok(imp) => imp,
+        Err(e) => out.fail("E_CONFIG_INVALID", &e, json!({})),
+    };
     let node = locate_node(layout);
     let core_js = locate_core_js(layout);
     if !core_js.exists() {
@@ -196,14 +325,28 @@ pub fn run(out: &Out, layout: &Layout) -> ! {
             json!({}),
         );
     }
-    let mut cmd = Command::new(&node);
-    cmd.arg(&core_js).arg("--home").arg(&layout.home);
-    cmd.envs(attest_env());
-    cmd.envs(native_worker_env());
-    cmd.env("PLUR1BUS_TOOLS_BIN", locate_tools_bin(layout));
-    if let Some(ti) = std::env::var_os("PLUR1BUS_TEST_INTERNALS") {
-        cmd.arg("--test-internals").arg(ti);
+    let program = match imp {
+        CoreImpl::Ts => node.clone(),
+        CoreImpl::Rust => locate_core_bin(layout),
+    };
+    if imp == CoreImpl::Rust && !program.is_file() {
+        out.fail("E_CORE_UNAVAILABLE", &core_bin_missing(&program), json!({}));
     }
+    let mut cmd = Command::new(&program);
+    match imp {
+        CoreImpl::Ts => {
+            cmd.arg(&core_js).arg("--home").arg(&layout.home);
+            if let Some(ti) = std::env::var_os("PLUR1BUS_TEST_INTERNALS") {
+                cmd.arg("--test-internals").arg(ti);
+            }
+        }
+        // The front door passes PLUR1BUS_TEST_INTERNALS on to the legacy core itself.
+        CoreImpl::Rust => {
+            cmd.arg("serve").arg("--home").arg(&layout.home);
+        }
+    }
+    cmd.envs(core_env(layout, imp));
+    let node = program;
     #[cfg(unix)]
     {
         use std::os::unix::process::CommandExt;
@@ -235,6 +378,46 @@ mod tests {
     fn touch(p: &std::path::Path) {
         std::fs::create_dir_all(p.parent().unwrap()).unwrap();
         std::fs::write(p, "").unwrap();
+    }
+
+    #[test]
+    fn the_core_implementation_is_the_variable_then_the_config_then_ts() {
+        let rust = serde_json::json!({"core": {"impl": "rust"}});
+        let ts = serde_json::json!({"core": {"impl": "ts"}});
+        assert_eq!(core_impl_from(None, None), Ok(CoreImpl::Ts));
+        assert_eq!(core_impl_from(Some(""), Some(&rust)), Ok(CoreImpl::Rust));
+        assert_eq!(core_impl_from(None, Some(&ts)), Ok(CoreImpl::Ts));
+        assert_eq!(core_impl_from(Some("ts"), Some(&rust)), Ok(CoreImpl::Ts));
+        assert_eq!(core_impl_from(Some("rust"), Some(&ts)), Ok(CoreImpl::Rust));
+        assert_eq!(
+            core_impl_from(None, Some(&serde_json::json!({"core": {"impl": "node"}}))),
+            Ok(CoreImpl::Ts)
+        );
+        assert!(
+            core_impl_from(Some("node"), None).is_err(),
+            "never a silent default"
+        );
+    }
+
+    #[test]
+    fn the_rust_core_gets_node_and_core_js_and_the_typescript_core_does_not() {
+        let layout = Layout::new(std::path::PathBuf::from("/h"));
+        let keys = |imp| -> Vec<String> {
+            core_env(&layout, imp)
+                .into_iter()
+                .map(|(k, _)| k.to_string_lossy().into_owned())
+                .collect()
+        };
+        let rust = keys(CoreImpl::Rust);
+        assert!(
+            rust.contains(&"PLUR1BUS_NODE".into()) && rust.contains(&"PLUR1BUS_CORE_JS".into())
+        );
+        assert!(
+            rust.contains(&"PLUR1BUS_TOOLS_BIN".into())
+                && rust.contains(&"PLUR1BUS_NATIVE_BIN".into())
+        );
+        let ts = keys(CoreImpl::Ts);
+        assert!(!ts.contains(&"PLUR1BUS_NODE".into()) && !ts.contains(&"PLUR1BUS_CORE_JS".into()));
     }
 
     #[test]

@@ -8,7 +8,9 @@
 #![warn(missing_docs)]
 #![warn(clippy::print_stdout, clippy::print_stderr)]
 
-pub mod cache_profiles;
+// P4-03: the token counter and the cache-profile table live in `plur1bus-tokens` (shared with the Rust core); these two
+// re-exports keep `crate::tokens::…`, `plur1bus_engine::tokens::…` and `plur1bus_engine::cache_profiles::…` working.
+pub use plur1bus_tokens::cache_profiles;
 pub mod capture;
 pub mod config;
 pub mod context;
@@ -22,7 +24,7 @@ pub mod recall;
 pub mod rpc;
 pub mod store;
 pub mod text;
-pub mod tokens;
+pub use plur1bus_tokens as tokens;
 pub mod transport;
 
 /// The crate version, which is the workspace version (`[workspace.package] version` in the root `Cargo.toml`).

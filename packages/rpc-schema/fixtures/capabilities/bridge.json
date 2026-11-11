@@ -1,0 +1,16 @@
+{
+  "methods": {
+    "bridge.hello": {
+      "stability": "experimental",
+      "since": "1.25.0",
+      "deprecated": {
+        "since": "1.25.0",
+        "removeAfter": "the 0.1 cut (P4-90)",
+        "replacement": "none: the bridge exists only while the legacy TypeScript core runs behind the Rust front door (Phase 4, plan §2.4); docs/phase4/bridge.md lists every bridge method and the package that removes it"
+      }
+    }
+  },
+  "notifications": {},
+  "extensionPoints": {},
+  "features": []
+}

@@ -14,6 +14,7 @@ const o = (key: string): FieldMeta => ({ key, kind: "json", restart: "live" });
 export const META: readonly FieldMeta[] = [
   { key: "core.webHandoffBaseUrl", kind: "string", def: "", restart: "live" },
   { key: "core.logLevel", kind: "enum", def: "info", options: ["debug", "info", "warn", "error"], restart: "live" },
+  { key: "core.impl", kind: "enum", def: "ts", options: ["ts", "rust"], restart: "core" },
   n("core.recall.softBudgetMs", 400, 50, "core", 3600000), n("core.recall.hardBudgetMs", 600, 100, "live", 3600000), n("core.recall.capChars", 17000, 1000, "core", 10000000),
   n("core.capture.waitMs", 60000, 1000, "live", 3600000), n("core.shutdownBudgetMs", 30000, 1000, "live", 3600000),
   n("supervisor.graceMs", 60000, 1000, "live", 3600000), n("supervisor.healthIntervalMs", 5000, 1000, "live", 3600000), n("supervisor.maxCores", 0, 0, "live", 1024),

@@ -3,7 +3,7 @@
 import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-const KEYS = ['proceed', 'macos', 'rust', 'ts-core', 'web', 'python', 'documents', 'workflows', 'engine-pin', 'docs-only'];
+const KEYS = ['proceed', 'macos', 'rust', 'ts-core', 'web', 'python', 'documents', 'workflows', 'engine-pin', 'docs-only', 'front-door'];
 
 // The explicit dependency set: gate `needs` exactly these jobs (workflow-contract.test.mjs proves it). Each required job aggregates
 // its own matrix or shards (`web-browser` fails unless the build and every shard succeeded). A job outside this set is
@@ -21,6 +21,8 @@ export function selections(o) {
     'core-unit': enabled && o['ts-core'] === 'true',
     wsl: enabled && (runtime || o.python === 'true'),
     'web-browser': enabled && o.web === 'true',
+    // P4-10 ruling A1: the Rust front door's Windows leg, required whenever its paths change (skipped otherwise).
+    'front-door-windows': enabled && o['front-door'] === 'true',
   };
 }
 
@@ -28,7 +30,7 @@ export function selections(o) {
 // `core-unit-shard-windows` and `core-unit-windows` are the Windows half of `unit-os`'s Core split, ungated like it.
 export const UNGATED = ['unit-os', 'core-unit-shard-windows', 'core-unit-windows', 'system', 'service', 'python-host',
   'web-browser-build', 'web-browser-shard', 'web-browser-macos', 'release-scripts', 'sandbox', 'perf-startup',
-  'perf-budgets', 'documents-golden', 'host-tool-eval', 'engine-parity'];
+  'perf-budgets', 'documents-golden', 'host-tool-eval', 'engine-parity', 'core-parity'];
 
 export function evaluateGate(needs) {
   if (needs?.changes?.result !== 'success') return ['changes must succeed'];

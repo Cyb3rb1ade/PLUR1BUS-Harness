@@ -889,6 +889,70 @@ fn restore_refuses_while_a_supervisor_answers_for_the_home() {
     }
 }
 
+/// P4-10 security review M3: a front door that died abruptly leaves its legacy core stopping, answering on no address the
+/// probes know (`run/core.sock` is the dead front door's) but holding `run/core-legacy.lock` while it still writes the
+/// stores. A restore must not swap the units under it.
+#[test]
+fn restore_refuses_while_a_legacy_core_still_holds_its_lock() {
+    let (_d, home, a) = setup();
+    old_home(&home);
+    fs::create_dir_all(home.join("run")).unwrap();
+    build(&a, &fixture());
+    // The legacy core's lock as module-api takes it (node:sqlite, BEGIN EXCLUSIVE).
+    let script = r#"const { DatabaseSync } = require("node:sqlite"); const db = new DatabaseSync(process.argv[1]);
+db.exec("PRAGMA busy_timeout=0; PRAGMA locking_mode=EXCLUSIVE; CREATE TABLE IF NOT EXISTS holder(pid INTEGER); BEGIN EXCLUSIVE");
+globalThis.held = db; process.stdout.write("locked\n"); setInterval(() => {}, 1000);"#;
+    struct Holder(std::process::Child);
+    impl Drop for Holder {
+        fn drop(&mut self) {
+            let _ = self.0.kill();
+            let _ = self.0.wait();
+        }
+    }
+    let mut holder = Holder(
+        std::process::Command::new("node")
+            .args(["-e", script])
+            .arg(home.join("run/core-legacy.lock"))
+            .stdout(std::process::Stdio::piped())
+            .spawn()
+            .unwrap(),
+    );
+    let mut line = String::new();
+    std::io::BufRead::read_line(
+        &mut std::io::BufReader::new(holder.0.stdout.take().unwrap()),
+        &mut line,
+    )
+    .unwrap();
+    assert_eq!(line.trim(), "locked");
+    let units = |home: &Path| -> BTreeMap<_, _> {
+        tree(home)
+            .into_iter()
+            .filter(|(k, _)| {
+                k.starts_with("agents") || k.starts_with("state") || k == "config.json"
+            })
+            .collect()
+    };
+    let before = units(&home);
+    let out = cli(&home)
+        .args(["backup", "restore", "--yes"])
+        .arg(&a)
+        .assert()
+        .failure()
+        .code(3)
+        .get_output()
+        .clone();
+    let e = doc(&out);
+    assert_eq!(e["error"], "E_LOCKED");
+    assert_eq!(e["reason"], "core-running");
+    assert_eq!(units(&home), before, "nothing was swapped");
+    drop(holder);
+    cli(&home)
+        .args(["backup", "restore", "--yes"])
+        .arg(&a)
+        .assert()
+        .success();
+}
+
 #[test]
 fn create_without_a_core_fails_closed_and_dry_run_writes_nothing() {
     let (_d, home, _a) = setup();

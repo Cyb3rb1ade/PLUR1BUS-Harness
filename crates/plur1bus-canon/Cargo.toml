@@ -1,0 +1,16 @@
+[package]
+name = "plur1bus-canon"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Canonical JSON and the tool-call action hash, byte-identical to the TypeScript dispatcher (Phase 4, P4-03)."
+
+[lints]
+workspace = true
+
+[dependencies]
+# `float_roundtrip`: JSON.parse rounds every decimal correctly; serde_json's default float parser may be one ULP off for a
+# long mantissa (`123456789012345680000` became `…670000`, vector `exponent-forms`). Feature unification turns it on
+# for every crate built together with this one, which only makes their float parsing exact.
+serde_json = { workspace = true, features = ["float_roundtrip"] }
+sha2 = "0.10"

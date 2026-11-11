@@ -38,6 +38,10 @@ describe("bin.ts argument handling (exit 2, one line, no stack)", () => {
     ["an empty --test-internals=", ["--test-internals="]],
     ["an empty --instance=", ["--instance="]],
     ["an empty --lifeline=", ["--lifeline="]],
+    // P4-10 seam: only the front door spawns a core behind it, always with its stdin as the lifeline.
+    ["--behind-front-door with an unknown value", ["--behind-front-door", "maybe", "--lifeline", "stdin"]],
+    ["--behind-front-door without --lifeline stdin", ["--behind-front-door", "supervised"]],
+    ["an empty --behind-front-door=", ["--behind-front-door="]],
   ] as const) {
     it(`${name} exits 2`, async () => {
       const r = await run([...args]);

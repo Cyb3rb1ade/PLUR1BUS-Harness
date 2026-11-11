@@ -1,0 +1,526 @@
+//! A fake legacy core for the front door's tests: the link protocol of the TypeScript core behind the front door
+//! (`--behind-front-door`), in Rust, so `cargo test` needs no Node. It checks the link credential and the caller kind like
+//! module-api's `RpcServer` with `frontDoorToken`, re-verifies the client credentials it is given, and echoes every other
+//! request with the identity it bound to the link, so the tests can see exactly what the front door forwarded.
+//!
+//! Started by the front door as `<this test binary> fake-legacy --home <h> --behind-front-door <mode> --lifeline stdin
+//! --instance <uuid>` (the tests set `PLUR1BUS_NODE` to this binary and `PLUR1BUS_CORE_JS` to `fake-legacy`).
+//! `FAKE_LEGACY_MODE`: `exit:<n>` exits at once with `n`; `bad-ready` prints a ready line naming another pid; `slow-stop`
+//! takes 300 ms to stop after `core.shutdown`; `one-link` takes the control link and then no connection;
+//! `slow-refuse-shutdown` refuses a client's `core.shutdown` after 1.5 s; `odd-results` answers `core.adopt` with a result
+//! that is no object; `close-on-shutdown` answers `core.shutdown` and ends every connection ~5 ms later; `slow-auth`
+//! answers a client's link handshake after 1 s; `hang` ignores its lifeline and SIGTERM/SIGINT; `drop-control` ends the
+//! control link right after its handshake.
+use plur1bus_rpc::server_transport::{Accepted, Listener};
+use serde_json::{json, Value};
+use std::collections::HashMap;
+use std::io::{BufRead, BufReader, Write};
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
+type Writer = Arc<Mutex<Box<dyn Write + Send>>>;
+type Subs = Mutex<HashMap<u64, (Writer, Option<Vec<String>>)>>;
+type Closer = Arc<dyn Fn() + Send + Sync>;
+
+struct Legacy {
+    home: PathBuf,
+    instance: String,
+    owner: String,
+    api: String,
+    link: String,
+    subs: Subs,
+    next: AtomicU64,
+    /// Every connection's closer (`close-on-shutdown` ends them all, as `server.close()` does).
+    closers: Mutex<Vec<Closer>>,
+}
+
+fn read(path: &Path) -> String {
+    std::fs::read_to_string(path)
+        .unwrap_or_default()
+        .trim()
+        .to_owned()
+}
+
+fn send(w: &Writer, v: &Value) {
+    let mut w = w.lock().unwrap();
+    let _ = writeln!(w, "{v}");
+    let _ = w.flush();
+}
+
+/// Writes a line as it is (for lines `serde_json` cannot produce).
+fn send_line(w: &Writer, line: &str) {
+    let mut w = w.lock().unwrap();
+    let _ = writeln!(w, "{line}");
+    let _ = w.flush();
+}
+
+/// A broadcast `agent.activity` whose text ends in a lone high surrogate, as `JSON.stringify` writes it.
+pub const SURROGATE_NOTE: &str =
+    r#"{"jsonrpc":"2.0","method":"agent.activity","params":{"agentId":"bernd","text":"x\ud83d"}}"#;
+
+/// The answer to `fake.surrogate`: a result text cut inside a surrogate pair.
+pub fn surrogate_reply(id: &Value) -> String {
+    format!(r#"{{"jsonrpc":"2.0","id":{id},"result":{{"text":"cut \ud83d"}}}}"#)
+}
+
+/// The answer to `fake.deep`: an array nested 200 deep (serde_json stops at 128).
+pub fn deep_reply(id: &Value) -> String {
+    format!(
+        r#"{{"jsonrpc":"2.0","id":{id},"result":{{"v":{}0{}}}}}"#,
+        "[".repeat(200),
+        "]".repeat(200)
+    )
+}
+
+fn error(id: &Value, code: &str, reason: &str) -> Value {
+    json!({"jsonrpc":"2.0","id":id,"error":{"code":-32000,"message":reason,"data":{"error":code,"reason":reason}}})
+}
+
+/// The status the legacy core reports about itself (its own pid and instance: the front door must replace them).
+fn status(l: &Legacy) -> Value {
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../../../packages/rpc-schema/fixtures/methods/core.status.json"
+    ))
+    .unwrap();
+    let mut s = fixture["result"].clone();
+    s["pid"] = json!(std::process::id());
+    s["instanceId"] = json!(l.instance);
+    s["contract"] = json!("9.9.9");
+    s["rpc"] = json!(plur1bus_rpc::RPC_VERSION);
+    s["process"] = json!({"state":"ready","since":1});
+    s
+}
+
+/// The fake's main.
+pub fn run(args: &[String]) -> ! {
+    let mode = std::env::var("FAKE_LEGACY_MODE").unwrap_or_default();
+    if let Some(code) = mode.strip_prefix("exit:") {
+        std::process::exit(code.parse().unwrap());
+    }
+    let arg = |name: &str| {
+        let i = args.iter().position(|a| a == name).unwrap();
+        args[i + 1].clone()
+    };
+    assert_eq!(arg("--lifeline"), "stdin");
+    let home = PathBuf::from(arg("--home"));
+    let run = home.join("run");
+    // What the TypeScript core reads behind the front door: run/core-legacy.credentials and run/core-legacy.token. The
+    // public credential files must not exist yet (they appear right before the front door listens); record what it saw.
+    let saw: Vec<String> = ["core.token", "api-delegation.token"]
+        .iter()
+        .map(|n| {
+            format!(
+                "{n}:{}",
+                if run.join(n).exists() {
+                    "present"
+                } else {
+                    "absent"
+                }
+            )
+        })
+        .collect();
+    std::fs::write(run.join("core-legacy.saw"), saw.join(" ")).unwrap();
+    let credentials: Value =
+        serde_json::from_str(&read(&run.join("core-legacy.credentials"))).unwrap_or(Value::Null);
+    let field = |k: &str| credentials[k].as_str().unwrap_or_default().to_owned();
+    let legacy = Arc::new(Legacy {
+        instance: arg("--instance"),
+        owner: field("core"),
+        api: field("api"),
+        link: read(&run.join("core-legacy.token")),
+        home: home.clone(),
+        subs: Mutex::new(HashMap::new()),
+        next: AtomicU64::new(1),
+        closers: Mutex::new(Vec::new()),
+    });
+    std::fs::write(run.join("core-legacy.mode"), arg("--behind-front-door")).unwrap();
+    std::fs::write(
+        run.join("core-legacy.pid"),
+        format!("{} {}\n", std::process::id(), arg("--instance")),
+    )
+    .unwrap();
+    let address = plur1bus_core::run_files::unit_address(&home, "core-legacy", cfg!(windows));
+    if !cfg!(windows) {
+        let _ = std::fs::remove_file(&address);
+    }
+    let listener = Listener::bind(&address).unwrap();
+    let pid = if mode == "bad-ready" {
+        1
+    } else {
+        std::process::id()
+    };
+    let mut out = std::io::stdout();
+    writeln!(
+        out,
+        "{}",
+        json!({"ready": true, "address": address, "pid": pid})
+    )
+    .unwrap();
+    out.flush().unwrap();
+    // The lifeline: the front door holds stdin; behind a front door there is no grace. `run/core-legacy.stopped` says
+    // which way the front door stopped it (`shutdown` or `lifeline`), unless a shutdown came first. `hang`: a legacy core
+    // whose event loop is stuck notices neither its lifeline nor SIGTERM (security review M4).
+    let stopped = run.join("core-legacy.stopped");
+    // Windows: as Node does for `bin.ts` (re-review M-d): Ctrl+C is SIGINT, which `bin.ts` handles (it stops, 130; a stuck
+    // event loop never runs the handler); Ctrl+Break (SIGBREAK) and closing the console (SIGHUP) have no listener and end
+    // the process at once, without a drain. The front door gives its legacy core a console of its own, so none of them
+    // should arrive here: if one does, the pair does not stop in order and `a_console_break_stops_the_pair_in_order` fails.
+    #[cfg(windows)]
+    {
+        let (stopped, hang) = (stopped.clone(), mode == "hang");
+        let _ = plur1bus_rpc::win::on_console_control(move |event| match event {
+            0 if hang => true,
+            0 => {
+                if !stopped.exists() {
+                    let _ = std::fs::write(&stopped, "signal");
+                }
+                std::process::exit(130)
+            }
+            // STATUS_CONTROL_C_EXIT, the default handler's exit.
+            1 | 2 => std::process::exit(0xC000_013A_u32 as i32),
+            _ => false,
+        });
+    }
+    if mode == "hang" {
+        #[cfg(unix)]
+        {
+            let _ = signal_hook::flag::register(signal_hook::consts::SIGTERM, Default::default());
+            let _ = signal_hook::flag::register(signal_hook::consts::SIGINT, Default::default());
+        }
+    } else {
+        // bin.ts: SIGTERM and SIGINT stop the core (exit 0, 130 for SIGINT), as a signal to the front door's process
+        // group delivers them to the legacy core too (task review L4).
+        #[cfg(unix)]
+        {
+            let stopped = stopped.clone();
+            let mut signals = signal_hook::iterator::Signals::new([
+                signal_hook::consts::SIGTERM,
+                signal_hook::consts::SIGINT,
+            ])
+            .unwrap();
+            std::thread::spawn(move || {
+                if let Some(signal) = signals.forever().next() {
+                    if !stopped.exists() {
+                        let _ = std::fs::write(&stopped, "signal");
+                    }
+                    std::thread::sleep(Duration::from_millis(50));
+                    std::process::exit(if signal == signal_hook::consts::SIGINT {
+                        130
+                    } else {
+                        0
+                    });
+                }
+            });
+        }
+        std::thread::spawn(move || {
+            let _ = std::io::copy(&mut std::io::stdin().lock(), &mut std::io::sink());
+            if !stopped.exists() {
+                let _ = std::fs::write(&stopped, "lifeline");
+            }
+            std::process::exit(0);
+        });
+    }
+    let mut listener = Some(listener);
+    let mut accepted = 0_u32;
+    loop {
+        let Some(l) = &listener else {
+            std::thread::sleep(Duration::from_millis(50));
+            continue;
+        };
+        if let Ok(Some(conn)) = l.accept_timeout(Duration::from_millis(50)) {
+            let l = legacy.clone();
+            let conn_mode = mode.clone();
+            let control = accepted == 0;
+            std::thread::spawn(move || serve(&l, conn, &conn_mode, control));
+            accepted += 1;
+            // `one-link`: after the front door's control link the legacy core takes no connection (it is going away).
+            if mode == "one-link" && accepted == 1 {
+                listener = None;
+                if !cfg!(windows) {
+                    let _ = std::fs::remove_file(&address);
+                }
+            }
+        }
+    }
+}
+
+/// What the client's credentials prove here (the TypeScript checks, reduced to what the tests use).
+fn proved(l: &Legacy, msg: &Value) -> Result<&'static str, &'static str> {
+    let p = &msg["params"];
+    let token = p["token"].as_str().unwrap_or("");
+    if p.get("engine").is_some() {
+        let engine = read(&l.home.join("run/engine.token"));
+        return if p["engine"]["token"] == json!(engine) && token == engine {
+            Ok("engine")
+        } else {
+            Err("engine-delegation")
+        };
+    }
+    if token == l.owner {
+        let delegation = msg.get("api").or_else(|| p.get("api"));
+        return match delegation {
+            None => Ok("owner"),
+            Some(d) if d["token"].as_str() == Some(l.api.as_str()) => Ok("api"),
+            Some(_) => Err("api-delegation"),
+        };
+    }
+    if token == "c".repeat(64) {
+        Ok("client")
+    } else {
+        Err("client-token")
+    }
+}
+
+fn serve(l: &Arc<Legacy>, conn: Accepted, mode: &str, control: bool) {
+    let Accepted {
+        reader,
+        writer,
+        closer,
+        ..
+    } = conn;
+    let writer: Writer = Arc::new(Mutex::new(writer));
+    l.closers.lock().unwrap().push(closer.clone());
+    let mut reader = BufReader::new(reader);
+    let mut caller: Option<&'static str> = None;
+    let conn_id = l.next.fetch_add(1, Ordering::Relaxed);
+    loop {
+        let mut line = String::new();
+        if reader.read_line(&mut line).unwrap_or(0) == 0 {
+            break;
+        }
+        // JSON.parse takes a lone surrogate escape; this fake reads it as U+FFFD (it only needs to understand the request).
+        let Some(msg) = plur1bus_core::peek::value_lossy(line.trim_end()) else {
+            send(
+                &writer,
+                &json!({"jsonrpc":"2.0","id":null,"error":{"code":-32700,"message":"parse error","data":{"error":"E_INVALID_PARAMS","reason":"parse-error"}}}),
+            );
+            continue;
+        };
+        let id = msg.get("id").cloned().unwrap_or(Value::Null);
+        let method = msg["method"].as_str().unwrap_or("").to_owned();
+        // module-api's `validateRequest`: `$defs/Id` is an integer or a string.
+        let integer = |v: &Value| {
+            v.as_f64()
+                .is_some_and(|f| f.is_finite() && f.fract() == 0.0)
+        };
+        if msg
+            .get("id")
+            .is_some_and(|i| !(i.is_string() || integer(i)))
+        {
+            send(
+                &writer,
+                &json!({"jsonrpc":"2.0","id":id,"error":{"code":-32600,"message":"invalid request","data":{"error":"E_INVALID_PARAMS","reason":"invalid-request","detail":"/id must be integer,string"}}}),
+            );
+            continue;
+        }
+        if method == "core.auth" {
+            if mode == "slow-auth" && !control {
+                std::thread::sleep(Duration::from_millis(1000));
+            }
+            if msg["params"]["frontDoor"]["token"].as_str() != Some(l.link.as_str()) {
+                send(&writer, &error(&id, "E_UNAUTHORIZED", "front-door-link"));
+                break;
+            }
+            let who = match proved(l, &msg) {
+                Ok(who) => who,
+                Err(reason) => {
+                    send(&writer, &error(&id, "E_UNAUTHORIZED", reason));
+                    break;
+                }
+            };
+            if msg["params"]["frontDoor"]["caller"].as_str() != Some(who) {
+                send(&writer, &error(&id, "E_UNAUTHORIZED", "front-door-link"));
+                break;
+            }
+            caller = Some(who);
+            let mut features = vec!["events.harness"];
+            if who == "engine" {
+                features.push("engine");
+            }
+            let mut hello = json!({"contract":"9.9.9","rpc":plur1bus_rpc::RPC_VERSION,"instanceId":l.instance,
+                "pid":std::process::id(),"capabilities":plur1bus_rpc::capabilities("core", &features)});
+            if who == "api" {
+                let d = msg.get("api").unwrap_or(&msg["params"]["api"]);
+                hello["apiPrincipal"] = d.get("principal").cloned().unwrap_or(Value::Null);
+            }
+            send(&writer, &json!({"jsonrpc":"2.0","id":id,"result":hello}));
+            // `drop-control`: the front door's control link ends soon after its handshake, once the front door is ready
+            // (task review L1).
+            if control && mode == "drop-control" {
+                std::thread::sleep(Duration::from_millis(300));
+                break;
+            }
+            continue;
+        }
+        let Some(who) = caller else {
+            send(&writer, &error(&id, "E_UNAUTHORIZED", "auth-required"));
+            continue;
+        };
+        match method.as_str() {
+            "core.status" => send(
+                &writer,
+                &json!({"jsonrpc":"2.0","id":id,"result":status(l)}),
+            ),
+            "core.adopt" if mode == "odd-results" => {
+                send(&writer, &json!({"jsonrpc":"2.0","id":id,"result":5}));
+            }
+            "core.adopt" => {
+                let expected = read(&l.home.join("run/supervisor.token"));
+                let given = msg["params"]["nonce"].as_str().unwrap_or("").to_lowercase();
+                if expected.len() == 64 && given == expected.to_lowercase() {
+                    send(
+                        &writer,
+                        &json!({"jsonrpc":"2.0","id":id,"result":{"status":status(l)}}),
+                    );
+                } else {
+                    send(&writer, &error(&id, "E_UNAUTHORIZED", "adopt-nonce"));
+                }
+            }
+            // `slow-refuse-shutdown`: a client's shutdown is refused after 1.5 s, and the id it came with (the front door's
+            // own) is written to `run/core-legacy.shutdown-id`, as a leaked request id would be (security review L1).
+            "core.shutdown" if mode == "slow-refuse-shutdown" && !control => {
+                let _ = std::fs::write(
+                    l.home.join("run/core-legacy.shutdown-id"),
+                    id.as_str().unwrap_or(""),
+                );
+                let w = writer.clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(Duration::from_millis(1500));
+                    send(&w, &error(&id, "E_DENIED", "role-required"));
+                });
+            }
+            // `close-on-shutdown`: the TypeScript core's quick stop with nothing to drain: the answer, then every
+            // connection ends ~5 ms later (`server.close()`), then the process exits.
+            "core.shutdown" if mode == "close-on-shutdown" => {
+                let _ = std::fs::write(l.home.join("run/core-legacy.stopped"), "shutdown");
+                send(
+                    &writer,
+                    &json!({"jsonrpc":"2.0","id":id,"result":{"accepted":true}}),
+                );
+                let closers: Vec<Closer> = l.closers.lock().unwrap().clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(Duration::from_millis(5));
+                    for close in closers {
+                        close();
+                    }
+                    std::thread::sleep(Duration::from_millis(50));
+                    std::process::exit(0);
+                });
+            }
+            // The legacy core stopping on its own (a signal of its own, a fatal error): its `core.state stopping` to every
+            // subscriber that takes it, then every connection ends at once and the process exits.
+            "fake.stop-self" => {
+                for (w, names) in l.subs.lock().unwrap().values() {
+                    if names
+                        .as_ref()
+                        .is_none_or(|n: &Vec<String>| n.iter().any(|x| x == "core.state"))
+                    {
+                        send(
+                            w,
+                            &json!({"jsonrpc":"2.0","method":"core.state","params":{"process":{"state":"stopping","since":1}}}),
+                        );
+                    }
+                }
+                for close in l.closers.lock().unwrap().iter() {
+                    close();
+                }
+                std::thread::spawn(|| {
+                    std::thread::sleep(Duration::from_millis(50));
+                    std::process::exit(0);
+                });
+            }
+            "fake.accept" => send(
+                &writer,
+                &json!({"jsonrpc":"2.0","id":id,"result":{"accepted":true}}),
+            ),
+            "core.shutdown" => {
+                let _ = std::fs::write(l.home.join("run/core-legacy.stopped"), "shutdown");
+                send(
+                    &writer,
+                    &json!({"jsonrpc":"2.0","id":id,"result":{"accepted":true}}),
+                );
+                let slow = mode == "slow-stop";
+                std::thread::spawn(move || {
+                    std::thread::sleep(Duration::from_millis(if slow { 300 } else { 50 }));
+                    std::process::exit(0);
+                });
+            }
+            "events.subscribe" => {
+                let sid = l.next.fetch_add(1, Ordering::Relaxed);
+                let names = msg["params"]["names"].as_array().map(|n| {
+                    n.iter()
+                        .filter_map(|x| x.as_str().map(str::to_owned))
+                        .collect()
+                });
+                l.subs
+                    .lock()
+                    .unwrap()
+                    .insert(conn_id * 1000 + sid, (writer.clone(), names));
+                send(
+                    &writer,
+                    &json!({"jsonrpc":"2.0","id":id,"result":{"subscriptionId":format!("sub-{sid}")}}),
+                );
+            }
+            "agent.list" => {
+                send(
+                    &writer,
+                    &json!({"jsonrpc":"2.0","id":id,"result":{"agents":[]}}),
+                );
+                for (w, names) in l.subs.lock().unwrap().values() {
+                    for (name, params) in [
+                        (
+                            "agent.activity",
+                            json!({"agentId":"bernd","activity":{"state":"idle","since":1}}),
+                        ),
+                        (
+                            "core.state",
+                            json!({"process":{"state":"degraded","since":1}}),
+                        ),
+                    ] {
+                        if names
+                            .as_ref()
+                            .is_none_or(|n: &Vec<String>| n.iter().any(|x| x == name))
+                        {
+                            send(w, &json!({"jsonrpc":"2.0","method":name,"params":params}));
+                        }
+                    }
+                }
+            }
+            // What JSON.stringify writes and serde_json cannot read (security review M1): a lone surrogate (an emoji cut
+            // by `slice`) in a result and in a broadcast notification, and a result nested 200 deep.
+            "fake.surrogate" => send_line(&writer, &surrogate_reply(&id)),
+            "fake.deep" => send_line(&writer, &deep_reply(&id)),
+            "fake.notify-surrogate" => {
+                for (w, names) in l.subs.lock().unwrap().values() {
+                    if names
+                        .as_ref()
+                        .is_none_or(|n: &Vec<String>| n.iter().any(|x| x == "agent.activity"))
+                    {
+                        send_line(w, SURROGATE_NOTE);
+                    }
+                }
+                send(&writer, &json!({"jsonrpc":"2.0","id":id,"result":{}}));
+            }
+            "fake.flood" => {
+                let big = "x".repeat(1024 * 1024);
+                for _ in 0..40 {
+                    send(
+                        &writer,
+                        &json!({"jsonrpc":"2.0","method":"agent.activity","params":{"blob":big}}),
+                    );
+                }
+                send(
+                    &writer,
+                    &json!({"jsonrpc":"2.0","id":id,"result":{"flooded":true}}),
+                );
+            }
+            _ => send(
+                &writer,
+                &json!({"jsonrpc":"2.0","id":id,"result":{"echo":msg,"line":line.trim_end_matches('\n'),"caller":who}}),
+            ),
+        }
+    }
+    closer();
+}

@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { METHODS, METHODS_BY_SERVER, NOTIFICATIONS, NOTIFICATIONS_BY_SERVER, RPC_VERSION, SCHEMA, buildCapabilities, validateParams, validateResult } from "../src/index.ts";
 
 const SEMVER = /^\d+\.\d+\.\d+$/;
@@ -37,9 +37,9 @@ describe("rpc-schema stability annotations", () => {
     assert.deepEqual(stableNotifications, ["core.state"]);
   });
 
-  it("every method declares x-server core, supervisor, module, engine or tools; every notification core, supervisor or engine", () => {
+  it("every method declares x-server core, supervisor, module, engine, tools or bridge; every notification core, supervisor or engine", () => {
     for (const [name, def] of Object.entries(methods) as [string, { "x-server"?: string }][]) {
-      assert.ok(def["x-server"] === "core" || def["x-server"] === "supervisor" || def["x-server"] === "module" || def["x-server"] === "engine" || def["x-server"] === "tools", `${name} x-server`);
+      assert.ok(def["x-server"] === "core" || def["x-server"] === "supervisor" || def["x-server"] === "module" || def["x-server"] === "engine" || def["x-server"] === "tools" || def["x-server"] === "bridge", `${name} x-server`);
     }
     for (const [name, def] of Object.entries(notifications) as [string, { "x-server"?: string }][]) {
       assert.ok(def["x-server"] === "core" || def["x-server"] === "supervisor" || def["x-server"] === "engine", `${name} x-server`);
@@ -70,13 +70,13 @@ describe("rpc-schema stability annotations", () => {
     assert.deepEqual(Object.keys(supervisor.notifications), ["import.progress", "config.changed", "module.state", "ext.changed"]);
     assert.deepEqual(supervisor.features, ["adoption", "lifelines"]);
     assert.deepEqual([...METHODS_BY_SERVER.supervisor].sort(), supervisorMethods);
-    assert.deepEqual([...METHODS_BY_SERVER.core, ...METHODS_BY_SERVER.supervisor, ...METHODS_BY_SERVER.module, ...METHODS_BY_SERVER.engine, ...METHODS_BY_SERVER.tools].sort(), [...METHODS].sort());
+    assert.deepEqual([...METHODS_BY_SERVER.core, ...METHODS_BY_SERVER.supervisor, ...METHODS_BY_SERVER.module, ...METHODS_BY_SERVER.engine, ...METHODS_BY_SERVER.tools, ...METHODS_BY_SERVER.bridge].sort(), [...METHODS].sort());
     assert.deepEqual([...METHODS_BY_SERVER.module].sort(), ["module.adopt", "module.auth", "module.shutdown", "module.status"]);
     assert.deepEqual(validateResult("supervisor.auth", { rpc: "1.2.0", instanceId: "s", pid: 2, capabilities: supervisor }), { ok: true });
   });
 
   it("capability fixtures match buildCapabilities", () => {
-    for (const server of ["core", "supervisor", "module", "engine", "tools"] as const) {
+    for (const server of ["core", "supervisor", "module", "engine", "tools", "bridge"] as const) {
       const fixture = JSON.parse(readFileSync(new URL(`../fixtures/capabilities/${server}.json`, import.meta.url), "utf8"));
       assert.deepEqual(fixture, buildCapabilities([], server), `fixtures/capabilities/${server}.json`);
     }
@@ -87,6 +87,30 @@ describe("rpc-schema stability annotations", () => {
     assert.equal(schema["x-rpc-version"], RPC_VERSION);
     assert.equal((SCHEMA as { title?: string }).title, `PLUR1BUS harness RPC ${RPC_VERSION}`);
     assert.equal(schema.$id, `https://plur1bus.dev/schema/rpc/${RPC_VERSION}/rpc.schema.json`);
+  });
+
+  it("every schema file outside this package refers to the RPC schema by its current $id (P4-10 section E)", () => {
+    // A `$ref` to `schema/rpc/<v>/rpc.schema.json` resolves only while <v> is the schema's own `$id` version: a bump that
+    // leaves one behind breaks it silently (teamplan.schema.json pointed at 1.24.0 after the 1.25.0 bump of P4-10).
+    const root = new URL("../../../", import.meta.url);
+    const found: string[] = [];
+    const walk = (dir: URL) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (entry.name === "node_modules" || entry.name === "generated" || entry.name === "dist") continue;
+        const url = new URL(entry.name + (entry.isDirectory() ? "/" : ""), dir);
+        if (entry.isDirectory()) walk(url);
+        else if (entry.name.endsWith(".json")) {
+          for (const m of readFileSync(url, "utf8").matchAll(/plur1bus\.dev\/schema\/rpc\/([^/"]+)\//g)) found.push(`${url.pathname.slice(root.pathname.length)} ${m[1]}`);
+        }
+      }
+    };
+    for (const pkg of readdirSync(new URL("packages/", root), { withFileTypes: true })) {
+      if (!pkg.isDirectory() || pkg.name === "rpc-schema") continue;
+      const src = new URL(`packages/${pkg.name}/src/`, root);
+      if (existsSync(src)) walk(src);
+    }
+    assert.ok(found.some((f) => f.startsWith("packages/core/src/collab/schemas/teamplan.schema.json ")), JSON.stringify(found));
+    assert.deepEqual(found.filter((f) => !f.endsWith(` ${RPC_VERSION}`)), [], `every reference names ${RPC_VERSION}`);
   });
 
   it("core.status journalReplay (1.3.0) is optional, closed and experimental", () => {

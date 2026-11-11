@@ -4,8 +4,8 @@ import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { alive, killCore, killPid, windowsHomePids } from './helpers.ts';
+import { join, resolve } from 'node:path';
+import { alive, coreBin, coreEnv, killCore, killPid, selectCoreImpl, windowsHomePids } from './helpers.ts';
 import { modelCacheSnapshot } from './model-cache-diagnostics.ts';
 
 test('model-cache diagnostics count partial bytes without exposing names or following nested aliases', () => {
@@ -104,5 +104,44 @@ test('killCore reaps a directly started runtime with the same pid', { timeout: 2
       child.kill('SIGKILL');
       await exited;
     }
+  }
+});
+
+// P4-02, mode S: PLUR1BUS_CORE_IMPL=ts|rust. `ts` is the current behaviour and the default. `rust` (P4-10) runs the front
+// door and fails with a clear error when its binary is missing; it never falls back to `ts`.
+test('PLUR1BUS_CORE_IMPL defaults to ts and accepts ts explicitly', () => {
+  assert.equal(selectCoreImpl({}), 'ts');
+  assert.equal(selectCoreImpl({ PLUR1BUS_CORE_IMPL: '' }), 'ts');
+  assert.equal(selectCoreImpl({ PLUR1BUS_CORE_IMPL: 'ts' }), 'ts');
+});
+
+test('PLUR1BUS_CORE_IMPL rejects unknown values', () => {
+  assert.throws(() => selectCoreImpl({ PLUR1BUS_CORE_IMPL: 'node' }), /PLUR1BUS_CORE_IMPL must be "ts" or "rust"/);
+});
+
+test('PLUR1BUS_CORE_IMPL=rust fails clearly when plur1bus-core is not built, never falls back to ts, and runs the front door when it is', () => {
+  assert.throws(() => selectCoreImpl({ PLUR1BUS_CORE_IMPL: 'rust' }, () => false), /plur1bus-core not built \(P4-03\/P4-10\)/);
+  assert.equal(selectCoreImpl({ PLUR1BUS_CORE_IMPL: 'rust' }, () => true), 'rust');
+  assert.equal(coreBin({ PLUR1BUS_CORE_BIN: '/x/plur1bus-core' }), resolve('/x/plur1bus-core'));
+});
+
+
+test('every core start goes through the selection', () => {
+  const saved = { impl: process.env.PLUR1BUS_CORE_IMPL, bin: process.env.PLUR1BUS_CORE_BIN };
+  const dir = mkdtempSync(join(tmpdir(), 'p1b-core-bin-'));
+  try {
+    process.env.PLUR1BUS_CORE_IMPL = 'rust';
+    process.env.PLUR1BUS_CORE_BIN = join(dir, 'missing');
+    assert.throws(() => coreEnv(), /plur1bus-core/);
+    process.env.PLUR1BUS_CORE_BIN = join(dir, 'plur1bus-core');
+    writeFileSync(process.env.PLUR1BUS_CORE_BIN, '');
+    const env = coreEnv();
+    assert.equal(env.PLUR1BUS_CORE_IMPL, 'rust', 'the CLI and the supervisor run the front door');
+    assert.equal(env.PLUR1BUS_CORE_BIN, join(dir, 'plur1bus-core'));
+    process.env.PLUR1BUS_CORE_IMPL = 'ts';
+    assert.equal(coreEnv().PLUR1BUS_ALLOW_TEST_INTERNALS, '1');
+  } finally {
+    for (const [k, v] of [['PLUR1BUS_CORE_IMPL', saved.impl], ['PLUR1BUS_CORE_BIN', saved.bin]] as const) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+    rmSync(dir, { recursive: true, force: true });
   }
 });

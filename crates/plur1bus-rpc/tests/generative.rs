@@ -2294,6 +2294,8 @@ table! {
     Result "identity.principals" IdentityPrincipalsResult,
     Params "core.auth" CoreAuthParams,
     Result "core.auth" CoreAuthResult,
+    Params "bridge.hello" BridgeHelloParams,
+    Result "bridge.hello" BridgeHelloResult,
     Params "team.get" TeamGetParams,
     Result "team.get" TeamGetResult,
     Params "team.list" TeamListParams,

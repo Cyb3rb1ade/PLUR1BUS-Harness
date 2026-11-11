@@ -1,0 +1,249 @@
+{
+  "cases": [
+    {
+      "format": "date",
+      "valid": true,
+      "value": "2026-11-07"
+    },
+    {
+      "format": "date",
+      "valid": true,
+      "value": "2024-02-29"
+    },
+    {
+      "format": "date",
+      "valid": false,
+      "value": "2026-02-29"
+    },
+    {
+      "format": "date",
+      "valid": false,
+      "value": "2026-02-30"
+    },
+    {
+      "format": "date",
+      "valid": false,
+      "value": "2026-13-01"
+    },
+    {
+      "format": "date",
+      "valid": false,
+      "value": "2026-00-10"
+    },
+    {
+      "format": "date",
+      "valid": false,
+      "value": "2026-11-00"
+    },
+    {
+      "format": "date",
+      "valid": false,
+      "value": "2026-11-31"
+    },
+    {
+      "format": "date",
+      "valid": false,
+      "value": "+2026-11-07"
+    },
+    {
+      "format": "date",
+      "valid": false,
+      "value": "2026-1-07"
+    },
+    {
+      "format": "date",
+      "valid": false,
+      "value": "20261107"
+    },
+    {
+      "format": "date",
+      "valid": false,
+      "value": "２０２６-11-07"
+    },
+    {
+      "format": "date",
+      "valid": false,
+      "value": "2026-11-07T00:00:00Z"
+    },
+    {
+      "format": "date",
+      "valid": false,
+      "value": ""
+    },
+    {
+      "format": "date-time",
+      "valid": true,
+      "value": "2026-11-07T12:00:00Z"
+    },
+    {
+      "format": "date-time",
+      "valid": true,
+      "value": "2026-11-07 12:00:00Z"
+    },
+    {
+      "format": "date-time",
+      "valid": true,
+      "value": "2026-11-07t12:00:00z"
+    },
+    {
+      "format": "date-time",
+      "valid": true,
+      "value": "2026-11-07T12:00:00.123456+01:00"
+    },
+    {
+      "format": "date-time",
+      "valid": false,
+      "value": "2026-02-30T12:00:00Z"
+    },
+    {
+      "format": "date-time",
+      "valid": false,
+      "value": "2026-11-07T12:00:00"
+    },
+    {
+      "format": "date-time",
+      "valid": false,
+      "value": "2026-11-07T24:00:00Z"
+    },
+    {
+      "format": "date-time",
+      "valid": true,
+      "value": "2026-11-07T23:59:60Z"
+    },
+    {
+      "format": "date-time",
+      "valid": false,
+      "value": "2026-11-07T12:00Z"
+    },
+    {
+      "format": "date-time",
+      "valid": false,
+      "value": ""
+    },
+    {
+      "format": "uri",
+      "valid": true,
+      "value": "https://example.org/a?b=c#d"
+    },
+    {
+      "format": "uri",
+      "valid": true,
+      "value": "http://"
+    },
+    {
+      "format": "uri",
+      "valid": false,
+      "value": "//host/path"
+    },
+    {
+      "format": "uri",
+      "valid": true,
+      "value": "a:b"
+    },
+    {
+      "format": "uri",
+      "valid": true,
+      "value": "mailto:someone@example.org"
+    },
+    {
+      "format": "uri",
+      "valid": true,
+      "value": "urn:isbn:0451450523"
+    },
+    {
+      "format": "uri",
+      "valid": true,
+      "value": "http://[::1]:8080/"
+    },
+    {
+      "format": "uri",
+      "valid": true,
+      "value": "http://example.org:99999/"
+    },
+    {
+      "format": "uri",
+      "valid": false,
+      "value": "http://exa mple.org/"
+    },
+    {
+      "format": "uri",
+      "valid": false,
+      "value": "http://example.org/%zz"
+    },
+    {
+      "format": "uri",
+      "valid": true,
+      "value": "http://example.org/%20"
+    },
+    {
+      "format": "uri",
+      "valid": true,
+      "value": "javascript:void(0)"
+    },
+    {
+      "format": "uri",
+      "valid": true,
+      "value": "file:///tmp/x"
+    },
+    {
+      "format": "uri",
+      "valid": false,
+      "value": "relative/path"
+    },
+    {
+      "format": "uri",
+      "valid": false,
+      "value": "/absolute/path"
+    },
+    {
+      "format": "uri",
+      "valid": false,
+      "value": "http://exämple.org/"
+    },
+    {
+      "format": "uri",
+      "valid": true,
+      "value": "HTTP://EXAMPLE.ORG"
+    },
+    {
+      "format": "uri",
+      "valid": true,
+      "value": "x-custom+scheme.1:rest"
+    },
+    {
+      "format": "uri",
+      "valid": false,
+      "value": "1http://example.org"
+    },
+    {
+      "format": "uri",
+      "valid": true,
+      "value": "http://user:pass@example.org/"
+    },
+    {
+      "format": "uri",
+      "valid": false,
+      "value": ""
+    },
+    {
+      "format": "uuid",
+      "valid": true,
+      "value": "123e4567-e89b-12d3-a456-426614174000"
+    },
+    {
+      "format": "uuid",
+      "valid": true,
+      "value": "123E4567-E89B-12D3-A456-426614174000"
+    },
+    {
+      "format": "uuid",
+      "valid": true,
+      "value": "urn:uuid:123e4567-e89b-12d3-a456-426614174000"
+    },
+    {
+      "format": "uuid",
+      "valid": false,
+      "value": "123e4567e89b12d3a456426614174000"
+    }
+  ]
+}

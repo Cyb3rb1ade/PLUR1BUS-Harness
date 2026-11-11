@@ -7,6 +7,7 @@ import { createConnection, createServer, type Server, type Socket } from "node:n
 import { dirname } from "node:path";
 import { METHODS_BY_SERVER, buildCapabilities, validateParams, validateRequest, validateResult, type Deprecation, type RpcServerRole } from "@plur1bus/rpc-schema";
 import { LineDecoder, encodeLine } from "./framing.ts";
+import { parityRecorder } from "./parity-recorder.ts";
 import type { HarnessLogger } from "./logger.ts";
 import { RpcError } from "./rpc-error.ts";
 
@@ -93,6 +94,11 @@ export interface RpcServerOptions {
   /** Current RBAC visibility, resolved by the owner of the agent registry; absent denies API agent events. */
   canReadAgent?: (ctx: CallContext, agentId: string) => boolean | Promise<boolean>;
   address: string; token: string;
+  /** Phase 4 seam (P4-10): this core runs behind the Rust front door as core-legacy. Every `core.auth` must carry
+   *  `frontDoor { token, caller }` with this token (run/core-legacy.token, compared in constant time) and the caller kind
+   *  the rest of the params prove here; anything else is refused with `front-door-link` and the connection closed.
+   *  Without this option a `core.auth` that carries `frontDoor` is refused the same way. */
+  frontDoorToken?: string;
   /** The handshake's result. */
   hello: () => object;
   /** Implementations for methods served by this process; each method is schema-checked. */
@@ -115,7 +121,17 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
   const served = new Set(METHODS_BY_SERVER[role]);
   const authIdleMs = o.authIdleMs ?? 30_000;
   const tokenBuf = Buffer.from(o.token, "utf8");
+  const frontDoorBuf = o.frontDoorToken === undefined ? undefined : Buffer.from(o.frontDoorToken, "utf8");
+  /** P4-10: the front door's link credential matches this server's (only a server behind the front door has one). */
+  function linkMatches(link: unknown): link is { token: string; caller: string } {
+    if (frontDoorBuf === undefined || !link || typeof link !== "object") return false;
+    const t = (link as { token?: unknown }).token;
+    if (typeof t !== "string") return false;
+    const b = Buffer.from(t, "utf8");
+    return b.length === frontDoorBuf.length && timingSafeEqual(b, frontDoorBuf);
+  }
   const conns = new Map<string, Conn>();
+  const rec = parityRecorder(process.env, role); // P4-02: null unless PLUR1BUS_ALLOW_TEST_INTERNALS=1 and PLUR1BUS_PARITY_RECORD are both set
   const dispatches = new Set<Dispatch>(); // handler calls whose reply is not written yet (drain() waits on these)
   let server: Server | null = null;
   let closing: Promise<void> | null = null;
@@ -128,7 +144,7 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
       c.sock.destroy();
     }
   }
-  const send = (c: Conn, msg: unknown) => writeToSocket(c, encodeLine(msg));
+  const send = (c: Conn, msg: unknown) => { rec?.record(c.id, "out", msg); writeToSocket(c, encodeLine(msg)); };
   const errorReply = (c: Conn, id: unknown, e: RpcError) => send(c, { jsonrpc: "2.0", id: id ?? null, error: e.toJSON() });
   /** Send a final error, then close. destroy() right after write() drops the pending reply on Windows named pipes. */
   function replyAndClose(c: Conn, id: unknown, e: RpcError): void {
@@ -168,6 +184,9 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
       if (c.clientToken !== undefined) { replyAndClose(c, id, new RpcError("E_DENIED", "scoped identity cannot change")); return; }
       const v = validateParams(method, params);
       if (!v.ok) { replyAndClose(c, id, new RpcError("E_INVALID_PARAMS", "invalid params", { detail: v.errors.join("; ") })); return; }
+      // P4-10 seam: behind the front door every handshake is a link carrying its credential; anywhere else a link is refused.
+      const link: unknown = Object.hasOwn(params, "frontDoor") ? params.frontDoor : undefined;
+      if (frontDoorBuf === undefined ? link !== undefined : !linkMatches(link)) { replyAndClose(c, id, new RpcError("E_UNAUTHORIZED", "front door link refused", { reason: "front-door-link" })); return; }
       const hasEngine = role === "core" && Object.hasOwn(params, "engine");
       if (c.authed && c.engine !== hasEngine) { replyAndClose(c, id, new RpcError("E_DENIED", "connection identity cannot change", { reason: "engine-identity-change" })); return; }
       if (hasEngine) {
@@ -182,6 +201,11 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
         try { await o.authorizeClient(params.token, method, params); c.clientToken = params.token; }
         catch { replyAndClose(c, id, new RpcError("E_UNAUTHORIZED", "client not approved", { reason: "client-token" })); return; }
       } else if (c.clientToken !== undefined) { replyAndClose(c, id, new RpcError("E_DENIED", "scoped identity cannot change")); return; }
+      // P4-10 seam: the caller kind the front door authenticated must be the one these credentials prove here too.
+      if (frontDoorBuf !== undefined) {
+        const proved = hasEngine ? "engine" : c.clientToken !== undefined ? "client" : hasApi ? "api" : "owner";
+        if ((link as { caller?: unknown }).caller !== proved) { replyAndClose(c, id, new RpcError("E_UNAUTHORIZED", "front door link refused", { reason: "front-door-link" })); return; }
+      }
       c.authed = true;
       c.engine = hasEngine;
       if (hasEngine) c.engineToken = params.engine.token;
@@ -284,7 +308,7 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
       // Each line is parsed on its own: the valid requests of this chunk are served, only the broken line gets the
       // parse error (a valid request next to a garbled one used to be dropped and its client waited for a timeout).
       const { values, bad, tooLong } = c.dec.decode(chunk);
-      for (const m of values) void dispatch(c, m);
+      for (const m of values) { rec?.record(c.id, "in", m); void dispatch(c, m); }
       for (let i = 0; i < bad.length; i++) errorReply(c, null, new RpcError("E_INVALID_PARAMS", "parse error", { reason: "parse-error", jsonrpcCode: -32700 }));
       if (tooLong) replyAndClose(c, null, new RpcError("E_INVALID_PARAMS", tooLong.message, { reason: "line-too-long" }));
     });
@@ -382,9 +406,10 @@ export function createRpcServer(o: RpcServerOptions): RpcServer {
                 || paramAgent === sub.agentId)) continue;
             } else if (c.api !== undefined && method !== "core.state") continue;
             else if (sub.agentId && paramAgent !== sub.agentId) continue;
-            const line = encodeLine({ jsonrpc: "2.0", method, params,
-              ...(c.api !== undefined ? { audience: audience ?? null, connectionId: c.id } : {}) });
-            writeToSocket(c, line); break;
+            const note = { jsonrpc: "2.0", method, params,
+              ...(c.api !== undefined ? { audience: audience ?? null, connectionId: c.id } : {}) };
+            rec?.record(c.id, "out", note);
+            writeToSocket(c, encodeLine(note)); break;
           }
         }).catch(() => {}).finally(() => { c.pendingNotifications--; }); // failed lookup denies this event, never subsequent events
 

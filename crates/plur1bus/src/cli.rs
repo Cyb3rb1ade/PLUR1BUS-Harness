@@ -1231,11 +1231,14 @@ pub enum BackupCmd {
         /// the archive
         file: PathBuf,
     },
-    /// [experimental] Restore an archive into this home (the core must be stopped)
+    /// [experimental] Restore an archive into this home (stop the daemon or `core run` first)
     ///
     /// Verifies first, extracts into a staging directory, then swaps each unit in by rename. Whatever is replaced is kept in
     /// `<home>/backups/pre-restore-<id>/`; a failure puts the old state back. Defaults to a read-only plan.
     /// Applying requires `--confirm` (`--yes` is an alias). `--force` never confirms a restore or breaks writer locks.
+    /// Stop the daemon (`plur1bus daemon stop`) or the `core run` process first and start no core until the restore
+    /// has finished: it refuses while a supervisor or a core answers or a legacy core still holds
+    /// `run/core-legacy.lock`, and it holds the writer locks until it returns.
     Restore {
         /// the archive
         file: PathBuf,

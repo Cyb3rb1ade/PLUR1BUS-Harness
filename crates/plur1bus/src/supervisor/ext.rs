@@ -126,6 +126,9 @@ fn set_error(e: SetError) -> ExtError {
             "config-changed",
             format!("config.json changed (revision {current}); try again"),
         ),
+        SetError::CoreBinaryMissing(message) => {
+            ExtError::new("E_CONFIG_INVALID", "core-binary-missing", message)
+        }
         SetError::Unavailable => ExtError::new(
             "E_NOT_AVAILABLE",
             "config-unavailable",

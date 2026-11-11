@@ -378,6 +378,16 @@ pub(crate) fn apply(
                     json!({ "reason": "foreign-host-store-path" }),
                 );
             }
+            // Final review FR-I1, as through the supervisor.
+            if let Some(message) =
+                crate::commands::core::rust_core_refusal(layout, &loaded.config, &plan.after)
+            {
+                out.fail(
+                    "E_CONFIG_INVALID",
+                    &message,
+                    json!({ "reason": "core-binary-missing" }),
+                );
+            }
             let restart = json!({
                 "live": plan.restart.live,
                 "core": plan.restart.core,

@@ -167,7 +167,7 @@ def main():
     args = parser.parse_args()
     if args.tokenizer_dir is None:
         parser.error("--tokenizer-dir or PLUR1BUS_TOKENIZER_DIR is required; no missing-file skips")
-    manifest = json.loads((ROOT / "crates/plur1bus-engine/src/tokens/artifacts.json").read_text())
+    manifest = json.loads((ROOT / "crates/plur1bus-tokens/src/artifacts.json").read_text())
     texts = json.loads((ROOT / "tests/engine-parity/goldens/tokens/texts.json").read_text())
     document = build_goldens(manifest, texts, pathlib.Path(args.tokenizer_dir), args.ranks)
     write_or_check(args.output, document, args.check)

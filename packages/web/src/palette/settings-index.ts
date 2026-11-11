@@ -102,6 +102,7 @@ export const SETTINGS: readonly SettingSpec[] = [
   { key: "tools.hostctl.search.maxResults", type: "integer", tier: "advanced", help: "Maximum matches per search." },
   { key: "core.webHandoffBaseUrl", type: "string", tier: "advanced", urlCredentials: true, help: "Explicit Web UI address for external channel continuation links. Empty disables /web links; HTTPS except loopback HTTP. No credentials, query or fragment." },
   { key: "core.logLevel", type: "enum", tier: "advanced", help: "Minimum severity written to the core log." },
+  { key: "core.impl", type: "enum", tier: "advanced", help: "Phase 4 (P4-10), opt-in until the flip: which core serves run/core.sock. `ts` runs the TypeScript core alone (the default). `rust` runs the Rust front door (plur1bus-core), which owns the socket, the token, the run files and the core lock and relays every call it does not serve yet to the TypeScript core running behind it (core-legacy). The environment variable PLUR1BUS_CORE_IMPL overrides this key when it is set (tests). A change restarts the core. `rust` needs a developer build: plur1bus-core is not shipped yet, so setting it is refused while no plur1bus-core binary is found (reason core-binary-missing), and a core that cannot find it at a restart stays down until `plur1bus config set core.impl ts`." },
   { key: "core.recall.softBudgetMs", type: "integer", tier: "advanced", help: "Soft target duration for a recall, in milliseconds; must not exceed hardBudgetMs." },
   { key: "core.recall.hardBudgetMs", type: "integer", tier: "advanced", help: "Maximum duration allowed for a recall before it is aborted, in milliseconds; must not be below softBudgetMs." },
   { key: "core.recall.capChars", type: "integer", tier: "advanced", help: "Maximum number of characters returned by a recall." },
@@ -1301,6 +1302,12 @@ export const CONFIG_POLICY_SCHEMA: ConfigSchemaNode = {
             "info",
             "warn",
             "error"
+          ]
+        },
+        "impl": {
+          "enum": [
+            "ts",
+            "rust"
           ]
         },
         "recall": {

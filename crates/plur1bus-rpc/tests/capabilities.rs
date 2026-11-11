@@ -12,7 +12,7 @@ fn fixture(server: &str) -> Value {
 
 #[test]
 fn capabilities_match_the_typescript_fixtures() {
-    for server in ["core", "supervisor", "module", "engine", "tools"] {
+    for server in ["core", "supervisor", "module", "engine", "tools", "bridge"] {
         assert_eq!(
             plur1bus_rpc::capabilities(server, &[]),
             fixture(server),

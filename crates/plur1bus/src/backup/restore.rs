@@ -103,7 +103,7 @@ pub fn ensure_quiescent(layout: &Layout) -> Result<(), BackupError> {
     if crate::commands::daemon::supervisor_answers(layout) {
         return Err(BackupError::new(
             "core-running",
-            "a supervisor answers for this home; stop it first (plur1bus daemon stop)",
+            "a supervisor answers for this home; stop it first (plur1bus daemon stop) and start no core until the restore has finished",
         ));
     }
     let probe =
@@ -111,10 +111,40 @@ pub fn ensure_quiescent(layout: &Layout) -> Result<(), BackupError> {
     if !matches!(probe, crate::supervisor::adopt::Probe::Absent) {
         return Err(BackupError::new(
             "core-running",
-            "a core answers for this home; stop it first (plur1bus daemon stop, or end the `core run` process)",
+            "a core answers for this home; stop it first (plur1bus daemon stop, or end the `core run` process) and start no core until the restore has finished",
         ));
     }
+    drop(hold_legacy_lock(layout)?);
     Ok(())
+}
+
+/// Phase 4 (P4-10 security review M3): behind the Rust front door the TypeScript core runs as `core-legacy` and holds
+/// `run/core-legacy.lock` for its whole life. When the front door dies abruptly, nothing answers on the core's address any
+/// more while that legacy core may still be stopping and writing the stores, so the probes above see no core. Its lock
+/// is taken here without waiting and held for the restore (`core-running` while it is held). A legacy core creates the
+/// file before it opens a store and it is never removed, so where it does not exist no legacy core ever got that far:
+/// nothing to take, and a refused restore leaves the home byte for byte as it was. The restore takes no other lock, so
+/// the order every holder follows (`state/core.lock`, then `run/core-legacy.lock`) cannot deadlock with it. It also means
+/// that on a home without the file a core started after these checks is not excluded (docs/phase4/defects.md P4D-5,
+/// re-review M-a): the help and the refusals tell the operator to keep the core stopped until the restore has finished.
+fn hold_legacy_lock(
+    layout: &Layout,
+) -> Result<Option<plur1bus_audit::lock::CoreLock>, BackupError> {
+    let path = layout.run().join("core-legacy.lock");
+    if path.symlink_metadata().is_err() {
+        return Ok(None);
+    }
+    match plur1bus_audit::lock::CoreLock::try_acquire(&path) {
+        Ok(Some(lock)) => Ok(Some(lock)),
+        Ok(None) => Err(BackupError::new(
+            "core-running",
+            "a legacy core behind a stopped front door still holds run/core-legacy.lock; wait until it has stopped, and start no core until the restore has finished",
+        )),
+        Err(e) => Err(BackupError::new(
+            "core-running",
+            format!("run/core-legacy.lock cannot be checked ({e}); refusing to restore"),
+        )),
+    }
 }
 
 fn fail_point(opts: &RestoreOpts, at: &str) -> Result<(), BackupError> {
@@ -359,6 +389,8 @@ pub fn restore(
     if !opts.force {
         ensure_quiescent(layout)?;
     }
+    // Held until the restore returns: no legacy core that outlived its front door writes the units being swapped.
+    let _legacy = hold_legacy_lock(layout)?;
 
     let id = format!("{}-{}", utc_stamp(now_ms()), short_id());
     let staging = home.join(format!(".restore-{id}"));

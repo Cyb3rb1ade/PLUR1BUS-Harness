@@ -1,0 +1,22 @@
+[package]
+name = "plur1bus-tokens"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "The token counter and the provider cache-profile table, shared by the memory engine and the Rust core (P4-03, D120 §12.3)."
+
+[lints]
+workspace = true
+
+# The same versions and features the engine declared when this code lived in `crates/plur1bus-engine` (RE-14).
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+tokenizers = { version = "=0.23.2", default-features = false, features = ["fancy-regex"] }
+sha2 = "0.10"
+regex = "1"
+url = "2"
+jsonschema = { version = "0.26", default-features = false }
+
+[dev-dependencies]
+tempfile.workspace = true

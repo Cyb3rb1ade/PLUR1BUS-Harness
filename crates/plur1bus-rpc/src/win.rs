@@ -681,6 +681,120 @@ impl OverlappedPipe {
     }
 }
 
+/// A job object whose processes are terminated when its last handle closes (`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`): when
+/// this value is dropped or this process ends, abruptly (`TerminateProcess`) included. P4-10 security review M4: the
+/// legacy core behind the Rust front door dies with it. Keep the value for as long as the assigned process may live.
+pub struct KillOnClose {
+    /// Held, never read: closing it is what ends the job's processes.
+    _job: OwnedHandle,
+}
+
+impl KillOnClose {
+    /// A new job with that limit, `child` assigned to it (nested jobs need Windows 8; on failure the child is not
+    /// bound and keeps running).
+    pub fn assign(child: &std::process::Child) -> io::Result<KillOnClose> {
+        use windows_sys::Win32::System::JobObjects::{
+            AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
+            SetInformationJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+            JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+        };
+        // SAFETY: an anonymous job with the default security; a null handle is an error.
+        let job = unsafe { CreateJobObjectW(std::ptr::null(), std::ptr::null()) };
+        if job.is_null() {
+            return Err(io::Error::last_os_error());
+        }
+        // SAFETY: `job` is a new handle this value owns from here on.
+        let job = unsafe { OwnedHandle::from_raw_handle(job) };
+        // SAFETY: plain-old-data; all zero is "no limit" for every other field.
+        let mut limits: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = unsafe { std::mem::zeroed() };
+        limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        // SAFETY: `limits` is a live value of exactly the size passed, read only during the call.
+        let set = unsafe {
+            SetInformationJobObject(
+                job.as_raw_handle(),
+                JobObjectExtendedLimitInformation,
+                (&limits as *const JOBOBJECT_EXTENDED_LIMIT_INFORMATION).cast(),
+                std::mem::size_of_val(&limits) as u32,
+            )
+        };
+        if set == 0 {
+            return Err(io::Error::last_os_error());
+        }
+        // SAFETY: both handles are open for the call: the job is ours, the process handle the caller's child's.
+        if unsafe { AssignProcessToJobObject(job.as_raw_handle(), child.as_raw_handle()) } == 0 {
+            return Err(io::Error::last_os_error());
+        }
+        Ok(KillOnClose { _job: job })
+    }
+}
+
+/// The console control handler [`on_console_control`] installed.
+static CONSOLE_CONTROL: std::sync::OnceLock<Box<dyn Fn(u32) -> bool + Send + Sync>> =
+    std::sync::OnceLock::new();
+
+/// `PHANDLER_ROUTINE`: runs on a thread the system creates for each console control event.
+unsafe extern "system" fn console_control(event: u32) -> BOOL {
+    BOOL::from(CONSOLE_CONTROL.get().is_some_and(|handle| handle(event)))
+}
+
+/// Installs `handle` for this process's console control events (`SetConsoleCtrlHandler`; P4-10 task review L5: Ctrl+C,
+/// Ctrl+Break and closing the console of `plur1bus core run` take the front door's ordered stop, as a signal does on
+/// Unix). It gets the event (`CTRL_C_EVENT` 0, `CTRL_BREAK_EVENT` 1, `CTRL_CLOSE_EVENT` 2, `CTRL_LOGOFF_EVENT` 5,
+/// `CTRL_SHUTDOWN_EVENT` 6) on a thread of its own and returns whether it handled it. For the last three the system
+/// ends the process once the handler returns, so a handler that needs time takes it before returning. Once per
+/// process; a second call is an error.
+pub fn on_console_control(handle: impl Fn(u32) -> bool + Send + Sync + 'static) -> io::Result<()> {
+    use windows_sys::Win32::System::Console::SetConsoleCtrlHandler;
+    CONSOLE_CONTROL
+        .set(Box::new(handle))
+        .map_err(|_| io::Error::other("a console control handler is installed already"))?;
+    // SAFETY: registers a handler with the signature the API expects; it only reads the static set above.
+    if unsafe { SetConsoleCtrlHandler(Some(console_control), 1) } == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(())
+}
+
+/// Sends `CTRL_BREAK_EVENT` to the console process group `group` (a process started with `CREATE_NEW_PROCESS_GROUP` and
+/// its children; `GenerateConsoleCtrlEvent`). The caller must share the console. For tests of [`on_console_control`].
+pub fn send_ctrl_break(group: u32) -> io::Result<()> {
+    use windows_sys::Win32::System::Console::{GenerateConsoleCtrlEvent, CTRL_BREAK_EVENT};
+    // SAFETY: plain call with an event constant and a process group id.
+    if unsafe { GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, group) } == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod kill_on_close_tests {
+    use super::*;
+
+    /// Dropping the job (what the end of the holding process does) ends the process assigned to it at once.
+    #[test]
+    fn closing_the_job_ends_its_process() {
+        let mut child = std::process::Command::new("cmd")
+            .args(["/C", "ping -n 30 127.0.0.1 >NUL"])
+            .spawn()
+            .unwrap();
+        let job = KillOnClose::assign(&child).unwrap();
+        std::thread::sleep(Duration::from_millis(200));
+        assert!(
+            child.try_wait().unwrap().is_none(),
+            "running while the job is held"
+        );
+        drop(job);
+        let deadline = Instant::now() + Duration::from_secs(1);
+        while child.try_wait().unwrap().is_none() {
+            assert!(
+                Instant::now() < deadline,
+                "the process outlived its job by a second"
+            );
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    }
+}
+
 #[cfg(test)]
 mod strict_dacl_tests {
     use super::*;
