@@ -88,17 +88,45 @@ fn child_probe() {
     );
 }
 
+/// The kernel's per-process descriptor cap, read independently of the code under test: macOS `kern.maxfilesperproc`
+/// (`sysctl`); `None` where the kernel sets no cap below the hard limit.
+fn kernel_cap() -> Option<u64> {
+    #[cfg(target_os = "macos")]
+    {
+        let out = Command::new("sysctl")
+            .args(["-n", "kern.maxfilesperproc"])
+            .output()
+            .unwrap();
+        let cap: u64 = String::from_utf8_lossy(&out.stdout).trim().parse().unwrap();
+        assert!(cap > 0, "kern.maxfilesperproc is positive");
+        Some(cap)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        None
+    }
+}
+
 #[test]
 fn a_finite_hard_limit_is_taken_whole() {
-    // GitHub's ubuntu runners and systemd user units have a finite hard limit; launchd's soft default is 256.
-    for hard in [4096_u64, 65536] {
+    // GitHub's ubuntu runners and systemd user units have a finite hard limit; launchd's soft default is 256. On macOS
+    // the process can never use more than kern.maxfilesperproc (46080 on the macOS CI VM), so the hard limit is taken
+    // whole up to that cap; one case lies above the cap on every macOS host.
+    let cap = kernel_cap();
+    let mut hards = vec![4096_u64, 65536];
+    hards.extend(cap.map(|cap| cap + 4096));
+    for hard in hards {
         let Some((soft, in_force)) =
             raised_in_child(&format!("ulimit -Sn 256 && ulimit -Hn {hard}"))
         else {
             println!("skipped: this process's hard limit is below {hard}");
             continue;
         };
-        assert_eq!(soft, hard, "the soft limit is the hard one");
+        let expected = cap.map_or(hard, |cap| hard.min(cap));
+        assert_eq!(
+            soft, expected,
+            "the soft limit is the hard one, capped only by the kernel's per-process maximum ({cap:?})"
+        );
         assert_eq!(in_force, hard.to_string(), "the hard limit is left alone");
     }
 }
