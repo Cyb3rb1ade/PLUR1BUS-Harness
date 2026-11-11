@@ -6,8 +6,8 @@ Regenerate on each native packaging target; optional native npm packages differ 
 
 ```
 pnpm-lock.yaml: a2d5896256b674fbc02686d654c9c27a2ffd6a34020460a8f11d60e8352e45cb
-Cargo.lock: d1aa09627f1348a855a0a0ca452fcc7029cb71b8b7f87dcde711eeb44063dc8a
-apps/desktop/Cargo.lock: 4cdbccd46633f97f15769f2578970f071267646a0f3a5f8a76d2ec86061313c2
+Cargo.lock: 6d5fb132f3ce2cf91aeba1fb0dfae82532bd63ff5de28785667d6bb14b3e3286
+apps/desktop/Cargo.lock: e6f874888157d78305f8de3aee112cf3a18f1701a44eb1afe51bd95e49cd49f0
 ```
 
 | Ecosystem | Dependency | Version | Licence | Attribution |
@@ -802,7 +802,7 @@ apps/desktop/Cargo.lock: 4cdbccd46633f97f15769f2578970f071267646a0f3a5f8a76d2ec8
 | cargo | rustc_version | 0.4.1 | MIT OR Apache-2.0 |  |
 | cargo | rusticata-macros | 4.1.0 | MIT/Apache-2.0 | Pierre Chifflier <chifflier@wzdftpd.net> |
 | cargo | rustix | 0.38.44 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | Dan Gohman <dev@sunfishcode.online>, Jakub Konka <kubkon@jakubkonka.com> |
-| cargo | rustix | 1.1.5 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | Dan Gohman <dev@sunfishcode.online>, Jakub Konka <kubkon@jakubkonka.com> |
+| cargo | rustix | 1.1.6 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | Dan Gohman <dev@sunfishcode.online>, Jakub Konka <kubkon@jakubkonka.com> |
 | cargo | rustls-native-certs | 0.8.2 | Apache-2.0 OR ISC OR MIT |  |
 | cargo | rustls-native-certs | 0.8.4 | Apache-2.0 OR ISC OR MIT |  |
 | cargo | rustls-pki-types | 1.15.1 | MIT OR Apache-2.0 |  |

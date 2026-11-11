@@ -8091,7 +8091,7 @@ cargo:quote@1.0.47/LICENSE-MIT
 cargo:ref-cast-impl@1.0.27/LICENSE-MIT
 cargo:ref-cast@1.0.27/LICENSE-MIT
 cargo:rustix@0.38.44/LICENSE-MIT
-cargo:rustix@1.1.5/LICENSE-MIT
+cargo:rustix@1.1.6/LICENSE-MIT
 cargo:rustversion@1.0.23/LICENSE-MIT
 cargo:semver@1.0.28/LICENSE-MIT
 cargo:seq-macro@0.3.6/LICENSE-MIT
@@ -8926,7 +8926,7 @@ SHA256 268872b9816f90fd8e85db5a28d33f8150ebb8dd016653fb39ef1f94f2686bc5
 cargo:linux-raw-sys@0.12.1/LICENSE-Apache-2.0_WITH_LLVM-exception
 cargo:linux-raw-sys@0.4.15/LICENSE-Apache-2.0_WITH_LLVM-exception
 cargo:rustix@0.38.44/LICENSE-Apache-2.0_WITH_LLVM-exception
-cargo:rustix@1.1.5/LICENSE-Apache-2.0_WITH_LLVM-exception
+cargo:rustix@1.1.6/LICENSE-Apache-2.0_WITH_LLVM-exception
 cargo:target-lexicon@0.12.16/LICENSE
 cargo:wasi@0.11.1+wasi-snapshot-preview1/LICENSE-Apache-2.0_WITH_LLVM-exception
 cargo:wasip2@1.0.4+wasi-0.2.12/LICENSE-Apache-2.0_WITH_LLVM-exception
@@ -11888,7 +11888,7 @@ DEALINGS IN THE SOFTWARE.
 
 SHA256 377c2e7c53250cc5905c0b0532d35973392af16ffb9596a41d99d202cf3617c9
 cargo:rustix@0.38.44/COPYRIGHT
-cargo:rustix@1.1.5/COPYRIGHT
+cargo:rustix@1.1.6/COPYRIGHT
 
 Short version for non-lawyers:
 
@@ -30647,7 +30647,7 @@ cargo:roxmltree@0.21.1/LICENSE-APACHE
 cargo:rustc_version@0.4.1/LICENSE-APACHE
 cargo:rusticata-macros@4.1.0/LICENSE-APACHE
 cargo:rustix@0.38.44/LICENSE-APACHE
-cargo:rustix@1.1.5/LICENSE-APACHE
+cargo:rustix@1.1.6/LICENSE-APACHE
 cargo:rustls-native-certs@0.8.2/LICENSE-APACHE
 cargo:rustls-native-certs@0.8.4/LICENSE-APACHE
 cargo:rustls@0.23.46/LICENSE-APACHE
