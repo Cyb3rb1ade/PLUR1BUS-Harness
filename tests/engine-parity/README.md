@@ -30,7 +30,9 @@ to expose any operations still awaiting composition. `ops/correct`, `ops/share-p
 import replay, unimport previews and an apply that selects nothing. A successful correct, share or propose
 returns a fresh ID (Node's fixed UUID sequence, a random v4 ID in Rust), an applying unimport differs by
 `derived.cleanupErrors` (KNOWN-GAP F14/RE-D129), `memory.state` returns the run's archive path and counts only
-ACL-visible cards (RE-D31/F4), and the pin has no A1 methods (`stats`, `promote`, `curation`).
+ACL-visible cards (RE-D31/F4), and the pin has no A1 methods (`stats`, `promote`, `curation`). The import scenario
+lists the whole time range: a windowed list after an import returns fewer cards at the pin, which fetches
+`limit + 1` rows before its ACL check (RE-D31/F4; Rust is right).
 
 ## Record
 

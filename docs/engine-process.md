@@ -12,7 +12,10 @@ compositions. The A1 capability flags stay `false` and the contract stays 1.17.0
 the wire regardless. `engine.admin.share` and `engine.admin.forget` stay `E_NOT_AVAILABLE`/`composition-pending`
 (no native implementation, no productive Harness caller; RE-D165, KNOWN-GAP → RY), as do the F6/F7/F9/F14 admin
 methods. Each memory operation runs in the foreground with its caller's principal; what an owner without a user
-principal cannot get (a Neo partition) fails closed as described in `docs/engine-stores.md` (RE-D165). Under F13 every job whose body reads or
+principal cannot get (a Neo partition) fails closed as described in `docs/engine-stores.md` (RE-D165).
+A memory write that still finds the engine-wide mutation gate held after 20 s answers `E_NOT_AVAILABLE` with
+`engine-busy`; holders run on budgets ended by shutdown, and `engine.status` reports `sharedMemory` as share calls
+find it. Under F13 every job whose body reads or
 writes private owner or workspace rows answers `job-authority-unbound`, LLM jobs answer `not-implemented`; the
 only installed body is `embedding-drain` with Neo disabled (`skipped/neo_disabled`, as at the pin).
 Embedding and model methods use the existing RE-03 providers. With a store base, `engine.status` is the pin's
