@@ -216,6 +216,7 @@ fn describe_unit(role: &Role, pid: u32) -> String {
         RoleKind::Core => format!("core (pid {pid})"),
         RoleKind::Api => format!("api (pid {pid})"),
         RoleKind::Tools => format!("tools (pid {pid})"),
+        RoleKind::Engine => format!("engine (pid {pid})"),
         RoleKind::Module => format!("module {} (pid {pid})", role.name),
     }
 }
@@ -225,6 +226,7 @@ fn unit_json(role: &Role) -> (&'static str, &'static str) {
         RoleKind::Core => ("core", "core.lock"),
         RoleKind::Api => ("api", "api.supervised"),
         RoleKind::Tools => ("tools", "tools.service"),
+        RoleKind::Engine => ("engine", "engine.process"),
         RoleKind::Module => ("module", "modules.state"),
     }
 }

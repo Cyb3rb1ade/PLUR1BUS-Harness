@@ -362,7 +362,7 @@ impl ConnCtx {
                 None,
             );
         }
-        for role in ["core", "tools", "api"] {
+        for role in ["core", "engine", "tools", "api"] {
             if let Some(slot) = st.slot_mut(role) {
                 slot.backoff.reset();
                 slot.start_requested = true;

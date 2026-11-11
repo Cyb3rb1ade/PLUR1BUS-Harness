@@ -48,7 +48,14 @@ fn stop_writers(
         .lock()
         .slots
         .iter()
-        .filter(|slot| !matches!(slot.role.kind, RoleKind::Api | RoleKind::Tools))
+        // RE-D172: the engine keeps running like the tools; maintenance restarts the core, and an engine stopped here
+        // would not be started again by the core's restart.
+        .filter(|slot| {
+            !matches!(
+                slot.role.kind,
+                RoleKind::Api | RoleKind::Tools | RoleKind::Engine
+            )
+        })
         .map(|slot| slot.role.clone())
         .collect();
     // Also adopt surviving children after a killed supervisor, without spawning any writer.

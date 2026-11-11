@@ -450,10 +450,12 @@ fn sync_slots(shared: &Shared, view: &ModulesView, monitors: &mut Monitors) {
     }
     let rank = |s: &Slot| match s.role.kind {
         RoleKind::Core => 0,
-        RoleKind::Tools => 1,
-        RoleKind::Api => 2,
+        // RE-D172: right after the core in `daemon.status`.
+        RoleKind::Engine => 1,
+        RoleKind::Tools => 2,
+        RoleKind::Api => 3,
         RoleKind::Module => {
-            3 + view
+            4 + view
                 .names
                 .iter()
                 .position(|n| *n == s.role.name)

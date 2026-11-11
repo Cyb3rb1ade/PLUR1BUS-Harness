@@ -156,7 +156,8 @@ pub fn classify_exit(code: Option<i32>, signal: Option<i32>, requested: bool) ->
 
 /// [`classify_exit`] for a child of `kind`: a module's exit 2 is its runtime refusing its manifest
 /// (`manifest-invalid`, P13), never `config-invalid`; exit 4 means nothing special for a module. Exit 3 (`lock-held`)
-/// and every other exit follow the core's rules.
+/// and every other exit follow the core's rules, except that the Rust engine's exit 3 ("another engine owns the
+/// home") is fatal (RE-D172): a retry would meet the same owner, so it waits for `daemon start`.
 pub fn classify_exit_for(
     kind: RoleKind,
     code: Option<i32>,
@@ -164,9 +165,11 @@ pub fn classify_exit_for(
     requested: bool,
 ) -> ExitClass {
     match (kind, requested, code) {
-        (RoleKind::Core | RoleKind::Api | RoleKind::Tools, ..) | (_, true, _) => {
-            classify_exit(code, signal, requested)
-        }
+        (RoleKind::Engine, false, Some(3)) => ExitClass::Fatal {
+            reason: CrashReason::LockHeld.to_string(),
+        },
+        (RoleKind::Core | RoleKind::Api | RoleKind::Tools | RoleKind::Engine, ..)
+        | (_, true, _) => classify_exit(code, signal, requested),
         (RoleKind::Module, false, Some(2)) => ExitClass::Fatal {
             reason: CrashReason::ManifestInvalid.to_string(),
         },
@@ -383,6 +386,7 @@ impl ChildState {
                 RoleKind::Core => "core",
                 RoleKind::Api => "api",
                 RoleKind::Tools => "tools",
+                RoleKind::Engine => "engine",
                 RoleKind::Module => "module",
             },
         })
@@ -421,6 +425,8 @@ pub enum RoleKind {
     Core,
     Api,
     Tools,
+    /// The native Rust engine (`plur1bus-engine serve`, RE-D172): a slot only while `engine.implementation` is `rust`.
+    Engine,
     Module,
 }
 
@@ -455,6 +461,14 @@ impl Role {
         }
     }
 
+    /// The native Rust engine (RE-D172): `engine.auth`, `engine.status`, `engine.adopt`, `engine.shutdown`.
+    pub fn engine() -> Role {
+        Role {
+            name: "engine".into(),
+            kind: RoleKind::Engine,
+        }
+    }
+
     pub fn module(name: &str) -> Role {
         Role {
             name: name.into(),
@@ -462,10 +476,11 @@ impl Role {
         }
     }
 
-    /// The RPC method `verb` on this child's own surface: `core.<verb>` or `module.<verb>`.
+    /// The RPC method `verb` on this child's own surface: `core.<verb>`, `engine.<verb>` or `module.<verb>`.
     pub fn method(&self, verb: &str) -> String {
         match self.kind {
             RoleKind::Core => format!("core.{verb}"),
+            RoleKind::Engine => format!("engine.{verb}"),
             RoleKind::Api => format!("api.{verb}"),
             RoleKind::Tools | RoleKind::Module => format!("module.{verb}"),
         }
@@ -1396,5 +1411,32 @@ mod tests {
                 "{other:?}"
             );
         }
+    }
+
+    #[test]
+    fn the_engine_exit_3_is_fatal_and_every_other_engine_exit_follows_the_core() {
+        assert_eq!(
+            classify_exit_for(RoleKind::Engine, Some(3), None, false),
+            ExitClass::Fatal {
+                reason: "lock-held".into()
+            }
+        );
+        assert_eq!(
+            classify_exit_for(RoleKind::Engine, Some(3), None, true),
+            ExitClass::Requested
+        );
+        for code in [None, Some(0), Some(1), Some(2), Some(4), Some(70)] {
+            assert_eq!(
+                classify_exit_for(RoleKind::Engine, code, None, false),
+                classify_exit_for(RoleKind::Core, code, None, false),
+                "{code:?}"
+            );
+        }
+        assert_eq!(Role::engine().method("status"), "engine.status");
+        assert_eq!(Role::engine().method("adopt"), "engine.adopt");
+        assert_eq!(
+            ChildState::fresh(&Role::engine()).to_json()["kind"],
+            "engine"
+        );
     }
 }

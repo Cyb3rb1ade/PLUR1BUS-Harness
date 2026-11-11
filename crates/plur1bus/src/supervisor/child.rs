@@ -50,7 +50,9 @@ pub struct ChildSpec {
     pub cwd: Option<PathBuf>,
 }
 
-/// Common native engine specification; the Engine slot consumes this after its schema handoff.
+/// The engine slot's spawn spec (RE-D172): the shared [`crate::engine_process`] specification, `plur1bus-engine serve
+/// --home <home> --lifeline stdin --instance <id>` from `PLUR1BUS_ENGINE_BIN` or beside this executable. Fails when
+/// the Rust engine is not selected or its executable is missing.
 pub fn engine_spec(layout: &Layout, instance_id: &str) -> Result<ChildSpec, String> {
     crate::engine_process::configured_spec(layout, instance_id)
         .map_err(str::to_owned)?
@@ -291,6 +293,9 @@ pub fn spec_for(layout: &Layout, role: &Role, instance_id: &str) -> Result<Child
             tools_spec(layout, instance_id).map_err(|e| (CrashReason::ConfigInvalid, e))
         }
         RoleKind::Api => api_spec(layout, instance_id).map_err(|e| (CrashReason::ConfigInvalid, e)),
+        RoleKind::Engine => {
+            engine_spec(layout, instance_id).map_err(|e| (CrashReason::ConfigInvalid, e))
+        }
         RoleKind::Module => module_plan(layout, role, instance_id).map(|p| p.spec),
     }
 }
@@ -379,15 +384,18 @@ pub fn child_env(run_acl_inherited: bool) -> Vec<(&'static str, &'static str)> {
     }
 }
 
-/// The ready timeout of a spawned child of `kind` at time scale `scale`: 60 s × scale, for a module at least
-/// [`MODULE_READY_FLOOR`], for the core at least [`CORE_READY_FLOOR`] unless `core_floor` is false (the test seam
-/// [`NO_CORE_READY_FLOOR_ENV`]; `State::core_ready_floor`).
+/// The ready timeout of a spawned child of `kind` at time scale `scale`: 60 s × scale, for a module, the tools, the API
+/// and the engine at least [`MODULE_READY_FLOOR`], for the core at least [`CORE_READY_FLOOR`] unless `core_floor` is
+/// false (the test seam [`NO_CORE_READY_FLOOR_ENV`]; `State::core_ready_floor`). The engine opens its stores and
+/// models lazily and answers `engine.auth` early, so it needs no larger allowance.
 pub fn ready_timeout(kind: RoleKind, scale: f64, core_floor: bool) -> Duration {
     let scaled = READY_TIMEOUT.mul_f64(scale);
     match kind {
         RoleKind::Core if core_floor => scaled.max(CORE_READY_FLOOR),
         RoleKind::Core => scaled,
-        RoleKind::Tools | RoleKind::Module | RoleKind::Api => scaled.max(MODULE_READY_FLOOR),
+        RoleKind::Tools | RoleKind::Module | RoleKind::Api | RoleKind::Engine => {
+            scaled.max(MODULE_READY_FLOOR)
+        }
     }
 }
 
@@ -697,7 +705,9 @@ impl Monitor {
         };
         // `logs/core.out.log`; a module's is `logs/module-<name>.out.log`, beside the `module-<name>.log` it writes.
         let out_path = match role.kind {
-            RoleKind::Core | RoleKind::Api | RoleKind::Tools => layout.out_log(&role.name),
+            RoleKind::Core | RoleKind::Api | RoleKind::Tools | RoleKind::Engine => {
+                layout.out_log(&role.name)
+            }
             RoleKind::Module => layout.out_log(&format!("module-{}", role.name)),
         };
         let out = match RotatingFile::open(&out_path, max_bytes, keep) {
@@ -1271,7 +1281,8 @@ fn connect(ctx: &Ctx, pid: u32) -> Option<Client> {
     (client.hello()["pid"].as_u64() == Some(u64::from(pid))).then_some(client)
 }
 
-/// The core's own `process` state as a [`Health`].
+/// A child's own `process` state as a [`Health`]: the core's and a module's `ProcessState`, or the engine's
+/// `EngineProcessStatus.process` (`ready`, `orphaned` with `orphanedSince`, `stopping`).
 fn health_from(process: &Value) -> Option<Health> {
     let reason = process["reason"].as_str().map(str::to_string);
     Some(match process["state"].as_str()? {
@@ -1279,7 +1290,10 @@ fn health_from(process: &Value) -> Option<Health> {
         "ready" => Health::Ready,
         "degraded" => Health::Degraded(reason.unwrap_or_else(|| "unknown".into())),
         "orphaned" => Health::Orphaned {
-            since: process["since"].as_u64().unwrap_or_else(now_ms),
+            since: process["since"]
+                .as_u64()
+                .or_else(|| process["orphanedSince"].as_f64().map(|ms| ms as u64))
+                .unwrap_or_else(now_ms),
         },
         "stopping" => Health::Stopping,
         _ => return None,

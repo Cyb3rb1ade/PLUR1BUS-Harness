@@ -1005,6 +1005,8 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     // up with a fatal child (H3-R11), and `daemon.start` tries again.
     let mut monitors = Monitors::new();
     if !opts.no_core {
+        // RE-D172: the engine (when selected) first; the core's start does not wait for it to be ready.
+        reconcile_engine(&shared, layout, &token, &mut monitors);
         if !imports::busy(&shared) {
             start_child(&shared, layout, &token, &Role::core(), &mut monitors);
         }
@@ -1046,16 +1048,13 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
                     break Ok(Next::Op(op));
                 }
                 let now = Instant::now();
-                // The core first: its start or due restart never waits behind the modules' first starts.
-                let core_due = st.slots.first().is_some_and(|s| {
+                // The core first: its start or due restart never waits behind the modules' first starts. Found by
+                // its kind, not its position (RE-D172: the engine's slot sits right after it).
+                let core_due = st.slots.iter().position(|s| {
                     s.role.kind == RoleKind::Core
                         && (s.start_requested || s.restart_at.is_some_and(|at| at <= now))
                 });
-                let due = if core_due {
-                    Some(0)
-                } else {
-                    next_due(&st.slots, now)
-                };
+                let due = core_due.or_else(|| next_due(&st.slots, now));
                 if let Some(i) = due {
                     let slot = &mut st.slots[i];
                     slot.start_requested = false;
@@ -1117,17 +1116,12 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
             StopSource::Signal(n) => format!("signal {n}"),
         } }),
     );
-    // The slots are the core, then the modules in start order: stopped in reverse, the core last, all inside one
-    // budget plus one grace (M3, H3B-R25). A module is asked to finish by the end of the budget and killed there; the
-    // grace is the core's reserve: after other children it gets what is left of the budget, at least half the grace,
-    // and otherwise its full RPC allowance. It is killed at the fixed grace deadline in either case.
-    let order: Vec<(String, RoleKind)> = shared
-        .lock()
-        .slots
-        .iter()
-        .rev()
-        .map(|s| (s.role.name.clone(), s.role.kind))
-        .collect();
+    // The modules in reverse start order, then the API, the tools and the core, and the engine last ([`stop_order`]),
+    // all inside one budget plus one grace (M3, H3B-R25). A module is asked to finish by the end of the budget and
+    // killed there; the grace is the core's reserve: after other children it gets what is left of the budget, at least
+    // half the grace, and otherwise its full RPC allowance. It is killed at the fixed grace deadline in either case.
+    // The engine follows the core (the core may still write while it stops) with what is left, at least half a grace.
+    let order = stop_order(&shared.lock().slots);
     let grace = child::stop_grace(time_scale);
     let mut stopped_budget_peers = 0;
     for (name, kind) in order {
@@ -1151,6 +1145,78 @@ fn run_inner(layout: &Layout, opts: SuperviseOpts) -> i32 {
     0
 }
 
+/// The order `daemon.stop` stops the children in, by kind rather than slot position (RE-D172): the modules in
+/// reverse start order, then the API, the tools, the core, and the engine last.
+fn stop_order(slots: &[Slot]) -> Vec<(String, RoleKind)> {
+    let rank = |kind: RoleKind| match kind {
+        RoleKind::Module => 0,
+        RoleKind::Api => 1,
+        RoleKind::Tools => 2,
+        RoleKind::Core => 3,
+        RoleKind::Engine => 4,
+    };
+    let mut order: Vec<(String, RoleKind)> = slots
+        .iter()
+        .rev()
+        .map(|s| (s.role.name.clone(), s.role.kind))
+        .collect();
+    // Stable: the modules keep their reverse start order.
+    order.sort_by_key(|(_, kind)| rank(*kind));
+    order
+}
+
+/// RE-D172: the engine slot exists exactly while `engine.implementation` is `rust`. Called at the supervisor's start
+/// and before every start or restart of the core: a newly selected engine gets its slot right after the core's and is
+/// started (probing for one to adopt first) before the core, whose start does not wait for it; an engine no longer
+/// selected is stopped within the default stop budget plus grace and its slot removed. A configuration that cannot be
+/// read changes nothing (the core's start reports it), and nothing starts once a stop began.
+fn reconcile_engine(shared: &Arc<Shared>, layout: &Layout, token: &str, monitors: &mut Monitors) {
+    let Ok(selected) = plur1bus_config::read(&layout.config_path())
+        .map_err(drop)
+        .and_then(|config| crate::engine_process::selected(&config).map_err(drop))
+    else {
+        return;
+    };
+    let role = Role::engine();
+    let (present, scale) = {
+        let st = shared.lock();
+        if st.stopping.is_some() || st.no_core {
+            return;
+        }
+        (st.slot(&role.name).is_some(), st.time_scale)
+    };
+    match (selected, present) {
+        (true, false) => {
+            {
+                let mut st = shared.lock();
+                let at = st
+                    .slots
+                    .iter()
+                    .position(|s| s.role.kind == RoleKind::Core)
+                    .map_or(0, |core| core + 1);
+                st.slots.insert(at, Slot::new(role.clone(), scale));
+            }
+            shared
+                .log
+                .info("engine slot added", json!({ "child": role.name }));
+            start_child(shared, layout, token, &role, monitors);
+        }
+        (false, true) => {
+            if let Some(mut monitor) = monitors.remove(&role.name) {
+                monitor.stop(DEFAULT_STOP_BUDGET);
+            }
+            shared
+                .lock()
+                .slots
+                .retain(|s| s.role.kind != RoleKind::Engine);
+            shared
+                .log
+                .info("engine slot removed", json!({ "child": role.name }));
+        }
+        _ => {}
+    }
+}
+
 /// The child's RPC allowance and fixed stop deadline; prior children spend one shared budget (H3B-R25).
 /// The fixed tools companion does not change Core's no-module nominal allowance (H1-1/ADR-012 §10.12).
 fn child_stop_timing(
@@ -1164,6 +1230,13 @@ fn child_stop_timing(
     let left = budget_end.saturating_duration_since(now);
     match kind {
         RoleKind::Api | RoleKind::Tools | RoleKind::Module => (left, budget_end),
+        // RE-D172: stopped after the core, so the core's grace may already be spent; the engine still gets half a
+        // grace to close its stores, and never more than the core's hard deadline or that half grace, whichever ends
+        // later.
+        RoleKind::Engine => (
+            left.max(grace / 2),
+            (budget_end + grace).max(now + grace / 2),
+        ),
         RoleKind::Core => {
             // ADR-012 §10.12: without an earlier child, Core keeps its full nominal RPC budget. Scheduling or
             // import cleanup never renews the acceptance-anchored hard deadline enforced by stop_until.
@@ -1286,6 +1359,8 @@ fn run_restart_jobs(
     let reconcile = (!no_core && !modules.is_empty())
         .then(|| reconcile_stop(shared, layout, monitors, &modules, oldest));
     if core_wanted && !no_core {
+        // RE-D172: `engine.implementation` is a core-class key; the engine slot follows it before the core restarts.
+        reconcile_engine(shared, layout, token, monitors);
         let core = Role::core();
         let fresh = state::restart_already_done(
             monitors
@@ -1378,6 +1453,10 @@ fn restart_child(
     role: &Role,
     monitors: &mut Monitors,
 ) {
+    if role.kind == RoleKind::Core {
+        // RE-D172: every start or restart of the core first brings the engine slot to the configured selection.
+        reconcile_engine(shared, layout, token, monitors);
+    }
     let running = monitors
         .get(&role.name)
         .is_some_and(child::Monitor::is_running);
@@ -1412,7 +1491,9 @@ fn probe_and_adopt(
 ) -> bool {
     let found = match role.kind {
         RoleKind::Api => adopt::Probe::Absent,
-        RoleKind::Core | RoleKind::Tools => adopt::probe_child(layout, role, adopt::PROBE_TIMEOUT),
+        RoleKind::Core | RoleKind::Tools | RoleKind::Engine => {
+            adopt::probe_child(layout, role, adopt::PROBE_TIMEOUT)
+        }
         RoleKind::Module => {
             // The manifest as it is now (minor 3), else what the slot last saw.
             let api = child::module_plan(layout, role, "probe")
@@ -1632,6 +1713,55 @@ mod tests {
         );
     }
 
+    #[test]
+    fn the_engine_stops_after_the_core_with_at_least_half_a_grace() {
+        let stop = StopRequest {
+            budget: Duration::from_millis(2000),
+            source: StopSource::Rpc,
+            requested_at: Instant::now(),
+        };
+        let grace = Duration::from_millis(100);
+        let early = stop.requested_at + Duration::from_millis(500);
+        assert_eq!(
+            child_stop_timing(stop, RoleKind::Engine, grace, 1, early),
+            (
+                Duration::from_millis(1500),
+                stop.requested_at + stop.budget + grace
+            )
+        );
+        // The core used its whole grace: the engine still gets half a grace, then it is killed.
+        let late = stop.requested_at + stop.budget + grace;
+        assert_eq!(
+            child_stop_timing(stop, RoleKind::Engine, grace, 1, late),
+            (grace / 2, late + grace / 2)
+        );
+    }
+
+    #[test]
+    fn the_stop_order_is_modules_api_tools_core_then_engine() {
+        let slots = [
+            Slot::new(Role::core(), 1.0),
+            Slot::new(Role::engine(), 1.0),
+            Slot::new(Role::tools(), 1.0),
+            Slot::new(Role::api(), 1.0),
+            Slot::new(Role::module("a"), 1.0),
+            Slot::new(Role::module("b"), 1.0),
+        ];
+        let names: Vec<String> = stop_order(&slots).into_iter().map(|(n, _)| n).collect();
+        assert_eq!(names, ["b", "a", "api", "tools", "core", "engine"]);
+        // Without an engine it is exactly the reverse slot order it always was.
+        let names: Vec<String> = stop_order(&[
+            Slot::new(Role::core(), 1.0),
+            Slot::new(Role::tools(), 1.0),
+            Slot::new(Role::api(), 1.0),
+            Slot::new(Role::module("a"), 1.0),
+        ])
+        .into_iter()
+        .map(|(n, _)| n)
+        .collect();
+        assert_eq!(names, ["a", "api", "tools", "core"]);
+    }
+
     #[cfg(unix)]
     #[test]
     fn a_symlinked_logs_directory_is_refused_without_touching_its_target() {
@@ -1775,6 +1905,12 @@ mod tests {
             ext_overlays: BTreeMap::new(),
             ext_draining: false,
         };
+        assert!(v.is_valid(&st.status_json()), "{}", st.status_json());
+        // RE-D172: an engine child (`kind: "engine"`, an additive enum member of RPC 1.25.0) validates.
+        let mut engine = Slot::new(Role::engine(), 1.0);
+        engine.child = Some(ChildState::fresh(&Role::engine()));
+        st.slots.push(engine);
+        assert_eq!(st.status_json()["children"][0]["kind"], "engine");
         assert!(v.is_valid(&st.status_json()), "{}", st.status_json());
         st.cpu.max = 1;
         st.cpu.bound = Some(vec![0]);
