@@ -2410,11 +2410,13 @@ never for another owner. Turns of one owner that waited for the same recovery go
 on in their order. A lookup that gets no answer in time ends only that turn:
 `aborted` when its caller cancelled, otherwise the result of a failed lookup (the
 pin's `detailOf(error)`). The identity lookup of the admission itself has the
-same deadline (the caller's, at most `runtime.captureTimeoutMs`). It starts
-before the turn waits for its place in the agent's order (RE-D163); a host that
-has not answered one second after that start no longer holds the agent's order,
-the ticket is parked until the answer arrives. The second is counted per lookup
-from its start, so it does not add up over turns in a row. At the pin that
+same deadline (the caller's, at most `runtime.captureTimeoutMs`). The turn asks
+for it before it waits for its place in the agent's order (RE-D163). A turn that
+has no identity one second after it began to ask, because it still waits for a
+place for its lookup or because the host has not answered, no longer holds the
+agent's order: its ticket is parked until the answer arrives. The second is
+counted per turn from the moment it began to ask, so it does not add up over
+turns in a row. At the pin that
 lookup holds no agent-wide order at all (`engine/create-engine.js`,
 `host.workspaceDir` inside `replayGuard.run`). The additional lookup before a
 turn, made by every turn while any owner retains something, stays; it is bounded
@@ -2432,7 +2434,7 @@ against the age bound and discards what is older than seven days; it makes no
 recovery attempt and counts none. Retained plaintext of an admission record is
 therefore gone at most seven days and one hour after its admission while the
 engine runs, and at the next open otherwise. This holds unless one of the
-conditions listed in RE-D163 ("Known limits") applies. Neo plans and temporary
+conditions listed in RE-D163 ("RX known gaps → RY") applies. Neo plans and temporary
 files are swept too (RE-D163).
 
 Close. `close()` raises the shutdown signal, which ends every attempt at its next
@@ -2458,11 +2460,12 @@ another owner wait here because of this owner's retained work.
 | Pass, binding attempt, workspace lookup (`EpisodeStore::resolved`; helper thread `neo-recovery`) | host | Neo budget; one of the agent's two places | no; asked before any lease |
 | Binding attempt under workspace lease and `.neo-write.lock` (assessment, replay), also `discard_plans` | policy file, file system; no host callback | Neo budget | same workspace, one Neo write step: as at the pin, which has the same write lock |
 | Sweep (`expire_retained`, hourly by the host's clock) | per pending scope its expire-only attempt, per expired binding its discard; directory listings for temporary files | per key its budget plus one second | no; holds nothing between keys |
+| Turn, place for an identity lookup (`HostCalls::begin`, on the turn's own thread) | one of the agent's two places, one of the runtime's 32 | caller, at most min(`captureTimeoutMs`, ten seconds) since the turn began to ask; the ticket is parked after one second at the latest | same agent: at most two lookups of an agent are out at a time, whoever its owners are; the agent's order is held for one second at most |
 | Turn before admission (`accept::execute`, ticket parked): identity lookup | host | caller, at most `captureTimeoutMs`; one of the agent's two places | no |
 | Turn before admission: its own scope's and binding's attempt (`recover_owner`), Neo binding lookup (`neo-identity`) | the attempt in flight; host | the key's budget; Neo budget; caller; shutdown | no |
 | Turn before admission: `OwnerGate::wait_front` | earlier turns of the same owner that waited for the same recovery | caller | no; own owner only |
 | Turn admission, WAL leases (`CaptureWal::begin_mode`) | an identical turn (ticket released), the agent's WAL write | caller | no; a write step on the agent's WAL file |
-| Turn admission, identity lookup (started before the wait for the agent's order) | host | caller, at most `captureTimeoutMs`; the agent's order for at most one second since the lookup started | no beyond that second, which does not add up over turns in a row |
+| Turn admission, identity lookup (asked for before the wait for the agent's order) | host | caller, at most `captureTimeoutMs`; the agent's order for at most one second since the turn began to ask, the wait for a place included | no beyond that second, which does not add up over turns in a row |
 | Turn job (queue slot, scope lease) | the running job of the same agent | `captureTimeoutMs` from the slot | same agent, one turn: the pin's order |
 | Turn job, Neo steps (pre-store journal, post-store episodes): workspace lease, `.neo-write.lock` | a Neo write step of the same workspace | Neo budget per step | same workspace: at most the Neo budget per step, then the turn is stored and its Neo step deferred (`engine/capture/capture-turn.js:399`) |
 | WAL acknowledgements (`settle`, `keep_partial`) | the agent's WAL lease | five seconds | no; a write step on the agent's WAL file |
@@ -2490,27 +2493,47 @@ Rust wrote.
 
 Outstanding host lookups. A host lookup that runs on a thread of its own, because
 the host may never answer, takes a place first (`capture::retained::HostCalls`):
-two per agent and 32 in the process, the numbers of the ruling. The thread holds
-its place until the host call returns, not until its waiter gives up. While a
-lookup in the way is younger than one second, a new one waits for its place, so
-a burst of turns on an answering host is never refused. Once every lookup in the
-way is older, the next one is refused at once, without a thread: a turn then
-ends as one whose lookup was not answered (`Error textLen=...`, the pin's
-`detailOf(error)`), a recovery attempt as a transient host failure. A host that
+two per agent and 32 per runtime, the numbers of the ruling. The thread holds
+its place until the host call returns, not until its waiter gives up. A host that
 hangs for one agent therefore leaves at most two threads behind for it, whatever
 the number of turns, and takes at most two of the 32 places from everybody else.
-After close no lookup starts; a turn still waiting for one then ends
-`engine-closed`, as the closed queue would answer it. A turn whose admission
+
+Waiting for a place. A lookup that finds no place free waits for one on the
+thread its caller already has; waiting starts no thread, so the two bounds hold
+exactly however long the wait is. A turn waits until it has asked for
+min(`runtime.captureTimeoutMs`, ten seconds), and always within its caller's own
+cancellation; the helper lookups of recovery attempts and the Neo binding lookup
+wait within their budget, at most ten seconds. Only a lookup without a place
+after that is given up: a turn then ends as one whose lookup was not answered
+(`Error textLen=...`, the pin's `detailOf(error)`), a recovery attempt as a
+transient host failure. Such a turn was never admitted. It has no replay entry
+and no admission record, so nothing makes up for it later; only a new call of
+its caller captures it. The consequences:
+
+- A host that answers, but slowly, loses no turn as long as a place frees within
+  those ten seconds. Before this change the third turn of an agent was given up
+  as soon as the two lookups in the way were older than one second.
+- The two places belong to the agent, not to an owner: the turns of all owners
+  of an agent and the helper lookups of that agent's recovery attempts share
+  them. With a slow host at most two lookups of an agent run side by side, and
+  the others wait.
+- Places are not handed out in order. Under a host that stays saturated a turn
+  can be passed by later ones and end unanswered after its ten seconds.
+- On the admission path the ticket is parked after one second also while the
+  turn still waits for a place, so a turn without a place holds its agent's
+  order no longer than a turn whose host has not answered.
+
+After close no lookup starts; a turn still waiting for a place or an answer then
+ends `engine-closed`, as the closed queue would answer it. A turn whose admission
 thread cannot be started ends alone, as an unanswered one; `accept` does not
-fail for it. With an answering but slow host the two places limit how many
-lookups of one agent run side by side.
+fail for it.
 
 Budget per host callback on a capture or recovery path:
 
 | Host callback | Thread | Budget | When it runs out |
 |---|---|---|---|
-| Turn, identity before its owner's recovery (`accept::lookup`) | `capture-identity` | the caller's cancellation, at most `captureTimeoutMs`; shutdown | the turn ends as unanswered |
-| Turn, identity for the admission (`accept::lookup`) | `capture-identity` | the same; the agent's order is held for at most one second since the lookup started | the turn ends as unanswered |
+| Turn, identity before its owner's recovery (`accept::lookup`) | `capture-identity` | for a place min(`captureTimeoutMs`, ten seconds), then for the answer `captureTimeoutMs`; the caller's cancellation; shutdown | the turn ends as unanswered |
+| Turn, identity for the admission (`accept::lookup`) | `capture-identity` | the same; the agent's order is held for at most one second since the turn began to ask | the turn ends as unanswered |
 | Turn, Neo binding of its caller (`recover_owner`) | `neo-identity` | Neo budget, the caller's cancellation, shutdown | the turn joins no attempt and goes on |
 | Scope attempt, assessment and identity (`CapturePipeline::asked`) | `capture-recovery` (helper) | the scope's budget (`captureTimeoutMs`), shutdown | the attempt ends; it was counted and the scope waits again |
 | Binding attempt, workspace (`EpisodeStore::resolved`) | `neo-recovery` (helper) | Neo budget, shutdown | the attempt ends; it was counted and the binding waits again |
@@ -2539,11 +2562,21 @@ budget. When the wait runs out the turn's rows are stored, its result is not
 by its owner's next recovery. Only the wait is bounded this way, not the work of
 a step that has its leases.
 
-Age bound of Neo plans. A binding's prepared plans are discarded
-(`recovery-expired`) once the oldest plan file that holds content is more than
-seven days old: its modification time against the host's clock, inclusive like
-the admission bound. This happens whatever the attempt count is and counts no
-attempt. The first pass applies it to the bindings the inventory found. The
+Age bound of Neo plans. A prepared plan file that holds content is discarded
+(`recovery-expired`) once it is more than seven days old: its modification time
+against the host's clock, inclusive like the admission bound. This happens
+whatever the attempt count is and counts no attempt. A binding is looked at when
+the oldest of its plan files with content is past the bound; under the workspace
+lease and the Neo write lock each of its plan files is then judged by its own
+age, read again there. So a plan that its owner's turn wrote after the
+inventory, or a younger plan of the same binding, stays and waits for its own
+recovery. A plan is written once with its content, so its modification time is
+the time it was prepared. A restore that keeps file times discards a plan
+prepared more than seven days ago at the next inventory, which is the intended
+result; a copy that does not keep them restarts the age, so the text can stay up
+to seven more days. A plan file whose modification time cannot be read is not
+discarded by age. The first pass applies the bound to the bindings the inventory
+found. The
 hourly sweep reads the workspace directories again, so a plan that a failed turn
 left behind while the engine ran is found too; only bindings past the bound get
 an attempt then, and that attempt discards them. With Neo switched off nothing
@@ -2579,18 +2612,45 @@ recovery, so a later turn of the owner that was captured first stays the later
 one in the journal. A plan that was already prepared keeps its own time. The
 episodes of the post-store step still carry the time at which they are written.
 
-Known limits. These are left as they are:
+RX known gaps → RY. These are known limits that RX leaves as they are:
 
+- Two Neo waits per turn (m2). A turn has two Neo steps, and each waits for the
+  workspace lease and the Neo write lock up to the Neo budget. Behind a holder
+  that does not let go a turn therefore waits up to twice the Neo budget (the
+  pin: once, 20 seconds) and keeps its agent's queue slot that long; with
+  `runtime.captureTimeoutMs` below twice the Neo budget the job runs into its
+  own deadline first.
+- The bound on outstanding lookups holds per runtime (m3). Each
+  `CaptureRuntime` has its own places, and so has the library's own recovery
+  (`Bounds::new`). A runtime composed again after a close starts at zero while
+  threads of the closed one may still be inside the host.
+- The clock outside the panic guard (m4). The recovery pass reads
+  `host.now_ms()` outside `guarded`; a panic in it ends the pass thread, after
+  which the first pass counts as finished and no sweep runs any more.
+- Host calls while spinning on the Neo write lock (m7, as before RX). A live Neo
+  step that waits for `.neo-write.lock` checks its binding every five
+  milliseconds, three `host.workspaceDir` calls each time, and holds the
+  workspace's kernel lease meanwhile, up to the Neo budget.
+- A live Neo step asks the host under the workspace lease, and the engine gives
+  those calls no budget of its own. In the process each call is bounded by the
+  host client (`RpcHost`, 30 seconds per call). A holder that never returns
+  disables Neo for that workspace: every other Neo step there runs out of its
+  wait, and every record counts attempts until it is closed
+  (`recovery-exhausted`, its rows stay). The status shows this only indirectly
+  (`capture-recovery-deferred` while records wait, the capture log); the holder
+  itself is not reported.
 - A scope lease that another process holds without end: that owner's own records
   cannot be counted, closed or expired until the holder ends; nobody else is
   affected.
 - A malformed file with a record name whose modification time cannot be read is
   never removed; its scope stays deferred and reported. A scope directory that
   cannot be opened is counted as owned by nobody and reported.
-- A plan file that cannot be read is kept without a time limit (see above).
+- A Neo plan file that cannot be read is kept without a time limit and reported;
+  it may be in the pin's format. A readable one whose modification time cannot
+  be read is not discarded by age either.
 - A host call that never returns keeps its helper thread and its place (at most
-  two per agent, 32 in the process); inside a live queue job it keeps the
-  agent's slot until it returns, as at the pin.
+  two per agent, 32 per runtime); inside a live queue job it keeps the agent's
+  slot until it returns, as at the pin.
 - Plan and temporary file ages compare file times with the host's clock; a skew
   between the two shifts the bound by that skew.
 

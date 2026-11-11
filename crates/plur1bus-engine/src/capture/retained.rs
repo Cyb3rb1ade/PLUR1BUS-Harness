@@ -20,6 +20,9 @@ struct State {
     running: BTreeSet<String>,
     /// Of those, the keys whose attempt only applies the age bound and resumes nothing.
     sweeping: BTreeSet<String>,
+    /// Callers waiting in [`Retained::join`] right now.
+    #[cfg(test)]
+    joining: usize,
     /// After close no attempt starts.
     closed: bool,
 }
@@ -175,9 +178,15 @@ impl Retained {
     /// the end of all recovery (`stop`) ended the wait first.
     pub(crate) fn join(&self, key: &str, cancel: &Cancel, stop: &Cancel) -> bool {
         let mut state = self.lock();
+        #[cfg(test)]
+        {
+            state.joining += 1;
+        }
+        let mut joined = true;
         while state.running.contains(key) {
             if cancel.is_cancelled() || stop.is_cancelled() {
-                return false;
+                joined = false;
+                break;
             }
             let pause = cancel
                 .remaining()
@@ -189,7 +198,17 @@ impl Retained {
                 .unwrap_or_else(PoisonError::into_inner)
                 .0;
         }
-        true
+        #[cfg(test)]
+        {
+            state.joining -= 1;
+        }
+        joined
+    }
+
+    /// Test support: the callers waiting in [`Self::join`] right now.
+    #[cfg(test)]
+    pub(crate) fn joining(&self) -> usize {
+        self.lock().joining
     }
 
     /// Start no attempt any more.
@@ -557,7 +576,13 @@ mod tests {
                     });
                 })
             };
-            thread::sleep(Duration::from_millis(30));
+            // The turn has joined the attempt in flight (a hook, not a pause): only then
+            // does that attempt end.
+            let end = Instant::now() + Duration::from_secs(30);
+            while retained.joining() == 0 {
+                assert!(Instant::now() < end, "sweep={sweep}: the turn never joined");
+                thread::yield_now();
+            }
             assert_eq!(own.load(Ordering::Acquire), 0, "sweep={sweep}");
             drop(release);
             turn.join().unwrap();

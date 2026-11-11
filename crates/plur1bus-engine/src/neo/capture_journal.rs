@@ -47,7 +47,7 @@ mod normal_duplicate_recovery;
 mod normal_insert_recovery;
 #[path = "capture_recovery.rs"]
 mod recovery;
-pub(in crate::neo) use recovery::{PendingPlans, PlanAssessment};
+pub(in crate::neo) use recovery::{past_age_bound, PendingPlans, PlanAssessment};
 #[path = "capture_revision_recovery.rs"]
 mod revision_recovery;
 #[path = "capture_transaction.rs"]

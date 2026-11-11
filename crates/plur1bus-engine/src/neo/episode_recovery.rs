@@ -174,10 +174,9 @@ impl EpisodeStore {
     /// Whether a binding's prepared plans are older than seven days by the host's clock
     /// (RE-D163): the bound of every retained input, inclusive like the pin's pending TTL.
     fn expired(&self, plans: &crate::neo::capture_journal::PendingPlans) -> bool {
-        plans.written_ms.is_some_and(|at| {
-            self.host.now_ms().saturating_sub(at)
-                > crate::capture::replay_guard::REPLAY_GUARD_TTL_MS
-        })
+        plans
+            .written_ms
+            .is_some_and(|at| crate::neo::capture_journal::past_age_bound(at, self.host.now_ms()))
     }
     /// Remove whole plans that interrupted writes left under a temporary name more than an
     /// hour ago; the number removed.
@@ -228,13 +227,28 @@ impl EpisodeStore {
         report: &mut RecoveryReport,
     ) -> bool {
         // RE-D163: prepared plans older than seven days are discarded and never resumed,
-        // whatever their attempt count is; no attempt is counted for that.
-        let outcome = if self.expired(plans) {
-            Ok(PlanOutcome::Closed("recovery-expired"))
-        } else {
-            self.recover_binding(plans, budget, bounds, report)
-        };
-        match outcome {
+        // whatever their attempt count is; no attempt is counted for that. The inventory's
+        // age only says that something may be due: under the leases every plan file is
+        // judged by its own age, so a plan written since then is not discarded with it.
+        if self.expired(plans) {
+            return match self.journal.discard_expired_plans(plans, budget) {
+                Ok((removed, left)) => {
+                    if removed > 0 {
+                        log::warn!("neo: {removed} prepared plan files closed (recovery-expired)");
+                    }
+                    if left {
+                        // What is left is not past the bound; it waits for its own recovery.
+                        return false;
+                    }
+                    let _ = self.journal.note_plan_attempt(plans, 0);
+                    report.closed += 1;
+                    true
+                }
+                // The binding waits; the next pass or sweep applies the bound again.
+                Err(_) => false,
+            };
+        }
+        match self.recover_binding(plans, budget, bounds, report) {
             Ok(PlanOutcome::Recovered) => true,
             Ok(PlanOutcome::Deferred) | Err(_) => false,
             Ok(PlanOutcome::Closed(reason)) => {

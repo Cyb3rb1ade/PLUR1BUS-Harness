@@ -1199,6 +1199,50 @@ fn a_neo_plan_older_than_seven_days_is_discarded() {
     }
 }
 
+/// RE-D163 / m1: the age bound is applied per plan file, read again under the workspace
+/// lease. An old plan and a fresh one of the same owner: only the old one is discarded.
+#[test]
+fn only_the_old_plan_of_a_binding_is_discarded() {
+    const DAY: u64 = 24 * 60 * 60;
+    let scratch = killed("neo-plan");
+    let root = scratch.path().to_path_buf();
+    // Maintenance: nothing is resumed, so what stays is what the age bound left.
+    start_maintenance(&root);
+    let fresh = neo_plan_files(&root).pop().unwrap();
+    let plan: Value = serde_json::from_str(&fs::read_to_string(&fresh).unwrap()).unwrap();
+    // An episode plan of the same binding that was prepared eight days ago.
+    let old = fresh.with_file_name(
+        fresh
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .replace("native-capture-pending-", "native-episode-pending-"),
+    );
+    let episode = json!({
+        "ownership": plan["ownership"],
+        "plan": {"caller": plan["caller"], "session": "fixture", "content": USER},
+    });
+    fs::write(&old, serde_json::to_vec(&episode).unwrap()).unwrap();
+    let now = std::time::SystemTime::now();
+    fs::File::options()
+        .write(true)
+        .open(&old)
+        .unwrap()
+        .set_modified(now - Duration::from_secs(8 * DAY))
+        .unwrap();
+    assert_eq!(neo_plan_files(&root).len(), 2);
+    let later = neo_host(&root);
+    later.set_now_ms(modified_ms(&fresh) + 1000);
+    let engine = ProcessEngine::new(later, Some(Seam::FlatEmbedder)).unwrap();
+    engine_capture::ProcessCapture::open(&engine, &root.join("db")).unwrap();
+    recovery_settled(&engine);
+    assert!(!old.exists());
+    assert!(fresh.exists());
+    assert_eq!(neo_plan_files(&root), [fresh]);
+    engine.close(None).unwrap();
+}
+
 /// RE-D163 / R5: a temporary file an interrupted atomic write left behind holds a whole
 /// record or plan. Older than an hour, it is removed at the inventory; only the atomic
 /// writer's own name pattern is touched.

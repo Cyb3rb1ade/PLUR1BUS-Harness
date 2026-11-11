@@ -1,8 +1,14 @@
 //! RE-D162: no owner's retained work delays or fails another owner's capture.
 //!
-//! One shared assertion (a foreign turn with a three-second caller deadline is stored) runs
-//! against every holder a recovery can wait on. Holders never let go before the assertion,
-//! so a dependency shows as a missing result, never as a timing race.
+//! One shared assertion (a foreign turn with a caller deadline is stored) runs against
+//! every holder a recovery can wait on. Holders never let go before the assertion, so a
+//! dependency shows as a missing result, never as a timing race.
+//!
+//! The deadline only has to be shorter than the shortest budget a holder could impose. The
+//! engines under test therefore run with a capture budget of 120 s and a Neo budget of
+//! 60 s, and the caller gives its turn 20 s: any dependency on a holder costs at least a
+//! minute and still ends the turn unstored, while a loaded machine has several times the
+//! time a turn needs on its own. The tests of this module run one after the other.
 #![allow(
     clippy::unwrap_used,
     clippy::panic,
@@ -11,6 +17,26 @@
 
 use super::*;
 use std::sync::mpsc;
+
+/// The budgets of the engines under test: far above the caller's deadline (module text).
+fn patient(host: Arc<FakeHost>) -> Arc<FakeHost> {
+    let mut config = serde_json::to_value(host.config()).unwrap();
+    config["runtime"]["captureTimeoutMs"] = json!(120_000);
+    config["neo"]["agentEndBudgetMs"] = json!(60_000);
+    host.set_config(serde_json::from_value(config).unwrap());
+    host
+}
+
+/// The caller's deadline of a foreign turn.
+const FOREIGN_DEADLINE: Duration = Duration::from_secs(20);
+
+/// The tests of this module measure against the wall clock; they do not load each other.
+fn serial() -> std::sync::MutexGuard<'static, ()> {
+    static TIMED: Mutex<()> = Mutex::new(());
+    TIMED
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
 
 fn engine_on(host: Arc<dyn HostServices>) -> Arc<ProcessEngine> {
     Arc::new(ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap())
@@ -45,9 +71,9 @@ fn compose(engine: &Arc<ProcessEngine>, root: &Path, case: &str) {
     assert_eq!(composed, Ok(true), "{case}: composition waits for a holder");
 }
 
-/// The shared assertion: a foreign turn with a three-second caller deadline is stored.
+/// The shared assertion: a foreign turn with the caller's deadline is stored.
 fn foreign_turn_is_stored(engine: &Arc<ProcessEngine>, mut turn: TurnRecord, case: &str) {
-    turn.cancel = Cancel::with_deadline(std::time::Instant::now() + Duration::from_secs(3));
+    turn.cancel = Cancel::with_deadline(std::time::Instant::now() + FOREIGN_DEADLINE);
     let (sent, done) = mpsc::channel();
     let engine = engine.clone();
     std::thread::spawn(move || {
@@ -58,7 +84,7 @@ fn foreign_turn_is_stored(engine: &Arc<ProcessEngine>, mut turn: TurnRecord, cas
         let _ = sent.send(result.map_err(|error| error.to_string()));
     });
     let result = done
-        .recv_timeout(Duration::from_secs(20))
+        .recv_timeout(FOREIGN_DEADLINE + Duration::from_secs(60))
         .unwrap_or_else(|_| panic!("{case}: the foreign turn never finished"))
         .unwrap_or_else(|error| panic!("{case}: {error}"));
     assert_eq!(result["stored"], 2, "{case}: {result}");
@@ -133,6 +159,7 @@ fn remove_admissions(root: &Path) {
 /// (a) Three owners each retain a record whose recovery is slow (their lease is held).
 #[test]
 fn three_slow_scopes_never_delay_a_foreign_turn() {
+    let _serial = serial();
     let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
     let root = scratch.path();
     let owners = ["owner-a", "owner-b", "owner-c"];
@@ -141,7 +168,7 @@ fn three_slow_scopes_never_delay_a_foreign_turn() {
     retain(root, first, &turns);
     assert_eq!(retained_scopes(root).len(), 3);
     let held = hold_scopes(root);
-    let engine = engine_on(host(root));
+    let engine = engine_on(patient(host(root)));
     compose(&engine, root, "a");
     foreign_turn_is_stored(&engine, turn("other", "run-other"), "a/other agent");
     foreign_turn_is_stored(&engine, user_turn(root, "owner-d", "run-d"), "a/same agent");
@@ -156,10 +183,11 @@ fn three_slow_scopes_never_delay_a_foreign_turn() {
 /// lookup, the only call a replay cannot bound itself.
 #[test]
 fn a_hanging_neo_replay_never_delays_a_foreign_turn() {
+    let _serial = serial();
     let scratch = killed("neo-plan");
     let root = scratch.path().to_path_buf();
     remove_admissions(&root);
-    let engine = engine_on(hanging(&root, neo_host(&root)));
+    let engine = engine_on(hanging(&root, patient(neo_host(&root))));
     compose(&engine, &root, "b");
     wait_for(&root.join("hang-entered"), "b: the replay never started");
     foreign_turn_is_stored(&engine, turn("other", "run-other"), "b/other agent");
@@ -176,6 +204,7 @@ fn a_hanging_neo_replay_never_delays_a_foreign_turn() {
 /// (c) A revoked plan whose workspace lease another process holds (I3).
 #[test]
 fn a_held_workspace_lease_never_delays_a_foreign_turn() {
+    let _serial = serial();
     let scratch = killed("neo-plan");
     let root = scratch.path().to_path_buf();
     revoke_for(&root, &user_turn(&root, "owner-a", "run-crash"));
@@ -186,7 +215,7 @@ fn a_held_workspace_lease_never_delays_a_foreign_turn() {
     let held =
         crate::store::kernel_lease::acquire(&leases, "workspace", &Cancel::never(), &mut || {})
             .unwrap();
-    let engine = engine_on(neo_host(&root));
+    let engine = engine_on(patient(neo_host(&root)));
     compose(&engine, &root, "c");
     foreign_turn_is_stored(&engine, turn("other", "run-other"), "c/other agent");
     foreign_turn_is_stored(&engine, foreign_owner_turn(&root, "run-f"), "c/other owner");
@@ -197,6 +226,7 @@ fn a_held_workspace_lease_never_delays_a_foreign_turn() {
 /// (d) The interoperable Neo write lock is held from outside.
 #[test]
 fn a_held_neo_write_lock_never_delays_a_foreign_turn() {
+    let _serial = serial();
     let scratch = killed("neo-plan");
     let root = scratch.path().to_path_buf();
     let held = crate::store::lock::Lock::try_acquire_neo(
@@ -205,7 +235,7 @@ fn a_held_neo_write_lock_never_delays_a_foreign_turn() {
     )
     .unwrap()
     .unwrap();
-    let engine = engine_on(neo_host(&root));
+    let engine = engine_on(patient(neo_host(&root)));
     compose(&engine, &root, "d");
     foreign_turn_is_stored(&engine, turn("other", "run-other"), "d/other agent");
     foreign_turn_is_stored(&engine, foreign_owner_turn(&root, "run-f"), "d/other owner");
@@ -217,10 +247,11 @@ fn a_held_neo_write_lock_never_delays_a_foreign_turn() {
 /// (e) The host never answers the identity lookup of scope A's recovery.
 #[test]
 fn a_hanging_host_lookup_never_delays_a_foreign_turn() {
+    let _serial = serial();
     let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
     let root = scratch.path();
     retain(root, host(root), &[turn("agent", "run-retained")]);
-    let engine = engine_on(hanging(root, host(root)));
+    let engine = engine_on(hanging(root, patient(host(root))));
     compose(&engine, root, "e");
     wait_for(&root.join("hang-entered"), "e: the recovery never started");
     foreign_turn_is_stored(&engine, turn("other", "run-other"), "e/other agent");
@@ -234,6 +265,7 @@ fn a_hanging_host_lookup_never_delays_a_foreign_turn() {
 /// U2 sends one right after it (I2).
 #[test]
 fn an_owners_retry_never_delays_another_owner_of_the_same_agent() {
+    let _serial = serial();
     let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
     let root = scratch.path();
     retain(
@@ -244,7 +276,7 @@ fn an_owners_retry_never_delays_another_owner_of_the_same_agent() {
     // The first recovery fails transiently, so the record is deferred to its owner.
     fs::write(root.join("fail"), "").unwrap();
     let engine = engine_on(Arc::new(CrashHost {
-        inner: host(root),
+        inner: patient(host(root)),
         root: root.to_path_buf(),
         phase: "toggle".into(),
     }));
@@ -270,6 +302,7 @@ fn an_owners_retry_never_delays_another_owner_of_the_same_agent() {
 /// asked the host nothing by then.
 #[test]
 fn the_composition_asks_no_host_and_waits_for_no_holder() {
+    let _serial = serial();
     let scratch = killed("neo-plan");
     let root = scratch.path().to_path_buf();
     let held = hold_scopes(&root);
@@ -304,12 +337,13 @@ fn the_composition_asks_no_host_and_waits_for_no_holder() {
 /// workspace is stored and the plan is recovered.
 #[test]
 fn no_host_lookup_is_made_under_the_neo_workspace_lease() {
+    let _serial = serial();
     let scratch = killed("neo-plan");
     let root = scratch.path().to_path_buf();
     remove_admissions(&root);
     fs::write(root.join("hang"), "").unwrap();
     let engine = engine_on(Arc::new(CrashHost {
-        inner: neo_host(&root),
+        inner: patient(neo_host(&root)),
         root: root.clone(),
         phase: "hang-under-lease".into(),
     }));
@@ -333,6 +367,7 @@ fn no_host_lookup_is_made_under_the_neo_workspace_lease() {
 /// pin's Neo budget. Then the turn is stored and its Neo step deferred, never aborted.
 #[test]
 fn a_live_turn_waits_for_the_neo_lease_within_the_neo_budget_only() {
+    let _serial = serial();
     let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
     let root = scratch.path();
     let host = neo_host(root);

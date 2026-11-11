@@ -58,6 +58,17 @@ fn active_caller(value: &Json, episode: bool) -> Result<Option<Caller>, StoreErr
     };
     Ok(Some(caller::decode(raw)?))
 }
+/// The three plan files a binding can have.
+const PLAN_PREFIXES: [&str; 3] = [
+    "native-capture-pending-",
+    "native-episode-pending-",
+    "native-embedding-pending-",
+];
+/// Whether something written at `at_ms` is past the seven-day bound of retained input at
+/// `now_ms` (RE-D163), inclusive like the pin's pending TTL.
+pub(in crate::neo) fn past_age_bound(at_ms: i64, now_ms: i64) -> bool {
+    now_ms.saturating_sub(at_ms) > crate::capture::replay_guard::REPLAY_GUARD_TTL_MS
+}
 /// One owner binding's prepared plans in one workspace directory (RE-D159).
 pub(in crate::neo) struct PendingPlans {
     /// Canonical workspace directory name under `workspaces/`.
@@ -243,11 +254,7 @@ impl CaptureJournal {
             caller: None,
             written_ms: None,
         };
-        for prefix in [
-            "native-capture-pending-",
-            "native-episode-pending-",
-            "native-embedding-pending-",
-        ] {
+        for prefix in PLAN_PREFIXES {
             let filename = format!("{prefix}{digest}.json");
             if pending_kind(&filename)? != Some(prefix)
                 || journal_io::bytes(&directory, &filename, cancel)?.is_none()
@@ -359,6 +366,48 @@ impl CaptureJournal {
         }
         Ok(PlanAssessment::Ready)
     }
+    /// Apply the age bound to one binding's plan files (RE-D163), under the workspace
+    /// leases. The age is read again here, per file: only a plan file that holds content
+    /// and is itself older than seven days is removed. A plan written since the inventory
+    /// (the owner's own turn can add one at any time) stays, as does a settled file and one
+    /// whose content or time cannot be read. Returns the number removed and whether a plan
+    /// with content is left.
+    pub(in crate::neo) fn discard_expired_plans(
+        &self,
+        plans: &PendingPlans,
+        cancel: &Cancel,
+    ) -> Result<(usize, bool), EngineError> {
+        self.with_plan_leases(plans, cancel, |directory| {
+            let now = self.host.now_ms();
+            let (mut removed, mut left) = (0, false);
+            for prefix in PLAN_PREFIXES {
+                let file = format!("{prefix}{}.json", plans.digest);
+                if journal_io::bytes(directory, &file, cancel)?.is_none() {
+                    continue;
+                }
+                match self.plan_caller(directory, &file, prefix, cancel) {
+                    Ok(Some(_)) => {}
+                    Err(EngineError::Cancelled(cancelled)) => {
+                        return Err(EngineError::Cancelled(cancelled))
+                    }
+                    // Settled or unreadable: no content this bound could apply to.
+                    Ok(None) | Err(_) => continue,
+                }
+                if !modified_ms(directory, &file).is_some_and(|at| past_age_bound(at, now)) {
+                    left = true;
+                    continue;
+                }
+                match directory.remove_file(&file) {
+                    Ok(()) => removed += 1,
+                    Err(StoreError::Io {
+                        kind: std::io::ErrorKind::NotFound,
+                    }) => {}
+                    Err(error) => return Err(error.into()),
+                }
+            }
+            Ok((removed, left))
+        })
+    }
     /// Remove one binding's prepared plans: their turn content is discarded, journals
     /// already written stay. Needs no host or policy authority, only the workspace leases.
     pub(in crate::neo) fn discard_plans(
@@ -366,6 +415,27 @@ impl CaptureJournal {
         plans: &PendingPlans,
         cancel: &Cancel,
     ) -> Result<(), EngineError> {
+        self.with_plan_leases(plans, cancel, |directory| {
+            for file in &plans.files {
+                match directory.remove_file(file) {
+                    Ok(())
+                    | Err(StoreError::Io {
+                        kind: std::io::ErrorKind::NotFound,
+                    }) => {}
+                    Err(error) => return Err(error.into()),
+                }
+            }
+            Ok(())
+        })
+    }
+    /// Run `action` on a binding's workspace directory under the workspace lease and the
+    /// Neo write lock, waiting for both within `cancel`.
+    fn with_plan_leases<T>(
+        &self,
+        plans: &PendingPlans,
+        cancel: &Cancel,
+        action: impl FnOnce(&TrustedDirectory) -> Result<T, EngineError>,
+    ) -> Result<T, EngineError> {
         let directory = self
             .root
             .open_child("workspaces")?
@@ -383,16 +453,7 @@ impl CaptureJournal {
             }
             std::thread::sleep(Duration::from_millis(5));
         };
-        for file in &plans.files {
-            match directory.remove_file(file) {
-                Ok(())
-                | Err(StoreError::Io {
-                    kind: std::io::ErrorKind::NotFound,
-                }) => {}
-                Err(error) => return Err(error.into()),
-            }
-        }
-        Ok(())
+        action(&directory)
     }
     /// Remove what interrupted atomic writes left in the workspace directories (RE-D163): a
     /// whole plan under a temporary name, older than an hour by the host's clock. Directory
