@@ -330,3 +330,90 @@ fn linked_sqlite_journals_never_reach_the_database_connection() {
         assert_eq!(fs::read(&target).unwrap(), b"unrelated bytes");
     }
 }
+
+/// Migration 0 -> 1 (A1 `recall-stats.json`, cases `legacy-counter` and `legacy-null-time`): a version-0 sidecar holds
+/// bare `stats` rows without query digests. Opening it must keep every counter and last-recalled time, lift
+/// `user_version` to 1, and leave later records to add to the old count.
+#[test]
+fn recall_stats_migration_0_to_1_keeps_the_counters() {
+    let golden: Value =
+        serde_json::from_str(include_str!("fixtures/ops/golden/recall-stats.json")).unwrap();
+    let legacy_cases: Vec<&Value> = golden["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|case| !case["scenario"]["legacy"].is_null())
+        .collect();
+    assert_eq!(legacy_cases.len(), 2, "the oracle's legacy cases changed");
+    for case in legacy_cases {
+        let legacy = &case["scenario"]["legacy"];
+        let id = legacy["id"].as_str().unwrap();
+        let recalls = legacy["recalls"].as_i64().unwrap();
+        let last = legacy["lastRecalledAt"].as_i64();
+        let root = root();
+        let store = RecallStats::new(root.path()).unwrap();
+        store.read("alpha", Some(&[]), &Cancel::never()).unwrap();
+        let path = store.path("alpha").unwrap();
+        drop(store);
+        {
+            let db = Connection::open(&path).unwrap();
+            db.execute(
+                "INSERT INTO stats VALUES (?,?,?)",
+                params![id, recalls, last],
+            )
+            .unwrap();
+            db.pragma_update(None, "user_version", 0).unwrap();
+        }
+        assert_eq!(snapshot(&path)["version"], 0, "setup");
+
+        // Opening migrates in place and keeps the counter exactly.
+        let store = RecallStats::new(root.path()).unwrap();
+        let counters =
+            serde_json::to_value(store.read("alpha", None, &Cancel::never()).unwrap()).unwrap();
+        assert_eq!(
+            counters,
+            json!([{"id":id,"recalls":recalls,"distinctQueries":0,"lastRecalledAt":last}])
+        );
+        let after = snapshot(&path);
+        assert_eq!(after["version"], 1);
+        assert_eq!(
+            after["stats"],
+            json!([{"id":id,"recalls":recalls,"lastRecalledAt":last}])
+        );
+        assert_eq!(after["queries"], json!([]));
+
+        // A second open is a no-op.
+        drop(store);
+        let store = RecallStats::new(root.path()).unwrap();
+        store.read("alpha", None, &Cancel::never()).unwrap();
+        assert_eq!(snapshot(&path), after);
+
+        // New recalls add to the migrated count; the time never moves backwards (a null time takes the new one only
+        // where the oracle says so, so compare with the oracle's final state).
+        store
+            .record(
+                "alpha",
+                &[id.into()],
+                "New synthetic query",
+                120.0,
+                &Cancel::never(),
+            )
+            .unwrap();
+        let migrated = serde_json::to_value(
+            store
+                .read("alpha", Some(&[id.to_owned()]), &Cancel::never())
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(migrated[0]["recalls"], recalls + 1);
+        assert_eq!(migrated[0]["distinctQueries"], 1);
+        let steps = case["steps"].as_array().unwrap();
+        assert_eq!(migrated, steps.last().unwrap()["result"]);
+        // Digests depend on the per-file HMAC key (the oracle test pins it), so compare counters and version only.
+        let state = snapshot(&path);
+        let expected = &steps.last().unwrap()["state"];
+        assert_eq!(state["version"], expected["version"]);
+        assert_eq!(state["stats"], expected["stats"]);
+        assert_eq!(state["queries"].as_array().unwrap().len(), 1);
+    }
+}
