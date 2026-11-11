@@ -126,6 +126,21 @@ impl NativeMemory {
             embedder: ports.embedder,
         }
     }
+    /// [`MemoryOps::promote`] within the caller's cancellation and deadline. A process composition
+    /// passes its shutdown-linked budget here instead of the trait's unbounded token.
+    pub fn promote_with_cancel(
+        &self,
+        request: &MemoryPromoteRequest,
+        p: &Principal,
+        a: &AgentContext,
+        cancel: &Cancel,
+    ) -> Result<MemoryPromotionResult, EngineError> {
+        self.promotion.run(&request.ids, p, a, cancel)
+    }
+    /// The native curation component, whose `*_with_cancel` entries take a bounded token.
+    pub fn native_curation(&self) -> &NativeCuration {
+        &self.curation
+    }
 }
 
 impl MemoryOps for NativeMemory {
@@ -244,7 +259,7 @@ impl MemoryOps for NativeMemory {
         p: &Principal,
         a: &AgentContext,
     ) -> Result<MemoryPromotionResult, EngineError> {
-        self.promotion.run(&request.ids, p, a, &Cancel::never())
+        self.promote_with_cancel(&request, p, a, &Cancel::never())
     }
     fn curation(&self) -> &dyn MemoryCurationOps {
         &self.curation

@@ -2792,3 +2792,85 @@ path, and consolidate-daily's own optimize belongs to the job work (RE-06).
   never holds another status caller.
 - `job-session-busy` and the other job reasons are internal; on the wire they
   are `operation-unavailable` (`rpc/methods.rs`).
+
+### The remaining memory operations in the process (RE-D165)
+
+`rpc/engine_memory.rs` serves `engine.memory.correct`, `share`, `propose`,
+`proposals.list/accept/reject`, `unimport`, `stats`, `promote` and
+`curation.list/resolve/keep/drop` by composition only; the library decides every
+outcome. The earlier methods (list/show/state/forget/link/import/rebind/unbind)
+keep their own components and behavior.
+
+- Composition. Reads, share, propose, proposal list/reject, stats and an
+  unimport preview use the process reader and writers over `EngineStores`
+  (`UnimportStores` is now implemented there with the same shared pools the
+  reads use). Correct, proposal acceptance, an applying unimport, promote and
+  curation need the human-operation Neo journal: the facade
+  `ops::facade::NativeMemory` is composed once, lazily, by the first such call.
+  That call creates the Neo root (`neo.statePath`, default `<baseDbPath>/_neo`,
+  mode 0700) as capture does; the pin creates its Neo store on first use too. A
+  read, share or preview never creates Neo state. The journal's policy is the
+  explicit workspace decision (enabled and not in a re-embedding switch), read
+  from the same `control/workspace-policy.json` as capture.
+- Authority. Every call runs in the foreground with its caller's principal; the
+  operation context, row ACL and owner checks are the library's. Correct and
+  accept apply Neo effects only for a caller with a user principal and a
+  logical workspace key (`CaptureJournal::bind`); any other owner corrects
+  without them instead of failing (RE-D155; the pin writes Neo for every owner,
+  RY-A). Promote and curation need that Neo partition and refuse other owners
+  with `invalid-input` (fail closed). An applying unimport cleans graph edges
+  under its original caller; a system caller without a user principal has no
+  partition, so that cleanup is refused and counted
+  (`derived.cleanupErrors: 1`; KNOWN-GAP F14/RE-D129). No new authority source
+  exists: no binding source for background reads (D130), no shared routes for
+  several identities.
+- Promote publishes in the foreground and plans no job: no `knowledge-update`
+  job is started or queued (F13); entries of `knowledge-pending.json` that were
+  not promoted stay pending, as at the pin without a running update (the pin's
+  update runs as an LLM tool, `engine/tools/memory-tools.js`, over the same
+  `knowledge-pending.json`/`knowledge-update.lock`). `schicht15.enabled` is off by
+  default, so promote answers `skipped/disabled` unless it is configured.
+- Stats read the per-agent HMAC counters (`_recall-stats`), at most 500 IDs,
+  and return only cards the caller can currently see; no query text.
+- `engine.admin.share` and `engine.admin.forget` stay `composition-pending`
+  (fail closed): there is no native implementation and no productive Harness
+  caller (only the client's method table). KNOWN-GAP → RY.
+- Capability flags (`recallStats`, `knowledgePromotion`, `memoryCuration`) and
+  the contract version stay unchanged (A1-5); the methods answer on the wire.
+  The status keeps its frozen `sharedMemory` report; whether shared pools are
+  supported is decided per call (`unsupported` when absent), since a status
+  read opens no store.
+
+Waits added by these paths ("blocks another owner" as in the wait graph of
+RE-D162/RE-D163):
+
+| Path | Waits for | Bound | Blocks another owner |
+|---|---|---|---|
+| First journal-needing call (`NativeSlot::native`) | the slot lock while the Neo root is created and opened | one directory creation and open | other callers' first composition only; never held across an operation |
+| Correct, accept, propose, reject, share, forget (existing gate) | the engine-wide `OperationContext` mutation gate | the holder's step | yes, for that step; see below |
+| Correct, accept and share under the gate | the embedding provider (`Cancel::never`, library); for correct and accept also Neo effects (workspace lease and `.neo-write.lock`) | the provider's own bound; the Neo budget per lease wait | yes: every other owner's mutation waits up to that long |
+| Promote and curation resolve under the gate | workspace lease and `.neo-write.lock` (`with_operation_writer`), `knowledge-update.lock`/`knowledge-pending.lock` tried only | the Neo budget per lease wait; the call budget of 60 s linked to shutdown | yes, as above |
+| Curation list | workspace lease and `.neo-write.lock` | the Neo budget; the call budget | no; it holds no gate |
+| Unimport (applying) | the agent's import lease, then the gate | the caller's token, at most 120 s for the lease | no while it waits for the lease (the gate is taken after it, RE-D165); for its write steps and graph cleanup (Neo budget) yes |
+| Stats | `_recall-stats` SQLite (`busy_timeout` 5 s) | 5 s | no |
+
+After close no step starts: every port checks the closed flag, promote and
+curation run on a token linked to the shutdown signal, and the operation
+context refuses before any mutation. Close still waits for admitted operations
+to drain (`OperationContext::close`, unchanged).
+
+RX known gaps → RY (RE-D165):
+
+- The engine-wide mutation gate is a native addition (the pin has none). Correct,
+  accept, promote, curation resolve and the graph cleanup of an unimport hold it
+  across a Neo lease wait (at most the Neo budget each); correct, accept and
+  share also across one embedding call. Another owner's write waits that long; it
+  is bounded, but more than a single write step. A per-owner gate needs a
+  decision on the shared pools it would no longer serialize.
+- Correction and its Neo effects run on the library's unbounded token
+  (`facade_correction.rs`); only their lease waits are bounded (Neo budget).
+- An owner without a user principal gets no Neo for correct or accept and is
+  refused for promote and curation (RY-A).
+- The first journal-needing call creates `<neo root>` even with Neo disabled
+  (and the base directory when it is missing), also for a caller the library
+  then refuses.

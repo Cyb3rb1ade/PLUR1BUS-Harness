@@ -279,7 +279,6 @@ impl Unimporter {
         if cancel.is_cancelled() {
             return result.finish();
         }
-        let _mutation = self.context.mutation()?;
         // Admission errors affect derived cleanup only; card rollback remains independently durable.
         let graph = self.graph.as_ref().map(|journal| {
             UnimportGraph::open(
@@ -301,6 +300,10 @@ impl Unimporter {
                 Err(_) if cancel.is_cancelled() => return result.finish(),
                 Err(e) => return Err(e),
             };
+        // The engine-wide mutation gate only after this agent's import lease (RE-D165): a
+        // rollback waiting for its own agent's lease (up to 120 s) never holds every other
+        // owner's mutations. No other path waits for an import lease while holding the gate.
+        let _mutation = self.context.mutation()?;
         self.fence(&lease)?;
         let sidecar = UnimportLedger::new(&self.base);
         sidecar.prepare(agent, run, self.context.host().now_ms(), &lease)?;

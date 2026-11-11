@@ -12,6 +12,7 @@ use crate::{
         rebind::RebindStores,
         routes::MemoryStores,
         sharing::SharedStores,
+        unimport::UnimportStores,
         write::MutationStores,
     },
     recall::namespaces::NamespaceStores,
@@ -290,6 +291,25 @@ impl RebindStores for EngineStores {
 
     fn writable(&self, context: &RequestContext) -> Result<Arc<Store>, StoreError> {
         self.writable_private(context)
+    }
+}
+
+impl UnimportStores for EngineStores {
+    fn existing(&self, context: &RequestContext) -> Result<Option<Arc<Store>>, StoreError> {
+        self.existing_private(context)
+    }
+
+    fn writable(&self, context: &RequestContext) -> Result<Arc<Store>, StoreError> {
+        self.writable_private(context)
+    }
+
+    /// The same workspace and user pools the reads use. Without a namespace root there is no
+    /// composed shared route, as for [`ReadStores::sources`]; an unusable route fails.
+    fn shared_pools(&self, context: &RequestContext) -> Result<Vec<Arc<Store>>, StoreError> {
+        match self.memory_routes()? {
+            Some(routes) => routes.shared_pools(context),
+            None => Ok(Vec::new()),
+        }
     }
 }
 

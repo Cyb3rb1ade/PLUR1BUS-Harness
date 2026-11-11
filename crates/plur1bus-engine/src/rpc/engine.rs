@@ -10,6 +10,8 @@
 mod engine_capture;
 #[path = "engine_jobs.rs"]
 mod engine_jobs;
+#[path = "engine_memory.rs"]
+mod engine_memory;
 #[path = "engine_recall.rs"]
 mod engine_recall;
 #[path = "engine_stores.rs"]
@@ -25,8 +27,8 @@ use crate::{
         service::{Service, ServiceOptions},
     },
     ops::{
-        import::Importer, import_ledger::ImportLedger, import_row::ImportEncoding,
-        memory::MemoryReader, rebind::Rebinder, sharing::ShareServices, write::MemoryWriter,
+        import::Importer, import_ledger::ImportLedger, memory::MemoryReader, rebind::Rebinder,
+        sharing::ShareServices, write::MemoryWriter,
     },
 };
 use engine_stores::EngineStores;
@@ -47,6 +49,8 @@ pub struct ProcessEngine {
     store_cancel: Cancel,
     live_stores: Arc<EngineStores>,
     memory: Option<ProcessMemory>,
+    proposals: engine_memory::ProposalsPort,
+    curation: engine_memory::CurationPort,
     mood: engine_recall::RecallMood,
     capture: engine_capture::ProcessCapture,
     jobs: Arc<engine_jobs::ProcessJobs>,
@@ -71,6 +75,8 @@ struct ProcessMemory {
     writer: MemoryWriter,
     importer: Importer,
     rebinder: Rebinder,
+    /// The facade for correct, accept, unimport, promote and curation (RE-D165).
+    native: Arc<engine_memory::NativeSlot>,
 }
 
 impl crate::ops::models::ModelInventory for ProcessEngine {
@@ -239,7 +245,9 @@ impl ProcessEngine {
                 host.clone(),
             )
         });
+        let slot_host = host.clone();
         let operations = Arc::new(crate::ops::context::OperationContext::new(host));
+        let mut proposal_sharing = None;
         let memory = base.map(|base| {
             let provider = embedding.pipeline_embedder();
             let reader = Arc::new(MemoryReader::new(
@@ -248,43 +256,54 @@ impl ProcessEngine {
                 provider.clone(),
                 base.clone(),
             ));
+            let sharing = || ShareServices {
+                reader: reader.clone(),
+                stores: live_stores.clone(),
+                providers: vec![provider.clone()],
+            };
+            proposal_sharing = Some(sharing());
             let writer = MemoryWriter::new(operations.clone(), live_stores.clone(), base.clone())
-                .with_sharing(ShareServices {
-                    reader: reader.clone(),
-                    stores: live_stores.clone(),
-                    providers: vec![provider.clone()],
-                });
+                .with_sharing(sharing());
             let importer = Importer::new(
                 operations.clone(),
                 live_stores.clone(),
-                provider,
+                provider.clone(),
                 Arc::new(ImportLedger::new(&base)),
                 base.clone(),
-                ImportEncoding {
-                    half_life_overrides: crate::recall::trace::from_value(
-                        &raw["recall"]["halfLifeDaysMap"],
-                    ),
-                    flashbulb: raw["memoryDynamics"]["flashbulbEncoding"] == true,
-                    summary_max_words: raw["summaryMaxWords"]
-                        .as_u64()
-                        .and_then(|words| usize::try_from(words).ok())
-                        .unwrap_or(150),
-                },
+                engine_memory::import_encoding(&raw),
             );
-            let rebinder = Rebinder::new(operations.clone(), live_stores.clone(), base);
+            let rebinder = Rebinder::new(operations.clone(), live_stores.clone(), base.clone());
+            let native = Arc::new(engine_memory::NativeSlot::new(engine_memory::SlotInputs {
+                operations: operations.clone(),
+                stores: live_stores.clone(),
+                neo_root: engine_warm::neo_root(&raw["neo"], &base),
+                base,
+                embedder: provider,
+                host: slot_host.clone(),
+                raw: raw.clone(),
+                shutdown: store_cancel.clone(),
+                closed: closed.clone(),
+            }));
             ProcessMemory {
                 reader,
                 writer,
                 importer,
                 rebinder,
+                native,
             }
         });
+        let slot = memory.as_ref().map(|memory| memory.native.clone());
+        let proposals =
+            engine_memory::ProposalsPort::new(slot.clone(), proposal_sharing, closed.clone());
+        let curation = engine_memory::CurationPort::new(slot, closed.clone());
         Ok(Self {
             embedding,
             stores,
             store_cancel,
             live_stores,
             memory,
+            proposals,
+            curation,
             mood,
             capture: engine_capture::ProcessCapture::default(),
             jobs,
@@ -710,34 +729,85 @@ impl MemoryOps for ProcessEngine {
             .unbind(&request, principal, agent, cancel)
     }
 
-    unavailable_methods! {
-        fn correct(_id: &str, _text: &str, _principal: &Principal, _agent: &AgentContext) -> MemoryCorrectResult;
-        fn share(_id: &str, _target: MemoryShareTarget, _options: ShareOptions, _principal: &Principal, _agent: &AgentContext) -> MemoryShareResult;
-        fn propose(_id: &str, _text: &str, _options: ProposeOptions, _principal: &Principal, _agent: &AgentContext) -> MemoryProposeResult;
-        fn unimport(_request: MemoryUnimportRequest, _cancel: &Cancel, _principal: &Principal, _agent: &AgentContext) -> MemoryUnimportResult;
-        fn stats(_ids: Option<&[String]>, _principal: &Principal, _agent: &AgentContext) -> MemoryStatsResult;
-        fn promote(_request: MemoryPromoteRequest, _principal: &Principal, _agent: &AgentContext) -> MemoryPromotionResult;
+    fn correct(
+        &self,
+        id: &str,
+        text: &str,
+        principal: &Principal,
+        agent: &AgentContext,
+    ) -> Result<MemoryCorrectResult, EngineError> {
+        self.memory_ports()?
+            .native
+            .correct(id, text, principal, agent)
     }
+
+    fn share(
+        &self,
+        id: &str,
+        target: MemoryShareTarget,
+        options: ShareOptions,
+        principal: &Principal,
+        agent: &AgentContext,
+    ) -> Result<MemoryShareResult, EngineError> {
+        self.memory_ports()?
+            .writer
+            .share(id, target, principal, agent, &options)
+    }
+
+    fn propose(
+        &self,
+        id: &str,
+        text: &str,
+        options: ProposeOptions,
+        principal: &Principal,
+        agent: &AgentContext,
+    ) -> Result<MemoryProposeResult, EngineError> {
+        self.memory_ports()?;
+        self.proposals.propose(id, text, &options, principal, agent)
+    }
+
+    fn unimport(
+        &self,
+        request: MemoryUnimportRequest,
+        cancel: &Cancel,
+        principal: &Principal,
+        agent: &AgentContext,
+    ) -> Result<MemoryUnimportResult, EngineError> {
+        self.memory_ports()?
+            .native
+            .unimport(&request, cancel, principal, agent)
+    }
+
+    fn stats(
+        &self,
+        ids: Option<&[String]>,
+        principal: &Principal,
+        agent: &AgentContext,
+    ) -> Result<MemoryStatsResult, EngineError> {
+        self.memory_ports()?.reader.stats(ids, principal, agent)
+    }
+
+    /// Foreground publication only: no `knowledge-update` job is planned or started (F13).
+    fn promote(
+        &self,
+        request: MemoryPromoteRequest,
+        principal: &Principal,
+        agent: &AgentContext,
+    ) -> Result<MemoryPromotionResult, EngineError> {
+        self.memory_ports()?
+            .native
+            .promote(&request, principal, agent)
+    }
+
     fn proposals(&self) -> &dyn MemoryProposalsOps {
-        &self.unavailable
+        &self.proposals
     }
     fn curation(&self) -> &dyn MemoryCurationOps {
-        &self.unavailable
+        &self.curation
     }
 }
-impl MemoryProposalsOps for Unavailable {
-    unavailable_methods! {
-        fn list(_query: MemoryProposalListQuery, _principal: &Principal, _agent: &AgentContext) -> MemoryProposalListResult;
-        fn accept(_id: &str, _principal: &Principal, _agent: &AgentContext) -> MemoryProposalAcceptResult;
-        fn reject(_id: &str, _options: ProposalRejectOptions, _principal: &Principal, _agent: &AgentContext) -> MemoryProposalRejectResult;
-    }
-}
-impl MemoryCurationOps for Unavailable {
-    unavailable_methods! {
-        fn list(_query: MemoryCurationListQuery, _principal: &Principal, _agent: &AgentContext) -> MemoryCurationListResult;
-        fn resolve(_id: &str, _action: MemoryCurationAction, _principal: &Principal, _agent: &AgentContext) -> MemoryCurationResolveResult;
-    }
-}
+// RE-D165: `engine.admin.share` and `engine.admin.forget` stay unavailable (fail closed): no
+// native implementation and no productive caller in the Harness. KNOWN-GAP → RY.
 impl AdminOps for Unavailable {
     unavailable_methods! {
         fn share(_id: &str, _target: MemoryShareTarget, _options: ShareOptions, _principal: &Principal, _agent: &AgentContext) -> MemoryShareResult;
@@ -800,7 +870,9 @@ impl crate::ops::status::StatusSources for ProcessStatusSources {
         Ok(self.embedding.identities().into_iter().next())
     }
     fn shared(&self) -> Result<SharedMemorySupport, EngineError> {
-        // Sharing is not served in RX (share/propose are unavailable): unchanged report.
+        // Unchanged frozen report. Share and propose are served since RE-D165, and each call
+        // decides the actual pool support (`unsupported` when absent); the status does not
+        // open a store to learn it (KNOWN-GAP, RE-D165).
         decode(json!({"supported":false,"mode":"unavailable"}))
     }
     fn opened_agents(&self) -> usize {
@@ -1284,3 +1356,7 @@ mod capture_tests;
 #[cfg(test)]
 #[path = "engine_jobs_tests.rs"]
 mod jobs_tests;
+
+#[cfg(test)]
+#[path = "engine_ops_tests.rs"]
+mod ops_tests;

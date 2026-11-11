@@ -109,7 +109,12 @@ impl NativeMemory {
         agent: &AgentContext,
     ) -> Result<MemoryWriter, EngineError> {
         let admission = Arc::new(Admission::open(self, principal, agent)?);
-        let effects = if admission.config["neo"]["enabled"] == false {
+        // The native Neo journal binds only user-owned callers with a logical workspace key
+        // (`CaptureJournal::bind`). Any other owner corrects without Neo effects, as capture
+        // skips Neo for it (RE-D155, RE-D165); the pin writes Neo for every owner (RY-A).
+        let neo_owner = crate::context::is_user_principal(&admission.request.owner_user_id)
+            && !admission.request.workspace_key.is_empty();
+        let effects = if admission.config["neo"]["enabled"] == false || !neo_owner {
             None
         } else {
             Some(Arc::new(NativeCorrectionEffects::open(

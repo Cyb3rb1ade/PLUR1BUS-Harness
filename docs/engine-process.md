@@ -4,10 +4,15 @@
 engine binary, with its actual PID in the readiness line and authentication result. It does not select the Rust
 engine in the Core: `engine.implementation` still defaults to `node`.
 
-The process server is implemented. With a configured store base, recall (normal and warm), capture, memory
-list/show/state/forget/link/import/rebind/unbind, store adoption and the job registry
-(`engine.jobs.list/run/history`, RE-D158) are served by their native compositions. The remaining memory/admin
-operations still answer `E_NOT_AVAILABLE` with `composition-pending`. Under F13 every job whose body reads or
+The process server is implemented. With a configured store base, recall (normal and warm), capture, every
+memory operation (list/show/state/forget/link/import/rebind/unbind; since RE-D165 also correct, share, propose,
+`proposals.list/accept/reject`, unimport, and the A1 methods `stats`, `promote` and `curation.list/resolve/keep/drop`),
+store adoption and the job registry (`engine.jobs.list/run/history`, RE-D158) are served by their native
+compositions. The A1 capability flags stay `false` and the contract stays 1.17.0 until A1-5; the methods answer on
+the wire regardless. `engine.admin.share` and `engine.admin.forget` stay `E_NOT_AVAILABLE`/`composition-pending`
+(no native implementation, no productive Harness caller; RE-D165, KNOWN-GAP → RY), as do the F6/F7/F9/F14 admin
+methods. Each memory operation runs in the foreground with its caller's principal; what an owner without a user
+principal cannot get (a Neo partition) fails closed as described in `docs/engine-stores.md` (RE-D165). Under F13 every job whose body reads or
 writes private owner or workspace rows answers `job-authority-unbound`, LLM jobs answer `not-implemented`; the
 only installed body is `embedding-drain` with Neo disabled (`skipped/neo_disabled`, as at the pin).
 Embedding and model methods use the existing RE-03 providers. With a store base, `engine.status` is the pin's
