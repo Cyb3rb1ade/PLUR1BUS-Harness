@@ -34918,9 +34918,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 SHA256 c10c1f27337546471e5f7e4e97fdd398b35b9d4e126115dcd22de8d8e65abf6f
 cargo:libsqlite3-sys@0.35.0/LICENSE
-cargo:libsqlite3-sys@0.38.2/LICENSE
+cargo:libsqlite3-sys@0.39.1/LICENSE
 cargo:rusqlite@0.37.0/LICENSE
-cargo:rusqlite@0.40.2/LICENSE
+cargo:rusqlite@0.41.1/LICENSE
 
 Copyright (c) 2014 The rusqlite developers
 

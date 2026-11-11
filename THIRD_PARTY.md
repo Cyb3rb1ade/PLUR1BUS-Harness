@@ -6,7 +6,7 @@ Regenerate on each native packaging target; optional native npm packages differ 
 
 ```
 pnpm-lock.yaml: a2d5896256b674fbc02686d654c9c27a2ffd6a34020460a8f11d60e8352e45cb
-Cargo.lock: 6d5fb132f3ce2cf91aeba1fb0dfae82532bd63ff5de28785667d6bb14b3e3286
+Cargo.lock: 900626a394d0f0af89efbb3bed5b2ab3f47a2a0e50401fffd7ab05a8d34e2748
 apps/desktop/Cargo.lock: e6f874888157d78305f8de3aee112cf3a18f1701a44eb1afe51bd95e49cd49f0
 ```
 
@@ -530,7 +530,7 @@ apps/desktop/Cargo.lock: e6f874888157d78305f8de3aee112cf3a18f1701a44eb1afe51bd95
 | cargo | libm | 0.2.16 | MIT | Alex Crichton <alex@alexcrichton.com>, Amanieu d'Antras <amanieu@gmail.com>, Jorge Aparicio <japaricious@gmail.com>, Trevor Gross <tg@trevorgross.com> |
 | cargo | libredox | 0.1.25 | MIT | 4lDO2 <4lDO2@protonmail.com> |
 | cargo | libsqlite3-sys | 0.35.0 | MIT | The rusqlite developers |
-| cargo | libsqlite3-sys | 0.38.2 | MIT | The rusqlite developers |
+| cargo | libsqlite3-sys | 0.39.1 | MIT | The rusqlite developers |
 | cargo | line-clipping | 0.3.8 | MIT OR Apache-2.0 | Josh McKinney |
 | cargo | linux-raw-sys | 0.12.1 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | Dan Gohman <dev@sunfishcode.online> |
 | cargo | linux-raw-sys | 0.4.15 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | Dan Gohman <dev@sunfishcode.online> |
@@ -790,7 +790,7 @@ apps/desktop/Cargo.lock: e6f874888157d78305f8de3aee112cf3a18f1701a44eb1afe51bd95
 | cargo | rstest_macros | 0.26.1 | MIT OR Apache-2.0 | Michele d'Amico <michele.damico@gmail.com> |
 | cargo | rtoolbox | 0.0.6 | Apache-2.0 | Conrad Kleinespel <conradk@conradk.com> |
 | cargo | rusqlite | 0.37.0 | MIT | The rusqlite developers |
-| cargo | rusqlite | 0.40.2 | MIT | The rusqlite developers |
+| cargo | rusqlite | 0.41.1 | MIT | The rusqlite developers |
 | cargo | russh-cryptovec | 0.62.0 | Apache-2.0 | Pierre-Étienne Meunier <pe@pijul.org>, Eugeny <e@ajenti.org |
 | cargo | russh-sftp | 2.1.1 | Apache-2.0 |  |
 | cargo | russh-sftp | 3.0.1 | Apache-2.0 |  |
