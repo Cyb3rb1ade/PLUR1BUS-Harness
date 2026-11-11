@@ -779,6 +779,43 @@ struct PoolTables {
     pool: Arc<StorePool>,
 }
 
+/// A fixture's open hook: called before a compactor opens a table below `prefix` in `mode`.
+#[cfg(test)]
+type OpenHook = (PathBuf, OpenMode, Arc<dyn Fn() + Send + Sync>);
+#[cfg(test)]
+static OPEN_HOOK: Mutex<Vec<OpenHook>> = Mutex::new(Vec::new());
+
+/// Install an open hook for tables below `prefix` (test only); `clear_open_hooks` removes it.
+#[cfg(test)]
+pub(crate) fn hook_opens(prefix: PathBuf, mode: OpenMode, hook: Arc<dyn Fn() + Send + Sync>) {
+    lock(&OPEN_HOOK).push((prefix, mode, hook));
+}
+
+/// Remove the open hooks for `prefix` (test only).
+#[cfg(test)]
+pub(crate) fn clear_open_hooks(prefix: &std::path::Path) {
+    lock(&OPEN_HOOK).retain(|(hooked, _, _)| hooked != prefix);
+}
+
+/// The compactor's own table open (never the pool handle).
+fn open_table(
+    path: &std::path::Path,
+    mode: OpenMode,
+) -> Result<Store, crate::contract::StoreError> {
+    #[cfg(test)]
+    {
+        let hooks: Vec<_> = lock(&OPEN_HOOK)
+            .iter()
+            .filter(|(prefix, hooked, _)| path.starts_with(prefix) && *hooked == mode)
+            .map(|(_, _, hook)| hook.clone())
+            .collect();
+        for hook in hooks {
+            hook();
+        }
+    }
+    Store::open(path, mode, None)
+}
+
 impl PoolTables {
     fn table(&self, agent: &str) -> Option<PathBuf> {
         let path = self.pool.agent_path(agent).ok()?;
@@ -798,7 +835,7 @@ impl FragmentTables for PoolTables {
             super::lance::fragment_optimize::FRAGMENT_COUNT_BUDGET,
             cancel,
             move |cancel| {
-                Store::open(&path, OpenMode::ReadOnly, None)
+                open_table(&path, OpenMode::ReadOnly)
                     .ok()?
                     .fragment_count(cancel)
             },
@@ -815,11 +852,24 @@ impl FragmentTables for PoolTables {
         let Some(_claim) = Optimizing::claim(path.clone()) else {
             return OptimizeResult::Busy;
         };
-        let store = match Store::open(&path, OpenMode::ReadWrite, None) {
-            Ok(store) => store,
-            Err(_) => return OptimizeResult::Failed(Some("open".into())),
+        // Opening falls under the optimize step's budget and its cancellation, as the count
+        // does; the rest of the budget is left for the optimize itself (RE-D161, T3c M2).
+        let started = Instant::now();
+        let budget = Duration::from_millis(plan.timeout_ms);
+        let open_path = path.clone();
+        use super::lance::fragment_optimize::{within, Within, OPENS_RUNNING};
+        let store = match within(budget, cancel, &OPENS_RUNNING, move |_| {
+            open_table(&open_path, OpenMode::ReadWrite)
+        }) {
+            Within::Done(Ok(store)) => store,
+            Within::Done(Err(_)) => return OptimizeResult::Failed(Some("open".into())),
+            Within::Expired => return OptimizeResult::Failed(Some("timeout".into())),
+            Within::Cancelled => return OptimizeResult::Shutdown,
         };
-        match store.optimize_fragments(plan, cancel) {
+        let mut plan = plan.clone();
+        plan.timeout_ms = u64::try_from(budget.saturating_sub(started.elapsed()).as_millis())
+            .unwrap_or(plan.timeout_ms);
+        match store.optimize_fragments(&plan, cancel) {
             OptimizeRun::Compacted => OptimizeResult::Compacted,
             OptimizeRun::Conflict => OptimizeResult::Conflict("conflict".into()),
             OptimizeRun::Cancelled => OptimizeResult::Shutdown,

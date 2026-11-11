@@ -13,56 +13,86 @@ use std::time::{Duration, Instant};
 /// `lib/db-adapter.js:1020-1039` at the pin: opening the table and reading its stats are
 /// bounded together by five seconds.
 pub(crate) const FRAGMENT_COUNT_BUDGET: Duration = Duration::from_secs(5);
-/// Count threads that may still be stuck in a hung open at once; further counts answer
-/// "unknown" at once instead of piling up threads (RE-D161).
-const MAX_STUCK_COUNTS: usize = 4;
-static COUNTS_RUNNING: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+/// Table-opening threads that may still be stuck in a hung open at once (counts and optimize
+/// opens together); beyond that a step gives up at once instead of piling up threads (RE-D161).
+pub(crate) const MAX_STUCK_OPENS: usize = 4;
+/// The process's count of table-opening threads still running.
+pub(crate) static OPENS_RUNNING: std::sync::atomic::AtomicUsize =
+    std::sync::atomic::AtomicUsize::new(0);
 
-/// Run `count` (open the table, read its stats) on its own short-lived thread and wait at
-/// most `budget` or until `cancel` fires; otherwise the count is unknown (`None`). A hung
-/// open (a blocked filesystem) therefore holds the caller at most `budget`; the thread ends
-/// with the system call and is not waited for. `count` gets a token that ends with the wait.
-pub(crate) fn count_within(
+/// How a step bounded by `within` ended.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum Within<T> {
+    /// The step returned in time.
+    Done(T),
+    /// The budget passed (or the thread cap was reached): the step is abandoned.
+    Expired,
+    /// The caller's cancellation (shutdown) fired.
+    Cancelled,
+}
+
+/// Run `step` (opening a table, reading its stats) on its own short-lived thread and wait at
+/// most `budget` or until `cancel` fires. A hung open (a blocked filesystem) therefore holds
+/// the caller at most `budget`; the thread ends with the system call and is not waited for;
+/// what it returns late is dropped there. `step` gets a token that ends with the wait.
+/// `running` caps the stuck threads (`OPENS_RUNNING` in production).
+pub(crate) fn within<T: Send + 'static>(
     budget: Duration,
     cancel: &Cancel,
-    count: impl FnOnce(&Cancel) -> Option<u64> + Send + 'static,
-) -> Option<u64> {
+    running: &'static std::sync::atomic::AtomicUsize,
+    step: impl FnOnce(&Cancel) -> T + Send + 'static,
+) -> Within<T> {
     use std::sync::atomic::Ordering;
-    struct Running;
+    struct Running(&'static std::sync::atomic::AtomicUsize);
     impl Drop for Running {
         fn drop(&mut self) {
-            COUNTS_RUNNING.fetch_sub(1, Ordering::AcqRel);
+            self.0.fetch_sub(1, Ordering::AcqRel);
         }
     }
     if cancel.is_cancelled() {
-        return None;
+        return Within::Cancelled;
     }
-    if COUNTS_RUNNING.fetch_add(1, Ordering::AcqRel) >= MAX_STUCK_COUNTS {
-        COUNTS_RUNNING.fetch_sub(1, Ordering::AcqRel);
-        return None;
+    if running.fetch_add(1, Ordering::AcqRel) >= MAX_STUCK_OPENS {
+        running.fetch_sub(1, Ordering::AcqRel);
+        return Within::Expired;
     }
     let token = cancel.limited_to(Instant::now() + budget);
     let inner = token.clone();
     let (sent, received) = std::sync::mpsc::sync_channel(1);
     let spawned = std::thread::Builder::new()
-        .name("fragment-count".into())
+        .name("fragment-open".into())
         .spawn(move || {
-            let _running = Running;
-            let _ = sent.send(count(&inner));
+            let _running = Running(running);
+            let _ = sent.send(step(&inner));
         });
     if spawned.is_err() {
-        COUNTS_RUNNING.fetch_sub(1, Ordering::AcqRel);
-        return None;
+        running.fetch_sub(1, Ordering::AcqRel);
+        return Within::Expired;
     }
     loop {
+        if cancel.is_cancelled() {
+            return Within::Cancelled;
+        }
         if token.is_cancelled() {
-            return None;
+            return Within::Expired;
         }
         match received.recv_timeout(POLL) {
-            Ok(count) => return count,
+            Ok(value) => return Within::Done(value),
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
-            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => return None,
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => return Within::Expired,
         }
+    }
+}
+
+/// The fragment count under `within`: unknown (`None`) unless it returned in time.
+pub(crate) fn count_within(
+    budget: Duration,
+    cancel: &Cancel,
+    count: impl FnOnce(&Cancel) -> Option<u64> + Send + 'static,
+) -> Option<u64> {
+    match within(budget, cancel, &OPENS_RUNNING, count) {
+        Within::Done(count) => count,
+        Within::Expired | Within::Cancelled => None,
     }
 }
 /// `lib/db-adapter.js:995` at the pin: one optimize attempt gets at least ten seconds.
@@ -241,12 +271,20 @@ mod tests {
         })
     }
 
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    // Each test has its own cap counter, so hanging steps here never take the process-wide
+    // places other tests' real counts use.
+    static HANGING: AtomicUsize = AtomicUsize::new(0);
+    static SHUTDOWN: AtomicUsize = AtomicUsize::new(0);
+    static CAPPED: AtomicUsize = AtomicUsize::new(0);
+
     #[test]
-    fn a_hanging_open_counts_as_unknown_within_the_budget() {
+    fn a_hanging_open_is_abandoned_within_the_budget() {
         let (release, open) = hanging();
         let started = Instant::now();
-        let count = count_within(Duration::from_millis(100), &Cancel::never(), open);
-        assert_eq!(count, None);
+        let outcome = within(Duration::from_millis(100), &Cancel::never(), &HANGING, open);
+        assert_eq!(outcome, Within::Expired);
         // Bounded by the budget plus one poll, far below the pin's five seconds.
         assert!(started.elapsed() < Duration::from_secs(2));
         release.send(()).unwrap();
@@ -257,14 +295,61 @@ mod tests {
         let (release, open) = hanging();
         let cancel = Cancel::never();
         let stopper = cancel.clone();
-        let started = Instant::now();
-        let waiter =
-            std::thread::spawn(move || count_within(Duration::from_secs(60), &cancel, open));
-        std::thread::sleep(Duration::from_millis(50));
+        let (entered, waiting) = std::sync::mpsc::channel();
+        let waiter = std::thread::spawn(move || {
+            within(Duration::from_secs(60), &cancel, &SHUTDOWN, move |token| {
+                let _ = entered.send(());
+                open(token)
+            })
+        });
+        // The step is running (hook), then the shutdown signal ends the wait.
+        waiting.recv_timeout(Duration::from_secs(10)).unwrap();
         stopper.cancel();
-        assert_eq!(waiter.join().unwrap(), None);
-        assert!(started.elapsed() < Duration::from_secs(10));
+        assert_eq!(waiter.join().unwrap(), Within::Cancelled);
         release.send(()).unwrap();
+    }
+
+    #[test]
+    fn at_most_four_opens_can_be_stuck_and_the_place_is_given_back() {
+        let mut releases = Vec::new();
+        for _ in 0..MAX_STUCK_OPENS {
+            let (release, open) = hanging();
+            assert_eq!(
+                within(Duration::from_millis(20), &Cancel::never(), &CAPPED, open),
+                Within::Expired
+            );
+            releases.push(release);
+        }
+        assert_eq!(CAPPED.load(Ordering::Acquire), MAX_STUCK_OPENS);
+        // A fifth step is not even started.
+        let ran = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let probe = ran.clone();
+        let fifth = within(
+            Duration::from_secs(5),
+            &Cancel::never(),
+            &CAPPED,
+            move |_| {
+                probe.store(true, Ordering::Release);
+                Some(1)
+            },
+        );
+        assert_eq!(fifth, Within::Expired);
+        assert!(!ran.load(Ordering::Acquire));
+        // Released threads give their places back.
+        for release in releases {
+            release.send(()).unwrap();
+        }
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while CAPPED.load(Ordering::Acquire) > 0 {
+            assert!(Instant::now() < deadline, "places not given back");
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        assert_eq!(
+            within(Duration::from_secs(5), &Cancel::never(), &CAPPED, |_| Some(
+                3
+            )),
+            Within::Done(Some(3))
+        );
     }
 
     #[test]

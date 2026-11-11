@@ -15,10 +15,17 @@ use std::{
 };
 mod health;
 pub use health::{health_at, HealthCache, MAX_HEALTH_PROJECTIONS};
-/// Most idle agent slots (each with its started session, directory handle and lease) a
-/// registry keeps; the least recently used idle one is released first (RE-D164). Same bound
-/// as the shared emotion engines (`capture::classify::EmotionEngines`, 256, `354cc93f12`).
-pub const MAX_AGENT_SESSIONS: usize = 256;
+/// Most idle agent slots a registry keeps; the least recently used idle one is released first
+/// (RE-D164). Each started session holds at least two file descriptors (the agent directory
+/// and its lease file). A process started by launchd on macOS gets a soft limit of 256
+/// descriptors (`launchctl limit maxfiles`: 256 soft), which the store pools, sockets and
+/// Lance handles share; 32 idle sessions use at most a quarter of that. More agents in turn
+/// only cost a new session start (orphan recovery) per run.
+pub const MAX_AGENT_SESSIONS: usize = 32;
+/// The run error while the admission phase did not finish within its budget (RE-D164).
+pub const SESSION_BUSY: &str = "job-session-busy";
+/// Bounded metadata cleanup after a body ran (`finish`), and the retraction of a marker.
+const SETTLE_BUDGET: Duration = Duration::from_secs(5);
 mod notes;
 mod record;
 mod startup;
@@ -91,6 +98,7 @@ pub struct Registry {
     /// Agent slots with their last use; at most `MAX_AGENT_SESSIONS` idle ones are kept.
     agents: Mutex<BTreeMap<String, (Slot, u64)>>,
     uses: std::sync::atomic::AtomicU64,
+    settle: Duration,
     closed: AtomicBool,
     inflight: health::InFlightRuns,
     #[cfg(any(test, feature = "testkit"))]
@@ -108,11 +116,22 @@ impl Registry {
             bodies: Mutex::new(BTreeMap::new()),
             agents: Mutex::new(BTreeMap::new()),
             uses: std::sync::atomic::AtomicU64::new(0),
+            settle: SETTLE_BUDGET,
             closed: AtomicBool::new(false),
             inflight: health::InFlightRuns::default(),
             #[cfg(any(test, feature = "testkit"))]
             observer: None,
         })
+    }
+    /// Fixtures: a shorter settle budget, to force an unfinished settle without waiting.
+    #[cfg(any(test, feature = "testkit"))]
+    #[must_use]
+    pub fn with_settle_budget(mut self, settle: Duration) -> Self {
+        self.settle = settle;
+        self
+    }
+    fn settle_token(&self) -> Cancel {
+        Cancel::with_deadline(std::time::Instant::now() + self.settle)
     }
     /// Install the host's best-effort job-run event sink; sink errors do not undo durable completion.
     #[must_use]
@@ -330,7 +349,8 @@ impl Registry {
         let draft = record::Draft::new(job, agent.clone(), trigger, started, id)?;
         let slot = self.slot(agent)?;
         let sweep = draft.sweep()?;
-        let (admission, snapshot, owns, pre_skip) = {
+        let marker = draft.marker()?;
+        let admitted = (|| {
             let mut state = lock(&slot, admit)?;
             if state.is_none() {
                 let session = self.start_session(agent, admit)?;
@@ -342,8 +362,23 @@ impl Registry {
             let state = state.as_mut().ok_or(StoreError::Corrupt)?;
             self.check(cancel)?;
             self.check(admit)?;
-            let admission = state.session.start(&draft.marker()?, admit)?;
-            let snapshot = Arc::new(state.session.snapshot(admit)?.rows);
+            let admission = match state.session.start(&marker, admit) {
+                Ok(admission) => admission,
+                Err(error) => {
+                    // The budget can end right after the marker was written: take it back
+                    // rather than leave it until the next session start (RE-D164, M1).
+                    let _ = state.session.retract(&marker, &self.settle_token());
+                    return Err(error);
+                }
+            };
+            // The admission is complete; the snapshot read waits for nothing (caller token).
+            let snapshot = match state.session.snapshot(cancel) {
+                Ok(snapshot) => Arc::new(snapshot.rows),
+                Err(error) => {
+                    let _ = state.session.retract(&marker, &self.settle_token());
+                    return Err(error);
+                }
+            };
             let singleton = matches!(
                 job,
                 JobName::KnowledgeUpdate
@@ -370,7 +405,19 @@ impl Registry {
             if owns && singleton {
                 state.active.insert(job, sweep.clone());
             }
-            (admission, snapshot, owns, pre_skip)
+            Ok::<_, EngineError>((admission, snapshot, owns, pre_skip))
+        })();
+        // Only the admission phase answers "not started, try later": its own budget ended
+        // while the caller did not cancel. Everything after this point is a started run and
+        // keeps the registry's own error (RE-D164, review I1).
+        let (admission, snapshot, owns, pre_skip) = match admitted {
+            Ok(admitted) => admitted,
+            Err(EngineError::Cancelled(_)) if admit.is_cancelled() && !cancel.is_cancelled() => {
+                return Err(EngineError::NotAvailable {
+                    reason: SESSION_BUSY.into(),
+                })
+            }
+            Err(error) => return Err(error),
         };
         let active = ActiveRun {
             slot: slot.clone(),
@@ -403,7 +450,9 @@ impl Registry {
         };
         let run = draft.finish(report, &snapshot, (self.clock)(), context.notes.freeze()?)?;
         // A cancelled body still needs bounded metadata cleanup; this never executes body work.
-        let settle = Cancel::with_deadline(std::time::Instant::now() + Duration::from_secs(5));
+        // When it does not finish, the run stays started: its marker remains and the next
+        // session start records it (`failed`, `crash`), it is never reported as not started.
+        let settle = self.settle_token();
         {
             let state = lock(&slot, &settle)?;
             self.check(&settle)?;
@@ -463,5 +512,62 @@ impl Registry {
             .collect::<Result<_, _>>()?;
         self.check(&Cancel::never())?;
         Ok(output)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, reason = "test assertions")]
+    use super::*;
+
+    fn agent(name: &str) -> AgentId {
+        name.parse().unwrap()
+    }
+
+    #[test]
+    fn a_slot_in_use_is_never_released_and_idle_ones_are() {
+        let root =
+            tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+        let registry = Registry::new(root.path(), Arc::new(|| 1_768_305_600_000)).unwrap();
+        // A run (or a session start, or a history read) holds this slot.
+        let held = registry.slot(&agent("held")).unwrap();
+        for index in 0..MAX_AGENT_SESSIONS * 2 {
+            drop(registry.slot(&agent(&format!("idle-{index}"))).unwrap());
+        }
+        let agents = registry.agents.lock().unwrap();
+        assert!(agents.contains_key("held"), "a slot in use was released");
+        assert!(agents.len() <= MAX_AGENT_SESSIONS);
+        // The held slot is still the one the map keeps, not a fresh copy.
+        assert!(Arc::ptr_eq(&agents["held"].0, &held));
+        // The least recently used idle slots went first.
+        assert!(!agents.contains_key("idle-0"));
+        assert!(agents.contains_key(&format!("idle-{}", MAX_AGENT_SESSIONS * 2 - 1)));
+    }
+
+    #[test]
+    fn the_health_cache_keeps_at_most_its_bound_and_evicts_the_least_recent() {
+        let root =
+            tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+        let extra = 6;
+        for index in 0..MAX_HEALTH_PROJECTIONS + extra {
+            let dir = root.path().join(format!("agent-{index:05}"));
+            std::fs::create_dir(&dir).unwrap();
+            std::fs::write(dir.join("ledger.jsonl"), "{}\n").unwrap();
+        }
+        let cache = HealthCache::default();
+        let reads = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counter = reads.clone();
+        cache.set_read_hook(Arc::new(move |_| {
+            counter.fetch_add(1, Ordering::SeqCst);
+        }));
+        let health = health_at(root.path(), 1_768_305_600_000, &cache).unwrap();
+        assert_eq!(health.agents.len(), MAX_HEALTH_PROJECTIONS + extra);
+        assert_eq!(cache.len(), MAX_HEALTH_PROJECTIONS);
+        assert_eq!(reads.load(Ordering::SeqCst), MAX_HEALTH_PROJECTIONS + extra);
+        // The first agents were evicted: the next call reads them again, still bounded.
+        reads.store(0, Ordering::SeqCst);
+        health_at(root.path(), 1_768_305_600_000, &cache).unwrap();
+        assert!(reads.load(Ordering::SeqCst) >= extra);
+        assert_eq!(cache.len(), MAX_HEALTH_PROJECTIONS);
     }
 }

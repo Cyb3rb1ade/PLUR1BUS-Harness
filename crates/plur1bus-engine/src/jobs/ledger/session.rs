@@ -353,6 +353,22 @@ impl JobSession {
             )
         })
     }
+    /// Take back the start marker of a run whose admission did not complete (RE-D164): the
+    /// marker carries this run's unique ID, so no other run can race for it. Without a
+    /// written marker nothing is done and no writer lease is waited for.
+    pub fn retract(&self, marker: &Json, cancel: &Cancel) -> Result<(), EngineError> {
+        let (id, _) = super::prepare_marker(marker)?;
+        let Some(dir) = self.ledger.existing()? else {
+            return Ok(());
+        };
+        let Some(running) = io::child(&dir, "running")? else {
+            return Ok(());
+        };
+        if io::read(&running, &format!("{id}.started"), MAX_RECORD, cancel)?.is_none() {
+            return Ok(());
+        }
+        self.ledger.remove_marker(&id, cancel)
+    }
     /// Read this selected agent's bounded raw metadata while retaining the lifecycle lease.
     pub fn snapshot(&self, cancel: &Cancel) -> Result<super::Snapshot, EngineError> {
         self.check(cancel)?;

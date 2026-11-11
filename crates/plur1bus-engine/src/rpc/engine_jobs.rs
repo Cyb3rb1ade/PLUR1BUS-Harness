@@ -31,9 +31,10 @@ use std::{
 const RECOVERY_INCOMPLETE: &str = "startup-recovery-incomplete";
 /// Status and run reason when the jobs root cannot be bound (not a trusted directory, replaced).
 const COMPOSITION_INVALID: &str = "composition-invalid";
-/// Run reason when the session start did not finish within its budget (for example another
-/// process holds the agent's session lease). Not a failure state; the next call retries.
-const SESSION_BUSY: &str = "job-session-busy";
+// Run reason when the session start or the admission did not finish within its budget (for
+// example another process holds the agent's session lease). Not a failure state; the next call
+// retries. Never reported once a body began (RE-D164).
+use crate::jobs::registry::SESSION_BUSY;
 /// Budget of one session start when the caller has no earlier deadline. The library's
 /// comparable bounded lock waits are 5 s: `store/tombstone.rs` `LOCK_TIMEOUT`,
 /// `store/sqlite.rs` `BUSY_TIMEOUT` and the registry's settle budget in `jobs/registry.rs`.
@@ -92,6 +93,9 @@ pub(super) struct ProcessJobs {
     closed: AtomicBool,
     #[cfg(test)]
     prepare_fault: Mutex<Option<Fault>>,
+    /// A fixture body and settle budget, installed when the registry is bound (test only).
+    #[cfg(test)]
+    fixture: Mutex<Option<(Arc<dyn JobBody>, Duration)>>,
 }
 
 impl ProcessJobs {
@@ -112,7 +116,23 @@ impl ProcessJobs {
             closed: AtomicBool::new(false),
             #[cfg(test)]
             prepare_fault: Mutex::new(None),
+            #[cfg(test)]
+            fixture: Mutex::new(None),
         }
+    }
+
+    /// Install a fixture body and a settle budget before the first run (test only).
+    #[cfg(test)]
+    pub(super) fn set_fixture_body(&self, body: Arc<dyn JobBody>, settle: Duration) {
+        *self.fixture.lock().unwrap_or_else(PoisonError::into_inner) = Some((body, settle));
+    }
+
+    #[cfg(test)]
+    fn fixture(&self) -> Option<(Arc<dyn JobBody>, Duration)> {
+        self.fixture
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
     }
 
     /// Run a fault inside the session start (test only).
@@ -150,6 +170,10 @@ impl ProcessJobs {
 
     /// Whether a native body is installed for this job in this composition.
     fn installed(&self, job: JobName) -> bool {
+        #[cfg(test)]
+        if self.fixture().is_some_and(|(body, _)| body.name() == job) {
+            return true;
+        }
         job == JobName::EmbeddingDrain && !self.neo_enabled
     }
 
@@ -212,6 +236,11 @@ impl ProcessJobs {
                 )),
             )
         })();
+        #[cfg(test)]
+        let bound = bound.map(|registry| match self.fixture() {
+            Some((_, settle)) => registry.with_settle_budget(settle),
+            None => registry,
+        });
         let registry = match bound {
             Ok(registry) => Arc::new(registry),
             Err(_) => {
@@ -220,8 +249,12 @@ impl ProcessJobs {
                 return Err(unavailable(COMPOSITION_INVALID));
             }
         };
-        if self.installed(JobName::EmbeddingDrain) {
+        if !self.neo_enabled {
             registry.bind(Arc::new(NeoDisabledDrain))?;
+        }
+        #[cfg(test)]
+        if let Some((body, _)) = self.fixture() {
+            registry.bind(body)?;
         }
         self.invalid.store(false, Ordering::Release);
         *slot = Some(registry.clone());
@@ -403,10 +436,21 @@ impl JobRegistry for ProcessJobs {
         // The admission window (slot, start marker with its ledger writer lease) has the same
         // budget as the session start; the body keeps the caller's token (RE-D164).
         let admit = budgeted(cancel);
+        // The registry answers `job-session-busy` only for its admission phase. A run whose
+        // body has begun keeps the registry's own error (it stays started: its marker is
+        // recorded at the next session start), never "not started" (RE-D164, review I1).
         self.watched(cancel, &admit, || {
             registry.run_admitted(job, agent, &opts, cancel, &admit)
         })
-        .map_err(|error| self.interrupted(&error, cancel).unwrap_or(error))
+        .map_err(|error| match error {
+            EngineError::NotAvailable { reason }
+                if reason == SESSION_BUSY
+                    && (self.closed.load(Ordering::Acquire) || self.shutdown.is_cancelled()) =>
+            {
+                unavailable("closed")
+            }
+            error => error,
+        })
     }
     fn history(&self, agent: &AgentId, filter: HistoryFilter) -> Result<Vec<JobRun>, EngineError> {
         match self.registry(false)? {

@@ -2471,7 +2471,7 @@ another owner wait here because of this owner's retained work.
 | WAL acknowledgements (`settle`, `keep_partial`) | the agent's WAL lease | five seconds | no; a write step on the agent's WAL file |
 | Turn, fragment compactor note (RE-D161) | the compactor's counters and queue (two short in-memory locks) | none needed: no I/O under them | no |
 | Compactor worker, fragment count (RE-D161) | opening its own store handle and the stats read | five seconds for both, shutdown | no; never the pool handle of capture or recall |
-| Compactor worker, optimize (RE-D161) | its own store handle: compact, prune, index; retry pauses | `runtime.lancedbCompaction.timeoutMs` (at least ten seconds per attempt), shutdown | no; other agents' checks wait behind it, as in the pin's one chain; turns and recall never |
+| Compactor worker, optimize (RE-D161) | opening its own store handle (on a bounded thread, as the count), then compact, prune, index; retry pauses | `runtime.lancedbCompaction.timeoutMs` for the open and the steps together (at least ten seconds per attempt), shutdown | no; other agents' checks wait behind it, as in the pin's one chain; turns and recall never |
 | Close | queue, turns, attempts, pass, outstanding host lookups, compactor worker | close budget | - |
 
 Neo attempt counts. A binding's attempt count
@@ -2744,7 +2744,21 @@ path, and consolidate-daily's own optimize belongs to the job work (RE-06).
   a closed connection or shutdown (`Registry::run_admitted`); expiry answers
   `job-session-busy`. The body and its 5 s settle keep the caller's token. Every
   holder of an agent's slot is therefore bounded, so the blocking slot lock in
-  the run guard's drop is bounded as well.
+  the run guard's drop is bounded as well. In total a `jobs.run` waits at most
+  about two budgets (≈ 10 s) before `job-session-busy`: a session start of its
+  own (5 s) and then its admission (5 s). A slot another call holds is waited for
+  only once, in the admission; the session start does not wait for it.
+- `job-session-busy` means "not started": it is reported only for the admission
+  phase (slot, session start, start marker, snapshot), and only when the caller
+  did not cancel. Once a body began, the run is started: an unfinished settle
+  answers the registry's own error (`Cancelled`, the settle deadline), the start
+  marker stays, and the next session start records the run in the ledger as
+  `failed`/`crash` (`jobs/metadata.rs` `recovery_plan`). A next `jobs.run` is a new
+  run under the registry's rules (singleton and breaker checks only).
+- A marker written when the admission budget ends right after it (or when the
+  snapshot read fails) is taken back in the same path (`JobSession::retract`):
+  it carries the run's unique ID, so nothing else can race for it. Without a
+  written marker the retraction waits for no lease.
 - The watcher of a budgeted wait ends on every exit of the wait, also a panic
   (drop guard), so its thread scope never waits for it.
 - `history` reads the ledger directly while the slot is held; a read that
@@ -2752,18 +2766,27 @@ path, and consolidate-daily's own optimize belongs to the job work (RE-06).
   retried at most three times, 5 ms apart, within 250 ms, then answers as before.
   The overlap is reachable: the direct read happens exactly while a run of the
   same agent holds the slot to append its row.
-- Per-agent bounds: a registry keeps at most 256 idle agent slots (each a started
-  session with directory handle and lease; same bound as the shared emotion
-  engines); the least recently used idle slot is released, a slot in use never.
-  A health cache keeps at most 1024 ledger projections (the compactor's
-  tracked-agent bound), least recently used first. A failed session start keeps
+- Per-agent bounds: a registry keeps at most 32 idle agent slots; the least
+  recently used idle slot is released, a slot in use never. Each started session
+  holds at least two file descriptors (agent directory, lease file); a process
+  started by launchd on macOS has a soft limit of 256 descriptors
+  (`launchctl limit maxfiles`), shared with the store pools, sockets and Lance
+  handles, so 32 sessions use at most a quarter. More agents in turn only cost a
+  new session start (orphan recovery) per run. A health cache keeps at most 1024
+  ledger projections (the compactor's tracked-agent bound), least recently used
+  first; projections hold no descriptor. A failed session start keeps
   `_jobs/<agent>/` and its lease file: removing them could race a parallel start
   in another process that holds or waits for the same lease file, so they stay
   (empty directory, empty lock file).
 - Status reads: `_schema.json` is opened only as a regular file, without
   following a final link and without blocking on a FIFO or device, and read up to
   64 KiB (`store::schema_version::read_marker_text`, also used by every store
-  open); anything else is `Corrupt`, so status reports `schema-unsupported/store`.
+  open). A FIFO or device opens without blocking and is then refused by its
+  descriptor type (`Corrupt`), as is a larger file; a symlink is refused before
+  opening (`assert_trusted_path`: `UntrustedPath`; one swapped in later fails the
+  `O_NOFOLLOW` open: `Io`); a socket cannot be opened (`ENXIO`: `Io`). Every one
+  of these makes the store open fail too, so status reports
+  `schema-unsupported/store` for all of them.
   A health read skips a ledger that is not a regular file (`ledger:
   "unavailable"`) and never holds the cache lock while it reads, so a slow ledger
   never holds another status caller.

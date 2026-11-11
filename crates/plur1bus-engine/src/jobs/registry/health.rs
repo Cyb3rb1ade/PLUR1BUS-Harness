@@ -66,6 +66,7 @@ pub struct HealthCache {
 }
 impl HealthCache {
     /// Number of projections currently kept.
+    #[cfg(any(test, feature = "testkit"))]
     pub fn len(&self) -> usize {
         self.entries
             .lock()
@@ -73,6 +74,7 @@ impl HealthCache {
             .len()
     }
     /// Whether no projection is kept.
+    #[cfg(any(test, feature = "testkit"))]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -137,6 +139,7 @@ impl Registry {
     }
 
     /// Number of ledger projections this registry's health cache keeps.
+    #[cfg(any(test, feature = "testkit"))]
     pub fn cached_projections(&self) -> usize {
         self.inflight.cache.len()
     }

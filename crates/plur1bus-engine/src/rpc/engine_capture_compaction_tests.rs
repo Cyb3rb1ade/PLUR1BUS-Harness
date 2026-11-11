@@ -285,3 +285,66 @@ fn compaction_merges_capture_fragments_without_losing_rows() {
     assert_eq!(rows(root, "agent").len(), 12);
     engine.close(None).unwrap();
 }
+
+/// Block the compactor's own opens of tables below `root` in `mode` until released.
+fn hang_opens(root: &Path, mode: OpenMode) -> Arc<testkit::FixtureGate> {
+    let gate = Arc::new(testkit::FixtureGate::default());
+    let hook = gate.clone();
+    crate::store::fragment_compactor::hook_opens(
+        root.to_path_buf(),
+        mode,
+        Arc::new(move || hook.block()),
+    );
+    gate
+}
+
+#[test]
+fn a_hanging_count_open_goes_through_the_bounded_wait_and_never_holds_close() {
+    let scratch = scratch();
+    let root = scratch.path();
+    let gate = hang_opens(root, OpenMode::ReadOnly);
+    let engine = engine_with(root, &every_write(), None);
+    assert_eq!(capture(&engine, turn("agent", "run-1"))["stored"], 2);
+    // The worker's count opens the table on its bounded thread, which now hangs.
+    assert!(gate.wait_entered(Duration::from_secs(20)));
+    let started = std::time::Instant::now();
+    let closed = engine.close(Some(Duration::from_secs(5)));
+    let elapsed = started.elapsed();
+    gate.release();
+    crate::store::fragment_compactor::clear_open_hooks(root);
+    // The wait ends with the shutdown signal: the worker is done, nothing is left running.
+    assert!(closed.is_ok(), "{closed:?}");
+    assert!(elapsed < Duration::from_secs(5), "{elapsed:?}");
+}
+
+#[test]
+fn a_hanging_optimize_open_goes_through_the_bounded_wait_and_never_holds_close() {
+    let scratch = scratch();
+    let root = scratch.path();
+    // Grow the table past the threshold with compaction off, as the real-table test does.
+    let mut off = every_write();
+    off["enabled"] = json!(false);
+    let engine = engine_with(root, &off, None);
+    for index in 0..5 {
+        assert_eq!(
+            capture(&engine, turn("agent", &format!("run-off-{index}")))["stored"],
+            2
+        );
+    }
+    engine.close(None).unwrap();
+    assert!(fragments(root, "agent") >= 8);
+    // The real count passes; the optimize step's own open hangs.
+    let gate = hang_opens(root, OpenMode::ReadWrite);
+    let engine = engine_with(root, &every_write(), None);
+    assert_eq!(capture(&engine, turn("agent", "run-on"))["stored"], 2);
+    assert!(gate.wait_entered(Duration::from_secs(20)));
+    let started = std::time::Instant::now();
+    let closed = engine.close(Some(Duration::from_secs(5)));
+    let elapsed = started.elapsed();
+    gate.release();
+    crate::store::fragment_compactor::clear_open_hooks(root);
+    assert!(closed.is_ok(), "{closed:?}");
+    assert!(elapsed < Duration::from_secs(5), "{elapsed:?}");
+    // Nothing was compacted: the open never returned in time.
+    assert!(fragments(root, "agent") >= 8);
+}

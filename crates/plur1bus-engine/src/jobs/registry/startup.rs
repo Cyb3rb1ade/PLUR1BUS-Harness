@@ -32,6 +32,7 @@ impl Registry {
         Ok(self)
     }
     /// Number of agent slots (each may hold a started session with its lease) currently kept.
+    #[cfg(any(test, feature = "testkit"))]
     pub fn open_sessions(&self) -> usize {
         self.agents
             .lock()
@@ -41,9 +42,17 @@ impl Registry {
     /// Start this agent's session ahead of its first run: orphan recovery and the configured
     /// legacy migration, under the caller's cancellation (a host binds it to its shutdown).
     /// Idempotent; a failure leaves the agent unadmitted and the next call retries.
+    /// A slot held by another call (a run in its admission or settle) is not waited for here:
+    /// the run's own admission waits for it under its budget, so one call never waits for the
+    /// same holder twice (RE-D164).
     pub fn prepare(&self, agent: &AgentId, cancel: &Cancel) -> Result<(), EngineError> {
+        cancel.check()?;
         let slot = self.slot(agent)?;
-        let mut state = lock(&slot, cancel)?;
+        let mut state = match slot.try_lock() {
+            Ok(state) => state,
+            Err(std::sync::TryLockError::WouldBlock) => return Ok(()),
+            Err(std::sync::TryLockError::Poisoned(_)) => return Err(StoreError::Corrupt.into()),
+        };
         if state.is_none() {
             let session = self.start_session(agent, cancel)?;
             *state = Some(AgentState {

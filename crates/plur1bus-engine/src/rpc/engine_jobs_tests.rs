@@ -520,13 +520,16 @@ fn marker_admission_is_bounded_and_history_reads_real_lines_meanwhile() {
     });
     let listed = listed.recv_timeout(Duration::from_secs(1));
     assert!(matches!(listed, Ok(Ok(1))), "{listed:?}");
+    // Every run waits one admission budget (5 s, wall-clock deadline), all in parallel. The
+    // limit lies below two budgets (10 s), so a run that waited twice fails; the 4 s margin
+    // over one budget covers scheduling delay under load, not extra waiting.
+    let limit = started + Duration::from_secs(9);
     for _ in 0..8 {
-        let result = finished.recv_timeout(Duration::from_secs(20));
-        assert!(result.is_ok(), "an admission waited without bound");
+        let left = limit.saturating_duration_since(Instant::now());
+        let result = finished.recv_timeout(left);
+        assert!(result.is_ok(), "an admission waited longer than one budget");
         refused(result.unwrap(), "job-session-busy");
     }
-    // Eight bounded budgets in parallel, generous against foreign load.
-    assert!(started.elapsed() < Duration::from_secs(20));
     for worker in workers {
         worker.join().unwrap();
     }
@@ -708,4 +711,109 @@ fn the_status_priority_table_puts_the_schema_after_composition_invalid() {
     fs::write(base.join("_schema.json"), br#"{"schemaVersion":"2"}"#).unwrap();
     assert_eq!(engine.models().status().embedder.state, ModelState::Loading);
     assert_eq!(status(&engine)["degraded"]["reason"], "schema-unsupported");
+}
+
+/// A fixture body with a visible effect: it counts its runs and, on its first run, takes the
+/// agent's ledger writer lease and keeps it, so the run's settle cannot finish.
+struct Effect {
+    runs: std::sync::atomic::AtomicUsize,
+    dir: std::path::PathBuf,
+    held: Mutex<Option<crate::store::kernel_lease::KernelLease>>,
+}
+impl crate::jobs::registry::JobBody for Effect {
+    fn name(&self) -> JobName {
+        JobName::GcRun
+    }
+    fn run(
+        &self,
+        _context: &crate::jobs::registry::JobContext,
+        _cancel: &Cancel,
+    ) -> Result<crate::jobs::registry::JobReport, EngineError> {
+        if self.runs.fetch_add(1, Ordering::SeqCst) == 0 {
+            *self.held.lock().unwrap() = Some(hold(&self.dir, "job-ledger-writer"));
+        }
+        Ok(crate::jobs::registry::JobReport::completed())
+    }
+}
+
+fn gc(engine: &ProcessEngine) -> Result<JobRun, EngineError> {
+    engine.jobs().run(
+        JobName::GcRun,
+        &alpha(),
+        options("manual"),
+        &Cancel::never(),
+    )
+}
+
+#[test]
+fn a_run_whose_body_ran_is_reported_as_started_never_as_busy() {
+    let temp = scratch();
+    let base = temp.path().join("db");
+    let agent_dir = base.join("_jobs/alpha");
+    let body = Arc::new(Effect {
+        runs: std::sync::atomic::AtomicUsize::new(0),
+        dir: agent_dir.clone(),
+        held: Mutex::new(None),
+    });
+    let (_host, engine) = engine(temp.path(), false);
+    engine
+        .jobs
+        .set_fixture_body(body.clone(), Duration::from_millis(200));
+    // The body runs, then its settle cannot take the writer lease within its budget.
+    let first = gc(&engine);
+    assert_eq!(body.runs.load(Ordering::SeqCst), 1);
+    assert!(
+        matches!(first, Err(EngineError::Cancelled(_))),
+        "a run whose body ran must not answer busy: {first:?}"
+    );
+    // The run stays started: its marker remains for the next session start.
+    let markers: Vec<String> = fs::read_dir(agent_dir.join("running"))
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+        .collect();
+    assert_eq!(markers.len(), 1, "{markers:?}");
+    let first_id = markers[0].strip_suffix(".started").unwrap().to_owned();
+    *body.held.lock().unwrap() = None;
+    // The registry's rule for the next call: a new run is admitted and runs its body.
+    let second = gc(&engine).unwrap();
+    assert_eq!(body.runs.load(Ordering::SeqCst), 2);
+    assert_ne!(second.run_id, first_id);
+    engine.close(None).unwrap();
+    // The next session start records the started run in the ledger as failed/crash.
+    let (_host, again) = self::engine(temp.path(), false);
+    again
+        .jobs
+        .set_fixture_body(body.clone(), Duration::from_millis(200));
+    gc(&again).unwrap();
+    let rows = again
+        .jobs()
+        .history(&alpha(), serde_json::from_value(json!({})).unwrap())
+        .unwrap();
+    let recovered = rows.iter().find(|run| run.run_id == first_id);
+    assert!(recovered.is_some(), "the started run is in the ledger");
+    let recovered = recovered.unwrap();
+    let wire = serde_json::to_value(recovered).unwrap();
+    assert_eq!(wire["outcome"], "failed", "{wire}");
+    assert_eq!(wire["reason"], "crash", "{wire}");
+    again.close(None).unwrap();
+}
+
+#[test]
+fn the_budget_ending_right_after_the_marker_leaves_no_orphan_and_answers_busy() {
+    // An admission that cannot take the writer lease within its budget writes no marker and
+    // leaves none behind; the run is not started (busy) and the next one is admitted.
+    let temp = scratch();
+    let base = temp.path().join("db");
+    let (_host, engine) = engine(temp.path(), false);
+    drain(&engine, &alpha(), &Cancel::never()).unwrap();
+    let lease = hold(&base.join("_jobs/alpha"), "job-ledger-writer");
+    refused(
+        drain(&engine, &alpha(), &Cancel::never()),
+        "job-session-busy",
+    );
+    let running = base.join("_jobs/alpha/running");
+    assert!(!running.exists() || fs::read_dir(&running).unwrap().next().is_none());
+    drop(lease);
+    drain(&engine, &alpha(), &Cancel::never()).unwrap();
+    engine.close(None).unwrap();
 }
