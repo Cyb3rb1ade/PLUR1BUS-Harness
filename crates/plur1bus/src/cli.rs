@@ -2147,6 +2147,8 @@ pub enum ExtCmd {
 #[derive(Subcommand, Debug)]
 pub enum CoreCmd {
     /// [experimental] Run the core in the foreground (the supervisor's spawn target)
+    ///
+    /// With the Node engine (the default) this execs the core as it always did, but refuses to start (`E_CORE_UNAVAILABLE`, reason `engine-lock-held`) while a Rust engine still holds `run/engine.process.lock`. With `engine.implementation: "rust"` it stays as a wrapper: it starts `plur1bus-engine` (`PLUR1BUS_ENGINE_BIN`, else beside this executable) without waiting for it, then the core; it forwards SIGTERM and SIGHUP to the core (Ctrl-C reaches the core from the terminal, not the engine); when the core has ended it stops the engine (`engine.shutdown`, then SIGTERM, killed after 5 s) and exits with the core's exit code. A missing engine binary or an engine that ends early costs one line on stderr; the core keeps running and reports `engine-unavailable`, and nothing restarts the engine. The engine lives exactly as long as the core: a changed configuration reaches it at the next `core run`.
     Run,
     /// Inspect the already-connected pipe inherited as stdin, before Node sends any credentials.
     #[command(name = "__pipe-server-pid", hide = true)]

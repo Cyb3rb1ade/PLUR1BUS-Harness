@@ -1293,22 +1293,6 @@ fn start_engine(shared: &Arc<Shared>, layout: &Layout, monitors: &mut Monitors) 
     }
 }
 
-/// Whether another process holds `run/engine.process.lock`, the OS lock every running Rust engine holds (and
-/// `backup restore` fences): an exclusive try-lock that fails with "would block". No file, or a free one: `false`.
-fn engine_lock_held(layout: &Layout) -> bool {
-    let mut options = fs::OpenOptions::new();
-    options.read(true).write(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC);
-    }
-    let Ok(file) = options.open(layout.run().join("engine.process.lock")) else {
-        return false;
-    };
-    matches!(file.try_lock(), Err(fs::TryLockError::WouldBlock))
-}
-
 /// B3: with the Node engine selected, the core must not start beside a Rust engine that still writes the home (one
 /// left by a killed supervisor after an offline switch to `node`). Returns whether the core may start. A free or
 /// missing `run/engine.process.lock` (the normal case) costs one try-lock and nothing else. A held one: an engine whose
@@ -1321,7 +1305,7 @@ fn engine_lock_gate(shared: &Arc<Shared>, layout: &Layout, token: &str) -> bool 
         .ok()
         .and_then(|config| crate::engine_process::selected(&config).ok())
         == Some(false);
-    if !node || !engine_lock_held(layout) {
+    if !node || !crate::engine_process::lock_held(layout) {
         return true;
     }
     let role = Role::engine();
@@ -1361,7 +1345,7 @@ fn engine_lock_gate(shared: &Arc<Shared>, layout: &Layout, token: &str) -> bool 
     let deadline =
         Instant::now() + Duration::from_millis(grace_ms).mul_f64(scale) + ENGINE_LOCK_MARGIN;
     loop {
-        if !engine_lock_held(layout) {
+        if !crate::engine_process::lock_held(layout) {
             shared
                 .log
                 .info("engine lock released; starting the core", json!({}));

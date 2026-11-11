@@ -28,6 +28,8 @@
 // FAKE_ENGINE_LATER_MODE (with PLUR1BUS_ALLOW_TEST_INTERNALS=1): the mode of every engine of a home but the first.
 // FAKE_ENGINE_STATUS (JSON) is merged over engine.status's top-level members.
 // FAKE_ENGINE_GRACE_MS: the orphan grace after the lifeline is lost (default 1000).
+// FAKE_ENGINE_IGNORE_SIGTERM=1: SIGTERM is caught and does nothing (event `sigterm`), so only a kill ends a hung fake.
+// Once it listens it writes the real engine's ready line `{"ready":true,"address","pid"}` to stdout.
 // Every event (started, os-lock, listening, shutdown, orphaned, adopted, exiting) is appended as one JSON line to
 // $FAKE_ENGINE_EVENTS with `role: "engine"`.
 import { spawn } from "node:child_process";
@@ -72,7 +74,8 @@ function exit(code) {
   process.exit(code);
 }
 
-event("started", { mode, lifeline: values.lifeline ?? null, testInternals: values["test-internals"] ?? null, home, cwd: process.cwd() });
+event("started", { mode, lifeline: values.lifeline ?? null, testInternals: values["test-internals"] ?? null, home, cwd: process.cwd(), execPath: process.execPath });
+if (process.env.FAKE_ENGINE_IGNORE_SIGTERM === "1") process.on("SIGTERM", () => event("sigterm"));
 process.stderr.write(`fake-engine stderr marker pid=${process.pid}\n`);
 if (kind === "exit") exit(Number(a));
 
@@ -238,6 +241,8 @@ writeFileSync(path.join(run, "engine.token"), token, { mode: 0o600 });
 writeFileSync(path.join(run, "engine.pid"), `${process.pid} ${instanceId}\n`, { mode: 0o600 });
 server.listen(address, () => {
   event("listening");
+  // The ready line on stdout, as the real engine writes it (`core run` must keep it off its own stdout).
+  process.stdout.write(JSON.stringify({ ready: true, address, pid: process.pid }) + "\n");
   if (kind === "crash-after") setTimeout(() => exit(1), Number(a));
 });
 

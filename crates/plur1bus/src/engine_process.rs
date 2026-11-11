@@ -26,6 +26,23 @@ pub(crate) fn configured_spec(
     spec(layout, instance).map(Some)
 }
 
+/// Whether another process holds `run/engine.process.lock`, the OS lock every running Rust engine holds (and `backup
+/// restore` fences): an exclusive try-lock that fails with "would block". No file, or a free one: `false`. Shared by
+/// the supervisor's B3 gate and `core run` with the Node engine (RE-D173, Nachtrag 8).
+pub(crate) fn lock_held(layout: &Layout) -> bool {
+    let mut options = std::fs::OpenOptions::new();
+    options.read(true).write(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC);
+    }
+    let Ok(file) = options.open(layout.run().join("engine.process.lock")) else {
+        return false;
+    };
+    matches!(file.try_lock(), Err(std::fs::TryLockError::WouldBlock))
+}
+
 fn executable_path(
     current: Option<&Path>,
     override_path: Option<&OsStr>,

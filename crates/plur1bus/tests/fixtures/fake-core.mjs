@@ -100,6 +100,13 @@ try {
 globalThis.fakeCoreLock = lock;
 process.on("exit", () => { try { globalThis.fakeCoreLock.close(); } catch { /* already closed */ } });
 if (process.env.FAKE_CORE_IGNORE_SIGTERM === "1") process.on("SIGTERM", () => {});
+// FAKE_CORE_SIGNAL_EVENTS=1 (`core run` tests): SIGINT only records event `sigint`; SIGTERM and SIGHUP record `sigterm`
+// / `sighup` and exit 0, so the order of the core's end and the engine's stop is visible in the events.
+if (process.env.FAKE_CORE_SIGNAL_EVENTS === "1") {
+  process.on("SIGINT", () => event("sigint"));
+  process.on("SIGTERM", () => { event("sigterm"); exit(0); });
+  process.on("SIGHUP", () => { event("sighup"); exit(0); });
+}
 // Started with --expose-gc (the tests' hand-started cores): collect garbage often, so a lock that is only weakly
 // held is lost at once instead of whenever V8 gets to it.
 if (typeof globalThis.gc === "function") setInterval(() => globalThis.gc(), 50).unref();
@@ -391,6 +398,8 @@ if (kind !== "no-listen") {
   writeFileSync(path.join(run, "core.pid"), `${process.pid} ${instanceId}\n`, { mode: 0o600 });
   const listen = () => server.listen(address, () => {
     event("listening");
+    // FAKE_CORE_READY_LINE=1: the real core's ready line on stdout (`core run` tests read it there).
+    if (process.env.FAKE_CORE_READY_LINE === "1") process.stdout.write(JSON.stringify({ ready: true, address, pid: process.pid }) + "\n");
     secureRunFiles();
     if (process.env.FAKE_CORE_LEGACY === "1") startLegacy();
     // From the moment it reports ready: securing run/ takes a second or more on a Windows runner, and a core that

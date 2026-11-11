@@ -427,7 +427,23 @@ PLUR1BUS_CORE_JS=packages/core/dist/core.js cargo run -p plur1bus -- core run --
 
 `core run` execs Node on `dist/core.js --home <path>` and prints `{"ready":true,"address":...,"pid":...}`
 on success once the RPC server is listening. This stays the developer path for running the core with
-no supervisor at all (ADR-012 §8).
+no supervisor at all (ADR-012 §8). With the default Node engine it refuses to start (`E_CORE_UNAVAILABLE`,
+reason `engine-lock-held`) while a Rust engine still holds `run/engine.process.lock`; no lock file or a free one
+changes nothing.
+
+With `engine.implementation: "rust"` `core run` does not exec (RE-D173, controller ruling F2: the process ownership
+lives in Rust, in `crates/plur1bus/src/engine_owner.rs`; there is no `packages/core` `spawn.ts` and no `bin.ts`
+forwarding). It stays as a wrapper: it starts `plur1bus-engine serve --home <home> --lifeline stdin --instance <uuid>`
+(`PLUR1BUS_ENGINE_BIN`, else beside the `plur1bus` executable; no `<home>/runtime/bin` fallback yet) without waiting
+for it, then the core with inherited stdio. The engine runs in its own process group, holds the wrapper's pipe as its
+lifeline, and its stdout (its own ready line) goes to the wrapper's stderr, so the first stdout line stays the core's.
+SIGTERM and SIGHUP are forwarded to the core; Ctrl-C reaches the core from the terminal and leaves the wrapper in
+place. When the core has ended the wrapper stops the engine (`engine.shutdown` with `run/engine.token`, SIGTERM when
+that is not delivered, killed 5 s after the stop began) and exits with the core's code. A missing engine binary or an
+engine that ends early costs one line on stderr: the core keeps running degraded (`engine-unavailable`), and nothing
+restarts the engine (the supervisor does). The engine lives exactly as long as the core, so a changed configuration
+reaches it at the next `core run`. On macOS a wrapper killed with SIGKILL leaves the core and the engine running; the
+engine ends after its orphan grace once its stdin closes (Linux: parent-death signal; Windows: a kill-on-close job).
 
 `engine.implementation` selects `node` (default) or the experimental `rust` RPC client and requires a Core restart.
 RE-08 T2/U1 implements `plur1bus-engine serve --home <home>` as a separate authenticated process. It accepts the same
@@ -437,8 +453,8 @@ status counters and the served and still unavailable compositions are documented
 `job-authority-unbound`) are served; with a store base the status comes from the pin's reporter (journal backlog, job
 ledger health, schema marker) and is `ready: true` unless closed, capture is not served, the jobs root cannot be
 bound or the schema marker is unsupported (RE-D157/RE-D158/RE-D160);
-without a base it stays `composition-pending`. T4/U2 still owns supervisor startup
-and `core run` spawning. While the engine endpoint is unavailable the Core keeps serving and recall returns
+without a base it stays `composition-pending`. The supervisor's `engine` slot (RE-D172) and `core run` (RE-D173,
+above) start and stop it. While the engine endpoint is unavailable the Core keeps serving and recall returns
 `E_NOT_AVAILABLE` with reason `engine-unavailable`; an operation whose composition is incomplete reports
 `composition-pending`. The default remains Node.
 
