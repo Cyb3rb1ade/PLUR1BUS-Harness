@@ -424,3 +424,211 @@ fn a_panicking_recovery_pass_never_blocks_the_runtime() {
     assert_eq!(worker.sweeps.load(Ordering::Acquire), 2);
     assert!(runtime.close(Duration::from_secs(5)));
 }
+
+/// Workspace lookups for agent `agent` take `delay`; with `gated` each one also waits for a
+/// permit. Counts the lookups that reached the host and how many were inside it at once.
+struct Paced {
+    inner: Arc<FakeHost>,
+    delay: Duration,
+    gated: bool,
+    permits: Mutex<usize>,
+    entered: std::sync::atomic::AtomicUsize,
+    inside: std::sync::atomic::AtomicUsize,
+    peak: std::sync::atomic::AtomicUsize,
+}
+
+impl Paced {
+    fn new(root: &std::path::Path, delay: Duration, gated: bool) -> Arc<Self> {
+        Arc::new(Self {
+            inner: Arc::new(FakeHost::new(
+                root.to_owned(),
+                serde_json::from_value(json!({})).unwrap(),
+            )),
+            delay,
+            gated,
+            permits: Mutex::new(0),
+            entered: std::sync::atomic::AtomicUsize::new(0),
+            inside: std::sync::atomic::AtomicUsize::new(0),
+            peak: std::sync::atomic::AtomicUsize::new(0),
+        })
+    }
+    fn permit(&self) {
+        *lock(&self.permits) += 1;
+    }
+}
+
+impl HostServices for Paced {
+    fn state_dir(&self) -> &std::path::Path {
+        self.inner.state_dir()
+    }
+    fn config(&self) -> crate::contract::EngineConfig {
+        self.inner.config()
+    }
+    fn workspace_dir(
+        &self,
+        agent: &crate::contract::AgentId,
+    ) -> Result<Option<std::path::PathBuf>, HostError> {
+        if agent.as_str() == "agent" {
+            let inside = self.inside.fetch_add(1, Ordering::AcqRel) + 1;
+            self.peak.fetch_max(inside, Ordering::AcqRel);
+            self.entered.fetch_add(1, Ordering::AcqRel);
+            if self.gated {
+                loop {
+                    let mut permits = lock(&self.permits);
+                    if *permits > 0 {
+                        *permits -= 1;
+                        break;
+                    }
+                    drop(permits);
+                    thread::sleep(Duration::from_millis(2));
+                }
+            }
+            thread::sleep(self.delay);
+            self.inside.fetch_sub(1, Ordering::AcqRel);
+        }
+        self.inner.workspace_dir(agent)
+    }
+    fn llm(&self) -> Option<&dyn crate::contract::LlmPort> {
+        self.inner.llm()
+    }
+    fn secrets(&self) -> Option<&dyn crate::contract::SecretPort> {
+        self.inner.secrets()
+    }
+    fn egress(&self) -> &dyn crate::contract::EgressGate {
+        self.inner.egress()
+    }
+    fn emit(&self, event: &str, payload: serde_json::Value) {
+        self.inner.emit(event, payload);
+    }
+    fn now_ms(&self) -> i64 {
+        self.inner.now_ms()
+    }
+    fn platform(&self) -> &crate::contract::PlatformCapabilities {
+        self.inner.platform()
+    }
+    fn journal_backlog(&self) -> Option<crate::contract::JournalBacklog> {
+        self.inner.journal_backlog()
+    }
+}
+
+fn runtime_on(root: &std::path::Path, host: Arc<dyn HostServices>) -> CaptureRuntime {
+    let queue = Arc::new(
+        CaptureQueue::new(
+            RuntimeConfig::from_value(&json!({"pressureGateEnabled":false})),
+            Arc::new(PressureSnapshot::disabled),
+        )
+        .unwrap(),
+    );
+    let replay = ReplayGuard::durable(root.join("replay"), Arc::new(|| 0)).unwrap();
+    CaptureRuntime::new(host, Arc::new(NoRows), queue, replay, false).unwrap()
+}
+
+fn owner_turn(owner: &str, run: &str) -> TurnRecord {
+    let mut value = serde_json::to_value(turn()).unwrap();
+    value["principal"]["user"] = json!(crate::context::harness_user_principal(owner));
+    value["principal"]["trust"] = json!("proved");
+    value["runId"] = json!(run);
+    serde_json::from_value(value).unwrap()
+}
+
+/// Poll a state the code under test reaches by itself; a hook, not a timing assumption.
+fn eventually(what: &str, mut reached: impl FnMut() -> bool) {
+    let end = Instant::now() + Duration::from_secs(30);
+    while !reached() {
+        assert!(Instant::now() < end, "{what}");
+        thread::sleep(Duration::from_millis(2));
+    }
+}
+
+/// RE-D163 / I1: a host that answers, but slowly, loses no turn. With two seconds per
+/// lookup, four turns of one agent sent together (two owners) are all captured: the third
+/// and fourth wait for a place instead of ending unanswered, and waiting takes no thread,
+/// so never more than two lookups are inside the host.
+#[test]
+fn a_slow_host_loses_no_turn_and_never_gets_more_than_two_lookups() {
+    let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
+    let host = Paced::new(root.path(), Duration::from_secs(2), false);
+    let runtime = runtime_on(root.path(), host.clone());
+    let handles = [
+        ("owner-a", "run-1"),
+        ("owner-a", "run-2"),
+        ("owner-b", "run-3"),
+        ("owner-b", "run-4"),
+    ]
+    .map(|(owner, run)| {
+        runtime
+            .accept(owner_turn(owner, run), CaptureOptions::default())
+            .unwrap()
+    });
+    for (index, handle) in handles.iter().enumerate() {
+        let result = handle.done.recv_timeout(Duration::from_secs(60)).unwrap();
+        assert_eq!(result.reason, None, "turn {index}");
+        assert!(runtime.0.calls.outstanding() <= crate::capture::retained::HOST_CALLS_PER_AGENT);
+    }
+    assert_eq!(host.entered.load(Ordering::Acquire), 4);
+    assert_eq!(host.peak.load(Ordering::Acquire), 2);
+    assert!(runtime.close(Duration::from_secs(5)));
+}
+
+/// RE-D163 / I2: a turn that waits for a place for its lookup keeps its place in its
+/// agent's order for one second at most, then its ticket is parked. A turn of the same
+/// agent whose identity is known is therefore not held up by an earlier one that still
+/// waits. Places are not handed out in order, so either turn may be the one that gets the
+/// freed place; whichever it is, it goes on while the other still waits.
+#[test]
+fn a_turn_waiting_for_a_lookup_place_parks_its_ticket() {
+    let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
+    let host = Paced::new(root.path(), Duration::ZERO, true);
+    let runtime = runtime_on(root.path(), host.clone());
+    let never = Cancel::never();
+    // A busy host: both places of the agent are taken by lookups that are still out.
+    let far = Instant::now() + Duration::from_secs(5);
+    let first = runtime.0.calls.begin("agent", &never, &never, far);
+    let second = runtime.0.calls.begin("agent", &never, &never, far);
+    assert_eq!(runtime.0.calls.outstanding(), 2);
+    let turns = [("owner-a", "run-1"), ("owner-b", "run-2")].map(|(owner, run)| {
+        runtime
+            .accept(owner_turn(owner, run), CaptureOptions::default())
+            .unwrap()
+    });
+    eventually("both turns wait for a place", || {
+        runtime.0.calls.waiting() == 2
+    });
+    // After the patience both have stepped aside, though neither has a lookup yet.
+    eventually("the waiting turns never parked their tickets", || {
+        lock(&runtime.0.admissions.agents).parked.len() == 2
+    });
+    assert_eq!(host.entered.load(Ordering::Acquire), 0);
+    // One place frees: one of the two gets it, and the host answers that one lookup.
+    drop(first);
+    eventually("no turn took the freed place", || {
+        host.entered.load(Ordering::Acquire) == 1
+    });
+    host.permit();
+    // The other turn takes the place that lookup gave back and waits in the host.
+    eventually("the other turn never got a place", || {
+        host.entered.load(Ordering::Acquire) == 2
+    });
+    // The turn whose identity is known goes on, whichever of the two it is.
+    let mut results = [None, None];
+    eventually("the turn with a known identity is held up", || {
+        for (result, turn) in results.iter_mut().zip(&turns) {
+            if result.is_none() {
+                *result = turn.done.try_recv().ok();
+            }
+        }
+        results.iter().any(Option::is_some)
+    });
+    let finished = results.iter().flatten().collect::<Vec<_>>();
+    assert_eq!(finished.len(), 1);
+    assert_eq!(finished[0].reason, None);
+    host.permit();
+    for (result, turn) in results.iter_mut().zip(&turns) {
+        let result = result
+            .take()
+            .unwrap_or_else(|| turn.done.recv_timeout(Duration::from_secs(30)).unwrap());
+        assert_eq!(result.reason, None);
+    }
+    drop(second);
+    assert!(runtime.close(Duration::from_secs(5)));
+}

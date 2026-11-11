@@ -21,13 +21,13 @@ use super::cancel_link::CancellationLinks;
 use super::queue::{CaptureQueue, QueueMeta};
 use super::replay_guard::{turn_key_of, ReplayGuard, ReplayRows};
 use super::result::counts;
-use super::retained::{Bounds, HostCalls, Place};
+use super::retained::{Bounds, HostCalls, PLACE_PATIENCE};
 
-/// How long an admitted turn keeps its place in its agent's order while the host has not
-/// answered its identity lookup, counted from the start of the lookup, which runs while the
-/// turn still waits in that order (RE-D163). After that the turn steps aside until the
-/// answer arrives: later turns of the agent pass, as at the pin, where the lookup holds no
-/// agent-wide order.
+/// How long an admitted turn keeps its place in its agent's order while it has no identity:
+/// while it waits for a place for its lookup and while the host has not answered. It is
+/// counted from the moment the turn begins to ask, which is before it waits in that order
+/// (RE-D163). After that the turn steps aside until the answer arrives: later turns of the
+/// agent pass, as at the pin, where the lookup holds no agent-wide order.
 const ADMISSION_PATIENCE: Duration = Duration::from_secs(1);
 /// How often retained input is checked against its age bound while the engine runs. The
 /// hour is the host's (RE-D163), as the age bound itself is.
@@ -122,7 +122,7 @@ struct Inner {
     shutdown: Cancel,
     pass: Arc<Pass>,
     owners: OwnerGate,
-    /// Bounds the threads that wait for a host answer: two per agent, 32 in all.
+    /// Bounds the threads that wait for a host answer: two per agent, 32 in this runtime.
     calls: Arc<HostCalls>,
 }
 
@@ -505,20 +505,32 @@ impl CaptureRuntime {
 /// An identity lookup in flight.
 struct Lookup {
     answer: mpsc::Receiver<Result<RequestContext, EngineError>>,
-    started: Instant,
+    /// When the turn began to ask, before it had a place.
+    asked: Instant,
+}
+
+/// How long a turn waits for a place for its identity lookup at most, counted from when it
+/// began to ask: its capture budget, never more than ten seconds, and always within its
+/// caller's own cancellation. Only after that does it end as unanswered.
+fn place_patience(inner: &Inner) -> Duration {
+    inner.queue.capture_timeout().min(PLACE_PATIENCE)
 }
 
 /// Resolve a turn's identity on its own thread, so that a host that never answers ends
 /// only the wait, never the waiter. Such threads are bounded (RE-D163): the thread holds
-/// one of its agent's two places, and one of the 32 of the process, until the host call
-/// returns. `None`: no lookup was started — the places are held by lookups the host is not
-/// answering, the turn was cancelled, the runtime is closing, or no thread could start.
-fn lookup(inner: &Inner, turn: &TurnRecord, cancel: &Cancel) -> Option<Lookup> {
-    let until = Instant::now() + inner.queue.capture_timeout();
+/// one of its agent's two places, and one of the 32 of the runtime, until the host call
+/// returns. The turn waits for a place until `until`, on the thread it already has.
+/// `None`: no lookup was started — no place by then, the turn was cancelled, the runtime
+/// is closing, or no thread could start.
+fn lookup(
+    inner: &Inner,
+    turn: &TurnRecord,
+    cancel: &Cancel,
+    asked: Instant,
+    until: Instant,
+) -> Option<Lookup> {
     let agent = turn.agent_id.as_str();
-    let Place::Granted(place) = inner.calls.begin(agent, cancel, &inner.shutdown, until) else {
-        return None;
-    };
+    let place = inner.calls.begin(agent, cancel, &inner.shutdown, until)?;
     let (send, answer) = mpsc::channel();
     let host = inner.host.clone();
     let (principal, agent) = (turn.principal.clone(), turn.agent.clone());
@@ -531,10 +543,7 @@ fn lookup(inner: &Inner, turn: &TurnRecord, cancel: &Cancel) -> Option<Lookup> {
             let _ = send.send(context);
         })
         .ok()?;
-    Some(Lookup {
-        answer,
-        started: Instant::now(),
-    })
+    Some(Lookup { answer, asked })
 }
 
 /// Wait for a lookup's answer until the caller's cancellation, the end of the runtime or
@@ -591,7 +600,8 @@ fn execute(
     if inner.worker.has_retained() || inner.owners.busy() {
         ticket.park();
         let mut own = OwnerTurn::enter(inner, ticket.id);
-        let Some(first) = lookup(inner, &turn, cancel) else {
+        let asked = Instant::now();
+        let Some(first) = lookup(inner, &turn, cancel, asked, asked + place_patience(inner)) else {
             return Ok(unanswered(inner, cancel));
         };
         match await_lookup(inner, &first, cancel, inner.queue.capture_timeout()) {
@@ -618,9 +628,33 @@ fn execute(
         staged = Some(own);
     }
     // The admission's own lookup starts before the turn waits for its place in its agent's
-    // order (RE-D163): the waits of turns in a row run side by side and do not add up.
-    let Some(admission) = lookup(inner, &turn, cancel) else {
-        return Ok(unanswered(inner, cancel));
+    // order (RE-D163): the waits of turns in a row run side by side and do not add up. A
+    // lookup needs one of the agent's places. Without one after the patience the turn steps
+    // aside as it does for a host that has not answered: it waits on for a place and then
+    // for the answer with its ticket parked, so it holds the agent's order for one second
+    // at most. Only a turn that got no place within the place patience ends unanswered.
+    let asked = Instant::now();
+    let patient = asked + ADMISSION_PATIENCE.min(place_patience(inner));
+    let mut known = None;
+    let admission = match lookup(inner, &turn, cancel, asked, patient) {
+        Some(lookup) => lookup,
+        None => {
+            if cancel.is_cancelled() || inner.shutdown.is_cancelled() {
+                return Ok(unanswered(inner, cancel));
+            }
+            ticket.park();
+            let last = asked + place_patience(inner);
+            let Some(lookup) = lookup(inner, &turn, cancel, asked, last) else {
+                return Ok(unanswered(inner, cancel));
+            };
+            let outcome = await_lookup(inner, &lookup, cancel, inner.queue.capture_timeout());
+            ticket.unpark();
+            let Some(result) = outcome else {
+                return Ok(unanswered(inner, cancel));
+            };
+            known = Some(result);
+            lookup
+        }
     };
     if !ticket.wait(cancel) {
         return Ok(counts(0, 1, Some("aborted")));
@@ -636,11 +670,16 @@ fn execute(
         || ticket.release(),
         |replay| {
             // The lookup has a deadline. A host that has not answered within the patience
-            // (what is left of it since the lookup started) no longer holds the agent's
-            // order: the ticket is parked until the answer arrives.
+            // (what is left of it since the turn began to ask) no longer holds the agent's
+            // order: the ticket is parked until the answer arrives. A turn that already
+            // stepped aside while it waited for a place comes back with its answer.
             let left =
-                (admission.started + ADMISSION_PATIENCE).saturating_duration_since(Instant::now());
-            let context = match await_lookup(inner, &admission, cancel, left) {
+                (admission.asked + ADMISSION_PATIENCE).saturating_duration_since(Instant::now());
+            let answered = match known {
+                Some(result) => Some(result),
+                None => await_lookup(inner, &admission, cancel, left),
+            };
+            let context = match answered {
                 Some(result) => result?,
                 None => {
                     ticket.park();

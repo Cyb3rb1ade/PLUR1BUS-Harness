@@ -233,13 +233,13 @@ pub(crate) enum Started {
 
 /// Host lookups one agent may have outstanding (RE-D163).
 pub(crate) const HOST_CALLS_PER_AGENT: usize = 2;
-/// Host lookups the whole process may have outstanding.
+/// Host lookups one runtime may have outstanding.
 pub(crate) const HOST_CALLS: usize = 32;
-/// How long an outstanding lookup counts as "about to be answered". While one of the
-/// lookups in the way is younger, a new one waits for its place (a burst of turns on a
-/// healthy host is never refused). Once all of them are older, the host is not answering:
-/// a new lookup is refused at once, without a thread.
-const ANSWER_PATIENCE: Duration = Duration::from_secs(1);
+/// How long a lookup waits for a place at most, within its caller's own budget: a host
+/// whose calls have not returned for this long is not answering. Waiting takes no thread,
+/// so the wait may be long without touching the bound; a short one would lose turns to a
+/// host that is merely slow.
+pub(crate) const PLACE_PATIENCE: Duration = Duration::from_secs(10);
 
 /// The bound on host lookups that run on a thread of their own because the host may never
 /// answer (RE-D163): every such thread holds a place until its host call returns, not
@@ -255,6 +255,9 @@ struct Calls {
     /// Start times of the outstanding lookups, per agent.
     agents: HashMap<String, Vec<Instant>>,
     total: usize,
+    /// Callers waiting for a place right now.
+    #[cfg(test)]
+    waiting: usize,
 }
 /// One outstanding lookup; dropping it (when the host call has returned) frees the place.
 pub(crate) struct HostCall {
@@ -282,56 +285,45 @@ impl Drop for HostCall {
         self.owner.changed.notify_all();
     }
 }
-/// What asking for a place gave.
-pub(crate) enum Place {
-    /// The lookup may run.
-    Granted(HostCall),
-    /// The bound is reached by lookups the host is not answering, or the wait was
-    /// cancelled: no lookup, the same result as an unanswered one.
-    Refused,
-    /// The bound is reached by lookups that are still fresh, and `until` has come.
-    Later,
-}
 impl HostCalls {
-    /// Ask for a place for one more lookup of `agent`, waiting until `until` at most.
+    /// Ask for a place for one more lookup of `agent`. While the agent's two places or the
+    /// runtime's 32 are taken the caller waits, on its own thread and without a new one,
+    /// until a place frees or `until` comes. `None`: no place by then, or `cancel` or the
+    /// end of all recovery (`stop`) ended the wait. Places are not handed out in order.
     pub(crate) fn begin(
         self: &Arc<Self>,
         agent: &str,
         cancel: &Cancel,
         stop: &Cancel,
         until: Instant,
-    ) -> Place {
+    ) -> Option<HostCall> {
         let mut calls = self.state.lock().unwrap_or_else(PoisonError::into_inner);
-        loop {
+        #[cfg(test)]
+        let mut counted = false;
+        let place = loop {
             if cancel.is_cancelled() || stop.is_cancelled() {
-                return Place::Refused;
+                break None;
             }
             let now = Instant::now();
             let own = calls.agents.get(agent).map_or(0, Vec::len);
             if own < HOST_CALLS_PER_AGENT && calls.total < HOST_CALLS {
                 calls.agents.entry(agent.to_owned()).or_default().push(now);
                 calls.total += 1;
-                return Place::Granted(HostCall {
+                break Some(HostCall {
                     owner: self.clone(),
                     agent: agent.to_owned(),
                     started: now,
                 });
             }
-            // The lookups in the way: the agent's own when its bound is reached, else all.
-            let youngest = if own >= HOST_CALLS_PER_AGENT {
-                calls.agents.get(agent).and_then(|at| at.iter().max())
-            } else {
-                calls.agents.values().flatten().max()
-            };
-            let fresh_until = youngest.map_or(now, |at| *at + ANSWER_PATIENCE);
-            if now >= fresh_until {
-                return Place::Refused;
-            }
             if now >= until {
-                return Place::Later;
+                break None;
             }
-            let pause = fresh_until
-                .min(until)
+            #[cfg(test)]
+            if !counted {
+                calls.waiting += 1;
+                counted = true;
+            }
+            let pause = until
                 .saturating_duration_since(now)
                 .min(Duration::from_millis(20));
             calls = self
@@ -339,7 +331,21 @@ impl HostCalls {
                 .wait_timeout(calls, pause)
                 .unwrap_or_else(PoisonError::into_inner)
                 .0;
+        };
+        #[cfg(test)]
+        if counted {
+            calls.waiting -= 1;
         }
+        place
+    }
+
+    /// Test support: the callers waiting for a place right now.
+    #[cfg(test)]
+    pub(crate) fn waiting(&self) -> usize {
+        self.state
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .waiting
     }
 
     /// The lookups outstanding right now.
@@ -391,8 +397,9 @@ impl Bounds {
 
 /// Run a host call that may never return on its own thread and wait for its answer until
 /// `cancel`, the end of all recovery (`stop`) or `budget` ends the wait. The thread holds a
-/// place in `calls` until the host call returns. `None`: no place, no thread, or no answer
-/// in time; a thread that is still running is left to finish and its answer is dropped.
+/// place in `calls` until the host call returns; the call waits for that place within its
+/// budget, at most [`PLACE_PATIENCE`]. `None`: no place, no thread, or no answer in time;
+/// a thread that is still running is left to finish and its answer is dropped.
 pub(crate) fn bounded<T: Send + 'static>(
     calls: &Arc<HostCalls>,
     agent: &str,
@@ -402,10 +409,9 @@ pub(crate) fn bounded<T: Send + 'static>(
     budget: Duration,
     call: impl FnOnce() -> T + Send + 'static,
 ) -> Option<T> {
-    let end = Instant::now() + budget;
-    let Place::Granted(place) = calls.begin(agent, cancel, stop, end) else {
-        return None;
-    };
+    let asked = Instant::now();
+    let end = asked + budget;
+    let place = calls.begin(agent, cancel, stop, asked + budget.min(PLACE_PATIENCE))?;
     let (send, answer) = std::sync::mpsc::channel();
     // A thread that cannot start drops the closure and with it the place.
     thread::Builder::new()
@@ -566,60 +572,65 @@ mod tests {
         }
     }
 
-    /// RE-D163 / R1: two outstanding lookups per agent, 32 in the process. A fresh lookup in
-    /// the way is waited for; lookups the host is not answering refuse the next one at once.
+    /// RE-D163 / R1: two outstanding lookups per agent, 32 per runtime, exactly. A lookup
+    /// beyond the bound waits for a place until its own limit and takes one that frees; no
+    /// place by then is no lookup.
     #[test]
-    fn outstanding_host_lookups_are_bounded_per_agent_and_in_the_process() {
+    fn outstanding_host_lookups_are_bounded_per_agent_and_in_the_runtime() {
         let never = Cancel::never();
         let calls = Arc::new(HostCalls::default());
         let now = Instant::now;
-        let granted = |agent: &str| match calls.begin(agent, &never, &never, now()) {
-            Place::Granted(place) => place,
-            _ => unreachable!("a free place was not granted"),
+        let granted = |agent: &str| calls.begin(agent, &never, &never, now()).unwrap();
+        let waiting = |count: usize| {
+            let end = now() + Duration::from_secs(30);
+            while calls.waiting() != count {
+                assert!(now() < end, "{count} waiting");
+                thread::yield_now();
+            }
         };
         let first = granted("x");
         let second = granted("x");
-        // Fresh lookups are in the way: no place yet, but no refusal either.
-        assert!(matches!(
-            calls.begin("x", &never, &never, now()),
-            Place::Later
-        ));
+        // The agent's bound is reached: no place now.
+        assert!(calls.begin("x", &never, &never, now()).is_none());
+        assert_eq!(calls.outstanding(), 2);
         // Another agent is not affected by this agent's bound.
         let other = granted("y");
-        // A place that frees while a new lookup waits is taken.
+        // A lookup that waits takes the place that frees. The hook shows that it waits.
         let waiter = {
             let calls = calls.clone();
             thread::spawn(move || {
                 let never = Cancel::never();
-                let until = Instant::now() + Duration::from_secs(5);
-                matches!(calls.begin("x", &never, &never, until), Place::Granted(_))
+                calls.begin(
+                    "x",
+                    &never,
+                    &never,
+                    Instant::now() + Duration::from_secs(30),
+                )
             })
         };
-        thread::sleep(Duration::from_millis(30));
+        waiting(1);
+        assert_eq!(calls.outstanding(), 3);
         drop(first);
-        assert!(waiter.join().unwrap());
-        // Once every lookup in the way is older than the patience, the next is refused at
-        // once, long before its own deadline.
-        thread::sleep(ANSWER_PATIENCE);
-        let third = granted("x");
-        thread::sleep(ANSWER_PATIENCE + Duration::from_millis(20));
+        let third = waiter.join().unwrap().unwrap();
+        waiting(0);
+        // The wait ends with its limit, however old the lookups in the way are, and with
+        // the waiter's cancellation or the end of all recovery.
         let asked = now();
-        assert!(matches!(
-            calls.begin("x", &never, &never, asked + Duration::from_secs(30)),
-            Place::Refused
-        ));
-        assert!(asked.elapsed() < Duration::from_secs(1));
-        // The process bound: 32 outstanding, then the 33rd agent is refused as well.
+        let limit = Duration::from_millis(50);
+        assert!(calls.begin("x", &never, &never, asked + limit).is_none());
+        assert!(asked.elapsed() >= limit);
+        let cancelled = Cancel::never();
+        cancelled.cancel();
+        let far = now() + Duration::from_secs(30);
+        assert!(calls.begin("x", &cancelled, &never, far).is_none());
+        assert!(calls.begin("x", &never, &cancelled, far).is_none());
+        // The runtime's bound: 32 outstanding, then no place for one more agent either.
         let mut held = vec![second, third, other];
         for index in 0..HOST_CALLS - held.len() {
             held.push(granted(&format!("agent-{index}")));
         }
         assert_eq!(calls.outstanding(), HOST_CALLS);
-        thread::sleep(ANSWER_PATIENCE + Duration::from_millis(20));
-        assert!(matches!(
-            calls.begin("one-more", &never, &never, now() + Duration::from_secs(30)),
-            Place::Refused
-        ));
+        assert!(calls.begin("one-more", &never, &never, now()).is_none());
         drop(held);
         assert_eq!(calls.outstanding(), 0);
         drop(granted("one-more"));
