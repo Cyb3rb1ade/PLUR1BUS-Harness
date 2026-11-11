@@ -2,8 +2,8 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "plur1bus-engine-contract",
   "title": "PLUR1BUS Engine Contract",
-  "description": "Pinned engine contract 1.17.0 with additive A1 curated-memory members. Runtime ports and cancellation remain hand-written Rust contracts.",
-  "x-contract": "1.17.0",
+  "description": "Engine contract 1.18.0: the pinned contract 1.17.0 plus the A1 curated-memory members (RE-D167). Runtime ports and cancellation remain hand-written Rust contracts.",
+  "x-contract": "1.18.0",
   "x-source-commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
   "x-a1-commit": "9b935ce1f970bd92a931aa99a58c620669c8085f",
   "$defs": {
@@ -11,9 +11,13 @@
       "title": "ContractVersion",
       "type": "string",
       "enum": [
-        "1.17.0"
+        "1.17.0",
+        "1.18.0"
       ],
       "x-since": "1.17.0",
+      "x-enum-since": {
+        "1.18.0": "1.18.0"
+      },
       "description": "types/engine.d.ts — the frozen PLUR1BUS engine contract. Contract version 1.17.0 (frozen at 1.0.0 on 2026-09-22, owner decision B8; amended seventeen times under the policy below — see the changelog at the end of this header). This file reconciles the four places Phase 0 sketched the same API differently (review-report finding S4). Where ADR-002 and engine-extraction.md §b.2 disagreed, B8 chose: - `Principal.trust: \"proved\" | \"inferred\"`   (not `proof: \"transport\"`) - `TurnOrigin` as a string union plus a separate `AgentContext` (not one `TurnOrigin` object) - `capture()` returns a non-blocking `CaptureHandle` (not `Promise<CaptureResult>`) - `RecallResult.degraded` is a structured object or null (not a boolean) `createEngine` (engine/create-engine.js) implements it from M1b-1 on. It is the shape both the plugin host adapter and the harness are written against, and it is checked by `npm run typecheck`. Amendment policy: \"frozen\" means 1.0.0 is never edited in place. Any change to an exported member's shape that an existing adapter could observe — a new required property, a removed or renamed member, a narrowed or widened union, a changed parameter or return type — forces a `ContractVersion` bump; only additions no adapter can observe (a comment, a new optional property on a type the engine alone constructs) may land without one. `ContractVersion`, the assertions in `types/engine.conformance.ts` and both adapters move together in a single PR, so the contract, its gate and its two consumers are never in disagreement at any commit. Changelog: 1.1.0 — SecurePathResult.reason gains \"acl-tool-unavailable\" (Task 5). 1.2.0 — HostServices.workspaceDir becomes async (Task 6). 1.3.0 — HostServices.configPath(), HostServices.routing?, HostServices.pathOverrides? (G1 closure, M1b-1 Task 11). 1.4.0 — Engine surface of createEngine (M1b-1): ContextBlock.chars; RecallResult.timing (replaces timings) and .deferrals; RecallQuery.budget optional; JobRun/JobRegistry/JobSpec per spec 3.3 (outcome gains \"abandoned\"); CheckpointReason gains \"session-end\"; Engine.close({ budgetMs }); Engine.channels; HostServices.capabilities?; EngineEventName gains recall.block-clipped/-dropped, recall.completed; createEngine testOptions. 1.4.1 — JobTrigger gains \"unknown\" (a crash row recovered from a corrupt, unreadable start marker; M1b-1 final review m2). 1.5.0 — MemoryOps types, Engine.memory (E1 Task 2); runCommand deprecated; MemoryState.tombstones number | null (E1-R11); HostCapabilities.memoryArchiveDir? (E1 Task 8). 1.6.0 — AdminOps.share/forget alias Engine.memory (deprecated); ObsidianOps with explicit paths; migrate over a store schema marker; MemoryOps.propose/proposals (D31); MemoryCard.sharedBy/sourceId; MemoryOpError.detail; \"memory.proposal\" event; EngineStatus.storeSchema (E2). 1.7.0 — EmbeddingService.probe(opts?) → EmbeddingProbeResult (identity, readiness, memoized); serve(address?: IpcAddress | null) → EmbeddingServeResult (real scoped IPC, in-process owner, no claim listener); HostCapabilities.pushCriticalButtons? typed (E3). 1.8.0 — EngineStatus.jobs/models/journal/sharedMemory, degraded derived from model readiness; Engine.models (status, warm); HostCapabilities.journalBacklog?; MemoryOpErrorCode \"unsupported\"; CaptureResult.reason \"duplicate-turn\" (E4). 1.9.0 — engine-config.schema.json with readAt/x-tier/x-sensitive and its types (EngineConfigSchema, EngineConfigKey, EngineConfigReadAt); RecallQuery.warmOnly; RecallTiming.totalMs covers queue wait and prelude (E5). 1.10.0 — additive engine-config keys from the 7.18.5–7.18.20 port (runtime.deferPostTurnLlm, diaryFromUserChats, captureChunkingJev, recall.fullTextTopRecords/fullTextMaxChars) and JobName \"post-turn-refine\"; adapter-only keys stay on the plugin host manifest; no breaking change to existing callers. 1.11.0 — MemoryOps.import (finished-card ingest with deterministic ids) and Engine.stores.adopt (copy-never-move store take-over with a sample cosine probe for legacy stores); MemoryCard.provenance/sourceRef optional; no breaking change to existing callers. 1.12.0 — MemoryOps.rebind / MemoryOps.unbind (manual N:1 channel-identity link; user-scope owner metadata only) and ADOPT_PROBE_MIN_ROWS = min(8, available); UserPrincipal accepts user:v1 and user:v2; MemoryOpErrorCode \"identity-already-bound\" | \"ledger-corrupt\" | \"lock-lost\"; no breaking change to existing callers. 1.13.0 — MemoryOps.unimport (roll back the cards one import run created; archive-first soft delete without a registry tombstone, key freed for re-import); MemoryImportRequest.importRunId optional; MemoryOpErrorCode \"lock-busy\"; no breaking change to existing callers. 1.14.0 — additive complete vector-space identities, routes and degraded notes. 1.15.0 — HostServices.fetch? (HostFetch: every outbound engine HTTP request goes through it when set); SecretStore becomes resolve(ref, purpose) (lease() kept optional and deprecated; it was never called) for provider `apiKeyRef`; ProviderCredentialConfig, RemoteRerankerConfig and the reranker providers jina | voyage | remote with baseUrl/protocol; no breaking change to existing callers (the engine called no SecretStore member before 1.15.0). Also: MemoryImportRequest without importRunId attributes each card to the run its sourceRef names (`;run=<id>`); MemoryUnimportRequest.importRunId also selects such lines; MemoryUnimportResult.derived.graphEdgesRemoved? / mirrorsArchived? / cleanupErrors? (unimport drops the undone cards' graph edges and archives their Obsidian mirrors). 1.17.0 — AdminOps.reembedding.validate({ id }) (the coordinator's validating → ready_to_switch step: target generation check and semantic recall probe, so a host that owns its switch can finish a migration); a failed validation rejects and leaves the record in validating; no breaking change to existing callers. 1.16.0 — MemoryOps.link(id, req, p, a) (owner decision 2026-10-19: attach an imported duplicate to an existing card as an additional source instead of storing a duplicate; sidecar `_links/`, the card row is never written; idempotent per sourceRef); MemoryCard.links? (show/list); MemoryUnimportResult.links? (unimport of a run unlinks that run's links, the card stays); Engine.capabilities (EngineCapabilities, `memoryLink: true`); no breaking change to existing callers."
     },
     "AgentId": {
@@ -2111,7 +2115,7 @@
       "description": "Job Name in the engine contract.",
       "x-enum-since": {
         "post-turn-refine": "1.10.0",
-        "knowledge-update": "a1-pending"
+        "knowledge-update": "1.18.0"
       }
     },
     "JobSpec": {
@@ -4361,7 +4365,7 @@
       "additionalProperties": false,
       "x-methods": {
         "stats": {
-          "x-since": "a1-pending",
+          "x-since": "1.18.0",
           "parameters": [
             {
               "name": "ids",
@@ -4394,7 +4398,7 @@
           "description": "1.17.0: per-agent counters for visible cards only, at most 500 ids. Undefined ids reads persisted counters; unseen requested visible ids return zero."
         },
         "promote": {
-          "x-since": "a1-pending",
+          "x-since": "1.18.0",
           "parameters": [
             {
               "name": "req",
@@ -4437,7 +4441,7 @@
           "description": "1.17.0: foreground system/user host only. Uses schicht15 cap per invocation (0 unlimited), never invokes providers; only agent-private source rows."
         },
         "curation.list": {
-          "x-since": "a1-pending",
+          "x-since": "1.18.0",
           "parameters": [
             {
               "name": "q",
@@ -4473,7 +4477,7 @@
           }
         },
         "curation.resolve": {
-          "x-since": "a1-pending",
+          "x-since": "1.18.0",
           "parameters": [
             {
               "name": "id",
@@ -6293,15 +6297,15 @@
         },
         "recallStats": {
           "type": "boolean",
-          "x-since": "a1-pending"
+          "x-since": "1.18.0"
         },
         "knowledgePromotion": {
           "type": "boolean",
-          "x-since": "a1-pending"
+          "x-since": "1.18.0"
         },
         "memoryCuration": {
           "type": "boolean",
-          "x-since": "a1-pending"
+          "x-since": "1.18.0"
         }
       },
       "required": [
@@ -6546,15 +6550,15 @@
       "properties": {
         "id": {
           "type": "string",
-          "x-since": "a1-pending"
+          "x-since": "1.18.0"
         },
         "recalls": {
           "type": "number",
-          "x-since": "a1-pending"
+          "x-since": "1.18.0"
         },
         "distinctQueries": {
           "type": "number",
-          "x-since": "a1-pending"
+          "x-since": "1.18.0"
         },
         "lastRecalledAt": {
           "anyOf": [
@@ -6566,7 +6570,7 @@
             }
           ],
           "description": "Epoch milliseconds, null when this card has not been recalled.",
-          "x-since": "a1-pending"
+          "x-since": "1.18.0"
         }
       },
       "required": [
@@ -6576,7 +6580,7 @@
         "lastRecalledAt"
       ],
       "additionalProperties": false,
-      "x-since": "a1-pending",
+      "x-since": "1.18.0",
       "description": "Every member rejects with MemoryOpError `storage` (\"engine is closed\") after `Engine.close()`. `list` and `show` read the agent-private pool plus the workspace and user pools the principal can reach. `forget`, `correct` and `share` act on the caller's own agent-private cards. On a shared (workspace/user) copy (D31): `forget` by the sharing agent retracts the copy (archive-first, soft delete; `tombstoneId` is null because the original stays live); `correct` by the sharing agent refreshes it (corrects the original, shares the new version, then retracts the old copy; the result id is the new copy); any other agent answers `denied` and files `propose` instead; `share` of a copy is always `denied`. Proposals never change a memory until the sharer calls `proposals.accept`. A proposal belongs to the shared pool of its copy: `proposals.*` reach it only through a principal that can reach that pool (otherwise `list` omits it and `accept`/`reject` answer `not-found`)."
     },
     "MemoryStatsResult": {
@@ -6585,14 +6589,14 @@
       "properties": {
         "agentId": {
           "$ref": "#/$defs/AgentId",
-          "x-since": "a1-pending"
+          "x-since": "1.18.0"
         },
         "items": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/MemoryRecallStat"
           },
-          "x-since": "a1-pending"
+          "x-since": "1.18.0"
         }
       },
       "required": [
@@ -6600,7 +6604,7 @@
         "items"
       ],
       "additionalProperties": false,
-      "x-since": "a1-pending",
+      "x-since": "1.18.0",
       "description": "Memory Stats Result in the engine contract."
     },
     "MemoryPromotionReason": {
@@ -6618,7 +6622,7 @@
         "already-promoted",
         "cap-reached"
       ],
-      "x-since": "a1-pending",
+      "x-since": "1.18.0",
       "description": "Memory Promotion Reason in the engine contract."
     },
     "MemoryPromotionResult": {
@@ -6627,7 +6631,7 @@
       "properties": {
         "agentId": {
           "$ref": "#/$defs/AgentId",
-          "x-since": "a1-pending"
+          "x-since": "1.18.0"
         },
         "items": {
           "type": "array",
@@ -6658,7 +6662,7 @@
             ],
             "additionalProperties": false
           },
-          "x-since": "a1-pending"
+          "x-since": "1.18.0"
         }
       },
       "required": [
@@ -6666,7 +6670,7 @@
         "items"
       ],
       "additionalProperties": false,
-      "x-since": "a1-pending",
+      "x-since": "1.18.0",
       "description": "Memory Promotion Result in the engine contract."
     },
     "MemoryCurationRecord": {
@@ -6675,15 +6679,15 @@
       "properties": {
         "id": {
           "type": "string",
-          "x-since": "a1-pending"
+          "x-since": "1.18.0"
         },
         "status": {
           "type": "string",
-          "x-since": "a1-pending"
+          "x-since": "1.18.0"
         },
         "text": {
           "type": "string",
-          "x-since": "a1-pending"
+          "x-since": "1.18.0"
         },
         "category": {
           "anyOf": [
@@ -6694,7 +6698,7 @@
               "type": "null"
             }
           ],
-          "x-since": "a1-pending"
+          "x-since": "1.18.0"
         }
       },
       "required": [
@@ -6704,7 +6708,7 @@
         "category"
       ],
       "additionalProperties": false,
-      "x-since": "a1-pending",
+      "x-since": "1.18.0",
       "description": "Memory Curation Record in the engine contract."
     },
     "MemoryCurationListResult": {
@@ -6713,18 +6717,18 @@
       "properties": {
         "agentId": {
           "$ref": "#/$defs/AgentId",
-          "x-since": "a1-pending"
+          "x-since": "1.18.0"
         },
         "items": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/MemoryCurationRecord"
           },
-          "x-since": "a1-pending"
+          "x-since": "1.18.0"
         },
         "truncated": {
           "type": "boolean",
-          "x-since": "a1-pending"
+          "x-since": "1.18.0"
         }
       },
       "required": [
@@ -6733,7 +6737,7 @@
         "truncated"
       ],
       "additionalProperties": false,
-      "x-since": "a1-pending",
+      "x-since": "1.18.0",
       "description": "Memory Curation List Result in the engine contract."
     },
     "MemoryRow": {
@@ -7167,7 +7171,7 @@
         "drop"
       ],
       "description": "Human curation decision on a pending memory record.",
-      "x-since": "a1-pending"
+      "x-since": "1.18.0"
     },
     "EmbedKind": {
       "title": "EmbedKind",
@@ -7246,7 +7250,7 @@
       ],
       "additionalProperties": false,
       "description": "A1 foreground promotion request for explicit memory identifiers.",
-      "x-since": "a1-pending"
+      "x-since": "1.18.0"
     },
     "MemoryCurationListQuery": {
       "title": "MemoryCurationListQuery",
@@ -7258,7 +7262,7 @@
       },
       "additionalProperties": false,
       "description": "A1 human curation listing options.",
-      "x-since": "a1-pending"
+      "x-since": "1.18.0"
     },
     "MemoryCurationResolveResult": {
       "title": "MemoryCurationResolveResult",
@@ -7283,7 +7287,7 @@
       ],
       "additionalProperties": false,
       "description": "A1 result of keeping or dropping a pending curation record.",
-      "x-since": "a1-pending"
+      "x-since": "1.18.0"
     }
   }
 }

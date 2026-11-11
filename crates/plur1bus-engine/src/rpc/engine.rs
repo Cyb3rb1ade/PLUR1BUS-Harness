@@ -162,16 +162,14 @@ impl ProcessEngine {
             .as_ref()
             .filter(|p| !p.is_empty())
             .map(std::path::PathBuf::from);
-        let capabilities = decode(json!({
-            "memoryLink":base.is_some(),
-            "recallStats":false,"knowledgePromotion":false,"memoryCuration":false
-        }))?;
+        let memory_link = base.is_some();
         // Without a store base, the frozen status text keeps composition-pending/recall: no
         // memory, journal, job or schema composition exists. With a base, the pin's reporter
-        // assembles the status from its real sources (RE-D157).
+        // assembles the status from its real sources (RE-D157). The process serves A1, so it
+        // reports contract 1.18.0 (RE-D167).
         let status: EngineStatus = decode(json!({
             "ready": false, "degraded": {"reason":"composition-pending","capability":"recall"},
-            "agents":0,"contract":"1.17.0","storeSchema":{"current":null,"expected":"1"},
+            "agents":0,"contract":"1.18.0","storeSchema":{"current":null,"expected":"1"},
             "jobs":{"ledger":"unavailable","agents":[]},"models":embedding.status(),"journal":null,
             "sharedMemory":{"supported":false,"mode":"unavailable"}
         }))?;
@@ -269,6 +267,17 @@ impl ProcessEngine {
         let proposals =
             engine_memory::ProposalsPort::new(slot.clone(), proposal_sharing, closed.clone());
         let curation = engine_memory::CurationPort::new(slot, closed.clone());
+        // RE-D167: an A1 flag is set only where its surface is served. `recallStats` needs the
+        // stats reader and the recall counting hook, which `engine_recall::run` drives over the
+        // same configured base; `memoryCuration` needs the curation slot for list/resolve.
+        // `knowledgePromotion` stays off in RX: it also covers the `knowledge-update` job, which
+        // answers `job-authority-unbound` until RY-A binds its authority (F13). KNOWN-GAP → RY-A.
+        let recall_stats = memory.is_some() && live_stores.configured_base().is_some();
+        let capabilities = decode(json!({
+            "memoryLink":memory_link,
+            "recallStats":recall_stats,"knowledgePromotion":false,
+            "memoryCuration":curation.served()
+        }))?;
         Ok(Self {
             embedding,
             stores,
@@ -1257,6 +1266,14 @@ mod tests {
         );
         assert!(!engine.status().ready);
         assert!(!engine.capabilities().memory_link);
+        // RE-D167: without a store base no A1 surface is served, so every A1 flag is off.
+        assert!(!engine.capabilities().recall_stats);
+        assert!(!engine.capabilities().memory_curation);
+        assert!(!engine.capabilities().knowledge_promotion);
+        assert_eq!(
+            serde_json::to_value(engine.status().contract).unwrap(),
+            "1.18.0"
+        );
         assert!(!state_dir.exists());
     }
 

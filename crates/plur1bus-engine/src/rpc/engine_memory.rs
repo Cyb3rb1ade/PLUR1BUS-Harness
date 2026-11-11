@@ -609,6 +609,11 @@ impl CurationPort {
         Self { slot, closed }
     }
 
+    /// Curation list/resolve are served exactly when the native memory slot is composed.
+    pub(super) fn served(&self) -> bool {
+        self.slot.is_some()
+    }
+
     fn slot(&self) -> Result<&NativeSlot, EngineError> {
         let unavailable = Unavailable {
             closed: self.closed.clone(),

@@ -2853,8 +2853,21 @@ keep their own components and behavior.
 - `engine.admin.share` and `engine.admin.forget` stay `composition-pending`
   (fail closed): there is no native implementation and no productive Harness
   caller (only the client's method table). KNOWN-GAP → RY.
-- Capability flags (`recallStats`, `knowledgePromotion`, `memoryCuration`) and
-  the contract version stay unchanged (A1-5); the methods answer on the wire.
+- Contract 1.18.0 and capability flags (A1-5, RE-D167). The schema assigns the
+  former `a1-pending` members `x-since: "1.18.0"`, `x-contract` is `1.18.0` and
+  the process reports `contract: "1.18.0"` (`ContractVersion` keeps the pin's
+  `1.17.0` beside it, so recorded pin payloads still decode). A flag is set only
+  where its surface is served (`ProcessEngine::new` in `rpc/engine.rs`):
+  `recallStats` when the stats reader is composed and recall counts over the same
+  configured base, `memoryCuration` when the curation slot serves list/resolve.
+  `knowledgePromotion` stays `false` in RX: the flag also covers the
+  `knowledge-update` job, which answers `job-authority-unbound` until RY-A binds
+  its authority (F13), so the Core would plan a job that always fails.
+  `engine.memory.promote` still answers on the wire; the Core does not call it
+  behind the flag. KNOWN-GAP → RY-A. Without a store base all three are `false`.
+  `engine.memory.curation.keep` and `.drop` stay `x-stability: experimental`
+  aliases of `curation.resolve` on the RPC surface; the Core calls only
+  list/resolve.
 - Status `sharedMemory` reports what the last share decision found
   (`SharedStores::supported` on `EngineStores`, which share, propose and accept
   ask first; it is kept in an atomic, so status takes no lock and opens no

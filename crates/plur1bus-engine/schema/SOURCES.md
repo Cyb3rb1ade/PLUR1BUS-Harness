@@ -12,13 +12,17 @@ no package-manager store path is part of the schema or recorder contract.
 A1 additions come only from the `types/engine.d.ts` delta between the common
 base `98dfe2f0` and `9b935ce1f970bd92a931aa99a58c620669c8085f`. The pinned
 `AdminOps.reembedding.validate` remains present at `x-since: "1.17.0"`.
-The A1 branch also calls itself `1.17.0`; its additions have not been assigned
-a distinct version on the main engine line. Therefore their `x-since` is
-`a1-pending`, rather than asserting a conflicting released version. This
-applies to the six new A1 types, `MemoryOps.stats`, `MemoryOps.promote`,
-`MemoryOps.curation.*`, the three additional engine capability flags, and the
-`knowledge-update` `JobName` member. The owner still needs to assign their
-version on merge. `x-enum-since` records versions of additive union members.
+The A1 branch also calls itself `1.17.0`; its additions had no distinct
+version on the main engine line and were marked `a1-pending`. RE-D167 assigns
+them contract `1.18.0`: the six new A1 types, `MemoryOps.stats`,
+`MemoryOps.promote`, `MemoryOps.curation.*`, the three additional engine
+capability flags, and the `knowledge-update` `JobName` member carry
+`x-since: "1.18.0"`, and `x-contract` is `1.18.0`. `ContractVersion` keeps the
+pinned `1.17.0` and adds `1.18.0`, so recorded pin payloads still decode while
+the Rust process reports `1.18.0`. Wire shapes are unchanged; on the RPC
+surface `engine.memory.curation.keep` and `.drop` remain experimental aliases of
+`curation.resolve`.
+`x-enum-since` records versions of additive union members.
 Other version annotations follow the changelog in the pinned declaration
 header; a type's initial version is distinct from a later field amendment.
 

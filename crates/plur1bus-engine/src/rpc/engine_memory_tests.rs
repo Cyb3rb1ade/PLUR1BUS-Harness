@@ -595,3 +595,21 @@ fn process_rebind_and_unbind_use_the_active_writer_and_the_same_receipt() {
     assert_eq!(repeated["unbound"], 0.0);
     assert_eq!(owner(), golden["from"]);
 }
+
+/// RE-D167: a composed store base serves stats with the recall counting hook and curation
+/// list/resolve, so their flags are set; promotion stays off while `knowledge-update` is unbound.
+#[test]
+fn composed_base_advertises_served_a1_flags_and_contract_1_18_0() {
+    let temp = tempfile::tempdir_in(std::fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let engine = engine(&temp.path().join("state"), &temp.path().join("db"));
+    let flags = engine.capabilities();
+    assert!(flags.memory_link);
+    assert!(flags.recall_stats);
+    assert!(flags.memory_curation);
+    assert!(!flags.knowledge_promotion);
+    assert_eq!(serde_json::to_value(engine.contract()).unwrap(), "1.18.0");
+    assert_eq!(
+        serde_json::to_value(engine.status().contract).unwrap(),
+        "1.18.0"
+    );
+}

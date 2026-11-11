@@ -361,7 +361,7 @@ Generated from \`crates/plur1bus-engine/schema/engine-contract.schema.json\` by 
 ${engineContract.description}
 
 Source engine commit: \`${engineContract["x-source-commit"]}\`. Additive A1 commit: \`${engineContract["x-a1-commit"]}\`.
-\`a1-pending\` marks additive members whose final contract version the engine owner has not assigned.
+The A1 members are assigned contract 1.18.0 (RE-D167).
 Type summaries describe the schema. Method signatures preserve its \`x-methods\` parameters and resolved result shapes;
 the Rust traits, cancellation parameters and runtime ports live under \`crates/plur1bus-engine/src/contract/\`.
 The schema block in each section retains every constraint, annotation and runtime-member definition.
