@@ -40,7 +40,7 @@ export function createKnowledgeUpdateJob(deps: KnowledgeJobDeps): SystemJobHandl
       if (context.signal.aborted) return { outcome: "abandoned", reason: "aborted", detail: null };
       if (running) return { outcome: "skipped", reason: "already-running", detail: null };
       next = deps.now() + KNOWLEDGE_UPDATE_INTERVAL_MS;
-      if (!hasA1Capability(deps.engine, "knowledgePromotion") || !deps.engine.jobs.list().some(job => job.name === "knowledge-update")) return { outcome: "skipped", reason: "engine-contract-unavailable", detail: { requiredContract: "1.18.0" } };
+      if (!hasA1Capability(deps.engine, "knowledgePromotion") || !deps.engine.jobs.list().some(job => job.name === "knowledge-update")) return { outcome: "skipped", reason: "engine-contract-unavailable", detail: { requiredContract: "1.18.0", requiredCapability: "knowledgePromotion" } };
       running = true;
       const results: { agentId: string; runId?: string; outcome: string; reason?: string }[] = [];
       try {

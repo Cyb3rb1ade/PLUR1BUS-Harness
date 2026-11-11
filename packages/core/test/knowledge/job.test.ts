@@ -25,7 +25,7 @@ test("missing contract stays explicitly unavailable and a cancelled run dispatch
   const handler=createKnowledgeUpdateJob({engine:{jobs:{list:()=>[],run:async()=>{calls++;throw new Error("must not dispatch");}}},agents:()=>["alpha"],now:()=>0});
   const signal=new AbortController();
   const context={signal:signal.signal,runId:"s",trigger:"harness"};
-  assert.deepEqual(await handler.run({},context),{outcome:"skipped",reason:"engine-contract-unavailable",detail:{requiredContract:"1.18.0"}});
+  assert.deepEqual(await handler.run({},context),{outcome:"skipped",reason:"engine-contract-unavailable",detail:{requiredContract:"1.18.0",requiredCapability:"knowledgePromotion"}});
   // RE-D167: an advertised job alone does not open it; the engine must also set knowledgePromotion.
   for (const capabilities of [undefined,{knowledgePromotion:false},{knowledgePromotion:"true"}]) {
     const gated=createKnowledgeUpdateJob({engine:{...(capabilities?{capabilities}:{}),jobs:{list:()=>[{name:"knowledge-update"}],run:async()=>{calls++;throw new Error("must not dispatch");}}},agents:()=>["alpha"],now:()=>0});

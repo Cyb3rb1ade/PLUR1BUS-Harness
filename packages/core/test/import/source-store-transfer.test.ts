@@ -24,7 +24,8 @@ it("source model changes contain only pinned model controls and preserve the ori
     baseDbPathOverride: join(f.home, "state", "live-store"), neo: { enabled: true, statePath: join(f.home, "state", "live-neo") } } };
   const probe = module!.isolatedSourceProbeConfig(configured, f.candidate, f.home);
   assert.equal(probe.engine.baseDbPathOverride, undefined);
-  assert.deepEqual(probe.engine.neo, { enabled: false });
+  // The loader adds the RE-D125 Neo bounds; the live Neo statePath must still never reach the probe.
+  assert.deepEqual(probe.engine.neo, { enabled: false, maxRecords: 40000, appendDedupeTailRecords: 5000 });
   assert.equal((probe.engine.embedding as { local: { cacheDir: string } }).local.cacheDir, join(f.home, "models"));
 });
 

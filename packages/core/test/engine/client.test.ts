@@ -10,6 +10,7 @@ import { validateParams } from "@plur1bus/rpc-schema";
 import { mapMemoryOpError } from "../../src/memory-ops.ts";
 import { EngineClient } from "../../src/engine/client.ts";
 import { hasA1Capability } from "../../src/engine/capabilities.ts";
+import { a1CandidateMemory } from "../../src/dreams/producer.ts";
 import { createKnowledgeUpdateJob } from "../../src/knowledge/job.ts";
 import { buildMemoryCurationMethods } from "../../src/memory-curation.ts";
 import { guardMethods } from "../../src/rbac/guard.ts";
@@ -54,7 +55,7 @@ async function fixture(o: { memoryLink?: boolean; engineCapabilities?: Record<st
         }
         let result: unknown;
         if (request.method === "engine.auth") result = { contract: o.contract ?? "1.17.0", rpc: "1.7.0", instanceId: "instance", pid: process.pid, capabilities: { methods: { "engine.memory.link": { stability: "experimental", since: "1.7.0" } }, notifications: {}, extensionPoints: {}, features: [] }, ...(o.memoryLink === undefined && o.engineCapabilities === undefined ? {} : { engineCapabilities: { ...(o.memoryLink === undefined ? {} : { memoryLink: o.memoryLink }), ...o.engineCapabilities } }) };
-        else if (request.method === "engine.status") result = status;
+        else if (request.method === "engine.status") result = { ...status, contract: o.contract ?? status.contract };
         else if (request.method === "engine.jobs.list") result = [{ name: "afterthought" }];
         else if (request.method === "engine.embedding.identities") result = [identity];
         else if (request.method === "engine.models.status" || request.method === "engine.models.warm") result = models;
@@ -392,10 +393,12 @@ async function a1Seam(o: Parameters<typeof fixture>[0]) {
     respond: (method, params) => {
       if (method === "engine.jobs.list") return [{ name: "knowledge-update" }];
       if (method === "engine.memory.curation.list") return { agentId: (params.p as { agentId: string }).agentId, items: [], truncated: false };
+      if (method === "engine.memory.stats") return { agentId: (params.p as { agentId: string }).agentId, items: [] };
       return undefined;
     },
   });
-  await f.client.status();
+  const engineStatus = await f.client.status();
+  assert.equal(engineStatus.contract, o?.contract, "engine.status reports the contract of engine.auth");
   const workspace = tempDir("a1-seam-");
   const curation = guardMethods(buildMemoryCurationMethods({
     engine: f.client, agents: { list: () => ["anna"], has: () => true, scaffold() {}, workspaceOf: () => workspace } as never,
@@ -404,7 +407,9 @@ async function a1Seam(o: Parameters<typeof fixture>[0]) {
   const listCuration = () => curation["memory.curation.list"]!({ agentId: "anna" }, { requestId: "x", connectionId: "x", signal: new AbortController().signal });
   const knowledge = createKnowledgeUpdateJob({ engine: f.client, agents: () => ["anna"], now: () => 0 });
   const runKnowledge = () => knowledge.run({}, { signal: new AbortController().signal, runId: "sys", trigger: "manual" });
-  return { ...f, listCuration, runKnowledge };
+  // The Core's dream ports over the same client (core.ts composes them with a1CandidateMemory).
+  const dreamPorts = a1CandidateMemory(f.client, f.client.memory, () => ({ principal, context: agent }), () => []);
+  return { ...f, listCuration, runKnowledge, dreamPorts };
 }
 
 test("a 1.17.0 engine without A1 flags is accepted and every A1 surface stays off in the Core", async () => {
@@ -414,8 +419,10 @@ test("a 1.17.0 engine without A1 flags is accepted and every A1 surface stays of
     assert.deepEqual({ ...f.client.capabilities }, { memoryLink: true, recallStats: false, knowledgePromotion: false, memoryCuration: false });
     for (const flag of ["recallStats", "knowledgePromotion", "memoryCuration"] as const) assert.equal(hasA1Capability(f.client, flag), false, flag);
     await assert.rejects(f.listCuration(), (e: any) => e.error === "E_NOT_AVAILABLE" && e.reason === "engine-contract-unavailable");
-    assert.deepEqual(await f.runKnowledge(), { outcome: "skipped", reason: "engine-contract-unavailable", detail: { requiredContract: "1.18.0" } });
-    assert.ok(!f.calls.some(c => c.method.startsWith("engine.memory.curation.") || c.method === "engine.jobs.run"));
+    assert.deepEqual(await f.runKnowledge(), { outcome: "skipped", reason: "engine-contract-unavailable", detail: { requiredContract: "1.18.0", requiredCapability: "knowledgePromotion" } });
+    assert.equal(f.dreamPorts.stats, undefined);
+    assert.equal(f.dreamPorts.promote, undefined);
+    assert.ok(!f.calls.some(c => c.method.startsWith("engine.memory.") || c.method === "engine.jobs.run"));
   } finally { await f.close(); }
 });
 
@@ -429,7 +436,11 @@ test("a 1.18.0 engine with the RX flags opens stats and curation and keeps knowl
     assert.equal(hasA1Capability(f.client, "knowledgePromotion"), false);
     assert.deepEqual(await f.listCuration(), { agentId: "anna", items: [], truncated: false });
     assert.ok(f.calls.some(c => c.method === "engine.memory.curation.list"));
-    assert.deepEqual(await f.runKnowledge(), { outcome: "skipped", reason: "engine-contract-unavailable", detail: { requiredContract: "1.18.0" } });
+    assert.deepEqual(await f.dreamPorts.stats!("a", ["memory-1"]), { agentId: "a", items: [] });
+    assert.ok(f.calls.some(c => c.method === "engine.memory.stats"));
+    assert.equal(f.dreamPorts.promote, undefined, "the dreams never reach engine.memory.promote");
+    assert.ok(!f.calls.some(c => c.method === "engine.memory.promote"));
+    assert.deepEqual(await f.runKnowledge(), { outcome: "skipped", reason: "engine-contract-unavailable", detail: { requiredContract: "1.18.0", requiredCapability: "knowledgePromotion" } });
     assert.ok(!f.calls.some(c => c.method === "engine.jobs.run"));
   } finally { await f.close(); }
 });

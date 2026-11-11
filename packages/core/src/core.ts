@@ -57,7 +57,6 @@ import { flattenPatch, openConfigSource, type ConfigSource } from "./config-sour
 import { assertEngineContract } from "./engine.ts";
 import { selectEngine } from "./engine/select.ts";
 import { EngineClient } from "./engine/client.ts";
-import { hasA1Capability } from "./engine/capabilities.ts";
 import { registerHostMethods } from "./engine/host-methods.ts";
 import { isEngineContext } from "./engine/engine-principal.ts";
 import { buildEngineConfig, checkEngineConfigLicences, checkEngineEgress } from "./engine-config.ts";
@@ -77,7 +76,7 @@ import { CURATION_METHODS } from "./memory-curation.ts";
 import { MEMORY_OP_METHODS, requireAgent } from "./memory-ops.ts";
 import { coreAddress, layout, resolveHome, type Layout } from "./paths.ts";
 import { createPlatformCapabilities } from "./platform.ts";
-import type { A1MemoryOperations } from "./dreams/producer.ts";
+import { a1CandidateMemory, type A1MemoryOperations } from "./dreams/producer.ts";
 import { AGENT_CONTEXT_CLI, callerToPrincipal } from "./principal.ts";
 import { startJournalReplay, type JournalReplay } from "./replay.ts";
 import { RpcError } from "./rpc/errors.ts";
@@ -1370,19 +1369,12 @@ export function createCore(o: CoreOptions): Core {
             // Agent-private public cards plus A1's persistent recall counters when
             // available. Missing A1 keeps promotion closed, never maintenance. A
             // truncated corpus fails closed after the independent jobs ran.
-            candidateMemory: {
-              async list(agentId) {
-                const ws = executionRegistry.workspaceOf(agentId);
-                if (!ws) return [];
-                return readCandidateMemory(query => dreamMemory.list(query, dreamPrincipal(agentId), dreamContext));
-              },
-              ...(hasA1Capability(eng, "recallStats") && typeof dreamMemory.stats === "function" ? {
-                stats: (agentId: string, ids: readonly string[]) => dreamMemory.stats!(ids, dreamPrincipal(agentId), dreamContext),
-              } : {}),
-              ...(hasA1Capability(eng, "knowledgePromotion") && typeof dreamMemory.promote === "function" ? {
-                promote: (agentId: string, ids: readonly string[]) => dreamMemory.promote!({ ids }, dreamPrincipal(agentId), dreamContext),
-              } : {}),
-            },
+            // Stats and promotion read the engine's flags per run (RE-D167), never once at Core start.
+            candidateMemory: a1CandidateMemory(eng, dreamMemory, agentId => ({ principal: dreamPrincipal(agentId), context: dreamContext }), async agentId => {
+              const ws = executionRegistry.workspaceOf(agentId);
+              if (!ws) return [];
+              return readCandidateMemory(query => dreamMemory.list(query, dreamPrincipal(agentId), dreamContext));
+            }),
             scheduler: { ...(turnComposition?.learn ? { learn: turnComposition.learn } : {}), ...(o.dreams?.defaultTimezone ? { defaultTimezone: o.dreams.defaultTimezone } : {}), onEvent: event => { if (event.name === 'run.finished') void delivery?.notify('dreams', event.phase ?? 'unknown', event.agentId, String(event.outcome)).catch(err => log.warn("delivery notify failed", { err })); } },
           });
           if (turnComposition?.learn) { const scheduler = dreams.scheduler; turnComposition.learn.setAdmission(work => scheduler.runJob(work)); }

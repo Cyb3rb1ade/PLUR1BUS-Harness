@@ -26,7 +26,7 @@ export function buildMemoryCurationMethods(d: { engine: Engine; agents: AgentReg
     if (who.kind !== "person" || authorize(who, "agent.manage", { kind: "agent", agentId: p.agentId }).effect !== "allow") throw new RpcError("E_DENIED", "human agent management required", { reason: "curation-not-permitted" });
     const workspace = requireAgent(d.agents, p.agentId);
     const api = (d.engine.memory as typeof d.engine.memory & { curation?: Curation117 }).curation;
-    if (!hasA1Capability(d.engine, "memoryCuration") || !api || typeof api.list !== "function" || typeof api.resolve !== "function") throw new RpcError("E_NOT_AVAILABLE", "curation requires Engine contract 1.18.0", { reason: "engine-contract-unavailable" });
+    if (!hasA1Capability(d.engine, "memoryCuration") || !api || typeof api.list !== "function" || typeof api.resolve !== "function") throw new RpcError("E_NOT_AVAILABLE", "curation requires the engine's memoryCuration capability (contract 1.18.0)", { reason: "engine-contract-unavailable" });
     try {
       const { principal } = callerToPrincipal({ channel: "cli", accountId: "curation", userId: who.userId }, p.agentId, workspace);
       principal.user = deriveUserPrincipal(who.userId);
