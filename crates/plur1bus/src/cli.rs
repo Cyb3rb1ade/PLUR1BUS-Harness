@@ -1239,6 +1239,13 @@ pub enum BackupCmd {
     /// Stop the daemon (`plur1bus daemon stop`) or the `core run` process first and start no core until the restore
     /// has finished: it refuses while a supervisor or a core answers or a legacy core still holds
     /// `run/core-legacy.lock`, and it holds the writer locks until it returns.
+    ///
+    /// The pre-restore copies stay for good unless `--keep N` is given: after a restore that went through completely,
+    /// only the N newest `pre-restore-<UTC>-<id>` directories stay (the one just made counts and is never removed);
+    /// symlinks, files, archives and other names in `backups/` are never touched. Nothing is deleted while an earlier
+    /// restore's `state/.restore-reapply-tombstones` marker is still there (a warning on stderr says so), after a
+    /// failed or rolled-back restore, or on `--dry-run`. A copy that cannot be removed is a warning on stderr; the
+    /// restore still succeeded.
     Restore {
         /// the archive
         file: PathBuf,
@@ -1251,6 +1258,9 @@ pub enum BackupCmd {
         /// bypass endpoint liveness probes with a warning; held writer locks still refuse
         #[arg(long)]
         force: bool,
+        /// after a complete restore, keep only the N newest pre-restore copies (N >= 1; default: keep all)
+        #[arg(long, value_name = "N", value_parser = clap::value_parser!(u32).range(1..=999_999_999))]
+        keep: Option<u32>,
     },
 }
 

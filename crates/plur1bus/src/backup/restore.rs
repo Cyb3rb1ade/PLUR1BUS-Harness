@@ -37,6 +37,9 @@ pub struct RestoreOpts {
     /// Test seam (`PLUR1BUS_TEST_BACKUP_FAIL_AT`, honoured only with `PLUR1BUS_ALLOW_TEST_INTERNALS=1`):
     /// `extract`, `swap:<i>` (after unit i's live tree was moved aside) or `swap-after:<i>` (after unit i was placed).
     pub fail_at: Option<String>,
+    /// `--keep N`: after a restore that swapped completely, keep only the N newest `pre-restore-*` copies (the one just
+    /// made counts). `None`: keep them all. Never applied while an earlier restore's re-apply marker is still there.
+    pub keep: Option<usize>,
 }
 
 #[derive(Serialize, Debug, Clone, PartialEq)]
@@ -65,6 +68,12 @@ pub struct RestoreReport {
     /// Guidance for CLI stderr only; the JSON result shape remains unchanged (owner SH2 ruling).
     #[serde(skip)]
     pub redacted_config_keys: Vec<String>,
+    /// `--keep` notes for CLI stderr only (retention skipped, or a copy that could not be removed); never in the JSON.
+    #[serde(skip)]
+    pub retention_warnings: Vec<String>,
+    /// The `--keep` of this run, for the human text only.
+    #[serde(skip)]
+    pub keep: Option<usize>,
 }
 
 fn live(home: &Path, target: &str) -> PathBuf {
@@ -376,6 +385,8 @@ pub fn restore(
         current_harness: env!("CARGO_PKG_VERSION").to_string(),
         store_schema: manifest.engine.store_schema.clone(),
         redacted_config_keys: redacted_config_keys(&manifest.secrets.note)?,
+        retention_warnings: Vec::new(),
+        keep: opts.keep,
     };
     if opts.dry_run {
         return Ok(report);
@@ -437,6 +448,21 @@ pub fn restore(
     }
     report.applied = true;
     report.pre_restore = pre.exists().then(|| pre.display().to_string());
+    if let Some(keep) = opts.keep {
+        // Only after a swap that went through, under the fences. "A re-apply is still owed" is the marker existing before
+        // this restore wrote it: an earlier restore's copies are the only way back until the core has re-applied.
+        if marker_created {
+            let current = format!("pre-restore-{id}");
+            let backups = pre.parent().unwrap_or(home);
+            report.retention_warnings =
+                super::retention::purge_pre_restore(backups, keep, &current);
+        } else {
+            report.retention_warnings.push(
+                "--keep: no pre-restore copy was deleted: an earlier restore is not finished (state/.restore-reapply-tombstones is still there: the tombstone re-apply is still owed); the older copies stay"
+                    .to_string(),
+            );
+        }
+    }
     Ok(report)
 }
 
@@ -517,6 +543,7 @@ mod tests {
                 force: false,
                 dry_run: true,
                 fail_at: None,
+                keep: None,
             },
         )
         .unwrap();
@@ -698,6 +725,7 @@ mod tests {
                 force: false,
                 dry_run: false,
                 fail_at: None,
+                keep: None,
             },
         )
         .unwrap();
@@ -732,6 +760,7 @@ mod tests {
                     force: false,
                     dry_run: false,
                     fail_at: Some(at.into()),
+                    keep: None,
                 },
             )
             .unwrap_err();
@@ -770,6 +799,7 @@ mod tests {
                 force: false,
                 dry_run: false,
                 fail_at: fail_at.map(String::from),
+                keep: None,
             },
         )
     }
@@ -807,6 +837,7 @@ mod tests {
                 force: false,
                 dry_run: true,
                 fail_at: None,
+                keep: None,
             },
         )
         .unwrap();
@@ -871,6 +902,7 @@ mod tests {
                 force: false,
                 dry_run: false,
                 fail_at: None,
+                keep: None,
             },
         )
         .unwrap();
@@ -908,6 +940,7 @@ mod tests {
             force: false,
             dry_run: false,
             fail_at: Some("swap:1".into()),
+            keep: None,
         };
         assert!(fail_point(&o, "swap:0").is_ok());
         assert_eq!(

@@ -1139,3 +1139,373 @@ fn create_never_overwrites_an_existing_file() {
     assert_eq!(doc(&out)["error"], "E_CONFLICT");
     assert_eq!(fs::read_to_string(&a).unwrap(), "precious");
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// RX4 / RE-D171: `backup restore --keep N` (bounded pre-restore retention)
+// ---------------------------------------------------------------------------------------------------------------------
+
+const OLD_PRE: [&str; 4] = [
+    "pre-restore-20200101T000000Z-aaaaaaa1",
+    "pre-restore-20200102T000000Z-aaaaaaa2",
+    "pre-restore-20200103T000000Z-aaaaaaa3",
+    "pre-restore-20200104T000000Z-aaaaaaa4",
+];
+const MARKER: &str = "state/.restore-reapply-tombstones";
+
+fn plant_pre(home: &Path, name: &str) {
+    let d = home.join("backups").join(name);
+    fs::create_dir_all(&d).unwrap();
+    fs::write(d.join("old-state"), name).unwrap();
+}
+
+fn plant_old_copies(home: &Path) {
+    for n in OLD_PRE {
+        plant_pre(home, n);
+    }
+}
+
+fn backups_entries(home: &Path) -> Vec<String> {
+    let mut v: Vec<String> = match fs::read_dir(home.join("backups")) {
+        Ok(rd) => rd
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect(),
+        Err(_) => Vec::new(),
+    };
+    v.sort();
+    v
+}
+
+/// The `pre-restore-*` directory the restore under test created: not one of the planted names.
+fn fresh_copy(home: &Path, planted: &[&str]) -> String {
+    let fresh: Vec<String> = backups_entries(home)
+        .into_iter()
+        .filter(|n| n.starts_with("pre-restore-") && !planted.contains(&n.as_str()))
+        .collect();
+    assert_eq!(fresh.len(), 1, "exactly one fresh copy: {fresh:?}");
+    fresh[0].clone()
+}
+
+fn restore_with(home: &Path, archive: &Path, extra: &[&str]) -> std::process::Output {
+    cli(home)
+        .args(["backup", "restore", "--yes"])
+        .args(extra)
+        .arg(archive)
+        .assert()
+        .success()
+        .get_output()
+        .clone()
+}
+
+#[test]
+fn without_keep_every_pre_restore_copy_stays() {
+    let (_d, home, a) = setup();
+    old_home(&home);
+    plant_old_copies(&home);
+    build(&a, &fixture());
+    restore_with(&home, &a, &[]);
+    let fresh = fresh_copy(&home, &OLD_PRE);
+    let mut want: Vec<String> = OLD_PRE.iter().map(|s| s.to_string()).collect();
+    want.push(fresh);
+    want.sort();
+    assert_eq!(backups_entries(&home), want);
+}
+
+#[test]
+fn keep_1_keeps_only_the_fresh_copy_and_keep_2_adds_the_newest_older_one() {
+    for (keep, survivors) in [("1", 0usize), ("2", 1)] {
+        let (_d, home, a) = setup();
+        old_home(&home);
+        plant_old_copies(&home);
+        build(&a, &fixture());
+        let out = restore_with(&home, &a, &["--keep", keep]);
+        assert_eq!(doc(&out)["applied"], true);
+        let fresh = fresh_copy(&home, &OLD_PRE);
+        let mut want: Vec<String> = OLD_PRE[OLD_PRE.len() - survivors..]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        want.push(fresh.clone());
+        want.sort();
+        assert_eq!(backups_entries(&home), want, "--keep {keep}");
+        // The fresh copy is whole: it holds what the restore replaced.
+        assert_eq!(
+            fs::read_to_string(home.join("backups").join(&fresh).join("config.json")).unwrap(),
+            "{\"old\":true}"
+        );
+        assert!(
+            !String::from_utf8_lossy(&out.stderr).contains("--keep"),
+            "no warning when the retention ran: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+}
+
+#[test]
+fn the_fresh_copy_counts_and_is_never_deleted_even_when_its_stamp_is_not_the_newest() {
+    // A copy stamped in the future (clock skew): the fresh copy still counts as one of the N and survives.
+    let future = "pre-restore-29990101T000000Z-fffffff1";
+    for (keep, future_stays) in [("1", false), ("2", true)] {
+        let (_d, home, a) = setup();
+        old_home(&home);
+        plant_pre(&home, future);
+        plant_pre(&home, OLD_PRE[0]);
+        build(&a, &fixture());
+        restore_with(&home, &a, &["--keep", keep]);
+        let planted = [future, OLD_PRE[0]];
+        let fresh = fresh_copy(&home, &planted);
+        assert!(home.join("backups").join(&fresh).is_dir(), "--keep {keep}");
+        assert_eq!(
+            home.join("backups").join(future).exists(),
+            future_stays,
+            "--keep {keep}"
+        );
+        assert!(!home.join("backups").join(OLD_PRE[0]).exists());
+    }
+}
+
+#[test]
+fn a_marker_from_an_unfinished_restore_blocks_the_purge_and_warns() {
+    let (_d, home, a) = setup();
+    old_home(&home);
+    plant_old_copies(&home);
+    let marker = home.join(MARKER);
+    fs::create_dir_all(marker.parent().unwrap()).unwrap();
+    fs::write(
+        &marker,
+        b"{\"schema\":\"plur1bus.restore-reapply-tombstones/1\",\"restoredAtMs\":1}",
+    )
+    .unwrap();
+    build(&a, &fixture());
+    let out = restore_with(&home, &a, &["--keep", "1"]);
+    assert_eq!(doc(&out)["applied"], true);
+    let fresh = fresh_copy(&home, &OLD_PRE);
+    for n in OLD_PRE {
+        assert!(home.join("backups").join(n).is_dir(), "{n} must stay");
+    }
+    assert!(home.join("backups").join(fresh).is_dir());
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        err.contains("--keep") && err.contains("re-apply"),
+        "warning on stderr: {err}"
+    );
+    assert!(marker.exists(), "the earlier marker stays");
+}
+
+#[cfg(unix)]
+#[test]
+fn keep_never_touches_symlinks_files_archives_or_foreign_names() {
+    let (d, home, a) = setup();
+    old_home(&home);
+    build(&a, &fixture());
+    let outside = d.path().join("outside");
+    fs::create_dir_all(&outside).unwrap();
+    fs::write(outside.join("precious"), "do not delete").unwrap();
+    let backups = home.join("backups");
+    fs::create_dir_all(&backups).unwrap();
+    let link = "pre-restore-20200101T000000Z-aaaaaaa1";
+    std::os::unix::fs::symlink(&outside, backups.join(link)).unwrap();
+    let file = "pre-restore-20200102T000000Z-aaaaaaa2";
+    fs::write(backups.join(file), "a file with a matching name").unwrap();
+    let archive_name = "plur1bus-backup-20200101T000000Z.tar.gz";
+    fs::write(backups.join(archive_name), "an archive").unwrap();
+    let foreign_dirs = [
+        "pre-restore-manual",
+        "pre-restore-20200103T000000Z-zzzzzzzz",
+        "pre-restore-20200103T000000Z-aaaaaaa3-extra",
+        "Pre-Restore-20200103T000000Z-aaaaaaa4",
+        "pre-restore-20200103T000000-aaaaaaa5",
+        "pre-restore-20200103T000000Z-AAAAAAA6",
+    ];
+    for n in foreign_dirs {
+        plant_pre(&home, n);
+    }
+    let real = [
+        "pre-restore-20200104T000000Z-bbbbbbb1",
+        "pre-restore-20200105T000000Z-bbbbbbb2",
+    ];
+    for n in real {
+        plant_pre(&home, n);
+    }
+    restore_with(&home, &a, &["--keep", "1"]);
+    for n in real {
+        assert!(!backups.join(n).exists(), "{n} is a candidate and goes");
+    }
+    assert!(backups
+        .join(link)
+        .symlink_metadata()
+        .unwrap()
+        .file_type()
+        .is_symlink());
+    assert_eq!(
+        fs::read_to_string(outside.join("precious")).unwrap(),
+        "do not delete"
+    );
+    assert!(backups.join(file).is_file());
+    assert!(backups.join(archive_name).is_file());
+    for n in foreign_dirs {
+        assert!(backups.join(n).is_dir(), "{n} is not a candidate");
+        assert_eq!(
+            fs::read_to_string(backups.join(n).join("old-state")).unwrap(),
+            n
+        );
+    }
+}
+
+#[test]
+fn an_invalid_keep_fails_before_any_change() {
+    for bad in ["0", "x", "-1", "1.5", ""] {
+        let (_d, home, a) = setup();
+        old_home(&home);
+        plant_old_copies(&home);
+        build(&a, &fixture());
+        let before = tree(&home);
+        let out = cli(&home)
+            .args(["backup", "restore", "--yes", "--keep", bad])
+            .arg(&a)
+            .assert()
+            .failure()
+            .get_output()
+            .clone();
+        assert_eq!(out.status.code(), Some(2), "--keep {bad:?}");
+        assert_eq!(tree(&home), before, "--keep {bad:?} must change nothing");
+    }
+}
+
+#[test]
+fn dry_run_with_keep_deletes_nothing() {
+    for extra in [&["--dry-run"][..], &["--dry-run", "--confirm"][..]] {
+        let (_d, home, a) = setup();
+        old_home(&home);
+        plant_old_copies(&home);
+        build(&a, &fixture());
+        let before = tree(&home);
+        cli(&home)
+            .args(["backup", "restore", "--keep", "1"])
+            .args(extra)
+            .arg(&a)
+            .assert()
+            .success();
+        assert_eq!(tree(&home), before, "{extra:?}");
+    }
+    // Without --confirm the default is a plan too.
+    let (_d, home, a) = setup();
+    old_home(&home);
+    plant_old_copies(&home);
+    build(&a, &fixture());
+    let before = tree(&home);
+    cli(&home)
+        .args(["backup", "restore", "--keep", "1"])
+        .arg(&a)
+        .assert()
+        .success();
+    assert_eq!(tree(&home), before);
+}
+
+#[test]
+fn a_failed_restore_with_keep_deletes_nothing() {
+    for at in ["extract", "swap:0", "swap-after:0", "swap-after:3"] {
+        let (_d, home, a) = setup();
+        old_home(&home);
+        plant_old_copies(&home);
+        build(&a, &fixture());
+        cli(&home)
+            .env("PLUR1BUS_TEST_BACKUP_FAIL_AT", at)
+            .args(["backup", "restore", "--yes", "--keep", "1"])
+            .arg(&a)
+            .assert()
+            .failure()
+            .code(1);
+        let mut want: Vec<String> = OLD_PRE.iter().map(|s| s.to_string()).collect();
+        want.sort();
+        assert_eq!(backups_entries(&home), want, "{at}");
+        assert!(
+            !home.join(MARKER).exists(),
+            "{at}: the roll-back removed the marker"
+        );
+    }
+}
+
+#[test]
+fn keep_does_not_change_the_json_result() {
+    let (_d, home_a, archive) = setup();
+    old_home(&home_a);
+    build(&archive, &fixture());
+    let d2 = tempfile::tempdir().unwrap();
+    let home_b = d2.path().join("home");
+    fs::create_dir_all(&home_b).unwrap();
+    old_home(&home_b);
+    plant_old_copies(&home_b);
+    let plain = restore_with(&home_a, &archive, &[]);
+    let kept = restore_with(&home_b, &archive, &["--keep", "1"]);
+    let (pa, pb) = (doc(&plain), doc(&kept));
+    let (pre_a, pre_b) = (
+        pa["preRestore"].as_str().unwrap().to_string(),
+        pb["preRestore"].as_str().unwrap().to_string(),
+    );
+    let ta = String::from_utf8(plain.stdout)
+        .unwrap()
+        .replace(&pre_a, "<PRE>");
+    let tb = String::from_utf8(kept.stdout)
+        .unwrap()
+        .replace(&pre_b, "<PRE>");
+    assert_eq!(
+        ta, tb,
+        "the JSON form is byte-identical with and without --keep"
+    );
+    let keys = |v: &Value| v.as_object().unwrap().keys().cloned().collect::<Vec<_>>();
+    assert_eq!(keys(&pa), keys(&pb));
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// gp5 cases 1 and 7: a refused admission changes nothing and leaves no staging or pre-restore tree
+// ---------------------------------------------------------------------------------------------------------------------
+
+#[test]
+fn refused_admission_leaves_no_staging_no_pre_restore_and_the_current_cache() {
+    let (_d, home, a) = setup();
+    old_home(&home);
+    let cache = home.join("state/lancedb/llm-result-cache-v1/current.db");
+    fs::create_dir_all(cache.parent().unwrap()).unwrap();
+    fs::write(&cache, b"current derived response").unwrap();
+    build(&a, &fixture());
+    let before = tree(&home);
+    // A core holding `state/core.lock` (the kernel writer fence) in another process-visible way.
+    let holder = rusqlite::Connection::open(home.join("state/core.lock")).unwrap();
+    holder.busy_timeout(std::time::Duration::ZERO).unwrap();
+    holder
+        .execute_batch("PRAGMA locking_mode=EXCLUSIVE; BEGIN EXCLUSIVE;")
+        .unwrap();
+    let out = cli(&home)
+        .args(["backup", "restore", "--yes", "--keep", "1"])
+        .arg(&a)
+        .assert()
+        .failure()
+        .code(3)
+        .get_output()
+        .clone();
+    assert_eq!(doc(&out)["reason"], "core-running");
+    let forced = cli(&home)
+        .args(["backup", "restore", "--confirm", "--force"])
+        .arg(&a)
+        .assert()
+        .failure()
+        .code(3)
+        .get_output()
+        .clone();
+    assert_eq!(doc(&forced)["reason"], "core-running");
+    drop(holder);
+    let after = tree(&home);
+    assert_eq!(
+        after, before,
+        "a refused admission changes no byte of the home"
+    );
+    assert!(
+        !after
+            .keys()
+            .any(|k| k.contains(".restore-") || k.contains("pre-restore")),
+        "no staging and no pre-restore tree: {:?}",
+        after.keys().collect::<Vec<_>>()
+    );
+    assert!(!after.contains_key("backups"));
+    assert_eq!(fs::read(&cache).unwrap(), b"current derived response");
+}

@@ -67,6 +67,7 @@ fn legacy_archive_is_verified_but_restored_store_has_no_derived_cache() {
             force: false,
             dry_run: false,
             fail_at: None,
+            keep: None,
         },
     )
     .unwrap();
@@ -104,6 +105,7 @@ fn dry_run_and_failed_restore_preserve_current_cache() {
                 force: false,
                 dry_run,
                 fail_at: fail_at.map(str::to_owned),
+                keep: None,
             },
         );
         if dry_run {
@@ -160,7 +162,8 @@ fn discarded_legacy_cache_payload_still_must_pass_its_digest() {
             &RestoreOpts {
                 force: false,
                 dry_run: false,
-                fail_at: None
+                fail_at: None,
+                keep: None,
             }
         )
         .unwrap_err()
