@@ -240,6 +240,16 @@ impl NamespaceStores {
     }
 }
 
+/// The namespace parent and active writer namespace these routes resolve, without opening or
+/// creating anything; the re-embedding inventory reads the same layout (RE-D166).
+pub(crate) fn writer_layout(
+    base: &Path,
+    config: &EngineConfig,
+) -> Result<(PathBuf, Option<String>), StoreError> {
+    let layout = Layout::from_config(base, config)?;
+    Ok((layout.base, layout.writer))
+}
+
 fn find_route(routes: &[StoreRoute], namespace: &Option<String>) -> Result<StoreRoute, StoreError> {
     routes
         .iter()

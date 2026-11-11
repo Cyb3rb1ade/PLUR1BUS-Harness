@@ -96,42 +96,7 @@ impl ProcessEngine {
     pub fn new(host: Arc<dyn HostServices>, seam: Option<Seam>) -> Result<Self, EngineError> {
         let config = host.config();
         let raw = serde_json::to_value(&config).map_err(|_| composition_invalid())?;
-        let mut block = raw
-            .get("embedding")
-            .filter(|value| !value.is_null())
-            .cloned()
-            .unwrap_or_else(|| json!({}));
-        let object = block.as_object_mut().ok_or_else(composition_invalid)?;
-        // Mirror RE-03's host-selected defaults before invoking its pure normalizer.
-        if !object.contains_key("provider") {
-            if ["baseUrl", "apiKey", "apiKeyRef", "apiKeyEnv"]
-                .iter()
-                .any(|key| object.get(*key).is_some_and(|value| !value.is_null()))
-            {
-                return Err(EngineError::Invalid {
-                    field: "embedding.provider".into(),
-                    message: "remote embeddings require an explicit provider".into(),
-                });
-            }
-            object.insert("provider".into(), json!("local-transformers"));
-        }
-        if object.get("provider").and_then(Value::as_str) == Some("local-transformers") {
-            let cache_dir = object
-                .get("cacheDir")
-                .cloned()
-                .unwrap_or_else(|| json!(host.state_dir().join("models")));
-            let local = object
-                .entry("local")
-                .or_insert_with(|| json!({}))
-                .as_object_mut()
-                .ok_or_else(composition_invalid)?;
-            local.entry("cacheDir").or_insert(cache_dir);
-        }
-        let normalized =
-            normalize_embedding_config(&block).map_err(|error| EngineError::Invalid {
-                field: error.path,
-                message: error.message,
-            })?;
+        let normalized = host_normalized_embedding(&raw, host.as_ref())?;
         // The lazy provider owns the complete effective vector identity. A
         // normalized local config alone omits its pinned artifact/revision and
         // pooling metadata, so deriving an envelope from it would reject the
@@ -375,6 +340,50 @@ impl ProcessEngine {
         }
         self
     }
+}
+
+/// The host-selected embedding defaults RE-03 applies before its pure normalizer: an absent
+/// provider is local unless remote fields are present, and a local cache defaults below the
+/// engine state. Process maintenance derives the same active fingerprint from it (RE-D166).
+pub(super) fn host_normalized_embedding(
+    raw: &Value,
+    host: &dyn HostServices,
+) -> Result<embedding::normalize::NormalizedEmbeddingConfig, EngineError> {
+    let mut block = raw
+        .get("embedding")
+        .filter(|value| !value.is_null())
+        .cloned()
+        .unwrap_or_else(|| json!({}));
+    let object = block.as_object_mut().ok_or_else(composition_invalid)?;
+    // Mirror RE-03's host-selected defaults before invoking its pure normalizer.
+    if !object.contains_key("provider") {
+        if ["baseUrl", "apiKey", "apiKeyRef", "apiKeyEnv"]
+            .iter()
+            .any(|key| object.get(*key).is_some_and(|value| !value.is_null()))
+        {
+            return Err(EngineError::Invalid {
+                field: "embedding.provider".into(),
+                message: "remote embeddings require an explicit provider".into(),
+            });
+        }
+        object.insert("provider".into(), json!("local-transformers"));
+    }
+    if object.get("provider").and_then(Value::as_str) == Some("local-transformers") {
+        let cache_dir = object
+            .get("cacheDir")
+            .cloned()
+            .unwrap_or_else(|| json!(host.state_dir().join("models")));
+        let local = object
+            .entry("local")
+            .or_insert_with(|| json!({}))
+            .as_object_mut()
+            .ok_or_else(composition_invalid)?;
+        local.entry("cacheDir").or_insert(cache_dir);
+    }
+    normalize_embedding_config(&block).map_err(|error| EngineError::Invalid {
+        field: error.path,
+        message: error.message,
+    })
 }
 
 fn composition_invalid() -> EngineError {

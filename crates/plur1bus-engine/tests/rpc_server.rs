@@ -860,10 +860,8 @@ fn schema_migration_requires_the_live_core_peer_and_audits_the_actual_change() {
         "engine.admin.reembedding.status",
         json!({"id":"fixture"}),
     );
-    assert_eq!(
-        targeted_status["error"]["data"]["reason"],
-        "composition-pending"
-    );
+    // Re-embedding is served over the same grant (RE-D166): an unknown migration has no record.
+    assert_eq!(targeted_status["result"], Value::Null, "{targeted_status}");
     fs::remove_file(&pid_file).unwrap();
     assert_unauthorized(&migrate(&mut peer, 8, "1", "1"));
     let entries: Vec<Value> = fs::read_to_string(&audit_path)
@@ -871,8 +869,13 @@ fn schema_migration_requires_the_live_core_peer_and_audits_the_actual_change() {
         .lines()
         .map(|line| serde_json::from_str(line).unwrap())
         .collect();
-    assert_eq!(entries.len(), 2);
-    for entry in entries {
+    assert_eq!(entries.len(), 3);
+    // The targeted status is audited like every served maintenance call; the empty one was
+    // refused at the wire before reaching the grant.
+    assert_eq!(entries[2]["method"], "engine.admin.reembedding.status");
+    assert_eq!(entries[2]["target"], json!({"id":"fixture"}));
+    assert_eq!(entries[2]["actor"], "core-maintenance");
+    for entry in entries.into_iter().take(2) {
         assert_eq!(entry["method"], "engine.admin.migrate");
         assert_eq!(entry["actor"], "core-maintenance");
         assert!(entry["coreLink"].as_str().unwrap().starts_with(INSTANCE));

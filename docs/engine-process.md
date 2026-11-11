@@ -10,9 +10,13 @@ memory operation (list/show/state/forget/link/import/rebind/unbind; since RE-D16
 store adoption and the job registry (`engine.jobs.list/run/history`, RE-D158) are served by their native
 compositions. The A1 capability flags stay `false` and the contract stays 1.17.0 until A1-5; the methods answer on
 the wire regardless. `engine.admin.share` and `engine.admin.forget` stay `E_NOT_AVAILABLE`/`composition-pending`
-(no native implementation, no productive Harness caller; RE-D165, KNOWN-GAP → RY), as do the F6/F7/F9/F14 admin
-methods. Each memory operation runs in the foreground with its caller's principal; what an owner without a user
-principal cannot get (a Neo partition) fails closed as described in `docs/engine-stores.md` (RE-D165).
+(no native implementation, no productive Harness caller; RE-D165, KNOWN-GAP → RY), as do the F6/F9/F14 admin
+methods and the F7 `reembedding.rollback`/`switch`. `engine.admin.migrate` (RE-D143) and
+`engine.admin.reembedding.{plan,apply,resume,status,validate}` (RE-D166) are served only over the authenticated
+Core link's maintenance grant; each call is audited in `state/engine-maintenance.jsonl`, and each `apply`/`resume`
+commits one durable batch while recall and capture go on against the active generation. Each memory operation
+runs in the foreground with its caller's principal; what an owner without a user principal cannot get (a Neo
+partition) fails closed as described in `docs/engine-stores.md` (RE-D165).
 A memory write that still finds the engine-wide mutation gate held after 20 s, or finds four callers already
 waiting, answers `E_NOT_AVAILABLE` with `engine-busy`; holders run on budgets ended by shutdown (except a local
 inference step already running). `engine.status` reports `sharedMemory` as the last share decision found it, and
@@ -145,9 +149,10 @@ remain unchanged. The engine's own diagnostics contain fixed categories only.
 `PLUR1BUS_TEST_INTERNALS=flat-embedder` (or `--test-internals flat-embedder`) and `flat-embedder-cold` require
 `PLUR1BUS_ALLOW_TEST_INTERNALS=1`. The cold variant serializes a 350 ms delay for each of its first two query
 embeddings. Passage embeddings and subsequent queries use the existing flat provider directly. These seams do
-not install fake production memory behavior.
+not install fake production memory behavior. Under a seam, a re-embedding target is the pin's flat test provider,
+and `PLUR1BUS_TEST_REEMBEDDING_HOLD=<dir>` holds a target batch while `<dir>/hold` exists (RE-D166).
 
-Acceptance lives in `crates/plur1bus-engine/tests/rpc_server.rs`, `tests/seams.rs`,
+Acceptance lives in `crates/plur1bus-engine/tests/rpc_server.rs`, `tests/rpc_reembedding.rs`, `tests/seams.rs`,
 `tests/host_guard_contract.rs` and the `rpc` unit tests, including `rpc/roundtrip.rs`. Shared listener/peer identity
 tests live in `crates/plur1bus-rpc/tests/server_transport.rs` and `tests/client.rs`. Windows runtime cases remain
 enabled for their native CI platform. Every spawned test child has a kill-and-wait drop guard. Ordinary process fixtures also keep a piped stdin lifeline,

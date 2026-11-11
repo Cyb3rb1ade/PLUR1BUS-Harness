@@ -95,7 +95,7 @@ fn run(command: Command) -> Result<(), (u8, String)> {
         } else {
             Lifeline::None
         },
-        Arc::new(ProcessMaintenance::new(host)),
+        Arc::new(ProcessMaintenance::with_seam(host, seam)),
     )
     .map_err(|e| {
         let code = if matches!(e, ServeError::Locked) {

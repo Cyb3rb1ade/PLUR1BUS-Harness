@@ -16,6 +16,7 @@ use crate::store::ledger_types::RetrievalLedgerLine;
 use crate::store::{Store, StoreRoutes};
 use crate::text::js::JsString;
 
+pub(crate) use super::namespace_routes::writer_layout;
 pub use super::namespace_routes::NamespaceStores;
 
 // Node caps the deferred per-child and per-identity candidate set at 100.

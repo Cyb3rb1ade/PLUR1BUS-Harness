@@ -1855,8 +1855,7 @@ The existing `engine.admin.migrate` wire method calls the native `SchemaMigrator
 maintenance call, the authenticated socket's kernel peer PID must match the trusted Core PID record. The
 record can appear after EngineClient bootstraps. The grant carries the current Core instance and connection
 lifetime. The migrator appends the projected audit entry to `state/engine-maintenance.jsonl` before changing
-the schema marker. Re-embedding calls still return their explicit composition error while their process
-service is pending.
+the schema marker. Re-embedding is served over the same grant since RE-D166 (below).
 
 ### Read-only warm recall in the process (RE-D148)
 
@@ -2968,3 +2967,111 @@ RX known gaps → RY (RE-D165):
   the root is replaced while the engine runs, every journaled call fails closed
   (`untrusted-path` / `invalid-input` from the identity check) until restart;
   the plain facade is not affected.
+
+### Re-embedding in the process (RE-D166)
+
+`engine.admin.reembedding.{plan,apply,resume,status,validate}` are served by
+`rpc/maintenance.rs` over the F7 `MaintenanceGrant` (only the authenticated Core
+link creates it; it is no person and no data path takes it). The composition
+binds the existing library and adds no outcome of its own:
+
+- One `ReembeddingCoordinator` per process, composed at the first maintenance
+  call (`rpc/maintenance_reembedding.rs`): the `MigrationStateStore` at
+  `<base>/control/reembedding-state.json`, a `GenerationBackend`, the
+  `NativeRuntime` (provider factory `build_for_fingerprint`, credential scope
+  unchanged; policy snapshot from `control/workspace-policy.json`; free space of
+  the base) and the `engine-maintenance.jsonl` audit that `admin.migrate` uses.
+  The backend roots follow the pin's composition root
+  (`createLanceGenerationBackend` in `engine/create-engine.js`): state root is
+  `baseDbPath`; the active data root and shared base follow the namespace layout
+  of the process routes (`writer_layout`), inside the selected generation when
+  `reembedding` is configured (its manifest is checked as in RE-D141); the active
+  generation is `legacy-active` without a selection; the active fingerprint,
+  its redacted SecretRef and the config revision
+  (`sha256(JSON.stringify({fingerprintId, selection, namespaceMode, activeWriteNamespace}))`)
+  are derived as at the pin. Composition opens no store and creates nothing; a
+  composition failure is audited and answered closed. Without a store base the
+  methods stay `composition-pending`.
+- Answers. `plan` returns the pin's `{plan, planDigest, confirmation: {token,
+  persisted}, record}`; the operator proof goes to the Core once, the state file,
+  `status` and the audit keep only its hash (`confirmation.rs`). `apply`,
+  `resume` and `validate` return the migration record, `status` the record or
+  `null`. Each `apply`/`resume` commits at most one durable batch
+  (`maxBatchesPerOperation` 1, `coordinator.rs`); the Core's driver calls `resume`
+  until `validating`, then `validate` (`ready_to_switch`). Records contain counts,
+  states, fingerprints, table IDs and versions, no memory text.
+- One `apply`/`resume`/`plan`/`validate` at a time per engine: the coordinator's
+  `try_lock` (`coordinator.rs`, `exclusive`) refuses a second with its typed busy
+  error, on the wire `E_LOCKED`/`lock-busy`. `status` does not take it and reads
+  the record while a batch runs.
+- Errors map the coordinator's fixed categories onto the existing vocabulary:
+  source drift, changed policy and an occupied target are `conflict`, an unknown
+  migration `not-found`, other invalid input (including an invalid or expired
+  confirmation) `invalid-input`, state/generation lock contention `lock-busy`,
+  provider failure `embedding-unavailable`, cancellation `aborted`/`timeout`. No
+  record, path or provider body reaches an error.
+- `rollback`, `switch` and the person-bound `AdminOps.reembedding` ports stay
+  fail closed (F7). The Core keeps RBAC and the privacy acknowledgment; the
+  engine stores none.
+- Test seam: under an authorized process seam (`--test-internals`), the target
+  provider is the pin's flat `reembeddingTargetProvider` (unit vector of the
+  target width, identity from the target fingerprint), so no target model is
+  loaded. `PLUR1BUS_TEST_REEMBEDDING_HOLD=<dir>` (read only with such a seam)
+  holds a target passage batch while `<dir>/hold` exists, bounded by 60 s and the
+  call's cancellation; the process tests use it instead of timing.
+
+Running work. `apply`/`resume` read the active tables through read-only Lance
+handles at their latest version and write only `<base>/generations/<target>`.
+They never take the memory mutation gate (RE-D165), the per-table compaction
+claim (RE-D161) or a capture admission or recovery lease (RE-D162), and none of
+those takes the re-embedding locks; nothing waits on the other. Recall, capture,
+compaction, the capture recovery worker and memory writes go on against the
+active generation. A write by any of them changes a source table version; the
+coordinator compares every source table version before each batch
+(`assert_source(record, true)`) and before `validate`, and refuses with
+`conflict`: the migration needs a new plan, and nothing of the changed source
+reaches the target unnoticed. Compaction's prune removes only versions older
+than its cutoff; the backend reads the latest version per read
+(`checkout_latest`).
+
+Waits on this path:
+
+| Path | Waits for | Bound | Blocks another owner |
+|---|---|---|---|
+| Any call | the coordinator | none: a second operation is refused at once (`lock-busy`) | no |
+| State write (`state.rs`, `mutate`) | `control/reembedding-state.lock` | none: `JobLock::acquire` does not wait; held means `lock-busy` | no |
+| Target create/write (`backend.rs`) | `generations/reembedding-generation.lock` | as above | no |
+| Target batch | the target provider | the caller's link (disconnect, close), the coordinator deadline (1 h, `MigrationLimits`) and the provider's own request timeout; a local inference step runs to its end | no |
+| Close | the in-flight call | the connection's cancellation revokes the grant; every step checks it; the server's stop deadline detaches what is left | - |
+
+Close and crash. Server close cancels every connection, which revokes the
+grants; the coordinator checks the grant before every step and write, so no step
+starts after close, and the durable cursor stays at the last committed batch.
+After close or SIGKILL, `resume` continues from that cursor; a batch that was
+written but not recorded is replayed idempotently (`write_target` accepts an
+identical existing row).
+
+`apply` without `switch`. The library ends a complete copy in `validating`;
+`validate` moves it to `ready_to_switch`. Nothing in the engine activates the new
+generation in RX: `switch` and `rollback` are fail closed (F7). Activation is the
+Core's own half (`SwitchPort`, `packages/core/src/embedding-migrate/switch.ts`):
+it writes the `engine.reembedding` selection and restarts, and the next process
+opens the selected generation (RE-D141). The engine record stays
+`ready_to_switch`; the next plan retires it once its confirmation expired, as at
+the pin.
+
+RX known gaps → RY (RE-D166):
+
+- Wire errors carry fixed messages. The Core's migration driver classifies by
+  message text (`source drift`, `invalid or expired reembedding confirmation`);
+  against the Rust engine those answers are classified as a transient
+  `engine-error`: the run halts and can be resumed, it does not switch.
+- Writes to the active generation between `validate` and the Core's switch and
+  restart are not in the new generation; the pin's Harness-owned switch has the
+  same window (its engine-owned switch would hold the maintenance gate).
+- New generations are created below `baseDbPath/generations`, a selected one is
+  opened below the namespace parent's `generations` (as at the pin); with a
+  `baseDbPath` whose last segment is the writer namespace the two differ.
+- No parity scenario: the confirmation proof is random per run, the plan digest
+  covers the free bytes of the disk, and the parity runner's steps have static
+  arguments, so `apply` cannot use the proof `plan` returned.
