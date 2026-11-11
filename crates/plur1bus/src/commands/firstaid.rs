@@ -1741,15 +1741,8 @@ fn check_windows_pipe_acl(layout: &Layout) -> Check {
     };
     let mut writable = Vec::new();
     let mut checked = Vec::new();
-    for (name, address) in [
-        ("core", layout.endpoints(&Role::core(), "windows").address),
-        ("supervisor", supervisor_address(&layout.home, "windows")),
-        // RE-D172: the Rust engine's pipe gets the same user-and-SYSTEM DACL.
-        (
-            "engine",
-            layout.endpoints(&Role::engine(), "windows").address,
-        ),
-    ] {
+    let engine = rust_engine_selected(layout);
+    for (name, address) in pipe_acl_pipes(layout, engine) {
         if let Ok(entries) = win::pipe_dacl_report(&address) {
             checked.push(name);
             let sids = win::writable_by_others(&entries, &user_sid);
@@ -1761,7 +1754,8 @@ fn check_windows_pipe_acl(layout: &Layout) -> Check {
     }
     if writable.is_empty() {
         Check {
-            detail: Some(json!({ "checked": checked })),
+            // B8: the Node engine's output stays as it was; `detail.checked` only with the Rust engine selected.
+            detail: engine.then(|| json!({ "checked": checked })),
             ..Check::ok(ID, "no pipe is writable by another account")
         }
     } else {
@@ -1772,6 +1766,33 @@ fn check_windows_pipe_acl(layout: &Layout) -> Check {
             None,
         )
     }
+}
+
+/// Whether config.json selects the Rust engine (`engine.implementation: "rust"`); anything else, unreadable included,
+/// is the Node engine for this check.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn rust_engine_selected(layout: &Layout) -> bool {
+    plur1bus_config::read(&layout.config_path())
+        .ok()
+        .and_then(|config| crate::engine_process::selected(&config).ok())
+        == Some(true)
+}
+
+/// The pipes `windows.pipe-acl` reads: the core's and the supervisor's, and (RE-D172) the engine's only while the Rust
+/// engine is selected, so the Node engine's check is unchanged (B8).
+#[cfg_attr(not(windows), allow(dead_code))]
+fn pipe_acl_pipes(layout: &Layout, engine: bool) -> Vec<(&'static str, String)> {
+    let mut pipes = vec![
+        ("core", layout.endpoints(&Role::core(), "windows").address),
+        ("supervisor", supervisor_address(&layout.home, "windows")),
+    ];
+    if engine {
+        pipes.push((
+            "engine",
+            layout.endpoints(&Role::engine(), "windows").address,
+        ));
+    }
+    pipes
 }
 
 #[cfg(not(windows))]
@@ -1835,6 +1856,29 @@ pub fn run(out: &Out, layout: &Layout, cmd: FirstAidCmd) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// RE-D172 (B8): `windows.pipe-acl` reads the engine pipe (and reports `detail.checked`) only while the Rust
+    /// engine is selected; the Node engine's check reads exactly the two pipes it always did.
+    #[test]
+    fn the_pipe_acl_check_reads_the_engine_pipe_only_with_the_rust_engine() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = Layout::new(dir.path().to_path_buf());
+        let names = |engine| {
+            pipe_acl_pipes(&layout, engine)
+                .into_iter()
+                .map(|(name, _)| name)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(names(false), ["core", "supervisor"]);
+        assert_eq!(names(true), ["core", "supervisor", "engine"]);
+        assert!(!rust_engine_selected(&layout), "no config: the Node engine");
+        std::fs::write(
+            layout.config_path(),
+            r#"{"schemaVersion":1,"engine":{"implementation":"rust"}}"#,
+        )
+        .unwrap();
+        assert!(rust_engine_selected(&layout));
+    }
 
     #[test]
     fn missing_ffmpeg_is_a_warning_with_an_actionable_command() {

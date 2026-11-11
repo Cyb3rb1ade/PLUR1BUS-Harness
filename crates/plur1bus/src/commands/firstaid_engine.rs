@@ -71,10 +71,17 @@ pub(super) fn rows(engine: Engine, recorded: Option<(u32, String)>) -> Vec<Check
                 RpcError::Unavailable { reason, .. } => reason.clone(),
                 other => other.to_string(),
             };
+            // The probe pins the server to the pid in run/engine.pid (S11): another process on the endpoint is refused
+            // before the token is sent, and is that pid file not naming the engine that serves (B12).
+            let summary = if super::is_server_mismatch(&error) {
+                "run/engine.pid does not name the process that serves the engine endpoint"
+            } else {
+                "the Rust engine is selected but does not answer on its endpoint"
+            };
             vec![
                 Check::fail(
                     PROCESS,
-                    "the Rust engine is selected but does not answer on its endpoint",
+                    summary,
                     Some(json!({ "reason": reason })),
                     Some(
                         "`plur1bus daemon status` shows the engine slot; `plur1bus daemon start` starts it again"
@@ -102,15 +109,14 @@ fn process_row(status: &Value, peer: Option<u32>, recorded: Option<(u32, String)
         "instanceId": instance,
         "state": state,
         "rpc": status["rpc"],
+        "serverPid": peer,
         "recordedPid": recorded.as_ref().map(|(p, _)| *p),
     });
-    let names_it = recorded
-        .as_ref()
-        .is_some_and(|(p, i)| Some(*p) == pid && Some(i.as_str()) == instance);
-    if !names_it || (peer.is_some() && peer != pid) {
+    // The pid itself was pinned by the probe (a mismatch never answers, see `rows`); the incarnation was not.
+    if recorded.as_ref().map(|(_, i)| i.as_str()) != instance {
         return Check::fail(
             PROCESS,
-            "run/engine.pid does not name the engine process that serves its endpoint",
+            "run/engine.pid names another engine incarnation than the one that serves its endpoint",
             Some(detail),
             None,
         );
@@ -306,16 +312,34 @@ mod tests {
 
     #[test]
     fn a_process_the_pid_file_does_not_name_fails() {
-        let rows = rows(
-            Engine::Probed(Ok((healthy(), Some(42)))),
-            Some((7, "i-1".into())),
-        );
+        // B12: another process on the endpoint is refused by the pinned probe; the row names the pid file.
+        let refused = RpcError::Call {
+            error: plur1bus_rpc::types::ErrorCode::EUnauthorized,
+            jsonrpc: -32000,
+            message: "refused".into(),
+            reason: Some("pipe-server-mismatch".into()),
+            detail: None,
+            ids: None,
+            ext: None,
+        };
+        let rows = rows(Engine::Probed(Err(refused)), Some((7, "i-1".into())));
         assert_eq!(rows[0].status, Status::Fail);
+        assert!(
+            rows[0].summary.contains("does not name"),
+            "{}",
+            rows[0].summary
+        );
+        // An answering engine of another incarnation than the pid file names.
         let rows = super::rows(
-            Engine::Probed(Ok((healthy(), Some(9)))),
-            Some((42, "i-1".into())),
+            Engine::Probed(Ok((healthy(), Some(42)))),
+            Some((42, "i-2".into())),
         );
         assert_eq!(rows[0].status, Status::Fail);
+        assert!(
+            rows[0].summary.contains("incarnation"),
+            "{}",
+            rows[0].summary
+        );
     }
 
     #[test]
