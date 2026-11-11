@@ -35767,9 +35767,10 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
         "core",
         "module",
         "api",
-        "tools"
+        "tools",
+        "engine"
       ],
-      "description": "Experimental (1.3.0). Whether the child is Core, HTTP API, an installable module, or the native tools service (since 1.15.0 / D120 H1-1); absent from supervisors before 1.3.0."
+      "description": "Experimental (1.3.0). Whether the child is Core, HTTP API, an installable module, the native tools service (since 1.15.0 / D120 H1-1), or the native Rust engine (`engine`, added within 1.25.0 / RE-D172: present only while engine.implementation is rust, listed right after the core; a new enum member in a result is additive under ADR-016 §2, so the RPC version stays 1.25.0); absent from supervisors before 1.3.0."
     }
   }
 }
