@@ -22,7 +22,7 @@ use std::{
     collections::BTreeSet,
     path::PathBuf,
     sync::{
-        atomic::{AtomicBool, AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering},
         Arc, Mutex,
     },
 };
@@ -55,6 +55,9 @@ pub(super) struct EngineStores {
     count: AtomicUsize,
     clock: Arc<dyn Fn() -> i64 + Send + Sync>,
     cancel: Cancel,
+    /// The shared-pool support the last share decision found (RE-D165): 0 not decided yet,
+    /// 1 supported, 2 not supported. Status reads it without any lock.
+    shared: AtomicU8,
 }
 impl EngineStores {
     pub(super) fn new(
@@ -74,6 +77,7 @@ impl EngineStores {
             count: AtomicUsize::new(0),
             clock,
             cancel,
+            shared: AtomicU8::new(0),
         }
     }
     pub(super) fn open(self: &Arc<Self>, agent: &AgentId) -> Result<AgentStoreHandle, EngineError> {
@@ -251,15 +255,14 @@ impl EngineStores {
         state.pools = None;
         Ok(())
     }
-    /// The support the composed shared routes report (their pinned roots still unchanged),
-    /// without opening a store, a pool or calling the host. `None` while no read composed
-    /// them yet, or while another call holds the state lock (status never waits for it).
+    /// What the last share decision found ([`SharedStores::supported`], which every share,
+    /// propose and accept asks first): `None` before the first one. No lock, store or host.
     pub(super) fn shared_support(&self) -> Option<bool> {
-        let state = self.state.try_lock().ok()?;
-        state
-            .memory_routes
-            .as_ref()
-            .map(|routes| SharedStores::supported(routes.as_ref()))
+        match self.shared.load(Ordering::Acquire) {
+            1 => Some(true),
+            2 => Some(false),
+            _ => None,
+        }
     }
     pub(super) fn count(&self) -> usize {
         self.count.load(Ordering::Acquire)
@@ -324,11 +327,16 @@ impl UnimportStores for EngineStores {
 }
 
 impl SharedStores for EngineStores {
+    /// The routes are cloned out of the state lock first; their roots are checked without it.
     fn supported(&self) -> bool {
-        self.memory_routes()
+        let supported = self
+            .memory_routes()
             .ok()
             .flatten()
-            .is_some_and(|routes| routes.supported())
+            .is_some_and(|routes| routes.supported());
+        self.shared
+            .store(if supported { 1 } else { 2 }, Ordering::Release);
+        supported
     }
 
     fn target(

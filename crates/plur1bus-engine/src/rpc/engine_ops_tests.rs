@@ -8,7 +8,7 @@ use crate::{
     rpc::methods::{self, WireError},
     store::{OpenMode, Store},
 };
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::atomic::AtomicBool};
 
 const LIVE: &str = "11111111-1111-4111-8111-111111111111";
 const FOREIGN: &str = "22222222-2222-4222-8222-222222222222";
@@ -843,7 +843,7 @@ fn a_hung_embedding_holds_the_gate_only_within_its_budget() {
             std::thread::sleep(Duration::from_millis(2));
         }
     });
-    let embed_budget = Duration::from_secs(2);
+    let embed_budget = Duration::from_secs(3);
     f.engine
         .set_memory_budgets(embed_budget, Duration::from_millis(200), Some(hook));
     let correct = with(
@@ -852,9 +852,13 @@ fn a_hung_embedding_holds_the_gate_only_within_its_budget() {
     );
     let forget = with(f.plain("other"), json!({"id":FOREIGN}));
     std::thread::scope(|scope| {
-        let started = std::time::Instant::now();
-        let hung_call = scope.spawn(|| f.call("engine.memory.correct", &correct));
+        let (sender, finished) = mpsc::channel();
+        let (fixture, correct) = (&f, &correct);
+        scope.spawn(move || {
+            let _ = sender.send(fixture.call("engine.memory.correct", correct));
+        });
         hung.recv_timeout(Duration::from_secs(30)).unwrap();
+        let entered = std::time::Instant::now();
         // Another owner's write: refused as busy after the gate wait, not after the hang.
         assert_eq!(
             f.call("engine.memory.forget", &forget).unwrap_err().reason,
@@ -880,13 +884,19 @@ fn a_hung_embedding_holds_the_gate_only_within_its_budget() {
             .capture(turn, serde_json::from_value(json!({})).unwrap())
             .unwrap();
         assert!(handle.done.recv_timeout(Duration::from_secs(60)).is_ok());
+        // The holder ends after its embedding budget with the library's error for an
+        // unavailable provider. Without the budget it would hang: the engine is then closed
+        // so the scope can end, and the test fails here instead of hanging.
+        let ended = finished.recv_timeout(embed_budget + Duration::from_secs(10));
+        if ended.is_err() {
+            let _ = f.engine.close(Some(Duration::from_secs(5)));
+        }
         assert!(
-            !hung_call.is_finished(),
-            "the hung call is still inside its budget"
+            ended.is_ok(),
+            "the holder did not end within its embedding budget"
         );
-        // The hung call ends with the library's error for an unavailable provider.
-        assert_eq!(hung_call.join().unwrap().unwrap_err().reason, "storage");
-        assert!(started.elapsed() < embed_budget + Duration::from_secs(20));
+        assert_eq!(ended.unwrap().unwrap_err().reason, "storage");
+        assert!(entered.elapsed() >= embed_budget - Duration::from_millis(50));
     });
     f.engine
         .set_memory_budgets(Duration::from_secs(15), Duration::from_secs(20), None);
@@ -950,14 +960,14 @@ fn status_reports_shared_memory_as_share_calls_find_it() {
     f.private()
         .upsert(&[f.card(LIVE, "agent", "Prefers tea in the afternoon")])
         .unwrap();
-    let before = f.engine.status().shared_memory;
+    // Before any share decision the status reports the cautious value.
+    assert!(!f.engine.status().shared_memory.supported);
     let shared = f.call(
         "engine.memory.share",
         &with(f.user("agent"), json!({"id":LIVE,"target":"user"})),
     );
     let after = f.engine.status().shared_memory;
     let expected = cfg!(any(target_os = "linux", target_os = "macos", windows));
-    assert_eq!(before.supported, expected);
     assert_eq!(after.supported, expected);
     assert_eq!(shared.is_ok(), after.supported, "{shared:?}");
     let mode = serde_json::to_value(after.mode).unwrap();
@@ -974,4 +984,311 @@ fn status_reports_shared_memory_as_share_calls_find_it() {
     ));
     let unconfigured = ProcessEngine::new(host, Some(Seam::FlatEmbedder)).unwrap();
     assert!(!unconfigured.status().shared_memory.supported);
+
+    // A fresh base without any store: share is unsupported, and so is the status.
+    let fresh = Fixture::new(json!({"neo":{"enabled":false}}));
+    let refused = fresh.call(
+        "engine.memory.share",
+        &with(fresh.user("agent"), json!({"id":LIVE,"target":"user"})),
+    );
+    assert_eq!(refused.unwrap_err().reason, "unsupported");
+    assert!(!fresh.engine.status().shared_memory.supported);
+    assert!(!fresh.base.exists());
+
+    // Composed routes whose pinned base was replaced afterwards: share refuses as
+    // unsupported, and the status follows it.
+    let request = with(f.user("agent"), json!({"id":LIVE,"target":"workspace"}));
+    if f.engine.status().shared_memory.supported {
+        std::fs::rename(&f.base, f.base.with_extension("moved")).unwrap();
+        std::fs::create_dir(&f.base).unwrap();
+        let refused = f.call("engine.memory.share", &request);
+        assert!(refused.is_err(), "{refused:?}");
+        assert!(!f.engine.status().shared_memory.supported);
+    }
+}
+
+/// R2 (fix 2): at most four callers wait for the gate; a fifth and sixth are refused at once,
+/// so a connection's request slots stay free and a recall is served meanwhile.
+#[test]
+fn gate_waiters_are_capped_and_recall_is_served_meanwhile() {
+    let f = Fixture::new(json!({"neo":{"enabled":false}}));
+    f.private()
+        .upsert(&[f.card(LIVE, "agent", "The garden gate is green")])
+        .unwrap();
+    let others: Vec<String> = (0..6).map(|n| format!("other{n}")).collect();
+    for other in &others {
+        f.host
+            .set_workspace(&other.parse().unwrap(), f.workspace.clone());
+        Store::create(
+            &f.base.join("current").join(other),
+            &f.identity(),
+            f.width(),
+        )
+        .unwrap()
+        .upsert(&[f.card(FOREIGN, other, "Another owner's card")])
+        .unwrap();
+    }
+    let release = Arc::new(AtomicBool::new(false));
+    let (entered, hung) = mpsc::channel::<()>();
+    let entered = Mutex::new(entered);
+    let held = release.clone();
+    let hook: engine_memory::EmbedHook = Arc::new(move |_token: &Cancel| {
+        let _ = entered
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .send(());
+        while !held.load(Ordering::Acquire) {
+            std::thread::sleep(Duration::from_millis(2));
+        }
+    });
+    f.engine.set_memory_budgets(
+        Duration::from_secs(600),
+        Duration::from_secs(600),
+        Some(hook),
+    );
+    let correct = with(
+        f.plain("agent"),
+        json!({"id":LIVE,"newText":"The garden gate is blue"}),
+    );
+    std::thread::scope(|scope| {
+        let holder = scope.spawn(|| f.call("engine.memory.correct", &correct));
+        hung.recv_timeout(Duration::from_secs(30)).unwrap();
+        let (sender, results) = mpsc::channel();
+        for other in &others {
+            let sender = sender.clone();
+            let request = with(f.plain(other), json!({"id":FOREIGN}));
+            let fixture = &f;
+            scope.spawn(move || {
+                let _ = sender.send(fixture.call("engine.memory.forget", &request));
+            });
+        }
+        // Two come back at once as busy while four wait.
+        for _ in 0..2 {
+            let refused = results.recv_timeout(Duration::from_secs(30)).unwrap();
+            assert_eq!(refused.unwrap_err().reason, "engine-busy");
+        }
+        let end = std::time::Instant::now() + Duration::from_secs(30);
+        while f.engine.operations.mutation_waiters() != 4 {
+            assert!(std::time::Instant::now() < end, "four waiters expected");
+            std::thread::yield_now();
+        }
+        assert!(results.try_recv().is_err());
+        let recall = methods::dispatch(
+            &f.engine,
+            "engine.recall",
+            &json!({"query":{"query":"Which card is this?","principal":f.plain("other0")["p"],
+                "agent":{"origin":"user","background":false}},"options":{"reranker":"off"}}),
+            &Cancel::never(),
+        );
+        assert!(recall.is_ok(), "{recall:?}");
+        release.store(true, Ordering::Release);
+        assert_eq!(holder.join().unwrap().unwrap()["archived"], true);
+        for _ in 0..4 {
+            let forgotten = results.recv_timeout(Duration::from_secs(60)).unwrap();
+            assert_eq!(forgotten.unwrap()["archived"], true);
+        }
+    });
+}
+
+/// I1 (fix 2): a correction's Neo effects get their budget from their first use, after the
+/// gate: a correction that waited for the gate nearly its whole wait still writes its event.
+#[test]
+fn neo_effects_after_a_long_gate_wait_still_run_in_full() {
+    let f = Fixture::new(json!({"neo":{"agentEndBudgetMs":1000}}));
+    let request = with(
+        f.user("agent"),
+        json!({"id":LIVE,"newText":"The meeting is on Tuesday"}),
+    );
+    let context = RequestContext::build(
+        &serde_json::from_value(request["p"].clone()).unwrap(),
+        &serde_json::from_value(request["a"].clone()).unwrap(),
+        f.host.as_ref(),
+    )
+    .unwrap();
+    let mut card = f.card(LIVE, "agent", "The meeting is on Monday");
+    card.stored_by = "agent".into();
+    card.owner_user_id = context.owner_user_id.clone();
+    card.workspace_key = context.workspace_key.clone();
+    f.private()
+        .upsert(&[card, f.card(FOREIGN, "other", "The holder's card")])
+        .unwrap();
+    Store::create(&f.base.join("current/other"), &f.identity(), f.width())
+        .unwrap()
+        .upsert(&[f.card(FOREIGN, "other", "The holder's card")])
+        .unwrap();
+    // The holder (another owner's correct) hangs in its embedding until released; only the
+    // first embedding call blocks.
+    let release = Arc::new(AtomicBool::new(false));
+    let first = Arc::new(AtomicBool::new(true));
+    let (entered, hung) = mpsc::channel::<()>();
+    let entered = Mutex::new(entered);
+    let (held, once) = (release.clone(), first.clone());
+    let hook: engine_memory::EmbedHook = Arc::new(move |_token: &Cancel| {
+        if !once.swap(false, Ordering::AcqRel) {
+            return;
+        }
+        let _ = entered
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .send(());
+        while !held.load(Ordering::Acquire) {
+            std::thread::sleep(Duration::from_millis(2));
+        }
+    });
+    let gate = Duration::from_secs(3);
+    f.engine
+        .set_memory_budgets(Duration::from_secs(1), gate, Some(hook));
+    let holder = with(
+        f.plain("other"),
+        json!({"id":FOREIGN,"newText":"The holder's card, corrected"}),
+    );
+    std::thread::scope(|scope| {
+        let holding = scope.spawn(|| f.call("engine.memory.correct", &holder));
+        hung.recv_timeout(Duration::from_secs(30)).unwrap();
+        let waiting = scope.spawn(|| f.call("engine.memory.correct", &request));
+        let end = std::time::Instant::now() + Duration::from_secs(30);
+        while f.engine.operations.mutation_waiters() != 1 {
+            assert!(
+                std::time::Instant::now() < end,
+                "the correction waits for the gate"
+            );
+            std::thread::yield_now();
+        }
+        // Keep it waiting just under its gate wait (2.5 of 3 s), then release the holder.
+        std::thread::sleep(gate - Duration::from_millis(500));
+        release.store(true, Ordering::Release);
+        // The holder itself ran past its 1 s embedding budget and failed; that is not tested.
+        let _ = holding.join().unwrap();
+        let corrected = waiting.join().unwrap().unwrap();
+        assert_eq!(corrected["archived"], true);
+    });
+    let events = f
+        .base
+        .join("_neo/workspaces")
+        .join(crate::neo::merged::Layout::for_key(&context.workspace_key).canonical)
+        .join("reconsolidation-events.jsonl");
+    let events = std::fs::read_to_string(events).unwrap();
+    assert!(events.contains(LIVE), "the event was written: {events}");
+}
+
+/// M3/M4 (fix 2): accept and an applying unimport of refused callers create no Neo state;
+/// refused callers get `denied` from promote and curation; with Neo off and no Neo state,
+/// promote answers `skipped/disabled` and curation an empty list; a Neo root that cannot be
+/// created leaves correct without Neo and refuses promote and curation.
+#[test]
+fn neo_state_is_created_only_for_authorized_calls_and_neo_off_answers_as_disabled() {
+    let on = Fixture::new(json!({}));
+    let mut background_user = with(on.user("agent"), json!({"proposalId":LIVE}));
+    background_user["a"]["background"] = json!(true);
+    assert_eq!(
+        on.call("engine.memory.proposals.accept", &background_user)
+            .unwrap_err()
+            .reason,
+        "denied"
+    );
+    let mut unimport = with(
+        on.user("agent"),
+        json!({"req":{"agentId":"agent","importRunId":"fixture-run","dryRun":false}}),
+    );
+    assert_eq!(
+        on.call("engine.memory.unimport", &unimport)
+            .unwrap_err()
+            .reason,
+        "denied"
+    );
+    unimport["a"]["origin"] = json!("system");
+    unimport["req"]["agentId"] = json!("other");
+    assert_eq!(
+        on.call("engine.memory.unimport", &unimport)
+            .unwrap_err()
+            .reason,
+        "invalid-input"
+    );
+    let promote = with(background(on.user("agent")), json!({"req":{"ids":[LIVE]}}));
+    assert_eq!(
+        on.call("engine.memory.promote", &promote)
+            .unwrap_err()
+            .reason,
+        "denied"
+    );
+    let curation = with(background(on.user("agent")), json!({"q":{}}));
+    assert_eq!(
+        on.call("engine.memory.curation.list", &curation)
+            .unwrap_err()
+            .reason,
+        "denied"
+    );
+    // A correct of a card the caller cannot see stops at the library's ACL check.
+    on.private()
+        .upsert(&[on.card(FOREIGN, "other", "Another owner's card")])
+        .unwrap();
+    let foreign = with(on.user("agent"), json!({"id":FOREIGN,"newText":"x"}));
+    assert_eq!(
+        on.call("engine.memory.correct", &foreign)
+            .unwrap_err()
+            .reason,
+        "not-found"
+    );
+    assert!(!on.base.join("_neo").exists());
+
+    let off = Fixture::new(json!({"neo":{"enabled":false},"schicht15":{"enabled":true}}));
+    let promoted = off
+        .call(
+            "engine.memory.promote",
+            &with(off.user("agent"), json!({"req":{"ids":[LIVE]}})),
+        )
+        .unwrap();
+    assert_eq!(promoted["items"][0]["outcome"], "skipped", "{promoted}");
+    assert_eq!(promoted["items"][0]["reason"], "disabled");
+    let listed = off
+        .call(
+            "engine.memory.curation.list",
+            &with(off.user("agent"), json!({"q":{}})),
+        )
+        .unwrap();
+    assert_eq!(listed["items"], json!([]));
+    assert_eq!(listed["agentId"], "agent");
+    assert_eq!(
+        off.call(
+            "engine.memory.curation.keep",
+            &with(off.user("agent"), json!({"id":"beh_revision"}))
+        )
+        .unwrap_err()
+        .reason,
+        "not-found"
+    );
+    assert!(!off.base.join("_neo").exists());
+
+    // A Neo root that cannot be created: a regular file stands where it would go.
+    let blocked = Fixture::new(json!({}));
+    std::fs::create_dir_all(&blocked.base).unwrap();
+    std::fs::write(blocked.base.join("_neo"), "not a directory").unwrap();
+    blocked
+        .private()
+        .upsert(&[blocked.card(LIVE, "agent", "The color is blue")])
+        .unwrap();
+    let corrected = blocked
+        .call(
+            "engine.memory.correct",
+            &with(
+                blocked.user("agent"),
+                json!({"id":LIVE,"newText":"The color is red"}),
+            ),
+        )
+        .unwrap();
+    assert_eq!(corrected["archived"], true);
+    for (method, fields) in [
+        ("engine.memory.promote", json!({"req":{"ids":[LIVE]}})),
+        ("engine.memory.curation.list", json!({"q":{}})),
+    ] {
+        assert_eq!(
+            blocked
+                .call(method, &with(blocked.user("agent"), fields))
+                .unwrap_err()
+                .reason,
+            "invalid-input",
+            "{method}"
+        );
+    }
+    assert!(blocked.base.join("_neo").is_file());
 }

@@ -440,15 +440,17 @@ impl Engine for ProcessEngine {
         let left = budget
             .unwrap_or(Duration::from_secs(30))
             .saturating_sub(started.elapsed());
-        let _ = self.operations.close_within(left);
+        let memory_drained = self.operations.close_within(left);
         let stores_closed = self.live_stores.close();
         self.subscribers
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clear();
         stores_closed?;
-        // Capture work still settling past the budget keeps its own writer handles: report it.
-        if drained {
+        // Capture work still settling past the budget keeps its own writer handles, and a
+        // memory operation still inside a step that cannot be interrupted keeps its request
+        // worker (it writes nothing more: `assert_open` precedes every write step): report it.
+        if drained && memory_drained {
             Ok(())
         } else {
             Err(EngineError::NotAvailable {
@@ -902,9 +904,9 @@ impl crate::ops::status::StatusSources for ProcessStatusSources {
     fn shared(&self) -> Result<SharedMemorySupport, EngineError> {
         // Share and propose are served (RE-D165). The platform's mode as at the pin
         // (`defaultSharedMemoryMode`: descriptor aliases on Linux, verified paths on macOS
-        // and Windows); once a read composed the shared routes, their pinned roots decide, as
-        // they decide every share call (`unsafe-root` when tainted). No store, pool or host
-        // call is made here.
+        // and Windows), reported as supported only once a share decision found the pools
+        // supported; before the first one, or when it did not, the cautious `unavailable`.
+        // No lock, store, pool or host call is made here.
         let mode = if cfg!(target_os = "linux") {
             "fd-capability"
         } else if cfg!(any(target_os = "macos", windows)) {
@@ -912,10 +914,13 @@ impl crate::ops::status::StatusSources for ProcessStatusSources {
         } else {
             return decode(json!({"supported":false,"mode":"unavailable","reason":"platform"}));
         };
-        if self.stores.shared_support() == Some(false) {
-            return decode(json!({"supported":false,"mode":"unavailable","reason":"unsafe-root"}));
+        match self.stores.shared_support() {
+            Some(true) => decode(json!({"supported":true,"mode":mode})),
+            Some(false) => {
+                decode(json!({"supported":false,"mode":"unavailable","reason":"unsafe-root"}))
+            }
+            None => decode(json!({"supported":false,"mode":"unavailable"})),
         }
-        decode(json!({"supported":true,"mode":mode}))
     }
     fn opened_agents(&self) -> usize {
         self.stores.count()

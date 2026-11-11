@@ -1,23 +1,32 @@
 //! Per-call correction providers retain admission across outbound inference.
-use super::NativeMemory;
+use super::{EffectCancel, EffectJournal, NativeMemory};
 use crate::{
     context::RequestContext,
     contract::{
-        AgentContext, Cancel, EmbedError, EmbedKind, EngineError, MemoryOpErrorCode, Principal,
-        VectorSpaceIdentity,
+        AgentContext, Cancel, EmbedError, EmbedKind, EngineError, HostServices, MemoryOpErrorCode,
+        MemoryRow, Principal, StoreError, VectorSpaceIdentity,
     },
     embedding::{model_selection::ModelSelection, EmbeddingProvider},
-    neo::correction_effects::{EffectAuthority, NativeCorrectionEffects},
+    neo::{
+        capture_journal::{neo_budget, CaptureJournal},
+        correction_effects::{EffectAuthority, NativeCorrectionEffects},
+    },
     ops::{
         context::{error, OperationContext},
-        correction::CorrectionServices,
+        correction::{CorrectionEffects, CorrectionServices},
         sharing::ShareServices,
-        write::MemoryWriter,
+        write::{MemoryWriter, MutationStores},
     },
     store::directory::TrustedDirectory,
 };
 use serde_json::Value;
-use std::sync::Arc;
+use std::{
+    path::PathBuf,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, OnceLock,
+    },
+};
 
 struct Admission {
     context: Arc<OperationContext>,
@@ -114,29 +123,34 @@ impl NativeMemory {
         // skips Neo for it (RE-D155, RE-D165); the pin writes Neo for every owner (RY-A).
         let neo_owner = crate::context::is_user_principal(&admission.request.owner_user_id)
             && !admission.request.workspace_key.is_empty();
-        let journal = self
-            .journal
-            .as_ref()
-            .filter(|_| admission.config["neo"]["enabled"] != false && neo_owner);
-        let effects = match journal {
-            None => None,
-            Some(journal) => Some(Arc::new(NativeCorrectionEffects::open(
+        let source = if admission.config["neo"]["enabled"] == false || !neo_owner {
+            None
+        } else if let Some(journal) = &self.journal {
+            // A supplied journal is checked now, as before: an unusable binding refuses the
+            // correction before any archive is written.
+            NativeCorrectionEffects::open(
                 journal.clone(),
                 self.context.host_handle(),
                 self.writer.stores.clone(),
-                EffectAuthority {
-                    principal: principal.clone(),
-                    agent: agent.clone(),
-                    // A composition bounds the effects (shutdown and budget, RE-D165).
-                    cancel: self
-                        .effect_cancel
-                        .as_ref()
-                        .map_or_else(Cancel::never, |cancel| cancel()),
-                    base_db: self.base.clone(),
-                },
-            )?)
-                as Arc<dyn crate::ops::correction::CorrectionEffects>),
+                self.authority(principal, agent, Cancel::never()),
+            )?;
+            Some(Source::Journal(journal.clone()))
+        } else {
+            self.effect_journal.clone().map(Source::Factory)
         };
+        let effects = source.map(|source| {
+            Arc::new(LazyEffects {
+                source,
+                host: self.context.host_handle(),
+                stores: self.writer.stores.clone(),
+                principal: principal.clone(),
+                agent: agent.clone(),
+                base: self.base.clone(),
+                cancel: self.effect_cancel.clone(),
+                opened: OnceLock::new(),
+                deferred: AtomicBool::new(false),
+            }) as Arc<dyn CorrectionEffects>
+        });
         let mut writer = MemoryWriter::new(
             self.context.clone(),
             self.writer.stores.clone(),
@@ -159,5 +173,141 @@ impl NativeMemory {
         }
         admission.check()?;
         Ok(writer)
+    }
+}
+
+impl NativeMemory {
+    fn authority(
+        &self,
+        principal: &Principal,
+        agent: &AgentContext,
+        cancel: Cancel,
+    ) -> EffectAuthority {
+        EffectAuthority {
+            principal: principal.clone(),
+            agent: agent.clone(),
+            cancel,
+            base_db: self.base.clone(),
+        }
+    }
+}
+
+enum Source {
+    Journal(Arc<CaptureJournal>),
+    /// Resolved only at the first effect, after the library's admission, card ACL, archive
+    /// and embedding: a composition creates its Neo root here (RE-D165).
+    Factory(EffectJournal),
+}
+
+/// A correction's Neo effects, opened at their first use: the token (a composition's
+/// shutdown and budget, RE-D165) starts after the mutation gate was taken and the embedding
+/// ran, not when the writer was built. A failed or skipped effect is reported in the log, as
+/// the pin's `safe-update.js` warns for a failed edge rewrite or event append; the
+/// correction itself stays stored, as at the pin.
+struct LazyEffects {
+    source: Source,
+    host: Arc<dyn HostServices>,
+    stores: Arc<dyn MutationStores>,
+    principal: Principal,
+    agent: AgentContext,
+    base: PathBuf,
+    cancel: Option<EffectCancel>,
+    /// `None` inside: the factory could not provide a journal, so no Neo effect runs.
+    opened: OnceLock<Result<Option<(NativeCorrectionEffects, Cancel)>, StoreError>>,
+    /// The edge rewrite was skipped for lack of budget, so the event is skipped too: either
+    /// both effects run or neither, never edges without their event.
+    deferred: AtomicBool,
+}
+
+impl LazyEffects {
+    fn effects(&self) -> Result<Option<&(NativeCorrectionEffects, Cancel)>, StoreError> {
+        self.opened
+            .get_or_init(|| {
+                let journal = match &self.source {
+                    Source::Journal(journal) => journal.clone(),
+                    Source::Factory(factory) => match factory() {
+                        Ok(journal) => journal,
+                        Err(_) => {
+                            warn("unavailable", "neo-root");
+                            return Ok(None);
+                        }
+                    },
+                };
+                let cancel = self
+                    .cancel
+                    .as_ref()
+                    .map_or_else(Cancel::never, |cancel| cancel());
+                NativeCorrectionEffects::open(
+                    journal,
+                    self.host.clone(),
+                    self.stores.clone(),
+                    EffectAuthority {
+                        principal: self.principal.clone(),
+                        agent: self.agent.clone(),
+                        cancel: cancel.clone(),
+                        base_db: self.base.clone(),
+                    },
+                )
+                .map(|effects| Some((effects, cancel)))
+                .map_err(|failure| match failure {
+                    EngineError::Store(error) => error,
+                    _ => StoreError::Unavailable,
+                })
+            })
+            .as_ref()
+            .map(Option::as_ref)
+            .map_err(Clone::clone)
+    }
+}
+
+/// Fixed, content-free diagnostics: no memory text, ID or path.
+fn warn(outcome: &str, step: &str) {
+    log::warn!(target: "plur1bus_engine::memory", "correction neo effect {outcome}: {step}");
+}
+
+impl CorrectionEffects for LazyEffects {
+    fn contains(&self, context: &RequestContext, key: &str) -> Result<bool, StoreError> {
+        match self.effects()? {
+            Some((effects, _)) => effects.contains(context, key),
+            None => Ok(false),
+        }
+    }
+    fn rewrite_edges(
+        &self,
+        context: &RequestContext,
+        old: &MemoryRow,
+        new_id: &str,
+    ) -> Result<(), StoreError> {
+        let Some((effects, cancel)) = self.effects()? else {
+            return Err(StoreError::Unavailable);
+        };
+        // Both remaining effects wait for the Neo leases at most the Neo budget each. With
+        // less time left than that, neither starts (deferred, logged), so no edge points to a
+        // version whose event is missing.
+        let needed = neo_budget(self.host.as_ref()) * 2;
+        if cancel.remaining().is_some_and(|left| left < needed) {
+            self.deferred.store(true, Ordering::Release);
+            warn("deferred", "edges-and-event");
+            return Err(StoreError::Unavailable);
+        }
+        effects
+            .rewrite_edges(context, old, new_id)
+            .inspect_err(|_| warn("failed", "edges"))
+    }
+    fn record(
+        &self,
+        context: &RequestContext,
+        source: &MemoryRow,
+        event: &Value,
+    ) -> Result<(), StoreError> {
+        if self.deferred.load(Ordering::Acquire) {
+            return Err(StoreError::Unavailable);
+        }
+        let Some((effects, _)) = self.effects()? else {
+            return Err(StoreError::Unavailable);
+        };
+        effects
+            .record(context, source, event)
+            .inspect_err(|_| warn("failed", "event"))
     }
 }

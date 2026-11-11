@@ -79,10 +79,15 @@ pub struct NativeMemory {
     journal: Option<Arc<CaptureJournal>>,
     embedder: Arc<dyn EmbeddingProvider>,
     effect_cancel: Option<EffectCancel>,
+    effect_journal: Option<EffectJournal>,
     no_journal: NoJournal,
 }
-/// The token each correction's Neo effects run on (shutdown and budget of a composition).
+/// The token a correction's Neo effects run on, taken at their first use (a composition's
+/// shutdown and budget, RE-D165).
 pub type EffectCancel = Arc<dyn Fn() -> Cancel + Send + Sync>;
+/// The human-operation journal for a correction's Neo effects, resolved only at their first
+/// use when the facade has no journal of its own (a composition creates its Neo root there).
+pub type EffectJournal = Arc<dyn Fn() -> Result<Arc<CaptureJournal>, EngineError> + Send + Sync>;
 /// Curation without a Neo journal: there is nothing to read or revise. The caller is admitted
 /// as `NativeCuration` admits it first, so a refused caller gets the same refusal.
 struct NoJournal(Arc<OperationContext>);
@@ -176,7 +181,96 @@ impl NativeMemory {
             journal: ports.journal,
             embedder: ports.embedder,
             effect_cancel: None,
+            effect_journal: None,
         }
+    }
+    /// Correct and accept apply Neo effects through the journal `journal` returns, resolved
+    /// only at the first effect (after the library's admission, card ACL, archive and
+    /// embedding). Used when the facade itself has no journal (RE-D165).
+    #[must_use]
+    pub fn with_effect_journal(mut self, journal: EffectJournal) -> Self {
+        self.effect_journal = Some(journal);
+        self
+    }
+    /// Promote with Neo switched off and no Neo state: the caller is admitted as
+    /// `NativePromotion::run` admits it, and every requested ID is validated and answered
+    /// `skipped/disabled` by the A1 plan, with nothing published (RE-D165).
+    pub fn promote_neo_off(
+        &self,
+        request: &MemoryPromoteRequest,
+        p: &Principal,
+        a: &AgentContext,
+        cancel: &Cancel,
+    ) -> Result<MemoryPromotionResult, EngineError> {
+        cancel.check()?;
+        let operation = self.context.enter(p, a)?;
+        let ctx = &operation.context;
+        if ctx.background() || !matches!(ctx.origin_wire(), "user" | "system") {
+            return Err(super::context::error(
+                crate::contract::MemoryOpErrorCode::Denied,
+            ));
+        }
+        let raw = serde_json::to_value(self.context.host().config())
+            .map_err(|_| crate::contract::StoreError::Corrupt)?;
+        let mut config = crate::config::effective_config(&raw)
+            .map_err(|_| crate::contract::StoreError::InvalidInput)?;
+        config["schicht15"]["enabled"] = serde_json::Value::Bool(false);
+        let empty = crate::text::json::parse_json("{}")
+            .map_err(|_| crate::contract::StoreError::Corrupt)?;
+        let subject = crate::recall::acl::AclSubject::from_context(ctx);
+        Ok(super::promotion_plan::plan(
+            &super::promotion_plan::PromotionInput {
+                context: &subject,
+                config: &config,
+                ids: Some(&request.ids),
+                pending: &empty,
+                content: None,
+                now: self.context.host().now_ms(),
+                lock_busy: false,
+            },
+            cancel,
+            |_| Err(crate::contract::StoreError::Corrupt.into()),
+            || self.context.assert_open(),
+        )?
+        .result)
+    }
+    /// Curation with Neo switched off and no Neo state: an admitted human caller gets the
+    /// library's list over no records (empty), a resolve finds nothing (RE-D165).
+    pub fn curation_list_neo_off(
+        &self,
+        query: &crate::contract::MemoryCurationListQuery,
+        p: &Principal,
+        a: &AgentContext,
+        cancel: &Cancel,
+    ) -> Result<crate::contract::MemoryCurationListResult, EngineError> {
+        cancel.check()?;
+        let operation = self.context.enter(p, a)?;
+        let ctx = &operation.context;
+        self.context.destructive_workspace(ctx)?;
+        let limit = query
+            .limit
+            .as_ref()
+            .map(|n| {
+                n.as_f64().ok_or_else(|| {
+                    super::context::error(crate::contract::MemoryOpErrorCode::InvalidInput)
+                })
+            })
+            .transpose()?;
+        let raw = crate::neo::curation::list(&[], &[], ctx, limit, cancel)?;
+        serde_json::from_str(&crate::text::json::write_json(&raw))
+            .map_err(|_| super::context::error(crate::contract::MemoryOpErrorCode::Storage))
+    }
+    /// See [`Self::curation_list_neo_off`]: there is no record to resolve.
+    pub fn curation_resolve_neo_off(
+        &self,
+        p: &Principal,
+        a: &AgentContext,
+    ) -> Result<crate::contract::MemoryCurationResolveResult, EngineError> {
+        let operation = self.context.enter(p, a)?;
+        self.context.destructive_workspace(&operation.context)?;
+        Err(super::context::error(
+            crate::contract::MemoryOpErrorCode::NotFound,
+        ))
     }
     /// Run each correction's Neo effects on the token `cancel` returns instead of an unbounded
     /// one (a composition's shutdown and budget, RE-D165).
@@ -370,5 +464,62 @@ impl MemoryProposalsOps for NativeMemory {
         a: &AgentContext,
     ) -> Result<MemoryProposalRejectResult, EngineError> {
         self.proposals.reject(id, options, p, a)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, reason = "fixture errors are fatal")]
+    use super::*;
+    use crate::contract::testing::FakeHost;
+
+    fn call(origin: &str, background: bool) -> (Principal, AgentContext) {
+        (
+            serde_json::from_value(serde_json::json!({"agentId":"agent",
+                "workspace":"workspace:v1:fixture","channel":"cli","accountId":"fixture",
+                "chat":{"id":"fixture","kind":"direct"},"trust":"inferred"}))
+            .unwrap(),
+            serde_json::from_value(serde_json::json!({"origin":origin,"background":background}))
+                .unwrap(),
+        )
+    }
+    fn code(error: EngineError) -> String {
+        match error {
+            EngineError::MemoryOp(error) => error.code.to_string(),
+            EngineError::Store(crate::contract::StoreError::InvalidInput) => "invalid-input".into(),
+            other => other.to_string(),
+        }
+    }
+
+    /// Without a journal, curation admits the caller first: a refused caller keeps the
+    /// library's refusal, an admitted one is refused for the missing Neo partition.
+    #[test]
+    fn curation_without_a_journal_refuses_after_admission() {
+        let temp = tempfile::tempdir().unwrap();
+        let host = Arc::new(FakeHost::new(
+            temp.path().join("state"),
+            serde_json::from_value(serde_json::json!({})).unwrap(),
+        ));
+        host.set_workspace(&"agent".parse().unwrap(), temp.path().to_owned());
+        let none = NoJournal(Arc::new(OperationContext::new(host)));
+        let query = crate::contract::MemoryCurationListQuery::default();
+        let (p, a) = call("user", true);
+        assert_eq!(
+            code(
+                none.list(crate::contract::MemoryCurationListQuery::default(), &p, &a)
+                    .unwrap_err()
+            ),
+            "denied"
+        );
+        let (p, a) = call("system", false);
+        assert_eq!(
+            code(
+                none.resolve("x", crate::contract::MemoryCurationAction::Keep, &p, &a)
+                    .unwrap_err()
+            ),
+            "denied"
+        );
+        let (p, a) = call("user", false);
+        assert_eq!(code(none.list(query, &p, &a).unwrap_err()), "invalid-input");
     }
 }

@@ -2,16 +2,18 @@
 //! unimport, promote and curation, composed over the native facade and the process pools.
 //!
 //! Two facades (`ops::facade::NativeMemory`) exist. One has no Neo journal and is composed at
-//! construction without any file access. The other has the human-operation journal; it is
-//! composed only for a caller the journal can bind (a user principal with a logical workspace
-//! key, with the origin the operation admits), and only then is the Neo root opened, or
-//! created when Neo is enabled. Every operation runs in the foreground with its caller's
+//! construction without any file access; correct and accept use it and resolve the journal
+//! only at their first Neo effect, after the library authorized the call and checked the card.
+//! The other has the human-operation journal; promote, curation and the graph cleanup of an
+//! applying unimport use it, only for a caller the journal can bind (a user principal with a
+//! logical workspace key and a workspace directory, with the origin the operation admits).
+//! The Neo root is opened only then, and created only when Neo is enabled. Every operation runs in the foreground with its caller's
 //! principal; the library's ACL, owner and policy checks decide, nothing here grants authority.
 //!
 //! Bounds (RE-D165): no step under the engine-wide mutation gate runs on an unbounded token.
 //! Embeddings of correct, accept and share run on [`BudgetedEmbedder`] (shutdown and
-//! min(`embedding.requestTimeoutMs`, 15 s)); Neo effects of a correction on shutdown and the
-//! embedding budget plus the Neo budget; promote and curation on shutdown and 60 s.
+//! min(`embedding.requestTimeoutMs`, 15 s)); Neo effects of a correction on shutdown and three
+//! Neo budgets taken at their first use; promote and curation on shutdown and 60 s.
 
 use super::{engine_stores::EngineStores, Unavailable};
 use crate::{
@@ -186,7 +188,7 @@ pub(super) struct SlotInputs {
 /// the Neo journal may be opened or created for the caller.
 #[derive(Clone, Copy)]
 enum Admits {
-    /// correct, accept, curation: a foreground user (`destructive_workspace`).
+    /// curation: a foreground user (`destructive_workspace`).
     User,
     /// promote: a foreground user or system caller.
     UserOrSystem,
@@ -197,40 +199,105 @@ enum Admits {
 /// The journal a caller can use, or why there is none.
 enum JournalFor {
     Bound(Arc<CaptureJournal>),
-    /// The caller has a Neo partition, but Neo is off and no root exists: nothing to clean.
+    /// Neo is off and no root exists: nothing of Neo to read, revise or clean.
     Absent,
-    /// No partition (not a user principal, no workspace key, refused origin) or the root
-    /// cannot be opened or created.
+    /// No partition (not a user principal, no workspace key or directory, refused origin) or
+    /// the root cannot be opened or created.
     Refused,
 }
 
-/// The facades. The slot lock is held only while the Neo root is created and opened (a
-/// bounded file-system step), never across an operation.
+/// The one human-operation journal of the engine, opened (and with Neo enabled created) on
+/// first use. The lock is held only for that bounded file-system step.
+pub(super) struct JournalCache {
+    neo_root: PathBuf,
+    neo_enabled: bool,
+    base: PathBuf,
+    host: Arc<dyn HostServices>,
+    journal: Mutex<Option<Arc<CaptureJournal>>>,
+}
+
+impl JournalCache {
+    fn get(&self) -> JournalFor {
+        let mut slot = self.journal.lock().unwrap_or_else(PoisonError::into_inner);
+        if let Some(journal) = slot.as_ref() {
+            return JournalFor::Bound(journal.clone());
+        }
+        if self.neo_enabled {
+            if crate::store::paths::secure_dir(&self.neo_root).is_err() {
+                return JournalFor::Refused;
+            }
+        } else if !self.neo_root.is_dir() {
+            return JournalFor::Absent;
+        }
+        let switching = self.base.clone();
+        // Human operations follow the explicit workspace decision: an enabled workspace that
+        // is not in a re-embedding switch (the same state file capture reads).
+        let policy: Arc<dyn CapturePolicy> = Arc::new(
+            WorkspaceCapturePolicy::new(self.base.clone()).with_maintenance(Arc::new(move || {
+                MigrationStateStore::new(&switching)
+                    .and_then(|store| store.switching())
+                    .unwrap_or(true)
+            })),
+        );
+        match CaptureJournal::open(&self.neo_root, self.host.clone(), policy) {
+            Ok(journal) => {
+                let journal = Arc::new(journal);
+                *slot = Some(journal.clone());
+                JournalFor::Bound(journal)
+            }
+            Err(_) => JournalFor::Refused,
+        }
+    }
+}
+
+/// The facade for a journal-needing call, or why it runs without one.
+enum Facade {
+    Journaled(Arc<NativeMemory>),
+    NeoOff(Arc<NativeMemory>),
+    Refused(Arc<NativeMemory>),
+}
+
+/// The facades. Correct and accept always use the plain facade: their Neo effects resolve the
+/// journal only at their first use, after the library's admission, card ACL, archive and
+/// embedding (`NativeMemory::with_effect_journal`). Promote, curation and the graph cleanup
+/// of an applying unimport use the journaled facade, for an admitted caller with a Neo
+/// partition only.
 pub(super) struct NativeSlot {
     inputs: SlotInputs,
+    cache: Arc<JournalCache>,
     plain: Arc<NativeMemory>,
     journaled: Mutex<Option<Arc<NativeMemory>>>,
-    journal: Mutex<Option<Arc<CaptureJournal>>>,
 }
 
 impl NativeSlot {
     pub(super) fn new(inputs: SlotInputs) -> Self {
-        let plain = Arc::new(Self::compose(&inputs, None));
+        let cache = Arc::new(JournalCache {
+            neo_root: inputs.neo_root.clone(),
+            neo_enabled: inputs.neo_enabled,
+            base: inputs.base.clone(),
+            host: inputs.host.clone(),
+            journal: Mutex::new(None),
+        });
+        let plain = Arc::new(Self::compose(&inputs, &cache, None));
         Self {
             inputs,
+            cache,
             plain,
             journaled: Mutex::new(None),
-            journal: Mutex::new(None),
         }
     }
 
-    fn compose(inputs: &SlotInputs, journal: Option<Arc<CaptureJournal>>) -> NativeMemory {
+    fn compose(
+        inputs: &SlotInputs,
+        cache: &Arc<JournalCache>,
+        journal: Option<Arc<CaptureJournal>>,
+    ) -> NativeMemory {
         let stores = inputs.stores.clone();
         let embedder = BudgetedEmbedder::wrap(inputs.embedder.clone(), inputs.embed_budget.clone());
         let shutdown = inputs.shutdown.clone();
-        let budget = inputs.embed_budget.clone();
         let host = inputs.host.clone();
-        NativeMemory::new(
+        let journaled = journal.is_some();
+        let native = NativeMemory::new(
             inputs.operations.clone(),
             inputs.base.clone(),
             MemoryPorts {
@@ -248,9 +315,20 @@ impl NativeSlot {
                 import_encoding: import_encoding(&inputs.raw),
             },
         )
-        // A correction's Neo effects follow its embedding: both budgets, ended by shutdown.
+        // Taken at the first Neo effect, after the gate and the embedding: three Neo budgets
+        // (event lookup, edges, event; each lease wait is bounded by one), ended by shutdown.
         .with_effect_cancel(Arc::new(move || {
-            shutdown.limited_to(Instant::now() + budget.duration() + neo_budget(host.as_ref()))
+            shutdown.limited_to(Instant::now() + neo_budget(host.as_ref()) * 3)
+        }));
+        if journaled {
+            return native;
+        }
+        let cache = cache.clone();
+        native.with_effect_journal(Arc::new(move || match cache.get() {
+            JournalFor::Bound(journal) => Ok(journal),
+            JournalFor::Absent | JournalFor::Refused => {
+                Err(crate::contract::StoreError::Unavailable.into())
+            }
         }))
     }
 
@@ -275,7 +353,9 @@ impl NativeSlot {
             .limited_to(Instant::now() + MEMORY_OP_BUDGET)
     }
 
-    /// Whether the journal could bind this caller for this operation. Only a check of the
+    /// Whether the journal could bind this caller for this operation: the admitted origin,
+    /// a user principal with a logical workspace key and a host workspace directory (what
+    /// `destructive_workspace` and `CaptureJournal::bind` require). Only a check of the
     /// request (no store, no file); the library authorizes the operation itself.
     fn partition(&self, principal: &Principal, agent: &AgentContext, admits: Admits) -> bool {
         let origin = match admits {
@@ -286,13 +366,16 @@ impl NativeSlot {
         if !origin || agent.background {
             return false;
         }
-        RequestContext::build(principal, agent, self.inputs.host.as_ref())
+        let host = self.inputs.host.as_ref();
+        RequestContext::build(principal, agent, host)
             .is_ok_and(|ctx| is_user_principal(&ctx.owner_user_id) && !ctx.workspace_key.is_empty())
+            && host
+                .workspace_dir(&principal.agent_id)
+                .is_ok_and(|dir| dir.is_some_and(|dir| !dir.as_os_str().is_empty()))
     }
 
     /// The Neo root is opened only for a caller with a partition, and created only when Neo
-    /// is enabled (RE-D165). A root that cannot be opened or created leaves the caller without
-    /// Neo: the operation goes on without it where the library allows that.
+    /// is enabled (RE-D165).
     fn journal_for(
         &self,
         principal: &Principal,
@@ -302,62 +385,31 @@ impl NativeSlot {
         if !self.partition(principal, agent, admits) {
             return JournalFor::Refused;
         }
-        let mut slot = self.journal.lock().unwrap_or_else(PoisonError::into_inner);
-        if let Some(journal) = slot.as_ref() {
-            return JournalFor::Bound(journal.clone());
-        }
-        let inputs = &self.inputs;
-        if inputs.neo_enabled {
-            if crate::store::paths::secure_dir(&inputs.neo_root).is_err() {
-                return JournalFor::Refused;
-            }
-        } else if !inputs.neo_root.is_dir() {
-            return JournalFor::Absent;
-        }
-        let switching = inputs.base.clone();
-        // Human operations follow the explicit workspace decision: an enabled workspace that
-        // is not in a re-embedding switch (the same state file capture reads).
-        let policy: Arc<dyn CapturePolicy> = Arc::new(
-            WorkspaceCapturePolicy::new(inputs.base.clone()).with_maintenance(Arc::new(
-                move || {
-                    MigrationStateStore::new(&switching)
-                        .and_then(|store| store.switching())
-                        .unwrap_or(true)
-                },
-            )),
-        );
-        match CaptureJournal::open(&inputs.neo_root, inputs.host.clone(), policy) {
-            Ok(journal) => {
-                let journal = Arc::new(journal);
-                *slot = Some(journal.clone());
-                JournalFor::Bound(journal)
-            }
-            Err(_) => JournalFor::Refused,
-        }
+        self.cache.get()
     }
 
-    /// The facade for this caller: the journaled one when the journal binds it, else the plain
-    /// one (no Neo effects; promote and curation refuse).
     fn facade(
         &self,
         principal: &Principal,
         agent: &AgentContext,
         admits: Admits,
-    ) -> Result<Arc<NativeMemory>, EngineError> {
+    ) -> Result<Facade, EngineError> {
         self.open()?;
-        let JournalFor::Bound(journal) = self.journal_for(principal, agent, admits) else {
-            return Ok(self.plain.clone());
+        let journal = match self.journal_for(principal, agent, admits) {
+            JournalFor::Bound(journal) => journal,
+            JournalFor::Absent => return Ok(Facade::NeoOff(self.plain.clone())),
+            JournalFor::Refused => return Ok(Facade::Refused(self.plain.clone())),
         };
         let mut slot = self
             .journaled
             .lock()
             .unwrap_or_else(PoisonError::into_inner);
         if let Some(native) = slot.as_ref() {
-            return Ok(native.clone());
+            return Ok(Facade::Journaled(native.clone()));
         }
-        let native = Arc::new(Self::compose(&self.inputs, Some(journal)));
+        let native = Arc::new(Self::compose(&self.inputs, &self.cache, Some(journal)));
         *slot = Some(native.clone());
-        Ok(native)
+        Ok(Facade::Journaled(native))
     }
 
     pub(super) fn correct(
@@ -367,8 +419,8 @@ impl NativeSlot {
         principal: &Principal,
         agent: &AgentContext,
     ) -> Result<MemoryCorrectResult, EngineError> {
-        self.facade(principal, agent, Admits::User)?
-            .correct(id, text, principal, agent)
+        self.open()?;
+        self.plain.correct(id, text, principal, agent)
     }
 
     pub(super) fn promote(
@@ -377,8 +429,13 @@ impl NativeSlot {
         principal: &Principal,
         agent: &AgentContext,
     ) -> Result<MemoryPromotionResult, EngineError> {
-        self.facade(principal, agent, Admits::UserOrSystem)?
-            .promote_with_cancel(request, principal, agent, &self.budget())
+        let budget = self.budget();
+        match self.facade(principal, agent, Admits::UserOrSystem)? {
+            Facade::Journaled(native) | Facade::Refused(native) => {
+                native.promote_with_cancel(request, principal, agent, &budget)
+            }
+            Facade::NeoOff(native) => native.promote_neo_off(request, principal, agent, &budget),
+        }
     }
 
     /// A preview reads ledgers and rows only. An applying run cleans the graph edges of what it
@@ -394,7 +451,10 @@ impl NativeSlot {
     ) -> Result<MemoryUnimportResult, EngineError> {
         self.open()?;
         let mut graph = None;
-        let effects: Arc<dyn UnimportEffects> = if request.dry_run == Some(false) {
+        // A request for another agent is refused by the library before anything is read; it
+        // never opens or creates Neo state.
+        let own = request.agent_id == principal.agent_id;
+        let effects: Arc<dyn UnimportEffects> = if request.dry_run == Some(false) && own {
             match self.journal_for(principal, agent, Admits::System) {
                 JournalFor::Bound(journal) => {
                     graph = Some(journal);
@@ -523,8 +583,9 @@ impl MemoryProposalsOps for ProposalsPort {
         agent: &AgentContext,
     ) -> Result<MemoryProposalAcceptResult, EngineError> {
         // Accepting rewrites the shared copy through the correction writer.
-        let native = self.served()?.1.facade(principal, agent, Admits::User)?;
-        MemoryProposalsOps::accept(native.as_ref(), id, principal, agent)
+        let slot = &self.served()?.1;
+        slot.open()?;
+        MemoryProposalsOps::accept(slot.plain.as_ref(), id, principal, agent)
     }
     fn reject(
         &self,
@@ -567,10 +628,16 @@ impl MemoryCurationOps for CurationPort {
         agent: &AgentContext,
     ) -> Result<MemoryCurationListResult, EngineError> {
         let slot = self.slot()?;
-        let native = slot.facade(principal, agent, Admits::User)?;
-        match native.native_curation() {
-            Some(curation) => curation.list_with_cancel(&query, principal, agent, &slot.budget()),
-            None => native.curation().list(query, principal, agent),
+        let budget = slot.budget();
+        match slot.facade(principal, agent, Admits::User)? {
+            Facade::Journaled(native) => match native.native_curation() {
+                Some(curation) => curation.list_with_cancel(&query, principal, agent, &budget),
+                None => native.curation().list(query, principal, agent),
+            },
+            Facade::NeoOff(native) => {
+                native.curation_list_neo_off(&query, principal, agent, &budget)
+            }
+            Facade::Refused(native) => native.curation().list(query, principal, agent),
         }
     }
     fn resolve(
@@ -581,12 +648,16 @@ impl MemoryCurationOps for CurationPort {
         agent: &AgentContext,
     ) -> Result<MemoryCurationResolveResult, EngineError> {
         let slot = self.slot()?;
-        let native = slot.facade(principal, agent, Admits::User)?;
-        match native.native_curation() {
-            Some(curation) => {
-                curation.resolve_with_cancel(id, action, principal, agent, &slot.budget())
-            }
-            None => native.curation().resolve(id, action, principal, agent),
+        let budget = slot.budget();
+        match slot.facade(principal, agent, Admits::User)? {
+            Facade::Journaled(native) => match native.native_curation() {
+                Some(curation) => {
+                    curation.resolve_with_cancel(id, action, principal, agent, &budget)
+                }
+                None => native.curation().resolve(id, action, principal, agent),
+            },
+            Facade::NeoOff(native) => native.curation_resolve_neo_off(principal, agent),
+            Facade::Refused(native) => native.curation().resolve(id, action, principal, agent),
         }
     }
 }

@@ -11,9 +11,19 @@ use std::{
 };
 
 /// How long a caller waits for the engine-wide mutation gate before it is refused as busy
-/// (RE-D165). Every holder's own steps are bounded (embedding, Neo budget), so a wait this
-/// long means another owner's step is stuck; the caller retries instead of queueing behind it.
+/// (RE-D165). Longer than one budgeted embedding under the gate (15 s); a holder inside a Neo
+/// lease wait may hold longer, and a waiter then gets `engine-busy` and retries.
 pub const MUTATION_WAIT: Duration = Duration::from_secs(20);
+/// At most this many callers wait for the gate at a time (RE-D165). A further caller is
+/// refused at once as busy, so waiters never fill a connection's request slots (eight per
+/// connection in the process server) and recall and capture keep slots of their own.
+pub const MAX_MUTATION_WAITERS: usize = 4;
+
+fn busy() -> EngineError {
+    EngineError::NotAvailable {
+        reason: "engine-busy".into(),
+    }
+}
 
 #[derive(Default)]
 struct State {
@@ -21,6 +31,8 @@ struct State {
     active: usize,
     /// The mutation gate is held.
     held: bool,
+    /// Callers waiting for the gate.
+    waiting: usize,
 }
 
 /// Host-bound lifecycle. Closing rejects new work and drains already admitted operations.
@@ -53,9 +65,15 @@ impl OperationContext {
             wait: Mutex::new(MUTATION_WAIT),
         }
     }
-    /// Replace the gate wait (tests and compositions with a shorter call budget).
+    /// Replace the gate wait (tests only).
+    #[cfg(any(test, feature = "testkit"))]
     pub fn set_mutation_wait(&self, wait: Duration) {
         *self.wait.lock().unwrap_or_else(PoisonError::into_inner) = wait;
+    }
+    /// How many callers wait for the gate now (tests only).
+    #[cfg(any(test, feature = "testkit"))]
+    pub fn mutation_waiters(&self) -> usize {
+        self.lock().waiting
     }
     fn lock(&self) -> MutexGuard<'_, State> {
         self.state.lock().unwrap_or_else(PoisonError::into_inner)
@@ -112,18 +130,29 @@ impl OperationContext {
         }
     }
     /// Take the engine-wide mutation gate, waiting at most the gate wait ([`MUTATION_WAIT`]).
-    /// A gate still held then answers `engine-busy`; a close during the wait answers like a
-    /// closed context. No caller waits without a deadline (RE-D165).
+    /// A gate still held then answers `engine-busy`, and so does a caller beyond
+    /// [`MAX_MUTATION_WAITERS`] at once; a close during the wait answers like a closed context.
+    /// No caller waits without a deadline (RE-D165).
     pub(super) fn mutation(&self) -> Result<MutationGuard<'_>, EngineError> {
         let wait = *self.wait.lock().unwrap_or_else(PoisonError::into_inner);
         let deadline = Instant::now().checked_add(wait);
         let mut state = self.lock();
+        if state.held && !state.closed {
+            if state.waiting >= MAX_MUTATION_WAITERS {
+                return Err(busy());
+            }
+            state.waiting += 1;
+        } else if state.closed {
+            return Err(error(MemoryOpErrorCode::Storage));
+        } else {
+            state.held = true;
+            return Ok(MutationGuard(self));
+        }
         while state.held && !state.closed {
             let left = deadline.map(|at| at.saturating_duration_since(Instant::now()));
             if left == Some(Duration::ZERO) {
-                return Err(EngineError::NotAvailable {
-                    reason: "engine-busy".into(),
-                });
+                state.waiting -= 1;
+                return Err(busy());
             }
             state = match left {
                 Some(left) => {
@@ -138,6 +167,7 @@ impl OperationContext {
                     .unwrap_or_else(PoisonError::into_inner),
             };
         }
+        state.waiting -= 1;
         if state.closed {
             return Err(error(MemoryOpErrorCode::Storage));
         }
@@ -217,4 +247,89 @@ pub struct Operation<'a> {
 }
 pub(super) fn error(code: MemoryOpErrorCode) -> EngineError {
     MemoryOpError::new(code).into()
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, reason = "fixture errors are fatal")]
+    use super::*;
+    use crate::contract::testing::FakeHost;
+
+    fn context() -> Arc<OperationContext> {
+        let temp = std::env::temp_dir().join("plur1bus-context-test-unused");
+        Arc::new(OperationContext::new(Arc::new(FakeHost::new(
+            temp,
+            serde_json::from_value(serde_json::json!({})).unwrap(),
+        ))))
+    }
+    fn reason(error: EngineError) -> String {
+        match error {
+            EngineError::NotAvailable { reason } => reason,
+            EngineError::MemoryOp(error) => error.code.to_string(),
+            other => other.to_string(),
+        }
+    }
+    fn until(check: impl Fn() -> bool) {
+        let end = Instant::now() + Duration::from_secs(30);
+        while !check() {
+            assert!(Instant::now() < end, "condition not reached");
+            std::thread::yield_now();
+        }
+    }
+
+    #[test]
+    fn a_waiter_gets_busy_after_its_wait_and_the_gate_after_release() {
+        let ctx = context();
+        ctx.set_mutation_wait(Duration::from_millis(50));
+        let held = ctx.mutation().unwrap();
+        assert_eq!(reason(ctx.mutation().err().unwrap()), "engine-busy");
+        assert_eq!(ctx.mutation_waiters(), 0);
+        drop(held);
+        drop(ctx.mutation().unwrap());
+    }
+
+    #[test]
+    fn waiters_beyond_the_cap_are_refused_at_once_and_close_releases_the_rest() {
+        let ctx = context();
+        ctx.set_mutation_wait(Duration::from_secs(600));
+        let held = ctx.mutation().unwrap();
+        std::thread::scope(|scope| {
+            let waiters: Vec<_> = (0..MAX_MUTATION_WAITERS)
+                .map(|_| scope.spawn(|| ctx.mutation().map(|_| ()).map_err(reason)))
+                .collect();
+            until(|| ctx.mutation_waiters() == MAX_MUTATION_WAITERS);
+            // The fifth caller does not wait at all.
+            let started = Instant::now();
+            assert_eq!(reason(ctx.mutation().err().unwrap()), "engine-busy");
+            assert!(started.elapsed() < Duration::from_secs(5));
+            // Close refuses the waiters as a closed context, without waiting for the holder.
+            ctx.close_within(Duration::ZERO);
+            for waiter in waiters {
+                assert_eq!(waiter.join().unwrap().unwrap_err(), "storage");
+            }
+        });
+        assert_eq!(ctx.mutation_waiters(), 0);
+        drop(held);
+        assert_eq!(reason(ctx.mutation().err().unwrap()), "storage");
+    }
+
+    #[test]
+    fn close_within_reports_an_operation_still_admitted() {
+        let ctx = context();
+        let principal: Principal = serde_json::from_value(serde_json::json!({"agentId":"agent",
+            "workspace":"workspace:v1:fixture","channel":"cli","accountId":"fixture",
+            "chat":{"id":"fixture","kind":"direct"},"trust":"inferred"}))
+        .unwrap();
+        let agent: AgentContext =
+            serde_json::from_value(serde_json::json!({"origin":"user","background":false}))
+                .unwrap();
+        let admitted = ctx.enter(&principal, &agent).unwrap();
+        assert!(!ctx.close_within(Duration::from_millis(20)));
+        assert!(
+            ctx.assert_open().is_err(),
+            "no write step passes after close"
+        );
+        drop(admitted);
+        assert!(ctx.close_within(Duration::from_millis(20)));
+    }
 }
