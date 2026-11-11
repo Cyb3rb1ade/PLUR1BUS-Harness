@@ -33,7 +33,7 @@ pub(crate) const GATHER_BUDGET: Duration = Duration::from_secs(3);
 
 /// Every check id, in the fixed table order (ruling H3-R5) — used to fill in the checks a budget-exhausted `gather`
 /// never got to.
-const CHECK_IDS: [&str; 36] = [
+const CHECK_IDS: [&str; 39] = [
     "config.valid",
     "config.store-path",
     "host_mode_coexistence",
@@ -70,6 +70,10 @@ const CHECK_IDS: [&str; 36] = [
     "dreams.learn.store",
     "dreams.learn.breaker",
     "dreams.learn.backlog",
+    // RE-D172: the native Rust engine (append-only; `skip` with the Node engine).
+    "engine.process",
+    "engine.store",
+    "engine.runtime",
 ];
 
 /// The summary of a row [`gather`] never got to before its deadline (`1staid repair` plans nothing for it).
@@ -424,6 +428,18 @@ pub fn gather(layout: &Layout, env: &Env, deadline: Instant) -> Vec<Check> {
     checks.extend(super::firstaid_learn::checks(
         layout,
         core_status.as_ref().and_then(|s| s.get("learning")),
+    ));
+    if out_of_budget(deadline, &mut checks) {
+        return checks;
+    }
+    // RE-D172: one bounded `engine.status` call serves all three engine rows.
+    checks.extend(super::firstaid_engine::checks(
+        layout,
+        env.platform,
+        |platform| {
+            probe(layout, Endpoint::Engine, platform, "engine.status")
+                .map(|(status, client)| (status, client.peer_pid()))
+        },
     ));
     checks
 }
@@ -1724,11 +1740,18 @@ fn check_windows_pipe_acl(layout: &Layout) -> Check {
         }
     };
     let mut writable = Vec::new();
+    let mut checked = Vec::new();
     for (name, address) in [
         ("core", layout.endpoints(&Role::core(), "windows").address),
         ("supervisor", supervisor_address(&layout.home, "windows")),
+        // RE-D172: the Rust engine's pipe gets the same user-and-SYSTEM DACL.
+        (
+            "engine",
+            layout.endpoints(&Role::engine(), "windows").address,
+        ),
     ] {
         if let Ok(entries) = win::pipe_dacl_report(&address) {
+            checked.push(name);
             let sids = win::writable_by_others(&entries, &user_sid);
             if !sids.is_empty() {
                 writable.push(json!({ "pipe": name, "sids": sids }));
@@ -1737,7 +1760,10 @@ fn check_windows_pipe_acl(layout: &Layout) -> Check {
         // A pipe nobody is currently serving is not this check's concern (`run.stale-files` covers that).
     }
     if writable.is_empty() {
-        Check::ok(ID, "no pipe is writable by another account")
+        Check {
+            detail: Some(json!({ "checked": checked })),
+            ..Check::ok(ID, "no pipe is writable by another account")
+        }
     } else {
         Check::fail(
             ID,

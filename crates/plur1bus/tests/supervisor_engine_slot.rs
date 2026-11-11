@@ -475,6 +475,109 @@ fn an_adopted_engine_is_bound_to_the_max_cores_set() {
     stop(&mut replacement, &mut c);
 }
 
+/// `plur1bus --json 1staid check` until a pass reaches every row (a loaded machine can exhaust its 3 s budget).
+fn firstaid(home: &Path) -> Vec<Value> {
+    let deadline = Instant::now() + WAIT;
+    loop {
+        let out = Command::new(assert_cmd::cargo::cargo_bin("plur1bus"))
+            .arg("--json")
+            .arg("--home")
+            .arg(home)
+            .args(["1staid", "check"])
+            .env_remove("PLUR1BUS_ALLOW_TEST_INTERNALS")
+            .env_remove("PLUR1BUS_SUPERVISOR_TIME_SCALE")
+            .stdin(Stdio::null())
+            .output()
+            .unwrap();
+        let doc: Value = serde_json::from_slice(&out.stdout)
+            .unwrap_or_else(|e| panic!("{e}: {}", String::from_utf8_lossy(&out.stdout)));
+        let checks = doc["checks"].as_array().cloned().unwrap_or_default();
+        if !checks
+            .iter()
+            .any(|c| c["summary"] == "time budget exhausted")
+        {
+            return checks;
+        }
+        assert!(Instant::now() < deadline, "no complete pass: {doc}");
+        std::thread::sleep(Duration::from_millis(500));
+    }
+}
+
+fn engine_rows(checks: &[Value]) -> Vec<(String, String)> {
+    assert_eq!(checks.len(), 39, "{checks:?}");
+    checks[36..]
+        .iter()
+        .map(|c| {
+            (
+                c["id"].as_str().unwrap().to_owned(),
+                c["status"].as_str().unwrap().to_owned(),
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn one_staid_check_reports_engine_process_store_and_runtime() {
+    let h = Home::new(Some("rust"));
+    let mut sup = start(&h, &[]);
+    let mut c = client(&h.home);
+    let st = wait_status(&mut c, "core and engine ready", both_ready);
+    let pid = child(&st, "engine").unwrap()["pid"].clone();
+    let checks = firstaid(&h.home);
+    assert_eq!(
+        engine_rows(&checks),
+        [
+            ("engine.process".to_owned(), "ok".to_owned()),
+            ("engine.store".to_owned(), "ok".to_owned()),
+            ("engine.runtime".to_owned(), "ok".to_owned()),
+        ],
+        "{checks:#?}"
+    );
+    assert_eq!(checks[36]["detail"]["pid"], pid, "{:#}", checks[36]);
+    assert_eq!(
+        checks[37]["detail"]["storeSchema"]["current"], "1",
+        "{:#}",
+        checks[37]
+    );
+    assert_eq!(
+        checks[38]["detail"]["embedder"], "ready",
+        "{:#}",
+        checks[38]
+    );
+    stop(&mut sup, &mut c);
+
+    // Selected but not running: the process row fails once, the other two cannot be checked.
+    let checks = firstaid(&h.home);
+    let rows = engine_rows(&checks);
+    assert_eq!(
+        rows[0],
+        ("engine.process".to_owned(), "fail".to_owned()),
+        "{checks:#?}"
+    );
+    assert_eq!(rows[1].1, "skip", "{checks:#?}");
+    assert_eq!(rows[2].1, "skip", "{checks:#?}");
+    assert!(
+        checks[37]["summary"]
+            .as_str()
+            .unwrap()
+            .contains("not checkable"),
+        "{:#}",
+        checks[37]
+    );
+
+    // The Node engine: all three rows skip.
+    let node = Home::new(None);
+    let checks = firstaid(&node.home);
+    assert_eq!(
+        engine_rows(&checks)
+            .iter()
+            .map(|(_, s)| s.as_str())
+            .collect::<Vec<_>>(),
+        ["skip", "skip", "skip"],
+        "{checks:#?}"
+    );
+}
+
 #[test]
 fn the_default_node_engine_has_no_engine_slot() {
     for config in [None, Some("node")] {
@@ -610,6 +713,36 @@ fn daemon_stop_stops_the_core_before_the_engine() {
     assert!(at("core exited") < at("stopping engine"));
     assert!(at("stopping engine") < at("engine exited"));
     assert_eq!(h.engine_events("shutdown").len(), 1);
+}
+
+#[cfg(windows)]
+#[test]
+fn windows_pipe_acl_applies_to_the_engine_pipe() {
+    let h = Home::new(Some("rust"));
+    let mut sup = start(&h, &[]);
+    let mut c = client(&h.home);
+    wait_status(&mut c, "core and engine ready", both_ready);
+    let checks = firstaid(&h.home);
+    let acl = checks
+        .iter()
+        .find(|c| c["id"] == "windows.pipe-acl")
+        .unwrap();
+    assert_eq!(acl["status"], "ok", "{acl:#}");
+    let pipes: Vec<&str> = acl["detail"]["checked"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| p.as_str().unwrap())
+        .collect();
+    assert!(pipes.contains(&"engine"), "{acl:#}");
+    // The supervisor's own run-file check covered the engine's token and pid file too, and found nothing.
+    assert!(
+        !h.log_records().iter().any(|r| r["child"] == "engine"
+            && r["msg"].as_str().is_some_and(|m| m.starts_with("run file"))),
+        "{:?}",
+        h.log_records()
+    );
+    stop(&mut sup, &mut c);
 }
 
 /// The real `plur1bus-engine` with the flat embedder (`PLUR1BUS_ENGINE_BIN` must name a built binary): start,
