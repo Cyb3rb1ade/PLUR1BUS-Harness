@@ -186,7 +186,7 @@ test('unit-os preserves every unit step while Ubuntu and Windows run Core only i
     '      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0\n' +
     "        if: matrix.os == 'macos-15'\n" +
     '        with: { go-version: "1.27.1", cache: false }\n' +
-    '      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0\n' +
+    '      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0\n' +
     "        if: matrix.os == 'macos-15'\n" +
     '        with: { python-version: "3.13" }\n';
   assert.ok(stepsOf(jobs.unit).includes(rustToolchain));
