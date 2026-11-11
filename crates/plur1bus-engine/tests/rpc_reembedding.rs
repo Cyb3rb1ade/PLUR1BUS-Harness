@@ -264,6 +264,32 @@ fn reembedding_is_served_only_over_the_core_grant_and_every_call_is_audited() {
     );
     assert_unauthorized(&refused);
     assert_eq!(refused["error"]["data"]["reason"], "core-link-required");
+    for (id, method, params) in [
+        (
+            30,
+            "engine.admin.reembedding.apply",
+            token_params(migration, "x"),
+        ),
+        (
+            31,
+            "engine.admin.reembedding.resume",
+            token_params(migration, "x"),
+        ),
+        (
+            32,
+            "engine.admin.reembedding.status",
+            json!({"id":migration}),
+        ),
+        (
+            33,
+            "engine.admin.reembedding.validate",
+            json!({"request":{"id":migration}}),
+        ),
+    ] {
+        let response = call(&mut peer, id, method, params);
+        assert_unauthorized(&response);
+        assert_eq!(response["error"]["data"]["reason"], "core-link-required");
+    }
     assert!(!audit.exists());
     assert!(!fixture.home().join("state/lancedb/generations").exists());
 
@@ -459,14 +485,10 @@ fn close_cancels_a_held_apply_within_its_budget_and_resume_continues_after_resta
     );
     fixture.wait_held();
     let mut control = connect(&engine);
-    let started = Instant::now();
     send(&mut control, 2, "engine.shutdown", json!({"budgetMs":2000}));
     assert!(engine.wait_for_exit().success(), "{}", engine.diagnostics());
-    assert!(
-        started.elapsed() < Duration::from_secs(5),
-        "{:?}",
-        started.elapsed()
-    );
+    // The hook saw the revoked grant: close ended the batch, not the end of the process.
+    assert!(fixture.hold.join("cancelled").exists());
     // The held call ends without a result: cancelled or cut off with its connection.
     if let Ok(Some(response)) = peer.response() {
         assert!(response.get("result").is_none(), "{response}");
@@ -524,6 +546,164 @@ fn sigkill_inside_an_apply_batch_resumes_to_a_consistent_validated_generation() 
     assert_eq!(completed(&validated), rows);
     assert_copied(&fixture, migration);
     drop(peer);
+    engine.close_stdin();
+    assert!(engine.wait_for_exit().success(), "{}", engine.diagnostics());
+}
+
+/// The fixture entry for one fixed text, and the wire answer must carry exactly it.
+fn assert_fixed_text(response: &Value, text: &str) {
+    let fixture: Value =
+        serde_json::from_str(include_str!("fixtures/ops/reembedding-wire-errors.json")).unwrap();
+    let entry = fixture["errors"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|entry| entry["text"] == text)
+        .unwrap_or_else(|| panic!("{text} is not in the fixture"));
+    assert!(response.get("result").is_none(), "{response}");
+    assert_eq!(response["error"]["message"], text, "{response}");
+    assert_eq!(
+        response["error"]["data"]["error"], entry["error"],
+        "{response}"
+    );
+    assert_eq!(
+        response["error"]["data"]["reason"], entry["reason"],
+        "{response}"
+    );
+}
+
+#[test]
+fn wire_errors_carry_the_fixed_pin_texts_the_core_driver_classifies() {
+    let _serial = process_test();
+    let fixture = fixture();
+    let mut engine = fixture.start();
+    publish_core(fixture.home());
+    let mut peer = connect(&engine);
+    let migration = "rx-wire";
+    let planned = ok(call(
+        &mut peer,
+        2,
+        "engine.admin.reembedding.plan",
+        plan_params(migration),
+    ));
+    let token = planned["confirmation"]["token"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    // (An unchanged fingerprint is covered in rpc/maintenance_tests.rs: the process's active
+    // fingerprint carries fields the closed wire schema of the request does not accept.)
+    // Another plan while this one lives: migration-active (driver.ts:187).
+    let other = call(
+        &mut peer,
+        4,
+        "engine.admin.reembedding.plan",
+        plan_params("rx-other"),
+    );
+    assert_fixed_text(&other, "another reembedding migration is active");
+    // A proof that is not this plan's: final confirmation-invalid (driver.ts:115).
+    let mut wrong = token.clone();
+    let last = wrong.pop().unwrap();
+    wrong.push(if last == 'A' { 'B' } else { 'A' });
+    let refused = call(
+        &mut peer,
+        5,
+        "engine.admin.reembedding.apply",
+        token_params(migration, &wrong),
+    );
+    assert_fixed_text(&refused, "invalid or expired reembedding confirmation");
+
+    let applied = ok(call(
+        &mut peer,
+        6,
+        "engine.admin.reembedding.apply",
+        token_params(migration, &token),
+    ));
+    assert_eq!(applied["state"], "running");
+    // Another writer changes the active table: final source drift (driver.ts:114). The text
+    // carries no table ID; the pin's suffix is left out.
+    let table = fixture.home().join("state/lancedb/a1");
+    let store = plur1bus_engine::store::Store::open(
+        &table,
+        plur1bus_engine::store::OpenMode::ReadWrite,
+        None,
+    )
+    .unwrap();
+    let mut row = store
+        .scan(&plur1bus_engine::store::RowFilter::default(), 1)
+        .unwrap()
+        .remove(0);
+    row.id = "30000000-0000-4000-8000-000000000166".into();
+    row.text = "A synthetic row written by another writer.".into();
+    store.upsert(&[row]).unwrap();
+    drop(store);
+    let drift = call(
+        &mut peer,
+        7,
+        "engine.admin.reembedding.resume",
+        token_params(migration, &token),
+    );
+    assert_fixed_text(&drift, "reembedding source version drift");
+    drop(peer);
+    engine.close_stdin();
+    assert!(engine.wait_for_exit().success(), "{}", engine.diagnostics());
+}
+
+#[test]
+fn a_closed_core_connection_revokes_the_grant_of_a_held_apply_in_a_running_engine() {
+    let _serial = process_test();
+    let fixture = fixture();
+    let mut engine = fixture.start();
+    publish_core(fixture.home());
+    let mut peer = connect(&engine);
+    let migration = "rx-disconnect";
+    let (token, rows) = plan_and_first_batch(&mut peer, migration);
+
+    fixture.hold();
+    send(
+        &mut peer,
+        20,
+        "engine.admin.reembedding.resume",
+        token_params(migration, &token),
+    );
+    fixture.wait_held();
+    // The Core link goes away; the engine keeps running.
+    drop(peer);
+    let deadline = Instant::now() + WAIT;
+    while !fixture.hold.join("cancelled").exists() {
+        assert!(
+            Instant::now() < deadline,
+            "the revoked grant never reached the batch"
+        );
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    fixture.release();
+    let mut other = connect(&engine);
+    // validate needs the coordinator but changes nothing in `running`: once it no longer
+    // answers lock-busy, the cancelled batch has ended.
+    let mut id = 40;
+    loop {
+        let answer = validate(&mut other, id, migration);
+        if reason(&answer) != "lock-busy" {
+            assert_eq!(reason(&answer), "invalid-input", "{answer}");
+            break;
+        }
+        assert!(Instant::now() < deadline, "the cancelled batch never ended");
+        std::thread::sleep(Duration::from_millis(5));
+        id += 1;
+    }
+    // Nothing after the revocation: the cursor is still the first batch's.
+    let record = status(&mut other, 2, migration);
+    assert_eq!(record["state"], "running", "{record}");
+    assert_eq!(completed(&record), BATCH);
+    // A new link's grant continues the migration.
+    resume_to_validating(&mut other, migration, &token, rows);
+    assert_eq!(
+        ok(validate(&mut other, 3, migration))["state"],
+        "ready_to_switch"
+    );
+    assert_copied(&fixture, migration);
+    drop(other);
     engine.close_stdin();
     assert!(engine.wait_for_exit().success(), "{}", engine.diagnostics());
 }

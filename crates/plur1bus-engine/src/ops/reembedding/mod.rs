@@ -8,6 +8,8 @@ pub mod projection;
 pub mod runtime;
 pub mod state;
 mod state_json;
+/// The library's migration ID grammar, for audit envelopes outside the coordinator (RE-D166).
+pub(crate) use state_json::id_valid;
 pub mod validation;
 
 // Private host mechanics only; RX8 supplies the authorized Core composition. F7 is unchanged.

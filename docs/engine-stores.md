@@ -3005,11 +3005,25 @@ binds the existing library and adds no outcome of its own:
   error, on the wire `E_LOCKED`/`lock-busy`. `status` does not take it and reads
   the record while a batch runs.
 - Errors map the coordinator's fixed categories onto the existing vocabulary:
-  source drift, changed policy and an occupied target are `conflict`, an unknown
-  migration `not-found`, other invalid input (including an invalid or expired
-  confirmation) `invalid-input`, state/generation lock contention `lock-busy`,
-  provider failure `embedding-unavailable`, cancellation `aborted`/`timeout`. No
-  record, path or provider body reaches an error.
+  source drift, changed policy, another active migration and an occupied target
+  are `conflict`, an unknown migration `not-found`, other invalid input
+  (including an invalid or expired confirmation and an unchanged fingerprint)
+  `invalid-input`, state/generation lock contention `lock-busy`, provider
+  failure `embedding-unavailable`, cancellation `aborted`/`timeout`. No record,
+  path or provider body reaches an error.
+- Fixed texts (R1). The Core's migration driver classifies re-embedding failures
+  by their text (`packages/core/src/embedding-migrate/driver.ts:114-115` final
+  source drift / invalid confirmation, `:183` nothing to migrate, `:187`
+  another migration holds the store). For exactly these classes the process
+  sends the pin's own constant as the JSON-RPC message: the seven texts of
+  `REEMBEDDING_ERRORS` (`rpc/methods.rs`), carried internally in
+  `EngineError::Invalid { field: "engine.reembedding" }` and sent only after an
+  exact match against that static list (fixture
+  `crates/plur1bus-engine/tests/fixtures/ops/reembedding-wire-errors.json`, read
+  by the Rust unit and process tests and by
+  `packages/core/test/embedding-migrate/rust-wire-errors.test.ts`). The source
+  version drift text omits the pin's `: <tableId>` suffix; the driver's pattern
+  matches it either way. Every other failure keeps its class's generic text.
 - `rollback`, `switch` and the person-bound `AdminOps.reembedding` ports stay
   fail closed (F7). The Core keeps RBAC and the privacy acknowledgment; the
   engine stores none.
@@ -3062,10 +3076,6 @@ the pin.
 
 RX known gaps → RY (RE-D166):
 
-- Wire errors carry fixed messages. The Core's migration driver classifies by
-  message text (`source drift`, `invalid or expired reembedding confirmation`);
-  against the Rust engine those answers are classified as a transient
-  `engine-error`: the run halts and can be resumed, it does not switch.
 - Writes to the active generation between `validate` and the Core's switch and
   restart are not in the new generation; the pin's Harness-owned switch has the
   same window (its engine-owned switch would hold the maintenance gate).

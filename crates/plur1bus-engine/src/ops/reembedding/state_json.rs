@@ -81,7 +81,7 @@ pub(super) fn envelope(revision: u64, migrations: Json) -> Json {
         ("migrations".into(), migrations),
     ])
 }
-pub(super) fn id_valid(id: &str) -> bool {
+pub(crate) fn id_valid(id: &str) -> bool {
     !id.is_empty()
         && id.len() <= 128
         && id.as_bytes()[0].is_ascii_alphanumeric()

@@ -150,9 +150,10 @@ fn capture_and_recall_run_during_a_held_apply_and_the_library_refuses_the_change
         maintenance.validate(&grant, "held", &cancel)
     }
     .unwrap_err();
-    assert_eq!(
-        code(&refused),
-        Some(MemoryOpErrorCode::Conflict),
+    // The pin's fixed drift text (R1), which the Core classifies as final source drift.
+    assert!(
+        matches!(&refused, EngineError::Invalid { field, message }
+            if field == "engine.reembedding" && message == "reembedding source version drift"),
         "{refused:?}"
     );
     assert!(root
@@ -205,4 +206,87 @@ fn without_a_store_base_reembedding_stays_composition_pending() {
         "{error:?}"
     );
     assert!(!scratch.path().join("state").exists());
+}
+
+#[test]
+fn a_revoked_grant_admits_no_method_and_audits_nothing() {
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let maintenance = ProcessMaintenance::compose(host(root), Some(Seam::FlatEmbedder), None);
+    let link = Cancel::never();
+    let grant = MaintenanceGrant::for_test(link.clone());
+    link.cancel();
+    let cancel = Cancel::never();
+    let request = json!({"id":"revoked","token":"no-proof"});
+    for result in [
+        maintenance.plan(&grant, plan_request(), &cancel),
+        maintenance.apply(&grant, request.clone(), &cancel),
+        maintenance.resume(&grant, request, &cancel),
+        maintenance.status(&grant, "revoked", &cancel),
+        maintenance.validate(&grant, "revoked", &cancel),
+    ] {
+        assert!(
+            matches!(result, Err(EngineError::Cancelled(_))),
+            "{result:?}"
+        );
+    }
+    assert!(!root.join("state/engine-maintenance.jsonl").exists());
+    assert!(!root.join("db/control/reembedding-state.json").exists());
+}
+
+#[test]
+fn an_incomplete_apply_request_is_audited_and_refused_by_the_library() {
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let maintenance = ProcessMaintenance::compose(host(root), Some(Seam::FlatEmbedder), None);
+    let grant = MaintenanceGrant::for_test(Cancel::never());
+    let cancel = Cancel::never();
+    for request in [json!({}), json!({"id":"incomplete"}), json!({"token":"x"})] {
+        assert!(maintenance.apply(&grant, request, &cancel).is_err());
+    }
+    let audit = fs::read_to_string(root.join("state/engine-maintenance.jsonl")).unwrap();
+    let entries: Vec<Value> = audit
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert_eq!(entries.len(), 3, "{audit}");
+    assert_eq!(entries[0]["target"], json!({"invalid":true}));
+    assert_eq!(entries[1]["target"], json!({"id":"incomplete"}));
+    assert_eq!(entries[2]["target"], json!({"invalid":true}));
+    assert!(entries
+        .iter()
+        .all(|entry| entry["method"] == "engine.admin.reembedding.apply"));
+}
+
+#[test]
+fn planning_the_active_vector_space_answers_the_pins_unchanged_fingerprint_text() {
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let host = host(root);
+    let engine = ProcessEngine::new(host.clone(), Some(Seam::FlatEmbedder)).unwrap();
+    assert!(
+        capture(&engine, "source", "Please remember the green labels.")["stored"]
+            .as_u64()
+            .unwrap()
+            >= 1
+    );
+    let maintenance = ProcessMaintenance::compose(host, Some(Seam::FlatEmbedder), None);
+    let grant = MaintenanceGrant::for_test(Cancel::never());
+    let cancel = Cancel::never();
+    let planned = maintenance.plan(&grant, plan_request(), &cancel).unwrap();
+    let source = planned["plan"]["source"]["fingerprint"].clone();
+    let same = maintenance
+        .plan(
+            &grant,
+            json!({"id":"same","target":{"fingerprint":source}}),
+            &cancel,
+        )
+        .unwrap_err();
+    assert!(
+        matches!(&same, EngineError::Invalid { field, message }
+            if field == "engine.reembedding"
+                && message == "reembedding plan does not change the embedding fingerprint"),
+        "{same:?}"
+    );
+    engine.close(Some(Duration::from_secs(10))).unwrap();
 }

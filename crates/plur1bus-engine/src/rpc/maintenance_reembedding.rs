@@ -5,7 +5,11 @@
 //! binds the existing provider factory, policy store and maintenance audit, and projects the
 //! coordinator's records onto the wire. One coordinator per process: at most one plan, apply,
 //! resume or validate holds it at a time; a second gets the library's busy refusal.
-use crate::rpc::{engine::host_normalized_embedding, seams::Seam};
+use crate::rpc::{
+    engine::host_normalized_embedding,
+    methods::{reembedding_text, REEMBEDDING_FIELD},
+    seams::Seam,
+};
 use crate::{
     contract::{
         Cancel, CancelReason, Cancelled, EmbedError, EmbedKind, EngineError, HostError,
@@ -18,7 +22,7 @@ use crate::{
             backend::{self, BackendConfig, BackendError, GenerationBackend},
             coordinator::{CoordinatorError, MigrationLimits, ReembeddingCoordinator},
             coordinator_ports::{CopyBackend, MigrationProvider, MigrationRuntime},
-            projection,
+            id_valid, projection,
             runtime::NativeRuntime,
             state::MigrationStateStore,
         },
@@ -92,13 +96,24 @@ impl Reembedding {
                 Ok(coordinator)
             }
             Err(error) => {
-                let target = id
-                    .filter(|id| !id.is_empty() && id.len() <= 128)
-                    .map_or_else(|| json!({"invalid":true}), |id| json!({"id":id}));
-                self.audit.append(&json!({"kind":"engine-maintenance","method":method.wire_name(),"actor":"core-maintenance","coreLink":grant.origin(),"target":target,"at":self.host.now_ms()}))?;
+                self.audit_refused(grant, method, id)?;
                 Err(error)
             }
         }
+    }
+
+    /// The coordinator's own audit envelope for a call it never saw (composition failure, an
+    /// unreadable request): method, Core link and only a valid migration ID, as `admit` does.
+    fn audit_refused(
+        &self,
+        grant: &MaintenanceGrant,
+        method: MaintenanceMethod,
+        id: Option<&str>,
+    ) -> Result<(), EngineError> {
+        let target = id
+            .filter(|id| id_valid(id))
+            .map_or_else(|| json!({"invalid":true}), |id| json!({"id":id}));
+        self.audit.append(&json!({"kind":"engine-maintenance","method":method.wire_name(),"actor":"core-maintenance","coreLink":grant.origin(),"target":target,"at":self.host.now_ms()}))
     }
 
     fn compose(&self) -> Result<Arc<ReembeddingCoordinator>, EngineError> {
@@ -134,7 +149,10 @@ impl Reembedding {
     ) -> Result<Value, EngineError> {
         let id = request.get("id").and_then(Value::as_str);
         let coordinator = self.coordinator(grant, MaintenanceMethod::Plan, id, cancel)?;
-        let raw = parse_json(&request.to_string()).map_err(|_| invalid())?;
+        let Ok(raw) = parse_json(&request.to_string()) else {
+            self.audit_refused(grant, MaintenanceMethod::Plan, id)?;
+            return Err(invalid());
+        };
         let planned = coordinator
             .plan(grant, &raw, cancel)
             .map_err(|error| failure(error, grant, cancel))?;
@@ -165,9 +183,13 @@ impl Reembedding {
             MaintenanceMethod::Apply
         };
         let coordinator = self.coordinator(grant, method, id, cancel)?;
-        let (Some(id), Some(token)) = (id, request.get("token").and_then(Value::as_str)) else {
-            return Err(invalid());
-        };
+        // A missing ID or proof goes to the coordinator as empty: it audits the call and refuses
+        // it with its own categories (M-1).
+        let id = id.unwrap_or_default();
+        let token = request
+            .get("token")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
         let record = if resume {
             coordinator.resume(grant, id, token, cancel)
         } else {
@@ -317,17 +339,28 @@ fn backend_error(error: BackendError) -> EngineError {
     }
 }
 
+/// One of the pin's fixed texts the Core's driver classifies (RE-D166/R1): carried in the
+/// existing `Invalid` variant and sent by `dispatch_maintenance` only from its static allowlist.
+fn classified(category: &str) -> EngineError {
+    EngineError::Invalid {
+        field: REEMBEDDING_FIELD.into(),
+        message: category.into(),
+    }
+}
+
 /// The coordinator's fixed categories onto the existing wire vocabulary; no record, path or
-/// provider body reaches the error. Source drift and changed policy are conflicts that need a
-/// new plan; the Core keeps its own retry classification.
+/// provider body reaches the error. Source drift, a changed policy, an invalid confirmation,
+/// an unchanged fingerprint and another active migration keep the pin's own text (R1).
 fn failure(error: CoordinatorError, grant: &MaintenanceGrant, cancel: &Cancel) -> EngineError {
     match error {
+        CoordinatorError::Invalid(category) if reembedding_text(category).is_some() => {
+            classified(category)
+        }
+        CoordinatorError::State("reembedding_active_conflict") => {
+            classified("another reembedding migration is active")
+        }
         CoordinatorError::Invalid(category) => match category {
-            "reembedding source generation drift"
-            | "reembedding source config revision drift"
-            | "reembedding source version drift"
-            | "reembedding workspace policy changed; explicit resume required"
-            | "target generation already belongs to a migration"
+            "target generation already belongs to a migration"
             | "existing target generation does not match the migration plan" => {
                 code(MemoryOpErrorCode::Conflict)
             }
@@ -335,9 +368,7 @@ fn failure(error: CoordinatorError, grant: &MaintenanceGrant, cancel: &Cancel) -
             _ => invalid(),
         },
         CoordinatorError::State(category) => match category {
-            "reembedding_active_conflict" | "reembedding_revision_conflict" => {
-                code(MemoryOpErrorCode::Conflict)
-            }
+            "reembedding_revision_conflict" => code(MemoryOpErrorCode::Conflict),
             "busy" => code(MemoryOpErrorCode::LockBusy),
             "invalid" => invalid(),
             "cancelled" => cancelled(grant, cancel),
@@ -463,7 +494,12 @@ impl FlatTarget {
         std::fs::write(directory.join("held"), b"").map_err(|_| CoordinatorError::Provider)?;
         let until = Instant::now() + HOLD_LIMIT;
         while hold.exists() {
-            cancel.check().map_err(|_| CoordinatorError::Cancelled)?;
+            if cancel.check().is_err() {
+                // Proof for the process tests that the revoked grant, not the process end,
+                // ended the batch.
+                let _ = std::fs::write(directory.join("cancelled"), b"");
+                return Err(CoordinatorError::Cancelled);
+            }
             if Instant::now() >= until {
                 return Err(CoordinatorError::Provider);
             }

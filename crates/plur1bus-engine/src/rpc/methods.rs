@@ -270,6 +270,84 @@ fn result(value: Result<impl Serialize, EngineError>) -> Result<Value, WireError
     encode(value.map_err(WireError::from)?)
 }
 
+/// The field of an `EngineError::Invalid` that carries one of the fixed re-embedding texts.
+pub(crate) const REEMBEDDING_FIELD: &str = "engine.reembedding";
+
+/// RE-D166/R1: the only re-embedding texts that reach the wire. Each is the pin's own constant
+/// (`9f34008c`), which the Core's migration driver (`packages/core/src/embedding-migrate/driver.ts`)
+/// classifies by text. No text is built from request or store data; any other re-embedding
+/// failure keeps the generic text of its class. Fixture: `tests/fixtures/ops/reembedding-wire-errors.json`.
+pub(crate) const REEMBEDDING_ERRORS: [(&str, &str, &str); 7] = [
+    // lib/reembedding/coordinator.js:120; driver.ts:114 → source-drift (final).
+    (
+        "reembedding source generation drift",
+        "E_CONFLICT",
+        "conflict",
+    ),
+    // coordinator.js:123; driver.ts:114 → source-drift (final).
+    (
+        "reembedding source config revision drift",
+        "E_CONFLICT",
+        "conflict",
+    ),
+    // coordinator.js:128, without the `: <tableId>` suffix; driver.ts:114 → source-drift (final).
+    ("reembedding source version drift", "E_CONFLICT", "conflict"),
+    // coordinator.js:133; driver.ts:114 → source-drift (final).
+    (
+        "reembedding workspace policy changed; explicit resume required",
+        "E_CONFLICT",
+        "conflict",
+    ),
+    // coordinator.js:220,303,321; driver.ts:115 → confirmation-invalid (final).
+    (
+        "invalid or expired reembedding confirmation",
+        "E_INVALID_PARAMS",
+        "invalid-input",
+    ),
+    // planner.js:115; driver.ts:183 → nothing to migrate (compatible).
+    (
+        "reembedding plan does not change the embedding fingerprint",
+        "E_INVALID_PARAMS",
+        "invalid-input",
+    ),
+    // state-store.js:247; driver.ts:187 → migration-active with its expiry.
+    (
+        "another reembedding migration is active",
+        "E_CONFLICT",
+        "conflict",
+    ),
+];
+
+/// The allowlisted static text for a re-embedding failure category, if any.
+pub(crate) fn reembedding_text(category: &str) -> Option<&'static str> {
+    REEMBEDDING_ERRORS
+        .iter()
+        .find(|(text, _, _)| *text == category)
+        .map(|(text, _, _)| *text)
+}
+
+fn maintenance_error(error: EngineError) -> WireError {
+    if let EngineError::Invalid { field, message } = &error {
+        if field == REEMBEDDING_FIELD {
+            if let Some((text, code, reason)) = REEMBEDDING_ERRORS
+                .iter()
+                .find(|(text, _, _)| *text == message.as_str())
+            {
+                let mut wire = WireError::application(code, reason, text);
+                if *code == "E_INVALID_PARAMS" {
+                    wire.code = -32602;
+                }
+                return wire;
+            }
+        }
+    }
+    WireError::from(error)
+}
+
+fn maintenance_result(value: Result<Value, EngineError>) -> Result<Value, WireError> {
+    value.map_err(maintenance_error)
+}
+
 /// Only the authenticated server adapter can supply a maintenance grant.
 pub(super) fn dispatch_maintenance(
     operations: &dyn MaintenanceOps,
@@ -291,18 +369,20 @@ pub(super) fn dispatch_maintenance(
             required(params, "to")?,
             cancel,
         )),
-        MaintenanceMethod::Plan => result(operations.plan(grant, request()?, cancel)),
-        MaintenanceMethod::Apply => result(operations.apply(grant, request()?, cancel)),
-        MaintenanceMethod::Resume => result(operations.resume(grant, request()?, cancel)),
+        MaintenanceMethod::Plan => maintenance_result(operations.plan(grant, request()?, cancel)),
+        MaintenanceMethod::Apply => maintenance_result(operations.apply(grant, request()?, cancel)),
+        MaintenanceMethod::Resume => {
+            maintenance_result(operations.resume(grant, request()?, cancel))
+        }
         MaintenanceMethod::Status => {
             let id = params["id"].as_str().ok_or_else(WireError::not_available)?;
-            result(operations.status(grant, id, cancel))
+            maintenance_result(operations.status(grant, id, cancel))
         }
         MaintenanceMethod::Validate => {
             let id = params["request"]["id"]
                 .as_str()
                 .ok_or_else(WireError::not_available)?;
-            result(operations.validate(grant, id, cancel))
+            maintenance_result(operations.validate(grant, id, cancel))
         }
     }
 }
@@ -836,5 +916,59 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!((error.code, error.error), (-32602, "E_INVALID_PARAMS"));
+    }
+}
+
+#[cfg(test)]
+mod reembedding_wire_tests {
+    #![allow(clippy::unwrap_used, reason = "fixture errors are fatal")]
+    use super::*;
+
+    #[test]
+    fn only_the_fixed_pin_texts_of_the_fixture_reach_the_wire() {
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../tests/fixtures/ops/reembedding-wire-errors.json"
+        ))
+        .unwrap();
+        let entries = fixture["errors"].as_array().unwrap();
+        assert_eq!(entries.len(), REEMBEDDING_ERRORS.len());
+        for (entry, (text, code, reason)) in entries.iter().zip(REEMBEDDING_ERRORS) {
+            assert_eq!(entry["text"], text);
+            assert_eq!(entry["error"], code);
+            assert_eq!(entry["reason"], reason);
+            assert_eq!(reembedding_text(text), Some(text));
+            let wire = maintenance_error(EngineError::Invalid {
+                field: REEMBEDDING_FIELD.into(),
+                message: text.into(),
+            });
+            assert_eq!(
+                (wire.error, wire.reason, wire.message),
+                (code, reason, text)
+            );
+            let expected = if code == "E_INVALID_PARAMS" {
+                -32602
+            } else {
+                -32000
+            };
+            assert_eq!(wire.code, expected);
+        }
+        // Nothing outside the list passes, not even a pin text with its table suffix.
+        for (field, message) in [
+            (
+                REEMBEDDING_FIELD,
+                "reembedding source version drift: agent/memories",
+            ),
+            (REEMBEDDING_FIELD, "free caller text"),
+            ("engine.other", "reembedding source generation drift"),
+        ] {
+            assert_eq!(
+                maintenance_error(EngineError::Invalid {
+                    field: field.into(),
+                    message: message.into(),
+                }),
+                WireError::invalid_params()
+            );
+        }
+        assert_eq!(reembedding_text("free caller text"), None);
     }
 }
