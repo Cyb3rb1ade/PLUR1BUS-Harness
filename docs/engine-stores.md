@@ -330,6 +330,46 @@ The unchanged placeholder entry point also allows unused inference code to be di
 binary digests, process evidence, monitoring limitations and why RE-00 dev timings cannot be used as release
 comparators. No binary or model payload is committed.
 
+### Hop budget (RE-D174)
+
+The ignored test `crates/plur1bus-engine/tests/hop_budget.rs` times blocking round trips of the Rust `Client` against the
+real engine binary over its socket: 10,000 `engine.status` calls after 500 uncounted ones, and 1,000 `engine.recall`
+calls after 50. The engine runs with the `flat-embedder` seam and a minimal Core peer (workspace directory, event sink);
+its store holds eight cards seeded in the configured vector space before the measured process starts. A recall that is
+degraded, or an engine that still answers `composition-pending`, voids the run (the test fails). Percentiles are
+nearest-rank as in `scripts/bench/metrics.mjs`; outliers are kept. The recall hop estimate is the round trip minus the
+engine's own `timing.totalMs` per call (clamped at zero).
+
+```text
+cargo test --release -p plur1bus-engine --test hop_budget -- --ignored --nocapture
+```
+
+The binding limit (ruling E8) is **p99 <= 5 ms for `engine.status`**, the bare hop; the test fails above it, and a miss
+reopens RE-D1 rather than being optimised or re-measured away. Recall figures are recorded only.
+
+Measured 2026-11-11 on macOS 27.2, Apple M5 Pro (18 cores), release profile, three consecutive runs on one build, a CI
+VM running alongside (1-minute load average 10 to 18 at the start of each run; no `cargo` or `rustc` process of another
+build was running). Milliseconds:
+
+| Run | `engine.status` p50 / p99 / max | `engine.recall` p50 / p99 / max | recall hop estimate p50 / p99 |
+| --- | --- | --- | --- |
+| 1 | 0.158 / 0.313 / 0.515 | 20.428 / 26.754 / 30.022 | 0.244 / 0.402 |
+| 2 | 0.154 / 0.226 / 1.066 | 20.612 / 27.322 / 31.257 | 0.246 / 0.389 |
+| 3 | 0.156 / 0.310 / 0.614 | 20.146 / 26.155 / 31.767 | 0.241 / 0.376 |
+
+The `engine.status` p99 is at most 0.313 ms, about 6% of the limit. The recall time is dominated by the recall work
+itself (`timing.totalMs`, p50 about 20 ms in this fixture), not by the hop.
+
+| Platform | Status |
+| --- | --- |
+| macOS (arm64) | measured, above |
+| Linux | not yet measured |
+| Windows | not yet measured |
+
+The measurement uses the Rust client without Node; the Node `EngineClient` adds its own overhead and is not covered here.
+`engine.status` reports `degraded: models-warming` under the flat-embedder seam in every run; that does not affect the
+hop and is not a recall degradation.
+
 ## Native Neo append bounds (RX6 N1 / RE-D125)
 
 RE-D169: `engine.neo.maxRecords`, `engine.neo.appendDedupeTailRecords` and `engine.neo.retention.*` take effect only
