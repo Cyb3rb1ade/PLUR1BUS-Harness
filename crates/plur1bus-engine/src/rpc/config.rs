@@ -539,7 +539,7 @@ fn check_licences(config: &Value, home: &Path) -> Result<(), ConfigLoadError> {
         let mut query = connection
             .prepare("SELECT * FROM model_licences")
             .map_err(|_| ConfigLoadError::LicenceLedger)?;
-        let names = query.column_names();
+        let names: Vec<&str> = query.column_names().collect();
         let indices = ["model", "licence", "revision"]
             .map(|field| names.iter().rposition(|name| *name == field));
         let mut rows = query
