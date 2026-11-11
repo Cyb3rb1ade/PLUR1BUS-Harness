@@ -1,0 +1,232 @@
+{
+  "schema": "engine-parity.golden/1",
+  "recordedFrom": {
+    "engine": "node",
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "at": "2026-11-11T15:19:41.404Z"
+  },
+  "steps": [
+    {
+      "result": {
+        "agentId": "a1",
+        "cards": [
+          {
+            "idempotencyKey": "parity-1",
+            "outcome": "created"
+          },
+          {
+            "idempotencyKey": "parity-2",
+            "outcome": "created"
+          }
+        ],
+        "created": 2,
+        "dryRun": true,
+        "matchedExisting": 0,
+        "rejected": 0
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "agentId": "a1",
+        "cards": [
+          {
+            "id": "9bb3e7f0-7bf5-5c34-9e98-6ea92906f9bd",
+            "idempotencyKey": "parity-1",
+            "outcome": "created"
+          },
+          {
+            "id": "ddf15013-aa68-5e69-85cc-56e1fed01d2a",
+            "idempotencyKey": "parity-2",
+            "outcome": "created"
+          }
+        ],
+        "created": 2,
+        "dryRun": false,
+        "matchedExisting": 0,
+        "rejected": 0
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "agentId": "a1",
+        "cards": [
+          {
+            "id": "9bb3e7f0-7bf5-5c34-9e98-6ea92906f9bd",
+            "idempotencyKey": "parity-1",
+            "outcome": "matched-existing",
+            "reason": "already-imported"
+          },
+          {
+            "id": "ddf15013-aa68-5e69-85cc-56e1fed01d2a",
+            "idempotencyKey": "parity-2",
+            "outcome": "matched-existing",
+            "reason": "already-imported"
+          }
+        ],
+        "created": 0,
+        "dryRun": false,
+        "matchedExisting": 2,
+        "rejected": 0
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "error": {
+          "code": "denied"
+        }
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "agentId": "a1",
+        "alreadyForgotten": 0,
+        "alreadyUnimported": 0,
+        "cards": [
+          {
+            "id": "9bb3e7f0-7bf5-5c34-9e98-6ea92906f9bd",
+            "idempotencyKey": "parity-1",
+            "outcome": "unimported"
+          },
+          {
+            "id": "ddf15013-aa68-5e69-85cc-56e1fed01d2a",
+            "idempotencyKey": "parity-2",
+            "outcome": "unimported"
+          }
+        ],
+        "derived": {
+          "jobsSinceImport": []
+        },
+        "dryRun": true,
+        "failed": 0,
+        "importRunId": "parity-run",
+        "keptModified": 0,
+        "missing": 0,
+        "remaining": 0,
+        "selected": 2,
+        "unimported": 2
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "agentId": "a1",
+        "alreadyForgotten": 0,
+        "alreadyUnimported": 0,
+        "cards": [],
+        "derived": {
+          "jobsSinceImport": []
+        },
+        "dryRun": false,
+        "failed": 0,
+        "importRunId": "parity-run",
+        "keptModified": 0,
+        "missing": 0,
+        "remaining": 0,
+        "selected": 0,
+        "unimported": 0
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "agentId": "a1",
+        "alreadyForgotten": 0,
+        "alreadyUnimported": 0,
+        "cards": [],
+        "derived": {
+          "jobsSinceImport": []
+        },
+        "dryRun": false,
+        "failed": 0,
+        "importRunId": "other-run",
+        "keptModified": 0,
+        "missing": 0,
+        "remaining": 0,
+        "selected": 0,
+        "unimported": 0
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "agentId": "a1",
+        "items": [
+          {
+            "epistemicStatus": "observed",
+            "id": "00000000-0000-4000-8000-000000000003",
+            "origin": "dm",
+            "scope": "agent-private",
+            "summary": "I have decided that project fixture item 1 uses the durable archive policy number 1.",
+            "text": "I have decided that project fixture item 1 uses the durable archive policy number 1."
+          },
+          {
+            "epistemicStatus": "observed",
+            "id": "00000000-0000-4000-8000-000000000009",
+            "origin": "dm",
+            "scope": "agent-private",
+            "summary": "I have decided that project fixture item 2 uses the durable archive policy number 2.",
+            "text": "I have decided that project fixture item 2 uses the durable archive policy number 2."
+          },
+          {
+            "epistemicStatus": "observed",
+            "id": "00000000-0000-4000-8000-000000000013",
+            "origin": "dm",
+            "scope": "agent-private",
+            "summary": "I have decided that project fixture item 3 uses the durable archive policy number 3.",
+            "text": "I have decided that project fixture item 3 uses the durable archive policy number 3."
+          },
+          {
+            "epistemicStatus": "observed",
+            "id": "00000000-0000-4000-8000-000000000017",
+            "origin": "dm",
+            "scope": "agent-private",
+            "summary": "I have decided that project fixture item 4 uses the durable archive policy number 4.",
+            "text": "I have decided that project fixture item 4 uses the durable archive policy number 4."
+          },
+          {
+            "epistemicStatus": "observed",
+            "id": "00000000-0000-4000-8000-000000000021",
+            "origin": "dm",
+            "scope": "agent-private",
+            "summary": "I have decided that project fixture item 5 uses the durable archive policy number 5.",
+            "text": "I have decided that project fixture item 5 uses the durable archive policy number 5."
+          },
+          {
+            "epistemicStatus": "observed",
+            "id": "00000000-0000-4000-8000-000000000025",
+            "origin": "dm",
+            "scope": "agent-private",
+            "summary": "I have decided that project fixture item 6 uses the durable archive policy number 6.",
+            "text": "I have decided that project fixture item 6 uses the durable archive policy number 6."
+          },
+          {
+            "epistemicStatus": "untrusted",
+            "id": "9bb3e7f0-7bf5-5c34-9e98-6ea92906f9bd",
+            "origin": "internal",
+            "provenance": "imported",
+            "scope": "agent-private",
+            "sourceRef": "fixture:parity",
+            "summary": "The parity review happens on Thursday afternoon.",
+            "text": "The parity review happens on Thursday afternoon."
+          },
+          {
+            "epistemicStatus": "untrusted",
+            "id": "ddf15013-aa68-5e69-85cc-56e1fed01d2a",
+            "origin": "internal",
+            "provenance": "imported",
+            "scope": "agent-private",
+            "sourceRef": "fixture:parity",
+            "summary": "The parity backup runs every night at two.",
+            "text": "The parity backup runs every night at two."
+          }
+        ],
+        "truncated": false
+      },
+      "trace": null
+    }
+  ]
+}

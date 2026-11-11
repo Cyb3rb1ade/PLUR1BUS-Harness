@@ -25,7 +25,12 @@ The report shows each engine's outcome. Missing dependencies and unsupported ope
 The four starter cases exercise plain and temporal recall, a capture and its replay, and list/show/forget
 followed by a visibility check. Later cases add warm-only recall and `recall/weak-hit-refined`, a hash-embedder
 recall whose raised `autoRecallMinScore` is met only by the refined query (RE-D151). The Rust check is expected
-to expose any operations still awaiting composition.
+to expose any operations still awaiting composition. `ops/correct`, `ops/share-propose` and `ops/import-unimport`
+(RE-D165) compare only steps whose results both engines can produce identically: refusals, empty proposal lists,
+import replay, unimport previews and an apply that selects nothing. A successful correct, share or propose
+returns a fresh ID (Node's fixed UUID sequence, a random v4 ID in Rust), an applying unimport differs by
+`derived.cleanupErrors` (KNOWN-GAP F14/RE-D129), `memory.state` returns the run's archive path and counts only
+ACL-visible cards (RE-D31/F4), and the pin has no A1 methods (`stats`, `promote`, `curation`).
 
 ## Record
 

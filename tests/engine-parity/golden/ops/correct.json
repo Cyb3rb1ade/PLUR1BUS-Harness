@@ -1,0 +1,53 @@
+{
+  "schema": "engine-parity.golden/1",
+  "recordedFrom": {
+    "engine": "node",
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "at": "2026-11-11T15:18:28.933Z"
+  },
+  "steps": [
+    {
+      "result": {
+        "error": {
+          "code": "denied"
+        }
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "error": {
+          "code": "not-found"
+        }
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "error": {
+          "code": "invalid-input"
+        }
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "error": {
+          "code": "denied"
+        }
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "epistemicStatus": "observed",
+        "id": "00000000-0000-4000-8000-000000000003",
+        "origin": "dm",
+        "scope": "agent-private",
+        "summary": "I have decided that project fixture item 1 uses the durable archive policy number 1.",
+        "text": "I have decided that project fixture item 1 uses the durable archive policy number 1."
+      },
+      "trace": null
+    }
+  ]
+}

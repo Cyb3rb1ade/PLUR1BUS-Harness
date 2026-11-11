@@ -1,0 +1,322 @@
+{
+  "schema": "engine-parity.scenario/1",
+  "store": "store-v1",
+  "config": {},
+  "seams": {
+    "embedder": "flat",
+    "reranker": "none",
+    "llm": "none",
+    "clock": 1768305600000
+  },
+  "steps": [
+    {
+      "op": "memory.import",
+      "args": {
+        "req": {
+          "agentId": "a1",
+          "principal": {
+            "agentId": "a1",
+            "workspace": "workspace:v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "channel": "telegram",
+            "accountId": "fixture",
+            "chat": {
+              "id": "parity-direct",
+              "kind": "direct"
+            },
+            "trust": "inferred"
+          },
+          "dryRun": true,
+          "importRunId": "parity-run",
+          "cards": [
+            {
+              "idempotencyKey": "parity-1",
+              "text": "The parity review happens on Thursday afternoon.",
+              "kind": "decision",
+              "provenance": "imported",
+              "sourceRef": "fixture:parity",
+              "createdAt": 1768300000000
+            },
+            {
+              "idempotencyKey": "parity-2",
+              "text": "The parity backup runs every night at two.",
+              "kind": "fact",
+              "provenance": "imported",
+              "sourceRef": "fixture:parity",
+              "createdAt": 1768300000000
+            }
+          ]
+        },
+        "p": {
+          "agentId": "a1",
+          "workspace": "workspace:v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "channel": "telegram",
+          "accountId": "fixture",
+          "chat": {
+            "id": "parity-direct",
+            "kind": "direct"
+          },
+          "trust": "inferred"
+        },
+        "a": {
+          "origin": "system",
+          "background": false
+        }
+      },
+      "expect": "golden",
+      "tolerance": "default"
+    },
+    {
+      "op": "memory.import",
+      "args": {
+        "req": {
+          "agentId": "a1",
+          "principal": {
+            "agentId": "a1",
+            "workspace": "workspace:v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "channel": "telegram",
+            "accountId": "fixture",
+            "chat": {
+              "id": "parity-direct",
+              "kind": "direct"
+            },
+            "trust": "inferred"
+          },
+          "dryRun": false,
+          "importRunId": "parity-run",
+          "cards": [
+            {
+              "idempotencyKey": "parity-1",
+              "text": "The parity review happens on Thursday afternoon.",
+              "kind": "decision",
+              "provenance": "imported",
+              "sourceRef": "fixture:parity",
+              "createdAt": 1768300000000
+            },
+            {
+              "idempotencyKey": "parity-2",
+              "text": "The parity backup runs every night at two.",
+              "kind": "fact",
+              "provenance": "imported",
+              "sourceRef": "fixture:parity",
+              "createdAt": 1768300000000
+            }
+          ]
+        },
+        "p": {
+          "agentId": "a1",
+          "workspace": "workspace:v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "channel": "telegram",
+          "accountId": "fixture",
+          "chat": {
+            "id": "parity-direct",
+            "kind": "direct"
+          },
+          "trust": "inferred"
+        },
+        "a": {
+          "origin": "system",
+          "background": false
+        }
+      },
+      "expect": "golden",
+      "tolerance": "default"
+    },
+    {
+      "op": "memory.import",
+      "args": {
+        "req": {
+          "agentId": "a1",
+          "principal": {
+            "agentId": "a1",
+            "workspace": "workspace:v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "channel": "telegram",
+            "accountId": "fixture",
+            "chat": {
+              "id": "parity-direct",
+              "kind": "direct"
+            },
+            "trust": "inferred"
+          },
+          "dryRun": false,
+          "importRunId": "parity-run",
+          "cards": [
+            {
+              "idempotencyKey": "parity-1",
+              "text": "The parity review happens on Thursday afternoon.",
+              "kind": "decision",
+              "provenance": "imported",
+              "sourceRef": "fixture:parity",
+              "createdAt": 1768300000000
+            },
+            {
+              "idempotencyKey": "parity-2",
+              "text": "The parity backup runs every night at two.",
+              "kind": "fact",
+              "provenance": "imported",
+              "sourceRef": "fixture:parity",
+              "createdAt": 1768300000000
+            }
+          ]
+        },
+        "p": {
+          "agentId": "a1",
+          "workspace": "workspace:v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "channel": "telegram",
+          "accountId": "fixture",
+          "chat": {
+            "id": "parity-direct",
+            "kind": "direct"
+          },
+          "trust": "inferred"
+        },
+        "a": {
+          "origin": "system",
+          "background": false
+        }
+      },
+      "expect": "golden",
+      "tolerance": "default"
+    },
+    {
+      "op": "memory.unimport",
+      "args": {
+        "req": {
+          "agentId": "a1",
+          "importRunId": "parity-run"
+        },
+        "p": {
+          "agentId": "a1",
+          "workspace": "workspace:v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "channel": "telegram",
+          "accountId": "fixture",
+          "chat": {
+            "id": "parity-direct",
+            "kind": "direct"
+          },
+          "trust": "inferred"
+        },
+        "a": {
+          "origin": "user",
+          "background": false
+        }
+      },
+      "expect": {
+        "error": {
+          "code": "denied"
+        }
+      },
+      "tolerance": "default"
+    },
+    {
+      "op": "memory.unimport",
+      "args": {
+        "req": {
+          "agentId": "a1",
+          "importRunId": "parity-run",
+          "dryRun": true
+        },
+        "p": {
+          "agentId": "a1",
+          "workspace": "workspace:v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "channel": "telegram",
+          "accountId": "fixture",
+          "chat": {
+            "id": "parity-direct",
+            "kind": "direct"
+          },
+          "trust": "inferred"
+        },
+        "a": {
+          "origin": "system",
+          "background": false
+        }
+      },
+      "expect": "golden",
+      "tolerance": "default"
+    },
+    {
+      "op": "memory.unimport",
+      "args": {
+        "req": {
+          "agentId": "a1",
+          "importRunId": "parity-run",
+          "dryRun": false,
+          "idempotencyKeys": [
+            "parity-unknown"
+          ]
+        },
+        "p": {
+          "agentId": "a1",
+          "workspace": "workspace:v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "channel": "telegram",
+          "accountId": "fixture",
+          "chat": {
+            "id": "parity-direct",
+            "kind": "direct"
+          },
+          "trust": "inferred"
+        },
+        "a": {
+          "origin": "system",
+          "background": false
+        }
+      },
+      "expect": "golden",
+      "tolerance": "default"
+    },
+    {
+      "op": "memory.unimport",
+      "args": {
+        "req": {
+          "agentId": "a1",
+          "importRunId": "other-run",
+          "dryRun": false
+        },
+        "p": {
+          "agentId": "a1",
+          "workspace": "workspace:v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "channel": "telegram",
+          "accountId": "fixture",
+          "chat": {
+            "id": "parity-direct",
+            "kind": "direct"
+          },
+          "trust": "inferred"
+        },
+        "a": {
+          "origin": "system",
+          "background": false
+        }
+      },
+      "expect": "golden",
+      "tolerance": "default"
+    },
+    {
+      "op": "memory.list",
+      "args": {
+        "q": {
+          "since": 0,
+          "until": 9007199254740991,
+          "limit": 50
+        },
+        "p": {
+          "agentId": "a1",
+          "workspace": "workspace:v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "channel": "telegram",
+          "accountId": "fixture",
+          "chat": {
+            "id": "parity-direct",
+            "kind": "direct"
+          },
+          "trust": "inferred"
+        },
+        "a": {
+          "origin": "user",
+          "background": false
+        }
+      },
+      "expect": "golden",
+      "tolerance": "default"
+    }
+  ]
+}
