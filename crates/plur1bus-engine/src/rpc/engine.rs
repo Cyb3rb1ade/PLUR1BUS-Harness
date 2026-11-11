@@ -338,6 +338,16 @@ impl ProcessEngine {
         self.operations.set_mutation_wait(gate);
     }
 
+    /// RE-D170: reapply's view of this process — the same namespace routes (active generation
+    /// included) after S5 recovery, the engine-wide mutation gate and the engine's close.
+    pub fn snapshot_routes(&self) -> Arc<dyn super::snapshot::ReapplyRoutes> {
+        Arc::new(SnapshotRoutes {
+            stores: self.live_stores.clone(),
+            operations: self.operations.clone(),
+            closed: self.closed.clone(),
+        })
+    }
+
     /// Deterministic test receipts for an explicitly authorized offline clock.
     #[must_use]
     pub fn with_fixture_tombstone_ids(mut self) -> Self {
@@ -350,6 +360,27 @@ impl ProcessEngine {
             });
         }
         self
+    }
+}
+
+struct SnapshotRoutes {
+    stores: Arc<EngineStores>,
+    operations: Arc<crate::ops::context::OperationContext>,
+    closed: Arc<AtomicBool>,
+}
+impl super::snapshot::ReapplyRoutes for SnapshotRoutes {
+    fn reapply_target(
+        &self,
+    ) -> Result<Option<crate::ops::tombstone_reapply::NamespaceReapplyTarget>, EngineError> {
+        Ok(self.stores.existing_pools()?.map(|pools| {
+            crate::ops::tombstone_reapply::NamespaceReapplyTarget::new(
+                pools,
+                self.operations.clone(),
+            )
+        }))
+    }
+    fn stopped(&self) -> bool {
+        self.closed.load(Ordering::Acquire)
     }
 }
 
@@ -1435,3 +1466,7 @@ mod jobs_tests;
 #[cfg(test)]
 #[path = "engine_ops_tests.rs"]
 mod ops_tests;
+
+#[cfg(test)]
+#[path = "engine_snapshot_tests.rs"]
+mod snapshot_tests;

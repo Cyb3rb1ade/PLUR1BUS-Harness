@@ -203,6 +203,13 @@ impl EngineStores {
             .ok_or_else(|| StoreError::Unavailable.into())
     }
 
+    /// The process pools after S5 recovery, without establishing a missing store root
+    /// (RE-D170 reapply): `None` when the configured layout does not exist yet.
+    pub(super) fn existing_pools(&self) -> Result<Option<Arc<NamespaceStores>>, EngineError> {
+        let mut state = self.state.lock().map_err(|_| StoreError::Unavailable)?;
+        self.namespaces(&mut state, false)
+    }
+
     pub(super) fn configured_base(&self) -> Option<&std::path::Path> {
         self.base.as_deref()
     }

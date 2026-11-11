@@ -50,6 +50,7 @@ mod maintenance;
 mod memory_ops;
 mod models;
 mod runtime;
+mod snapshot;
 mod store_ops;
 
 pub use admin_ops::{AdminOps, ObsidianOps, ReembeddingOps, WorkspacePolicyOps};
@@ -68,6 +69,7 @@ pub use maintenance::{MaintenanceGrant, MaintenanceMethod, MaintenanceOps};
 pub use memory_ops::{MemoryCurationOps, MemoryOps, MemoryProposalsOps};
 pub use models::ModelsService;
 pub use runtime::{AgentStoreHandle, CaptureHandle, EventReceiver};
+pub use snapshot::{SnapshotFailure, SnapshotGrant, SnapshotMethod, SnapshotOps};
 pub use store_ops::StoreOps;
 
 /// In-memory host fixtures for engine tests and downstream test suites.

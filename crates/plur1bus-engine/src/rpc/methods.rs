@@ -3,8 +3,9 @@
 use crate::contract::{
     AgentContext, Cancel, CancelReason, EmbedError, Engine, EngineError, HistoryFilter, HostError,
     MaintenanceGrant, MaintenanceMethod, MaintenanceOps, MemoryCurationAction, MemoryOpErrorCode,
-    Principal, RunOptions, StoreError,
+    Principal, RunOptions, SnapshotFailure, SnapshotGrant, SnapshotMethod, SnapshotOps, StoreError,
 };
+use crate::ops::snapshot::SnapshotError;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Map, Value};
 use std::collections::BTreeMap;
@@ -387,6 +388,51 @@ pub(super) fn dispatch_maintenance(
     }
 }
 
+/// RE-D170: the snapshot categories on the wire, as the Core's `admin.backup.snapshot`
+/// reports `source-busy` and `insufficient-disk` (E_STORAGE).
+fn snapshot_error(failure: SnapshotFailure) -> WireError {
+    let error = match failure {
+        SnapshotFailure::Engine(error) => return WireError::from(error),
+        SnapshotFailure::Snapshot(error) => error,
+    };
+    let code = match error {
+        SnapshotError::NotFound => "E_NOT_FOUND",
+        SnapshotError::UnsafePath => "E_DENIED",
+        SnapshotError::Cancelled => return WireError::cancelled(CancelReason::Caller),
+        SnapshotError::DigestMismatch
+        | SnapshotError::SourceBusy
+        | SnapshotError::InsufficientDisk
+        | SnapshotError::Storage => "E_STORAGE",
+    };
+    WireError::application(code, error.reason(), "engine snapshot operation failed")
+}
+
+/// The three snapshot methods outside the grant branch: never served (RE-D170).
+pub(crate) fn core_link_required() -> WireError {
+    WireError::application(
+        "E_UNAUTHORIZED",
+        "core-link-required",
+        "engine authentication required",
+    )
+}
+
+/// Only the authenticated server adapter can supply a snapshot grant.
+pub(super) fn dispatch_snapshot(
+    operations: &dyn SnapshotOps,
+    method: SnapshotMethod,
+    params: &Value,
+    grant: &SnapshotGrant,
+    cancel: &Cancel,
+) -> Result<Value, WireError> {
+    let path = |name: &str| string(params, name).map(std::path::Path::new);
+    match method {
+        SnapshotMethod::Create => operations.create(grant, path("out")?, cancel),
+        SnapshotMethod::Verify => operations.verify(grant, path("dir")?, cancel),
+        SnapshotMethod::Reapply => operations.reapply(grant, cancel),
+    }
+    .map_err(snapshot_error)
+}
+
 fn projection(params: &Value, fields: &[&str]) -> Value {
     Value::Object(
         fields
@@ -526,8 +572,9 @@ pub(crate) fn dispatch(
         "engine.models" | "engine.models.status" => encode(engine.models().status()),
         "engine.models.warm" => result(engine.models().warm(cancel, refresh(params)?)),
         "engine.stores.adopt" => result(engine.stores().adopt(required(params, "req")?)),
+        // RE-D170: served only through the server's Core snapshot grant branch.
         "engine.snapshot.create" | "engine.snapshot.verify" | "engine.tombstones.reapply" => {
-            Err(WireError::not_available())
+            Err(core_link_required())
         }
         // These frozen native methods require a principal/context that this wire
         // contract does not carry. RE-07 must supply an explicit adapter. Its
@@ -886,9 +933,6 @@ mod tests {
                 json!({"patch":{"enabled":false,"actorId":"synthetic-operator"}}),
             ),
             ("engine.embedding.serve", json!({"address":null})),
-            ("engine.snapshot.create", json!({"out":"/tmp/snapshot"})),
-            ("engine.snapshot.verify", json!({"dir":"/tmp/snapshot"})),
-            ("engine.tombstones.reapply", json!({})),
         ] {
             let error = dispatch(&engine, method, &params, &Cancel::never()).unwrap_err();
             assert_eq!(
@@ -896,6 +940,60 @@ mod tests {
                 ("E_NOT_AVAILABLE", "operation-unavailable")
             );
         }
+    }
+
+    #[test]
+    fn snapshot_methods_are_served_only_through_the_core_snapshot_grant() {
+        // RE-D170: the ordinary dispatch never reaches a snapshot port; without the server's
+        // per-call Core peer binding the three methods answer core-link-required.
+        let (root, engine) = engine();
+        for (method, params) in [
+            ("engine.snapshot.create", json!({"out":root.path()})),
+            ("engine.snapshot.verify", json!({"dir":root.path()})),
+            ("engine.tombstones.reapply", json!({})),
+        ] {
+            let error = dispatch(&engine, method, &params, &Cancel::never()).unwrap_err();
+            assert_eq!(
+                (error.code, error.error, error.reason),
+                (-32000, "E_UNAUTHORIZED", "core-link-required"),
+                "{method}"
+            );
+            assert!(SnapshotMethod::from_wire(method).is_some());
+            assert!(MaintenanceMethod::from_wire(method).is_none());
+        }
+        assert_eq!(std::fs::read_dir(root.path()).unwrap().count(), 0);
+    }
+
+    #[test]
+    fn snapshot_failures_keep_only_their_category() {
+        for (error, code, reason) in [
+            (SnapshotError::NotFound, "E_NOT_FOUND", "not-found"),
+            (SnapshotError::UnsafePath, "E_DENIED", "unsafe-path"),
+            (
+                SnapshotError::DigestMismatch,
+                "E_STORAGE",
+                "digest-mismatch",
+            ),
+            (SnapshotError::SourceBusy, "E_STORAGE", "source-busy"),
+            (
+                SnapshotError::InsufficientDisk,
+                "E_STORAGE",
+                "insufficient-disk",
+            ),
+            (SnapshotError::Storage, "E_STORAGE", "storage"),
+            (SnapshotError::Cancelled, "E_NOT_AVAILABLE", "aborted"),
+        ] {
+            let wire = snapshot_error(error.into());
+            assert_eq!((wire.code, wire.error, wire.reason), (-32000, code, reason));
+            assert!(wire.ids.is_none());
+        }
+        let busy = snapshot_error(SnapshotFailure::Engine(EngineError::NotAvailable {
+            reason: "engine-busy".into(),
+        }));
+        assert_eq!(
+            (busy.error, busy.reason),
+            ("E_NOT_AVAILABLE", "engine-busy")
+        );
     }
 
     #[test]

@@ -1,6 +1,6 @@
 //! Engine snapshot verification (`plur1bus.snapshot/1`, distinct from Harness tar archives).
 use crate::{
-    contract::StoreError,
+    contract::{Cancel, StoreError},
     store::directory::TrustedDirectory,
     text::json::{parse_json, TolerantJsonValue as Json},
 };
@@ -17,6 +17,9 @@ use std::{
 pub const SNAPSHOT_SCHEMA: &str = "plur1bus.snapshot/1";
 #[path = "snapshot_copy.rs"]
 mod snapshot_copy;
+/// RE-D170 create facade, root binding and retention.
+#[path = "snapshot_create.rs"]
+pub mod snapshot_create;
 
 const MAX_MANIFEST_BYTES: u64 = 64 * 1024 * 1024;
 
@@ -35,6 +38,8 @@ pub enum SnapshotError {
     Cancelled,
     /// Other filesystem failures.
     Storage,
+    /// Less than 1.1 × the source size is free below the snapshot root (pin, RE-D170).
+    InsufficientDisk,
 }
 impl SnapshotError {
     /// Stable Node-compatible category; unsafe manifest paths deliberately fail closed.
@@ -46,6 +51,7 @@ impl SnapshotError {
             Self::Storage => "storage",
             Self::SourceBusy => "source-busy",
             Self::Cancelled => "cancelled",
+            Self::InsufficientDisk => "insufficient-disk",
         }
     }
 }
@@ -140,7 +146,18 @@ fn walk(
     Ok(())
 }
 
-fn digest(dir: &TrustedDirectory, relative: &str) -> Result<(u64, String), SnapshotError> {
+fn checkpoint(cancel: Option<&Cancel>) -> Result<(), SnapshotError> {
+    match cancel {
+        Some(cancel) => cancel.check().map_err(|_| SnapshotError::Cancelled),
+        None => Ok(()),
+    }
+}
+
+fn digest(
+    dir: &TrustedDirectory,
+    relative: &str,
+    cancel: Option<&Cancel>,
+) -> Result<(u64, String), SnapshotError> {
     let mut parts = relative.split('/').peekable();
     let mut held = Vec::new();
     let mut parent = dir;
@@ -154,6 +171,7 @@ fn digest(dir: &TrustedDirectory, relative: &str) -> Result<(u64, String), Snaps
             let mut bytes = 0_u64;
             let mut buffer = [0_u8; 64 * 1024];
             loop {
+                checkpoint(cancel)?;
                 let n = file.read(&mut buffer).map_err(|_| SnapshotError::Storage)?;
                 if n == 0 {
                     break;
@@ -181,6 +199,20 @@ fn payload_error(e: StoreError) -> SnapshotError {
 /// is parsed losslessly: unknown metadata and Node last-member/last-path semantics remain.
 /// Unlike Node, traversal and non-portable paths are rejected before opening any payload.
 pub fn verify_snapshot(dir: &Path) -> Result<SnapshotReport, SnapshotError> {
+    verify(dir, None)
+}
+
+/// [`verify_snapshot`], abandoned with `cancelled` between files and between read blocks
+/// once `cancel` fires (RE-D170: connection, request or process stop). Read-only either way.
+pub fn verify_snapshot_cancellable(
+    dir: &Path,
+    cancel: &Cancel,
+) -> Result<SnapshotReport, SnapshotError> {
+    verify(dir, Some(cancel))
+}
+
+fn verify(dir: &Path, cancel: Option<&Cancel>) -> Result<SnapshotReport, SnapshotError> {
+    checkpoint(cancel)?;
     let root = TrustedDirectory::open(dir)?;
     let file = root.open_file("snapshot.json")?;
     let mut bytes = Vec::new();
@@ -213,7 +245,8 @@ pub fn verify_snapshot(dir: &Path) -> Result<SnapshotReport, SnapshotError> {
         return Err(SnapshotError::DigestMismatch);
     }
     for (path, entry) in expected {
-        let (bytes, hash) = digest(&root, &path)?;
+        checkpoint(cancel)?;
+        let (bytes, hash) = digest(&root, &path, cancel)?;
         let size = match property(entry, "bytes") {
             Some(Json::Number(n)) => n.parse::<f64>().ok(),
             _ => None,

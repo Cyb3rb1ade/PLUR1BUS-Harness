@@ -18,6 +18,7 @@ use super::methods::{self, WireError};
 use crate::contract::{AgentId, AgentStoreHandle, Cancel, CaptureHandle, CaptureResult, Engine};
 
 use crate::contract::{MaintenanceGrant, MaintenanceMethod, MaintenanceOps};
+use crate::contract::{SnapshotGrant, SnapshotMethod, SnapshotOps};
 
 /// Proof created only after this adapter has authenticated the actual Core link.
 pub(crate) struct AuthenticatedCoreLink {
@@ -84,6 +85,7 @@ fn epoch_ms() -> u64 {
 pub(super) struct ServerOptions {
     pub(super) permission_denied_accept: bool,
     pub(super) maintenance: Option<Arc<dyn MaintenanceOps>>,
+    pub(super) snapshots: Option<Arc<dyn SnapshotOps>>,
     #[cfg(test)]
     pub(super) accept_errors: usize,
     #[cfg(test)]
@@ -387,6 +389,7 @@ impl Connection {
 struct Shared {
     engine: Arc<dyn Engine>,
     maintenance: Option<Arc<dyn MaintenanceOps>>,
+    snapshots: Option<Arc<dyn SnapshotOps>>,
     home: std::path::PathBuf,
     token: String,
     instance: String,
@@ -542,6 +545,15 @@ impl Shared {
         }
     }
 
+    /// Core can bootstrap its EngineClient before publishing its PID file. Check the
+    /// authenticated socket's actual peer at every maintenance or snapshot call.
+    fn core_instance(&self, connection: &Connection) -> Result<uuid::Uuid, WireError> {
+        connection
+            .peer_pid
+            .and_then(|pid| super::host_client::core_instance_for_peer(&self.home, pid))
+            .ok_or_else(|| unauthorized("core-link-required"))
+    }
+
     fn call(
         &self,
         connection: &Arc<Connection>,
@@ -549,12 +561,7 @@ impl Shared {
         params: &Value,
     ) -> Result<Value, WireError> {
         if let Some(method) = MaintenanceMethod::from_wire(method) {
-            // Core can bootstrap its EngineClient before publishing its PID file.
-            // Check the authenticated socket's actual peer at the maintenance call.
-            let instance = connection
-                .peer_pid
-                .and_then(|pid| super::host_client::core_instance_for_peer(&self.home, pid))
-                .ok_or_else(|| unauthorized("core-link-required"))?;
+            let instance = self.core_instance(connection)?;
             let port = self
                 .maintenance
                 .as_deref()
@@ -565,6 +572,20 @@ impl Shared {
             };
             let grant = MaintenanceGrant::from_authenticated_core_link(&link);
             return methods::dispatch_maintenance(port, method, params, &grant, &connection.cancel);
+        }
+        if let Some(method) = SnapshotMethod::from_wire(method) {
+            // RE-D170: the same per-call peer binding, a separate grant and allowlist.
+            let instance = self.core_instance(connection)?;
+            let port = self
+                .snapshots
+                .as_deref()
+                .ok_or_else(WireError::not_available)?;
+            let link = AuthenticatedCoreLink {
+                instance: format!("{instance}:{}", connection.id),
+                cancellation: connection.cancel.clone(),
+            };
+            let grant = SnapshotGrant::from_authenticated_core_link(&link);
+            return methods::dispatch_snapshot(port, method, params, &grant, &connection.cancel);
         }
         match method {
             "engine.status" => Ok(self.status()),
@@ -952,7 +973,7 @@ pub fn serve(
     layout: &EngineLayout,
     lifeline: Lifeline,
 ) -> Result<(), ServeError> {
-    serve_configured(engine, layout, lifeline, None)
+    serve_configured(engine, layout, lifeline, None, None)
 }
 
 /// Bind the existing wire methods to a separate native maintenance service.
@@ -962,7 +983,19 @@ pub fn serve_with_maintenance(
     lifeline: Lifeline,
     maintenance: Arc<dyn MaintenanceOps>,
 ) -> Result<(), ServeError> {
-    serve_configured(engine, layout, lifeline, Some(maintenance))
+    serve_configured(engine, layout, lifeline, Some(maintenance), None)
+}
+
+/// Bind the existing wire methods to the separate native maintenance (F7) and snapshot
+/// (F9, RE-D170) services.
+pub fn serve_with_ports(
+    engine: Arc<dyn Engine>,
+    layout: &EngineLayout,
+    lifeline: Lifeline,
+    maintenance: Arc<dyn MaintenanceOps>,
+    snapshots: Arc<dyn SnapshotOps>,
+) -> Result<(), ServeError> {
+    serve_configured(engine, layout, lifeline, Some(maintenance), Some(snapshots))
 }
 
 fn serve_configured(
@@ -970,9 +1003,11 @@ fn serve_configured(
     layout: &EngineLayout,
     lifeline: Lifeline,
     maintenance: Option<Arc<dyn MaintenanceOps>>,
+    snapshots: Option<Arc<dyn SnapshotOps>>,
 ) -> Result<(), ServeError> {
     let mut options = ServerOptions {
         maintenance,
+        snapshots,
         ..ServerOptions::default()
     };
     if super::seams::permission_denied_accept_from_env()
@@ -1012,6 +1047,7 @@ pub(super) fn serve_with_options(
     let state = Arc::new(Shared {
         engine,
         maintenance: options.maintenance.clone(),
+        snapshots: options.snapshots.clone(),
         home: layout.home.clone(),
         token: layout.token().into(),
         instance: layout.instance_id.clone(),

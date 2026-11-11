@@ -9,6 +9,7 @@ use plur1bus_engine::rpc::{
     maintenance::ProcessMaintenance,
     platform, seams,
     server::{self, ServeError},
+    snapshot::ProcessSnapshots,
 };
 use std::{
     io::{self, Write},
@@ -85,9 +86,15 @@ fn run(command: Command) -> Result<(), (u8, String)> {
             engine.invalidate_egress();
         }
     }));
+    // RE-D170: the snapshot port reuses this engine's namespace routes and mutation gate.
+    let snapshots = Arc::new(ProcessSnapshots::with_seam(
+        host.clone(),
+        engine.snapshot_routes(),
+        seam,
+    ));
     // The trusted supervisor/spawner owns process-group isolation. A hand start
     // stays in its terminal's foreground group so Ctrl-C and stdin keep working.
-    server::serve_with_maintenance(
+    server::serve_with_ports(
         engine,
         &layout,
         if lifeline.is_some() {
@@ -96,6 +103,7 @@ fn run(command: Command) -> Result<(), (u8, String)> {
             Lifeline::None
         },
         Arc::new(ProcessMaintenance::with_seam(host, seam)),
+        snapshots,
     )
     .map_err(|e| {
         let code = if matches!(e, ServeError::Locked) {

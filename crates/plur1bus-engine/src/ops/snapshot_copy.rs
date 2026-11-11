@@ -1,9 +1,6 @@
 //! Internal payload copier. Host authority, publication and retention belong to the
-//! snapshot facade (controller F9); this module never publishes or deletes a snapshot.
-#![allow(
-    dead_code,
-    reason = "RX4 payload implementation precedes the approved host facade"
-)]
+//! snapshot facade (controller F9, `snapshot_create.rs`); this module never publishes or
+//! deletes a snapshot.
 use super::{safe_relative, SnapshotError};
 use crate::{contract::Cancel, store::directory::TrustedDirectory};
 use serde::Serialize;
@@ -183,10 +180,15 @@ pub(crate) struct Copier<'a> {
     root: &'a TrustedDirectory,
     cancel: &'a Cancel,
     files: BTreeMap<String, PayloadFile>,
+    progress: Option<super::snapshot_create::Progress<'a>>,
     #[cfg(test)]
     after_copy: Option<AfterCopy>,
 }
 impl<'a> Copier<'a> {
+    /// Report each copied file (an authorized process test seam may hold here).
+    pub(crate) fn set_progress(&mut self, progress: super::snapshot_create::Progress<'a>) {
+        self.progress = Some(progress);
+    }
     pub(crate) fn new(
         root: &'a TrustedDirectory,
         cancel: &'a Cancel,
@@ -199,6 +201,7 @@ impl<'a> Copier<'a> {
             root,
             cancel,
             files: BTreeMap::new(),
+            progress: None,
             #[cfg(test)]
             after_copy: None,
         })
@@ -244,7 +247,14 @@ impl<'a> Copier<'a> {
         if derived_cache(relative) {
             return Ok(());
         }
-        self.separated(src)?;
+        // One file needs only that it is neither read from staging nor the staging tree
+        // itself: the pin's side files (`<state>/memory/run-state.json`) are siblings of the
+        // engine root `<state>/memory/.snapshots` (RE-D170).
+        if src.path().starts_with(self.root.path())
+            || self.root.path().starts_with(src.path().join(name))
+        {
+            return Err(SnapshotError::UnsafePath);
+        }
         let mut input = src.open_file(name)?;
         let (parent, leaf) = relative.rsplit_once('/').ok_or(SnapshotError::UnsafePath)?;
         let dest = self.destination(parent)?;
@@ -278,6 +288,9 @@ impl<'a> Copier<'a> {
         #[cfg(test)]
         if let Some(hook) = &mut self.after_copy {
             hook(relative);
+        }
+        if let Some(progress) = self.progress {
+            progress(relative)?;
         }
         check(self.cancel)
     }

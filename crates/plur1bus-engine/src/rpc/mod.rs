@@ -14,3 +14,4 @@ mod roundtrip;
 pub mod seams;
 pub mod server;
 mod signals;
+pub mod snapshot;

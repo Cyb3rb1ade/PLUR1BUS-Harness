@@ -89,6 +89,68 @@ impl ReapplyTarget for GenerationReapplyTarget {
     }
 }
 
+/// RE-D170: the process's own namespace routes, so reapply hits the active generation of every
+/// agent (namespace mode, a re-embedding switch). Each row patch takes the engine-wide mutation
+/// gate, as `forget`'s patch does, for exactly that one write step: same wait budget, same
+/// waiter limit. A gate still held answers [`StoreError::Busy`], reported as `"busy"`.
+pub struct NamespaceReapplyTarget {
+    stores: std::sync::Arc<crate::recall::namespaces::NamespaceStores>,
+    gate: std::sync::Arc<super::context::OperationContext>,
+}
+
+impl NamespaceReapplyTarget {
+    /// Reuse the process's resolved pools and its operation context; nothing is created.
+    pub fn new(
+        stores: std::sync::Arc<crate::recall::namespaces::NamespaceStores>,
+        gate: std::sync::Arc<super::context::OperationContext>,
+    ) -> Self {
+        Self { stores, gate }
+    }
+}
+
+impl TombstoneLookup for NamespaceReapplyTarget {
+    fn agent_exists(&self, agent: &str) -> Result<bool, StoreError> {
+        Ok(self.stores.existing_write_store(agent)?.is_some())
+    }
+    fn status(&self, agent: &str, memory_id: &str) -> Result<Option<String>, StoreError> {
+        let Some(store) = self.stores.existing_write_store(agent)? else {
+            return Ok(None);
+        };
+        Ok(store.get(memory_id)?.map(|row| row.status))
+    }
+}
+
+impl ReapplyTarget for NamespaceReapplyTarget {
+    fn tombstone(&self, agent: &str, memory_id: &str) -> Result<ReapplyMutation, StoreError> {
+        let _gate = self.gate.mutation().map_err(|error| match error {
+            EngineError::NotAvailable { reason } if reason == "engine-busy" => StoreError::Busy,
+            _ => StoreError::Unavailable,
+        })?;
+        let Some(store) = self.stores.existing_write_store(agent)? else {
+            return Ok(ReapplyMutation::NotFound);
+        };
+        let Some(row) = store.get(memory_id)? else {
+            return Ok(ReapplyMutation::NotFound);
+        };
+        if row.status == "deleted" {
+            return Ok(ReapplyMutation::AlreadyTombstoned);
+        }
+        // A close that began while this caller waited refuses the write, as for `forget`.
+        self.gate
+            .assert_open()
+            .map_err(|_| StoreError::Unavailable)?;
+        store.patch(
+            memory_id,
+            &RowPatch {
+                status: Some("deleted".into()),
+                epistemic_status: Some("invalidated".into()),
+                ..RowPatch::default()
+            },
+        )?;
+        Ok(ReapplyMutation::Applied)
+    }
+}
+
 /// Node-compatible local maintenance report. Runtime logs should expose counts only.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -235,6 +297,10 @@ pub fn reapply(
                 Ok(ReapplyMutation::Applied) => report.applied.push(entry),
                 Ok(ReapplyMutation::AlreadyTombstoned) => report.already_tombstoned.push(entry),
                 Ok(ReapplyMutation::NotFound) => report.not_found.push(entry),
+                // A held mutation gate or store lock: retrying the idempotent run is enough.
+                Err(StoreError::Busy) => report
+                    .errors
+                    .push(json!({"agent":agent,"memoryId":id,"error":"busy"})),
                 Err(_) => report
                     .errors
                     .push(json!({"agent":agent,"memoryId":id,"error":"storage"})),
@@ -256,3 +322,7 @@ pub fn reapply(
     cancel.check()?;
     Ok(report)
 }
+
+#[cfg(test)]
+#[path = "tombstone_reapply_tests.rs"]
+mod tests;
