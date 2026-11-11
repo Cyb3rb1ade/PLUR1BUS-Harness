@@ -27,14 +27,14 @@ use crate::{
             state::MigrationStateStore,
         },
     },
-    store::directory::TrustedDirectory,
+    store::{directory::TrustedDirectory, fragment_compactor::CompactionPause},
     text::json::{parse_json, write_json, TolerantJsonValue as Json},
 };
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
     path::{Path, PathBuf},
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, OnceLock, PoisonError},
     time::{Duration, Instant},
 };
 
@@ -42,6 +42,10 @@ use std::{
 /// seam target batch waits (bounded, cancellable) after writing `<dir>/held`.
 pub(super) const HOLD_VARIABLE: &str = "PLUR1BUS_TEST_REEMBEDDING_HOLD";
 const HOLD_LIMIT: Duration = Duration::from_secs(60);
+/// How long a run keeps compaction paused after its last apply/resume (RE-D166/R2): longer
+/// than the Core's largest pause between batches (`MAX_THROTTLE_MS`, 60 s) plus one batch.
+/// A run the Core stops without a further call frees the tables when this ends.
+pub(super) const COMPACTION_LEASE: Duration = Duration::from_secs(300);
 
 pub(super) struct Reembedding {
     host: Arc<dyn HostServices>,
@@ -49,6 +53,11 @@ pub(super) struct Reembedding {
     audit: Arc<dyn MaintenanceAudit>,
     seam: Option<SeamTarget>,
     coordinator: Mutex<Option<Arc<ReembeddingCoordinator>>>,
+    /// The active data root the composed backend reads.
+    root: OnceLock<PathBuf>,
+    /// Compaction pause of the run in progress, from `apply` until `validate` ends, a call
+    /// fails or the lease runs out.
+    pause: Mutex<Option<CompactionPause>>,
 }
 
 #[derive(Clone)]
@@ -70,6 +79,44 @@ impl Reembedding {
             audit,
             seam: seam.map(|_| SeamTarget { hold }),
             coordinator: Mutex::new(None),
+            root: OnceLock::new(),
+            pause: Mutex::new(None),
+        }
+    }
+
+    /// Start or extend the run's compaction pause below the active data root.
+    fn pause_compaction(&self) {
+        let Some(root) = self.root.get() else {
+            return;
+        };
+        let until = Instant::now() + COMPACTION_LEASE;
+        let mut pause = self.pause.lock().unwrap_or_else(PoisonError::into_inner);
+        match pause.as_ref() {
+            Some(current) => current.extend(until),
+            None => *pause = Some(CompactionPause::new(root.clone(), until)),
+        }
+    }
+
+    fn resume_compaction(&self) {
+        drop(
+            self.pause
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .take(),
+        );
+    }
+
+    /// After a run step: keep the pause while the record still runs or validates; end it on
+    /// any other outcome except the busy refusal of a second caller (the first still runs).
+    fn settle_compaction(&self, outcome: &Result<Json, CoordinatorError>, keep: bool) {
+        match outcome {
+            Err(CoordinatorError::Busy) => {}
+            Ok(record)
+                if keep
+                    && value(record).is_ok_and(|record| {
+                        matches!(record["state"].as_str(), Some("running" | "validating"))
+                    }) => {}
+            _ => self.resume_compaction(),
         }
     }
 
@@ -117,10 +164,11 @@ impl Reembedding {
     }
 
     fn compose(&self) -> Result<Arc<ReembeddingCoordinator>, EngineError> {
-        let backend = Arc::new(
-            GenerationBackend::new(backend_config(self.host.as_ref(), &self.base)?)
-                .map_err(backend_error)?,
-        );
+        let config = backend_config(self.host.as_ref(), &self.base)?;
+        let root = config.active_root.clone();
+        let backend = Arc::new(GenerationBackend::new(config).map_err(backend_error)?);
+        // Composition runs once under the coordinator slot; the root never changes after it.
+        let _ = self.root.set(root);
         let state = Arc::new(MigrationStateStore::new(&self.base).map_err(|_| storage())?);
         let native = NativeRuntime::new(self.host.clone(), backend.clone(), &self.base)
             .map_err(|_| EngineError::from(HostError::Unavailable))?;
@@ -190,13 +238,15 @@ impl Reembedding {
             .get("token")
             .and_then(Value::as_str)
             .unwrap_or_default();
-        let record = if resume {
+        // Fragment compaction skips the active tables while the run is in progress (R2).
+        self.pause_compaction();
+        let outcome = if resume {
             coordinator.resume(grant, id, token, cancel)
         } else {
             coordinator.apply(grant, id, token, cancel)
-        }
-        .map_err(|error| failure(error, grant, cancel))?;
-        value(&record)
+        };
+        self.settle_compaction(&outcome, true);
+        value(&outcome.map_err(|error| failure(error, grant, cancel))?)
     }
 
     pub(super) fn status(
@@ -222,10 +272,11 @@ impl Reembedding {
         cancel: &Cancel,
     ) -> Result<Value, EngineError> {
         let coordinator = self.coordinator(grant, MaintenanceMethod::Validate, Some(id), cancel)?;
-        let record = coordinator
-            .validate(grant, id, cancel)
-            .map_err(|error| failure(error, grant, cancel))?;
-        value(&record)
+        // Validation re-reads the source; the pause ends with it, whatever its outcome (R2).
+        self.pause_compaction();
+        let outcome = coordinator.validate(grant, id, cancel);
+        self.settle_compaction(&outcome, false);
+        value(&outcome.map_err(|error| failure(error, grant, cancel))?)
     }
 }
 

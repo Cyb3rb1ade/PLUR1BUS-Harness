@@ -3039,13 +3039,36 @@ handles at their latest version and write only `<base>/generations/<target>`.
 They never take the memory mutation gate (RE-D165), the per-table compaction
 claim (RE-D161) or a capture admission or recovery lease (RE-D162), and none of
 those takes the re-embedding locks; nothing waits on the other. Recall, capture,
-compaction, the capture recovery worker and memory writes go on against the
-active generation. A write by any of them changes a source table version; the
+the capture recovery worker and memory writes go on against the active
+generation. A write by any of them changes a source table version; the
 coordinator compares every source table version before each batch
 (`assert_source(record, true)`) and before `validate`, and refuses with
-`conflict`: the migration needs a new plan, and nothing of the changed source
-reaches the target unnoticed. Compaction's prune removes only versions older
-than its cutoff; the backend reads the latest version per read
+`conflict` and the pin's drift text: nothing of the changed source reaches the
+target unnoticed.
+
+Re-embedding belongs in a quiet window. Any write to the active generation
+(capture, correct, forget, the recovery worker) ends a running migration for
+good: `resume` performs the same check and does not pick up piecewise, the
+Core's driver records `failed/source-drift`, and the engine record stays
+`running` and refuses new plans (`another reembedding migration is active`)
+until its confirmation expires (the Core plans with one hour). A store of N
+rows needs N/8 write-free calls in a row (one batch of 8 per call, the Core
+pausing 250 ms between them). This is the reference's behavior.
+
+Compaction pause (deviation in favor of operation, R2). Fragment compaction
+changes the table version without changing a row, so a due compaction alone
+would end a quiet run. While a run is in progress, from `apply` until `validate`
+ends, a step fails or the lease of 5 minutes after the last `apply`/`resume`
+runs out (longer than the Core's largest pause between batches, 60 s), the
+process's compactor skips the tables below the run's active data root as
+`busy` (`store/fragment_compactor.rs`, `CompactionPause` and `paused`, checked
+in the production tables' `optimize`). The write counters stay, so the next
+due check after the run compacts. The signal is a process-wide registry
+guarded by one mutex taken only to register or check; neither side waits on
+the other and the compactor holds nothing for it. A second caller's
+`lock-busy` leaves the running pause alone. After an engine restart the pause
+exists again from the next `resume`. Compaction's prune removes only versions
+older than its cutoff; the backend reads the latest version per read
 (`checkout_latest`).
 
 Waits on this path:

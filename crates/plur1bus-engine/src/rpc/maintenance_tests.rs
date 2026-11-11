@@ -290,3 +290,122 @@ fn planning_the_active_vector_space_answers_the_pins_unchanged_fingerprint_text(
     );
     engine.close(Some(Duration::from_secs(10))).unwrap();
 }
+
+#[test]
+fn a_due_compaction_waits_for_a_running_migration_and_catches_up_after_it() {
+    use crate::store::{
+        fragment_compactor::{self, CompactionSettings, CompactorCore},
+        OpenMode, RowFilter, Store, StorePool,
+    };
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let host = host(root);
+    let engine = ProcessEngine::new(host.clone(), Some(Seam::FlatEmbedder)).unwrap();
+    assert!(
+        capture(&engine, "source", "Please remember the green labels.")["stored"]
+            .as_u64()
+            .unwrap()
+            >= 1
+    );
+    // Eight single-row writes: enough fragments for a due compaction of the active table.
+    let table = root.join("db/current/agent");
+    let store = Store::open(&table, OpenMode::ReadWrite, None).unwrap();
+    let prototype = store.scan(&RowFilter::default(), 1).unwrap().remove(0);
+    for index in 0..8 {
+        let mut row = prototype.clone();
+        row.id = format!("40000000-0000-4000-8000-{index:012}");
+        row.text = format!("Synthetic fragment row {index}");
+        store.upsert(&[row]).unwrap();
+    }
+    drop(store);
+    // The production tables and check, as the compactor's worker runs them.
+    let pool =
+        Arc::new(StorePool::open(&root.join("db/current"), OpenMode::ReadWrite, None, 4).unwrap());
+    let tables = fragment_compactor::pool_tables_for_test(pool);
+    let settings = CompactionSettings {
+        fragment_threshold: 8,
+        ..CompactionSettings::default()
+    };
+    let core = std::sync::Mutex::new(CompactorCore::new(settings, 24.0));
+    let check = || fragment_compactor::check(&core, tables.as_ref(), "agent", &Cancel::never()).0;
+
+    let maintenance = ProcessMaintenance::compose(host, Some(Seam::FlatEmbedder), None);
+    let grant = MaintenanceGrant::for_test(Cancel::never());
+    let cancel = Cancel::never();
+    let planned = maintenance.plan(&grant, plan_request(), &cancel).unwrap();
+    let token = planned["confirmation"]["token"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let mut record = maintenance
+        .apply(&grant, json!({"id":"held","token":token}), &cancel)
+        .unwrap();
+    assert_eq!(record["state"], "running", "{record}");
+    // Due, but the run reads this table: skipped as busy, nothing optimized.
+    assert!(fragment_compactor::paused(&table, Instant::now()));
+    let skipped = check();
+    assert_eq!(skipped.action, "skipped", "{skipped:?}");
+    assert_eq!(skipped.reason.as_deref(), Some("busy"));
+    while record["state"] == "running" {
+        record = maintenance
+            .resume(&grant, json!({"id":"held","token":token}), &cancel)
+            .unwrap();
+    }
+    assert_eq!(record["state"], "validating", "{record}");
+    // The source never moved: the run ends without a conflict.
+    let validated = maintenance.validate(&grant, "held", &cancel).unwrap();
+    assert_eq!(validated["state"], "ready_to_switch", "{validated}");
+    // The pause ended with validate; the next due check compacts.
+    assert!(!fragment_compactor::paused(&table, Instant::now()));
+    let compacted = check();
+    assert_eq!(compacted.action, "compacted", "{compacted:?}");
+    engine.close(Some(Duration::from_secs(10))).unwrap();
+}
+
+#[test]
+fn a_failed_run_step_ends_the_compaction_pause() {
+    let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
+    let root = scratch.path();
+    let host = host(root);
+    let engine = ProcessEngine::new(host.clone(), Some(Seam::FlatEmbedder)).unwrap();
+    for run in ["one", "two", "three", "four", "five"] {
+        capture(
+            &engine,
+            run,
+            &format!("Please remember fact {run} of the archive."),
+        );
+    }
+    let maintenance = ProcessMaintenance::compose(host, Some(Seam::FlatEmbedder), None);
+    let grant = MaintenanceGrant::for_test(Cancel::never());
+    let cancel = Cancel::never();
+    let planned = maintenance.plan(&grant, plan_request(), &cancel).unwrap();
+    let token = planned["confirmation"]["token"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let applied = maintenance
+        .apply(&grant, json!({"id":"held","token":token}), &cancel)
+        .unwrap();
+    assert!(
+        applied["state"] == "running" || applied["state"] == "validating",
+        "{applied}"
+    );
+    let table = root.join("db/current/agent");
+    assert!(crate::store::fragment_compactor::paused(
+        &table,
+        Instant::now()
+    ));
+    // A refused step (here an invalid proof) ends the pause: the Core halts this run.
+    assert!(maintenance
+        .resume(
+            &grant,
+            json!({"id":"held","token":"not-this-proof"}),
+            &cancel
+        )
+        .is_err());
+    assert!(!crate::store::fragment_compactor::paused(
+        &table,
+        Instant::now()
+    ));
+    engine.close(Some(Duration::from_secs(10))).unwrap();
+}

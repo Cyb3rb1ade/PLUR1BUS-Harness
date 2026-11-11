@@ -11,7 +11,7 @@
 //! that capture and recall of the agent use.
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering as AtomicOrdering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
@@ -772,11 +772,58 @@ impl Drop for Optimizing {
     }
 }
 
+/// Process-wide (RE-D166/R2): active data roots a re-embedding run reads, each until its lease
+/// ends. A compaction there would change the table version without changing a row and make
+/// the run refuse its source as drifted; the compactor skips those tables as busy instead.
+static PAUSED: Mutex<Vec<(u64, PathBuf, Instant)>> = Mutex::new(Vec::new());
+static PAUSE_IDS: AtomicU64 = AtomicU64::new(1);
+
+/// One run's pause of compaction below `root`; it ends when dropped or when its lease ends.
+/// Neither side waits for the other: registering and checking take this registry's mutex only.
+pub(crate) struct CompactionPause {
+    id: u64,
+}
+
+impl CompactionPause {
+    /// Pause compaction below `root` until `until` (or this guard's drop).
+    pub(crate) fn new(root: PathBuf, until: Instant) -> Self {
+        let id = PAUSE_IDS.fetch_add(1, AtomicOrdering::Relaxed);
+        lock(&PAUSED).push((id, root, until));
+        Self { id }
+    }
+
+    /// Move the end of the lease.
+    pub(crate) fn extend(&self, until: Instant) {
+        if let Some(entry) = lock(&PAUSED).iter_mut().find(|entry| entry.0 == self.id) {
+            entry.2 = until;
+        }
+    }
+}
+
+impl Drop for CompactionPause {
+    fn drop(&mut self) {
+        lock(&PAUSED).retain(|entry| entry.0 != self.id);
+    }
+}
+
+/// Whether a live pause covers this table path at `now`.
+pub(crate) fn paused(path: &std::path::Path, now: Instant) -> bool {
+    lock(&PAUSED)
+        .iter()
+        .any(|(_, root, until)| now < *until && path.starts_with(root))
+}
+
 /// The agent tables of a writer pool. Each step opens its own handle (own runtime thread),
 /// so a slow compaction never queues behind, or in front of, the pool handle that capture
 /// and recall of the agent use (the pin's stats-only tables, `lib/db-adapter.js:1041-1060`).
 struct PoolTables {
     pool: Arc<StorePool>,
+}
+
+/// Test support: the production tables over a writer pool, for a direct `check`.
+#[cfg(test)]
+pub(crate) fn pool_tables_for_test(pool: Arc<StorePool>) -> Arc<dyn FragmentTables> {
+    Arc::new(PoolTables { pool })
 }
 
 /// A fixture's open hook: called before a compactor opens a table below `prefix` in `mode`.
@@ -849,6 +896,11 @@ impl FragmentTables for PoolTables {
         let Some(path) = self.table(agent) else {
             return OptimizeResult::NoTable;
         };
+        // A running re-embedding reads this table: skip as busy, the counters stay and the next
+        // due check catches up (RE-D166/R2).
+        if paused(&path, Instant::now()) {
+            return OptimizeResult::Busy;
+        }
         let Some(_claim) = Optimizing::claim(path.clone()) else {
             return OptimizeResult::Busy;
         };
@@ -1052,6 +1104,22 @@ mod tests {
         });
         compactor.close();
         assert!(compactor.join(Duration::from_secs(5)));
+    }
+
+    #[test]
+    fn a_pause_covers_its_root_until_its_lease_ends_or_it_is_dropped() {
+        let root = PathBuf::from("/nonexistent/compaction-pause-test/root");
+        let table = root.join("agent");
+        let other = PathBuf::from("/nonexistent/compaction-pause-test/other/agent");
+        let now = Instant::now();
+        let pause = CompactionPause::new(root.clone(), now + Duration::from_secs(60));
+        assert!(paused(&table, now));
+        assert!(!paused(&other, now));
+        assert!(!paused(&table, now + Duration::from_secs(61)));
+        pause.extend(now + Duration::from_secs(120));
+        assert!(paused(&table, now + Duration::from_secs(61)));
+        drop(pause);
+        assert!(!paused(&table, now));
     }
 
     #[test]
