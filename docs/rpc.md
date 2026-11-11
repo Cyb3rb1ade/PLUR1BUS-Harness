@@ -35653,7 +35653,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
 
 ```json
 {
-  "description": "Experimental (1.3.0). The supervisor's crash-reason vocabulary (ADR-012 §10): `ChildStatus.process.reason` of a crashed child and `ChildStatus.lastExit.reason` take these values. `gave-up`: the child exited five times inside the give-up window and is not restarted on its own (its last exit is in `lastExit`); `manifest-invalid` and `api-version-unsupported` are module-only (B12). Documentation: the fields stay plain strings.",
+  "description": "Experimental (1.3.0). The supervisor's crash-reason vocabulary (ADR-012 §10): `ChildStatus.process.reason` of a crashed child and `ChildStatus.lastExit.reason` take these values. `gave-up`: the child exited five times inside the give-up window and is not restarted on its own (its last exit is in `lastExit`); `manifest-invalid` and `api-version-unsupported` are module-only (B12). `engine-lock-held` (core only, added within 1.25.0 / RE-D172, additive under ADR-016 §2): the node engine is selected but run/engine.process.lock stayed held past the engine's orphan grace plus 5 s, so the core is not started beside a writing Rust engine until `daemon start`. A Rust engine's own exit 3 is `lock-held`, retried with backoff until it has lasted 660 s × the time scale, then crashed for good. Documentation: the fields stay plain strings.",
   "x-stability": "experimental",
   "x-since": "1.3.0",
   "enum": [
@@ -35665,6 +35665,7 @@ Shared `$defs` referenced above as `#/$defs/<Name>`.
     "manifest-invalid",
     "api-version-unsupported",
     "gave-up",
+    "engine-lock-held",
     "none"
   ]
 }
