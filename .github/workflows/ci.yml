@@ -695,17 +695,27 @@ jobs:
         timeout-minutes: 30
         run: cargo test --locked -p plur1bus-core -p plur1bus-audit -p plur1bus-tools -p plur1bus-rpc -p plur1bus --no-run
       # front_door in full (every scenario, the F5 handshake and both F7 stopping-order tests among them; the T-M4 squat
-      # scenario is Unix only, a named gap), the job object and the console handler, LockFileEx, the tools pipe client.
-      - name: front door, lock, tools service and transport (Rust)
+      # scenario is Unix only, a named gap), the job object and the console handler, LockFileEx, the transport.
+      # Every test step runs even when an earlier one failed (`!cancelled()`), so each Windows proof reports; the job still
+      # fails then. Only front-door suites run here: plur1bus-tools' TK team suites (team_*) belong to `unit`.
+      - name: front door, lock and transport (Rust)
+        if: ${{ !cancelled() }}
         timeout-minutes: 20
-        run: cargo test --locked -p plur1bus-core -p plur1bus-audit -p plur1bus-tools -p plur1bus-rpc
+        run: cargo test --locked --no-fail-fast -p plur1bus-core -p plur1bus-audit -p plur1bus-rpc
+      - name: the tools service and its pipe client (Rust)
+        if: ${{ !cancelled() }}
+        timeout-minutes: 10
+        run: cargo test --locked --no-fail-fast -p plur1bus-tools --lib --bins --test service
       - name: the RPC server half (Rust)
+        if: ${{ !cancelled() }}
         timeout-minutes: 10
         run: cargo test --locked -p plur1bus-rpc --features server
       - name: the supervisor's core slot, the core command and 1staid's legacy kill (Rust)
+        if: ${{ !cancelled() }}
         timeout-minutes: 10
         run: cargo test --locked -p plur1bus --bin plur1bus -- supervisor::child::tests::the_rust_core_spec_runs_the_front_door_with_the_lifeline_and_instance commands::core::tests repair::risky::tests::a_hung_front_doors_legacy_core_is_killed_with_it
       - name: the TypeScript seam (module-api front-door-link, core core-front-door and bin-entry)
+        if: ${{ !cancelled() }}
         timeout-minutes: 10
         shell: bash
         run: |

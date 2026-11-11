@@ -464,7 +464,17 @@ test('the front door Windows leg runs the front door suites on windows-2025 unde
   assert.match(job, /^    runs-on: windows-2025$/m);
   assert.match(job, /^    if: needs\.changes\.outputs\.proceed == 'true' && needs\.changes\.outputs\.front-door == 'true'$/m);
   const steps = stepsOf(job);
-  assert.match(steps, /cargo test --locked -p plur1bus-core -p plur1bus-audit -p plur1bus-tools -p plur1bus-rpc\n/);
+  assert.match(steps, /cargo test --locked --no-fail-fast -p plur1bus-core -p plur1bus-audit -p plur1bus-rpc\n/);
+  assert.match(steps, /cargo test --locked --no-fail-fast -p plur1bus-tools --lib --bins --test service\n/);
+  // The leg proves the front door: of plur1bus-tools only the service (lib, binary, `service`), never its TK team suites,
+  // which `unit` runs, so a failure there cannot stop the leg before its Windows proof. Every test step runs even when an
+  // earlier one failed (the job still fails then: it stays gating).
+  for (const line of steps.split('\n').filter(l => /cargo test /.test(l) && !/--no-run/.test(l) && /-p plur1bus-tools\b/.test(l))) {
+    assert.match(line, /-p plur1bus-tools --lib --bins --test service$/, line);
+  }
+  const testSteps = steps.split(/(?=^      - )/m).filter(step => /cargo test (?![^\n]*--no-run)|node "\$\{flags\[@\]\}"/.test(step));
+  assert.equal(testSteps.length, 5, 'core/audit/rpc, tools service, RPC server half, supervisor slot, TypeScript seam');
+  for (const step of testSteps) assert.match(step, /^        if: \$\{\{ !cancelled\(\) \}\}$/m, step);
   assert.match(steps, /cargo test --locked -p plur1bus --bin plur1bus -- supervisor::child::tests::the_rust_core_spec_runs_the_front_door_with_the_lifeline_and_instance /);
   for (const file of ['test/front-door-link.test.ts', 'test/core-front-door.test.ts', 'test/bin-entry.test.ts']) assert(steps.includes(file), file);
   // A gate job must never run a test with the core binaries swapped (the core spec test returns early with them set).
