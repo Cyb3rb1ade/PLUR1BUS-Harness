@@ -353,11 +353,12 @@ fn engine_hop_budget_over_the_process_socket() {
     line("recall timing.totalMs", &summarize(&work_ms), RECALL_RUNS);
     line("recall hop estimate", &summarize(&hop_ms), RECALL_RUNS);
 
-    client.call("engine.shutdown", json!({})).unwrap();
-    assert!(engine.wait_for_exit().success(), "{}", engine.diagnostics());
+    // The budget is judged before the engine is stopped: a failing stop cannot hide a breach.
     assert!(
         status_summary.p99 <= STATUS_P99_LIMIT_MS,
         "engine.status p99 {:.3} ms exceeds the {STATUS_P99_LIMIT_MS} ms hop budget (RE-D1 reopens)",
         status_summary.p99
     );
+    client.call("engine.shutdown", json!({})).unwrap();
+    assert!(engine.wait_for_exit().success(), "{}", engine.diagnostics());
 }

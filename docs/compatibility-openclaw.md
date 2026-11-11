@@ -16,7 +16,7 @@ guessed. Paths are relative to the repository named in the "Repo" column of the 
 
 | Harness | Engine pin (plugin repo SHA) | Engine contract | Contract floor | Plugin version at the pin | OpenClaw min tested | OpenClaw latest tested | Hermes min / latest tested |
 |---|---|---|---|---|---|---|---|
-| `main` (unreleased) | `9f34008c143c5da87b2194b5a28442b407ff8ba7` (plugin PR #275, on top of `origin/main` after PR #253) | `1.17.0` | `1.8.0`, major 1 only | `7.18.4` | `2026.8.1` (Host-Addons) | `2026.9.6` (Host-Addons, resolved 2026-09-28) | `0.21.4` (`743ee72596e7a9f23bc7cd5c570a6ebd958043e4`) / `0.21.5` (`f97608f178d1ffeca59860195ab7da295f7c8e5f`, Linux only) |
+| `main` (unreleased) | `9f34008c143c5da87b2194b5a28442b407ff8ba7` (plugin PR #275, on top of `origin/main` after PR #253) | `1.17.0` | `1.15.0`, major 1 only | `7.18.4` | `2026.8.1` (Host-Addons) | `2026.9.6` (Host-Addons, resolved 2026-09-28) | `0.21.4` (`743ee72596e7a9f23bc7cd5c570a6ebd958043e4`) / `0.21.5` (`f97608f178d1ffeca59860195ab7da295f7c8e5f`, Linux only) |
 
 Notes on the row:
 

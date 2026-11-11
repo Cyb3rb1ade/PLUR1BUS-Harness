@@ -345,7 +345,8 @@ cargo test --release -p plur1bus-engine --test hop_budget -- --ignored --nocaptu
 ```
 
 The binding limit (ruling E8) is **p99 <= 5 ms for `engine.status`**, the bare hop; the test fails above it, and a miss
-reopens RE-D1 rather than being optimised or re-measured away. Recall figures are recorded only.
+reopens RE-D1 rather than being optimised or re-measured away. Recall figures are recorded only, and the recall time
+(about 20 ms with the flat embedder and eight cards) does not carry over to real embedding and reranker models.
 
 Measured 2026-11-11 on macOS 27.2, Apple M5 Pro (18 cores), release profile, three consecutive runs on one build, a CI
 VM running alongside (1-minute load average 10 to 18 at the start of each run; no `cargo` or `rustc` process of another
