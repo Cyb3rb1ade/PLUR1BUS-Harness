@@ -165,7 +165,7 @@ crates more than the rest of the workspace); the RE-00 pull request records the 
 |---|---|---|
 | `lancedb` | `=0.26.2` | the store; the version the Node engine's committed lockfile resolves for `@lancedb/lancedb` (RE-D3), so both read and write the same Lance format (`lance` 2.0.0) |
 | `lance` | `=2.0.0` | not used in code; named only for its `protoc` feature (see above) |
-| `rusqlite` | `0.40`, `bundled` | the three SQLite caches (plan §1.4) |
+| `rusqlite` | `0.41`, `bundled` | the three SQLite caches (plan §1.4) |
 | `jsonschema` | `0.26`, no default features | config and contract validation, the same validator `plur1bus-config` uses |
 | `regex` | `1` | compiled cache-profile model and host patterns; reuses the locked workspace dependency (MIT OR Apache-2.0) |
 | `url` | `2` | WHATWG URL hostname parsing for provider-route parity; reuses the locked workspace dependency (MIT OR Apache-2.0) |
