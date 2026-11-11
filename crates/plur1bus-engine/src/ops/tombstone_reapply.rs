@@ -93,9 +93,17 @@ impl ReapplyTarget for GenerationReapplyTarget {
 /// agent (namespace mode, a re-embedding switch). Each row patch takes the engine-wide mutation
 /// gate, as `forget`'s patch does, for exactly that one write step: same wait budget, same
 /// waiter limit. A gate still held answers [`StoreError::Busy`], reported as `"busy"`.
+///
+/// One target serves one run: after the first `engine-busy` every further id of the run is
+/// `busy` at once, without another gate attempt, so a run waits for the gate at most once
+/// (one `MUTATION_WAIT`), whatever the size of the registry.
 pub struct NamespaceReapplyTarget {
     stores: std::sync::Arc<crate::recall::namespaces::NamespaceStores>,
     gate: std::sync::Arc<super::context::OperationContext>,
+    busy: std::sync::atomic::AtomicBool,
+    /// Test hook: called with the gate held, just before the row patch.
+    #[cfg(test)]
+    pub(crate) after_gate: Option<Box<dyn Fn() + Send + Sync>>,
 }
 
 impl NamespaceReapplyTarget {
@@ -104,7 +112,13 @@ impl NamespaceReapplyTarget {
         stores: std::sync::Arc<crate::recall::namespaces::NamespaceStores>,
         gate: std::sync::Arc<super::context::OperationContext>,
     ) -> Self {
-        Self { stores, gate }
+        Self {
+            stores,
+            gate,
+            busy: std::sync::atomic::AtomicBool::new(false),
+            #[cfg(test)]
+            after_gate: None,
+        }
     }
 }
 
@@ -113,6 +127,10 @@ impl TombstoneLookup for NamespaceReapplyTarget {
         Ok(self.stores.existing_write_store(agent)?.is_some())
     }
     fn status(&self, agent: &str, memory_id: &str) -> Result<Option<String>, StoreError> {
+        // After close the verification reads no further row (`"verify: storage"`).
+        self.gate
+            .assert_open()
+            .map_err(|_| StoreError::Unavailable)?;
         let Some(store) = self.stores.existing_write_store(agent)? else {
             return Ok(None);
         };
@@ -122,8 +140,15 @@ impl TombstoneLookup for NamespaceReapplyTarget {
 
 impl ReapplyTarget for NamespaceReapplyTarget {
     fn tombstone(&self, agent: &str, memory_id: &str) -> Result<ReapplyMutation, StoreError> {
+        use std::sync::atomic::Ordering;
+        if self.busy.load(Ordering::Acquire) {
+            return Err(StoreError::Busy);
+        }
         let _gate = self.gate.mutation().map_err(|error| match error {
-            EngineError::NotAvailable { reason } if reason == "engine-busy" => StoreError::Busy,
+            EngineError::NotAvailable { reason } if reason == "engine-busy" => {
+                self.busy.store(true, Ordering::Release);
+                StoreError::Busy
+            }
             _ => StoreError::Unavailable,
         })?;
         let Some(store) = self.stores.existing_write_store(agent)? else {
@@ -139,6 +164,10 @@ impl ReapplyTarget for NamespaceReapplyTarget {
         self.gate
             .assert_open()
             .map_err(|_| StoreError::Unavailable)?;
+        #[cfg(test)]
+        if let Some(hook) = &self.after_gate {
+            hook();
+        }
         store.patch(
             memory_id,
             &RowPatch {

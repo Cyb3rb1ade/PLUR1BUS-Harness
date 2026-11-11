@@ -130,6 +130,14 @@ pub trait SnapshotOps: Send + Sync {
     ) -> Result<Value, SnapshotFailure>;
     /// Reapply committed tombstones to the active generation; the unchanged `ReapplyReport`.
     fn reapply(&self, grant: &SnapshotGrant, cancel: &Cancel) -> Result<Value, SnapshotFailure>;
+    /// A granted call with missing or invalid parameters: create and reapply are audited as
+    /// `{"invalid":true}` (verify is never audited). Nothing else happens.
+    fn refuse(
+        &self,
+        grant: &SnapshotGrant,
+        method: SnapshotMethod,
+        cancel: &Cancel,
+    ) -> Result<(), SnapshotFailure>;
 }
 
 #[cfg(test)]

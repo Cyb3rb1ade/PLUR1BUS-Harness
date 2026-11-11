@@ -215,6 +215,7 @@ impl SnapshotOps for ProcessSnapshots {
         let base = self.admit(grant, cancel)?;
         let _slot = Slot::take(&self.create_running)?;
         let progress = |_: &str| self.progress(cancel);
+        let stopped = || self.routes.stopped();
         let request = CreateRequest {
             state_dir: self.host.state_dir(),
             base,
@@ -222,6 +223,7 @@ impl SnapshotOps for ProcessSnapshots {
             now_ms: self.host.now_ms(),
             free_bytes: self.free_bytes,
             progress: Some(&progress),
+            stopped: Some(&stopped),
         };
         let plan = match prepare(&SnapshotRoots::new(self.host.state_dir()), request) {
             Ok(plan) => plan,
@@ -253,6 +255,19 @@ impl SnapshotOps for ProcessSnapshots {
             json!(report.bytes)
         };
         Ok(json!({"id":report.id,"files":report.files,"bytes":bytes}))
+    }
+
+    fn refuse(
+        &self,
+        grant: &SnapshotGrant,
+        method: SnapshotMethod,
+        cancel: &Cancel,
+    ) -> Result<(), SnapshotFailure> {
+        grant.check(cancel)?;
+        if method == SnapshotMethod::Verify {
+            return Ok(());
+        }
+        self.audit(grant, method, &json!({"invalid":true}))
     }
 
     fn reapply(&self, grant: &SnapshotGrant, cancel: &Cancel) -> Result<Value, SnapshotFailure> {

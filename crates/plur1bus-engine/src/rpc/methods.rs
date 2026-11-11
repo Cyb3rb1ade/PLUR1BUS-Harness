@@ -424,13 +424,30 @@ pub(super) fn dispatch_snapshot(
     grant: &SnapshotGrant,
     cancel: &Cancel,
 ) -> Result<Value, WireError> {
-    let path = |name: &str| string(params, name).map(std::path::Path::new);
+    let path = |name: &str| match string(params, name) {
+        Ok(path) => Ok(std::path::Path::new(path)),
+        Err(_) => Err(refuse_snapshot(operations, method, grant, cancel)),
+    };
     match method {
         SnapshotMethod::Create => operations.create(grant, path("out")?, cancel),
         SnapshotMethod::Verify => operations.verify(grant, path("dir")?, cancel),
         SnapshotMethod::Reapply => operations.reapply(grant, cancel),
     }
     .map_err(snapshot_error)
+}
+
+/// Invalid parameters of a granted snapshot call: audited as `{"invalid":true}` (create and
+/// reapply), then answered as invalid. A failed audit answers its own failure.
+pub(super) fn refuse_snapshot(
+    operations: &dyn SnapshotOps,
+    method: SnapshotMethod,
+    grant: &SnapshotGrant,
+    cancel: &Cancel,
+) -> WireError {
+    match operations.refuse(grant, method, cancel) {
+        Ok(()) => WireError::invalid_params(),
+        Err(failure) => snapshot_error(failure),
+    }
 }
 
 fn projection(params: &Value, fields: &[&str]) -> Value {

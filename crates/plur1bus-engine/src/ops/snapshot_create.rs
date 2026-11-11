@@ -116,15 +116,47 @@ impl SnapshotRoots {
         lexical(base)?;
         assert_trusted_path(state).map_err(|_| SnapshotError::UnsafePath)?;
         assert_trusted_path(base).map_err(|_| SnapshotError::UnsafePath)?;
-        if within(state, base) {
-            return Err(SnapshotError::UnsafePath);
-        }
-        for root in &self.roots {
-            if within(base, root) || within(root, base) {
+        // Lexically and, like the pin's second `realpath` pass, physically: on a case-insensitive
+        // file system another spelling of the same directory must not slip through.
+        let spelled = (state.to_owned(), base.to_owned(), self.roots.clone());
+        let resolved = (
+            physical(state)?,
+            physical(base)?,
+            [physical(&self.roots[0])?, physical(&self.roots[1])?],
+        );
+        for (state, base, roots) in [spelled, resolved] {
+            if within(&state, &base) {
                 return Err(SnapshotError::UnsafePath);
+            }
+            for root in &roots {
+                if within(&base, root) || within(root, &base) {
+                    return Err(SnapshotError::UnsafePath);
+                }
             }
         }
         Ok(())
+    }
+}
+
+/// The physical spelling of `path`: its longest existing prefix as the file system resolves it
+/// (`realpath`, which also yields the stored letter case), joined with the missing rest.
+fn physical(path: &Path) -> Result<PathBuf, SnapshotError> {
+    let mut existing = path;
+    let mut rest = Vec::new();
+    loop {
+        match fs::canonicalize(existing) {
+            Ok(resolved) => {
+                return Ok(rest
+                    .iter()
+                    .rev()
+                    .fold(resolved, |path, part| path.join(part)));
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                rest.push(existing.file_name().ok_or(SnapshotError::UnsafePath)?);
+                existing = existing.parent().ok_or(SnapshotError::UnsafePath)?;
+            }
+            Err(_) => return Err(SnapshotError::UnsafePath),
+        }
     }
 }
 
@@ -166,6 +198,8 @@ pub struct CreateRequest<'a> {
     pub free_bytes: Option<u64>,
     /// Test seam only: called after each copied file.
     pub progress: Option<Progress<'a>>,
+    /// Whether the engine has begun to close; checked with `cancel` before every step.
+    pub stopped: Option<&'a dyn Fn() -> bool>,
 }
 
 /// A validated create whose snapshot name is known before anything is written, so the audit
@@ -385,14 +419,22 @@ fn sweep_stale_staging(root: &TrustedDirectory, cancel: &Cancel) -> Result<(), S
     Ok(())
 }
 
-/// Removes the staging directory unless the snapshot was published under its final name.
+/// Owns the staging directory handle and removes the directory unless the snapshot was
+/// published under its final name. The handle is closed before the removal (Windows sharing).
 struct Staging<'a> {
     root: &'a TrustedDirectory,
     name: String,
+    dir: Option<TrustedDirectory>,
     published: bool,
+}
+impl Staging<'_> {
+    fn dir(&self) -> Result<&TrustedDirectory, SnapshotError> {
+        self.dir.as_ref().ok_or(SnapshotError::Storage)
+    }
 }
 impl Drop for Staging<'_> {
     fn drop(&mut self) {
+        drop(self.dir.take());
         if !self.published && self.root.assert_unchanged().is_ok() {
             let _ = fs::remove_dir_all(self.root.path().join(&self.name));
         }
@@ -401,6 +443,53 @@ impl Drop for Staging<'_> {
 
 fn check(cancel: &Cancel) -> Result<(), SnapshotError> {
     cancel.check().map_err(|_| SnapshotError::Cancelled)
+}
+
+/// Rename the finished staging directory to its final name. Windows: an indexer or virus
+/// scanner may hold the tree briefly; retry sharing/access refusals for at most 10 s (the
+/// pin's `withWinRetry`), checking the cancellation and the engine's close between attempts.
+#[cfg(windows)]
+fn publish(
+    from: &Path,
+    to: &Path,
+    step: &dyn Fn() -> Result<(), SnapshotError>,
+) -> Result<(), SnapshotError> {
+    const LIMIT: std::time::Duration = std::time::Duration::from_secs(10);
+    const SHARING_VIOLATION: i32 = 32;
+    const LOCK_VIOLATION: i32 = 33;
+    let started = std::time::Instant::now();
+    let mut delay = std::time::Duration::from_millis(50);
+    loop {
+        let error = match fs::rename(from, to) {
+            Ok(()) => return Ok(()),
+            Err(error) => error,
+        };
+        let transient = error.kind() == std::io::ErrorKind::PermissionDenied
+            || matches!(
+                error.raw_os_error(),
+                Some(SHARING_VIOLATION | LOCK_VIOLATION)
+            );
+        let left = LIMIT.saturating_sub(started.elapsed());
+        if !transient || left.is_zero() {
+            return Err(SnapshotError::Storage);
+        }
+        std::thread::sleep(delay.min(left));
+        delay = (delay * 2).min(std::time::Duration::from_secs(1));
+        step()?;
+        if exists(to)? {
+            return Err(SnapshotError::Storage);
+        }
+    }
+}
+
+/// Rename the finished staging directory to its final name (one attempt off Windows).
+#[cfg(not(windows))]
+fn publish(
+    from: &Path,
+    to: &Path,
+    _step: &dyn Fn() -> Result<(), SnapshotError>,
+) -> Result<(), SnapshotError> {
+    fs::rename(from, to).map_err(|_| SnapshotError::Storage)
 }
 
 impl CreatePlan<'_> {
@@ -414,13 +503,23 @@ impl CreatePlan<'_> {
     /// even the rename or the prune. A failure or cancellation before the rename removes the
     /// staging directory: there is never a partial snapshot under the final name.
     pub fn execute(self, cancel: &Cancel) -> Result<CreateReport, SnapshotError> {
-        check(cancel)?;
+        // Every step boundary: the caller's cancellation and the engine's own close, so a
+        // direct engine close (without a connection cancel) also starts no further step.
+        let stopped = self.request.stopped;
+        let step = || -> Result<(), SnapshotError> {
+            check(cancel)?;
+            if stopped.is_some_and(|stopped| stopped()) {
+                return Err(SnapshotError::Cancelled);
+            }
+            Ok(())
+        };
+        step()?;
         crate::store::paths::secure_dir(&self.root).map_err(SnapshotError::from)?;
         let root = TrustedDirectory::open(&self.root)?;
         sweep_stale_staging(&root, cancel)?;
         let mut size = 0_u64;
         for source in &self.sources {
-            check(cancel)?;
+            step()?;
             size = size.saturating_add(match source.name {
                 Some(name) => match fs::symlink_metadata(source.path.join(name)) {
                     Ok(meta) if meta.is_file() => meta.len(),
@@ -436,21 +535,22 @@ impl CreatePlan<'_> {
         if (free as f64) < DISK_FACTOR * size as f64 {
             return Err(SnapshotError::InsufficientDisk);
         }
-        check(cancel)?;
+        step()?;
         let staging_name = format!("{}.tmp-{}", self.id, std::process::id());
-        let staging_dir = root.create_child(&staging_name)?;
         let mut staging = Staging {
             root: &root,
-            name: staging_name,
+            name: staging_name.clone(),
+            dir: None,
             published: false,
         };
+        staging.dir = Some(root.create_child(&staging_name)?);
         let files = {
-            let mut copier = Copier::new(&staging_dir, cancel)?;
+            let mut copier = Copier::new(staging.dir()?, cancel)?;
             if let Some(progress) = self.request.progress {
                 copier.set_progress(progress);
             }
             for source in &self.sources {
-                check(cancel)?;
+                step()?;
                 let from = TrustedDirectory::open(&source.path)?;
                 match source.name {
                     Some(name) => match copier.copy_file(&from, name, source.dest) {
@@ -481,7 +581,8 @@ impl CreatePlan<'_> {
             files,
         };
         let text = serde_json::to_string_pretty(&manifest).map_err(|_| SnapshotError::Storage)?;
-        check(cancel)?;
+        step()?;
+        let staging_dir = staging.dir()?;
         let temporary = format!("{MANIFEST}.tmp-{}", std::process::id());
         let mut output = staging_dir.create_file(&temporary)?;
         output
@@ -498,20 +599,21 @@ impl CreatePlan<'_> {
         staging_dir.sync_entries()?;
         // No handle of the staging tree stays open across its rename (Windows sharing).
         let staging_path = staging_dir.path().to_owned();
-        drop(staging_dir);
-        check(cancel)?;
+        drop(staging.dir.take());
+        step()?;
         root.assert_unchanged()?;
         let final_dir = root.path().join(&self.id);
         if exists(&final_dir)? {
             return Err(SnapshotError::Storage);
         }
-        fs::rename(&staging_path, &final_dir).map_err(|_| SnapshotError::Storage)?;
+        publish(&staging_path, &final_dir, &step)?;
         staging.published = true;
         drop(staging);
-        // Published: nothing below may fail the create; a cancellation only skips the rest.
+        // Published: nothing below may fail the create; a cancellation or close only skips
+        // the rest (no root fsync, no prune).
         let mut warnings = Vec::new();
         let mut pruned = Vec::new();
-        if cancel.check().is_err() {
+        if step().is_err() {
             warnings.push("fsync and pruning skipped after cancellation".to_owned());
         } else {
             if root.sync_entries().is_err() {

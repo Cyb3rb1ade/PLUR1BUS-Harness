@@ -554,6 +554,24 @@ impl Shared {
             .ok_or_else(|| unauthorized("core-link-required"))
     }
 
+    /// Invalid parameters for a snapshot method: the Core link is checked first (anyone else
+    /// is refused without an audit line), then the refusal is audited and answered as invalid.
+    fn refuse_snapshot(&self, connection: &Connection, method: SnapshotMethod) -> WireError {
+        let instance = match self.core_instance(connection) {
+            Ok(instance) => instance,
+            Err(error) => return error,
+        };
+        let Some(port) = self.snapshots.as_deref() else {
+            return WireError::not_available();
+        };
+        let link = AuthenticatedCoreLink {
+            instance: format!("{instance}:{}", connection.id),
+            cancellation: connection.cancel.clone(),
+        };
+        let grant = SnapshotGrant::from_authenticated_core_link(&link);
+        methods::refuse_snapshot(port, method, &grant, &connection.cancel)
+    }
+
     fn call(
         &self,
         connection: &Arc<Connection>,
@@ -787,7 +805,12 @@ fn connection_loop(state: &Arc<Shared>, accepted: Accepted, id: u64) {
             continue;
         };
         if !validator.is_valid(&params) {
-            connection.reply(request_id, Err(WireError::invalid_params()));
+            // RE-D170: a refused create/reapply of the Core link is audited as invalid.
+            let refusal = match SnapshotMethod::from_wire(method) {
+                Some(snapshot) if authenticated => state.refuse_snapshot(&connection, snapshot),
+                _ => WireError::invalid_params(),
+            };
+            connection.reply(request_id, Err(refusal));
             if !authenticated {
                 break;
             }

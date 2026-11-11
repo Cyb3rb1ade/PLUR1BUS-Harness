@@ -291,3 +291,41 @@ fn overlapping_source_and_staging_are_rejected_before_writes() {
     );
     assert!(tree(tmp.path()).is_empty());
 }
+
+/// M6 (RE-D170): a single file is refused when it is read from inside the staging tree or is
+/// the staging tree itself; a sibling of the staging root (the pin's `memory/run-state.json`
+/// next to `memory/.snapshots`) stays allowed.
+#[test]
+fn single_files_from_staging_or_naming_staging_are_refused_and_siblings_are_copied() {
+    let tmp = tempdir();
+    let memory = tmp.path().join("memory");
+    let staging = memory.join(".snapshots");
+    fs::create_dir_all(&staging).unwrap();
+    write(&memory, "run-state.json", b"{\"runs\":1}\n");
+    let destination = TrustedDirectory::open(&staging).unwrap();
+    let cancel = Cancel::never();
+    let mut copier = Copier::new(&destination, &cancel).unwrap();
+    // Created after the copier: a source directory inside the staging tree.
+    write(&staging, "inner/a.json", b"{}");
+    let before = tree(tmp.path());
+    let inner = TrustedDirectory::open(&staging.join("inner")).unwrap();
+    assert_eq!(
+        copier.copy_file(&inner, "a.json", "memory/a.json"),
+        Err(SnapshotError::UnsafePath)
+    );
+    let parent = TrustedDirectory::open(&memory).unwrap();
+    assert_eq!(
+        copier.copy_file(&parent, ".snapshots", "memory/.snapshots"),
+        Err(SnapshotError::UnsafePath)
+    );
+    assert_eq!(tree(tmp.path()), before, "nothing was written");
+    assert!(copier.files().is_empty());
+    copier
+        .copy_file(&parent, "run-state.json", "memory/run-state.json")
+        .unwrap();
+    assert_eq!(
+        fs::read(staging.join("memory/run-state.json")).unwrap(),
+        b"{\"runs\":1}\n"
+    );
+    assert_eq!(copier.files().len(), 1);
+}

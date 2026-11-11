@@ -38,6 +38,7 @@ fn make_request<'a>(state: &'a Path, base: &'a Path, out: &'a Path) -> CreateReq
         now_ms: 1_767_268_800_123,
         free_bytes: None,
         progress: None,
+        stopped: None,
     }
 }
 
@@ -339,4 +340,101 @@ fn prune_keeps_the_newest_and_the_protected_snapshot_only() {
         prune(&root, 1, None, &cancelled),
         Err(SnapshotError::Cancelled)
     );
+}
+
+/// M1: a direct engine close (no connection cancel) after the copy starts neither the
+/// manifest, the rename nor the prune; the staging directory is removed.
+#[test]
+fn an_engine_close_during_the_create_starts_no_further_step() {
+    let temp = temp();
+    let (state, base) = state(temp.path());
+    let roots = SnapshotRoots::new(&state);
+    let out = state.join("memory/.snapshots");
+    // An older snapshot that a prune would otherwise have to consider.
+    prepare(&roots, make_request(&state, &base, &out))
+        .unwrap()
+        .execute(&Cancel::never())
+        .unwrap();
+    let closed = Cell::new(false);
+    let progress = |_: &str| {
+        closed.set(true);
+        Ok(())
+    };
+    let stopped = || closed.get();
+    let mut request = make_request(&state, &base, &out);
+    request.now_ms += 1_000;
+    request.progress = Some(&progress);
+    request.stopped = Some(&stopped);
+    let plan = prepare(&roots, request).unwrap();
+    assert_eq!(
+        plan.execute(&Cancel::never()).unwrap_err(),
+        SnapshotError::Cancelled
+    );
+    let left: Vec<_> = fs::read_dir(&out)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().into_string().unwrap())
+        .collect();
+    assert_eq!(left, ["plur1bus-20260101T120000Z-snapshot"]);
+    // Closed before the create began: nothing is created at all.
+    let always = || true;
+    let mut request = make_request(&state, &base, &out);
+    request.now_ms += 2_000;
+    request.stopped = Some(&always);
+    assert_eq!(
+        prepare(&roots, request)
+            .unwrap()
+            .execute(&Cancel::never())
+            .unwrap_err(),
+        SnapshotError::Cancelled
+    );
+    assert_eq!(fs::read_dir(&out).unwrap().count(), 1);
+}
+
+/// M5: the engine does not resolve the configured base (the pin does, with `resolve()`): the
+/// manifest records the configured value, and a relative or `..` value is refused.
+#[test]
+fn a_relative_or_dotted_base_is_refused_and_the_manifest_records_the_configured_base() {
+    let temp = temp();
+    let (state, base) = state(temp.path());
+    let roots = SnapshotRoots::new(&state);
+    let out = state.join("backup-staging");
+    for bad in [
+        PathBuf::from("state/lancedb"),
+        state.join("memory/../lancedb"),
+    ] {
+        assert!(
+            matches!(
+                prepare(&roots, make_request(&state, &bad, &out)),
+                Err(SnapshotError::UnsafePath)
+            ),
+            "{bad:?}"
+        );
+    }
+    let report = prepare(&roots, make_request(&state, &base, &out))
+        .unwrap()
+        .execute(&Cancel::never())
+        .unwrap();
+    let manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(report.dir.join(MANIFEST)).unwrap()).unwrap();
+    assert_eq!(manifest["baseDbPath"], serde_json::json!(base));
+}
+
+/// U1: on a case-insensitive file system a base spelled into a root with other letter case is
+/// the same directory and is refused through the physical comparison. On a case-sensitive
+/// file system the differently spelled directory is a different one and stays allowed.
+#[test]
+fn a_base_inside_a_root_spelled_with_other_case_is_refused_where_the_names_alias() {
+    let temp = temp();
+    let state = temp.path().join("state");
+    private(&state.join("backup-staging"));
+    let base = state.join("Backup-Staging/store");
+    let insensitive = fs::canonicalize(state.join("BACKUP-STAGING")).is_ok();
+    private(&base);
+    let roots = SnapshotRoots::new(&state);
+    let result = roots.assert_safe_base(&state, &base);
+    if insensitive {
+        assert_eq!(result, Err(SnapshotError::UnsafePath));
+    } else {
+        assert_eq!(result, Ok(()));
+    }
 }

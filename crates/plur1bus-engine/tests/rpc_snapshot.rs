@@ -798,3 +798,68 @@ fn node_pin_and_rust_verify_each_others_snapshots() {
     engine.close_stdin();
     assert!(engine.wait_for_exit().success());
 }
+
+/// M8: a create or reapply with missing or invalid parameters from the Core link is refused
+/// as invalid and audited as `{"invalid":true}`; verify stays unaudited; a peer that is not
+/// the Core link is refused before any audit.
+#[test]
+fn invalid_create_and_reapply_calls_are_audited_as_invalid() {
+    let _serial = process_test();
+    let fixture = fixture();
+    let mut engine = fixture.start();
+    let mut peer = connect(&engine);
+    let invalid = |response: &Value| {
+        assert_eq!(
+            response["error"]["data"]["error"], "E_INVALID_PARAMS",
+            "{response}"
+        );
+        assert_eq!(response["error"]["code"], -32602, "{response}");
+    };
+    // Not the Core link: refused before the audit, as every snapshot call.
+    assert_unauthorized(&call(&mut peer, 2, "engine.snapshot.create", json!({})));
+    assert!(fixture.audit().is_empty());
+    publish_core(fixture.home(), std::process::id());
+    invalid(&call(&mut peer, 3, "engine.snapshot.create", json!({})));
+    invalid(&call(
+        &mut peer,
+        4,
+        "engine.snapshot.create",
+        json!({"out":5}),
+    ));
+    invalid(&call(
+        &mut peer,
+        5,
+        "engine.snapshot.create",
+        json!({"out":fixture.staging_root(),"label":"x"}),
+    ));
+    invalid(&call(
+        &mut peer,
+        6,
+        "engine.tombstones.reapply",
+        json!({"apply":false}),
+    ));
+    invalid(&call(&mut peer, 7, "engine.snapshot.verify", json!({})));
+    let audit = fixture.audit();
+    let methods: Vec<_> = audit.iter().map(|e| e["method"].clone()).collect();
+    assert_eq!(
+        methods,
+        [
+            "engine.snapshot.create",
+            "engine.snapshot.create",
+            "engine.snapshot.create",
+            "engine.tombstones.reapply"
+        ]
+    );
+    for entry in &audit {
+        assert_eq!(entry["kind"], "engine-snapshot");
+        assert_eq!(entry["actor"], "core-snapshot");
+        assert_eq!(entry["target"], json!({"invalid":true}));
+        assert!(entry["coreLink"].as_str().unwrap().starts_with(INSTANCE));
+    }
+    assert!(!fixture.staging_root().exists());
+    // The connection stays usable after the refusals.
+    ok(call(&mut peer, 8, "engine.tombstones.reapply", json!({})));
+    drop(peer);
+    engine.close_stdin();
+    assert!(engine.wait_for_exit().success());
+}
