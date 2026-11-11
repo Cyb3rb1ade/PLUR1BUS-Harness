@@ -29,3 +29,7 @@ tests/bench/coding/team/** text eol=lf
 
 # The reviewed terminal frames include one LF per rendered row.
 crates/plur1bus/tests/fixtures/code_tui/*.txt text eol=lf
+
+# crates/plur1bus-tools/tests/team_check.rs hashes ci.yml byte for byte against
+# packages/rpc-schema/fixtures/team/ci-workflow.json; a Windows autocrlf checkout must not change workflow files.
+.github/workflows/*.yml text eol=lf
