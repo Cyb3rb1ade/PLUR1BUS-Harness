@@ -2970,6 +2970,11 @@ RX known gaps → RY (RE-D165):
 
 ### Re-embedding in the process (RE-D166)
 
+Reference: the coordinator, planner, backend, projection and switch semantics
+are those of the pin plus the C2 fix `088ba31e44` (RE-D168, below); "as at the
+pin" in this section means `9f34008c` where both agree (state store,
+confirmation, composition root, validation).
+
 `engine.admin.reembedding.{plan,apply,resume,status,validate}` are served by
 `rpc/maintenance.rs` over the F7 `MaintenanceGrant` (only the authenticated Core
 link creates it; it is no person and no data path takes it). The composition
@@ -3088,6 +3093,32 @@ After close or SIGKILL, `resume` continues from that cursor; a batch that was
 written but not recorded is replayed idempotently (`write_target` accepts an
 identical existing row).
 
+Policy. The start of a run (`apply`/`resume`, `coordinator.rs:659-664`)
+takes over a changed workspace policy and records it; within the call each
+batch compares it and refuses a change with the policy text. `validate`
+does not compare it (`assert_source(record, false)`). This is the C2 fix's
+behavior (RE-D168); at `9f34008c` a changed policy also refuses `validate`.
+
+Lock files after SIGKILL. A kill inside a state write (`state.rs`, `mutate`)
+or a target write (`backend.rs`, `write_target`) leaves its `JobLock` file
+behind. It is taken over once its owner's PID is dead and it is older than
+30 s (`store/lock.rs`); until then `resume` answers `lock-busy`, which the
+Core records as a halted, resumable run. Not tested: a kill there cannot be
+placed without a sleep race. A kill inside the embedding (the tested case)
+holds no lock.
+
+Audit. Every call the grant admits is audited once, also when the coordinator
+never sees it: a failed composition, an unreadable `plan` request; an
+`apply`/`resume` without ID or proof reaches the coordinator with empty values,
+which audits and refuses it. Only an ID of the library's grammar (`id_valid`)
+is written, otherwise `{"invalid":true}`.
+
+Test hook. `PLUR1BUS_TEST_REEMBEDDING_HOLD` is read only under an authorized
+process seam (`--test-internals` with `PLUR1BUS_ALLOW_TEST_INTERNALS=1`). It
+writes the markers `held` and `cancelled` into the directory the variable
+names, without a trust check of that directory; a production start never reads
+it.
+
 `apply` without `switch`. The library ends a complete copy in `validating`;
 `validate` moves it to `ready_to_switch`. Nothing in the engine activates the new
 generation in RX: `switch` and `rollback` are fail closed (F7). Activation is the
@@ -3108,3 +3139,39 @@ RX known gaps → RY (RE-D166):
 - No parity scenario: the confirmation proof is random per run, the plan digest
   covers the free bytes of the disk, and the parity runner's steps have static
   arguments, so `apply` cannot use the proof `plan` returned.
+
+### Re-embedding reference commit (RE-D168)
+
+Nine of the ten re-embedding goldens under
+`crates/plur1bus-engine/tests/fixtures/ops/golden/reembedding-*.json` were
+recorded from the Node engine at `088ba31e44` ("fix(reembedding): revalidate
+source under the gate before switch, harden resume/retry/projection", branch
+`fix/reembed-switch-revalidate`), not from the pin `9f34008c`. This is
+intended: `088ba31e44` is the C2 correctness fix, which the freeze (D129) kept
+out of the Node engine; it lives only in Rust. It is a sibling of the pin
+(merge base `98dfe2f033`), not an ancestor.
+
+- Reference `088ba31e44`: `coordinator`, `plan`, `backend`, `projection`,
+  `switch`. Their difference to the pin is the C2 fix (against `98dfe2f033`:
+  `lib/reembedding/{coordinator,lance-backend,planner,runtime-config,switch-runtime}.js`,
+  one line in `engine/create-engine.js`):
+  - the switch rechecks source table versions and config revision under the
+    maintenance gate and refuses on drift;
+  - an explicit `apply`/`resume` acknowledges and records a changed workspace
+    policy; `validate` no longer refuses on policy;
+  - migration IDs and target generations over 64 characters are refused; a long
+    ID gets a valid hashed default generation;
+  - the backend finishes an interrupted generation creation (no manifest)
+    instead of failing every retry;
+  - an existing target is reused only if its manifest matches the plan; a target
+    owned by a completed or rolled-back migration is refused;
+  - the switch projection keeps `local.maxTokens` and the remote vector-space
+    identity fields.
+- Unchanged between both commits (sources identical): `confirmation`, `state`,
+  `provider-identity`, `runtime-probe`.
+- From the pin: `validation` (`9f34008c`, which adds `validate` with contract
+  1.17.0 in `98e18b6b0a`, including the empty-source case `semanticRecall:
+  true`; that commit is not in `088ba31e44`).
+
+The process (RE-D166) therefore follows the pin's wire and state contract with
+the C2 semantics above. No code change.

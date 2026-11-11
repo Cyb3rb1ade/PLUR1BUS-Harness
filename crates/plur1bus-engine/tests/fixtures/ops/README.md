@@ -46,3 +46,16 @@ Additional Rust tests cover real-Lance row/source deduplication, state/list pagi
 `record-job-metadata.mjs` executes the actual A1 registry's recovery and history code with an explicitly injected in-memory ledger and fixed clock. Twenty-four scenarios, ten Git/SHA-verified sources, two captures plus independent rerecord SHA `eb294b64fec4dc83767dddf51c5f1d09c71229abad0e8fbce98df3074bbc021e`. `jobs::metadata` mirrors append-order history/filter/coercion and crash metadata planning, including UTC extended years and phase breaker counts. Unknown legacy job labels remain raw diagnostic data; they do not become valid JobNames or authority. Pure plans require lifecycle ownership and durable publication in the following registry layer. Native input/work/date bounds fail before returning a plan; dates beyond chrono's representable range remain an explicit error.
 
 `jobs_recovery` composes the metadata plan with actual `JobSession` lifecycle and writer leases. It verifies existing/appended row byte spans and ledger identity before retiring exact marker bytes; damaged lines remain. Tests cover an excluded second registry, once-per-session classification, changed bytes/files/locks, cancellation after durable append and three real SIGKILL boundaries. The next session produces exactly one crash row and retires its marker. This establishes native metadata recovery, not the authorized job-body bindings or complete frozen JobRegistry integration.
+
+## Re-embedding references (RE-D168)
+
+`golden/reembedding-{coordinator,plan,backend,projection,switch}.json` are recorded from the Node engine at
+`088ba31e44` (C2 fix "revalidate source under the gate before switch, harden resume/retry/projection"), which the
+freeze kept out of the pin `9f34008c`; both descend from `98dfe2f033`. The differences to the pin are that fix
+(switch source recheck under the gate, policy acknowledged by an explicit apply/resume and not checked by validate,
+64-character ID/generation bounds with a hashed default generation, completing an interrupted generation creation,
+reusing a target only when its manifest matches, local `maxTokens` and remote identity fields in the switch
+projection). `golden/reembedding-{confirmation,state,provider-identity,runtime-probe}.json` cover sources that are
+identical in both commits. `golden/reembedding-validation.json` is from the pin. `reembedding-wire-errors.json` lists
+the pin's fixed error texts the process sends for the Core driver's classes (RE-D166); it is read by
+`rpc/methods.rs`, `tests/rpc_reembedding.rs` and `packages/core/test/embedding-migrate/rust-wire-errors.test.ts`.
