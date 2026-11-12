@@ -1,0 +1,90 @@
+{
+  "schema": "engine-parity.golden/1",
+  "recordedFrom": {
+    "engine": "node",
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "at": "2026-11-12T00:00:06.499Z"
+  },
+  "steps": [
+    {
+      "result": {
+        "agentId": "a1",
+        "attempt": 1,
+        "cost": {
+          "ms": 0
+        },
+        "counts": {},
+        "job": "embedding-drain",
+        "outcome": "skipped",
+        "phase": null,
+        "reason": "dry_run_unsupported",
+        "trigger": "manual"
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "agentId": "a1",
+        "attempt": 1,
+        "cost": {
+          "ms": 0
+        },
+        "counts": {},
+        "job": "embedding-drain",
+        "outcome": "skipped",
+        "phase": null,
+        "reason": "neo_disabled",
+        "trigger": "manual"
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "agentId": "a1",
+        "attempt": 1,
+        "cost": {
+          "ms": 0
+        },
+        "counts": {},
+        "job": "embedding-drain",
+        "outcome": "skipped",
+        "phase": null,
+        "reason": "dry_run_unsupported",
+        "trigger": "harness"
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "agentId": "a1",
+        "attempt": 1,
+        "cost": {
+          "ms": 0
+        },
+        "counts": {},
+        "job": "embedding-drain",
+        "outcome": "skipped",
+        "phase": null,
+        "reason": "neo_disabled",
+        "trigger": "cron"
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "agentId": "a1",
+        "attempt": 1,
+        "cost": {
+          "ms": 0
+        },
+        "counts": {},
+        "job": "embedding-drain",
+        "outcome": "skipped",
+        "phase": null,
+        "reason": "neo_disabled",
+        "trigger": "capture"
+      },
+      "trace": null
+    }
+  ]
+}

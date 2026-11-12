@@ -1,0 +1,66 @@
+{
+  "schema": "engine-parity.scenario/1",
+  "store": "store-v1",
+  "config": {},
+  "seams": {
+    "embedder": "flat",
+    "reranker": "none",
+    "llm": "none",
+    "clock": 1768305600000
+  },
+  "steps": [
+    {
+      "op": "jobs.run",
+      "args": {
+        "job": "embedding-drain",
+        "agentId": "a1",
+        "trigger": "manual",
+        "dryRun": true
+      },
+      "expect": "golden",
+      "tolerance": "default"
+    },
+    {
+      "op": "jobs.run",
+      "args": {
+        "job": "embedding-drain",
+        "agentId": "a1",
+        "trigger": "manual",
+        "dryRun": false
+      },
+      "expect": "golden",
+      "tolerance": "default"
+    },
+    {
+      "op": "jobs.run",
+      "args": {
+        "job": "embedding-drain",
+        "agentId": "a1",
+        "trigger": "harness",
+        "dryRun": true
+      },
+      "expect": "golden",
+      "tolerance": "default"
+    },
+    {
+      "op": "jobs.run",
+      "args": {
+        "job": "embedding-drain",
+        "agentId": "a1",
+        "trigger": "cron"
+      },
+      "expect": "golden",
+      "tolerance": "default"
+    },
+    {
+      "op": "jobs.run",
+      "args": {
+        "job": "embedding-drain",
+        "agentId": "a1",
+        "trigger": "capture"
+      },
+      "expect": "golden",
+      "tolerance": "default"
+    }
+  ]
+}

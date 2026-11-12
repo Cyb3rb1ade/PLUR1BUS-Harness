@@ -34,6 +34,21 @@ ACL-visible cards (RE-D31/F4), and the pin has no A1 methods (`stats`, `promote`
 lists the whole time range: a windowed list after an import returns fewer cards at the pin, which fetches
 `limit + 1` rows before its ACL check (RE-D31/F4; Rust is right).
 
+RX9/T9a adds four scenarios on the `store-v1` and `empty` stores. `ops/checkpoint` captures one turn and checkpoints
+twice (written, then the idempotent repeat). `ops/rebind-unbind-link` runs `memory.rebind` as a dry run (the
+store has no user-owned cards, so nothing matches and the real write, whose ID differs per engine, is left out),
+`memory.unbind` with a malformed and an unknown ID, and `memory.link` through its dry run, first link, repeat, a
+missing card and a blank `sourceRef`; these write operations need the `system` actor. `ops/admin-migrate` runs
+`admin.migrate` on the migrated store (`1 -> 1` is not applied, `0 -> 1` conflicts). `jobs/run` runs `embedding-drain`,
+the only job Rust composes without an owner binding (the other 19 answer `E_NOT_AVAILABLE`/`operation-unavailable`),
+with explicit triggers and with and without `dryRun`; the neo-disabled skip is identical on both sides.
+
+An inline `expect` is one exact expectation for both engines and for the recording, so it cannot express an engine
+specific exception. Scenarios that differ between Node and Rust (a fresh ID after a capture, the default trigger of
+`jobs.run`, an unknown agent, `admin.migrate 0 -> 1` on a home without any store, and `memory.state`, whose
+`archiveDir` is a fresh temporary path on every run and whose card count is ACL-filtered in Rust) are therefore not
+in this directory until the divergence is ruled or the runner can normalise it.
+
 ## Record
 
 ```sh

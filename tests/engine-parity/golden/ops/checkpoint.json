@@ -1,0 +1,35 @@
+{
+  "schema": "engine-parity.golden/1",
+  "recordedFrom": {
+    "engine": "node",
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "at": "2026-11-11T23:56:48.633Z"
+  },
+  "steps": [
+    {
+      "result": {
+        "skipped": 0,
+        "stored": 2
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "agentId": "a1",
+        "digest": "a8f4b86c391dec685315d4bcc685faed",
+        "reason": "manual",
+        "written": true
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "agentId": "a1",
+        "digest": "a8f4b86c391dec685315d4bcc685faed",
+        "reason": "manual",
+        "written": false
+      },
+      "trace": null
+    }
+  ]
+}

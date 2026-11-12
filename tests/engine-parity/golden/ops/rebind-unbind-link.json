@@ -1,0 +1,110 @@
+{
+  "schema": "engine-parity.golden/1",
+  "recordedFrom": {
+    "engine": "node",
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "at": "2026-11-11T23:59:06.368Z"
+  },
+  "steps": [
+    {
+      "result": {
+        "dryRun": true,
+        "matched": 0,
+        "rebindId": "",
+        "rebound": 0,
+        "skipped": 0
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "error": {
+          "code": "invalid-input"
+        }
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "error": {
+          "code": "not-found"
+        }
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "error": {
+          "code": "not-found"
+        }
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "error": {
+          "code": "not-found"
+        }
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "dryRun": true,
+        "id": "00000000-0000-4000-8000-000000000003",
+        "importRunId": "run-1",
+        "linkId": "44aa6c3fe371b2c1cc08ae06b2668665",
+        "outcome": "linked"
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "dryRun": false,
+        "id": "00000000-0000-4000-8000-000000000003",
+        "importRunId": "run-1",
+        "linkId": "44aa6c3fe371b2c1cc08ae06b2668665",
+        "outcome": "linked"
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "dryRun": false,
+        "id": "00000000-0000-4000-8000-000000000003",
+        "importRunId": "run-1",
+        "linkId": "44aa6c3fe371b2c1cc08ae06b2668665",
+        "outcome": "already-linked"
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "error": {
+          "code": "invalid-input"
+        }
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "epistemicStatus": "observed",
+        "id": "00000000-0000-4000-8000-000000000003",
+        "links": [
+          {
+            "importRunId": "run-1",
+            "linkId": "44aa6c3fe371b2c1cc08ae06b2668665",
+            "linkedAt": 1768305600000,
+            "provenance": "imported",
+            "sourceRef": "fixture:source;run=run-1"
+          }
+        ],
+        "origin": "dm",
+        "scope": "agent-private",
+        "summary": "I have decided that project fixture item 1 uses the durable archive policy number 1.",
+        "text": "I have decided that project fixture item 1 uses the durable archive policy number 1."
+      },
+      "trace": null
+    }
+  ]
+}
