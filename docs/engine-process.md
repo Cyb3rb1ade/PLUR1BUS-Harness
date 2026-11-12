@@ -205,8 +205,9 @@ included, is inherited), and stays as a wrapper instead of exec'ing the core:
   is drained in fixed 8 KiB chunks to the wrapper's stderr; its stderr is inherited. The core is spawned with inherited
   stdio in the wrapper's process group, so its ready line is the first line on the wrapper's stdout.
 - SIGTERM and SIGHUP are forwarded to the core; SIGINT is the terminal's to deliver to the core and does not end the
-  wrapper. Each of the three sets a flag in the signal handler itself: a stop signal before the engine's spawn starts
-  neither engine nor core, one before the core's spawn starts no core (the engine is stopped). Check and spawn of the
+  wrapper. Each of the three sets a flag in the signal handler itself: a stop signal before the check that precedes
+  the engine's spawn starts neither engine nor core; one between that check and the engine's spawn, or later but
+  before the core's spawn, starts no core, and the engine already started is stopped again. Check and spawn of the
   core share the forwarder's lock, so a SIGTERM or SIGHUP after the check is forwarded to the new core, and a SIGINT
   after it is handed on to the core once (the terminal delivered it before the core existed). Windows: the wrapper
   ignores Ctrl+C after spawning the core, which shares its console.

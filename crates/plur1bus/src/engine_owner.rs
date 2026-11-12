@@ -14,18 +14,20 @@
 //! 2. It spawns the core as the Windows branch always did: stdio inherited, the same `core_env`, in the wrapper's
 //!    process group.
 //! 3. SIGTERM and SIGHUP are forwarded to the core; SIGINT reaches the core from the terminal and does not end the
-//!    wrapper. The signal handlers set flags themselves: a stop signal before the engine's spawn starts nothing, one
-//!    before the core's spawn starts no core; a SIGINT that came during the core's spawn is handed on to it once.
+//!    wrapper. The signal handlers set flags themselves: a stop signal before the check that precedes the engine's
+//!    spawn starts nothing; one after it (in the instant of the engine's spawn, or later) but before the core's spawn
+//!    starts no core, and the engine is stopped again. A SIGINT that came during the core's spawn is handed on to it
+//!    once.
 //! 4. When the core has ended, the engine is stopped: `engine.shutdown` over [`Endpoint::Engine`] with the token in
 //!    `run/engine.token` (connect and call each bounded), SIGTERM when that could not be delivered, killed when it has
-//!    not ended [`STOP_DEADLINE`] after the stop began (reaped within [`POST_KILL_WAIT`] more). The wrapper exits with the core's exit code (an end by a signal
-//!    as [`EXIT_INTERRUPTED`], like the Windows branch).
+//!    not ended [`STOP_DEADLINE`] after the stop began (reaped within [`POST_KILL_WAIT`] more). The wrapper exits
+//!    with the core's exit code (an end by a signal as [`EXIT_INTERRUPTED`], like the Windows branch).
 //!
 //! The engine's environment follows the supervisor slot's policy ([`crate::supervisor::child::apply_child_env`]).
 //! A missing engine binary or a failed spawn costs one line on stderr; the core starts anyway and reports
 //! `engine-unavailable`. An engine that ends while the core runs costs one line as well (exit 3: another engine serves
-//! the home, and the core uses that one); the wrapper does not restart it (the supervisor does that). The engine lives exactly as long as the core: a changed configuration reaches it at the
-//! next `core run`.
+//! the home, and the core uses that one); the wrapper does not restart it (the supervisor does that). The engine lives
+//! exactly as long as the core: a changed configuration reaches it at the next `core run`.
 //!
 //! macOS residual risk: there is no OS binding. A wrapper ended by SIGKILL leaves the core and the engine running; the
 //! engine then sees its lifeline (stdin) close and ends after its orphan grace (`supervisor.graceMs`). With `stty tostop`
@@ -451,7 +453,8 @@ struct Forwarder {
     handle: Option<signal_hook::iterator::Handle>,
 }
 
-/// The index of SIGINT's flag in [`Forwarder::flags`].
+/// The index of SIGINT's flag in [`Forwarder::flags`] (read only where SIGINT is handed on, Unix).
+#[cfg(unix)]
 const SIGINT_FLAG: usize = 2;
 
 #[derive(Default)]
@@ -478,16 +481,22 @@ impl Forwarder {
                 let handle = signals.handle();
                 let c = ctl.clone();
                 // A thread that cannot start drops `signals`; the flags above stay, so the wrapper still does not die
-                // of these signals and still sees a stop before its spawns.
-                std::thread::Builder::new()
+                // of these signals and still sees a stop before its spawns, but forwards nothing: said on stderr (N2).
+                match std::thread::Builder::new()
                     .name("core-run-signals".into())
                     .spawn(move || {
                         for signal in signals.forever() {
                             on_signal(&c, signal);
                         }
-                    })
-                    .ok()
-                    .map(|_| handle)
+                    }) {
+                    Ok(_) => Some(handle),
+                    Err(e) => {
+                        say_err(&format!(
+                            "plur1bus: cannot forward signals to the core ({e}); stop the core itself"
+                        ));
+                        None
+                    }
+                }
             }
             Err(e) => {
                 say_err(&format!(
@@ -566,7 +575,9 @@ impl Forwarder {
                 break;
             }
         }
-        relock(&self.ctl).core = None;
+        // Forgotten before the reaping (the forwarding thread signals only a pid it finds here); read on every platform.
+        let recorded = relock(&self.ctl).core.take();
+        debug_assert_eq!(recorded, Some(child.id()));
         child.wait().ok()
     }
 
