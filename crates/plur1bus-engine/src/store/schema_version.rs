@@ -1,14 +1,16 @@
 //! The Node store schema marker, without implicit migrations.
 
+use std::cell::Cell;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 use crate::contract::StoreError;
 use crate::text::js::JsString;
 use crate::text::json::{parse_json, TolerantJsonValue};
 
 use super::atomic_write::atomic_write;
-use super::paths::{assert_trusted_path, secure_dir};
+use super::paths::{absolute_path, assert_trusted_path, secure_dir};
 
 /// Persisted schema generations understood by the Phase 1 store.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -51,6 +53,63 @@ pub fn is_fresh_base(base: &Path) -> Result<bool, StoreError> {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(true),
         Err(error) => Err(io_error(error)),
     }
+}
+
+/// Store bases this process has promised a marker (see [`guard_base`]).
+static GUARDED: Mutex<Vec<PathBuf>> = Mutex::new(Vec::new());
+thread_local! {
+    static INITIALISING: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Promise a marker to `base`: from now on, the first directory created inside a fresh base (or the base itself)
+/// by any of the store's creators writes the current marker first, so a new installation never holds an entry
+/// without it. The pin writes the marker when the engine is created; the Rust engine writes it lazily and never
+/// at start or on a read. Nothing is written here. A base that already holds content stays as it is.
+pub fn guard_base(base: &Path) -> Result<(), StoreError> {
+    let base = absolute_path(base)?;
+    let mut guarded = GUARDED
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    if !guarded.contains(&base) {
+        guarded.push(base);
+    }
+    Ok(())
+}
+
+/// Called by every directory creator just before it creates `directory`.
+pub(super) fn before_create(directory: &Path) -> Result<(), StoreError> {
+    let bases: Vec<PathBuf> = {
+        let guarded = GUARDED
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if guarded.is_empty() {
+            return Ok(());
+        }
+        let Ok(directory) = absolute_path(directory) else {
+            return Ok(());
+        };
+        guarded
+            .iter()
+            .filter(|base| directory.starts_with(base))
+            .cloned()
+            .collect()
+    };
+    if bases.is_empty() || INITIALISING.with(Cell::get) {
+        return Ok(());
+    }
+    INITIALISING.with(|flag| flag.set(true));
+    let result = bases.iter().try_for_each(|base| {
+        if is_fresh_base(base)? {
+            initialize_base(
+                base,
+                &chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+                env!("CARGO_PKG_VERSION"),
+            )?;
+        }
+        Ok(())
+    });
+    INITIALISING.with(|flag| flag.set(false));
+    result
 }
 
 /// Initialize only a missing or empty base, as the pinned engine does before opening any table.

@@ -244,6 +244,7 @@ impl TrustedDirectory {
     pub(crate) fn create_child(&self, name: &str) -> Result<Self, StoreError> {
         valid_child(name)?;
         self.assert_unchanged()?;
+        super::schema_version::before_create(&self.physical.join(name))?;
         #[cfg(unix)]
         {
             use std::os::fd::AsRawFd;

@@ -967,8 +967,19 @@ fn core_peer(engine: &EngineProcess, home: &std::path::Path) -> RawConnection {
     peer
 }
 
+/// Like `RawConnection::call`, but skips server notifications (a capture reports its completion that way).
+fn call_skipping_events(peer: &mut RawConnection, id: u64, method: &str, params: &Value) -> Value {
+    peer.send(json!({"jsonrpc":"2.0","id":id,"method":method,"params":params}));
+    loop {
+        let response = peer.response().unwrap().expect("RPC response before EOF");
+        if response["id"] == id {
+            return response;
+        }
+    }
+}
+
 fn status_schema(peer: &mut RawConnection, id: u64) -> Value {
-    let status = peer.call(id, "engine.status", json!({}));
+    let status = call_skipping_events(peer, id, "engine.status", &json!({}));
     status["result"]["storeSchema"].clone()
 }
 
@@ -1063,4 +1074,123 @@ fn a_job_run_before_the_first_store_leaves_the_base_at_the_current_schema() {
     drop(peer);
     engine.close_stdin();
     assert!(engine.wait_for_exit().success());
+}
+
+fn principal() -> Value {
+    json!({"agentId":"a1","workspace":"workspace:v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","channel":"telegram","accountId":"fixture","chat":{"id":"parity-direct","kind":"direct"},"trust":"inferred"})
+}
+
+/// Every wire method that can be the first thing to write into a new store base, with the entry it leaves there.
+fn first_writes() -> Vec<(&'static str, &'static str, Value, &'static str)> {
+    vec![
+        (
+            "jobs.run",
+            "engine.jobs.run",
+            json!({"job":"embedding-drain","agentId":"a1","trigger":"manual","dryRun":false}),
+            "_jobs",
+        ),
+        (
+            "capture",
+            "engine.capture",
+            json!({"turn":{"agentId":"a1","principal":principal(),"agent":{"origin":"user","background":false},"sessionKey":"agent:a1:main","runId":"first-write","incognito":false,"messages":[{"role":"user","content":"Please remember that the archive test project always uses blue labels."},{"role":"assistant","content":"Recorded."}]}}),
+            ".capture-leases",
+        ),
+    ]
+}
+
+fn first_write_home(legacy: bool) -> tempfile::TempDir {
+    let home = home();
+    // The native embedding drain is installed only while the neo engine is off (F13).
+    let config_path = home.path().join("config.json");
+    let mut config: Value = serde_json::from_slice(&fs::read(&config_path).unwrap()).unwrap();
+    config["engine"]["neo"] = json!({"enabled": false});
+    fs::write(&config_path, serde_json::to_vec(&config).unwrap()).unwrap();
+    if legacy {
+        fs::create_dir_all(home.path().join("state/lancedb/a1")).unwrap();
+    }
+    home
+}
+
+/// RE-D175 (fix3): whatever is written into a new base first, the base carries the current marker afterwards, so
+/// status and `admin.migrate` agree with the pin (marker written at engine creation).
+#[test]
+fn every_first_write_into_a_fresh_store_base_leaves_the_current_marker() {
+    for (name, method, params, entry) in first_writes() {
+        let _serial = process_test();
+        let home = first_write_home(false);
+        let base = home.path().join("state/lancedb");
+        let mut engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
+        let mut peer = core_peer(&engine, home.path());
+        let reply = peer.call(2, method, params);
+        // A capture is accepted at once and written asynchronously.
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let listing = loop {
+            let listing: Vec<String> = fs::read_dir(&base)
+                .map(|d| {
+                    d.map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+                        .collect()
+                })
+                .unwrap_or_default();
+            if listing.iter().any(|n| n.starts_with(entry)) || Instant::now() > deadline {
+                break listing;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        };
+        assert!(
+            listing.iter().any(|n| n.starts_with(entry)),
+            "{name}: expected {entry} in {listing:?}; {reply}"
+        );
+        assert!(base.join("_schema.json").is_file(), "{name}: {listing:?}");
+        assert_eq!(
+            status_schema(&mut peer, 3),
+            json!({"current":"1","expected":"1"}),
+            "{name}"
+        );
+        let conflict = call_skipping_events(
+            &mut peer,
+            4,
+            "engine.admin.migrate",
+            &json!({"from":"0","to":"1"}),
+        );
+        assert_eq!(
+            conflict["error"]["data"]["reason"], "conflict",
+            "{name}: {conflict}"
+        );
+        drop(peer);
+        engine.close_stdin();
+        assert!(engine.wait_for_exit().success());
+    }
+}
+
+/// The counter case: a legacy store (content, no marker) is never silently raised to 1 by the same calls.
+#[test]
+fn the_same_first_writes_leave_a_legacy_store_base_at_schema_zero() {
+    for (name, method, params, _) in first_writes() {
+        let _serial = process_test();
+        let home = first_write_home(true);
+        let base = home.path().join("state/lancedb");
+        let mut engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
+        let mut peer = core_peer(&engine, home.path());
+        let _ = peer.call(2, method, params);
+        assert!(!base.join("_schema.json").exists(), "{name}");
+        assert_eq!(
+            status_schema(&mut peer, 3),
+            json!({"current":"0","expected":"1"}),
+            "{name}"
+        );
+        let applied = call_skipping_events(
+            &mut peer,
+            4,
+            "engine.admin.migrate",
+            &json!({"from":"0","to":"1"}),
+        );
+        assert_eq!(
+            applied["result"],
+            json!({"from":"0","to":"1","applied":true}),
+            "{name}: {applied}"
+        );
+        drop(peer);
+        engine.close_stdin();
+        assert!(engine.wait_for_exit().success());
+    }
 }

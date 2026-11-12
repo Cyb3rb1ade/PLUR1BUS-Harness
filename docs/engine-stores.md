@@ -3302,11 +3302,16 @@ Two alignments with the pin:
   `StatusReporter::with_fresh_base_current`; the bare reporter and `ops::adopt` keep the marker-only reading (the
   pin's adopt reads the source marker without the fresh rule). Tests `status_and_migrate_read_a_fresh_store_base_alike`
   and `status_and_migrate_read_a_legacy_store_base_without_a_marker_as_schema_zero`.
-- A real job run is the first access that can create a directory inside a new base (`_jobs`); it now initialises the
-  base marker first, as the pin has it from engine start. Test
-  `a_job_run_before_the_first_store_leaves_the_base_at_the_current_schema`. Residual, not probed: the capture
-  composition (`_capture-turns`, `_capture-admissions`) and `_rebinds` could also create a base directory before the
-  first store; `memory.link` resolves the card (a store) first. A base left at "0" this way migrates by `admin.migrate`.
+- A fresh store base gets its marker with its first entry, whatever creates it. The pin writes the marker when the
+  engine is created; Rust writes nothing at start and nothing on a read, but the process composition promises the
+  base a marker (`store::schema_version::guard_base`, no I/O) and every directory creator of the store layer
+  (`secure_dir`, `TrustedDirectory::create_child`, `atomic_write`) calls `before_create` first: if the base is
+  fresh, `initialize_base` writes marker 1, then the entry is created. This covers the job ledger (`_jobs`), the
+  capture leases, replay and admission roots, `_rebinds`, `_links`, `_imports`, `_neo`, `_recall-stats` and the
+  first store alike, with no per-site call. A base that already holds content (a legacy store without a marker)
+  is only read: it stays schema 0 and `admin.migrate` raises it. Tests
+  `every_first_write_into_a_fresh_store_base_leaves_the_current_marker`,
+  `the_same_first_writes_leave_a_legacy_store_base_at_schema_zero` (process) and `store_fresh_base_marker` (store layer).
 
 Named parity exceptions (no scenario, see `tests/engine-parity/README.md`): `jobs.run` for an unknown agent
 (Node `failed`/`error:Error`, Rust `skipped`/`neo_disabled`; Rust is more precise), jobs other than `embedding-drain`

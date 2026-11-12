@@ -35,6 +35,10 @@ fn write_before_rename(
         use std::os::unix::fs::DirBuilderExt;
         builder.mode(0o700);
     }
+    if !directory.exists() {
+        super::schema_version::before_create(directory)
+            .map_err(|_| io::Error::other("store base initialisation failed"))?;
+    }
     builder.create(directory)?;
     let (temporary, mut file) = create_temporary(path, directory)?;
     let cleanup = Temporary(temporary);

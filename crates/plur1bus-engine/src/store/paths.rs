@@ -67,6 +67,7 @@ pub fn secure_dir(path: &Path) -> Result<(), StoreError> {
     }
     for directory in missing.into_iter().rev() {
         assert_trusted_path(&directory)?;
+        super::schema_version::before_create(&directory)?;
         #[allow(unused_mut)] // Only the Unix builder configures an explicit creation mode.
         let mut builder = fs::DirBuilder::new();
         #[cfg(unix)]
@@ -136,7 +137,7 @@ pub fn namespace_path(base: &Path, namespace: &str) -> Result<PathBuf, StoreErro
     Ok(path)
 }
 
-fn absolute_path(path: &Path) -> Result<PathBuf, StoreError> {
+pub(super) fn absolute_path(path: &Path) -> Result<PathBuf, StoreError> {
     if path.as_os_str().is_empty() {
         return Err(StoreError::InvalidInput);
     }

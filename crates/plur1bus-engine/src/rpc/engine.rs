@@ -162,6 +162,10 @@ impl ProcessEngine {
             .as_ref()
             .filter(|p| !p.is_empty())
             .map(std::path::PathBuf::from);
+        if let Some(base) = &base {
+            // No write here: the marker follows the first entry in the base (RE-D175).
+            crate::store::schema_version::guard_base(base)?;
+        }
         let memory_link = base.is_some();
         // Without a store base, the frozen status text keeps composition-pending/recall: no
         // memory, journal, job or schema composition exists. With a base, the pin's reporter
