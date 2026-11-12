@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync, readlinkSync, realpathSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import {
-  REAL, cli, coreChild, coreLegacyPid, corePid, daemonStatus, home, homePids, killPid, reapHome, restartSupervisor, sleep, startDaemon, stopDaemon, supervisorPid, waitFor,
+  ENGINE_IMPL, REAL, cli, coreChild, coreLegacyPid, corePid, daemonStatus, home, homePids, killPid, reapHome, restartSupervisor, sleep, startDaemon, stopDaemon, supervisorPid, waitFor,
 } from "./helpers.ts";
 
 /** S16: 200 turns in the PR system job, 1 000 in the nightly (same file). */
@@ -357,8 +357,11 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
       const others = status.children.filter((c: any) => c.role !== "core");
       assert.equal(cores.length, 1, JSON.stringify(status));
       assert.equal(others.filter((c: any) => c.role === "tools").length, 1, "exactly one tools service remains");
-      assert.ok(others.length <= 2 && new Set(others.map((c: any) => c.role)).size === others.length &&
-        others.every((c: any) => ["tools", "api"].includes(c.role) && c.process?.state === "ready"),
+      // With the Rust engine the supervisor also runs the `engine` slot (RE-D172): exactly one, healthy.
+      const engines = others.filter((c: any) => c.role === "engine");
+      assert.equal(engines.length, ENGINE_IMPL === "rust" ? 1 : 0, `engine children: ${JSON.stringify(status)}`);
+      assert.ok(others.length <= 2 + engines.length && new Set(others.map((c: any) => c.role)).size === others.length &&
+        others.every((c: any) => ["tools", "api", "engine"].includes(c.role) && c.process?.state === "ready"),
         `only healthy fixed companions may run next to Core: ${JSON.stringify(status)}`);
       // P4-10, rust leg: the core is the front door and the one TypeScript core behind it (run/core-legacy.pid).
       const legacy = coreLegacyPid(h);
@@ -372,7 +375,9 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
         }));
         // Exactly the process that owns the stores (P4-10 task review L6): the TypeScript core on the ts leg, the legacy core
         // behind the front door on the rust leg. The front door itself never opens LanceDB (no Rust store opens early, F4).
-        const storeOwner = legacy ?? ready.pid;
+        // With the Rust engine the stores belong to the engine process (RE-D176; this branch first runs when a Linux
+        // system leg with the Rust engine exists).
+        const storeOwner = engines[0]?.pid ?? legacy ?? ready.pid;
         assert.ok(owners.every((pid) => pid === storeOwner), `LanceDB fds held by ${owners.join(", ")}; the store owner is ${storeOwner}`);
       }
 

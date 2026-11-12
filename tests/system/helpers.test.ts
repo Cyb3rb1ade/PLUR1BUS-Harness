@@ -2,10 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { alive, coreBin, coreEnv, killCore, killPid, selectCoreImpl, windowsHomePids } from './helpers.ts';
+import { alive, coreBin, coreEnv, engineBin, killCore, killPid, selectCoreImpl, selectEngineImpl, selectEngineIn, windowsHomePids } from './helpers.ts';
 import { modelCacheSnapshot } from './model-cache-diagnostics.ts';
 
 test('model-cache diagnostics count partial bytes without exposing names or following nested aliases', () => {
@@ -144,4 +144,30 @@ test('every core start goes through the selection', () => {
     for (const [k, v] of [['PLUR1BUS_CORE_IMPL', saved.impl], ['PLUR1BUS_CORE_BIN', saved.bin]] as const) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('PLUR1BUS_ENGINE_IMPL defaults to node, accepts node explicitly and rejects unknown values', () => {
+  assert.equal(selectEngineImpl({}), 'node');
+  assert.equal(selectEngineImpl({ PLUR1BUS_ENGINE_IMPL: '' }), 'node');
+  assert.equal(selectEngineImpl({ PLUR1BUS_ENGINE_IMPL: 'node' }), 'node');
+  assert.throws(() => selectEngineImpl({ PLUR1BUS_ENGINE_IMPL: 'ts' }), /PLUR1BUS_ENGINE_IMPL must be "node" or "rust"/);
+});
+
+test('PLUR1BUS_ENGINE_IMPL=rust fails clearly without the binary and never falls back to node', () => {
+  assert.throws(() => selectEngineImpl({ PLUR1BUS_ENGINE_IMPL: 'rust' }, () => false), /plur1bus-engine not built/);
+  assert.equal(selectEngineImpl({ PLUR1BUS_ENGINE_IMPL: 'rust' }, () => true), 'rust');
+  assert.equal(engineBin({ PLUR1BUS_ENGINE_BIN: '/opt/x/plur1bus-engine' }), resolve('/opt/x/plur1bus-engine'));
+});
+
+test('selecting the engine in a home is a no-op for node and for a home that already chose rust', () => {
+  const h = mkdtempSync(join(tmpdir(), 'p1b-engine-impl-'));
+  try {
+    selectEngineIn(h, 'node');
+    assert.equal(existsSync(join(h, 'config.json')), false);
+    // A home that already chose the Rust engine is left byte-identical (no CLI call; the CLI path runs in the suites).
+    const chosen = JSON.stringify({ schemaVersion: 1, engine: { implementation: 'rust', neo: { enabled: false } } });
+    writeFileSync(join(h, 'config.json'), chosen);
+    selectEngineIn(h, 'rust');
+    assert.equal(readFileSync(join(h, 'config.json'), 'utf8'), chosen);
+  } finally { rmSync(h, { recursive: true, force: true }); }
 });

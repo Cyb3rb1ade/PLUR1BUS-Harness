@@ -801,25 +801,6 @@ fn the_allowed_cold_cli_seam_delays_only_the_first_two_query_calls_over_rpc() {
 /// the same without writing anything to the store base (a store is initialised when it is first created).
 #[test]
 fn migration_on_a_fresh_store_base_conflicts_like_the_pin_and_writes_nothing() {
-    fn listing(dir: &std::path::Path) -> Vec<String> {
-        fn walk(dir: &std::path::Path, prefix: &str, out: &mut Vec<String>) {
-            let Ok(entries) = fs::read_dir(dir) else {
-                return;
-            };
-            for entry in entries {
-                let entry = entry.unwrap();
-                let name = format!("{prefix}/{}", entry.file_name().to_string_lossy());
-                out.push(name.clone());
-                if entry.path().is_dir() {
-                    walk(&entry.path(), &name, out);
-                }
-            }
-        }
-        let mut out = vec![];
-        walk(dir, "", &mut out);
-        out.sort();
-        out
-    }
     for empty_dir in [false, true] {
         let _serial = process_test();
         let home = home();
@@ -853,7 +834,12 @@ fn migration_on_a_fresh_store_base_conflicts_like_the_pin_and_writes_nothing() {
             "{same}"
         );
         assert_eq!(listing(&base), before, "empty_dir: {empty_dir}");
-        assert_eq!(base.exists(), empty_dir, "empty_dir: {empty_dir}");
+        // The process start initialised the fresh base like the pin's engine creation (RE-D175, revised);
+        // the migration itself added nothing to it.
+        assert!(
+            base.join("_schema.json").is_file(),
+            "empty_dir: {empty_dir}"
+        );
         drop(peer);
         engine.close_stdin();
         assert!(engine.wait_for_exit().success());
@@ -978,6 +964,27 @@ fn call_skipping_events(peer: &mut RawConnection, id: u64, method: &str, params:
     }
 }
 
+/// Every entry below `dir`, recursively and sorted; empty when `dir` does not exist.
+fn listing(dir: &std::path::Path) -> Vec<String> {
+    fn walk(dir: &std::path::Path, prefix: &str, out: &mut Vec<String>) {
+        let Ok(entries) = fs::read_dir(dir) else {
+            return;
+        };
+        for entry in entries {
+            let entry = entry.unwrap();
+            let name = format!("{prefix}/{}", entry.file_name().to_string_lossy());
+            out.push(name.clone());
+            if entry.path().is_dir() {
+                walk(&entry.path(), &name, out);
+            }
+        }
+    }
+    let mut out = vec![];
+    walk(dir, "", &mut out);
+    out.sort();
+    out
+}
+
 fn status_schema(peer: &mut RawConnection, id: u64) -> Value {
     let status = call_skipping_events(peer, id, "engine.status", &json!({}));
     status["result"]["storeSchema"].clone()
@@ -997,6 +1004,13 @@ fn status_and_migrate_read_a_fresh_store_base_alike() {
         }
         let mut engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
         let mut peer = core_peer(&engine, home.path());
+        // The process start wrote the marker of the fresh base (RE-D175, revised); status and the migration
+        // only read it.
+        assert!(
+            base.join("_schema.json").is_file(),
+            "empty_dir: {empty_dir}"
+        );
+        let before = listing(&base);
         assert_eq!(
             status_schema(&mut peer, 2),
             json!({"current":"1","expected":"1"}),
@@ -1007,7 +1021,7 @@ fn status_and_migrate_read_a_fresh_store_base_alike() {
             conflict["error"]["data"]["reason"], "conflict",
             "{conflict}"
         );
-        assert_eq!(base.exists(), empty_dir, "status wrote nothing");
+        assert_eq!(listing(&base), before, "status and migrate wrote nothing");
         drop(peer);
         engine.close_stdin();
         assert!(engine.wait_for_exit().success());

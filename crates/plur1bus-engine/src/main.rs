@@ -69,12 +69,29 @@ fn run(command: Command) -> Result<(), (u8, String)> {
     .map_err(|_| (2, "engine home is unavailable or untrusted".into()))?;
     let (config, grace) = config::load(&layout.home).map_err(|e| (2, e.to_string()))?;
     layout.grace = grace;
+    let store_base = config.base_db_path.clone().filter(|path| !path.is_empty());
     let host = Arc::new(
         RpcHost::new(layout.home.clone(), layout.token().to_owned(), config)
             .with_platform(platform::capabilities())
             .with_fixture_clock(fixture_clock),
     );
     let engine = ProcessEngine::new(host.clone(), seam).map_err(|e| (2, e.to_string()))?;
+    // The pinned engine writes the schema marker of a fresh store base when it is created, and the Harness relies on
+    // the base existing (its backup snapshot reads the store directory). The process does the same once at its start;
+    // the library constructor and every read path stay free of writes (RE-D175). A base that cannot be initialized
+    // does not stop the start: the operations report it.
+    if let Some(base) = &store_base {
+        if let Err(error) = plur1bus_engine::store::schema_version::initialize_base(
+            std::path::Path::new(base),
+            &chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+            env!("CARGO_PKG_VERSION"),
+        ) {
+            let _ = writeln!(
+                io::stderr().lock(),
+                "plur1bus-engine: store base not initialized ({error})"
+            );
+        }
+    }
     let engine = Arc::new(if fixture_clock.is_some() {
         engine.with_fixture_tombstone_ids()
     } else {

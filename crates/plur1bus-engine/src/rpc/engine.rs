@@ -163,7 +163,8 @@ impl ProcessEngine {
             .filter(|p| !p.is_empty())
             .map(std::path::PathBuf::from);
         if let Some(base) = &base {
-            // No write here: the marker follows the first entry in the base (RE-D175).
+            // No write here: the process initialises a fresh base at its start (`main.rs`), and a library
+            // composition gets the marker with the first entry in the base (RE-D175).
             crate::store::schema_version::guard_base(base)?;
         }
         let memory_link = base.is_some();

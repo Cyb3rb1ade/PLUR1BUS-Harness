@@ -6,7 +6,7 @@ import { DatabaseSync } from "node:sqlite";
 import { existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
-import { REAL, cli, home, startCore, stopCore, type RunningCore } from "./helpers.ts";
+import { ENGINE_IMPL, REAL, cli, home, startCore, stopCore, type RunningCore } from "./helpers.ts";
 import { defaults, validate } from "../../packages/config-schema/src/index.ts";
 import { AccountStore } from "../../packages/api/src/account-store.ts";
 
@@ -180,8 +180,11 @@ describe("M8 — backup and restore against a real core", () => {
       // tombstone and the forgotten memory must stay gone: flip this assertion (and the recall one) when the pin moves; the
       // tripwire in packages/core/test/restore-reapply.test.ts turns red at that point.
       assert.ok(existsSync(join(h, "state", ".restore-reapply-tombstones")) || !ids().includes(idsBefore[0]!), "a restore leaves the re-apply marker unless the engine already settled it");
-      assert.deepEqual(ids(), idsBefore, "the same memories");
-      assert.deepEqual(recallAll(), recallBefore, "identical recall results");
+      // The Rust engine hides a memory with a committed tombstone in list and recall (RE-D153), so the forgotten one
+      // stays gone there although the start re-apply is still the Node module's (KNOWN-GAP P4-51/RY-C).
+      const forgotten = ENGINE_IMPL === "rust" ? idsBefore[0]! : null;
+      assert.deepEqual(ids(), idsBefore.filter((id: string) => id !== forgotten), "the same memories");
+      assert.deepEqual(recallAll(), recallBefore.map((records) => records.filter((r) => r.id !== forgotten)), "identical recall results");
       assert.ok(!JSON.stringify(cli(h, ["agent", "list"])).includes("anna"), "the agent created after the backup is gone");
       t.diagnostic(`restored ${created.files} files; recall identical for ${QUERIES.length} queries`);
     } finally {

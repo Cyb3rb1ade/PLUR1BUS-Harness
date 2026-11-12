@@ -8,13 +8,18 @@ The process server is implemented. With a configured store base, recall (normal 
 memory operation (list/show/state/forget/link/import/rebind/unbind; since RE-D165 also correct, share, propose,
 `proposals.list/accept/reject`, unimport, and the A1 methods `stats`, `promote` and `curation.list/resolve/keep/drop`),
 store adoption and the job registry (`engine.jobs.list/run/history`, RE-D158) are served by their native
-compositions. The A1 capability flags stay `false` and the contract stays 1.17.0 until A1-5; the methods answer on
-the wire regardless. `engine.admin.share` and `engine.admin.forget` stay `E_NOT_AVAILABLE`/`composition-pending`
-(no native implementation, no productive Harness caller; RE-D165, KNOWN-GAP → RY), as do the F6/F9/F14 admin
-methods and the F7 `reembedding.rollback`/`switch`. `engine.admin.migrate` (RE-D143) and
+compositions. Since RE-D167 the contract is 1.18.0 and the A1 capability flags are `true`; only
+`knowledgePromotion` stays `false` in RX, because it also covers the `knowledge-update` job (F13).
+`engine.admin.share` and `engine.admin.forget` stay `E_NOT_AVAILABLE`/`composition-pending`
+(no native implementation, no productive Harness caller; RE-D165, KNOWN-GAP → RY), as do the F6/F14 admin
+methods and the F7 `reembedding.rollback`/`switch`. The F9 snapshot methods are served over the Core link's
+snapshot grant (RE-D170). `engine.admin.migrate` (RE-D143) and
 `engine.admin.reembedding.{plan,apply,resume,status,validate}` (RE-D166) are served only over the authenticated
 Core link's maintenance grant; each call is audited in `state/engine-maintenance.jsonl`, and each `apply`/`resume`
-commits one durable batch while recall and capture go on against the active generation. Each memory operation
+commits one durable batch while recall and capture go on against the active generation. KNOWN-GAP (found by the
+system suites, RE-D176): the closed wire schema of `plan` lacks the fingerprint members `schemaVersion` and
+`prefixScheme` that the Core sends, so a real Core's plan is refused as `E_INVALID_PARAMS` before the planner sees
+it; these methods are exercised by wire fixtures only until the schema carries the Core's fingerprint (→ RY). Each memory operation
 runs in the foreground with its caller's principal; what an owner without a user principal cannot get (a Neo
 partition) fails closed as described in `docs/engine-stores.md` (RE-D165).
 A memory write that still finds the engine-wide mutation gate held after 20 s, or finds four callers already
@@ -23,6 +28,11 @@ inference step already running). `engine.status` reports `sharedMemory` as the l
 the cautious `unavailable` before the first one. Under F13 every job whose body reads or
 writes private owner or workspace rows answers `job-authority-unbound`, LLM jobs answer `not-implemented`; the
 only installed body is `embedding-drain` with Neo disabled (`skipped/neo_disabled`, as at the pin).
+At its start the process initialises a fresh store base (directory and schema marker 1), as the pinned engine does
+when it is created; the Harness reads the store directory before any memory exists (`backup create`). A base that
+cannot be initialised does not stop the start: the process logs it to stderr and the operations report it. The
+library constructor and every read path write nothing (RE-D175 in `docs/engine-stores.md`).
+
 Embedding and model methods use the existing RE-03 providers. With a store base, `engine.status` is the pin's
 status reporter over real sources (RE-D157): the host journal backlog (50 ms bound), the job ledger health under
 `<base>/_jobs` and the `_schema.json` marker. It reports `ready: true`; model warming or failure degrades as at the
@@ -161,9 +171,11 @@ keeps normal foreground Ctrl-C semantics. Signal cases invoke the actual OS sign
 relative latency rather than imposing a fast-path ceiling.
 
 Supervisor startup and adoption orchestration are the supervisor's `engine` slot (RE-D172); `core run` spawning is
-described under "Owners without a supervisor" below (RE-D173). Token RPC belongs to U3; the parity runner and advisory
-CI to U4/U5; system runs and hop-budget measurement to U6/U7; release payloads to U8. No default engine switch or
-Phase 2 behavior change is included here.
+described under "Owners without a supervisor" below (RE-D173). Token RPC belongs to U3. The parity runner and
+the advisory `engine-parity` CI job are in place (`tests/engine-parity`, RE-D175), the hop budget is measured on
+macOS (RE-D174), and the system suites run locally against the Rust engine with `PLUR1BUS_ENGINE_IMPL=rust`
+(RE-D176; no CI leg yet, required before the default changes). Release payloads remain U8. No default engine switch
+or Phase 2 behavior change is included here.
 
 ## The supervisor's `engine` slot
 

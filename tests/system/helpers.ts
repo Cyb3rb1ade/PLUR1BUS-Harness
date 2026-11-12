@@ -1,5 +1,5 @@
 import { spawn, execFileSync, type ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { modelCacheSnapshot } from "./model-cache-diagnostics.ts";
@@ -23,6 +23,36 @@ export function selectCoreImpl(env: NodeJS.ProcessEnv = process.env, exists: (pa
 /** The front door binary of the `rust` leg: `PLUR1BUS_CORE_BIN`, else beside the CLI under test. */
 export function coreBin(env: NodeJS.ProcessEnv = process.env): string {
   return resolve(env.PLUR1BUS_CORE_BIN ?? join(dirname(BIN), process.platform === "win32" ? "plur1bus-core.exe" : "plur1bus-core"));
+}
+
+/** RE-08 T5 (RX8). Which engine the system suites run against: `node` (default, the in-process engine) or `rust` (the
+ *  `plur1bus-engine` process that the supervisor's engine slot and `plur1bus core run` start). Without the binary
+ *  `rust` throws: it must never fall back to `node`, which would let a green rust run mean nothing. */
+export type EngineImpl = "node" | "rust";
+export function selectEngineImpl(env: NodeJS.ProcessEnv = process.env, exists: (path: string) => boolean = existsSync): EngineImpl {
+  const v = env.PLUR1BUS_ENGINE_IMPL;
+  if (v === undefined || v === "" || v === "node") return "node";
+  if (v !== "rust") throw new Error(`PLUR1BUS_ENGINE_IMPL must be "node" or "rust", got ${JSON.stringify(v)}`);
+  const bin = engineBin(env);
+  if (!exists(bin)) throw new Error(`PLUR1BUS_ENGINE_IMPL=rust: plur1bus-engine not built: no binary at ${bin}; refusing to run the node engine instead`);
+  return "rust";
+}
+/** The engine binary of the `rust` run: `PLUR1BUS_ENGINE_BIN`, else beside the CLI under test. */
+export function engineBin(env: NodeJS.ProcessEnv = process.env): string {
+  return resolve(env.PLUR1BUS_ENGINE_BIN ?? join(dirname(BIN), process.platform === "win32" ? "plur1bus-engine.exe" : "plur1bus-engine"));
+}
+/** The engine of this run, read once. */
+export const ENGINE_IMPL: EngineImpl = selectEngineImpl();
+/** `{ skip: rustGap("F13", "...") }` marks a case the Rust engine cannot serve yet; with the node engine it runs. */
+export const rustGap = (gap: string, why: string): string | false => ENGINE_IMPL === "rust" && `KNOWN-GAP ${gap}: ${why}`;
+/** With the Rust engine selected, makes the config of `h` choose it before a core or a supervisor starts there,
+ *  through `config set` (which also writes the defaults of a fresh home; a bare config.json would be invalid). A suite
+ *  that wrote its own config.json keeps everything else. A no-op for the node engine and for a home that chose it. */
+export function selectEngineIn(h: string, impl: EngineImpl = ENGINE_IMPL): void {
+  if (impl !== "rust") return;
+  const path = join(h, "config.json");
+  if (existsSync(path) && JSON.parse(readFileSync(path, "utf8")).engine?.implementation === "rust") return;
+  cli(h, ["config", "set", "engine.implementation", "rust", "--yes"]);
 }
 
 /** PLUR1BUS_REAL_MODELS=1: real embedder + reranker (downloads the models); otherwise the R17 flat-embedder seam. */
@@ -49,7 +79,9 @@ export function sharedMemorySupported(h: string): boolean {
 
 /** A fresh temp home, with the model cache linked in ({@link linkModelCache}) unless `modelCache: false`. */
 export function home(o: { modelCache?: boolean } = {}): string {
-  const h = mkdtempSync(join(tmpdir(), "p1b-sys-"));
+  const made = mkdtempSync(join(tmpdir(), "p1b-sys-"));
+  // The Rust engine refuses a home with a symlink in its path (macOS temp: /var -> /private/var), a known gap.
+  const h = ENGINE_IMPL === "rust" ? realpathSync(made) : made;
   if (o.modelCache !== false) linkModelCache(h);
   return h;
 }
@@ -93,6 +125,7 @@ export function coreEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   return {
     ...process.env, PLUR1BUS_CORE_JS: CORE_JS, PLUR1BUS_NODE: process.execPath,
     ...(impl === "rust" ? { PLUR1BUS_CORE_IMPL: "rust", PLUR1BUS_CORE_BIN: coreBin() } : {}),
+    ...(ENGINE_IMPL === "rust" ? { PLUR1BUS_ENGINE_BIN: engineBin() } : {}),
     ...(REAL ? {} : { PLUR1BUS_ALLOW_TEST_INTERNALS: "1", PLUR1BUS_TEST_INTERNALS: FLAT_INTERNALS }),
     ...extra,
   };
@@ -103,6 +136,7 @@ export function coreEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
  *  is killed and awaited before the promise rejects, so nothing leaks. */
 export async function startCore(h: string, extra: NodeJS.ProcessEnv = {}): Promise<RunningCore> {
   const env = coreEnv(extra);
+  selectEngineIn(h);
   const t0 = performance.now();
   const child = spawn(BIN, ["--home", h, "core", "run"], { env, stdio: ["ignore", "pipe", "pipe"] });
   let err = "";
@@ -207,7 +241,7 @@ export async function waitJournalDrained(h: string, timeoutMs: number): Promise<
 }
 
 /** `daemon start` (spawns `supervise` detached, waits for the core to be ready) with `coreEnv(extra)`. */
-export const startDaemon = (h: string, extra: NodeJS.ProcessEnv = {}): any => cli(h, ["daemon", "start"], { env: coreEnv(extra) });
+export const startDaemon = (h: string, extra: NodeJS.ProcessEnv = {}): any => { selectEngineIn(h); return cli(h, ["daemon", "start"], { env: coreEnv(extra) }); };
 
 /** `daemon stop`; throws unless it exits 0. */
 export const stopDaemon = (h: string): any => cli(h, ["daemon", "stop"]);
@@ -259,6 +293,7 @@ export async function killPid(pid: number, signal: NodeJS.Signals): Promise<void
 /** Plays the OS service manager: spawns `plur1bus --home h supervise` detached, with the same environment as
  *  `startCore` (plus `extra`), and waits (≤ 10 s) until that new supervisor answers `daemon status`. */
 export async function restartSupervisor(h: string, extra: NodeJS.ProcessEnv = {}): Promise<number> {
+  selectEngineIn(h);
   const child = spawn(BIN, ["--home", h, "supervise"], { env: coreEnv(extra), stdio: "ignore", detached: true });
   child.unref();
   const pid = child.pid;

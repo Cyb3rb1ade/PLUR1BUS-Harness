@@ -3291,8 +3291,8 @@ Two alignments with the pin:
   for dry and real runs. The trigger is only a recorded ledger field, not a key. Test
   `a_run_without_a_trigger_is_a_harness_run_like_the_pin`; scenario `jobs/run-default-trigger`.
 - `admin.migrate` on a missing or empty store base reads schema 1 (pin `baseDbPathIsFreshStore` writes the marker when
-  the engine is created), so `0 -> 1` conflicts and `1 -> 1` is not applied. Rust writes nothing at this point
-  (no directory, no marker); the base is initialised when its first store is created. The bare `SchemaMigrator`
+  the engine is created), so `0 -> 1` conflicts and `1 -> 1` is not applied. `admin.migrate` itself writes nothing
+  (no directory, no marker); the base is initialised by the process at its start, or with its first entry (below). The bare `SchemaMigrator`
   keeps its marker-only meaning; the process composition opts in with `with_fresh_base_current`. Test
   `migration_on_a_fresh_store_base_conflicts_like_the_pin_and_writes_nothing`; scenario `ops/admin-migrate-empty`.
   A base with other content and no marker stays schema 0, and `from` must equal the current version.
@@ -3302,8 +3302,12 @@ Two alignments with the pin:
   `StatusReporter::with_fresh_base_current`; the bare reporter and `ops::adopt` keep the marker-only reading (the
   pin's adopt reads the source marker without the fresh rule). Tests `status_and_migrate_read_a_fresh_store_base_alike`
   and `status_and_migrate_read_a_legacy_store_base_without_a_marker_as_schema_zero`.
-- A fresh store base gets its marker with its first entry, whatever creates it. The pin writes the marker when the
-  engine is created; Rust writes nothing at start and nothing on a read, but the process composition promises the
+- A fresh store base gets its marker at the start of the engine process, as at the pin, which writes it when the
+  engine is created: `main.rs` calls `initialize_base` once for the configured store base. The Harness relies on the
+  base existing before any memory does (its backup snapshot reads the store directory; found by the system suites,
+  RE-D176). A failure there is logged to stderr and does not stop the start. The library constructor
+  (`ProcessEngine::new`) and every read path still write nothing, so a library composition gets the marker with
+  its first entry, whatever creates it: the process composition promises the
   base a marker (`store::schema_version::guard_base`, no I/O) and every directory creator of the store layer
   (`secure_dir`, `TrustedDirectory::create_child`, `atomic_write`) calls `before_create` first: if the base is
   fresh, `initialize_base` writes marker 1, then the entry is created. This covers the job ledger (`_jobs`), the
@@ -3316,3 +3320,35 @@ Two alignments with the pin:
 Named parity exceptions (no scenario, see `tests/engine-parity/README.md`): `jobs.run` for an unknown agent
 (Node `failed`/`error:Error`, Rust `skipped`/`neo_disabled`; Rust is more precise), jobs other than `embedding-drain`
 (F13, KNOWN-GAP), fresh card IDs after a capture, and `memory.state` (F4/RE-D31).
+
+### System suites against the Rust engine (RE-D176)
+
+`PLUR1BUS_ENGINE_IMPL=rust` makes `tests/system/helpers.ts` run the system suites against the Rust engine. Each test
+home gets `engine.implementation: "rust"` through `plur1bus config set` before its first start, `PLUR1BUS_ENGINE_BIN`
+points at the built `plur1bus-engine` (default: beside `PLUR1BUS_BIN`), and the home path is canonical, because the
+engine refuses a home reached through a symlink. The selector fails closed: `rust` without a built engine binary is an
+error, never a silent run with the Node engine; unset or `node` changes nothing. Only the test helpers read the
+variable; the product knows only the setting.
+
+What the suites expect differently with the Rust engine, each with its reason:
+
+| Suite | With the Rust engine | Reason |
+|---|---|---|
+| `two-session-recall` | `status` lists 20 jobs; `dreams run` is `E_NOT_AVAILABLE` | the A1 job `knowledge-update` is listed; F13 |
+| `memory-ops` | `sharedMemory` is not asserted before the first share decision; `memory share --to user` is `E_DENIED` | RE-D165; D130: no bound owner user (`ops/sharing.rs`) |
+| `admin` | `admin embedding serve --stop` is not run | `engine.embedding.serve` is `E_NOT_AVAILABLE` (KNOWN-GAP → RY) |
+| `backup` | the memory forgotten after the backup stays gone after the restore | the tombstone mask of RE-D153; the start re-apply is still the Node module's (P4-51/RY-C) |
+| `kill-soak` | one healthy `engine` child runs beside the core | RE-D172 |
+| `reembed` | skipped | KNOWN-GAP: a real Core's plan is refused by the closed wire schema of `engine.admin.reembedding.plan` (`packages/rpc-schema/src/engine-contract.mjs` lacks the fingerprint members `schemaVersion` and `prefixScheme`); `rollback` and `switch` are not served (F7) |
+
+The first run found one defect that RX fixes: `backup create` on a home without any memory failed, because the store
+base did not exist yet (the start initialisation of RE-D175 above). It also found the `reembed` gap in the table, which
+RX does not fix: the suite is part of the CI system job with the Node engine, so the gap closes before the default
+changes (RY).
+
+There is no CI leg with the Rust engine. The suites run locally (macOS arm64, flat embedder, release binaries); the
+results are in the description of #903. A Linux leg is required before the default changes (RY); the Linux-only store
+owner assertion of `kill-soak` first runs there.
+
+`tests/system/dreams.test.ts` fails with both engines since `e5178f29cb` (its invalid-cron case expects exit 1, the
+exit table gives 2 for `E_INVALID_PARAMS`). It is not part of the CI system job and is not changed here.
