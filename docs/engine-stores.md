@@ -3316,8 +3316,12 @@ Two alignments with the pin:
   capture leases, replay and admission roots, `_rebinds`, `_links`, `_imports`, `_neo`, `_recall-stats` and the
   first store alike, with no per-site call. A base that already holds content (a legacy store without a marker)
   is only read: it stays schema 0 and `admin.migrate` raises it. Tests
-  `every_first_write_into_a_fresh_store_base_leaves_the_current_marker`,
-  `the_same_first_writes_leave_a_legacy_store_base_at_schema_zero` (process) and `store_fresh_base_marker` (store layer).
+  `the_same_first_writes_leave_a_legacy_store_base_at_schema_zero` (process),
+  `the_first_run_in_a_fresh_base_brings_the_marker_in_the_library_composition` (library composition),
+  `store_fresh_base_marker` and the unit tests of `store::schema_version` (store layer, `create_child`, release of
+  the promise). `every_first_write_into_a_fresh_store_base_leaves_the_current_marker` (process) shows that the first
+  wire writes keep the marker the start wrote. The promise ends with the first creator that finds the base
+  initialised or holding content, so later writes do not read the base again.
 
 Named parity exceptions (no scenario, see `tests/engine-parity/README.md`): `jobs.run` for an unknown agent
 (Node `failed`/`error:Error`, Rust `skipped`/`neo_disabled`; Rust is more precise), jobs other than `embedding-drain`
@@ -3340,7 +3344,7 @@ What the suites expect differently with the Rust engine, each with its reason:
 | `memory-ops` | `sharedMemory` is not asserted before the first share decision; `memory share --to user` is `E_DENIED` | RE-D165; D130: no bound owner user (`ops/sharing.rs`) |
 | `admin` | `admin embedding serve --stop` is not run | `engine.embedding.serve` is `E_NOT_AVAILABLE` (KNOWN-GAP → RY) |
 | `backup` | the memory forgotten after the backup stays gone after the restore | the tombstone mask of RE-D153; the start re-apply is still the Node module's (P4-51/RY-C) |
-| `kill-soak` | one healthy `engine` child runs beside the core | RE-D172 |
+| `kill-soak` | one healthy `engine` child runs beside the core; an add or recall that reaches the core while the engine process is still starting is refused (`E_NOT_AVAILABLE`, `engine-unavailable`), counted and reported | RE-D172; KNOWN-GAP: the core does not journal an add or degrade a recall in the engine start window (→ RY, required before the default changes) |
 | `reembed` | skipped | KNOWN-GAP: a real Core's plan is refused by the closed wire schema of `engine.admin.reembedding.plan` (`packages/rpc-schema/src/engine-contract.mjs` lacks the fingerprint members `schemaVersion` and `prefixScheme`); `rollback` and `switch` are not served (F7) |
 
 The first run found one defect that RX fixes: `backup create` on a home without any memory failed, because the store

@@ -1,7 +1,8 @@
 //! RE-D175 (fix3): a guarded fresh store base gets the current schema marker with whatever is created in it first.
-//! The pin writes the marker at engine creation; the Rust engine writes it with the first entry, never at start
-//! and never on a read. Every directory creator of the store layer (`secure_dir`, `atomic_write`) is covered here;
-//! the process tests in `rpc_server.rs` cover the wire methods (job run, capture) and `create_child`.
+//! The pin writes the marker at engine creation; the engine process writes it at its start, and a library
+//! composition with the first entry, never on a read. The public directory creators of the store layer
+//! (`secure_dir`, `atomic_write`) are covered here; `create_child` and the release of the promise in the unit tests
+//! of `store::schema_version`; a first job run through the library composition in `rpc::engine_jobs_tests`.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 #[path = "recall_support.rs"]

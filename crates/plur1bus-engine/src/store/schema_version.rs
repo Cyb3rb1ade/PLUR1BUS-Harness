@@ -63,8 +63,10 @@ thread_local! {
 
 /// Promise a marker to `base`: from now on, the first directory created inside a fresh base (or the base itself)
 /// by any of the store's creators writes the current marker first, so a new installation never holds an entry
-/// without it. The pin writes the marker when the engine is created; the Rust engine writes it lazily and never
-/// at start or on a read. Nothing is written here. A base that already holds content stays as it is.
+/// without it. The pin writes the marker when the engine is created; the engine process does so at its start
+/// (`main.rs`), and a library composition gets it here, with the first entry, never on a read. Nothing is written
+/// here. A base that already holds content stays as it is, and the promise ends with the first creator that finds
+/// the base initialised or holding content: a base with content never becomes fresh again.
 pub fn guard_base(base: &Path) -> Result<(), StoreError> {
     let base = absolute_path(base)?;
     let mut guarded = GUARDED
@@ -106,6 +108,11 @@ pub(super) fn before_create(directory: &Path) -> Result<(), StoreError> {
                 env!("CARGO_PKG_VERSION"),
             )?;
         }
+        // Kept or void: later creators no longer read the base, and a failing read of it cannot fail them.
+        GUARDED
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .retain(|guarded| guarded != base);
         Ok(())
     });
     INITIALISING.with(|flag| flag.set(false));
@@ -238,4 +245,63 @@ fn is_marker_temporary(name: &str) -> bool {
 
 fn io_error(error: std::io::Error) -> StoreError {
     StoreError::from(error)
+}
+
+#[cfg(test)]
+mod guard_tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
+    use super::*;
+    use crate::store::directory::TrustedDirectory;
+
+    fn private_empty_base(root: &Path) -> PathBuf {
+        let base = fs::canonicalize(root).unwrap().join("lancedb");
+        fs::create_dir(&base).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&base, fs::Permissions::from_mode(0o700)).unwrap();
+        }
+        base
+    }
+
+    fn guarded(base: &Path) -> bool {
+        GUARDED
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .iter()
+            .any(|guarded| guarded == base)
+    }
+
+    /// `TrustedDirectory::create_child` is the one creator the integration suite cannot call.
+    #[test]
+    fn create_child_in_a_guarded_empty_base_brings_the_marker() {
+        let root = tempfile::tempdir().unwrap();
+        let base = private_empty_base(root.path());
+        guard_base(&base).unwrap();
+        let directory = TrustedDirectory::open(&base).unwrap();
+        assert!(!base.join("_schema.json").exists());
+        directory.create_child("_links").unwrap();
+        assert!(base.join("_schema.json").is_file());
+        assert_eq!(read_base(&base).unwrap(), StoreSchemaVersion::V1);
+    }
+
+    /// The promise ends once it is kept, and at once for a base that already holds content.
+    #[test]
+    fn a_kept_or_void_promise_is_released() {
+        let root = tempfile::tempdir().unwrap();
+        let base = private_empty_base(root.path());
+        guard_base(&base).unwrap();
+        assert!(guarded(&base));
+        before_create(&base.join("_jobs")).unwrap();
+        assert!(base.join("_schema.json").is_file());
+        assert!(!guarded(&base));
+
+        let legacy_root = tempfile::tempdir().unwrap();
+        let legacy = private_empty_base(legacy_root.path());
+        fs::create_dir(legacy.join("a1")).unwrap();
+        guard_base(&legacy).unwrap();
+        before_create(&legacy.join("_jobs")).unwrap();
+        assert!(!legacy.join("_schema.json").exists());
+        assert!(!guarded(&legacy));
+    }
 }

@@ -1125,8 +1125,10 @@ fn first_write_home(legacy: bool) -> tempfile::TempDir {
     home
 }
 
-/// RE-D175 (fix3): whatever is written into a new base first, the base carries the current marker afterwards, so
-/// status and `admin.migrate` agree with the pin (marker written at engine creation).
+/// RE-D175: the process initialises a fresh base at its start, so the marker is there before the first write; this
+/// test shows that the first writes of the wire methods keep it and that status and `admin.migrate` agree with the
+/// pin afterwards. That a first entry brings the marker without the start initialisation is shown in-process
+/// (`the_first_run_in_a_fresh_base_brings_the_marker_in_the_library_composition`, `store_fresh_base_marker`).
 #[test]
 fn every_first_write_into_a_fresh_store_base_leaves_the_current_marker() {
     for (name, method, params, entry) in first_writes() {

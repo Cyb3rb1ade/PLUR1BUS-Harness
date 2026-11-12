@@ -206,6 +206,30 @@ fn an_allowed_job_runs_and_its_run_is_in_the_ledger_history_and_status() {
     engine.close(None).unwrap();
 }
 
+/// RE-D175: the library composition writes nothing when it is built, and the first entry in a fresh base brings
+/// the marker. The engine process writes it at its start (`main.rs`), so the process tests cannot show this.
+#[test]
+fn the_first_run_in_a_fresh_base_brings_the_marker_in_the_library_composition() {
+    let temp = scratch();
+    let base = temp.path().join("db");
+    let (_host, engine) = engine(temp.path(), false);
+    assert!(!base.join("_schema.json").exists());
+    engine
+        .jobs()
+        .run(
+            JobName::EmbeddingDrain,
+            &alpha(),
+            serde_json::from_value(json!({})).unwrap(),
+            &Cancel::never(),
+        )
+        .unwrap();
+    assert!(base.join("_jobs").is_dir(), "the run created its ledger");
+    let marker: Value =
+        serde_json::from_slice(&fs::read(base.join("_schema.json")).unwrap()).unwrap();
+    assert_eq!(marker["schemaVersion"], "1");
+    engine.close(None).unwrap();
+}
+
 /// Pin `engine/create-engine.js` (`jobs.run`): `trigger: opts?.trigger ?? "harness"`, for dry and real runs.
 #[test]
 fn a_run_without_a_trigger_is_a_harness_run_like_the_pin() {
