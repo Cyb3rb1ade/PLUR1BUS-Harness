@@ -49,7 +49,7 @@ RX9 also commits `jobs/run-default-trigger` (a run without `trigger` is a `harne
 An inline `expect` is one exact expectation for both engines and for the recording, so it cannot express an engine
 specific exception. These differences are named exceptions and have no scenario:
 
-- `jobs.run` for an agent without a store: Node `failed` with reason `error:Error`, Rust `skipped` with `neo_disabled`
+- `jobs.run` for an unknown agent (one the configuration does not know): Node `failed` with reason `error:Error`, Rust `skipped` with `neo_disabled`
   (Rust is more precise; no caller depends on the difference).
 - Jobs other than `embedding-drain` answer `operation-unavailable` in Rust (F13, KNOWN-GAP).
 - A capture returns fresh card IDs (Node's fixed UUID sequence, a random v4 ID in Rust), so a list after a capture
