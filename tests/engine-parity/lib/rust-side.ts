@@ -16,7 +16,7 @@ import { createSecretStore } from "../../../packages/core/src/secrets/store.ts";
 import { buildCapabilities, RPC_VERSION } from "../../../packages/rpc-schema/src/index.ts";
 import { assertNoMarkers, isRecord } from "./diff.ts";
 import { offlineHost, repo, runSteps, withHome } from "./side.ts";
-import type { Scenario } from "./scenario.ts";
+import { PARITY_TIMEZONE, type Scenario } from "./scenario.ts";
 
 function findBinary(): string {
   const executable = process.platform === "win32" ? "plur1bus-engine.exe" : "plur1bus-engine";
@@ -122,6 +122,7 @@ export async function runRust(scenario: Scenario) {
           PLUR1BUS_TOKENIZER_FILES_REQUIRED: process.env.PLUR1BUS_TOKENIZER_FILES_REQUIRED,
           PLUR1BUS_ALLOW_TEST_INTERNALS: "1",
           PLUR1BUS_TEST_CLOCK_MS: String(scenario.seams.clock),
+          TZ: PARITY_TIMEZONE,
         },
         stdio: ["pipe", "pipe", "ignore"], windowsHide: true,
       });

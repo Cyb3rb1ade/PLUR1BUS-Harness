@@ -1,6 +1,9 @@
 import { readFileSync } from "node:fs";
 import { assertNoMarkers, isRecord, type StepResult, type Tolerance } from "./diff.ts";
 
+/** The zone the goldens were recorded in. Both engines render local time (temporal context), so neither may read the
+ *  host's zone: the runner sets it for the Node engine in this process and for the Rust child. */
+export const PARITY_TIMEZONE = "Europe/Berlin";
 export const PIN = "9f34008c143c5da87b2194b5a28442b407ff8ba7";
 export const scenarioRoot = "tests/engine-parity/scenarios";
 const ops = [

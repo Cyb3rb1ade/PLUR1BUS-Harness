@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { assertNoMarkers, compare, isRecord, normalizeStep, type StepResult } from "./lib/diff.ts";
 import { renderReport, type Outcome } from "./lib/report.ts";
-import { PIN, readGolden, readScenario, scenarioRoot, type Golden, type Scenario } from "./lib/scenario.ts";
+import { PARITY_TIMEZONE, PIN, readGolden, readScenario, scenarioRoot, type Golden, type Scenario } from "./lib/scenario.ts";
 
 const repo = fileURLToPath(new URL("../../", import.meta.url));
 const root = join(repo, scenarioRoot);
@@ -87,6 +87,7 @@ function requireOffline(scenario: Scenario): void {
 }
 
 async function main() {
+  process.env.TZ = PARITY_TIMEZONE; // before either engine renders a local time
   const argv = process.argv.slice(2);
   if (argv[0] === "--") argv.shift();
   const check = argv.indexOf("--check");
