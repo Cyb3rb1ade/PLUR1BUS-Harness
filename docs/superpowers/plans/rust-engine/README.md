@@ -119,12 +119,12 @@ Kept by the controller. A row changes when a task's PR opens or merges.
 | RE-01 | merged 2026-10-27 (T1–T4 in one PR); the A1 members carry `x-since: a1-pending` until the engine numbers them | [#793](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/793) |
 | RE-02 | merged 2026-10-28 (T1–T7 in one PR, with the Windows root follow-up and the review fixes) | [#795](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/795) |
 | RE-03 | in review: T0–T6 with T3b and T3c in one PR (package K); e5, EmbeddingGemma 2 and BGE goldens committed, jina parity live only | [#809](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/809) |
-| RE-04 | T0–T5 integrated; T6 budget, cancellation, timing, trace and diagnostic library boundary in RX draft #903; lossless process result seam awaits controller F3 / RE-08 composition | [#792](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/792), [#829](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/829), [#846](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/846), [#848](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/848), [#850](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/850), [#871](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/871), [#903](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/903) |
-| RE-05 | not started | — |
-| RE-06 | not started (go/no-go pending) | — |
-| RE-07 | not started | — |
-| RE-08 | T1 and T3 merged 2026-10-29 (package L, merge commit ea958224) | [#799](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/799) |
-| RE-09 | not started | — |
+| RE-04 | T0–T5 integrated; T6 budget, cancellation, timing, trace and diagnostic library boundary in RX draft #903; lossless process result seam decided by controller F3 (code-point cut, the RE-D17 exception) and composed in #903 | [#792](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/792), [#829](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/829), [#846](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/846), [#848](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/848), [#850](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/850), [#871](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/871), [#903](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/903) |
+| RE-05 | in review in package RX: capture, neo working memory, journal and checkpoint served by the engine process | [#903](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/903) |
+| RE-06 | partly in review in package RX: the job registry (list, history, ledger) with `embedding-drain` running natively; `jobs.run` for the other jobs is `E_NOT_AVAILABLE` (F13, KNOWN-GAP → RY). Owner part of the go/no-go confirmed 2026-11-07 (D130) | [#903](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/903) |
+| RE-07 | in review in package RX: memory operations, `admin.migrate`, re-embedding, snapshot facade (RE-D170) and backup gates; `admin.share`/`admin.forget`, `reembedding.rollback`/`switch` and `embedding.serve` stay KNOWN-GAP → RY | [#903](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/903) |
+| RE-08 | T1 and T3 merged 2026-10-29 (package L, merge commit ea958224); process server, supervisor `engine` slot (RE-D172), `core run` owner (RE-D173) and hop budget (RE-D174) in review in package RX | [#799](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/799), [#903](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/903) |
+| RE-09 | in review in package RX: parity runner with 15 scenarios and the advisory `engine-parity` job (RE-D175); system suites against the Rust engine run locally (RE-D176), no CI leg yet | [#903](https://github.com/Cyb3rb1ade/PLUR1BUS-Harness/pull/903) |
 | RE-10 | not started | — |
 | RE-11 | not started | — |
 | RE-12 | superseded 2026-11-07 (D129, D131 Q10); not done | — |
