@@ -12,6 +12,7 @@
 //   hang-after:<ms>       serve, then stop answering every request <ms> after it reports ready (on Windows: once run/
 //                         is secured; no SIGTERM handler; event `hung`)
 //   no-listen             start (run files not written) but never listen
+//   exit-on-signal:<code> serve, and exit with <code> once <home>/state/fake-core-exit exists
 //   slow-status:<n>:<ms>  delay the reply to the n-th core.status (counted across connections) by <ms>
 // FAKE_CORE_ENGINE (JSON) replaces core.status's `engine` object (default: ready, not degraded).
 // FAKE_CORE_JOBS (JSON) is core.status's `jobs` object (default: absent, as from a core without job health).
@@ -408,6 +409,10 @@ if (kind !== "no-listen") {
     // Also from ready: a core that hangs while it still reports `starting` is never ready, and the supervisor kills
     // it at the ready timeout and starts another, which is not the hung core a test then stops.
     if (kind === "hang-after") whenSecured(() => setTimeout(() => { hung = true; event("hung"); }, Number(a)));
+    if (kind === "exit-on-signal") {
+      const signal = path.join(stateDir, "fake-core-exit");
+      const poll = setInterval(() => { if (existsSync(signal)) { clearInterval(poll); exit(Number(a)); } }, 20);
+    }
   });
   if (kind === "listen-on-signal") {
     const signal = path.join(stateDir, "fake-core-listen");

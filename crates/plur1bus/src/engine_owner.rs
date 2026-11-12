@@ -14,19 +14,23 @@
 //! 2. It spawns the core as the Windows branch always did: stdio inherited, the same `core_env`, in the wrapper's
 //!    process group.
 //! 3. SIGTERM and SIGHUP are forwarded to the core; SIGINT reaches the core from the terminal and does not end the
-//!    wrapper. A stop signal that arrives before the core was spawned means the core is not spawned at all.
+//!    wrapper. The signal handlers set flags themselves: a stop signal before the engine's spawn starts nothing, one
+//!    before the core's spawn starts no core; a SIGINT that came during the core's spawn is handed on to it once.
 //! 4. When the core has ended, the engine is stopped: `engine.shutdown` over [`Endpoint::Engine`] with the token in
 //!    `run/engine.token` (connect and call each bounded), SIGTERM when that could not be delivered, killed when it has
-//!    not ended [`STOP_DEADLINE`] after the stop began. The wrapper exits with the core's exit code (an end by a signal
+//!    not ended [`STOP_DEADLINE`] after the stop began (reaped within [`POST_KILL_WAIT`] more). The wrapper exits with the core's exit code (an end by a signal
 //!    as [`EXIT_INTERRUPTED`], like the Windows branch).
 //!
+//! The engine's environment follows the supervisor slot's policy ([`crate::supervisor::child::apply_child_env`]).
 //! A missing engine binary or a failed spawn costs one line on stderr; the core starts anyway and reports
-//! `engine-unavailable`. An engine that ends while the core runs costs one line as well; the wrapper does not restart it
-//! (the supervisor does that). The engine lives exactly as long as the core: a changed configuration reaches it at the
+//! `engine-unavailable`. An engine that ends while the core runs costs one line as well (exit 3: another engine serves
+//! the home, and the core uses that one); the wrapper does not restart it (the supervisor does that). The engine lives exactly as long as the core: a changed configuration reaches it at the
 //! next `core run`.
 //!
 //! macOS residual risk: there is no OS binding. A wrapper ended by SIGKILL leaves the core and the engine running; the
-//! engine then sees its lifeline (stdin) close and ends after its orphan grace (`supervisor.graceMs`).
+//! engine then sees its lifeline (stdin) close and ends after its orphan grace (`supervisor.graceMs`). With `stty tostop`
+//! the engine (a background process group writing to the terminal's stderr) is stopped by SIGTTOU. Windows: only
+//! Ctrl+C is ignored; Ctrl+Break or closing the console end the wrapper, and the job object ends the engine unordered.
 use crate::output::{child_exit_code, say_err, Out, EXIT_INTERRUPTED};
 use crate::paths::Layout;
 use crate::supervisor::child::ChildSpec;
@@ -65,22 +69,29 @@ fn relock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
 
 /// What `core run` does about the engine before it starts the core: the engine's spec when the Rust engine is selected
 /// and can be started (the wrapper then runs, [`run`]); `None` to exec the core as before. With the Node engine selected,
-/// a `run/engine.process.lock` held by a live process refuses the start (`E_CORE_UNAVAILABLE`, reason
-/// `engine-lock-held`); no lock file or a free one costs one try-lock and nothing else. With the Rust engine selected but
-/// not startable (no binary, an unauthorized test seam), one line on stderr and the core starts without it.
+/// a `run/engine.process.lock` held by a live process, or one that cannot be checked, refuses the start
+/// (`E_CORE_UNAVAILABLE`, reason `engine-lock-held`, the message says which). The node path's extra work before the exec
+/// is one read of `config.json` (the selector), one UUID and one try-lock (no lock file: one failed open); nothing
+/// waits. With the Rust engine selected but not startable (no binary, an unauthorized test seam), one line on stderr and
+/// the core starts without it.
 pub(crate) fn prepare(out: &Out, layout: &Layout) -> Option<ChildSpec> {
+    use crate::engine_process::LockState;
     let instance = uuid::Uuid::new_v4().to_string();
     match crate::engine_process::configured_spec(layout, &instance) {
         Ok(Some(spec)) => Some(spec),
         Ok(None) => {
-            if crate::engine_process::lock_held(layout) {
-                out.fail(
-                    "E_CORE_UNAVAILABLE",
-                    "run/engine.process.lock is held by a running Rust engine although the node engine is selected; stop that engine (the `core run` or supervisor that owns it) first, then start the core again",
-                    json!({ "reason": "engine-lock-held" }),
-                );
-            }
-            None
+            let message = match crate::engine_process::lock_state(layout) {
+                LockState::Free => return None,
+                LockState::Held => "run/engine.process.lock is held by a running Rust engine although the node engine is selected; stop that engine (the `core run` or supervisor that owns it) first, then start the core again".to_owned(),
+                LockState::Unverifiable(e) => format!(
+                    "run/engine.process.lock cannot be checked ({e}); the core does not start beside a Rust engine it cannot rule out: check that file (a regular file this user can read and write, or none), then start the core again"
+                ),
+            };
+            out.fail(
+                "E_CORE_UNAVAILABLE",
+                &message,
+                json!({ "reason": "engine-lock-held" }),
+            );
         }
         // config.json cannot be read: the core reports that itself, as before.
         Err(_) if !rust_selected(layout) => None,
@@ -110,6 +121,13 @@ pub(crate) fn run(
     program: &Path,
 ) -> ! {
     let forwarder = Forwarder::install();
+    let pause = Pause::from_env();
+    pause.at("engine");
+    // A stop signal before this point: no engine, no core (the flag is set in the signal handler itself).
+    if forwarder.stop_requested() {
+        forwarder.close();
+        std::process::exit(EXIT_INTERRUPTED);
+    }
     let engine = match Engine::spawn(&spec) {
         Ok(engine) => Some(engine),
         Err(e) => {
@@ -123,7 +141,8 @@ pub(crate) fn run(
     core.stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());
-    let code = match forwarder.spawn_core(&mut core) {
+    pause.at("core");
+    let code = match forwarder.spawn_core(&mut core, &pause) {
         Ok(Some(mut child)) => forwarder
             .wait_core(&mut child)
             .map_or(1, |status| child_exit_code(&status)),
@@ -163,9 +182,11 @@ struct Engine {
 impl Engine {
     fn spawn(spec: &ChildSpec) -> io::Result<Engine> {
         let mut cmd = Command::new(&spec.program);
-        cmd.args(&spec.args)
-            .envs(spec.env.iter().map(|(k, v)| (k, v)))
-            .stdin(Stdio::piped())
+        cmd.args(&spec.args);
+        // The supervisor slot's environment policy (M8). `core run` set no protected ACL on run/ (the core secures its
+        // own files), so the engine is never told it was: an inherited PLUR1BUS_RUN_ACL is removed.
+        crate::supervisor::child::apply_child_env(&mut cmd, spec, false);
+        cmd.stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit());
         if let Some(dir) = &spec.cwd {
@@ -200,15 +221,22 @@ impl Engine {
         let child = Arc::new(Mutex::new(child));
         let ending = Arc::new(AtomicBool::new(false));
         let (c, e) = (child.clone(), ending.clone());
+        // Two threads: the end of the engine is watched on its own, so a child of the engine that keeps its stdout
+        // open (no EOF on the drain) neither hides the end nor delays anything (M2).
         let spawned = std::thread::Builder::new()
-            .name("engine-stdout".into())
-            .spawn(move || {
-                if let Some(stdout) = stdout {
-                    drain(stdout);
-                }
-                watch(&c, &e, pid);
+            .name("engine-watch".into())
+            .spawn(move || watch(&c, &e, pid))
+            .and_then(|_| {
+                std::thread::Builder::new()
+                    .name("engine-stdout".into())
+                    .spawn(move || {
+                        if let Some(stdout) = stdout {
+                            drain(stdout);
+                        }
+                    })
             });
         if let Err(e) = spawned {
+            ending.store(true, Ordering::SeqCst);
             let mut child = relock(&child);
             let _ = child.kill();
             let _ = child.wait();
@@ -338,7 +366,8 @@ fn drain(mut from: ChildStdout) {
     }
 }
 
-/// After the engine's stdout ended: one line on stderr when the engine ends while the wrapper is not stopping it.
+/// From the engine's spawn, independent of its stdout: one line on stderr when the engine ends while the wrapper is not
+/// stopping it ([`ended_line`]).
 fn watch(child: &Mutex<Child>, ending: &AtomicBool, pid: u32) {
     loop {
         if ending.load(Ordering::SeqCst) {
@@ -346,9 +375,7 @@ fn watch(child: &Mutex<Child>, ending: &AtomicBool, pid: u32) {
         }
         if let Ok(Some(status)) = relock(child).try_wait() {
             if !ending.load(Ordering::SeqCst) {
-                say_err(&format!(
-                    "plur1bus: the Rust engine (pid {pid}) ended ({status}) while the core runs; core run does not restart it, the core reports engine-unavailable"
-                ));
+                say_err(&ended_line(pid, &status));
             }
             return;
         }
@@ -356,20 +383,81 @@ fn watch(child: &Mutex<Child>, ending: &AtomicBool, pid: u32) {
     }
 }
 
-/// The wrapper's signal handling (Unix): SIGTERM and SIGHUP go on to the core while it runs; before the core is spawned
-/// any of SIGTERM, SIGHUP and SIGINT means it is not spawned. SIGINT while the core runs is left to the terminal.
+/// The line for an engine that ended while the core runs. Exit 3 is the engine's "another engine owns this home": the
+/// core then talks to that engine (through `run/engine.sock` and `run/engine.token`), so it is not unavailable (M3).
+fn ended_line(pid: u32, status: &ExitStatus) -> String {
+    if status.code() == Some(3) {
+        format!(
+            "plur1bus: the Rust engine (pid {pid}) exited 3: another engine serves this home; the core connects to that one, and core run neither stops nor restarts it"
+        )
+    } else {
+        format!(
+            "plur1bus: the Rust engine (pid {pid}) ended ({status}) while the core runs; core run does not restart it, the core reports engine-unavailable"
+        )
+    }
+}
+
+/// Test seam (only with `PLUR1BUS_ALLOW_TEST_INTERNALS=1`): `PLUR1BUS_TEST_CORE_RUN_PAUSE=<dir>:<point>` stops the
+/// wrapper at `point` until a test lets it go, to place a signal exactly: `engine` (before the stop check that precedes
+/// the engine's spawn), `core` (before the one that precedes the core's) or `spawn` (after that check, under the
+/// forwarder's lock, right before the core's spawn). At the point it writes `<dir>/<point>` and waits for
+/// `<dir>/<point>.go`, at most [`PAUSE_LIMIT`]; it also writes the spawned core's pid to `<dir>/spawned`.
+struct Pause(Option<(std::path::PathBuf, String)>);
+
+/// How long a [`Pause`] waits for its go file at most.
+const PAUSE_LIMIT: Duration = Duration::from_secs(30);
+
+impl Pause {
+    fn from_env() -> Pause {
+        let allowed = std::env::var_os("PLUR1BUS_ALLOW_TEST_INTERNALS").as_deref()
+            == Some(std::ffi::OsStr::new("1"));
+        let seam = std::env::var("PLUR1BUS_TEST_CORE_RUN_PAUSE").ok();
+        Pause(seam.filter(|_| allowed).and_then(|s| {
+            s.rsplit_once(':')
+                .map(|(dir, point)| (dir.into(), point.to_owned()))
+        }))
+    }
+
+    fn at(&self, point: &str) {
+        let Some((dir, wanted)) = &self.0 else { return };
+        if wanted != point {
+            return;
+        }
+        let _ = std::fs::write(dir.join(point), b"");
+        let go = dir.join(format!("{point}.go"));
+        let deadline = Instant::now() + PAUSE_LIMIT;
+        while !go.exists() && Instant::now() < deadline {
+            std::thread::sleep(POLL);
+        }
+    }
+
+    fn spawned(&self, pid: u32) {
+        if let Some((dir, _)) = &self.0 {
+            let _ = std::fs::write(dir.join("spawned"), pid.to_string());
+        }
+    }
+}
+
+/// The wrapper's signal handling (Unix). Each of SIGTERM, SIGHUP and SIGINT sets its flag in the signal handler itself
+/// (async-signal-safe, I2), so a stop is seen at the next check however late the forwarding thread runs: before the
+/// engine's spawn and, under the lock, before the core's. While the core runs, SIGTERM and SIGHUP go on to it (the
+/// forwarding thread); SIGINT is the terminal's, except one that came after the last check and before the core existed,
+/// which is handed on once.
 struct Forwarder {
     ctl: Arc<Mutex<Ctl>>,
+    /// Set by the handlers: [SIGTERM, SIGHUP, SIGINT] (never set on Windows).
+    flags: [Arc<AtomicBool>; 3],
     #[cfg(unix)]
     handle: Option<signal_hook::iterator::Handle>,
 }
+
+/// The index of SIGINT's flag in [`Forwarder::flags`].
+const SIGINT_FLAG: usize = 2;
 
 #[derive(Default)]
 struct Ctl {
     /// The core's pid while it may be signalled (spawned and not reaped).
     core: Option<u32>,
-    /// The first stop signal that came while no core ran.
-    stop: Option<i32>,
 }
 
 impl Forwarder {
@@ -377,11 +465,20 @@ impl Forwarder {
     fn install() -> Forwarder {
         use signal_hook::consts::{SIGHUP, SIGINT, SIGTERM};
         let ctl: Arc<Mutex<Ctl>> = Arc::default();
+        let flags: [Arc<AtomicBool>; 3] = Default::default();
+        for (signal, flag) in [SIGTERM, SIGHUP, SIGINT].into_iter().zip(&flags) {
+            if let Err(e) = signal_hook::flag::register(signal, flag.clone()) {
+                say_err(&format!(
+                    "plur1bus: cannot watch for signal {signal} ({e}); stop the core itself"
+                ));
+            }
+        }
         let handle = match signal_hook::iterator::Signals::new([SIGTERM, SIGHUP, SIGINT]) {
             Ok(mut signals) => {
                 let handle = signals.handle();
                 let c = ctl.clone();
-                // A thread that cannot start drops `signals`, which restores the default actions.
+                // A thread that cannot start drops `signals`; the flags above stay, so the wrapper still does not die
+                // of these signals and still sees a stop before its spawns.
                 std::thread::Builder::new()
                     .name("core-run-signals".into())
                     .spawn(move || {
@@ -399,30 +496,48 @@ impl Forwarder {
                 None
             }
         };
-        Forwarder { ctl, handle }
+        Forwarder { ctl, flags, handle }
     }
 
     #[cfg(windows)]
     fn install() -> Forwarder {
         Forwarder {
             ctl: Arc::default(),
+            flags: Default::default(),
         }
     }
 
-    /// Spawns the core unless a stop signal came first (`Ok(None)`); under the lock the forwarder takes, so a signal is
-    /// either seen before the spawn or forwarded to the core.
-    fn spawn_core(&self, cmd: &mut Command) -> io::Result<Option<Child>> {
+    /// Whether a stop signal has arrived (any of the three flags).
+    fn stop_requested(&self) -> bool {
+        self.flags.iter().any(|f| f.load(Ordering::SeqCst))
+    }
+
+    /// Spawns the core unless a stop signal came first (`Ok(None)`). Check and spawn run under the lock the forwarding
+    /// thread takes, so a SIGTERM or SIGHUP is either seen by the check or forwarded to the core; a SIGINT that came
+    /// after the check is handed on to the new core here (the terminal delivered it before the core existed; a second
+    /// SIGINT does no harm, a lost one would).
+    fn spawn_core(&self, cmd: &mut Command, pause: &Pause) -> io::Result<Option<Child>> {
         let mut ctl = relock(&self.ctl);
-        if ctl.stop.is_some() {
+        if self.stop_requested() {
             return Ok(None);
         }
+        pause.at("spawn");
         let child = cmd.spawn()?;
         ctl.core = Some(child.id());
+        #[cfg(unix)]
+        if self.flags[SIGINT_FLAG].load(Ordering::SeqCst) {
+            // SAFETY: the pid is the child spawned just now, not reaped.
+            unsafe {
+                libc::kill(child.id() as libc::pid_t, libc::SIGINT);
+            }
+        }
+        pause.spawned(child.id());
         drop(ctl);
         #[cfg(windows)]
         {
             // The core shares the console and gets Ctrl+C itself; the wrapper stays to stop the engine after it. Set
-            // after the spawn, so the core does not inherit it.
+            // after the spawn, so the core does not inherit it. Ctrl+Break and closing the console still end the
+            // wrapper; the job object then ends the engine without an orderly stop.
             // SAFETY: a null handler with TRUE only changes this process's Ctrl+C disposition.
             unsafe {
                 windows_sys::Win32::System::Console::SetConsoleCtrlHandler(None, 1);
@@ -465,8 +580,8 @@ impl Forwarder {
 
 #[cfg(unix)]
 fn on_signal(ctl: &Mutex<Ctl>, signal: i32) {
-    let mut ctl = relock(ctl);
-    if let Some(pid) = forward_to(&mut ctl, signal) {
+    let ctl = relock(ctl);
+    if let Some(pid) = forward_to(&ctl, signal) {
         // SAFETY: the pid is the wrapper's core child, not yet reaped (`wait_core` clears it under this lock first).
         unsafe {
             libc::kill(pid as libc::pid_t, signal);
@@ -474,18 +589,11 @@ fn on_signal(ctl: &Mutex<Ctl>, signal: i32) {
     }
 }
 
-/// The core's pid when `signal` goes on to it (SIGTERM, SIGHUP while it runs); records a stop signal that came while no
-/// core runs.
+/// The core's pid when the forwarding thread passes `signal` on: SIGTERM and SIGHUP while the core runs. A stop before
+/// the core exists is the flags' business ([`Forwarder::stop_requested`]).
 #[cfg(unix)]
-fn forward_to(ctl: &mut Ctl, signal: i32) -> Option<u32> {
-    match ctl.core {
-        Some(pid) if signal != libc::SIGINT => Some(pid),
-        Some(_) => None,
-        None => {
-            ctl.stop.get_or_insert(signal);
-            None
-        }
-    }
+fn forward_to(ctl: &Ctl, signal: i32) -> Option<u32> {
+    ctl.core.filter(|_| signal != libc::SIGINT)
 }
 
 #[cfg(all(test, unix))]
@@ -495,31 +603,33 @@ mod tests {
     fn forwarder() -> Forwarder {
         Forwarder {
             ctl: Arc::default(),
+            flags: Default::default(),
             handle: None,
         }
     }
 
     #[test]
-    fn a_stop_signal_before_the_core_is_spawned_means_no_core() {
-        for signal in [libc::SIGTERM, libc::SIGHUP, libc::SIGINT] {
+    fn a_stop_flag_before_the_core_is_spawned_means_no_core() {
+        for i in 0..3 {
             let forwarder = forwarder();
-            on_signal(&forwarder.ctl, signal);
+            forwarder.flags[i].store(true, Ordering::SeqCst);
+            assert!(forwarder.stop_requested());
             let mut cmd = Command::new("true");
-            assert!(forwarder.spawn_core(&mut cmd).unwrap().is_none());
-            assert_eq!(relock(&forwarder.ctl).stop, Some(signal));
+            assert!(forwarder
+                .spawn_core(&mut cmd, &Pause(None))
+                .unwrap()
+                .is_none());
+            assert_eq!(relock(&forwarder.ctl).core, None);
         }
     }
 
     #[test]
     fn sigterm_and_sighup_go_to_the_running_core_and_sigint_does_not() {
-        let mut ctl = Ctl {
-            core: Some(42),
-            stop: None,
-        };
-        assert_eq!(forward_to(&mut ctl, libc::SIGTERM), Some(42));
-        assert_eq!(forward_to(&mut ctl, libc::SIGHUP), Some(42));
-        assert_eq!(forward_to(&mut ctl, libc::SIGINT), None);
-        assert_eq!(ctl.stop, None, "a running core is no stop before the spawn");
+        let ctl = Ctl { core: Some(42) };
+        assert_eq!(forward_to(&ctl, libc::SIGTERM), Some(42));
+        assert_eq!(forward_to(&ctl, libc::SIGHUP), Some(42));
+        assert_eq!(forward_to(&ctl, libc::SIGINT), None);
+        assert_eq!(forward_to(&Ctl::default(), libc::SIGTERM), None);
     }
 
     #[test]
@@ -527,12 +637,24 @@ mod tests {
         let forwarder = forwarder();
         let mut cmd = Command::new("sleep");
         cmd.arg("30");
-        let mut child = forwarder.spawn_core(&mut cmd).unwrap().unwrap();
+        let mut child = forwarder
+            .spawn_core(&mut cmd, &Pause(None))
+            .unwrap()
+            .unwrap();
         assert_eq!(relock(&forwarder.ctl).core, Some(child.id()));
         on_signal(&forwarder.ctl, libc::SIGTERM);
         let status = forwarder.wait_core(&mut child).unwrap();
         assert_eq!(child_exit_code(&status), EXIT_INTERRUPTED);
         assert_eq!(relock(&forwarder.ctl).core, None);
-        assert_eq!(relock(&forwarder.ctl).stop, None);
+    }
+
+    #[test]
+    fn an_exit_3_names_the_other_engine_and_any_other_end_engine_unavailable() {
+        use std::os::unix::process::ExitStatusExt;
+        let three = ended_line(7, &ExitStatus::from_raw(3 << 8));
+        assert!(three.contains("another engine serves this home"), "{three}");
+        assert!(!three.contains("engine-unavailable"), "{three}");
+        let one = ended_line(7, &ExitStatus::from_raw(1 << 8));
+        assert!(one.contains("engine-unavailable"), "{one}");
     }
 }

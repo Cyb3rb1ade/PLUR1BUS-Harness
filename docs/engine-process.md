@@ -194,8 +194,10 @@ With `engine.implementation: "rust"`, `plur1bus core run` owns the engine (RE-D1
 from a planned TypeScript `spawn.ts`/`bin.ts` forwarding into `crates/plur1bus/src/engine_owner.rs`). It builds the
 engine's command with the same specification as the supervisor's slot (`engine_process::configured_spec`: `serve
 --home --lifeline stdin --instance <uuid>`, `PLUR1BUS_ENGINE_BIN` or beside the executable, `--test-internals` only for
-the flat seams and only with `PLUR1BUS_ALLOW_TEST_INTERNALS=1`, no token in argv or environment) and stays as a wrapper
-instead of exec'ing the core:
+the flat seams and only with `PLUR1BUS_ALLOW_TEST_INTERNALS=1`, no token in argv or environment) and the slot's
+environment policy (`supervisor::child::apply_child_env`: an inherited `PLUR1BUS_RUN_ACL` or
+`PLUR1BUS_IMPORT_MAINTENANCE` is removed, everything else, the test seam and `ORT_DYLIB_PATH`/`PLUR1BUS_TOKENIZER_DIR`
+included, is inherited), and stays as a wrapper instead of exec'ing the core:
 
 - The engine is spawned first and never waited for; the core's readiness does not depend on it. The wrapper holds the
   engine's stdin (the lifeline), runs it in its own process group, and binds it at the OS level where it can (Linux
@@ -203,22 +205,33 @@ instead of exec'ing the core:
   is drained in fixed 8 KiB chunks to the wrapper's stderr; its stderr is inherited. The core is spawned with inherited
   stdio in the wrapper's process group, so its ready line is the first line on the wrapper's stdout.
 - SIGTERM and SIGHUP are forwarded to the core; SIGINT is the terminal's to deliver to the core and does not end the
-  wrapper. A stop signal before the core was spawned means the core is not spawned. Windows: the wrapper ignores Ctrl+C
-  after spawning the core, which shares its console.
-- After the core has ended the engine is stopped within 5 s: `engine.shutdown` with the token in `run/engine.token`
-  to the process whose hello names the spawned pid (connect and call 1 s each), SIGTERM when that was not delivered
-  (Windows: an immediate kill), a kill at the deadline. The wrapper exits with the core's code; a core ended by a
-  signal gives 130.
+  wrapper. Each of the three sets a flag in the signal handler itself: a stop signal before the engine's spawn starts
+  neither engine nor core, one before the core's spawn starts no core (the engine is stopped). Check and spawn of the
+  core share the forwarder's lock, so a SIGTERM or SIGHUP after the check is forwarded to the new core, and a SIGINT
+  after it is handed on to the core once (the terminal delivered it before the core existed). Windows: the wrapper
+  ignores Ctrl+C after spawning the core, which shares its console.
+- After the core has ended the engine is stopped: `engine.shutdown` with the token in `run/engine.token` to the
+  process whose hello names the spawned pid (connect and call 1 s each), SIGTERM when that was not delivered (Windows:
+  an immediate kill), killed 5 s after the stop began and reaped within 1 s more. The wrapper exits with the core's
+  code; a core ended by a signal gives 130.
 - A missing binary, an unauthorized seam or a failed spawn: one line on stderr, the core starts anyway and reports
-  `engine-unavailable`. An engine that ends while the core runs: one line on stderr, no restart (the supervisor
-  restarts with backoff; `core run` is the developer path). The engine lives exactly as long as the core: a changed
+  `engine-unavailable`. An engine that ends while the core runs: one line on stderr (watched from its spawn, not from
+  the end of its stdout, which a child of the engine may keep open), no restart (the supervisor restarts with backoff;
+  `core run` is the developer path). Exit 3 is named as what it is: another engine serves this home (it holds
+  `run/engine.process.lock`), and the core connects to that engine through `run/engine.sock` and `run/engine.token`;
+  `core run` neither stops nor restarts it. The engine lives exactly as long as the core: a changed
   configuration reaches it at the next `core run`.
-- With the Node engine selected, `core run` still execs the core, after one try-lock on `run/engine.process.lock`:
-  held by a live process, or not checkable (any open or lock failure but a missing file), it refuses with
-  `E_CORE_UNAVAILABLE`, reason `engine-lock-held`, and kills nothing (the supervisor's B3 gate uses the same check).
+- With the Node engine selected, `core run` still execs the core, after one read of `config.json` (the selector), one
+  UUID and one try-lock on `run/engine.process.lock`; nothing waits. Held by a live process, or not checkable (any open
+  or lock failure but a missing file), it refuses with `E_CORE_UNAVAILABLE`, reason `engine-lock-held`, the message
+  saying which of the two, and kills nothing (the supervisor's B3 gate uses the same check, `engine_process::lock_state`).
 
 Residual risks. macOS has no OS binding: a wrapper ended by SIGKILL leaves the core and the engine running, and the
-engine ends only after its orphan grace (`supervisor.graceMs`) once it sees its stdin close. KNOWN-GAP: the engine
+engine ends only after its orphan grace (`supervisor.graceMs`) once it sees its stdin close. The engine runs in a
+process group of its own and inherits the terminal as stderr: with `stty tostop` a write to stderr stops it (SIGTTOU,
+a background group), the core then reports it degraded and its stop ends with the kill after 5 s. Windows: the wrapper
+ignores only Ctrl+C; Ctrl+Break or closing the console end it, and the job object then ends the engine without an
+orderly stop. KNOWN-GAP: the engine
 refuses a home reached through a symlink (macOS `/var` → `/private/var`, a symlinked `~/.plur1bus`) with exit 2; it is
 not resolved here, so tests and developers pass a canonical home.
 

@@ -384,6 +384,18 @@ pub fn child_env(run_acl_inherited: bool) -> Vec<(&'static str, &'static str)> {
     }
 }
 
+/// The environment policy every spawned child gets on top of what it inherits (one code path for the supervisor's
+/// children and `core run`'s engine, RE-D173): the spec's own entries, [`RUN_ACL_ENV`] only as [`child_env`] sets it
+/// (an inherited value is removed), and never an inherited `PLUR1BUS_IMPORT_MAINTENANCE`: a maintenance hold belongs to
+/// one generation of the core, which the supervisor sets after this, never to the reusable child spec or the ambient
+/// environment.
+pub fn apply_child_env(cmd: &mut Command, spec: &ChildSpec, run_acl_inherited: bool) {
+    cmd.envs(spec.env.iter().map(|(k, v)| (k, v)))
+        .env_remove(RUN_ACL_ENV)
+        .envs(child_env(run_acl_inherited))
+        .env_remove("PLUR1BUS_IMPORT_MAINTENANCE");
+}
+
 /// The ready timeout of a spawned child of `kind` at time scale `scale`: 60 s × scale, for a module, the tools, the API
 /// and the engine at least [`MODULE_READY_FLOOR`], for the core at least [`CORE_READY_FLOOR`] unless `core_floor` is
 /// false (the test seam [`NO_CORE_READY_FLOOR_ENV`]; `State::core_ready_floor`). The engine opens its stores and
@@ -888,14 +900,11 @@ impl Monitor {
         if let Some(dir) = &spec.cwd {
             cmd.current_dir(dir);
         }
-        cmd.envs(spec.env.iter().map(|(k, v)| (k, v)))
-            .env_remove(RUN_ACL_ENV)
-            .envs(child_env(self.shared.lock().run_acl_inherited))
-            .stdin(Stdio::piped())
+        let run_acl_inherited = self.shared.lock().run_acl_inherited;
+        apply_child_env(&mut cmd, &spec, run_acl_inherited);
+        cmd.stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
-        // A maintenance hold belongs to this generation, never to the reusable child spec or ambient environment.
-        cmd.env_remove("PLUR1BUS_IMPORT_MAINTENANCE");
         if self.ctx.role.kind == RoleKind::Core {
             if let Some(job) = super::relock(&self.shared.maintenance)
                 .active

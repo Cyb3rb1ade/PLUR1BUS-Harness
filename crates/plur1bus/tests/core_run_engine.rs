@@ -300,11 +300,14 @@ impl Drop for Run {
         let _ = self.child.wait();
         for file in [&self.h_core_events, &self.h_engine_events] {
             for e in Home::lines(file) {
-                if e["event"] == "started" {
-                    if let Some(pid) = e["pid"].as_u64() {
-                        if alive(pid as u32) {
-                            hard_kill(pid as u32);
-                        }
+                let pid = match e["event"].as_str() {
+                    Some("started") => e["pid"].as_u64(),
+                    Some("grandchild") => e["grandchildPid"].as_u64(),
+                    _ => None,
+                };
+                if let Some(pid) = pid {
+                    if alive(pid as u32) {
+                        hard_kill(pid as u32);
                     }
                 }
             }
@@ -505,11 +508,23 @@ fn the_node_engine_keeps_the_exec_path() {
         std::fs::write(h.home.join("run/engine.process.lock"), b"").unwrap();
         let mut run = rust_run(&h, &[]);
         let ready = run.next_line();
+        // Unix: exec, the core is the process core run started.
+        #[cfg(unix)]
         assert_eq!(
             ready["pid"].as_u64(),
             Some(u64::from(run.pid())),
             "exec: the core is the process core run started ({implementation:?})"
         );
+        // Windows: the unchanged branch runs the core as a child and waits for it (no exec there).
+        #[cfg(windows)]
+        {
+            assert_ne!(ready["pid"].as_u64(), Some(u64::from(run.pid())));
+            assert_eq!(
+                ready["pid"],
+                h.core_events("started")[0]["pid"],
+                "the core is core run's child ({implementation:?})"
+            );
+        }
         shut_the_core_down(&h.home);
         assert_eq!(run.wait_exit().code(), Some(0));
         assert!(h.engine_events("started").is_empty(), "no engine");
@@ -542,6 +557,9 @@ fn a_held_engine_lock_refuses_the_node_core() {
     let doc: Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(doc["error"], "E_CORE_UNAVAILABLE", "{doc}");
     assert_eq!(doc["reason"], "engine-lock-held", "{doc}");
+    let message = doc["message"].as_str().unwrap();
+    assert!(message.contains("is held by"), "{doc}");
+    assert!(!message.contains("cannot be checked"), "{doc}");
     assert!(h.core_events("started").is_empty(), "no core started");
 }
 
@@ -583,6 +601,9 @@ fn an_engine_lock_that_cannot_be_checked_refuses_the_node_core() {
             .unwrap_or_else(|e| panic!("{case}: {e}: {}", String::from_utf8_lossy(&out.stdout)));
         assert_eq!(doc["error"], "E_CORE_UNAVAILABLE", "{case}: {doc}");
         assert_eq!(doc["reason"], "engine-lock-held", "{case}: {doc}");
+        let message = doc["message"].as_str().unwrap();
+        assert!(message.contains("cannot be checked"), "{case}: {doc}");
+        assert!(!message.contains("is held by"), "{case}: {doc}");
         assert!(
             h.core_events("started").is_empty(),
             "{case}: no core started"
@@ -715,15 +736,171 @@ fn an_engine_that_ignores_shutdown_is_killed_after_the_deadline() {
 
 #[test]
 fn the_exit_code_of_the_core_is_passed_through() {
+    // A core that exits 7 while a started engine serves: the code passes through, the engine is stopped.
+    let h = Home::new(Some("rust"));
+    let mut run = rust_run(&h, &[("FAKE_CORE_MODE", "exit-on-signal:7")]);
+    run.next_line();
+    let engine_pid = engine_listening(&h);
+    std::fs::write(h.home.join("state/fake-core-exit"), b"").unwrap();
+    assert_eq!(run.wait_exit().code(), Some(7), "{}", run.stderr());
+    assert_eq!(h.engine_events("shutdown").len(), 1, "engine.shutdown");
+    assert!(!alive(engine_pid), "the engine ended too");
+    drop(run);
+
+    // A core that exits at once, before the engine may even have started: the code still passes through.
     let h = Home::new(Some("rust"));
     let mut run = rust_run(&h, &[("FAKE_CORE_MODE", "exit:7")]);
     assert_eq!(run.wait_exit().code(), Some(7), "{}", run.stderr());
-    for started in h.engine_events("started") {
-        assert!(
-            !alive(started["pid"].as_u64().unwrap() as u32),
-            "the engine ended too"
-        );
-    }
+}
+
+/// M2: the engine's end is reported even while a child of it keeps the engine's stdout open (no EOF on the drain).
+#[test]
+fn an_engine_end_is_reported_while_a_grandchild_holds_its_stdout() {
+    let h = Home::new(Some("rust"));
+    let mut run = rust_run(
+        &h,
+        &[
+            ("FAKE_ENGINE_MODE", "crash-after:100"),
+            ("FAKE_ENGINE_GRANDCHILD", "1"),
+        ],
+    );
+    run.next_line();
+    wait_until("the grandchild", || {
+        !h.engine_events("grandchild").is_empty()
+    });
+    let grandchild = h.engine_events("grandchild")[0]["grandchildPid"]
+        .as_u64()
+        .unwrap() as u32;
+    wait_until("the engine's crash", || {
+        !h.engine_events("exiting").is_empty()
+    });
+    wait_until("the line on stderr", || {
+        run.stderr().contains("does not restart it")
+    });
+    assert!(alive(grandchild), "the grandchild still holds the pipe");
+    let asked = Instant::now();
+    shut_the_core_down(&h.home);
+    assert_eq!(run.wait_exit().code(), Some(0));
+    assert!(
+        asked.elapsed() < Duration::from_secs(3),
+        "the open pipe does not delay the end: {:?}",
+        asked.elapsed()
+    );
+}
+
+/// M3: an engine that exits 3 (another engine owns the home) is named as such: the core talks to that other engine.
+#[test]
+fn an_engine_exit_3_says_another_engine_serves_the_home() {
+    let h = Home::new(Some("rust"));
+    let mut run = rust_run(&h, &[("FAKE_ENGINE_MODE", "exit:3")]);
+    run.next_line();
+    wait_until("the line on stderr", || {
+        run.stderr().contains("another engine serves this home")
+    });
+    assert!(
+        !run.stderr().contains("engine-unavailable"),
+        "{}",
+        run.stderr()
+    );
+    shut_the_core_down(&h.home);
+    assert_eq!(run.wait_exit().code(), Some(0));
+}
+
+/// M8: the engine gets the environment the supervisor's slot gives it: the inherited run-ACL and import-maintenance
+/// markers are removed, the test seam and the model locations pass through.
+#[test]
+fn the_engine_gets_the_supervisor_environment_policy() {
+    let h = Home::new(Some("rust"));
+    let mut run = rust_run(
+        &h,
+        &[
+            ("PLUR1BUS_RUN_ACL", "inherited"),
+            ("PLUR1BUS_IMPORT_MAINTENANCE", "run-1"),
+            ("ORT_DYLIB_PATH", "/opt/ort/libonnxruntime.dylib"),
+            ("PLUR1BUS_TOKENIZER_DIR", "/opt/tokenizers"),
+            ("PLUR1BUS_TEST_INTERNALS", "flat-embedder"),
+            ("PLUR1BUS_ALLOW_TEST_INTERNALS", "1"),
+        ],
+    );
+    run.next_line();
+    engine_listening(&h);
+    let env = &h.engine_events("started")[0]["env"];
+    assert_eq!(env["PLUR1BUS_RUN_ACL"], Value::Null, "{env}");
+    assert_eq!(env["PLUR1BUS_IMPORT_MAINTENANCE"], Value::Null, "{env}");
+    assert_eq!(env["ORT_DYLIB_PATH"], "/opt/ort/libonnxruntime.dylib");
+    assert_eq!(env["PLUR1BUS_TOKENIZER_DIR"], "/opt/tokenizers");
+    assert_eq!(env["PLUR1BUS_TEST_INTERNALS"], "flat-embedder");
+    assert_eq!(env["PLUR1BUS_ALLOW_TEST_INTERNALS"], "1");
+    shut_the_core_down(&h.home);
+    assert_eq!(run.wait_exit().code(), Some(0));
+}
+
+/// I2 test seam: `core run` stops at `point` (writes `<dir>/<point>`) until `<dir>/<point>.go` exists.
+#[cfg(unix)]
+fn paused_run(h: &Home, point: &str, env: &[(&str, &str)]) -> (Run, PathBuf) {
+    let dir = h.root.join("pause");
+    std::fs::create_dir_all(&dir).unwrap();
+    let seam = format!("{}:{point}", dir.display());
+    let mut all = vec![
+        ("PLUR1BUS_ALLOW_TEST_INTERNALS", "1"),
+        ("PLUR1BUS_TEST_CORE_RUN_PAUSE", seam.as_str()),
+    ];
+    all.extend_from_slice(env);
+    let run = rust_run(h, &all);
+    wait_until(&format!("core run paused at {point}"), || {
+        dir.join(point).exists()
+    });
+    (run, dir)
+}
+
+/// I2: a stop signal before the engine's spawn: neither the engine nor the core starts.
+#[cfg(unix)]
+#[test]
+fn a_stop_signal_before_the_engine_spawn_starts_nothing() {
+    let h = Home::new(Some("rust"));
+    let (mut run, dir) = paused_run(&h, "engine", &[]);
+    signal(run.pid(), libc::SIGTERM);
+    std::fs::write(dir.join("engine.go"), b"").unwrap();
+    assert_eq!(run.wait_exit().code(), Some(130), "{}", run.stderr());
+    assert!(h.engine_events("started").is_empty(), "no engine");
+    assert!(h.core_events("started").is_empty(), "no core");
+}
+
+/// I2: a stop signal before the core's spawn: no core, and the engine already started is stopped.
+#[cfg(unix)]
+#[test]
+fn a_stop_signal_before_the_core_spawn_starts_no_core_and_stops_the_engine() {
+    let h = Home::new(Some("rust"));
+    let (mut run, dir) = paused_run(&h, "core", &[]);
+    let engine_pid = engine_listening(&h);
+    signal(run.pid(), libc::SIGHUP);
+    std::fs::write(dir.join("core.go"), b"").unwrap();
+    assert_eq!(run.wait_exit().code(), Some(130), "{}", run.stderr());
+    assert!(h.core_events("started").is_empty(), "no core");
+    assert_eq!(h.engine_events("shutdown").len(), 1, "engine.shutdown");
+    assert!(!alive(engine_pid));
+}
+
+/// I2: a SIGINT that arrives while the core is being spawned (after the last check) reaches the core: it ends.
+#[cfg(unix)]
+#[test]
+fn a_sigint_during_the_core_spawn_reaches_the_core() {
+    let h = Home::new(Some("rust"));
+    let (mut run, dir) = paused_run(&h, "spawn", &[("FAKE_CORE_SIGNAL_EVENTS", "0")]);
+    let engine_pid = engine_listening(&h);
+    signal(run.pid(), libc::SIGINT);
+    std::fs::write(dir.join("spawn.go"), b"").unwrap();
+    // The fake core (no signal handlers here) never ends by itself; only the SIGINT handed on to it ends it, by Node's
+    // default action whenever it arrives. Without the hand-on the wait below times out.
+    let status = run.wait_exit();
+    assert_eq!(status.code(), Some(130), "{}", run.stderr());
+    let spawned: u32 = std::fs::read_to_string(dir.join("spawned"))
+        .expect("the core was spawned")
+        .trim()
+        .parse()
+        .unwrap();
+    assert!(!alive(spawned), "the core ended");
+    assert!(!alive(engine_pid), "the engine was stopped after it");
 }
 
 #[test]

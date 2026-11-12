@@ -439,11 +439,13 @@ for it, then the core with inherited stdio. The engine runs in its own process g
 lifeline, and its stdout (its own ready line) goes to the wrapper's stderr, so the first stdout line stays the core's.
 SIGTERM and SIGHUP are forwarded to the core; Ctrl-C reaches the core from the terminal and leaves the wrapper in
 place. When the core has ended the wrapper stops the engine (`engine.shutdown` with `run/engine.token`, SIGTERM when
-that is not delivered, killed 5 s after the stop began) and exits with the core's code. A missing engine binary or an
-engine that ends early costs one line on stderr: the core keeps running degraded (`engine-unavailable`), and nothing
-restarts the engine (the supervisor does). The engine lives exactly as long as the core, so a changed configuration
-reaches it at the next `core run`. On macOS a wrapper killed with SIGKILL leaves the core and the engine running; the
-engine ends after its orphan grace once its stdin closes (Linux: parent-death signal; Windows: a kill-on-close job).
+that is not delivered, killed 5 s after the stop began and reaped within 1 s more) and exits with the core's code.
+A missing engine binary or an engine that ends early costs one line on stderr: the core keeps running degraded
+(`engine-unavailable`; an engine exit 3 instead means another engine serves the home and the core uses it), and
+nothing restarts the engine (the supervisor does). The engine lives exactly as long as the core, so a changed
+configuration reaches it at the next `core run`. On macOS a wrapper killed with SIGKILL leaves the core and the
+engine running; the engine ends after its orphan grace once its stdin closes (Linux: parent-death signal; Windows: a
+kill-on-close job). Further residual risks (`stty tostop`, Windows Ctrl+Break): `docs/engine-process.md`.
 
 `engine.implementation` selects `node` (default) or the experimental `rust` RPC client and requires a Core restart.
 RE-08 T2/U1 implements `plur1bus-engine serve --home <home>` as a separate authenticated process. It accepts the same

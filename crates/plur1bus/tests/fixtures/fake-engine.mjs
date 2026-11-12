@@ -30,6 +30,8 @@
 // FAKE_ENGINE_GRACE_MS: the orphan grace after the lifeline is lost (default 1000).
 // FAKE_ENGINE_SHUTDOWN_DELAY_MS: how long it takes to exit after engine.shutdown (default 20).
 // FAKE_ENGINE_IGNORE_SIGTERM=1: SIGTERM is caught and does nothing (event `sigterm`), so only a kill ends a hung fake.
+// FAKE_ENGINE_GRANDCHILD=1: it starts a child that inherits its stdout and outlives it (event `grandchild`).
+// The `started` event records `env`, the values of the variables whose passing `core run` must keep or drop.
 // Once it listens it writes the real engine's ready line `{"ready":true,"address","pid"}` to stdout.
 // Every event (started, os-lock, listening, shutdown, orphaned, adopted, exiting) is appended as one JSON line to
 // $FAKE_ENGINE_EVENTS with `role: "engine"`.
@@ -75,8 +77,16 @@ function exit(code) {
   process.exit(code);
 }
 
-event("started", { mode, lifeline: values.lifeline ?? null, testInternals: values["test-internals"] ?? null, home, cwd: process.cwd(), execPath: process.execPath });
+event("started", { mode, lifeline: values.lifeline ?? null, testInternals: values["test-internals"] ?? null, home, cwd: process.cwd(), execPath: process.execPath,
+  env: Object.fromEntries(["PLUR1BUS_ALLOW_TEST_INTERNALS", "PLUR1BUS_TEST_INTERNALS", "PLUR1BUS_RUN_ACL",
+    "PLUR1BUS_IMPORT_MAINTENANCE", "ORT_DYLIB_PATH", "PLUR1BUS_TOKENIZER_DIR"].map((k) => [k, process.env[k] ?? null])) });
 if (process.env.FAKE_ENGINE_IGNORE_SIGTERM === "1") process.on("SIGTERM", () => event("sigterm"));
+// FAKE_ENGINE_GRANDCHILD=1: a child of the engine that inherits its stdout and outlives it (event `grandchild`).
+if (process.env.FAKE_ENGINE_GRANDCHILD === "1") {
+  const child = spawn(process.execPath, ["-e", "setTimeout(() => {}, 60000)"], { stdio: ["ignore", "inherit", "ignore"], windowsHide: true });
+  child.unref();
+  event("grandchild", { grandchildPid: child.pid });
+}
 process.stderr.write(`fake-engine stderr marker pid=${process.pid}\n`);
 if (kind === "exit") exit(Number(a));
 

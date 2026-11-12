@@ -40,7 +40,8 @@ pub(crate) enum LockState {
 
 /// `run/engine.process.lock`, the OS lock every running Rust engine holds (and `backup restore` fences): one exclusive
 /// try-lock, released at once. Only a missing file is free without locking; every other open or lock failure is
-/// [`LockState::Unverifiable`]. The file is never created (no `create`, `O_NOFOLLOW`).
+/// [`LockState::Unverifiable`]. The file is never created (no `create`, `O_NOFOLLOW`). Shared by the supervisor's B3
+/// gate and `core run` with the Node engine (RE-D173, Nachtrag 8), which both refuse anything but `Free`.
 pub(crate) fn lock_state(layout: &Layout) -> LockState {
     let mut options = std::fs::OpenOptions::new();
     options.read(true).write(true);
@@ -59,13 +60,6 @@ pub(crate) fn lock_state(layout: &Layout) -> LockState {
         Err(std::fs::TryLockError::WouldBlock) => LockState::Held,
         Err(std::fs::TryLockError::Error(e)) => LockState::Unverifiable(e.to_string()),
     }
-}
-
-/// Whether the Node engine's core must not start: `run/engine.process.lock` is held by another process, or cannot be
-/// checked ([`lock_state`]; only a missing or free file is `false`). Shared by the supervisor's B3 gate and `core run`
-/// with the Node engine (RE-D173, Nachtrag 8).
-pub(crate) fn lock_held(layout: &Layout) -> bool {
-    lock_state(layout) != LockState::Free
 }
 
 fn executable_path(
@@ -165,9 +159,9 @@ mod tests {
             .unwrap();
         holder.lock().unwrap();
         assert_eq!(lock_state(&layout), LockState::Held);
-        assert!(lock_held(&layout));
+        assert_ne!(lock_state(&layout), LockState::Free);
         drop(holder);
-        assert!(!lock_held(&layout));
+        assert_eq!(lock_state(&layout), LockState::Free);
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -175,7 +169,7 @@ mod tests {
             let target = root.path().join("elsewhere.lock");
             std::os::unix::fs::symlink(&target, &lock).unwrap();
             assert!(matches!(lock_state(&layout), LockState::Unverifiable(_)));
-            assert!(lock_held(&layout), "fail closed");
+            assert_ne!(lock_state(&layout), LockState::Free, "fail closed");
             assert!(!target.exists(), "nothing created through the link");
             std::fs::remove_file(&lock).unwrap();
             // SAFETY: plain geteuid(2).
