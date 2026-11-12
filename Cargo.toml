@@ -114,3 +114,13 @@ opt-level = 3
 opt-level = 3
 [profile.dev.package.serde_json]
 opt-level = 3
+
+# plur1bus-rpc and the engine match patterns with `regress`, a backtracking engine. The engine needs its `utf16` feature
+# (JavaScript string semantics), which a workspace build unifies into plur1bus-rpc and which switches off optimisations
+# of the matcher. Unoptimised and with its internal assertions, the hostile 1.1 million character strings of
+# `plur1bus-rpc/tests/generative.rs` then take many minutes (over six on an M-series Mac, 21 s without `utf16`); with
+# these settings about 70 s. Release builds are unaffected.
+[profile.dev.package.regress]
+opt-level = 3
+debug-assertions = false
+overflow-checks = false
