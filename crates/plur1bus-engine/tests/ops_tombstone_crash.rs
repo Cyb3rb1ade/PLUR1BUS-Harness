@@ -158,7 +158,14 @@ fn crash_child() {
 
 fn killed(root: &Path, phase: &str) -> usize {
     let mut child = Command::new(std::env::current_exe().unwrap())
-        .args(["--exact", "crash_child", "--nocapture", "--test-threads=1"])
+        .args([
+            "--exact",
+            std::any::type_name_of_val(&crash_child)
+                .split_once("::")
+                .map_or("", |(_, name)| name),
+            "--nocapture",
+            "--test-threads=1",
+        ])
         .env(ROOT, root)
         .env(PHASE, phase)
         .stdout(Stdio::null())

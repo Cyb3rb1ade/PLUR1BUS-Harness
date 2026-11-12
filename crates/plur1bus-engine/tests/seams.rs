@@ -14,7 +14,13 @@ const CHILD: &str = "PLUR1BUS_SEAM_TEST_CHILD";
 fn env_case(variant: Option<&str>, allow: Option<&str>, expected: &str) {
     let mut command = Command::new(std::env::current_exe().unwrap());
     command
-        .args(["--exact", "environment_reader_fixture", "--nocapture"])
+        .args([
+            "--exact",
+            std::any::type_name_of_val(&environment_reader_fixture)
+                .split_once("::")
+                .map_or("", |(_, name)| name),
+            "--nocapture",
+        ])
         .env(CHILD, expected)
         .env_remove("PLUR1BUS_TEST_INTERNALS")
         .env_remove("PLUR1BUS_ALLOW_TEST_INTERNALS");

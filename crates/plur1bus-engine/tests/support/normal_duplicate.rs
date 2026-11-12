@@ -422,7 +422,9 @@ fn actual_sigkill_duplicate_recovery_keeps_one_original_occurrence_without_provi
         let status = std::process::Command::new(std::env::current_exe().unwrap())
             .args([
                 "--exact",
-                "duplicate_tests::duplicate_sigkill_child",
+                std::any::type_name_of_val(&duplicate_sigkill_child)
+                    .split_once("::")
+                    .map_or("", |(_, name)| name),
                 "--nocapture",
             ])
             .env("PLUR1BUS_DUPLICATE_TEST_ROOT", f.base.root.path())

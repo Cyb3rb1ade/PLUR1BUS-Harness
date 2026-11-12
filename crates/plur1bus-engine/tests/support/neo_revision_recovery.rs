@@ -324,7 +324,13 @@ fn sigkill_at_all_publication_boundaries_keeps_exactly_one_effect() {
         )
         .unwrap();
         let mut child = Command::new(std::env::current_exe().unwrap())
-            .args(["--exact", "edges::recovery::crash_child", "--nocapture"])
+            .args([
+                "--exact",
+                std::any::type_name_of_val(&crash_child)
+                    .split_once("::")
+                    .map_or("", |(_, name)| name),
+                "--nocapture",
+            ])
             .env("PLUR1BUS_TEST_REVISION_ROOT", f._root.path())
             .env("PLUR1BUS_TEST_REVISION_PHASE", phase)
             .stdout(Stdio::null())

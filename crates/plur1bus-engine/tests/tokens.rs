@@ -417,7 +417,11 @@ fn required_files_mode_fails_the_golden_test_when_the_cache_is_empty() {
     let output = std::process::Command::new(std::env::current_exe().unwrap())
         .args([
             "--exact",
-            "every_installed_artifact_matches_independently_recorded_counts_and_ids",
+            std::any::type_name_of_val(
+                &every_installed_artifact_matches_independently_recorded_counts_and_ids,
+            )
+            .split_once("::")
+            .map_or("", |(_, name)| name),
             "--nocapture",
         ])
         .env("PLUR1BUS_TOKENIZER_DIR", empty.path())

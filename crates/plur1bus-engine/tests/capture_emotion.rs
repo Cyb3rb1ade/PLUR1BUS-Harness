@@ -1,6 +1,8 @@
 //! RE-05/T3 emotion goldens are raw outputs of the pinned Node classifiers, not Rust snapshots.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
+// Re-exports for the support modules below; as a mounted module not every one is used in every configuration.
+#[allow(unused_imports)]
 pub use plur1bus_engine::{contract, store, text};
 
 use plur1bus_engine::capture::{emotion_blends, emotion_score, tier1, tier2};

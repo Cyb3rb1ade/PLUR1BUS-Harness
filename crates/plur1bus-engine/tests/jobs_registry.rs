@@ -490,7 +490,12 @@ fn sigkill_during_body_or_completion_recovers_without_reexecution_or_duplicate_r
     for phase in ["body", "run-row-committed", "run-marker-retired"] {
         let root = root();
         let mut child = Command::new(std::env::current_exe().unwrap())
-            .args(["--exact", "jobs_registry_child"])
+            .args([
+                "--exact",
+                std::any::type_name_of_val(&jobs_registry_child)
+                    .split_once("::")
+                    .map_or("", |(_, name)| name),
+            ])
             .env("PLUR1BUS_JOB_REGISTRY_TEST_ROOT", root.path())
             .env("PLUR1BUS_JOB_REGISTRY_TEST_POINT", phase)
             .stdout(Stdio::null())

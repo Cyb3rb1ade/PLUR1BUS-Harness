@@ -484,7 +484,13 @@ fn actual_sigkill_recovery_keeps_one_archived_merge() {
     ] {
         let f = fixture::setup();
         let status = std::process::Command::new(std::env::current_exe().unwrap())
-            .args(["--exact", "merge_sigkill_child", "--nocapture"])
+            .args([
+                "--exact",
+                std::any::type_name_of_val(&merge_sigkill_child)
+                    .split_once("::")
+                    .map_or("", |(_, name)| name),
+                "--nocapture",
+            ])
             .env("PLUR1BUS_MERGE_TEST_ROOT", f.root.path())
             .env("PLUR1BUS_MERGE_TEST_POINT", point)
             .status()

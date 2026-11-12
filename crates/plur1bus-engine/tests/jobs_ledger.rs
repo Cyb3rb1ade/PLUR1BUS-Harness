@@ -236,7 +236,12 @@ fn sigkill_preserves_markers_and_rows_at_all_three_durable_boundaries() {
     for phase in ["marker", "row", "removed"] {
         let root = root();
         let mut child = Command::new(std::env::current_exe().unwrap())
-            .args(["--exact", "jobs_ledger_child"])
+            .args([
+                "--exact",
+                std::any::type_name_of_val(&jobs_ledger_child)
+                    .split_once("::")
+                    .map_or("", |(_, name)| name),
+            ])
             .env("PLUR1BUS_JOB_LEDGER_TEST_ROOT", root.path())
             .env("PLUR1BUS_JOB_LEDGER_TEST_PHASE", phase)
             .stdout(Stdio::null())

@@ -431,7 +431,13 @@ fn killed_writer_preserves_acknowledged_checkpoint_and_releases_kernel_lease() {
     };
     let (root, host, p, _) = setup();
     let mut child = Command::new(std::env::current_exe().unwrap())
-        .args(["--exact", "checkpoint_child_fixture", "--nocapture"])
+        .args([
+            "--exact",
+            std::any::type_name_of_val(&checkpoint_child_fixture)
+                .split_once("::")
+                .map_or("", |(_, name)| name),
+            "--nocapture",
+        ])
         .env("PLUR1BUS_SESSION_CHECKPOINT_FIXTURE", root.path())
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

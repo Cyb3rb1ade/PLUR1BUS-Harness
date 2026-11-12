@@ -11,7 +11,13 @@ fn killed(phase: &str) -> tempfile::TempDir {
     let root = physical_temp();
     let mut child = Child(
         std::process::Command::new(std::env::current_exe().unwrap())
-            .args(["--exact", "pipeline_crash_child", "--nocapture"])
+            .args([
+                "--exact",
+                std::any::type_name_of_val(&pipeline_crash_child)
+                    .split_once("::")
+                    .map_or("", |(_, name)| name),
+                "--nocapture",
+            ])
             .env("PLUR1BUS_RX_CAPTURE_CRASH_ROOT", root.path())
             .env(
                 "PLUR1BUS_RX_CAPTURE_CRASH_PHASE",

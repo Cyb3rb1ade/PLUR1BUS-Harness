@@ -263,7 +263,7 @@ skipped. The existing RE-14 downloader also reads the embedding tokenizer manife
 ```sh
 export PLUR1BUS_TOKENIZER_DIR=/absolute/external/tokenizer-cache
 node --use-env-proxy scripts/tokens/setup-tokenizers.mjs --directory "$PLUR1BUS_TOKENIZER_DIR"
-cargo test -p plur1bus-engine --test embedding_tokens
+cargo test -p plur1bus-engine --test misc embedding_tokens::
 ```
 
 The Node recorder resolves the exact engine package from `packages/core` with `createRequire`, checks commit

@@ -285,7 +285,9 @@ fn actual_sigkill_retries_use_atomic_marker_without_providers_or_duplicate_evide
         let status = std::process::Command::new(std::env::current_exe().unwrap())
             .args([
                 "--exact",
-                "promotion_tests::knowledge_promotion_sigkill_child",
+                std::any::type_name_of_val(&knowledge_promotion_sigkill_child)
+                    .split_once("::")
+                    .map_or("", |(_, name)| name),
                 "--nocapture",
             ])
             .env("PLUR1BUS_KNOWLEDGE_PROMOTION_TEST_ROOT", f.base.root.path())

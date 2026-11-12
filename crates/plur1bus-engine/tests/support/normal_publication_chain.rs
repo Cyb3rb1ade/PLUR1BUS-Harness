@@ -383,7 +383,9 @@ fn actual_sigkill_across_child_gaps_recovers_the_retained_chain_with_no_provider
         let status = std::process::Command::new(std::env::current_exe().unwrap())
             .args([
                 "--exact",
-                "insert_tests::publication_chain_tests::publication_chain_sigkill_child",
+                std::any::type_name_of_val(&publication_chain_sigkill_child)
+                    .split_once("::")
+                    .map_or("", |(_, name)| name),
                 "--nocapture",
             ])
             .env("PLUR1BUS_PUBLICATION_CHAIN_TEST_ROOT", f.base.root.path())

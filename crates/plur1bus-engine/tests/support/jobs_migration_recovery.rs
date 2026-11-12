@@ -192,7 +192,12 @@ fn sigkill_at_five_publications_recovers_without_duplicate_imports() {
     for phase in PHASES {
         let (_scratch, root) = fixture();
         let mut child = Command::new(std::env::current_exe().unwrap())
-            .args(["--exact", "recovery::migration_child"])
+            .args([
+                "--exact",
+                std::any::type_name_of_val(&migration_child)
+                    .split_once("::")
+                    .map_or("", |(_, name)| name),
+            ])
             .env("PLUR1BUS_MIGRATION_TEST_ROOT", &root)
             .env("PLUR1BUS_MIGRATION_TEST_POINT", phase)
             .stdout(Stdio::null())

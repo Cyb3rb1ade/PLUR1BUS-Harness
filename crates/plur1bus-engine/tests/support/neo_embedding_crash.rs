@@ -65,7 +65,13 @@ fn sigkill_at_five_publication_boundaries_recovers_exactly_once() {
             .process(&f.turn, &f.context, &Cancel::never())
             .unwrap();
         let mut child = Command::new(std::env::current_exe().unwrap())
-            .args(["--exact", "crash::child_fixture", "--nocapture"])
+            .args([
+                "--exact",
+                std::any::type_name_of_val(&child_fixture)
+                    .split_once("::")
+                    .map_or("", |(_, name)| name),
+                "--nocapture",
+            ])
             .env("PLUR1BUS_DRAIN_CRASH_FIXTURE", f.root.path())
             .env("PLUR1BUS_DRAIN_CRASH_PHASE", phase)
             .stdin(Stdio::piped())

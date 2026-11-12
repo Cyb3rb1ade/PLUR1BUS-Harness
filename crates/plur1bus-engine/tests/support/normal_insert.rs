@@ -536,7 +536,9 @@ fn actual_sigkill_reopens_the_original_primary_row_without_provider_work() {
         let status = std::process::Command::new(std::env::current_exe().unwrap())
             .args([
                 "--exact",
-                "insert_tests::normal_insert_sigkill_child",
+                std::any::type_name_of_val(&normal_insert_sigkill_child)
+                    .split_once("::")
+                    .map_or("", |(_, name)| name),
                 "--nocapture",
             ])
             .env("PLUR1BUS_NORMAL_INSERT_TEST_ROOT", f.base.root.path())
