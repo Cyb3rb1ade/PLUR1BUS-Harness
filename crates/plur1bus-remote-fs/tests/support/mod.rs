@@ -4,7 +4,7 @@ use russh::keys::{
     ssh_key::{Algorithm, HashAlg},
     PrivateKey, PublicKey,
 };
-use russh::server::{Auth, Msg, Server as _, Session};
+use russh::server::{Auth, Msg, Server as _, Session, VerifiedPublicKey};
 use russh::{Channel, ChannelId};
 use russh_sftp::protocol::{
     Attrs, Data, File, FileAttributes, Handle, Name, OpenFlags, Status, StatusCode,
@@ -113,9 +113,13 @@ struct Ssh {
 }
 impl russh::server::Handler for Ssh {
     type Error = russh::Error;
-    async fn auth_publickey(&mut self, _user: &str, key: &PublicKey) -> Result<Auth, Self::Error> {
+    async fn auth_publickey(
+        &mut self,
+        _user: &str,
+        key: VerifiedPublicKey<'_>,
+    ) -> Result<Auth, Self::Error> {
         self.counts.auth.fetch_add(1, Ordering::SeqCst);
-        Ok(if key == &self.authorized {
+        Ok(if key.public_key == &self.authorized {
             Auth::Accept
         } else {
             Auth::reject()

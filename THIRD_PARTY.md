@@ -6,8 +6,8 @@ Regenerate on each native packaging target; optional native npm packages differ 
 
 ```
 pnpm-lock.yaml: a2d5896256b674fbc02686d654c9c27a2ffd6a34020460a8f11d60e8352e45cb
-Cargo.lock: d411da5d7ea1629fa201f0f09800e8e79dfacf0c20fd5d89ef286b19db8a5193
-apps/desktop/Cargo.lock: 83edb47237e8714eb2478bbdd785ebad1d92888e64e990f86093cf09517e06d4
+Cargo.lock: 12bddea7ebe915df305432700722932a85d055768e92052f00364d92a0f71554
+apps/desktop/Cargo.lock: 2d66361b89e5e5075b61e68e4cd8f74fb69dae883f1bf9c9b91d200852014065
 ```
 
 | Ecosystem | Dependency | Version | Licence | Attribution |
@@ -793,7 +793,7 @@ apps/desktop/Cargo.lock: 83edb47237e8714eb2478bbdd785ebad1d92888e64e990f86093cf0
 | cargo | russh-sftp | 2.1.1 | Apache-2.0 |  |
 | cargo | russh-sftp | 3.0.1 | Apache-2.0 |  |
 | cargo | russh-util | 0.52.0 | Apache-2.0 |  |
-| cargo | russh | 0.64.1 | Apache-2.0 | Pierre-Étienne Meunier <pe@pijul.org> |
+| cargo | russh | 0.65.1 | Apache-2.0 | Pierre-Étienne Meunier <pe@pijul.org> |
 | cargo | rust-ini | 0.21.3 | MIT | Y. T. Chung <zonyitoo@gmail.com> |
 | cargo | rust-stemmers | 1.2.0 | MIT/BSD-3-Clause | Jakob Demler <jdemler@curry-software.com>, CurrySoftware <info@curry-software.com> |
 | cargo | rustc-hash | 2.1.3 | Apache-2.0 OR MIT | The Rust Project Developers |
