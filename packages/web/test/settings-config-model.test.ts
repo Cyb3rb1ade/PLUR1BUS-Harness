@@ -184,14 +184,20 @@ describe("engine implementation", () => {
 });
 
 describe("palette alignment", () => {
-  test("every catalogued setting of a config section has a field with the id the deep link targets (engine is the one documented gap)", () => {
+  test("every catalogued setting of a config section has a field with the id the deep link targets (the engine pass-through is the one documented gap)", () => {
     const gaps: string[] = [];
     for (const { key } of SETTINGS) {
       const sec = sectionOf(key);
       if (!sec || sec.kind !== "config") continue;
       if (!buildFields({}, sec).some((f) => f.key === key)) gaps.push(key);
     }
-    assert.deepEqual(gaps, ["engine"]);
+    // `engine` is a pass-through and stays out of the page (model.ts); `engine.implementation` is its one field. The
+    // schema also declares the native-only Neo keys of the pass-through (RE-D125, RE-D169), so the catalogue lists
+    // them; they are set with `plur1bus config set` until the page gets fields for them.
+    assert.deepEqual(gaps, [
+      "engine", "engine.neo", "engine.neo.maxRecords", "engine.neo.appendDedupeTailRecords",
+      "engine.neo.retention", "engine.neo.retention.days", "engine.neo.retention.softMaxRecords",
+    ]);
     assert.equal(fieldId("core.recall.softBudgetMs"), "cfg-core-recall-softBudgetMs");
   });
 });
