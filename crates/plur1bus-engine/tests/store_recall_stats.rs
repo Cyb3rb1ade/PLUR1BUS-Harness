@@ -351,20 +351,42 @@ fn recall_stats_migration_0_to_1_keeps_the_counters() {
         let recalls = legacy["recalls"].as_i64().unwrap();
         let last = legacy["lastRecalledAt"].as_i64();
         let root = root();
-        let store = RecallStats::new(root.path()).unwrap();
-        store.read("alpha", Some(&[]), &Cancel::never()).unwrap();
-        let path = store.path("alpha").unwrap();
-        drop(store);
+        // A real version-0 file: only the `stats` table, no `queries`, no `metadata` and so no HMAC key.
+        let path = RecallStats::new(root.path())
+            .unwrap()
+            .path("alpha")
+            .unwrap();
+        plur1bus_engine::store::paths::secure_dir(path.parent().unwrap()).unwrap();
         {
             let db = Connection::open(&path).unwrap();
+            db.execute_batch(
+                "CREATE TABLE stats (id TEXT PRIMARY KEY, recalls INTEGER NOT NULL DEFAULT 0, lastRecalledAt INTEGER);",
+            )
+            .unwrap();
             db.execute(
                 "INSERT INTO stats VALUES (?,?,?)",
                 params![id, recalls, last],
             )
             .unwrap();
-            db.pragma_update(None, "user_version", 0).unwrap();
+            let tables: i64 = db
+                .query_row(
+                    "SELECT COUNT(*) FROM sqlite_schema WHERE type='table' AND name IN ('queries','metadata')",
+                    [],
+                    |r| r.get(0),
+                )
+                .unwrap();
+            assert_eq!(tables, 0, "setup: a v0 file has neither table");
         }
-        assert_eq!(snapshot(&path)["version"], 0, "setup");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+        }
+        let version: i64 = Connection::open(&path)
+            .unwrap()
+            .query_row("PRAGMA user_version", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(version, 0, "setup");
 
         // Opening migrates in place and keeps the counter exactly.
         let store = RecallStats::new(root.path()).unwrap();
@@ -381,6 +403,16 @@ fn recall_stats_migration_0_to_1_keeps_the_counters() {
             json!([{"id":id,"recalls":recalls,"lastRecalledAt":last}])
         );
         assert_eq!(after["queries"], json!([]));
+        // The transition created the missing tables and the HMAC key.
+        let key: String = Connection::open(&path)
+            .unwrap()
+            .query_row(
+                "SELECT value FROM metadata WHERE key='query-hmac-key'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(key.len() == 64 && key.bytes().all(|b| b.is_ascii_hexdigit()));
 
         // A second open is a no-op.
         drop(store);

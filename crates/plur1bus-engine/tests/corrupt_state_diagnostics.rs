@@ -1,4 +1,9 @@
-//! RX9/T9a: a damaged state file or registry must never leak its content through an error, a log line or a wire reply.
+//! RX9/T9a: a damaged state file or registry must never leak its content through the error values the engine returns.
+//!
+//! Scope, stated exactly: these tests inspect the error types (Debug, alternate Debug, Display, the fixed machine
+//! code) that reach every consumer. The error enums are payload-free units and `StateFile::load` discards the parse
+//! detail, so a leak would need someone to add file text to an error. The wire encoding in `rpc/methods.rs` is not
+//! private to this test file's reach and no log line is captured here; neither is claimed.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 #[path = "recall_support.rs"]
@@ -72,7 +77,7 @@ fn corrupt_warnings_carry_no_file_content() {
         assert_clean(case, &surfaces(&engine, &engine));
     }
 
-    // 2. The workspace-policy registry: the operator-facing reply is the fixed machine code only.
+    // 2. The workspace-policy registry: its error is a payload-free unit with a fixed machine code.
     let policy_root = support::canonical_tempdir();
     let policy_file = policy_root.path().join("control/workspace-policy.json");
     fs::create_dir(policy_file.parent().unwrap()).unwrap();
@@ -94,8 +99,8 @@ fn corrupt_warnings_carry_no_file_content() {
         for result in [store.get(&query), store.list()] {
             let error = result.unwrap_err();
             assert_eq!(error.code(), "workspace_policy_state_invalid", "{case}");
-            let wire = json!({"error": error.code()}).to_string();
-            assert_clean(case, &wire);
+            // The only operator-facing form is the fixed machine code.
+            assert_clean(case, error.code());
             assert_clean(case, &surfaces(&error, &error));
             assert!(matches!(error, PolicyError::InvalidState), "{case}");
         }
