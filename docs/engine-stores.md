@@ -3296,7 +3296,18 @@ Two alignments with the pin:
   keeps its marker-only meaning; the process composition opts in with `with_fresh_base_current`. Test
   `migration_on_a_fresh_store_base_conflicts_like_the_pin_and_writes_nothing`; scenario `ops/admin-migrate-empty`.
   A base with other content and no marker stays schema 0, and `from` must equal the current version.
+- `engine.status` reports the same current schema (pin `engine/status/status-reporter.js`, `storeMigrator.current()`),
+  through one shared reading (`ops::status::current_schema`), so status, `admin.migrate`, the Core start warning and
+  `plur1bus repair` (`store.migrate`) can no longer disagree on a fresh base. The process composition opts in with
+  `StatusReporter::with_fresh_base_current`; the bare reporter and `ops::adopt` keep the marker-only reading (the
+  pin's adopt reads the source marker without the fresh rule). Tests `status_and_migrate_read_a_fresh_store_base_alike`
+  and `status_and_migrate_read_a_legacy_store_base_without_a_marker_as_schema_zero`.
+- A real job run is the first access that can create a directory inside a new base (`_jobs`); it now initialises the
+  base marker first, as the pin has it from engine start. Test
+  `a_job_run_before_the_first_store_leaves_the_base_at_the_current_schema`. Residual, not probed: the capture
+  composition (`_capture-turns`, `_capture-admissions`) and `_rebinds` could also create a base directory before the
+  first store; `memory.link` resolves the card (a store) first. A base left at "0" this way migrates by `admin.migrate`.
 
-Named parity exceptions (no scenario, see `tests/engine-parity/README.md`): `jobs.run` for an agent without a store
+Named parity exceptions (no scenario, see `tests/engine-parity/README.md`): `jobs.run` for an unknown agent
 (Node `failed`/`error:Error`, Rust `skipped`/`neo_disabled`; Rust is more precise), jobs other than `embedding-drain`
 (F13, KNOWN-GAP), fresh card IDs after a capture, and `memory.state` (F4/RE-D31).

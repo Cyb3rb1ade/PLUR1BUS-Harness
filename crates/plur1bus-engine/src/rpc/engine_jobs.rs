@@ -220,6 +220,15 @@ impl ProcessJobs {
         }
         let bound = (|| {
             if !exists {
+                // The pin writes the base marker at engine creation, before any access, so a job run
+                // that is the first thing to touch a new installation must not leave it at "0".
+                if let Some(base) = root.parent().filter(|path| !path.as_os_str().is_empty()) {
+                    crate::store::schema_version::initialize_base(
+                        base,
+                        &chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+                        env!("CARGO_PKG_VERSION"),
+                    )?;
+                }
                 crate::store::paths::secure_dir(root)?;
             }
             let clock = self.host.clone();

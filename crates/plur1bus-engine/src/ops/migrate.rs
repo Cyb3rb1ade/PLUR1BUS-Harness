@@ -80,12 +80,11 @@ impl SchemaMigrator {
         self
     }
     fn current(&self) -> Option<String> {
-        if self.fresh_base_is_current
-            && crate::store::schema_version::is_fresh_base(&self.base).ok() == Some(true)
-        {
-            return Some("1".into());
+        if self.fresh_base_is_current {
+            super::status::current_schema(&self.base)
+        } else {
+            super::status::schema_version(&self.base)
         }
-        super::status::schema_version(&self.base)
     }
     fn validate(&self, from: &str, to: &str) -> Result<bool, EngineError> {
         if !digits(from) || !digits(to) {

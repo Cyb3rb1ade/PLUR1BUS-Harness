@@ -209,6 +209,7 @@ impl ProcessEngine {
                 status.contract,
                 host.clone(),
             )
+            .with_fresh_base_current()
         });
         let slot_host = host.clone();
         let operations = Arc::new(crate::ops::context::OperationContext::new(host));

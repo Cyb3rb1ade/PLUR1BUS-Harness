@@ -951,3 +951,116 @@ fn schema_migration_requires_the_live_core_peer_and_audits_the_actual_change() {
     engine.close_stdin();
     assert!(engine.wait_for_exit().success());
 }
+
+/// An authenticated Core peer with a live core pid file (the maintenance grant of the pin).
+fn core_peer(engine: &EngineProcess, home: &std::path::Path) -> RawConnection {
+    let mut peer = RawConnection::connect(engine.address());
+    let hello = peer.call(
+        1,
+        "engine.auth",
+        json!({"token":engine.token(),"clientId":"core-fixture"}),
+    );
+    assert!(hello["result"].is_object(), "{hello}");
+    let pid_file = home.join("run/core.pid");
+    fs::write(&pid_file, format!("{} {INSTANCE}\n", std::process::id())).unwrap();
+    plur1bus_engine::store::paths::secure_file(&pid_file).unwrap();
+    peer
+}
+
+fn status_schema(peer: &mut RawConnection, id: u64) -> Value {
+    let status = peer.call(id, "engine.status", json!({}));
+    status["result"]["storeSchema"].clone()
+}
+
+/// RE-D175 (fix2): the pin reports `storeMigrator.current()` (`status-reporter.js:159`), the marker written at
+/// engine creation for a fresh base, so status and `admin.migrate` never disagree. A base with content but no
+/// marker is a legacy store: schema 0 in both, and the migration applies.
+#[test]
+fn status_and_migrate_read_a_fresh_store_base_alike() {
+    for empty_dir in [false, true] {
+        let _serial = process_test();
+        let home = home();
+        let base = home.path().join("state/lancedb");
+        if empty_dir {
+            fs::create_dir_all(&base).unwrap();
+        }
+        let mut engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
+        let mut peer = core_peer(&engine, home.path());
+        assert_eq!(
+            status_schema(&mut peer, 2),
+            json!({"current":"1","expected":"1"}),
+            "empty_dir: {empty_dir}"
+        );
+        let conflict = peer.call(3, "engine.admin.migrate", json!({"from":"0","to":"1"}));
+        assert_eq!(
+            conflict["error"]["data"]["reason"], "conflict",
+            "{conflict}"
+        );
+        assert_eq!(base.exists(), empty_dir, "status wrote nothing");
+        drop(peer);
+        engine.close_stdin();
+        assert!(engine.wait_for_exit().success());
+    }
+}
+
+#[test]
+fn status_and_migrate_read_a_legacy_store_base_without_a_marker_as_schema_zero() {
+    let _serial = process_test();
+    let home = home();
+    let base = home.path().join("state/lancedb");
+    fs::create_dir_all(base.join("a1")).unwrap();
+    let mut engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
+    let mut peer = core_peer(&engine, home.path());
+    assert_eq!(
+        status_schema(&mut peer, 2),
+        json!({"current":"0","expected":"1"})
+    );
+    let applied = peer.call(3, "engine.admin.migrate", json!({"from":"0","to":"1"}));
+    assert_eq!(
+        applied["result"],
+        json!({"from":"0","to":"1","applied":true}),
+        "{applied}"
+    );
+    assert_eq!(
+        status_schema(&mut peer, 4),
+        json!({"current":"1","expected":"1"})
+    );
+    drop(peer);
+    engine.close_stdin();
+    assert!(engine.wait_for_exit().success());
+}
+
+/// RE-D175 (fix2, finding 2): a real job run on a home without any store creates `_jobs` inside the base. The
+/// pin writes the marker at engine start, before any such access, so a new installation always carries it.
+#[test]
+fn a_job_run_before_the_first_store_leaves_the_base_at_the_current_schema() {
+    let _serial = process_test();
+    let home = home();
+    let base = home.path().join("state/lancedb");
+    // The native embedding drain is installed only while the neo engine is off (F13).
+    let config_path = home.path().join("config.json");
+    let mut config: Value = serde_json::from_slice(&fs::read(&config_path).unwrap()).unwrap();
+    config["engine"]["neo"] = json!({"enabled": false});
+    fs::write(&config_path, serde_json::to_vec(&config).unwrap()).unwrap();
+    let mut engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
+    let mut peer = core_peer(&engine, home.path());
+    let run = peer.call(
+        2,
+        "engine.jobs.run",
+        json!({"job":"embedding-drain","agentId":"a1","trigger":"manual","dryRun":false}),
+    );
+    assert!(run["result"].is_object(), "{run}");
+    assert!(
+        base.join("_jobs").is_dir(),
+        "the run created its ledger root"
+    );
+    assert!(base.join("_schema.json").is_file(), "{run}");
+    assert_eq!(
+        status_schema(&mut peer, 3),
+        json!({"current":"1","expected":"1"}),
+        "{run}"
+    );
+    drop(peer);
+    engine.close_stdin();
+    assert!(engine.wait_for_exit().success());
+}

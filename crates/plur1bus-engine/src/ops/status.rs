@@ -67,6 +67,16 @@ pub fn schema_version(base: &Path) -> Option<String> {
     let version = version.to_utf8_lossy();
     (!version.is_empty() && version.bytes().all(|b| b.is_ascii_digit())).then_some(version)
 }
+/// The schema the pin's `storeMigrator.current()` reports: a missing base, or one holding nothing but
+/// orphaned marker temporaries, is a fresh store whose marker the pin writes at engine creation (`"1"`);
+/// the Rust engine writes it when the first store is created, so it is read here, never written. Any other
+/// base reports its marker (`schema_version`). Status and `admin.migrate` share this single reading.
+pub fn current_schema(base: &Path) -> Option<String> {
+    if crate::store::schema_version::is_fresh_base(base).ok() == Some(true) {
+        return Some("1".into());
+    }
+    schema_version(base)
+}
 struct Backlog {
     source: Arc<JournalSource>,
     pending: Mutex<Option<Receiver<Option<JournalBacklog>>>>,
@@ -126,6 +136,7 @@ pub struct StatusReporter {
     base: PathBuf,
     contract: ContractVersion,
     backlog: Option<Backlog>,
+    fresh_base_is_current: bool,
 }
 impl StatusReporter {
     /// Construction does no I/O, no model work and starts no background callback.
@@ -143,7 +154,15 @@ impl StatusReporter {
                 source,
                 pending: Mutex::new(None),
             }),
+            fresh_base_is_current: false,
         }
+    }
+    /// Report a fresh base as the current schema, as the pin does after creating it (see
+    /// [`current_schema`]). Off by default so the marker-only status oracle keeps its meaning.
+    #[must_use]
+    pub fn with_fresh_base_current(mut self) -> Self {
+        self.fresh_base_is_current = true;
+        self
     }
     /// Bind the optional callback to the actual host; no fabricated journal state.
     pub fn for_host(
@@ -207,7 +226,11 @@ impl StatusReporter {
             agents: self.sources.opened_agents().into(),
             contract: self.contract,
             store_schema: EngineStatusStoreSchema {
-                current: schema_version(&self.base),
+                current: if self.fresh_base_is_current {
+                    current_schema(&self.base)
+                } else {
+                    schema_version(&self.base)
+                },
                 expected: "1".to_owned().into(),
             },
             jobs,

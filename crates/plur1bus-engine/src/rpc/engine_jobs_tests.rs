@@ -64,8 +64,8 @@ fn status_reports_journal_jobs_and_schema_from_real_sources_without_creating_fil
     assert_eq!(first["jobs"], json!({"ledger":"ok","agents":[]}));
     assert_eq!(
         first["storeSchema"],
-        json!({"current":"0","expected":"1"}),
-        "a missing marker is schema 0, as at the pin"
+        json!({"current":"1","expected":"1"}),
+        "a missing base is fresh: the pin writes marker 1 at engine creation and reports storeMigrator.current() (RE-D175)"
     );
 
     host.set_journal_backlog(Some(
