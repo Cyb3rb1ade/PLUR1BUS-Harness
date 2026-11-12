@@ -374,6 +374,7 @@ impl Layout {
                 token: self.run().join("tools.token"),
                 pid: self.run().join("tools.pid"),
             },
+            RoleKind::Engine => self.engine_endpoints(platform),
             RoleKind::Api | RoleKind::Module => Endpoints {
                 address: module_address(&self.home, platform, &role.name),
                 token: self.run().join(format!("module-{}.token", role.name)),
@@ -382,9 +383,8 @@ impl Layout {
         }
     }
 
-    /// The engine's address and run files, reserved before RE-08/T4 adds its supervisor slot.
-    /// That slot delegates its `endpoints` arm here rather than deriving another address rule.
-    #[allow(dead_code)] // Consumed by the engine supervisor slot in RE-08/T4.
+    /// The engine's address and run files (`run/engine.{sock,token,pid}`, the `-engine` pipe): the supervisor's
+    /// engine slot (RE-D172) takes them through [`Layout::endpoints`].
     pub fn engine_endpoints(&self, platform: &str) -> Endpoints {
         Endpoints {
             address: engine_address(&self.home, platform),

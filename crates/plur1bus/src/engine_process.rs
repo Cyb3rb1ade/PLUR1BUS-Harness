@@ -26,6 +26,42 @@ pub(crate) fn configured_spec(
     spec(layout, instance).map(Some)
 }
 
+/// What a try-lock of `run/engine.process.lock` found ([`lock_state`]).
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum LockState {
+    /// No lock file, or one this process could lock (and released at once).
+    Free,
+    /// Another process holds the OS lock: a running Rust engine (or another holder).
+    Held,
+    /// The file exists but could not be opened or locked (a symlink, no permission, a sharing violation, ...): it
+    /// cannot be checked, which counts as held (fail closed, T8a N3). The error, for the message.
+    Unverifiable(String),
+}
+
+/// `run/engine.process.lock`, the OS lock every running Rust engine holds (and `backup restore` fences): one exclusive
+/// try-lock, released at once. Only a missing file is free without locking; every other open or lock failure is
+/// [`LockState::Unverifiable`]. The file is never created (no `create`, `O_NOFOLLOW`). Shared by the supervisor's B3
+/// gate and `core run` with the Node engine (RE-D173, Nachtrag 8), which both refuse anything but `Free`.
+pub(crate) fn lock_state(layout: &Layout) -> LockState {
+    let mut options = std::fs::OpenOptions::new();
+    options.read(true).write(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC);
+    }
+    let file = match options.open(layout.run().join("engine.process.lock")) {
+        Ok(file) => file,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return LockState::Free,
+        Err(e) => return LockState::Unverifiable(e.to_string()),
+    };
+    match file.try_lock() {
+        Ok(()) => LockState::Free,
+        Err(std::fs::TryLockError::WouldBlock) => LockState::Held,
+        Err(std::fs::TryLockError::Error(e)) => LockState::Unverifiable(e.to_string()),
+    }
+}
+
 fn executable_path(
     current: Option<&Path>,
     override_path: Option<&OsStr>,
@@ -101,6 +137,50 @@ fn spec_with(
 mod tests {
     use super::*;
     use serde_json::json;
+
+    /// T8a N3: only a missing file is free without locking; a free file is free; a held one is held; a file that
+    /// cannot be opened (a symlink under O_NOFOLLOW, no permission) cannot be checked, which counts as held. Nothing is
+    /// ever created.
+    #[test]
+    fn only_a_missing_or_free_engine_lock_is_free() {
+        let root = tempfile::tempdir().unwrap();
+        let layout = Layout::new(root.path().to_owned());
+        let lock = layout.run().join("engine.process.lock");
+        assert_eq!(lock_state(&layout), LockState::Free, "no run/ at all");
+        std::fs::create_dir_all(layout.run()).unwrap();
+        assert_eq!(lock_state(&layout), LockState::Free, "no lock file");
+        assert!(!lock.exists(), "never created");
+        std::fs::write(&lock, b"").unwrap();
+        assert_eq!(lock_state(&layout), LockState::Free, "a free file");
+        let holder = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&lock)
+            .unwrap();
+        holder.lock().unwrap();
+        assert_eq!(lock_state(&layout), LockState::Held);
+        assert_ne!(lock_state(&layout), LockState::Free);
+        drop(holder);
+        assert_eq!(lock_state(&layout), LockState::Free);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::remove_file(&lock).unwrap();
+            let target = root.path().join("elsewhere.lock");
+            std::os::unix::fs::symlink(&target, &lock).unwrap();
+            assert!(matches!(lock_state(&layout), LockState::Unverifiable(_)));
+            assert_ne!(lock_state(&layout), LockState::Free, "fail closed");
+            assert!(!target.exists(), "nothing created through the link");
+            std::fs::remove_file(&lock).unwrap();
+            // SAFETY: plain geteuid(2).
+            if unsafe { libc::geteuid() } != 0 {
+                std::fs::write(&lock, b"").unwrap();
+                std::fs::set_permissions(&lock, std::fs::Permissions::from_mode(0o000)).unwrap();
+                assert!(matches!(lock_state(&layout), LockState::Unverifiable(_)));
+                std::fs::set_permissions(&lock, std::fs::Permissions::from_mode(0o600)).unwrap();
+            }
+        }
+    }
 
     #[test]
     fn default_config_does_not_resolve_an_engine_or_create_config_files() {

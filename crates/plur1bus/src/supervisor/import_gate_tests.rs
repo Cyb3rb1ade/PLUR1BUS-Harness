@@ -109,3 +109,48 @@ fn late_module_control_cannot_enqueue_behind_an_import_reservation() {
         "no operation may run after the cold snapshot"
     );
 }
+
+/// RE-D172 (B7): the Rust side refuses an import maintenance while an engine slot exists (the second guard beside
+/// the Core's preflight), before it reserves anything.
+#[test]
+fn import_admission_is_refused_while_an_engine_slot_exists() {
+    let (_temp, layout, shared) = fixture();
+    {
+        let mut state = shared.lock();
+        state.no_core = false;
+        state.slots.push(Slot::new(Role::engine(), 1.0));
+    }
+    let error = import_admission::queue(
+        &shared,
+        &layout,
+        "admin.import.apply",
+        &json!({
+            "planId": "00000000-0000-4000-8000-000000000001",
+            "preflightId": "00000000-0000-4000-8000-000000000002",
+        }),
+        None,
+        None,
+    )
+    .expect_err("no maintenance beside the rust engine");
+    assert_eq!(error.code, "E_NOT_AVAILABLE");
+    assert_eq!(error.reason, Some("engine-writer"));
+    assert!(!imports::busy(&shared), "nothing was reserved");
+}
+
+/// RE-D172 (B7): while an import maintenance holds the home, the supervisor starts no Rust engine (it starts once the
+/// maintenance is over).
+#[test]
+fn no_engine_slot_is_added_while_import_maintenance_holds_the_home() {
+    let (_temp, layout, shared) = fixture();
+    shared.lock().no_core = false;
+    std::fs::write(
+        layout.config_path(),
+        r#"{"schemaVersion":1,"engine":{"implementation":"rust"}}"#,
+    )
+    .unwrap();
+    relock(&shared.maintenance).preparing = true;
+    let mut monitors = Monitors::new();
+    reconcile_engine(&shared, &layout, &mut monitors);
+    assert!(shared.lock().slot("engine").is_none());
+    assert!(monitors.is_empty());
+}

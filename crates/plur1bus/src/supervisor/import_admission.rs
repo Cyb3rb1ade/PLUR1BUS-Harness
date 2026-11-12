@@ -35,6 +35,15 @@ pub fn queue(
                 "a supervised Core is required",
             ));
         }
+        // RE-D172 (B7): the second guard beside the Core's preflight: the Rust engine writes the same stores as the
+        // importer, so no maintenance is admitted while its slot exists.
+        if state.slot("engine").is_some() {
+            return Err(ExtError::new(
+                "E_NOT_AVAILABLE",
+                "engine-writer",
+                "import maintenance needs the node engine; the rust engine writes the same stores",
+            ));
+        }
         if state.stopping.is_some()
             || state.restart_running
             || !state.restart_jobs.is_empty()

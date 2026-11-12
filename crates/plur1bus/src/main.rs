@@ -7,6 +7,7 @@ mod config_redaction;
 mod container;
 #[path = "commands/container.rs"]
 mod container_commands;
+mod engine_owner;
 mod engine_process;
 mod ext;
 mod firstaid_bundle;

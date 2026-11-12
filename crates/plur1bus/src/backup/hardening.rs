@@ -100,6 +100,7 @@ fn opts() -> RestoreOpts {
         force: false,
         dry_run: false,
         fail_at: None,
+        keep: None,
     }
 }
 

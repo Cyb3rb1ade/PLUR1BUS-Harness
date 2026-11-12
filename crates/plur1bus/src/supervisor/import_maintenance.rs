@@ -48,7 +48,16 @@ fn stop_writers(
         .lock()
         .slots
         .iter()
-        .filter(|slot| !matches!(slot.role.kind, RoleKind::Api | RoleKind::Tools))
+        // RE-D172: not a writer stopped here, like the tools. A maintenance never runs beside a Rust engine: the Core's
+        // preflight refuses it (`exclusiveWriter` is false with engine.implementation `rust`, so the issue
+        // `exclusive-writer-unproven` leaves no preflight ticket), `import_admission::queue` refuses it while an engine
+        // slot exists, and the supervisor starts no engine while a maintenance holds the home (B7).
+        .filter(|slot| {
+            !matches!(
+                slot.role.kind,
+                RoleKind::Api | RoleKind::Tools | RoleKind::Engine
+            )
+        })
         .map(|slot| slot.role.clone())
         .collect();
     // Also adopt surviving children after a killed supervisor, without spawning any writer.

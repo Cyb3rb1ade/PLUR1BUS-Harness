@@ -72,6 +72,9 @@ pub enum CrashReason {
     ManifestInvalid,
     ApiVersionUnsupported,
     GaveUp,
+    /// RE-D172 (B3): the core is held back because `run/engine.process.lock` stayed held by a Rust engine (or another
+    /// holder) after the engine selection switched to `node`: starting it would make two writers of one store.
+    EngineLockHeld,
     None,
 }
 
@@ -102,6 +105,7 @@ impl CrashReason {
             CrashReason::ManifestInvalid => "manifest-invalid",
             CrashReason::ApiVersionUnsupported => "api-version-unsupported",
             CrashReason::GaveUp => "gave-up",
+            CrashReason::EngineLockHeld => "engine-lock-held",
             CrashReason::None => "none",
         }
     }
@@ -156,7 +160,9 @@ pub fn classify_exit(code: Option<i32>, signal: Option<i32>, requested: bool) ->
 
 /// [`classify_exit`] for a child of `kind`: a module's exit 2 is its runtime refusing its manifest
 /// (`manifest-invalid`, P13), never `config-invalid`; exit 4 means nothing special for a module. Exit 3 (`lock-held`)
-/// and every other exit follow the core's rules.
+/// and every other exit follow the core's rules, the Rust engine's included (RE-D172): its exit 3 ("another owner",
+/// a stamp inside its age rule) is `lock-held`, retried without counting toward the give-up; only the stamp ceiling
+/// ([`Backoff::on_lock_held_exit_within`]) ends it.
 pub fn classify_exit_for(
     kind: RoleKind,
     code: Option<i32>,
@@ -164,9 +170,8 @@ pub fn classify_exit_for(
     requested: bool,
 ) -> ExitClass {
     match (kind, requested, code) {
-        (RoleKind::Core | RoleKind::Api | RoleKind::Tools, ..) | (_, true, _) => {
-            classify_exit(code, signal, requested)
-        }
+        (RoleKind::Core | RoleKind::Api | RoleKind::Tools | RoleKind::Engine, ..)
+        | (_, true, _) => classify_exit(code, signal, requested),
         (RoleKind::Module, false, Some(2)) => ExitClass::Fatal {
             reason: CrashReason::ManifestInvalid.to_string(),
         },
@@ -245,7 +250,14 @@ pub struct Backoff {
     ready_since: Option<Instant>,
     exits: VecDeque<Instant>,
     given_up: bool,
+    /// RE-D172 (B4): the first `lock-held` exit since the child was last ready (or reset); see
+    /// [`Backoff::on_lock_held_exit_within`].
+    lock_held_since: Option<Instant>,
 }
+
+/// RE-D172 (B4): how long (× the time scale) the engine's `lock-held` exits are retried before it turns fatal: the
+/// engine's stamp age rule allows a foreign stamp up to 600 s, plus a margin.
+pub const ENGINE_LOCK_HELD_CEILING: Duration = Duration::from_secs(660);
 
 impl Backoff {
     /// `scale` is `PLUR1BUS_SUPERVISOR_TIME_SCALE` (1.0 in production); every duration this type
@@ -258,6 +270,7 @@ impl Backoff {
             ready_since: None,
             exits: VecDeque::new(),
             given_up: false,
+            lock_held_since: None,
         }
     }
 
@@ -265,6 +278,7 @@ impl Backoff {
     /// condition that resets the backoff delay.
     pub fn on_ready(&mut self, now: Instant) {
         self.ready_since = Some(now);
+        self.lock_held_since = None;
     }
 
     /// Record an exit at `now` and decide what happens next.
@@ -313,6 +327,33 @@ impl Backoff {
         RestartDecision::After(delay)
     }
 
+    /// [`Backoff::on_lock_held_exit`] with a ceiling (RE-D172, B4, the engine): `None` once the `lock-held` exits since
+    /// the child was last ready (or reset) have gone on for longer than `ceiling` × scale; the caller then makes the
+    /// exit fatal. Readiness and `reset()` start the measurement again.
+    pub fn on_lock_held_exit_within(
+        &mut self,
+        now: Instant,
+        ceiling: Duration,
+    ) -> Option<RestartDecision> {
+        let since = *self.lock_held_since.get_or_insert(now);
+        if now.saturating_duration_since(since) > ceiling.mul_f64(self.scale) {
+            return None;
+        }
+        Some(self.on_lock_held_exit(now))
+    }
+
+    /// How long the `lock-held` exits have gone on at `now` (since the first one after the child was last ready or
+    /// reset); `None` before the first (T8a N7, logged with the ceiling decision).
+    pub fn lock_held_for(&self, now: Instant) -> Option<Duration> {
+        self.lock_held_since
+            .map(|since| now.saturating_duration_since(since))
+    }
+
+    /// `d` × this backoff's time scale (the ceiling [`Backoff::on_lock_held_exit_within`] compares against).
+    pub fn scaled(&self, d: Duration) -> Duration {
+        d.mul_f64(self.scale)
+    }
+
     /// Whether the backoff has given up (sticky until `reset()`).
     pub fn given_up(&self) -> bool {
         self.given_up
@@ -325,6 +366,7 @@ impl Backoff {
         self.ready_since = None;
         self.exits.clear();
         self.given_up = false;
+        self.lock_held_since = None;
     }
 }
 
@@ -383,6 +425,7 @@ impl ChildState {
                 RoleKind::Core => "core",
                 RoleKind::Api => "api",
                 RoleKind::Tools => "tools",
+                RoleKind::Engine => "engine",
                 RoleKind::Module => "module",
             },
         })
@@ -421,6 +464,8 @@ pub enum RoleKind {
     Core,
     Api,
     Tools,
+    /// The native Rust engine (`plur1bus-engine serve`, RE-D172): a slot only while `engine.implementation` is `rust`.
+    Engine,
     Module,
 }
 
@@ -455,6 +500,14 @@ impl Role {
         }
     }
 
+    /// The native Rust engine (RE-D172): `engine.auth`, `engine.status`, `engine.adopt`, `engine.shutdown`.
+    pub fn engine() -> Role {
+        Role {
+            name: "engine".into(),
+            kind: RoleKind::Engine,
+        }
+    }
+
     pub fn module(name: &str) -> Role {
         Role {
             name: name.into(),
@@ -462,10 +515,11 @@ impl Role {
         }
     }
 
-    /// The RPC method `verb` on this child's own surface: `core.<verb>` or `module.<verb>`.
+    /// The RPC method `verb` on this child's own surface: `core.<verb>`, `engine.<verb>` or `module.<verb>`.
     pub fn method(&self, verb: &str) -> String {
         match self.kind {
             RoleKind::Core => format!("core.{verb}"),
+            RoleKind::Engine => format!("engine.{verb}"),
             RoleKind::Api => format!("api.{verb}"),
             RoleKind::Tools | RoleKind::Module => format!("module.{verb}"),
         }
@@ -505,6 +559,9 @@ pub struct Slot {
     pub api_version: Option<String>,
     /// A module's `module.status.detail` as last polled (`module.list`); cleared by a spawn.
     pub detail: Option<serde_json::Value>,
+    /// RE-D172 (B2): something already serves this child's address; its next start probes it first (adopting,
+    /// or ending a hung or foreign one) on the scheduler, after the core has started.
+    pub probe_first: bool,
 }
 
 impl Slot {
@@ -520,6 +577,7 @@ impl Slot {
             policy: RestartPolicy::Always,
             api_version: None,
             detail: None,
+            probe_first: false,
         }
     }
 }
@@ -940,6 +998,7 @@ mod tests {
             CrashReason::ManifestInvalid,
             CrashReason::ApiVersionUnsupported,
             CrashReason::GaveUp,
+            CrashReason::EngineLockHeld,
             CrashReason::None,
         ];
         let ours: Vec<serde_json::Value> =
@@ -1396,5 +1455,65 @@ mod tests {
                 "{other:?}"
             );
         }
+    }
+
+    #[test]
+    fn every_engine_exit_follows_the_core_and_its_exit_3_is_lock_held() {
+        assert_eq!(
+            classify_exit_for(RoleKind::Engine, Some(3), None, false),
+            ExitClass::Retryable {
+                reason: Some("lock-held".into())
+            }
+        );
+        assert_eq!(
+            classify_exit_for(RoleKind::Engine, Some(3), None, true),
+            ExitClass::Requested
+        );
+        for code in [None, Some(0), Some(1), Some(2), Some(3), Some(4), Some(70)] {
+            assert_eq!(
+                classify_exit_for(RoleKind::Engine, code, None, false),
+                classify_exit_for(RoleKind::Core, code, None, false),
+                "{code:?}"
+            );
+        }
+        assert_eq!(Role::engine().method("status"), "engine.status");
+        assert_eq!(Role::engine().method("adopt"), "engine.adopt");
+        assert_eq!(
+            ChildState::fresh(&Role::engine()).to_json()["kind"],
+            "engine"
+        );
+    }
+
+    #[test]
+    fn lock_held_exits_are_retried_up_to_the_ceiling_and_readiness_resets_it() {
+        let ceiling = Duration::from_secs(10);
+        let t0 = Instant::now();
+        let mut b = Backoff::new(0.1); // ceiling 1 s
+        for i in 0..20u64 {
+            // Far more than five exits: lock-held never gives up by count.
+            let at = t0 + Duration::from_millis(50 * i);
+            assert!(matches!(
+                b.on_lock_held_exit_within(at, ceiling),
+                Some(RestartDecision::After(_))
+            ));
+        }
+        assert_eq!(
+            b.on_lock_held_exit_within(t0 + Duration::from_millis(1_001), ceiling),
+            None,
+            "past the ceiling"
+        );
+        // Readiness starts the measurement again.
+        let later = t0 + Duration::from_secs(5);
+        b.on_ready(later);
+        assert!(b.on_lock_held_exit_within(later, ceiling).is_some());
+        assert!(b
+            .on_lock_held_exit_within(later + Duration::from_millis(900), ceiling)
+            .is_some());
+        // And so does a reset.
+        let t1 = later + Duration::from_secs(2);
+        assert_eq!(b.on_lock_held_exit_within(t1, ceiling), None);
+        b.reset();
+        assert!(b.on_lock_held_exit_within(t1, ceiling).is_some());
+        assert_eq!(ENGINE_LOCK_HELD_CEILING, Duration::from_secs(660));
     }
 }

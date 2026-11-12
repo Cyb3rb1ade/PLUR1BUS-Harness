@@ -410,6 +410,9 @@ fn check_json_validates_the_document_shape() {
         "dreams.learn.store",
         "dreams.learn.breaker",
         "dreams.learn.backlog",
+        "engine.process",
+        "engine.store",
+        "engine.runtime",
     ];
     let ids: Vec<String> = v["checks"]
         .as_array()
@@ -442,7 +445,7 @@ fn check_json_lists_the_installer_ids_after_the_first_seventeen() {
         .iter()
         .map(|c| c["id"].as_str().unwrap().to_string())
         .collect();
-    assert_eq!(ids.len(), 36, "{v}");
+    assert_eq!(ids.len(), 39, "{v}");
     assert_eq!(
         &ids[17..20],
         &["runtime.node", "runtime.core", "models.cache"],
@@ -1024,7 +1027,7 @@ fn check_ids_are_append_only_and_end_with_the_three_extension_rows() {
         .iter()
         .map(|c| c["id"].as_str().unwrap().to_string())
         .collect();
-    assert_eq!(ids.len(), 36, "{v}");
+    assert_eq!(ids.len(), 39, "{v}");
     assert_eq!(
         &ids[17..20],
         &["runtime.node", "runtime.core", "models.cache"]
@@ -1041,7 +1044,7 @@ fn check_ids_are_append_only_and_end_with_the_three_extension_rows() {
     assert_eq!(&ids[31], "media.ffmpeg", "{v}");
     assert_eq!(&ids[32], "media.uploads", "{v}");
     assert_eq!(
-        &ids[33..],
+        &ids[33..36],
         &[
             "dreams.learn.store",
             "dreams.learn.breaker",
@@ -1049,6 +1052,15 @@ fn check_ids_are_append_only_and_end_with_the_three_extension_rows() {
         ],
         "{v}"
     );
+    // RE-D172: the native engine's rows, `skip` while the Node engine is selected.
+    assert_eq!(
+        &ids[36..],
+        &["engine.process", "engine.store", "engine.runtime"],
+        "{v}"
+    );
+    for row in &v["checks"].as_array().unwrap()[36..] {
+        assert_eq!(row["status"], "skip", "{row}");
+    }
 }
 
 #[test]

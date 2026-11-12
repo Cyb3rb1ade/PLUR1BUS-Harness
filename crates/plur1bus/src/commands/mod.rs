@@ -19,6 +19,7 @@ pub mod dreams;
 pub mod ext;
 pub mod firstaid;
 pub(crate) mod firstaid_bundle;
+mod firstaid_engine;
 pub(crate) mod firstaid_ext;
 pub(crate) mod firstaid_install;
 mod firstaid_learn;

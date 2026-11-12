@@ -80,7 +80,15 @@ pub fn run(out: &Out, layout: &Layout, cmd: BackupCmd) {
             dry_run,
             confirm,
             force,
-        } => restore_cmd(out, layout, &file, dry_run || !confirm, force),
+            keep,
+        } => restore_cmd(
+            out,
+            layout,
+            &file,
+            dry_run || !confirm,
+            force,
+            keep.map(|n| n as usize),
+        ),
     }
 }
 
@@ -173,13 +181,32 @@ fn describe_restore(r: &RestoreReport) -> String {
         }
         (None, false) => {}
     }
+    // `--keep` leaves the JSON shape alone; the human text says what it did, a skipped purge is a stderr warning.
+    if let Some(n) = r.keep {
+        if r.dry_run {
+            s.push_str(&format!(
+                "with --keep {n}, only the {n} newest pre-restore copies would stay after a complete restore\n"
+            ));
+        } else if r.applied && r.retention_warnings.is_empty() {
+            s.push_str(&format!(
+                "--keep {n}: only the {n} newest pre-restore copies stay\n"
+            ));
+        }
+    }
     if !r.dry_run {
         s.push_str("start the daemon again; if the store schema is older than the engine's, run `plur1bus admin migrate`\n");
     }
     s.trim_end().to_string()
 }
 
-fn restore_cmd(out: &Out, layout: &Layout, file: &Path, dry_run: bool, force: bool) {
+fn restore_cmd(
+    out: &Out,
+    layout: &Layout,
+    file: &Path,
+    dry_run: bool,
+    force: bool,
+    keep: Option<usize>,
+) {
     let fail_at = std::env::var("PLUR1BUS_TEST_BACKUP_FAIL_AT")
         .ok()
         .filter(|_| std::env::var("PLUR1BUS_ALLOW_TEST_INTERNALS").as_deref() == Ok("1"));
@@ -187,6 +214,7 @@ fn restore_cmd(out: &Out, layout: &Layout, file: &Path, dry_run: bool, force: bo
         dry_run,
         force,
         fail_at,
+        keep,
     };
     if force {
         crate::output::say_err(if dry_run {
@@ -203,6 +231,9 @@ fn restore_cmd(out: &Out, layout: &Layout, file: &Path, dry_run: bool, force: bo
             file,
             json!({ "units": r.units.len(), "preRestore": r.pre_restore }),
         );
+    }
+    for w in &r.retention_warnings {
+        crate::output::say_err(&format!("plur1bus: WARNING: {w}"));
     }
     if !r.redacted_config_keys.is_empty() {
         crate::output::say_err(&format!(

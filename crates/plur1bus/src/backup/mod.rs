@@ -11,6 +11,7 @@ pub mod create;
 pub mod manifest;
 pub mod redact;
 pub mod restore;
+mod retention;
 mod store_guard;
 mod writer_guard;
 

@@ -1239,6 +1239,15 @@ pub enum BackupCmd {
     /// Stop the daemon (`plur1bus daemon stop`) or the `core run` process first and start no core until the restore
     /// has finished: it refuses while a supervisor or a core answers or a legacy core still holds
     /// `run/core-legacy.lock`, and it holds the writer locks until it returns.
+    ///
+    /// The pre-restore copies stay for good unless `--keep N` is given: after a restore that went through completely,
+    /// only the N newest `pre-restore-<UTC>-<id>` directories stay (the one just made counts and is never removed);
+    /// symlinks, files, archives and other names in `backups/` are never touched, and nothing is deleted when `backups/`
+    /// itself is a symlink (a warning says so). A restore that replaces nothing makes no copy; then the N newest existing
+    /// ones stay. Nothing is deleted while an earlier
+    /// restore's `state/.restore-reapply-tombstones` marker is still there (a warning on stderr says so), after a
+    /// failed or rolled-back restore, or on `--dry-run`. A copy that cannot be removed is a warning on stderr; the
+    /// restore still succeeded.
     Restore {
         /// the archive
         file: PathBuf,
@@ -1251,6 +1260,9 @@ pub enum BackupCmd {
         /// bypass endpoint liveness probes with a warning; held writer locks still refuse
         #[arg(long)]
         force: bool,
+        /// after a complete restore, keep only the N newest pre-restore copies (N >= 1; default: keep all)
+        #[arg(long, value_name = "N", value_parser = clap::value_parser!(u32).range(1..=999_999_999))]
+        keep: Option<u32>,
     },
 }
 
@@ -2135,6 +2147,8 @@ pub enum ExtCmd {
 #[derive(Subcommand, Debug)]
 pub enum CoreCmd {
     /// [experimental] Run the core in the foreground (the supervisor's spawn target)
+    ///
+    /// With the Node engine (the default) this execs the core as it always did, but refuses to start (`E_CORE_UNAVAILABLE`, reason `engine-lock-held`) while a Rust engine still holds `run/engine.process.lock`. With `engine.implementation: "rust"` it stays as a wrapper: it starts `plur1bus-engine` (`PLUR1BUS_ENGINE_BIN`, else beside this executable) without waiting for it, then the core; it forwards SIGTERM and SIGHUP to the core (Ctrl-C reaches the core from the terminal, not the engine); when the core has ended it stops the engine (`engine.shutdown`, then SIGTERM, killed after 5 s) and exits with the core's exit code. A missing engine binary or an engine that ends early costs one line on stderr; the core keeps running and reports `engine-unavailable`, and nothing restarts the engine. The engine lives exactly as long as the core: a changed configuration reaches it at the next `core run`.
     Run,
     /// Inspect the already-connected pipe inherited as stdin, before Node sends any credentials.
     #[command(name = "__pipe-server-pid", hide = true)]
