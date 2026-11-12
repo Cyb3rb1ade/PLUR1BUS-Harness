@@ -426,6 +426,20 @@ level to zero on Windows only, avoiding MSVC PDB generation; other platforms ret
 checks retain their defaults. The 25/30-minute step budgets and 90/65-minute job budgets are unchanged. The workflow
 contract tests pin these settings; the reduction in hosted build time still requires a completed Windows CI run.
 
+Since #903 (2026-11-12) the debug-information level is zero on every platform in both jobs. The engine's integration
+tests had grown from 49 to 180 files, each an executable of its own that links the whole store stack; with debug
+information the workspace test build no longer fit the hosted Linux runner's disk. The Linux leg also removes
+preinstalled toolchains it never uses (`free runner disk space (Linux)`). For three commits the job and test-step budgets
+were 110/80 and 45 minutes.
+
+The engine's integration tests are now bundled: `crates/plur1bus-engine/Cargo.toml` sets `autotests = false`, and seven
+roots under `tests/bundles/` mount the test files as modules (`capture`, `ops`, `neo`, `recall`, `store`, `jobs`, `misc`).
+Six process suites keep an executable each, because `rpc_process_support::process_test` allows one engine process at a
+time per executable, and the four `real-models` targets are unchanged: 17 executables instead of 180. A bundled test is
+named `<file>::<test>`, for example `cargo test -p plur1bus-engine --test capture capture_wal::`. The test
+`every_test_file_is_built` in the `misc` bundle fails for a file under `tests/` that no bundle mounts and `Cargo.toml`
+does not name. With that the budgets are back at 90/65 minutes for the jobs and 30 for the Rust test step.
+
 A TAP reporter preserves the root runner's nonzero-test guard while recording the sum of top-level test/suite durations per file. Nested child durations are not counted twice. The `test-timings-<os>` artifact contains per-process JSON and `top-20.txt`; the top 20 are also printed after failure. A forcibly killed process may have no completed report, so timings after timeout can be partial. These are test/suite execution times, not profiler CPU time or package-install time.
 
 ### WSL infrastructure retry
