@@ -165,6 +165,25 @@ described under "Owners without a supervisor" below (RE-D173). Token RPC belongs
 CI to U4/U5; system runs and hop-budget measurement to U6/U7; release payloads to U8. No default engine switch or
 Phase 2 behavior change is included here.
 
+## The supervisor's `engine` slot
+
+With `engine.implementation: "rust"` the supervisor runs the engine in its own slot, listed right after the core in
+`daemon status` (`kind: "engine"`), with the core's backoff; its exit 3 (`lock-held`) is retried, probing first, until
+it has lasted 660 s × the time scale. With the Node engine selected, every path that starts the core (the
+supervisor's start, scheduled restarts and `daemon start`, import maintenance, requested restarts such as a core-class
+`config set`) first passes one gate on `run/engine.process.lock`:
+
+- No lock file, or a free one: nothing more happens.
+- A lock that cannot be checked (anything but a missing file that fails to open or lock: a symlink, no permission, a
+  Windows sharing violation): the core stays down at once, crashed for good with `engine-lock-held`. The file is never
+  created.
+- A held lock: a serving engine whose identity the adoption probe proves (pid file, handshake, instance) is stopped
+  with the usual deadlines. A hung or foreign server of the engine endpoint is terminated through the pin the probe
+  took on the socket's or pipe's server, a deliberate rule: it is the same policy the supervisor applies to every
+  endpoint of the home's private `run/` at start. Then the lock is awaited for at most the engine's orphan grace
+  (`supervisor.graceMs` × scale) plus 5 s; still held, the core stays down with `engine-lock-held` (fail closed: two
+  writers of one store) until `daemon start` or the next requested restart finds the lock free.
+
 Composition must remain lazy before the single-instance check: `production_model_composition_is_lazy_and_does_not_create_files`
 is an invariant for future store integration. RE-04 store integration is gated on moving lock acquisition before
 any composition that eagerly opens stores.
@@ -195,8 +214,8 @@ instead of exec'ing the core:
   restarts with backoff; `core run` is the developer path). The engine lives exactly as long as the core: a changed
   configuration reaches it at the next `core run`.
 - With the Node engine selected, `core run` still execs the core, after one try-lock on `run/engine.process.lock`:
-  held by a live process, it refuses with `E_CORE_UNAVAILABLE`, reason `engine-lock-held`, and kills nothing (the
-  supervisor's B3 gate uses the same check).
+  held by a live process, or not checkable (any open or lock failure but a missing file), it refuses with
+  `E_CORE_UNAVAILABLE`, reason `engine-lock-held`, and kills nothing (the supervisor's B3 gate uses the same check).
 
 Residual risks. macOS has no OS binding: a wrapper ended by SIGKILL leaves the core and the engine running, and the
 engine ends only after its orphan grace (`supervisor.graceMs`) once it sees its stdin close. KNOWN-GAP: the engine

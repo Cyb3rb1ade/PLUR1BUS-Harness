@@ -1117,7 +1117,10 @@ impl Monitor {
                 json!({ "pid": gen.pid }),
             );
             gen.kill();
-            if !wait_exited(&gen, Instant::now() + POST_KILL_WAIT) {
+            // T8a N2: the reaping wait ends POST_KILL_WAIT after the deadline, not after this kill, so a child stopped
+            // after another one that was killed at the same deadline (the engine after the core) adds no second wait:
+            // the whole stop stays within budget + grace + one POST_KILL_WAIT.
+            if !wait_exited(&gen, deadline + POST_KILL_WAIT) {
                 self.shared.log.error(
                     &format!("{name} not reaped after the kill"),
                     json!({ "pid": gen.pid }),
@@ -1153,13 +1156,13 @@ impl Monitor {
     /// `none`), so it never counts toward the give-up budget. A core that is `crashed` for good (fatal or given up)
     /// has its backoff reset first.
     pub fn restart_requested(&mut self, budget: Duration) {
-        self.restart_requested_around(budget, || {});
+        self.restart_requested_around(budget, || true);
     }
 
     /// [`Monitor::restart_requested`] with `between` run after the stop and before the spawn (RE-D172, B6: the
     /// engine's own stop and start sit there, so a requested core restart runs core stop → engine stop → engine start →
-    /// core start).
-    pub fn restart_requested_around(&mut self, budget: Duration, between: impl FnOnce()) {
+    /// core start). The spawn follows only when `between` returns true (T8a N1: the engine-lock gate decides).
+    pub fn restart_requested_around(&mut self, budget: Duration, between: impl FnOnce() -> bool) {
         let pid = self
             .current
             .as_ref()
@@ -1181,8 +1184,7 @@ impl Monitor {
             json!({ "pid": pid }),
         );
         self.stop(budget);
-        between();
-        if self.shared.lock().stopping.is_some() {
+        if !between() || self.shared.lock().stopping.is_some() {
             return;
         }
         self.spawn();
@@ -1940,7 +1942,18 @@ fn record_exit(
                     reason,
                     None,
                 ),
-                None => (crashed(&reason), reason, None),
+                None => {
+                    // T8a N7: the supervisor's own measurement on the clock its ceiling check used.
+                    let held = slot.backoff.lock_held_for(now).unwrap_or_default();
+                    shared.log.warn(
+                        "engine lock-held past its ceiling",
+                        json!({
+                            "lockHeldMs": held.as_millis() as u64,
+                            "ceilingMs": slot.backoff.scaled(super::state::ENGINE_LOCK_HELD_CEILING).as_millis() as u64,
+                        }),
+                    );
+                    (crashed(&reason), reason, None)
+                }
             }
         }
     };

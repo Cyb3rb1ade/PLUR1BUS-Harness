@@ -545,6 +545,55 @@ fn a_held_engine_lock_refuses_the_node_core() {
     assert!(h.core_events("started").is_empty(), "no core started");
 }
 
+/// T8a N3: only a missing lock file is free. A `run/engine.process.lock` that cannot be checked (a symlink, refused
+/// with O_NOFOLLOW; a file without read and write permission) refuses the Node core like a held one, and nothing is
+/// created through the link.
+#[cfg(unix)]
+#[test]
+fn an_engine_lock_that_cannot_be_checked_refuses_the_node_core() {
+    use std::os::unix::fs::PermissionsExt;
+    // SAFETY: plain geteuid(2).
+    let root = unsafe { libc::geteuid() } == 0;
+    for case in ["symlink", "unreadable"] {
+        if case == "unreadable" && root {
+            // root opens a 0000 file anyway; the symlink case covers the open failure there.
+            continue;
+        }
+        let h = Home::new(Some("node"));
+        let lock = h.home.join("run/engine.process.lock");
+        let target = h.home.join("elsewhere.lock");
+        if case == "symlink" {
+            std::os::unix::fs::symlink(&target, &lock).unwrap();
+        } else {
+            std::fs::write(&lock, b"").unwrap();
+            std::fs::set_permissions(&lock, std::fs::Permissions::from_mode(0o000)).unwrap();
+        }
+        let out = Command::new(assert_cmd::cargo::cargo_bin("plur1bus"))
+            .arg("--json")
+            .arg("--home")
+            .arg(&h.home)
+            .args(["core", "run"])
+            .env("PLUR1BUS_CORE_JS", fixture("fake-core.mjs"))
+            .env("PLUR1BUS_NODE", "node")
+            .env("FAKE_CORE_EVENTS", &h.core_events)
+            .stdin(Stdio::null())
+            .output()
+            .unwrap();
+        let doc: Value = serde_json::from_slice(&out.stdout)
+            .unwrap_or_else(|e| panic!("{case}: {e}: {}", String::from_utf8_lossy(&out.stdout)));
+        assert_eq!(doc["error"], "E_CORE_UNAVAILABLE", "{case}: {doc}");
+        assert_eq!(doc["reason"], "engine-lock-held", "{case}: {doc}");
+        assert!(
+            h.core_events("started").is_empty(),
+            "{case}: no core started"
+        );
+        assert!(!target.exists(), "{case}: nothing created through the link");
+        if case == "unreadable" {
+            std::fs::set_permissions(&lock, std::fs::Permissions::from_mode(0o600)).unwrap();
+        }
+    }
+}
+
 #[test]
 fn a_missing_engine_binary_starts_the_core_degraded_with_a_clear_message() {
     let h = Home::new(Some("rust"));

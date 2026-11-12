@@ -1294,19 +1294,39 @@ fn start_engine(shared: &Arc<Shared>, layout: &Layout, monitors: &mut Monitors) 
 }
 
 /// B3: with the Node engine selected, the core must not start beside a Rust engine that still writes the home (one
-/// left by a killed supervisor after an offline switch to `node`). Returns whether the core may start. A free or
-/// missing `run/engine.process.lock` (the normal case) costs one try-lock and nothing else. A held one: an engine whose
-/// identity the adoption probe proves is stopped with the usual deadlines (a hung or foreign one is terminated), then
-/// the lock is awaited for at most the engine's orphan grace (`supervisor.graceMs` × scale) plus 5 s. Still held → the
-/// core stays down, crashed for good with `engine-lock-held` (fail closed: two writers of one store), until
-/// `daemon start`.
+/// left by a killed supervisor after an offline switch to `node`). Returns whether the core may start. Every path that
+/// starts the core calls it first (T8a N1): the supervisor's start, [`restart_child`] (scheduled restarts,
+/// `daemon.start`, import maintenance) and [`run_restart_jobs`]. A missing or free `run/engine.process.lock` (the normal
+/// case) costs one try-lock and nothing else. A lock that cannot be checked (anything but a missing file that fails to
+/// open or lock, N3) keeps the core down at once. A held one: an engine whose identity the adoption probe proves is
+/// stopped with the usual deadlines; a hung or foreign server of the engine endpoint is terminated through the pin the
+/// probe took (N4, a deliberate rule: the same policy as for every endpoint of this home's private `run/` at start,
+/// S6/S8); then the lock is awaited for at most the engine's orphan grace (`supervisor.graceMs` × scale) plus 5 s.
+/// Still held → the core stays down, crashed for good with `engine-lock-held` (fail closed: two writers of one store),
+/// until `daemon start` or the next requested restart finds the lock free.
 fn engine_lock_gate(shared: &Arc<Shared>, layout: &Layout, token: &str) -> bool {
+    use crate::engine_process::{lock_state, LockState};
     let node = plur1bus_config::read(&layout.config_path())
         .ok()
         .and_then(|config| crate::engine_process::selected(&config).ok())
         == Some(false);
-    if !node || !crate::engine_process::lock_held(layout) {
+    if !node {
         return true;
+    }
+    match lock_state(layout) {
+        LockState::Free => return true,
+        LockState::Held => {}
+        LockState::Unverifiable(err) => {
+            child::mark_unspawnable(
+                shared,
+                "core",
+                &(
+                    state::CrashReason::EngineLockHeld,
+                    format!("run/engine.process.lock cannot be checked ({err}) although the node engine is selected; repair or remove it, then run `plur1bus daemon start`"),
+                ),
+            );
+            return false;
+        }
     }
     let role = Role::engine();
     shared.log.warn(
@@ -1345,11 +1365,25 @@ fn engine_lock_gate(shared: &Arc<Shared>, layout: &Layout, token: &str) -> bool 
     let deadline =
         Instant::now() + Duration::from_millis(grace_ms).mul_f64(scale) + ENGINE_LOCK_MARGIN;
     loop {
-        if !crate::engine_process::lock_held(layout) {
-            shared
-                .log
-                .info("engine lock released; starting the core", json!({}));
-            return true;
+        match lock_state(layout) {
+            LockState::Free => {
+                shared
+                    .log
+                    .info("engine lock released; starting the core", json!({}));
+                return true;
+            }
+            LockState::Held => {}
+            LockState::Unverifiable(err) => {
+                child::mark_unspawnable(
+                    shared,
+                    "core",
+                    &(
+                        state::CrashReason::EngineLockHeld,
+                        format!("run/engine.process.lock cannot be checked ({err}) although the node engine is selected; repair or remove it, then run `plur1bus daemon start`"),
+                    ),
+                );
+                return false;
+            }
         }
         if shared.lock().stopping.is_some() {
             return false;
@@ -1484,6 +1518,19 @@ fn spawn_child(shared: &Arc<Shared>, layout: &Layout, role: &Role, monitors: &mu
     }
 }
 
+/// B6/N5: whether a requested restart restarts the engine: it runs, and it started before the oldest request of the
+/// jobs (one that started after it already reads the configuration that asked for the restart).
+fn engine_restart_due(engine_since: Option<Instant>, oldest: Option<Instant>) -> bool {
+    engine_since.is_some() && !state::restart_already_done(engine_since, oldest)
+}
+
+/// A requested restart of the engine alone (B6/N5: the core's own restart was skipped).
+fn restart_engine_requested(monitors: &mut Monitors) {
+    if let Some(engine) = monitors.get_mut(ENGINE) {
+        engine.restart_requested(DEFAULT_STOP_BUDGET);
+    }
+}
+
 /// Runs the requested restarts queued so far as one (B8, M8). The modules a plan names, and every module whose
 /// `enabled` or `needs` situation changed with it, are stopped first (reverse start order); then the core, when a plan
 /// names it, through [`child::Monitor::restart_requested`] (or a first spawn when there has been no process); then the
@@ -1513,8 +1560,7 @@ fn run_restart_jobs(
         let engine_before = monitors.get(ENGINE).and_then(child::Monitor::running_since);
         // RE-D172: `engine.implementation` is a core-class key; the engine slot follows it before the core restarts.
         reconcile_engine(shared, layout, monitors);
-        let restart_engine = engine_before.is_some()
-            && !state::restart_already_done(engine_before, oldest)
+        let restart_engine = engine_restart_due(engine_before, oldest)
             && monitors.get(ENGINE).and_then(child::Monitor::running_since) == engine_before;
         let core = Role::core();
         let fresh = state::restart_already_done(
@@ -1523,29 +1569,43 @@ fn run_restart_jobs(
                 .and_then(child::Monitor::running_since),
             oldest,
         );
+        // Every arm that starts the core passes the engine-lock gate first (T8a N1); the engine is restarted whenever it
+        // started before the request, whether or not the core's own restart is skipped (N5).
         match monitors.get_mut(&core.name) {
-            Some(_) if fresh => shared.log.info(
-                "core restart skipped: the running core started after it was requested",
-                json!({ "jobs": jobs.len() }),
-            ),
-            Some(_) if restart_engine => {
+            Some(_) if fresh => {
+                shared.log.info(
+                    "core restart skipped: the running core started after it was requested",
+                    json!({ "jobs": jobs.len() }),
+                );
+                if restart_engine {
+                    restart_engine_requested(monitors);
+                }
+            }
+            Some(_) => {
                 let mut core_monitor = monitors.remove(&core.name).expect("checked above");
                 core_monitor.restart_requested_around(DEFAULT_STOP_BUDGET, || {
-                    if let Some(engine) = monitors.get_mut(ENGINE) {
-                        engine.stop_restarting(DEFAULT_STOP_BUDGET);
-                        if shared.lock().stopping.is_none() {
-                            engine.spawn();
+                    if restart_engine {
+                        if let Some(engine) = monitors.get_mut(ENGINE) {
+                            engine.stop_restarting(DEFAULT_STOP_BUDGET);
+                            if shared.lock().stopping.is_none() {
+                                engine.spawn();
+                            }
                         }
                     }
+                    engine_lock_gate(shared, layout, token)
                 });
                 monitors.insert(core.name.clone(), core_monitor);
             }
-            Some(m) => m.restart_requested(DEFAULT_STOP_BUDGET),
             None => {
-                if let Some(slot) = shared.lock().slot_mut(&core.name) {
-                    slot.backoff.reset();
+                if restart_engine {
+                    restart_engine_requested(monitors);
                 }
-                spawn_child(shared, layout, &core, monitors);
+                if engine_lock_gate(shared, layout, token) {
+                    if let Some(slot) = shared.lock().slot_mut(&core.name) {
+                        slot.backoff.reset();
+                    }
+                    spawn_child(shared, layout, &core, monitors);
+                }
             }
         }
         if monitors
@@ -1912,6 +1972,16 @@ mod tests {
             assert_eq!(budget, ENGINE_STOP_FLOOR, "{after:?}");
             assert_eq!(deadline, hard, "{after:?}");
         }
+    }
+
+    /// T8a N5: the engine is restarted for a request exactly when it started before it.
+    #[test]
+    fn the_engine_restart_follows_its_start_relative_to_the_oldest_request() {
+        let t0 = Instant::now();
+        let later = t0 + Duration::from_secs(1);
+        assert!(engine_restart_due(Some(t0), Some(later)), "started before");
+        assert!(!engine_restart_due(Some(later), Some(t0)), "started after");
+        assert!(!engine_restart_due(None, Some(t0)), "not running");
     }
 
     /// B1: the core's slot reports `starting` from the supervisor's start, so `daemon.status` lists it first even while

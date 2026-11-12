@@ -342,6 +342,18 @@ impl Backoff {
         Some(self.on_lock_held_exit(now))
     }
 
+    /// How long the `lock-held` exits have gone on at `now` (since the first one after the child was last ready or
+    /// reset); `None` before the first (T8a N7, logged with the ceiling decision).
+    pub fn lock_held_for(&self, now: Instant) -> Option<Duration> {
+        self.lock_held_since
+            .map(|since| now.saturating_duration_since(since))
+    }
+
+    /// `d` × this backoff's time scale (the ceiling [`Backoff::on_lock_held_exit_within`] compares against).
+    pub fn scaled(&self, d: Duration) -> Duration {
+        d.mul_f64(self.scale)
+    }
+
     /// Whether the backoff has given up (sticky until `reset()`).
     pub fn given_up(&self) -> bool {
         self.given_up

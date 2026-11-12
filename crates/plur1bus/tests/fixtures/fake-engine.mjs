@@ -28,6 +28,7 @@
 // FAKE_ENGINE_LATER_MODE (with PLUR1BUS_ALLOW_TEST_INTERNALS=1): the mode of every engine of a home but the first.
 // FAKE_ENGINE_STATUS (JSON) is merged over engine.status's top-level members.
 // FAKE_ENGINE_GRACE_MS: the orphan grace after the lifeline is lost (default 1000).
+// FAKE_ENGINE_SHUTDOWN_DELAY_MS: how long it takes to exit after engine.shutdown (default 20).
 // FAKE_ENGINE_IGNORE_SIGTERM=1: SIGTERM is caught and does nothing (event `sigterm`), so only a kill ends a hung fake.
 // Once it listens it writes the real engine's ready line `{"ready":true,"address","pid"}` to stdout.
 // Every event (started, os-lock, listening, shutdown, orphaned, adopted, exiting) is appended as one JSON line to
@@ -173,7 +174,7 @@ function shutdown(budgetMs) {
   event("shutdown", { budgetMs: budgetMs ?? null });
   server.close();
   removeRunFiles();
-  setTimeout(() => exit(0), 20);
+  setTimeout(() => exit(0), Number(process.env.FAKE_ENGINE_SHUTDOWN_DELAY_MS ?? 20));
 }
 
 const capabilities = { methods: {}, notifications: {}, extensionPoints: {}, features: [] };
