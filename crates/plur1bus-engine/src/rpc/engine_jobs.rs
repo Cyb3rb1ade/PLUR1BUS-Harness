@@ -418,7 +418,7 @@ impl JobRegistry for ProcessJobs {
             let run = dry_run_report(
                 job,
                 agent,
-                opts.trigger.unwrap_or(JobTrigger::Manual),
+                opts.trigger.unwrap_or(JobTrigger::Harness),
                 started,
                 self.host.now_ms(),
                 uuid::Uuid::new_v4().to_string(),

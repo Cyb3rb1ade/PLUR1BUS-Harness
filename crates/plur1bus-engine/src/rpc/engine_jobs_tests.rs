@@ -206,6 +206,41 @@ fn an_allowed_job_runs_and_its_run_is_in_the_ledger_history_and_status() {
     engine.close(None).unwrap();
 }
 
+/// Pin `engine/create-engine.js` (`jobs.run`): `trigger: opts?.trigger ?? "harness"`, for dry and real runs.
+#[test]
+fn a_run_without_a_trigger_is_a_harness_run_like_the_pin() {
+    let temp = scratch();
+    let (_host, engine) = engine(temp.path(), false);
+    for options in [json!({}), json!({"dryRun":true}), json!({"dryRun":false})] {
+        let run = engine
+            .jobs()
+            .run(
+                JobName::EmbeddingDrain,
+                &alpha(),
+                serde_json::from_value(options.clone()).unwrap(),
+                &Cancel::never(),
+            )
+            .unwrap();
+        assert_eq!(
+            serde_json::to_value(&run).unwrap()["trigger"],
+            "harness",
+            "{options}"
+        );
+    }
+    // An explicit trigger is kept.
+    let run = engine
+        .jobs()
+        .run(
+            JobName::EmbeddingDrain,
+            &alpha(),
+            options("manual"),
+            &Cancel::never(),
+        )
+        .unwrap();
+    assert_eq!(serde_json::to_value(&run).unwrap()["trigger"], "manual");
+    engine.close(None).unwrap();
+}
+
 #[test]
 fn an_unusable_jobs_root_keeps_the_engine_not_ready() {
     let temp = scratch();
