@@ -12,7 +12,9 @@ use crate::{
     store::Store,
 };
 use std::path::{Path, PathBuf};
-use std::time::{Instant, SystemTime};
+use std::time::Instant;
+#[cfg(unix)]
+use std::time::SystemTime;
 
 const LIVE: &str = "11111111-1111-4111-8111-111111111111";
 const OTHER: &str = "33333333-3333-4333-8333-333333333333";

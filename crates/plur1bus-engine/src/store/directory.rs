@@ -397,6 +397,13 @@ fn unix_child(parent: &File, name: &std::ffi::OsStr) -> Result<File, StoreError>
     Ok(file)
 }
 
+/// Windows has no error number for a symlink in the path: its callers open with `FILE_FLAG_OPEN_REPARSE_POINT` and
+/// refuse a reparse point by its attributes afterwards.
+#[cfg(windows)]
+fn directory_open_error(error: std::io::Error) -> StoreError {
+    io_error(error)
+}
+
 #[cfg(unix)]
 fn directory_open_error(error: std::io::Error) -> StoreError {
     if matches!(error.raw_os_error(), Some(libc::ELOOP | libc::ENOTDIR)) {

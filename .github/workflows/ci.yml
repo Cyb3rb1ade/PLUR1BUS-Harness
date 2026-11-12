@@ -62,9 +62,11 @@ jobs:
     env:
       GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
       PLUR1BUS_TOKENIZER_FILES_REQUIRED: "1"
-      # MSVC test executables do not need PDBs; assertions and overflow checks retain their defaults.
-      CARGO_PROFILE_DEV_DEBUG: ${{ matrix.os == 'windows-2025' && '0' || '2' }}
-      CARGO_PROFILE_TEST_DEBUG: ${{ matrix.os == 'windows-2025' && '0' || '2' }}
+      # No debug info in the test builds: every integration test executable of the engine links the whole store stack,
+      # and with debug info the workspace test build no longer fits a hosted runner's disk. Assertions and overflow
+      # checks retain their defaults; a panic still names its file and line.
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
       # PLUR1BUS_TOKENIZER_DIR is set on the steps that use it: a job's env has no `runner` context, and GitHub rejects
       # the whole workflow file when one is referenced there.
     steps:
@@ -109,6 +111,13 @@ jobs:
           sudo apt-get install -y -q bubblewrap
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           bwrap --ro-bind / / --unshare-all true && echo "bwrap ok"
+      # The workspace test build (every integration test executable of the engine links the whole store stack) does
+      # not fit beside the toolchains the hosted Linux image preinstalls and this job never uses.
+      - name: free runner disk space (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+          df -h /
       - run: pnpm install --frozen-lockfile
       - run: node scripts/check-toolchain.mjs
       - run: node --test scripts/check-toolchain.test.mjs
@@ -262,9 +271,11 @@ jobs:
     env:
       GH_ENGINE_READ_TOKEN: ${{ secrets.GH_ENGINE_READ_TOKEN }}
       PLUR1BUS_TOKENIZER_FILES_REQUIRED: "1"
-      # MSVC test executables do not need PDBs; assertions and overflow checks retain their defaults.
-      CARGO_PROFILE_DEV_DEBUG: ${{ matrix.os == 'windows-2025' && '0' || '2' }}
-      CARGO_PROFILE_TEST_DEBUG: ${{ matrix.os == 'windows-2025' && '0' || '2' }}
+      # No debug info in the test builds: every integration test executable of the engine links the whole store stack,
+      # and with debug info the workspace test build no longer fits a hosted runner's disk. Assertions and overflow
+      # checks retain their defaults; a panic still names its file and line.
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
       # PLUR1BUS_TOKENIZER_DIR is set on the steps that use it: a job's env has no `runner` context, and GitHub rejects
       # the whole workflow file when one is referenced there.
     steps:
@@ -315,6 +326,13 @@ jobs:
           sudo apt-get install -y -q bubblewrap
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           bwrap --ro-bind / / --unshare-all true && echo "bwrap ok"
+      # The workspace test build (every integration test executable of the engine links the whole store stack) does
+      # not fit beside the toolchains the hosted Linux image preinstalls and this job never uses.
+      - name: free runner disk space (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+          df -h /
       - run: pnpm install --frozen-lockfile
       - run: node scripts/check-toolchain.mjs
       - run: node --test scripts/check-toolchain.test.mjs

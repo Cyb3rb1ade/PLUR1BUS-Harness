@@ -267,8 +267,10 @@ test('unit checks continue after earlier failures, stop on cancellation and time
   }
 });
 
-test("Windows unit builds omit debug information without changing assertions or timeout budgets", () => {
-  const mode = "${{ matrix.os == 'windows-2025' && '0' || '2' }}";
+test("unit builds omit debug information without changing assertions or timeout budgets", () => {
+  // On every platform since #903: each integration test executable of the engine links the whole store stack, and with
+  // debug information the workspace test build did not fit the hosted Linux runner's disk.
+  const mode = '"0"';
   for (const name of ["unit", "unit-os"]) {
     const job = jobBlocks(workflow())[name];
     for (const profile of ["DEV", "TEST"]) {
