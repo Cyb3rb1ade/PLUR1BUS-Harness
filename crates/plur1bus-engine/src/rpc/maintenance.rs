@@ -58,7 +58,8 @@ impl ProcessMaintenance {
             crate::CRATE_VERSION.into(),
             Arc::new(move || clock.now_ms()),
             audit,
-        );
+        )
+        .with_fresh_base_current();
         Self {
             schema: Some(schema),
             reembedding: Some(reembedding),

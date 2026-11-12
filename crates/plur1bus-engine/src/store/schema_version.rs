@@ -36,6 +36,23 @@ pub fn read_base(base: &Path) -> Result<StoreSchemaVersion, StoreError> {
     Ok(read_marker(&base.join("_schema.json"))?.unwrap_or(StoreSchemaVersion::Legacy0))
 }
 
+/// The pin's `baseDbPathIsFreshStore`: the base is missing, or holds nothing but orphaned marker temporaries.
+pub fn is_fresh_base(base: &Path) -> Result<bool, StoreError> {
+    match fs::read_dir(base) {
+        Ok(entries) => {
+            for entry in entries {
+                let name = entry.map_err(io_error)?.file_name();
+                if !name.to_str().is_some_and(is_marker_temporary) {
+                    return Ok(false);
+                }
+            }
+            Ok(true)
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(true),
+        Err(error) => Err(io_error(error)),
+    }
+}
+
 /// Initialize only a missing or empty base, as the pinned engine does before opening any table.
 ///
 /// Existing nonempty bases stay legacy and existing markers are left byte-identical. The
@@ -47,21 +64,7 @@ pub fn initialize_base(
     engine_version: &str,
 ) -> Result<StoreSchemaVersion, StoreError> {
     assert_trusted_path(base)?;
-    let fresh = match fs::read_dir(base) {
-        Ok(entries) => {
-            let mut fresh = true;
-            for entry in entries {
-                let name = entry.map_err(io_error)?.file_name();
-                if !name.to_str().is_some_and(is_marker_temporary) {
-                    fresh = false;
-                    break;
-                }
-            }
-            fresh
-        }
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => true,
-        Err(error) => return Err(io_error(error)),
-    };
+    let fresh = is_fresh_base(base)?;
     if !fresh {
         return read_base(base);
     }

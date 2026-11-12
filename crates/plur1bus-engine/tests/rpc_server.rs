@@ -796,6 +796,70 @@ fn the_allowed_cold_cli_seam_delays_only_the_first_two_query_calls_over_rpc() {
     engine.assert_run_files_removed();
 }
 
+/// Pin `engine/create-engine.js` (`baseDbPathIsFreshStore`): a missing or empty `baseDbPath` starts at schema 1 at
+/// engine creation, so `admin.migrate {0 -> 1}` answers `conflict` and `{1 -> 1}` is `applied: false`. Rust answers
+/// the same without writing anything to the store base (a store is initialised when it is first created).
+#[test]
+fn migration_on_a_fresh_store_base_conflicts_like_the_pin_and_writes_nothing() {
+    fn listing(dir: &std::path::Path) -> Vec<String> {
+        fn walk(dir: &std::path::Path, prefix: &str, out: &mut Vec<String>) {
+            let Ok(entries) = fs::read_dir(dir) else {
+                return;
+            };
+            for entry in entries {
+                let entry = entry.unwrap();
+                let name = format!("{prefix}/{}", entry.file_name().to_string_lossy());
+                out.push(name.clone());
+                if entry.path().is_dir() {
+                    walk(&entry.path(), &name, out);
+                }
+            }
+        }
+        let mut out = vec![];
+        walk(dir, "", &mut out);
+        out.sort();
+        out
+    }
+    for empty_dir in [false, true] {
+        let _serial = process_test();
+        let home = home();
+        let base = home.path().join("state/lancedb");
+        if empty_dir {
+            fs::create_dir_all(&base).unwrap();
+        }
+        let mut engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
+        let mut peer = RawConnection::connect(engine.address());
+        peer.call(
+            1,
+            "engine.auth",
+            json!({"token":engine.token(),"clientId":"core-fixture"}),
+        );
+        let pid_file = home.path().join("run/core.pid");
+        fs::write(&pid_file, format!("{} {INSTANCE}\n", std::process::id())).unwrap();
+        plur1bus_engine::store::paths::secure_file(&pid_file).unwrap();
+        let before = listing(&base);
+        let migrate = |peer: &mut RawConnection, id, from: &str, to: &str| {
+            peer.call(id, "engine.admin.migrate", json!({"from":from,"to":to}))
+        };
+        let conflict = migrate(&mut peer, 2, "0", "1");
+        assert_eq!(
+            conflict["error"]["data"]["reason"], "conflict",
+            "{conflict}"
+        );
+        let same = migrate(&mut peer, 3, "1", "1");
+        assert_eq!(
+            same["result"],
+            json!({"from":"1","to":"1","applied":false}),
+            "{same}"
+        );
+        assert_eq!(listing(&base), before, "empty_dir: {empty_dir}");
+        assert_eq!(base.exists(), empty_dir, "empty_dir: {empty_dir}");
+        drop(peer);
+        engine.close_stdin();
+        assert!(engine.wait_for_exit().success());
+    }
+}
+
 #[test]
 fn schema_migration_requires_the_live_core_peer_and_audits_the_actual_change() {
     let _serial = process_test();

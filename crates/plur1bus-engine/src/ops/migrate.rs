@@ -52,6 +52,7 @@ pub struct SchemaMigrator {
     engine_version: String,
     clock: Arc<dyn Fn() -> i64 + Send + Sync>,
     audit: Arc<dyn MaintenanceAudit>,
+    fresh_base_is_current: bool,
 }
 impl SchemaMigrator {
     /// Bind dependencies without creating directories or reading the schema.
@@ -66,13 +67,31 @@ impl SchemaMigrator {
             engine_version,
             clock,
             audit,
+            fresh_base_is_current: false,
         }
+    }
+    /// Read a missing or empty base as schema 1, as the pinned engine does after creating it
+    /// (`baseDbPathIsFreshStore` writes the marker at start). Nothing is written here: the Rust
+    /// engine initialises the base when its first store is created. Off by default so the
+    /// marker-only oracle (a bare migrator on a missing base) keeps its meaning.
+    #[must_use]
+    pub fn with_fresh_base_current(mut self) -> Self {
+        self.fresh_base_is_current = true;
+        self
+    }
+    fn current(&self) -> Option<String> {
+        if self.fresh_base_is_current
+            && crate::store::schema_version::is_fresh_base(&self.base).ok() == Some(true)
+        {
+            return Some("1".into());
+        }
+        super::status::schema_version(&self.base)
     }
     fn validate(&self, from: &str, to: &str) -> Result<bool, EngineError> {
         if !digits(from) || !digits(to) {
             return Err(invalid());
         }
-        let current = super::status::schema_version(&self.base).ok_or_else(|| storage(()))?;
+        let current = self.current().ok_or_else(|| storage(()))?;
         if from != current {
             return Err(super::context::error(MemoryOpErrorCode::Conflict));
         }
