@@ -44,6 +44,17 @@ pub const ENGINE_FILES: &[&str] = &[
 ];
 pub const ENGINE_DIRS: &[&str] = &["state/memory/_archive"];
 
+/// The engine's derived LLM response cache lives directly below its database root. Do not
+/// match identically named user files in agents/workspaces or a different store subdirectory.
+/// Legacy archives remain valid: consumers omit this subtree only after verification.
+pub fn is_derived_cache(p: &str) -> bool {
+    let mut parts = p.split('/');
+    parts.next() == Some("store")
+        && parts
+            .next()
+            .is_some_and(|name| name.eq_ignore_ascii_case("llm-result-cache-v1"))
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Manifest {

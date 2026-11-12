@@ -6,8 +6,10 @@ use plur1bus_engine::rpc::{
     host_client::RpcHost,
     layout::EngineLayout,
     lifeline::Lifeline,
+    maintenance::ProcessMaintenance,
     platform, seams,
     server::{self, ServeError},
+    snapshot::ProcessSnapshots,
 };
 use std::{
     io::{self, Write},
@@ -57,6 +59,9 @@ fn run(command: Command) -> Result<(), (u8, String)> {
         seams::from_env()
     }
     .map_err(|e| (2, e.to_string()))?;
+    let fixture_clock =
+        seams::fixture_clock(std::env::var_os("PLUR1BUS_TEST_CLOCK_MS").as_deref(), seam)
+            .map_err(|e| (2, e.to_string()))?;
     let mut layout = EngineLayout::new(
         &home,
         instance.unwrap_or_else(uuid::Uuid::new_v4).to_string(),
@@ -64,20 +69,49 @@ fn run(command: Command) -> Result<(), (u8, String)> {
     .map_err(|_| (2, "engine home is unavailable or untrusted".into()))?;
     let (config, grace) = config::load(&layout.home).map_err(|e| (2, e.to_string()))?;
     layout.grace = grace;
+    let store_base = config.base_db_path.clone().filter(|path| !path.is_empty());
     let host = Arc::new(
         RpcHost::new(layout.home.clone(), layout.token().to_owned(), config)
-            .with_platform(platform::capabilities()),
+            .with_platform(platform::capabilities())
+            .with_fixture_clock(fixture_clock),
     );
-    let engine = Arc::new(ProcessEngine::new(host.clone(), seam).map_err(|e| (2, e.to_string()))?);
+    let engine = ProcessEngine::new(host.clone(), seam).map_err(|e| (2, e.to_string()))?;
+    // The pinned engine writes the schema marker of a fresh store base when it is created, and the Harness relies on
+    // the base existing (its backup snapshot reads the store directory). The process does the same once at its start;
+    // the library constructor and every read path stay free of writes (RE-D175). A base that cannot be initialized
+    // does not stop the start: the operations report it.
+    if let Some(base) = &store_base {
+        if let Err(error) = plur1bus_engine::store::schema_version::initialize_base(
+            std::path::Path::new(base),
+            &chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+            env!("CARGO_PKG_VERSION"),
+        ) {
+            let _ = writeln!(
+                io::stderr().lock(),
+                "plur1bus-engine: store base not initialized ({error})"
+            );
+        }
+    }
+    let engine = Arc::new(if fixture_clock.is_some() {
+        engine.with_fixture_tombstone_ids()
+    } else {
+        engine
+    });
     let weak_engine = Arc::downgrade(&engine);
     host.set_egress_invalidator(Arc::new(move || {
         if let Some(engine) = weak_engine.upgrade() {
             engine.invalidate_egress();
         }
     }));
+    // RE-D170: the snapshot port reuses this engine's namespace routes and mutation gate.
+    let snapshots = Arc::new(ProcessSnapshots::with_seam(
+        host.clone(),
+        engine.snapshot_routes(),
+        seam,
+    ));
     // The trusted supervisor/spawner owns process-group isolation. A hand start
     // stays in its terminal's foreground group so Ctrl-C and stdin keep working.
-    server::serve(
+    server::serve_with_ports(
         engine,
         &layout,
         if lifeline.is_some() {
@@ -85,6 +119,8 @@ fn run(command: Command) -> Result<(), (u8, String)> {
         } else {
             Lifeline::None
         },
+        Arc::new(ProcessMaintenance::with_seam(host, seam)),
+        snapshots,
     )
     .map_err(|e| {
         let code = if matches!(e, ServeError::Locked) {

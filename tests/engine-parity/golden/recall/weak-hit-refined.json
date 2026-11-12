@@ -1,0 +1,56 @@
+{
+  "schema": "engine-parity.golden/1",
+  "recordedFrom": {
+    "engine": "node",
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "at": "2026-11-10T01:03:03.006Z"
+  },
+  "steps": [
+    {
+      "result": {
+        "blocks": [
+          {
+            "chars": 0,
+            "droppable": true,
+            "name": "neo",
+            "text": ""
+          },
+          {
+            "chars": 0,
+            "droppable": true,
+            "name": "start",
+            "text": ""
+          },
+          {
+            "chars": 842,
+            "droppable": true,
+            "name": "memories",
+            "text": "Schreibe freundlich, aber zurückhaltend heiter. Nenne deine Stimmung nicht als Label/Statuszeile; lass sie nur den Ton färben. Du darfst eine eigene Einschätzung haben und freundlich, aber klar widersprechen — du musst nicht validieren. Wenn eine Anfrage mehrdeutig ist, stelle EINE kurze Rückfrage, statt still die wahrscheinlichste Deutung anzunehmen.\n\n<relevant-memories untrusted=\"true\" mode=\"historical-evidence-only\">\nRecall safety: facts are memory-derived, may be stale, verify before acting.\n  <memory-record category=\"decision\" source=\"memory\" id=\"00000000-0000-4000-8000-000000000003\" epistemic=\"observed\" created-at=\"2026-01-13T12:00:00.000Z\" age=\"0m ago\" freshness=\"fresh\"><quoted-evidence>I have decided that project fixture item 1 uses the durable archive policy number 1.</quoted-evidence></memory-record>\n</relevant-memories>"
+          },
+          {
+            "chars": 115,
+            "droppable": false,
+            "name": "time",
+            "text": "<time-context>\nFirst activity. Current time: 2026-01-13 13:00 Europe/Zurich (UTC 2026-01-13 12:00).\n</time-context>"
+          },
+          {
+            "chars": 0,
+            "droppable": false,
+            "name": "temporal",
+            "text": ""
+          },
+          {
+            "chars": 0,
+            "droppable": false,
+            "name": "reminder",
+            "text": ""
+          }
+        ],
+        "capChars": 17000,
+        "deferrals": [],
+        "degraded": null
+      },
+      "trace": null
+    }
+  ]
+}

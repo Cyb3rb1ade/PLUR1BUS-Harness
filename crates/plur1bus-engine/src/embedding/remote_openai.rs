@@ -90,7 +90,8 @@ impl<'a> OpenAiEmbeddingProvider<'a> {
             .filter(|v| !v.is_empty())
             .unwrap_or(&identity.model)
             .to_owned();
-        if model != identity.model
+        if !matches!(identity.provider.as_str(), "openai" | "openai-compatible")
+            || model != identity.model
             || config
                 .get("provider")
                 .filter(|value| !value.is_null())
@@ -107,8 +108,17 @@ impl<'a> OpenAiEmbeddingProvider<'a> {
             .and_then(Value::as_str)
             .filter(|v| !v.is_empty())
             .unwrap_or("https://api.openai.com/v1");
-        let (mut endpoint, _) =
+        let (mut endpoint, target) =
             crate::transport::target::parse_url(base).map_err(|_| EmbedError::Unavailable)?;
+        // The implicit credential belongs to the destination, not its protocol dialect.
+        // Explicit apiKeyRef/apiKeyEnv names still take precedence in Credential::new.
+        let default_secret = if endpoint.scheme() == "https"
+            && (target.host == "api.openai.com" || target.host.ends_with(".api.openai.com"))
+        {
+            "OPENAI_API_KEY"
+        } else {
+            "OPENAI_COMPATIBLE_API_KEY"
+        };
         endpoint.set_path(&format!(
             "{}/embeddings",
             endpoint.path().trim_end_matches('/')
@@ -124,7 +134,7 @@ impl<'a> OpenAiEmbeddingProvider<'a> {
         Ok(Self {
             identity,
             client,
-            credential: Credential::new(config, Some("OPENAI_API_KEY"), store)
+            credential: Credential::new(config, Some(default_secret), store)
                 .map_err(|_| EmbedError::Unavailable)?,
             endpoint: endpoint.into(),
             model,
@@ -261,6 +271,16 @@ impl<'a> OpenAiEmbeddingProvider<'a> {
     }
 }
 impl EmbeddingProvider for OpenAiEmbeddingProvider<'_> {
+    fn model_selection(&self) -> super::model_selection::ModelSelection {
+        super::model_selection::ModelSelection {
+            provider: self.identity.provider.clone(),
+            model: Some(self.model.clone()),
+            revision: None,
+            dtype: None,
+            role: super::model_selection::ModelRole::Embedding,
+            location: super::model_selection::ModelLocation::Remote,
+        }
+    }
     fn identity(&self) -> &VectorSpaceIdentity {
         &self.identity
     }

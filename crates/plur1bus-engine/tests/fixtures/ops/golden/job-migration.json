@@ -1,0 +1,790 @@
+{
+  "pin": "9b935ce1f970bd92a931aa99a58c620669c8085f",
+  "node": "v24.21.0",
+  "sourceHashes": [
+    {
+      "path": "package.json",
+      "sha256": "62985e09c9dbbbf89352bbda6da3fc1c1a92e1006d6b92e680dca0d0d89fdaf9"
+    },
+    {
+      "path": "engine/jobs/run-state-migration.js",
+      "sha256": "801ffa9bf60ad2bcad8e0505bab24abcd0cf476231c98ea27f80103044260a03"
+    },
+    {
+      "path": "engine/jobs/job-registry.js",
+      "sha256": "74fd274fb9d2edaf28690882f24f5f1fc3aea5c469681af27972f03383f45d5a"
+    },
+    {
+      "path": "engine/jobs/job-ledger.js",
+      "sha256": "2bdfd31f59ddf0cedc35175c67b9238bedd242780465c79dc98de2eec742f002"
+    },
+    {
+      "path": "engine/jobs/job-specs.js",
+      "sha256": "6f7e191a08e0cedb281b1015dee018b4891f45c359ed5de5a581594945af9f8b"
+    },
+    {
+      "path": "engine/events.js",
+      "sha256": "5a0a2f7a09d8214812549d177ad876d7a12a6fdf0f2f68d2c7adee6beef01952"
+    },
+    {
+      "path": "lib/dreaming/dream-diary.js",
+      "sha256": "8108796bc7f46b1246f9a69c6fde993a84a915a45915385daf3d07c0cd508780"
+    },
+    {
+      "path": "lib/host-sdk-loader.js",
+      "sha256": "ce7aff857496e068e077b358dfe0f8e64551652b7484281351f329745887925e"
+    },
+    {
+      "path": "lib/feature-cron-specs.js",
+      "sha256": "7f4aa7a1ffe3d623cc17c503013b9cb8b5a6a1bbb8768749081febc4a0f77f3e"
+    },
+    {
+      "path": "lib/sql-safety.js",
+      "sha256": "a6b949df02d29d3ed0494964c004d861d718eeb90abd271410e22a489de1bc62"
+    },
+    {
+      "path": "lib/log-redact.js",
+      "sha256": "f64f7d2e2fbf13684ad16fe045a1e43a9755c57be00ee7532479286eed0068e3"
+    }
+  ],
+  "agentId": "alpha",
+  "now": 1794225600123,
+  "boundaries": {
+    "implementation": "actual migrateRunStateCompletions",
+    "files": "real isolated input and first rollback copy",
+    "adapters": "captured appendRow and writeRunState callbacks; not registry startup",
+    "normalization": "none",
+    "providers": "none"
+  },
+  "cases": [
+    {
+      "name": "absent",
+      "runs": [
+        {
+          "rawBefore": null,
+          "result": {
+            "migrated": 0,
+            "status": "absent"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 0,
+          "backup": null
+        },
+        {
+          "rawBefore": null,
+          "result": {
+            "migrated": 0,
+            "status": "absent"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 0,
+          "backup": null
+        }
+      ]
+    },
+    {
+      "name": "corrupt-broken\n",
+      "runs": [
+        {
+          "rawBefore": "broken\n",
+          "result": {
+            "migrated": 0,
+            "status": "corrupt"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 1,
+          "backup": "broken\n"
+        },
+        {
+          "rawBefore": "broken\n",
+          "result": {
+            "migrated": 0,
+            "status": "corrupt"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 1,
+          "backup": "broken\n"
+        }
+      ]
+    },
+    {
+      "name": "corrupt-null",
+      "runs": [
+        {
+          "rawBefore": "null",
+          "result": {
+            "migrated": 0,
+            "status": "corrupt"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 1,
+          "backup": "null"
+        },
+        {
+          "rawBefore": "null",
+          "result": {
+            "migrated": 0,
+            "status": "corrupt"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 1,
+          "backup": "null"
+        }
+      ]
+    },
+    {
+      "name": "corrupt-[]",
+      "runs": [
+        {
+          "rawBefore": "[]",
+          "result": {
+            "migrated": 0,
+            "status": "corrupt"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 1,
+          "backup": "[]"
+        },
+        {
+          "rawBefore": "[]",
+          "result": {
+            "migrated": 0,
+            "status": "corrupt"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 1,
+          "backup": "[]"
+        }
+      ]
+    },
+    {
+      "name": "corrupt-true",
+      "runs": [
+        {
+          "rawBefore": "true",
+          "result": {
+            "migrated": 0,
+            "status": "corrupt"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 1,
+          "backup": "true"
+        },
+        {
+          "rawBefore": "true",
+          "result": {
+            "migrated": 0,
+            "status": "corrupt"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 1,
+          "backup": "true"
+        }
+      ]
+    },
+    {
+      "name": "corrupt-12",
+      "runs": [
+        {
+          "rawBefore": "12",
+          "result": {
+            "migrated": 0,
+            "status": "corrupt"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 1,
+          "backup": "12"
+        },
+        {
+          "rawBefore": "12",
+          "result": {
+            "migrated": 0,
+            "status": "corrupt"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 1,
+          "backup": "12"
+        }
+      ]
+    },
+    {
+      "name": "corrupt-\"text\"",
+      "runs": [
+        {
+          "rawBefore": "\"text\"",
+          "result": {
+            "migrated": 0,
+            "status": "corrupt"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 1,
+          "backup": "\"text\""
+        },
+        {
+          "rawBefore": "\"text\"",
+          "result": {
+            "migrated": 0,
+            "status": "corrupt"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 1,
+          "backup": "\"text\""
+        }
+      ]
+    },
+    {
+      "name": "empty",
+      "runs": [
+        {
+          "rawBefore": "  { \"untouched\": 3 } \n",
+          "result": {
+            "migrated": 0,
+            "status": "migrated"
+          },
+          "appendedJson": "[]",
+          "newStateJson": "{\"untouched\":3,\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "warnings": 0,
+          "backup": "  { \"untouched\": 3 } \n"
+        },
+        {
+          "rawBefore": "{\"untouched\":3,\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "result": {
+            "migrated": 0,
+            "status": "already"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 0,
+          "backup": "  { \"untouched\": 3 } \n"
+        }
+      ]
+    },
+    {
+      "name": "single",
+      "runs": [
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}}}",
+          "result": {
+            "migrated": 1,
+            "status": "migrated"
+          },
+          "appendedJson": "[{\"runId\":\"migrated:rem:alpha:workspace:one\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"cron\",\"startedAt\":1794139200000,\"finishedAt\":1794139200000,\"durationMs\":0,\"outcome\":\"completed\",\"reason\":\"migrated\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{\"patternsFound\":3,\"memoriesProcessed\":7},\"keys\":[\"rem:alpha:workspace:one\"],\"idempotencyKey\":\"rem:alpha:workspace:one\",\"migrated\":true,\"sweep\":\"2026-11-08\",\"llmSession\":false}]",
+          "newStateJson": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}}}"
+        },
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "result": {
+            "migrated": 0,
+            "status": "already"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}}}"
+        }
+      ]
+    },
+    {
+      "name": "mixed-agents",
+      "runs": [
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7},\"rem:beta:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7},\"light:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}}}",
+          "result": {
+            "migrated": 1,
+            "status": "migrated"
+          },
+          "appendedJson": "[{\"runId\":\"migrated:rem:alpha:workspace:one\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"cron\",\"startedAt\":1794139200000,\"finishedAt\":1794139200000,\"durationMs\":0,\"outcome\":\"completed\",\"reason\":\"migrated\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{\"patternsFound\":3,\"memoriesProcessed\":7},\"keys\":[\"rem:alpha:workspace:one\"],\"idempotencyKey\":\"rem:alpha:workspace:one\",\"migrated\":true,\"sweep\":\"2026-11-08\",\"llmSession\":false}]",
+          "newStateJson": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7},\"rem:beta:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7},\"light:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7},\"rem:beta:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7},\"light:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}}}"
+        },
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7},\"rem:beta:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7},\"light:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "result": {
+            "migrated": 0,
+            "status": "already"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7},\"rem:beta:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7},\"light:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}}}"
+        }
+      ]
+    },
+    {
+      "name": "legacy-substring-key",
+      "runs": [
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:workspace:alpha:suffix\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}}}",
+          "result": {
+            "migrated": 1,
+            "status": "migrated"
+          },
+          "appendedJson": "[{\"runId\":\"migrated:rem:workspace:alpha:suffix\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"cron\",\"startedAt\":1794139200000,\"finishedAt\":1794139200000,\"durationMs\":0,\"outcome\":\"completed\",\"reason\":\"migrated\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{\"patternsFound\":3,\"memoriesProcessed\":7},\"keys\":[\"rem:workspace:alpha:suffix\"],\"idempotencyKey\":\"rem:workspace:alpha:suffix\",\"migrated\":true,\"sweep\":\"2026-11-08\",\"llmSession\":false}]",
+          "newStateJson": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:workspace:alpha:suffix\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:workspace:alpha:suffix\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}}}"
+        },
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:workspace:alpha:suffix\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "result": {
+            "migrated": 0,
+            "status": "already"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:workspace:alpha:suffix\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}}}"
+        }
+      ]
+    },
+    {
+      "name": "opaque-run-key",
+      "runs": [
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:raw-\\ud800\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}}}",
+          "result": {
+            "migrated": 1,
+            "status": "migrated"
+          },
+          "appendedJson": "[{\"runId\":\"migrated:rem:alpha:raw-\\ud800\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"cron\",\"startedAt\":1794139200000,\"finishedAt\":1794139200000,\"durationMs\":0,\"outcome\":\"completed\",\"reason\":\"migrated\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{\"patternsFound\":3,\"memoriesProcessed\":7},\"keys\":[\"rem:alpha:raw-\\ud800\"],\"idempotencyKey\":\"rem:alpha:raw-\\ud800\",\"migrated\":true,\"sweep\":\"2026-11-08\",\"llmSession\":false}]",
+          "newStateJson": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:raw-\\ud800\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:raw-\\ud800\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}}}"
+        },
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:raw-\\ud800\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "result": {
+            "migrated": 0,
+            "status": "already"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:raw-\\ud800\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}}}"
+        }
+      ]
+    },
+    {
+      "name": "metadata-0",
+      "runs": [
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{}}}",
+          "result": {
+            "migrated": 1,
+            "status": "migrated"
+          },
+          "appendedJson": "[{\"runId\":\"migrated:rem:alpha:workspace:one\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"cron\",\"startedAt\":1794225600123,\"finishedAt\":1794225600123,\"durationMs\":0,\"outcome\":\"completed\",\"reason\":\"migrated\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{},\"keys\":[\"rem:alpha:workspace:one\"],\"idempotencyKey\":\"rem:alpha:workspace:one\",\"migrated\":true,\"sweep\":\"2026-11-09\",\"llmSession\":false}]",
+          "newStateJson": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{}}}"
+        },
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "result": {
+            "migrated": 0,
+            "status": "already"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{}}}"
+        }
+      ]
+    },
+    {
+      "name": "metadata-1",
+      "runs": [
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":null}}}",
+          "result": {
+            "migrated": 1,
+            "status": "migrated"
+          },
+          "appendedJson": "[{\"runId\":\"migrated:rem:alpha:workspace:one\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"cron\",\"startedAt\":1794225600123,\"finishedAt\":1794225600123,\"durationMs\":0,\"outcome\":\"completed\",\"reason\":\"migrated\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{},\"keys\":[\"rem:alpha:workspace:one\"],\"idempotencyKey\":\"rem:alpha:workspace:one\",\"migrated\":true,\"sweep\":\"2026-11-09\",\"llmSession\":false}]",
+          "newStateJson": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":null}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":null}}}"
+        },
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":null}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "result": {
+            "migrated": 0,
+            "status": "already"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":null}}}"
+        }
+      ]
+    },
+    {
+      "name": "metadata-2",
+      "runs": [
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"\"}}}",
+          "result": {
+            "migrated": 1,
+            "status": "migrated"
+          },
+          "appendedJson": "[{\"runId\":\"migrated:rem:alpha:workspace:one\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"cron\",\"startedAt\":1794225600123,\"finishedAt\":1794225600123,\"durationMs\":0,\"outcome\":\"completed\",\"reason\":\"migrated\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{},\"keys\":[\"rem:alpha:workspace:one\"],\"idempotencyKey\":\"rem:alpha:workspace:one\",\"migrated\":true,\"sweep\":\"2026-11-09\",\"llmSession\":false}]",
+          "newStateJson": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"\"}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"\"}}}"
+        },
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"\"}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "result": {
+            "migrated": 0,
+            "status": "already"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"\"}}}"
+        }
+      ]
+    },
+    {
+      "name": "metadata-3",
+      "runs": [
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08\",\"patternsFound\":3,\"memoriesProcessed\":7}}}",
+          "result": {
+            "migrated": 1,
+            "status": "migrated"
+          },
+          "appendedJson": "[{\"runId\":\"migrated:rem:alpha:workspace:one\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"cron\",\"startedAt\":1794096000000,\"finishedAt\":1794096000000,\"durationMs\":0,\"outcome\":\"completed\",\"reason\":\"migrated\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{\"patternsFound\":3,\"memoriesProcessed\":7},\"keys\":[\"rem:alpha:workspace:one\"],\"idempotencyKey\":\"rem:alpha:workspace:one\",\"migrated\":true,\"sweep\":\"2026-11-08\",\"llmSession\":false}]",
+          "newStateJson": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08\",\"patternsFound\":3,\"memoriesProcessed\":7}}}"
+        },
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "result": {
+            "migrated": 0,
+            "status": "already"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08\",\"patternsFound\":3,\"memoriesProcessed\":7}}}"
+        }
+      ]
+    },
+    {
+      "name": "metadata-4",
+      "runs": [
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026\",\"patternsFound\":3,\"memoriesProcessed\":7}}}",
+          "result": {
+            "migrated": 1,
+            "status": "migrated"
+          },
+          "appendedJson": "[{\"runId\":\"migrated:rem:alpha:workspace:one\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"cron\",\"startedAt\":1767225600000,\"finishedAt\":1767225600000,\"durationMs\":0,\"outcome\":\"completed\",\"reason\":\"migrated\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{\"patternsFound\":3,\"memoriesProcessed\":7},\"keys\":[\"rem:alpha:workspace:one\"],\"idempotencyKey\":\"rem:alpha:workspace:one\",\"migrated\":true,\"sweep\":\"2026-01-01\",\"llmSession\":false}]",
+          "newStateJson": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026\",\"patternsFound\":3,\"memoriesProcessed\":7}}}"
+        },
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "result": {
+            "migrated": 0,
+            "status": "already"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026\",\"patternsFound\":3,\"memoriesProcessed\":7}}}"
+        }
+      ]
+    },
+    {
+      "name": "metadata-5",
+      "runs": [
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"1970-01-01T00:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}}}",
+          "result": {
+            "migrated": 1,
+            "status": "migrated"
+          },
+          "appendedJson": "[{\"runId\":\"migrated:rem:alpha:workspace:one\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"cron\",\"startedAt\":0,\"finishedAt\":0,\"durationMs\":0,\"outcome\":\"completed\",\"reason\":\"migrated\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{\"patternsFound\":3,\"memoriesProcessed\":7},\"keys\":[\"rem:alpha:workspace:one\"],\"idempotencyKey\":\"rem:alpha:workspace:one\",\"migrated\":true,\"sweep\":\"1970-01-01\",\"llmSession\":false}]",
+          "newStateJson": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"1970-01-01T00:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"1970-01-01T00:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}}}"
+        },
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"1970-01-01T00:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "result": {
+            "migrated": 0,
+            "status": "already"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"1970-01-01T00:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}}}"
+        }
+      ]
+    },
+    {
+      "name": "metadata-6",
+      "runs": [
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T13:00:00+01:00\",\"patternsFound\":3,\"memoriesProcessed\":7}}}",
+          "result": {
+            "migrated": 1,
+            "status": "migrated"
+          },
+          "appendedJson": "[{\"runId\":\"migrated:rem:alpha:workspace:one\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"cron\",\"startedAt\":1794139200000,\"finishedAt\":1794139200000,\"durationMs\":0,\"outcome\":\"completed\",\"reason\":\"migrated\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{\"patternsFound\":3,\"memoriesProcessed\":7},\"keys\":[\"rem:alpha:workspace:one\"],\"idempotencyKey\":\"rem:alpha:workspace:one\",\"migrated\":true,\"sweep\":\"2026-11-08\",\"llmSession\":false}]",
+          "newStateJson": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T13:00:00+01:00\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T13:00:00+01:00\",\"patternsFound\":3,\"memoriesProcessed\":7}}}"
+        },
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T13:00:00+01:00\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "result": {
+            "migrated": 0,
+            "status": "already"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T13:00:00+01:00\",\"patternsFound\":3,\"memoriesProcessed\":7}}}"
+        }
+      ]
+    },
+    {
+      "name": "metadata-7",
+      "runs": [
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":\"3\",\"memoriesProcessed\":false}}}",
+          "result": {
+            "migrated": 1,
+            "status": "migrated"
+          },
+          "appendedJson": "[{\"runId\":\"migrated:rem:alpha:workspace:one\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"cron\",\"startedAt\":1794139200000,\"finishedAt\":1794139200000,\"durationMs\":0,\"outcome\":\"completed\",\"reason\":\"migrated\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{},\"keys\":[\"rem:alpha:workspace:one\"],\"idempotencyKey\":\"rem:alpha:workspace:one\",\"migrated\":true,\"sweep\":\"2026-11-08\",\"llmSession\":false}]",
+          "newStateJson": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":\"3\",\"memoriesProcessed\":false}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":\"3\",\"memoriesProcessed\":false}}}"
+        },
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":\"3\",\"memoriesProcessed\":false}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "result": {
+            "migrated": 0,
+            "status": "already"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":\"3\",\"memoriesProcessed\":false}}}"
+        }
+      ]
+    },
+    {
+      "name": "metadata-8",
+      "runs": [
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":-2.5,\"memoriesProcessed\":0}}}",
+          "result": {
+            "migrated": 1,
+            "status": "migrated"
+          },
+          "appendedJson": "[{\"runId\":\"migrated:rem:alpha:workspace:one\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"cron\",\"startedAt\":1794139200000,\"finishedAt\":1794139200000,\"durationMs\":0,\"outcome\":\"completed\",\"reason\":\"migrated\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{\"patternsFound\":-2.5,\"memoriesProcessed\":0},\"keys\":[\"rem:alpha:workspace:one\"],\"idempotencyKey\":\"rem:alpha:workspace:one\",\"migrated\":true,\"sweep\":\"2026-11-08\",\"llmSession\":false}]",
+          "newStateJson": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":-2.5,\"memoriesProcessed\":0}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":-2.5,\"memoriesProcessed\":0}}}"
+        },
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":-2.5,\"memoriesProcessed\":0}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "result": {
+            "migrated": 0,
+            "status": "already"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":-2.5,\"memoriesProcessed\":0}}}"
+        }
+      ]
+    },
+    {
+      "name": "own-marker",
+      "runs": [
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"old\"}}",
+          "result": {
+            "migrated": 0,
+            "status": "already"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 0,
+          "backup": null
+        },
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"old\"}}",
+          "result": {
+            "migrated": 0,
+            "status": "already"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 0,
+          "backup": null
+        }
+      ]
+    },
+    {
+      "name": "foreign-marker",
+      "runs": [
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"beta\":\"old\"}}",
+          "result": {
+            "migrated": 1,
+            "status": "migrated"
+          },
+          "appendedJson": "[{\"runId\":\"migrated:rem:alpha:workspace:one\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"cron\",\"startedAt\":1794139200000,\"finishedAt\":1794139200000,\"durationMs\":0,\"outcome\":\"completed\",\"reason\":\"migrated\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{\"patternsFound\":3,\"memoriesProcessed\":7},\"keys\":[\"rem:alpha:workspace:one\"],\"idempotencyKey\":\"rem:alpha:workspace:one\",\"migrated\":true,\"sweep\":\"2026-11-08\",\"llmSession\":false}]",
+          "newStateJson": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"beta\":\"old\",\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"beta\":\"old\"}}"
+        },
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"beta\":\"old\",\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "result": {
+            "migrated": 0,
+            "status": "already"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"beta\":\"old\"}}"
+        }
+      ]
+    },
+    {
+      "name": "false-marker",
+      "runs": [
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"alpha\":false}}",
+          "result": {
+            "migrated": 1,
+            "status": "migrated"
+          },
+          "appendedJson": "[{\"runId\":\"migrated:rem:alpha:workspace:one\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"cron\",\"startedAt\":1794139200000,\"finishedAt\":1794139200000,\"durationMs\":0,\"outcome\":\"completed\",\"reason\":\"migrated\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{\"patternsFound\":3,\"memoriesProcessed\":7},\"keys\":[\"rem:alpha:workspace:one\"],\"idempotencyKey\":\"rem:alpha:workspace:one\",\"migrated\":true,\"sweep\":\"2026-11-08\",\"llmSession\":false}]",
+          "newStateJson": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"alpha\":false}}"
+        },
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "result": {
+            "migrated": 0,
+            "status": "already"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"alpha\":false}}"
+        }
+      ]
+    },
+    {
+      "name": "false-completed",
+      "runs": [
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":false}",
+          "result": {
+            "migrated": 0,
+            "status": "migrated"
+          },
+          "appendedJson": "[]",
+          "newStateJson": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":false,\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":false}"
+        },
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":false,\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "result": {
+            "migrated": 0,
+            "status": "already"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 0,
+          "backup": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":false}"
+        }
+      ]
+    },
+    {
+      "name": "integer-key-order",
+      "runs": [
+        {
+          "rawBefore": "{\"2\":\"two\",\"10\":\"ten\",\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}}}",
+          "result": {
+            "migrated": 1,
+            "status": "migrated"
+          },
+          "appendedJson": "[{\"runId\":\"migrated:rem:alpha:workspace:one\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"cron\",\"startedAt\":1794139200000,\"finishedAt\":1794139200000,\"durationMs\":0,\"outcome\":\"completed\",\"reason\":\"migrated\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{\"patternsFound\":3,\"memoriesProcessed\":7},\"keys\":[\"rem:alpha:workspace:one\"],\"idempotencyKey\":\"rem:alpha:workspace:one\",\"migrated\":true,\"sweep\":\"2026-11-08\",\"llmSession\":false}]",
+          "newStateJson": "{\"2\":\"two\",\"10\":\"ten\",\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "warnings": 0,
+          "backup": "{\"2\":\"two\",\"10\":\"ten\",\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}}}"
+        },
+        {
+          "rawBefore": "{\"2\":\"two\",\"10\":\"ten\",\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "result": {
+            "migrated": 0,
+            "status": "already"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 0,
+          "backup": "{\"2\":\"two\",\"10\":\"ten\",\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}}}"
+        }
+      ]
+    },
+    {
+      "name": "corrupt-then-repaired",
+      "runs": [
+        {
+          "rawBefore": "broken first bytes\n",
+          "result": {
+            "migrated": 0,
+            "status": "corrupt"
+          },
+          "appendedJson": "[]",
+          "newStateJson": null,
+          "warnings": 1,
+          "backup": "broken first bytes\n"
+        },
+        {
+          "rawBefore": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}}}",
+          "result": {
+            "migrated": 1,
+            "status": "migrated"
+          },
+          "appendedJson": "[{\"runId\":\"migrated:rem:alpha:workspace:one\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"cron\",\"startedAt\":1794139200000,\"finishedAt\":1794139200000,\"durationMs\":0,\"outcome\":\"completed\",\"reason\":\"migrated\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{\"patternsFound\":3,\"memoriesProcessed\":7},\"keys\":[\"rem:alpha:workspace:one\"],\"idempotencyKey\":\"rem:alpha:workspace:one\",\"migrated\":true,\"sweep\":\"2026-11-08\",\"llmSession\":false}]",
+          "newStateJson": "{\"untouched\":{\"opaque\":\"raw-\\ud800\"},\"completed\":{\"rem:alpha:workspace:one\":{\"completedAt\":\"2026-11-08T12:00:00.000Z\",\"patternsFound\":3,\"memoriesProcessed\":7}},\"plur1busLedgerMigratedAt\":{\"alpha\":\"2026-11-09T12:00:00.123Z\"}}",
+          "warnings": 0,
+          "backup": "broken first bytes\n"
+        }
+      ]
+    }
+  ]
+}

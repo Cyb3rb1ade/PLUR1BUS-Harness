@@ -1,0 +1,1272 @@
+{
+  "recordedFrom": {
+    "engine": "node",
+    "source": {
+      "commit": "088ba31e441c170b47dfa41d97bd78c5265e6f69",
+      "treeSha256": "83172f93354fc16837375db5f3e405815bf3ae5ce7b63c8c5d321a7d988561ff",
+      "paths": [
+        "engine/**/*.js",
+        "lib/**/*.js"
+      ],
+      "purpose": "C2 reembedding hardening from engine PR 266; validate facade and empty-agent acceptance additionally use pin 9f34008c"
+    },
+    "node": "v24.21.0"
+  },
+  "cases": [
+    {
+      "name": "happy",
+      "request": {
+        "expectedGeneration": "target-generation",
+        "fingerprint": {
+          "provider": "openai",
+          "model": "synthetic-target",
+          "dimensions": 3
+        }
+      },
+      "value": {
+        "readiness": true,
+        "store": true,
+        "recall": true
+      },
+      "calls": [
+        {
+          "kind": "embed",
+          "input": {
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "purpose": "passage",
+            "fingerprint": {
+              "provider": "openai",
+              "model": "synthetic-target",
+              "dimensions": 3
+            }
+          }
+        },
+        {
+          "kind": "open",
+          "target": {
+            "generation": "target-generation",
+            "agentId": "plur1bus-reembedding-probe",
+            "dimensions": 3
+          }
+        },
+        {
+          "kind": "store",
+          "row": {
+            "id": "86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "vector": [
+              1,
+              0,
+              0
+            ],
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "summary": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "agentId": "plur1bus-reembedding-probe",
+            "storedBy": "plur1bus-reembedding-probe",
+            "workspaceId": "workspace:v1:plur1bus-reembedding-probe",
+            "workspaceKey": "workspace:v1:plur1bus-reembedding-probe",
+            "ownerUserId": "",
+            "scope": "agent-private",
+            "origin": "system",
+            "category": "fact",
+            "importance": 0.5,
+            "createdAt": 1234,
+            "status": "active",
+            "epistemicStatus": "observed"
+          }
+        },
+        {
+          "kind": "embed",
+          "input": {
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "purpose": "query",
+            "fingerprint": {
+              "provider": "openai",
+              "model": "synthetic-target",
+              "dimensions": 3
+            }
+          }
+        },
+        {
+          "kind": "search",
+          "vector": [
+            1,
+            0,
+            0
+          ],
+          "limit": 5,
+          "threshold": 0
+        },
+        {
+          "kind": "audit",
+          "entry": {
+            "event": "reembedding.synthetic_probe_delete",
+            "memoryId": "86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "agentId": "plur1bus-reembedding-probe",
+            "workspaceId": "workspace:v1:plur1bus-reembedding-probe",
+            "createdAt": 1234
+          }
+        },
+        {
+          "kind": "delete",
+          "id": "86db0fe4-922c-4ea2-9259-ea35ef10537d"
+        }
+      ],
+      "remaining": []
+    },
+    {
+      "name": "selection-drift",
+      "active": "other",
+      "request": {
+        "expectedGeneration": "target-generation",
+        "fingerprint": {
+          "provider": "openai",
+          "model": "synthetic-target",
+          "dimensions": 3
+        }
+      },
+      "error": "active generation selection drift after OpenClaw config mutation",
+      "aggregate": false,
+      "calls": [],
+      "remaining": []
+    },
+    {
+      "name": "invalid-dimension",
+      "dimensions": 0,
+      "request": {
+        "expectedGeneration": "target-generation",
+        "fingerprint": {
+          "provider": "openai",
+          "model": "synthetic-target",
+          "dimensions": 0
+        }
+      },
+      "error": "target embedding fingerprint is invalid",
+      "aggregate": false,
+      "calls": [],
+      "remaining": []
+    },
+    {
+      "name": "invalid-id",
+      "id": "not-a-uuid",
+      "request": {
+        "expectedGeneration": "target-generation",
+        "fingerprint": {
+          "provider": "openai",
+          "model": "synthetic-target",
+          "dimensions": 3
+        }
+      },
+      "error": "Invalid memory ID format: \"not-a-uuid\"",
+      "aggregate": false,
+      "calls": [],
+      "remaining": []
+    },
+    {
+      "name": "negative-clock",
+      "now": -1,
+      "request": {
+        "expectedGeneration": "target-generation",
+        "fingerprint": {
+          "provider": "openai",
+          "model": "synthetic-target",
+          "dimensions": 3
+        }
+      },
+      "error": "synthetic probe clock is invalid",
+      "aggregate": false,
+      "calls": [],
+      "remaining": []
+    },
+    {
+      "name": "fractional-clock",
+      "now": 1.5,
+      "request": {
+        "expectedGeneration": "target-generation",
+        "fingerprint": {
+          "provider": "openai",
+          "model": "synthetic-target",
+          "dimensions": 3
+        }
+      },
+      "error": "synthetic probe clock is invalid",
+      "aggregate": false,
+      "calls": [],
+      "remaining": []
+    },
+    {
+      "name": "passage-width",
+      "passage": "width",
+      "request": {
+        "expectedGeneration": "target-generation",
+        "fingerprint": {
+          "provider": "openai",
+          "model": "synthetic-target",
+          "dimensions": 3
+        }
+      },
+      "error": "reembedding passage vector is invalid",
+      "aggregate": false,
+      "calls": [
+        {
+          "kind": "embed",
+          "input": {
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "purpose": "passage",
+            "fingerprint": {
+              "provider": "openai",
+              "model": "synthetic-target",
+              "dimensions": 3
+            }
+          }
+        }
+      ],
+      "remaining": []
+    },
+    {
+      "name": "passage-nonfinite",
+      "passage": "nan",
+      "request": {
+        "expectedGeneration": "target-generation",
+        "fingerprint": {
+          "provider": "openai",
+          "model": "synthetic-target",
+          "dimensions": 3
+        }
+      },
+      "error": "reembedding passage vector is invalid",
+      "aggregate": false,
+      "calls": [
+        {
+          "kind": "embed",
+          "input": {
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "purpose": "passage",
+            "fingerprint": {
+              "provider": "openai",
+              "model": "synthetic-target",
+              "dimensions": 3
+            }
+          }
+        }
+      ],
+      "remaining": []
+    },
+    {
+      "name": "query-width",
+      "query": "width",
+      "request": {
+        "expectedGeneration": "target-generation",
+        "fingerprint": {
+          "provider": "openai",
+          "model": "synthetic-target",
+          "dimensions": 3
+        }
+      },
+      "error": "reembedding query vector is invalid",
+      "aggregate": false,
+      "calls": [
+        {
+          "kind": "embed",
+          "input": {
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "purpose": "passage",
+            "fingerprint": {
+              "provider": "openai",
+              "model": "synthetic-target",
+              "dimensions": 3
+            }
+          }
+        },
+        {
+          "kind": "open",
+          "target": {
+            "generation": "target-generation",
+            "agentId": "plur1bus-reembedding-probe",
+            "dimensions": 3
+          }
+        },
+        {
+          "kind": "store",
+          "row": {
+            "id": "86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "vector": [
+              1,
+              0,
+              0
+            ],
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "summary": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "agentId": "plur1bus-reembedding-probe",
+            "storedBy": "plur1bus-reembedding-probe",
+            "workspaceId": "workspace:v1:plur1bus-reembedding-probe",
+            "workspaceKey": "workspace:v1:plur1bus-reembedding-probe",
+            "ownerUserId": "",
+            "scope": "agent-private",
+            "origin": "system",
+            "category": "fact",
+            "importance": 0.5,
+            "createdAt": 1234,
+            "status": "active",
+            "epistemicStatus": "observed"
+          }
+        },
+        {
+          "kind": "embed",
+          "input": {
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "purpose": "query",
+            "fingerprint": {
+              "provider": "openai",
+              "model": "synthetic-target",
+              "dimensions": 3
+            }
+          }
+        },
+        {
+          "kind": "audit",
+          "entry": {
+            "event": "reembedding.synthetic_probe_delete",
+            "memoryId": "86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "agentId": "plur1bus-reembedding-probe",
+            "workspaceId": "workspace:v1:plur1bus-reembedding-probe",
+            "createdAt": 1234
+          }
+        },
+        {
+          "kind": "delete",
+          "id": "86db0fe4-922c-4ea2-9259-ea35ef10537d"
+        }
+      ],
+      "remaining": []
+    },
+    {
+      "name": "query-nonfinite",
+      "query": "nan",
+      "request": {
+        "expectedGeneration": "target-generation",
+        "fingerprint": {
+          "provider": "openai",
+          "model": "synthetic-target",
+          "dimensions": 3
+        }
+      },
+      "error": "reembedding query vector is invalid",
+      "aggregate": false,
+      "calls": [
+        {
+          "kind": "embed",
+          "input": {
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "purpose": "passage",
+            "fingerprint": {
+              "provider": "openai",
+              "model": "synthetic-target",
+              "dimensions": 3
+            }
+          }
+        },
+        {
+          "kind": "open",
+          "target": {
+            "generation": "target-generation",
+            "agentId": "plur1bus-reembedding-probe",
+            "dimensions": 3
+          }
+        },
+        {
+          "kind": "store",
+          "row": {
+            "id": "86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "vector": [
+              1,
+              0,
+              0
+            ],
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "summary": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "agentId": "plur1bus-reembedding-probe",
+            "storedBy": "plur1bus-reembedding-probe",
+            "workspaceId": "workspace:v1:plur1bus-reembedding-probe",
+            "workspaceKey": "workspace:v1:plur1bus-reembedding-probe",
+            "ownerUserId": "",
+            "scope": "agent-private",
+            "origin": "system",
+            "category": "fact",
+            "importance": 0.5,
+            "createdAt": 1234,
+            "status": "active",
+            "epistemicStatus": "observed"
+          }
+        },
+        {
+          "kind": "embed",
+          "input": {
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "purpose": "query",
+            "fingerprint": {
+              "provider": "openai",
+              "model": "synthetic-target",
+              "dimensions": 3
+            }
+          }
+        },
+        {
+          "kind": "audit",
+          "entry": {
+            "event": "reembedding.synthetic_probe_delete",
+            "memoryId": "86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "agentId": "plur1bus-reembedding-probe",
+            "workspaceId": "workspace:v1:plur1bus-reembedding-probe",
+            "createdAt": 1234
+          }
+        },
+        {
+          "kind": "delete",
+          "id": "86db0fe4-922c-4ea2-9259-ea35ef10537d"
+        }
+      ],
+      "remaining": []
+    },
+    {
+      "name": "open-fails",
+      "openFails": true,
+      "request": {
+        "expectedGeneration": "target-generation",
+        "fingerprint": {
+          "provider": "openai",
+          "model": "synthetic-target",
+          "dimensions": 3
+        }
+      },
+      "error": "synthetic open failed",
+      "aggregate": false,
+      "calls": [
+        {
+          "kind": "embed",
+          "input": {
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "purpose": "passage",
+            "fingerprint": {
+              "provider": "openai",
+              "model": "synthetic-target",
+              "dimensions": 3
+            }
+          }
+        },
+        {
+          "kind": "open",
+          "target": {
+            "generation": "target-generation",
+            "agentId": "plur1bus-reembedding-probe",
+            "dimensions": 3
+          }
+        }
+      ],
+      "remaining": []
+    },
+    {
+      "name": "store-fails",
+      "storeFails": true,
+      "request": {
+        "expectedGeneration": "target-generation",
+        "fingerprint": {
+          "provider": "openai",
+          "model": "synthetic-target",
+          "dimensions": 3
+        }
+      },
+      "error": "synthetic store failed",
+      "aggregate": false,
+      "calls": [
+        {
+          "kind": "embed",
+          "input": {
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "purpose": "passage",
+            "fingerprint": {
+              "provider": "openai",
+              "model": "synthetic-target",
+              "dimensions": 3
+            }
+          }
+        },
+        {
+          "kind": "open",
+          "target": {
+            "generation": "target-generation",
+            "agentId": "plur1bus-reembedding-probe",
+            "dimensions": 3
+          }
+        },
+        {
+          "kind": "store",
+          "row": {
+            "id": "86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "vector": [
+              1,
+              0,
+              0
+            ],
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "summary": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "agentId": "plur1bus-reembedding-probe",
+            "storedBy": "plur1bus-reembedding-probe",
+            "workspaceId": "workspace:v1:plur1bus-reembedding-probe",
+            "workspaceKey": "workspace:v1:plur1bus-reembedding-probe",
+            "ownerUserId": "",
+            "scope": "agent-private",
+            "origin": "system",
+            "category": "fact",
+            "importance": 0.5,
+            "createdAt": 1234,
+            "status": "active",
+            "epistemicStatus": "observed"
+          }
+        }
+      ],
+      "remaining": []
+    },
+    {
+      "name": "query-fails",
+      "queryFails": true,
+      "request": {
+        "expectedGeneration": "target-generation",
+        "fingerprint": {
+          "provider": "openai",
+          "model": "synthetic-target",
+          "dimensions": 3
+        }
+      },
+      "error": "synthetic query failed",
+      "aggregate": false,
+      "calls": [
+        {
+          "kind": "embed",
+          "input": {
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "purpose": "passage",
+            "fingerprint": {
+              "provider": "openai",
+              "model": "synthetic-target",
+              "dimensions": 3
+            }
+          }
+        },
+        {
+          "kind": "open",
+          "target": {
+            "generation": "target-generation",
+            "agentId": "plur1bus-reembedding-probe",
+            "dimensions": 3
+          }
+        },
+        {
+          "kind": "store",
+          "row": {
+            "id": "86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "vector": [
+              1,
+              0,
+              0
+            ],
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "summary": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "agentId": "plur1bus-reembedding-probe",
+            "storedBy": "plur1bus-reembedding-probe",
+            "workspaceId": "workspace:v1:plur1bus-reembedding-probe",
+            "workspaceKey": "workspace:v1:plur1bus-reembedding-probe",
+            "ownerUserId": "",
+            "scope": "agent-private",
+            "origin": "system",
+            "category": "fact",
+            "importance": 0.5,
+            "createdAt": 1234,
+            "status": "active",
+            "epistemicStatus": "observed"
+          }
+        },
+        {
+          "kind": "embed",
+          "input": {
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "purpose": "query",
+            "fingerprint": {
+              "provider": "openai",
+              "model": "synthetic-target",
+              "dimensions": 3
+            }
+          }
+        },
+        {
+          "kind": "audit",
+          "entry": {
+            "event": "reembedding.synthetic_probe_delete",
+            "memoryId": "86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "agentId": "plur1bus-reembedding-probe",
+            "workspaceId": "workspace:v1:plur1bus-reembedding-probe",
+            "createdAt": 1234
+          }
+        },
+        {
+          "kind": "delete",
+          "id": "86db0fe4-922c-4ea2-9259-ea35ef10537d"
+        }
+      ],
+      "remaining": []
+    },
+    {
+      "name": "search-fails",
+      "searchFails": true,
+      "request": {
+        "expectedGeneration": "target-generation",
+        "fingerprint": {
+          "provider": "openai",
+          "model": "synthetic-target",
+          "dimensions": 3
+        }
+      },
+      "error": "synthetic search failed",
+      "aggregate": false,
+      "calls": [
+        {
+          "kind": "embed",
+          "input": {
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "purpose": "passage",
+            "fingerprint": {
+              "provider": "openai",
+              "model": "synthetic-target",
+              "dimensions": 3
+            }
+          }
+        },
+        {
+          "kind": "open",
+          "target": {
+            "generation": "target-generation",
+            "agentId": "plur1bus-reembedding-probe",
+            "dimensions": 3
+          }
+        },
+        {
+          "kind": "store",
+          "row": {
+            "id": "86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "vector": [
+              1,
+              0,
+              0
+            ],
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "summary": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "agentId": "plur1bus-reembedding-probe",
+            "storedBy": "plur1bus-reembedding-probe",
+            "workspaceId": "workspace:v1:plur1bus-reembedding-probe",
+            "workspaceKey": "workspace:v1:plur1bus-reembedding-probe",
+            "ownerUserId": "",
+            "scope": "agent-private",
+            "origin": "system",
+            "category": "fact",
+            "importance": 0.5,
+            "createdAt": 1234,
+            "status": "active",
+            "epistemicStatus": "observed"
+          }
+        },
+        {
+          "kind": "embed",
+          "input": {
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "purpose": "query",
+            "fingerprint": {
+              "provider": "openai",
+              "model": "synthetic-target",
+              "dimensions": 3
+            }
+          }
+        },
+        {
+          "kind": "search",
+          "vector": [
+            1,
+            0,
+            0
+          ],
+          "limit": 5,
+          "threshold": 0
+        },
+        {
+          "kind": "audit",
+          "entry": {
+            "event": "reembedding.synthetic_probe_delete",
+            "memoryId": "86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "agentId": "plur1bus-reembedding-probe",
+            "workspaceId": "workspace:v1:plur1bus-reembedding-probe",
+            "createdAt": 1234
+          }
+        },
+        {
+          "kind": "delete",
+          "id": "86db0fe4-922c-4ea2-9259-ea35ef10537d"
+        }
+      ],
+      "remaining": []
+    },
+    {
+      "name": "recall-miss",
+      "miss": true,
+      "request": {
+        "expectedGeneration": "target-generation",
+        "fingerprint": {
+          "provider": "openai",
+          "model": "synthetic-target",
+          "dimensions": 3
+        }
+      },
+      "error": "target runtime did not recall the synthetic reembedding probe",
+      "aggregate": false,
+      "calls": [
+        {
+          "kind": "embed",
+          "input": {
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "purpose": "passage",
+            "fingerprint": {
+              "provider": "openai",
+              "model": "synthetic-target",
+              "dimensions": 3
+            }
+          }
+        },
+        {
+          "kind": "open",
+          "target": {
+            "generation": "target-generation",
+            "agentId": "plur1bus-reembedding-probe",
+            "dimensions": 3
+          }
+        },
+        {
+          "kind": "store",
+          "row": {
+            "id": "86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "vector": [
+              1,
+              0,
+              0
+            ],
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "summary": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "agentId": "plur1bus-reembedding-probe",
+            "storedBy": "plur1bus-reembedding-probe",
+            "workspaceId": "workspace:v1:plur1bus-reembedding-probe",
+            "workspaceKey": "workspace:v1:plur1bus-reembedding-probe",
+            "ownerUserId": "",
+            "scope": "agent-private",
+            "origin": "system",
+            "category": "fact",
+            "importance": 0.5,
+            "createdAt": 1234,
+            "status": "active",
+            "epistemicStatus": "observed"
+          }
+        },
+        {
+          "kind": "embed",
+          "input": {
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "purpose": "query",
+            "fingerprint": {
+              "provider": "openai",
+              "model": "synthetic-target",
+              "dimensions": 3
+            }
+          }
+        },
+        {
+          "kind": "search",
+          "vector": [
+            1,
+            0,
+            0
+          ],
+          "limit": 5,
+          "threshold": 0
+        },
+        {
+          "kind": "audit",
+          "entry": {
+            "event": "reembedding.synthetic_probe_delete",
+            "memoryId": "86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "agentId": "plur1bus-reembedding-probe",
+            "workspaceId": "workspace:v1:plur1bus-reembedding-probe",
+            "createdAt": 1234
+          }
+        },
+        {
+          "kind": "delete",
+          "id": "86db0fe4-922c-4ea2-9259-ea35ef10537d"
+        }
+      ],
+      "remaining": []
+    },
+    {
+      "name": "audit-refused",
+      "auditFails": true,
+      "request": {
+        "expectedGeneration": "target-generation",
+        "fingerprint": {
+          "provider": "openai",
+          "model": "synthetic-target",
+          "dimensions": 3
+        }
+      },
+      "error": "synthetic reembedding probe audit write failed; destructive cleanup refused",
+      "aggregate": false,
+      "calls": [
+        {
+          "kind": "embed",
+          "input": {
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "purpose": "passage",
+            "fingerprint": {
+              "provider": "openai",
+              "model": "synthetic-target",
+              "dimensions": 3
+            }
+          }
+        },
+        {
+          "kind": "open",
+          "target": {
+            "generation": "target-generation",
+            "agentId": "plur1bus-reembedding-probe",
+            "dimensions": 3
+          }
+        },
+        {
+          "kind": "store",
+          "row": {
+            "id": "86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "vector": [
+              1,
+              0,
+              0
+            ],
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "summary": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "agentId": "plur1bus-reembedding-probe",
+            "storedBy": "plur1bus-reembedding-probe",
+            "workspaceId": "workspace:v1:plur1bus-reembedding-probe",
+            "workspaceKey": "workspace:v1:plur1bus-reembedding-probe",
+            "ownerUserId": "",
+            "scope": "agent-private",
+            "origin": "system",
+            "category": "fact",
+            "importance": 0.5,
+            "createdAt": 1234,
+            "status": "active",
+            "epistemicStatus": "observed"
+          }
+        },
+        {
+          "kind": "embed",
+          "input": {
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "purpose": "query",
+            "fingerprint": {
+              "provider": "openai",
+              "model": "synthetic-target",
+              "dimensions": 3
+            }
+          }
+        },
+        {
+          "kind": "search",
+          "vector": [
+            1,
+            0,
+            0
+          ],
+          "limit": 5,
+          "threshold": 0
+        },
+        {
+          "kind": "audit",
+          "entry": {
+            "event": "reembedding.synthetic_probe_delete",
+            "memoryId": "86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "agentId": "plur1bus-reembedding-probe",
+            "workspaceId": "workspace:v1:plur1bus-reembedding-probe",
+            "createdAt": 1234
+          }
+        }
+      ],
+      "remaining": [
+        {
+          "id": "86db0fe4-922c-4ea2-9259-ea35ef10537d",
+          "vector": [
+            1,
+            0,
+            0
+          ],
+          "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+          "summary": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+          "agentId": "plur1bus-reembedding-probe",
+          "storedBy": "plur1bus-reembedding-probe",
+          "workspaceId": "workspace:v1:plur1bus-reembedding-probe",
+          "workspaceKey": "workspace:v1:plur1bus-reembedding-probe",
+          "ownerUserId": "",
+          "scope": "agent-private",
+          "origin": "system",
+          "category": "fact",
+          "importance": 0.5,
+          "createdAt": 1234,
+          "status": "active",
+          "epistemicStatus": "observed"
+        }
+      ]
+    },
+    {
+      "name": "delete-fails",
+      "deleteFails": true,
+      "request": {
+        "expectedGeneration": "target-generation",
+        "fingerprint": {
+          "provider": "openai",
+          "model": "synthetic-target",
+          "dimensions": 3
+        }
+      },
+      "error": "synthetic delete failed",
+      "aggregate": false,
+      "calls": [
+        {
+          "kind": "embed",
+          "input": {
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "purpose": "passage",
+            "fingerprint": {
+              "provider": "openai",
+              "model": "synthetic-target",
+              "dimensions": 3
+            }
+          }
+        },
+        {
+          "kind": "open",
+          "target": {
+            "generation": "target-generation",
+            "agentId": "plur1bus-reembedding-probe",
+            "dimensions": 3
+          }
+        },
+        {
+          "kind": "store",
+          "row": {
+            "id": "86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "vector": [
+              1,
+              0,
+              0
+            ],
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "summary": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "agentId": "plur1bus-reembedding-probe",
+            "storedBy": "plur1bus-reembedding-probe",
+            "workspaceId": "workspace:v1:plur1bus-reembedding-probe",
+            "workspaceKey": "workspace:v1:plur1bus-reembedding-probe",
+            "ownerUserId": "",
+            "scope": "agent-private",
+            "origin": "system",
+            "category": "fact",
+            "importance": 0.5,
+            "createdAt": 1234,
+            "status": "active",
+            "epistemicStatus": "observed"
+          }
+        },
+        {
+          "kind": "embed",
+          "input": {
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "purpose": "query",
+            "fingerprint": {
+              "provider": "openai",
+              "model": "synthetic-target",
+              "dimensions": 3
+            }
+          }
+        },
+        {
+          "kind": "search",
+          "vector": [
+            1,
+            0,
+            0
+          ],
+          "limit": 5,
+          "threshold": 0
+        },
+        {
+          "kind": "audit",
+          "entry": {
+            "event": "reembedding.synthetic_probe_delete",
+            "memoryId": "86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "agentId": "plur1bus-reembedding-probe",
+            "workspaceId": "workspace:v1:plur1bus-reembedding-probe",
+            "createdAt": 1234
+          }
+        },
+        {
+          "kind": "delete",
+          "id": "86db0fe4-922c-4ea2-9259-ea35ef10537d"
+        }
+      ],
+      "remaining": [
+        {
+          "id": "86db0fe4-922c-4ea2-9259-ea35ef10537d",
+          "vector": [
+            1,
+            0,
+            0
+          ],
+          "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+          "summary": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+          "agentId": "plur1bus-reembedding-probe",
+          "storedBy": "plur1bus-reembedding-probe",
+          "workspaceId": "workspace:v1:plur1bus-reembedding-probe",
+          "workspaceKey": "workspace:v1:plur1bus-reembedding-probe",
+          "ownerUserId": "",
+          "scope": "agent-private",
+          "origin": "system",
+          "category": "fact",
+          "importance": 0.5,
+          "createdAt": 1234,
+          "status": "active",
+          "epistemicStatus": "observed"
+        }
+      ]
+    },
+    {
+      "name": "operation-and-audit-fail",
+      "queryFails": true,
+      "auditFails": true,
+      "request": {
+        "expectedGeneration": "target-generation",
+        "fingerprint": {
+          "provider": "openai",
+          "model": "synthetic-target",
+          "dimensions": 3
+        }
+      },
+      "error": "reembedding runtime probe and cleanup failed",
+      "aggregate": true,
+      "calls": [
+        {
+          "kind": "embed",
+          "input": {
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "purpose": "passage",
+            "fingerprint": {
+              "provider": "openai",
+              "model": "synthetic-target",
+              "dimensions": 3
+            }
+          }
+        },
+        {
+          "kind": "open",
+          "target": {
+            "generation": "target-generation",
+            "agentId": "plur1bus-reembedding-probe",
+            "dimensions": 3
+          }
+        },
+        {
+          "kind": "store",
+          "row": {
+            "id": "86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "vector": [
+              1,
+              0,
+              0
+            ],
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "summary": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "agentId": "plur1bus-reembedding-probe",
+            "storedBy": "plur1bus-reembedding-probe",
+            "workspaceId": "workspace:v1:plur1bus-reembedding-probe",
+            "workspaceKey": "workspace:v1:plur1bus-reembedding-probe",
+            "ownerUserId": "",
+            "scope": "agent-private",
+            "origin": "system",
+            "category": "fact",
+            "importance": 0.5,
+            "createdAt": 1234,
+            "status": "active",
+            "epistemicStatus": "observed"
+          }
+        },
+        {
+          "kind": "embed",
+          "input": {
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "purpose": "query",
+            "fingerprint": {
+              "provider": "openai",
+              "model": "synthetic-target",
+              "dimensions": 3
+            }
+          }
+        },
+        {
+          "kind": "audit",
+          "entry": {
+            "event": "reembedding.synthetic_probe_delete",
+            "memoryId": "86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "agentId": "plur1bus-reembedding-probe",
+            "workspaceId": "workspace:v1:plur1bus-reembedding-probe",
+            "createdAt": 1234
+          }
+        }
+      ],
+      "remaining": [
+        {
+          "id": "86db0fe4-922c-4ea2-9259-ea35ef10537d",
+          "vector": [
+            1,
+            0,
+            0
+          ],
+          "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+          "summary": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+          "agentId": "plur1bus-reembedding-probe",
+          "storedBy": "plur1bus-reembedding-probe",
+          "workspaceId": "workspace:v1:plur1bus-reembedding-probe",
+          "workspaceKey": "workspace:v1:plur1bus-reembedding-probe",
+          "ownerUserId": "",
+          "scope": "agent-private",
+          "origin": "system",
+          "category": "fact",
+          "importance": 0.5,
+          "createdAt": 1234,
+          "status": "active",
+          "epistemicStatus": "observed"
+        }
+      ]
+    },
+    {
+      "name": "operation-and-delete-fail",
+      "queryFails": true,
+      "deleteFails": true,
+      "request": {
+        "expectedGeneration": "target-generation",
+        "fingerprint": {
+          "provider": "openai",
+          "model": "synthetic-target",
+          "dimensions": 3
+        }
+      },
+      "error": "reembedding runtime probe and cleanup failed",
+      "aggregate": true,
+      "calls": [
+        {
+          "kind": "embed",
+          "input": {
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "purpose": "passage",
+            "fingerprint": {
+              "provider": "openai",
+              "model": "synthetic-target",
+              "dimensions": 3
+            }
+          }
+        },
+        {
+          "kind": "open",
+          "target": {
+            "generation": "target-generation",
+            "agentId": "plur1bus-reembedding-probe",
+            "dimensions": 3
+          }
+        },
+        {
+          "kind": "store",
+          "row": {
+            "id": "86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "vector": [
+              1,
+              0,
+              0
+            ],
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "summary": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "agentId": "plur1bus-reembedding-probe",
+            "storedBy": "plur1bus-reembedding-probe",
+            "workspaceId": "workspace:v1:plur1bus-reembedding-probe",
+            "workspaceKey": "workspace:v1:plur1bus-reembedding-probe",
+            "ownerUserId": "",
+            "scope": "agent-private",
+            "origin": "system",
+            "category": "fact",
+            "importance": 0.5,
+            "createdAt": 1234,
+            "status": "active",
+            "epistemicStatus": "observed"
+          }
+        },
+        {
+          "kind": "embed",
+          "input": {
+            "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "purpose": "query",
+            "fingerprint": {
+              "provider": "openai",
+              "model": "synthetic-target",
+              "dimensions": 3
+            }
+          }
+        },
+        {
+          "kind": "audit",
+          "entry": {
+            "event": "reembedding.synthetic_probe_delete",
+            "memoryId": "86db0fe4-922c-4ea2-9259-ea35ef10537d",
+            "agentId": "plur1bus-reembedding-probe",
+            "workspaceId": "workspace:v1:plur1bus-reembedding-probe",
+            "createdAt": 1234
+          }
+        },
+        {
+          "kind": "delete",
+          "id": "86db0fe4-922c-4ea2-9259-ea35ef10537d"
+        }
+      ],
+      "remaining": [
+        {
+          "id": "86db0fe4-922c-4ea2-9259-ea35ef10537d",
+          "vector": [
+            1,
+            0,
+            0
+          ],
+          "text": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+          "summary": "PLUR1BUS reembedding probe 86db0fe4-922c-4ea2-9259-ea35ef10537d",
+          "agentId": "plur1bus-reembedding-probe",
+          "storedBy": "plur1bus-reembedding-probe",
+          "workspaceId": "workspace:v1:plur1bus-reembedding-probe",
+          "workspaceKey": "workspace:v1:plur1bus-reembedding-probe",
+          "ownerUserId": "",
+          "scope": "agent-private",
+          "origin": "system",
+          "category": "fact",
+          "importance": 0.5,
+          "createdAt": 1234,
+          "status": "active",
+          "epistemicStatus": "observed"
+        }
+      ]
+    }
+  ]
+}

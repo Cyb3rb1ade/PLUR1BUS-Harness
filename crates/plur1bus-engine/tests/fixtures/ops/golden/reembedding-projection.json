@@ -1,0 +1,1115 @@
+{
+  "recordedFrom": {
+    "engine": "node",
+    "source": {
+      "commit": "088ba31e441c170b47dfa41d97bd78c5265e6f69",
+      "treeSha256": "83172f93354fc16837375db5f3e405815bf3ae5ce7b63c8c5d321a7d988561ff",
+      "paths": [
+        "engine/**/*.js",
+        "lib/**/*.js"
+      ],
+      "purpose": "C2 reembedding hardening from engine PR 266; validate facade and empty-agent acceptance additionally use pin 9f34008c"
+    },
+    "node": "v24.21.0"
+  },
+  "cases": [
+    {
+      "kind": "projection",
+      "name": "intfloat/multilingual-e5-small/base",
+      "input": {
+        "selection": {
+          "fingerprint": {
+            "provider": "local-transformers",
+            "model": "intfloat/multilingual-e5-small",
+            "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+            "dimensions": 384,
+            "queryPrefix": "query:",
+            "passagePrefix": "passage:"
+          },
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_EMBEDDING_KEY"
+          }
+        },
+        "current": {
+          "fallback": {
+            "enabled": true,
+            "model": "synthetic-fallback"
+          },
+          "local": {
+            "cacheDir": "/synthetic/cache"
+          }
+        }
+      },
+      "value": {
+        "provider": "local-transformers",
+        "dimensions": 384,
+        "apiKey": {
+          "source": "env",
+          "provider": "default",
+          "id": "SYNTHETIC_EMBEDDING_KEY"
+        },
+        "fallback": {
+          "enabled": true,
+          "model": "synthetic-fallback"
+        },
+        "local": {
+          "model": "intfloat/multilingual-e5-small",
+          "dimensions": 384,
+          "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+          "queryPrefix": "query: ",
+          "passagePrefix": "passage: ",
+          "cacheDir": "/synthetic/cache"
+        }
+      }
+    },
+    {
+      "kind": "local-options",
+      "name": "intfloat/multilingual-e5-small/base",
+      "input": {
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimensions": 384,
+        "queryPrefix": "query:",
+        "passagePrefix": "passage:"
+      },
+      "value": {
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimensions": 384,
+        "queryPrefix": "query: ",
+        "passagePrefix": "passage: "
+      }
+    },
+    {
+      "kind": "projection",
+      "name": "intfloat/multilingual-e5-small/token-cap",
+      "input": {
+        "selection": {
+          "fingerprint": {
+            "provider": "local-transformers",
+            "model": "intfloat/multilingual-e5-small",
+            "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+            "dimensions": 384,
+            "queryPrefix": "query:",
+            "passagePrefix": "passage:",
+            "tokenCap": 256
+          },
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_EMBEDDING_KEY"
+          }
+        },
+        "current": {
+          "fallback": {
+            "enabled": true,
+            "model": "synthetic-fallback"
+          },
+          "local": {
+            "cacheDir": "/synthetic/cache"
+          }
+        }
+      },
+      "value": {
+        "provider": "local-transformers",
+        "dimensions": 384,
+        "apiKey": {
+          "source": "env",
+          "provider": "default",
+          "id": "SYNTHETIC_EMBEDDING_KEY"
+        },
+        "fallback": {
+          "enabled": true,
+          "model": "synthetic-fallback"
+        },
+        "local": {
+          "model": "intfloat/multilingual-e5-small",
+          "dimensions": 384,
+          "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+          "queryPrefix": "query: ",
+          "passagePrefix": "passage: ",
+          "maxTokens": 256,
+          "cacheDir": "/synthetic/cache"
+        }
+      }
+    },
+    {
+      "kind": "local-options",
+      "name": "intfloat/multilingual-e5-small/token-cap",
+      "input": {
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimensions": 384,
+        "queryPrefix": "query:",
+        "passagePrefix": "passage:",
+        "tokenCap": 256
+      },
+      "value": {
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimensions": 384,
+        "queryPrefix": "query: ",
+        "passagePrefix": "passage: "
+      }
+    },
+    {
+      "kind": "projection",
+      "name": "intfloat/multilingual-e5-small/custom-prefix",
+      "input": {
+        "selection": {
+          "fingerprint": {
+            "provider": "local-transformers",
+            "model": "intfloat/multilingual-e5-small",
+            "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+            "dimensions": 384,
+            "queryPrefix": "custom query ",
+            "passagePrefix": "custom passage "
+          },
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_EMBEDDING_KEY"
+          }
+        },
+        "current": {
+          "fallback": {
+            "enabled": true,
+            "model": "synthetic-fallback"
+          },
+          "local": {
+            "cacheDir": "/synthetic/cache"
+          }
+        }
+      },
+      "value": {
+        "provider": "local-transformers",
+        "dimensions": 384,
+        "apiKey": {
+          "source": "env",
+          "provider": "default",
+          "id": "SYNTHETIC_EMBEDDING_KEY"
+        },
+        "fallback": {
+          "enabled": true,
+          "model": "synthetic-fallback"
+        },
+        "local": {
+          "model": "intfloat/multilingual-e5-small",
+          "dimensions": 384,
+          "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+          "queryPrefix": "custom query ",
+          "passagePrefix": "custom passage ",
+          "cacheDir": "/synthetic/cache"
+        }
+      }
+    },
+    {
+      "kind": "local-options",
+      "name": "intfloat/multilingual-e5-small/custom-prefix",
+      "input": {
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimensions": 384,
+        "queryPrefix": "custom query ",
+        "passagePrefix": "custom passage "
+      },
+      "value": {
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimensions": 384,
+        "queryPrefix": "custom query ",
+        "passagePrefix": "custom passage "
+      }
+    },
+    {
+      "kind": "projection",
+      "name": "intfloat/multilingual-e5-small/empty-prefix",
+      "input": {
+        "selection": {
+          "fingerprint": {
+            "provider": "local-transformers",
+            "model": "intfloat/multilingual-e5-small",
+            "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+            "dimensions": 384,
+            "queryPrefix": "",
+            "passagePrefix": ""
+          },
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_EMBEDDING_KEY"
+          }
+        },
+        "current": {
+          "fallback": {
+            "enabled": true,
+            "model": "synthetic-fallback"
+          },
+          "local": {
+            "cacheDir": "/synthetic/cache"
+          }
+        }
+      },
+      "value": {
+        "provider": "local-transformers",
+        "dimensions": 384,
+        "apiKey": {
+          "source": "env",
+          "provider": "default",
+          "id": "SYNTHETIC_EMBEDDING_KEY"
+        },
+        "fallback": {
+          "enabled": true,
+          "model": "synthetic-fallback"
+        },
+        "local": {
+          "model": "intfloat/multilingual-e5-small",
+          "dimensions": 384,
+          "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+          "cacheDir": "/synthetic/cache"
+        }
+      }
+    },
+    {
+      "kind": "local-options",
+      "name": "intfloat/multilingual-e5-small/empty-prefix",
+      "input": {
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimensions": 384,
+        "queryPrefix": "",
+        "passagePrefix": ""
+      },
+      "value": {
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimensions": 384,
+        "queryPrefix": "",
+        "passagePrefix": ""
+      }
+    },
+    {
+      "kind": "projection",
+      "name": "intfloat/multilingual-e5-small/dtype-override",
+      "input": {
+        "selection": {
+          "fingerprint": {
+            "provider": "local-transformers",
+            "model": "intfloat/multilingual-e5-small",
+            "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+            "dimensions": 384,
+            "queryPrefix": "query:",
+            "passagePrefix": "passage:",
+            "dtype": "fp32"
+          },
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_EMBEDDING_KEY"
+          }
+        },
+        "current": {
+          "fallback": {
+            "enabled": true,
+            "model": "synthetic-fallback"
+          },
+          "local": {
+            "cacheDir": "/synthetic/cache"
+          }
+        }
+      },
+      "value": {
+        "provider": "local-transformers",
+        "dimensions": 384,
+        "apiKey": {
+          "source": "env",
+          "provider": "default",
+          "id": "SYNTHETIC_EMBEDDING_KEY"
+        },
+        "fallback": {
+          "enabled": true,
+          "model": "synthetic-fallback"
+        },
+        "local": {
+          "model": "intfloat/multilingual-e5-small",
+          "dimensions": 384,
+          "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+          "queryPrefix": "query: ",
+          "passagePrefix": "passage: ",
+          "dtype": "fp32",
+          "cacheDir": "/synthetic/cache"
+        }
+      }
+    },
+    {
+      "kind": "local-options",
+      "name": "intfloat/multilingual-e5-small/dtype-override",
+      "input": {
+        "provider": "local-transformers",
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+        "dimensions": 384,
+        "queryPrefix": "query:",
+        "passagePrefix": "passage:",
+        "dtype": "fp32"
+      },
+      "value": null
+    },
+    {
+      "kind": "projection",
+      "name": "google/embeddinggemma-2/base",
+      "input": {
+        "selection": {
+          "fingerprint": {
+            "provider": "local-transformers",
+            "model": "google/embeddinggemma-2",
+            "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+            "dimensions": 768,
+            "queryPrefix": "task: search result | query:",
+            "passagePrefix": "title: none | text:",
+            "dtype": "q8"
+          },
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_EMBEDDING_KEY"
+          }
+        },
+        "current": {
+          "fallback": {
+            "enabled": true,
+            "model": "synthetic-fallback"
+          },
+          "local": {
+            "cacheDir": "/synthetic/cache"
+          }
+        }
+      },
+      "value": {
+        "provider": "local-transformers",
+        "dimensions": 768,
+        "apiKey": {
+          "source": "env",
+          "provider": "default",
+          "id": "SYNTHETIC_EMBEDDING_KEY"
+        },
+        "fallback": {
+          "enabled": true,
+          "model": "synthetic-fallback"
+        },
+        "local": {
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+          "queryPrefix": "task: search result | query: ",
+          "passagePrefix": "title: none | text: ",
+          "cacheDir": "/synthetic/cache"
+        }
+      }
+    },
+    {
+      "kind": "local-options",
+      "name": "google/embeddinggemma-2/base",
+      "input": {
+        "provider": "local-transformers",
+        "model": "google/embeddinggemma-2",
+        "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+        "dimensions": 768,
+        "queryPrefix": "task: search result | query:",
+        "passagePrefix": "title: none | text:",
+        "dtype": "q8"
+      },
+      "value": {
+        "model": "google/embeddinggemma-2",
+        "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+        "dimensions": 768,
+        "queryPrefix": "task: search result | query: ",
+        "passagePrefix": "title: none | text: "
+      }
+    },
+    {
+      "kind": "projection",
+      "name": "google/embeddinggemma-2/token-cap",
+      "input": {
+        "selection": {
+          "fingerprint": {
+            "provider": "local-transformers",
+            "model": "google/embeddinggemma-2",
+            "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+            "dimensions": 768,
+            "queryPrefix": "task: search result | query:",
+            "passagePrefix": "title: none | text:",
+            "dtype": "q8",
+            "tokenCap": 256
+          },
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_EMBEDDING_KEY"
+          }
+        },
+        "current": {
+          "fallback": {
+            "enabled": true,
+            "model": "synthetic-fallback"
+          },
+          "local": {
+            "cacheDir": "/synthetic/cache"
+          }
+        }
+      },
+      "value": {
+        "provider": "local-transformers",
+        "dimensions": 768,
+        "apiKey": {
+          "source": "env",
+          "provider": "default",
+          "id": "SYNTHETIC_EMBEDDING_KEY"
+        },
+        "fallback": {
+          "enabled": true,
+          "model": "synthetic-fallback"
+        },
+        "local": {
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+          "queryPrefix": "task: search result | query: ",
+          "passagePrefix": "title: none | text: ",
+          "maxTokens": 256,
+          "cacheDir": "/synthetic/cache"
+        }
+      }
+    },
+    {
+      "kind": "local-options",
+      "name": "google/embeddinggemma-2/token-cap",
+      "input": {
+        "provider": "local-transformers",
+        "model": "google/embeddinggemma-2",
+        "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+        "dimensions": 768,
+        "queryPrefix": "task: search result | query:",
+        "passagePrefix": "title: none | text:",
+        "dtype": "q8",
+        "tokenCap": 256
+      },
+      "value": {
+        "model": "google/embeddinggemma-2",
+        "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+        "dimensions": 768,
+        "queryPrefix": "task: search result | query: ",
+        "passagePrefix": "title: none | text: "
+      }
+    },
+    {
+      "kind": "projection",
+      "name": "google/embeddinggemma-2/custom-prefix",
+      "input": {
+        "selection": {
+          "fingerprint": {
+            "provider": "local-transformers",
+            "model": "google/embeddinggemma-2",
+            "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+            "dimensions": 768,
+            "queryPrefix": "custom query ",
+            "passagePrefix": "custom passage ",
+            "dtype": "q8"
+          },
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_EMBEDDING_KEY"
+          }
+        },
+        "current": {
+          "fallback": {
+            "enabled": true,
+            "model": "synthetic-fallback"
+          },
+          "local": {
+            "cacheDir": "/synthetic/cache"
+          }
+        }
+      },
+      "value": {
+        "provider": "local-transformers",
+        "dimensions": 768,
+        "apiKey": {
+          "source": "env",
+          "provider": "default",
+          "id": "SYNTHETIC_EMBEDDING_KEY"
+        },
+        "fallback": {
+          "enabled": true,
+          "model": "synthetic-fallback"
+        },
+        "local": {
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+          "queryPrefix": "custom query ",
+          "passagePrefix": "custom passage ",
+          "cacheDir": "/synthetic/cache"
+        }
+      }
+    },
+    {
+      "kind": "local-options",
+      "name": "google/embeddinggemma-2/custom-prefix",
+      "input": {
+        "provider": "local-transformers",
+        "model": "google/embeddinggemma-2",
+        "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+        "dimensions": 768,
+        "queryPrefix": "custom query ",
+        "passagePrefix": "custom passage ",
+        "dtype": "q8"
+      },
+      "value": {
+        "model": "google/embeddinggemma-2",
+        "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+        "dimensions": 768,
+        "queryPrefix": "custom query ",
+        "passagePrefix": "custom passage "
+      }
+    },
+    {
+      "kind": "projection",
+      "name": "google/embeddinggemma-2/empty-prefix",
+      "input": {
+        "selection": {
+          "fingerprint": {
+            "provider": "local-transformers",
+            "model": "google/embeddinggemma-2",
+            "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+            "dimensions": 768,
+            "queryPrefix": "",
+            "passagePrefix": "",
+            "dtype": "q8"
+          },
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_EMBEDDING_KEY"
+          }
+        },
+        "current": {
+          "fallback": {
+            "enabled": true,
+            "model": "synthetic-fallback"
+          },
+          "local": {
+            "cacheDir": "/synthetic/cache"
+          }
+        }
+      },
+      "value": {
+        "provider": "local-transformers",
+        "dimensions": 768,
+        "apiKey": {
+          "source": "env",
+          "provider": "default",
+          "id": "SYNTHETIC_EMBEDDING_KEY"
+        },
+        "fallback": {
+          "enabled": true,
+          "model": "synthetic-fallback"
+        },
+        "local": {
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+          "cacheDir": "/synthetic/cache"
+        }
+      }
+    },
+    {
+      "kind": "local-options",
+      "name": "google/embeddinggemma-2/empty-prefix",
+      "input": {
+        "provider": "local-transformers",
+        "model": "google/embeddinggemma-2",
+        "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+        "dimensions": 768,
+        "queryPrefix": "",
+        "passagePrefix": "",
+        "dtype": "q8"
+      },
+      "value": {
+        "model": "google/embeddinggemma-2",
+        "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+        "dimensions": 768,
+        "queryPrefix": "",
+        "passagePrefix": ""
+      }
+    },
+    {
+      "kind": "projection",
+      "name": "google/embeddinggemma-2/dtype-override",
+      "input": {
+        "selection": {
+          "fingerprint": {
+            "provider": "local-transformers",
+            "model": "google/embeddinggemma-2",
+            "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+            "dimensions": 768,
+            "queryPrefix": "task: search result | query:",
+            "passagePrefix": "title: none | text:",
+            "dtype": "fp32"
+          },
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_EMBEDDING_KEY"
+          }
+        },
+        "current": {
+          "fallback": {
+            "enabled": true,
+            "model": "synthetic-fallback"
+          },
+          "local": {
+            "cacheDir": "/synthetic/cache"
+          }
+        }
+      },
+      "value": {
+        "provider": "local-transformers",
+        "dimensions": 768,
+        "apiKey": {
+          "source": "env",
+          "provider": "default",
+          "id": "SYNTHETIC_EMBEDDING_KEY"
+        },
+        "fallback": {
+          "enabled": true,
+          "model": "synthetic-fallback"
+        },
+        "local": {
+          "model": "google/embeddinggemma-2",
+          "dimensions": 768,
+          "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+          "queryPrefix": "task: search result | query: ",
+          "passagePrefix": "title: none | text: ",
+          "dtype": "fp32",
+          "cacheDir": "/synthetic/cache"
+        }
+      }
+    },
+    {
+      "kind": "local-options",
+      "name": "google/embeddinggemma-2/dtype-override",
+      "input": {
+        "provider": "local-transformers",
+        "model": "google/embeddinggemma-2",
+        "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+        "dimensions": 768,
+        "queryPrefix": "task: search result | query:",
+        "passagePrefix": "title: none | text:",
+        "dtype": "fp32"
+      },
+      "value": {
+        "model": "google/embeddinggemma-2",
+        "revision": "daa72c51243991dfcaf9f9137d2c573d8f7790c0",
+        "dimensions": 768,
+        "queryPrefix": "task: search result | query: ",
+        "passagePrefix": "title: none | text: ",
+        "dtype": "fp32"
+      }
+    },
+    {
+      "kind": "projection",
+      "name": "minimal",
+      "input": {
+        "selection": {
+          "fingerprint": {
+            "provider": "openai",
+            "model": "synthetic-target",
+            "dimensions": 8
+          },
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_EMBEDDING_KEY"
+          }
+        },
+        "current": {
+          "fallback": {
+            "enabled": false
+          }
+        }
+      },
+      "value": {
+        "provider": "openai",
+        "dimensions": 8,
+        "apiKey": {
+          "source": "env",
+          "provider": "default",
+          "id": "SYNTHETIC_EMBEDDING_KEY"
+        },
+        "fallback": {
+          "enabled": false
+        },
+        "model": "synthetic-target"
+      }
+    },
+    {
+      "kind": "projection",
+      "name": "identity-fields",
+      "input": {
+        "selection": {
+          "fingerprint": {
+            "provider": "openai",
+            "model": "synthetic-target",
+            "dimensions": 8,
+            "endpoint": "https://example.invalid/v1",
+            "revision": "revision-a",
+            "normalization": "unit",
+            "dtype": "float32",
+            "prefixScheme": "synthetic-prefix",
+            "instruction": "synthetic instruction"
+          },
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_EMBEDDING_KEY"
+          }
+        },
+        "current": {
+          "fallback": {
+            "enabled": false
+          }
+        }
+      },
+      "value": {
+        "provider": "openai",
+        "dimensions": 8,
+        "apiKey": {
+          "source": "env",
+          "provider": "default",
+          "id": "SYNTHETIC_EMBEDDING_KEY"
+        },
+        "fallback": {
+          "enabled": false
+        },
+        "model": "synthetic-target",
+        "baseUrl": "https://example.invalid/v1",
+        "revision": "revision-a",
+        "normalization": "unit",
+        "dtype": "float32",
+        "prefixScheme": "synthetic-prefix",
+        "instruction": "synthetic instruction"
+      }
+    },
+    {
+      "kind": "secret-ref",
+      "name": "local",
+      "input": {
+        "provider": "local-transformers",
+        "apiKey": {
+          "source": "env",
+          "provider": "default",
+          "id": "SYNTHETIC_EMBEDDING_KEY"
+        }
+      },
+      "value": null
+    },
+    {
+      "kind": "secret-ref",
+      "name": "ref",
+      "input": {
+        "apiKey": {
+          "source": "env",
+          "provider": "default",
+          "id": "SYNTHETIC_EMBEDDING_KEY"
+        }
+      },
+      "value": {
+        "source": "env",
+        "provider": "default",
+        "id": "SYNTHETIC_EMBEDDING_KEY"
+      }
+    },
+    {
+      "kind": "secret-ref",
+      "name": "env",
+      "input": {
+        "apiKeyEnv": "SYNTHETIC_KEY"
+      },
+      "value": {
+        "source": "env",
+        "provider": "default",
+        "id": "SYNTHETIC_KEY"
+      }
+    },
+    {
+      "kind": "secret-ref",
+      "name": "env-precedes-literal",
+      "input": {
+        "apiKeyEnv": "SYNTHETIC_KEY",
+        "apiKey": "not-a-credential"
+      },
+      "value": {
+        "source": "env",
+        "provider": "default",
+        "id": "SYNTHETIC_KEY"
+      }
+    },
+    {
+      "kind": "secret-ref",
+      "name": "template",
+      "input": {
+        "apiKey": " ${SYNTHETIC_KEY} "
+      },
+      "value": {
+        "source": "env",
+        "provider": "default",
+        "id": "SYNTHETIC_KEY"
+      }
+    },
+    {
+      "kind": "secret-ref",
+      "name": "literal",
+      "input": {
+        "apiKey": "not-a-credential"
+      },
+      "value": null
+    },
+    {
+      "kind": "secret-ref",
+      "name": "missing",
+      "input": {},
+      "value": {
+        "source": "env",
+        "provider": "default",
+        "id": "OPENAI_API_KEY"
+      }
+    },
+    {
+      "kind": "secret-ref",
+      "name": "null",
+      "input": {
+        "apiKey": null
+      },
+      "value": {
+        "source": "env",
+        "provider": "default",
+        "id": "OPENAI_API_KEY"
+      }
+    },
+    {
+      "kind": "secret-ref",
+      "name": "false",
+      "input": {
+        "apiKey": false
+      },
+      "value": null
+    },
+    {
+      "kind": "secret-ref",
+      "name": "array",
+      "input": {
+        "apiKey": []
+      },
+      "error": "invalid embedding SecretRef"
+    },
+    {
+      "kind": "secret-ref",
+      "name": "bad-source",
+      "input": {
+        "apiKey": {
+          "source": "remote",
+          "provider": "default",
+          "id": "SYNTHETIC_EMBEDDING_KEY"
+        }
+      },
+      "error": "invalid embedding SecretRef source"
+    },
+    {
+      "kind": "secret-ref",
+      "name": "bad-provider",
+      "input": {
+        "apiKey": {
+          "source": "env",
+          "provider": "Invalid",
+          "id": "SYNTHETIC_EMBEDDING_KEY"
+        }
+      },
+      "error": "invalid embedding SecretRef provider"
+    },
+    {
+      "kind": "secret-ref",
+      "name": "extra-field",
+      "input": {
+        "apiKey": {
+          "source": "env",
+          "provider": "default",
+          "id": "SYNTHETIC_EMBEDDING_KEY",
+          "extra": true
+        }
+      },
+      "error": "invalid embedding SecretRef fields"
+    },
+    {
+      "kind": "secret-ref",
+      "name": "empty-id",
+      "input": {
+        "apiKey": {
+          "source": "env",
+          "provider": "default",
+          "id": ""
+        }
+      },
+      "error": "invalid embedding SecretRef id"
+    },
+    {
+      "kind": "secret-ref",
+      "name": "long-id",
+      "input": {
+        "apiKey": {
+          "source": "env",
+          "provider": "default",
+          "id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        }
+      },
+      "error": "invalid embedding SecretRef id"
+    },
+    {
+      "kind": "secret-ref",
+      "name": "unicode-limit",
+      "input": {
+        "apiKey": {
+          "source": "env",
+          "provider": "default",
+          "id": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+        }
+      },
+      "value": {
+        "source": "env",
+        "provider": "default",
+        "id": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+      }
+    },
+    {
+      "kind": "secret-ref",
+      "name": "unicode-over",
+      "input": {
+        "apiKey": {
+          "source": "env",
+          "provider": "default",
+          "id": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+        }
+      },
+      "error": "invalid embedding SecretRef id"
+    },
+    {
+      "kind": "projection",
+      "name": "literal-reference",
+      "input": {
+        "selection": {
+          "fingerprint": {
+            "provider": "openai",
+            "model": "synthetic-target",
+            "dimensions": 8
+          },
+          "secretRef": "not-a-credential"
+        },
+        "current": {}
+      },
+      "rustException": "invalid-reference",
+      "value": {
+        "provider": "openai",
+        "dimensions": 8,
+        "apiKey": "not-a-credential",
+        "model": "synthetic-target"
+      }
+    },
+    {
+      "kind": "projection",
+      "name": "extra-reference-field",
+      "input": {
+        "selection": {
+          "fingerprint": {
+            "provider": "openai",
+            "model": "synthetic-target",
+            "dimensions": 8
+          },
+          "secretRef": {
+            "source": "env",
+            "provider": "default",
+            "id": "SYNTHETIC_EMBEDDING_KEY",
+            "extra": true
+          }
+        },
+        "current": {}
+      },
+      "rustException": "invalid-reference",
+      "value": {
+        "provider": "openai",
+        "dimensions": 8,
+        "apiKey": {
+          "source": "env",
+          "provider": "default",
+          "id": "SYNTHETIC_EMBEDDING_KEY",
+          "extra": true
+        },
+        "model": "synthetic-target"
+      }
+    },
+    {
+      "kind": "projection",
+      "name": "invalid-reference-provider",
+      "input": {
+        "selection": {
+          "fingerprint": {
+            "provider": "openai",
+            "model": "synthetic-target",
+            "dimensions": 8
+          },
+          "secretRef": {
+            "source": "env",
+            "provider": "Invalid",
+            "id": "SYNTHETIC_EMBEDDING_KEY"
+          }
+        },
+        "current": {}
+      },
+      "rustException": "invalid-reference",
+      "value": {
+        "provider": "openai",
+        "dimensions": 8,
+        "apiKey": {
+          "source": "env",
+          "provider": "Invalid",
+          "id": "SYNTHETIC_EMBEDDING_KEY"
+        },
+        "model": "synthetic-target"
+      }
+    },
+    {
+      "kind": "local-options",
+      "name": "unknown",
+      "input": {
+        "model": "synthetic-unknown",
+        "revision": "a"
+      },
+      "value": null
+    },
+    {
+      "kind": "local-options",
+      "name": "wrong-revision",
+      "input": {
+        "model": "intfloat/multilingual-e5-small",
+        "revision": "wrong"
+      },
+      "value": null
+    }
+  ]
+}

@@ -1,0 +1,473 @@
+{
+  "pin": "9b935ce1f970bd92a931aa99a58c620669c8085f",
+  "node": "v24.21.0",
+  "sourceHashes": [
+    {
+      "path": "package.json",
+      "sha256": "62985e09c9dbbbf89352bbda6da3fc1c1a92e1006d6b92e680dca0d0d89fdaf9"
+    },
+    {
+      "path": "engine/jobs/job-registry.js",
+      "sha256": "74fd274fb9d2edaf28690882f24f5f1fc3aea5c469681af27972f03383f45d5a"
+    },
+    {
+      "path": "engine/jobs/job-ledger.js",
+      "sha256": "2bdfd31f59ddf0cedc35175c67b9238bedd242780465c79dc98de2eec742f002"
+    },
+    {
+      "path": "engine/jobs/job-specs.js",
+      "sha256": "6f7e191a08e0cedb281b1015dee018b4891f45c359ed5de5a581594945af9f8b"
+    },
+    {
+      "path": "engine/events.js",
+      "sha256": "5a0a2f7a09d8214812549d177ad876d7a12a6fdf0f2f68d2c7adee6beef01952"
+    },
+    {
+      "path": "lib/dreaming/dream-diary.js",
+      "sha256": "8108796bc7f46b1246f9a69c6fde993a84a915a45915385daf3d07c0cd508780"
+    },
+    {
+      "path": "lib/host-sdk-loader.js",
+      "sha256": "ce7aff857496e068e077b358dfe0f8e64551652b7484281351f329745887925e"
+    },
+    {
+      "path": "lib/feature-cron-specs.js",
+      "sha256": "7f4aa7a1ffe3d623cc17c503013b9cb8b5a6a1bbb8768749081febc4a0f77f3e"
+    },
+    {
+      "path": "lib/sql-safety.js",
+      "sha256": "a6b949df02d29d3ed0494964c004d861d718eeb90abd271410e22a489de1bc62"
+    },
+    {
+      "path": "lib/log-redact.js",
+      "sha256": "f64f7d2e2fbf13684ad16fe045a1e43a9755c57be00ee7532479286eed0068e3"
+    }
+  ],
+  "now": 1800000000000,
+  "boundaries": {
+    "registry": "actual A1 registry execution",
+    "body": "explicit synthetic body; no memory access",
+    "ledger": "explicit in-memory port; durable files tested separately",
+    "clock": "fixed UTC milliseconds",
+    "normalization": "none",
+    "providers": "none"
+  },
+  "cases": [
+    {
+      "input": {
+        "name": "completed",
+        "body": "completed",
+        "options": {}
+      },
+      "calls": 1,
+      "results": [
+        "{\"runId\":\"run-1\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"completed\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{}}"
+      ],
+      "rows": [
+        "{\"v\":1,\"runId\":\"run-1\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"completed\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{},\"sweep\":\"2027-01-15\",\"llmSession\":false}"
+      ],
+      "markers": [
+        {
+          "runId": "run-1",
+          "job": "knowledge-update",
+          "phase": null,
+          "trigger": "manual",
+          "startedAt": 1800000000000
+        }
+      ],
+      "removed": [
+        "run-1"
+      ],
+      "events": [
+        {
+          "name": "job.run",
+          "value": "{\"runId\":\"run-1\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"completed\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{}}"
+        }
+      ]
+    },
+    {
+      "input": {
+        "name": "skipped",
+        "body": "skipped",
+        "options": {}
+      },
+      "calls": 1,
+      "results": [
+        "{\"runId\":\"run-1\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"skipped\",\"reason\":\"disabled\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{}}"
+      ],
+      "rows": [
+        "{\"v\":1,\"runId\":\"run-1\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"skipped\",\"reason\":\"disabled\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{},\"sweep\":\"2027-01-15\",\"llmSession\":false}"
+      ],
+      "markers": [
+        {
+          "runId": "run-1",
+          "job": "knowledge-update",
+          "phase": null,
+          "trigger": "manual",
+          "startedAt": 1800000000000
+        }
+      ],
+      "removed": [
+        "run-1"
+      ],
+      "events": [
+        {
+          "name": "job.run",
+          "value": "{\"runId\":\"run-1\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"skipped\",\"reason\":\"disabled\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{}}"
+        }
+      ]
+    },
+    {
+      "input": {
+        "name": "failed",
+        "body": "failed",
+        "options": {}
+      },
+      "calls": 1,
+      "results": [
+        "{\"runId\":\"run-1\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"failed\",\"reason\":\"error:Error\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{}}"
+      ],
+      "rows": [
+        "{\"v\":1,\"runId\":\"run-1\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"failed\",\"reason\":\"error:Error\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{},\"sweep\":\"2027-01-15\",\"llmSession\":false}"
+      ],
+      "markers": [
+        {
+          "runId": "run-1",
+          "job": "knowledge-update",
+          "phase": null,
+          "trigger": "manual",
+          "startedAt": 1800000000000
+        }
+      ],
+      "removed": [
+        "run-1"
+      ],
+      "events": [
+        {
+          "name": "job.run",
+          "value": "{\"runId\":\"run-1\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"failed\",\"reason\":\"error:Error\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{}}"
+        }
+      ]
+    },
+    {
+      "input": {
+        "name": "incomplete",
+        "body": "incomplete",
+        "options": {}
+      },
+      "calls": 1,
+      "results": [
+        "{\"runId\":\"run-1\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"incomplete\",\"reason\":\"pending\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{}}"
+      ],
+      "rows": [
+        "{\"v\":1,\"runId\":\"run-1\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"incomplete\",\"reason\":\"pending\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{},\"sweep\":\"2027-01-15\",\"llmSession\":false}"
+      ],
+      "markers": [
+        {
+          "runId": "run-1",
+          "job": "knowledge-update",
+          "phase": null,
+          "trigger": "manual",
+          "startedAt": 1800000000000
+        }
+      ],
+      "removed": [
+        "run-1"
+      ],
+      "events": [
+        {
+          "name": "job.run",
+          "value": "{\"runId\":\"run-1\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"incomplete\",\"reason\":\"pending\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{}}"
+        }
+      ]
+    },
+    {
+      "input": {
+        "name": "dry-run",
+        "body": "completed",
+        "options": {
+          "dryRun": true
+        }
+      },
+      "calls": 0,
+      "results": [
+        "{\"runId\":\"run-1\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"skipped\",\"reason\":\"dry_run_unsupported\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{}}"
+      ],
+      "rows": [],
+      "markers": [],
+      "removed": [],
+      "events": [
+        {
+          "name": "job.run",
+          "value": "{\"runId\":\"run-1\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"skipped\",\"reason\":\"dry_run_unsupported\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{}}"
+        }
+      ]
+    },
+    {
+      "input": {
+        "name": "harness-trigger",
+        "body": "completed",
+        "options": {
+          "trigger": "harness"
+        }
+      },
+      "calls": 1,
+      "results": [
+        "{\"runId\":\"run-1\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"harness\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"completed\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{}}"
+      ],
+      "rows": [
+        "{\"v\":1,\"runId\":\"run-1\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"harness\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"completed\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{},\"sweep\":\"2027-01-15\",\"llmSession\":false}"
+      ],
+      "markers": [
+        {
+          "runId": "run-1",
+          "job": "knowledge-update",
+          "phase": null,
+          "trigger": "harness",
+          "startedAt": 1800000000000
+        }
+      ],
+      "removed": [
+        "run-1"
+      ],
+      "events": [
+        {
+          "name": "job.run",
+          "value": "{\"runId\":\"run-1\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"harness\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"completed\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{}}"
+        }
+      ]
+    },
+    {
+      "input": {
+        "name": "cron-trigger",
+        "body": "completed",
+        "options": {
+          "trigger": "cron"
+        }
+      },
+      "calls": 1,
+      "results": [
+        "{\"runId\":\"run-1\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"cron\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"completed\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{}}"
+      ],
+      "rows": [
+        "{\"v\":1,\"runId\":\"run-1\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"cron\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"completed\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{},\"sweep\":\"2027-01-15\",\"llmSession\":false}"
+      ],
+      "markers": [
+        {
+          "runId": "run-1",
+          "job": "knowledge-update",
+          "phase": null,
+          "trigger": "cron",
+          "startedAt": 1800000000000
+        }
+      ],
+      "removed": [
+        "run-1"
+      ],
+      "events": [
+        {
+          "name": "job.run",
+          "value": "{\"runId\":\"run-1\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"cron\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"completed\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{}}"
+        }
+      ]
+    },
+    {
+      "input": {
+        "name": "rem-breaker",
+        "job": "rem-dream",
+        "body": "completed",
+        "repeat": 4,
+        "options": {}
+      },
+      "calls": 3,
+      "results": [
+        "{\"runId\":\"run-1\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"completed\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{}}",
+        "{\"runId\":\"run-2\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"completed\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{}}",
+        "{\"runId\":\"run-3\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"completed\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{}}",
+        "{\"runId\":\"run-4\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"skipped\",\"reason\":\"circuit_open\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{}}"
+      ],
+      "rows": [
+        "{\"v\":1,\"runId\":\"run-1\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"completed\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{},\"sweep\":\"2027-01-15\",\"llmSession\":true}",
+        "{\"v\":1,\"runId\":\"run-2\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"completed\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{},\"sweep\":\"2027-01-15\",\"llmSession\":true}",
+        "{\"v\":1,\"runId\":\"run-3\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"completed\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{},\"sweep\":\"2027-01-15\",\"llmSession\":true}",
+        "{\"v\":1,\"runId\":\"run-4\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"skipped\",\"reason\":\"circuit_open\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{},\"sweep\":\"2027-01-15\",\"llmSession\":false}"
+      ],
+      "markers": [
+        {
+          "runId": "run-1",
+          "job": "rem-dream",
+          "phase": "rem",
+          "trigger": "manual",
+          "startedAt": 1800000000000
+        },
+        {
+          "runId": "run-2",
+          "job": "rem-dream",
+          "phase": "rem",
+          "trigger": "manual",
+          "startedAt": 1800000000000
+        },
+        {
+          "runId": "run-3",
+          "job": "rem-dream",
+          "phase": "rem",
+          "trigger": "manual",
+          "startedAt": 1800000000000
+        },
+        {
+          "runId": "run-4",
+          "job": "rem-dream",
+          "phase": "rem",
+          "trigger": "manual",
+          "startedAt": 1800000000000
+        }
+      ],
+      "removed": [
+        "run-1",
+        "run-2",
+        "run-3",
+        "run-4"
+      ],
+      "events": [
+        {
+          "name": "job.run",
+          "value": "{\"runId\":\"run-1\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"completed\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{}}"
+        },
+        {
+          "name": "job.run",
+          "value": "{\"runId\":\"run-2\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"completed\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{}}"
+        },
+        {
+          "name": "job.run",
+          "value": "{\"runId\":\"run-3\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"completed\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{}}"
+        },
+        {
+          "name": "job.run",
+          "value": "{\"runId\":\"run-4\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"skipped\",\"reason\":\"circuit_open\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{}}"
+        }
+      ]
+    },
+    {
+      "input": {
+        "name": "rem-abandonment",
+        "job": "rem-dream",
+        "body": "incomplete",
+        "repeat": 4,
+        "options": {}
+      },
+      "calls": 3,
+      "results": [
+        "{\"runId\":\"run-1\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"incomplete\",\"reason\":\"pending\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{}}",
+        "{\"runId\":\"run-2\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"incomplete\",\"reason\":\"pending\",\"attempt\":2,\"cost\":{\"ms\":0},\"counts\":{}}",
+        "{\"runId\":\"run-3\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"abandoned\",\"reason\":\"abandoned_after_retries:pending\",\"attempt\":3,\"cost\":{\"ms\":0},\"counts\":{},\"diary\":{\"written\":false,\"reason\":\"no_workspace\"}}",
+        "{\"runId\":\"run-4\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"skipped\",\"reason\":\"circuit_open\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{}}"
+      ],
+      "rows": [
+        "{\"v\":1,\"runId\":\"run-1\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"incomplete\",\"reason\":\"pending\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{},\"sweep\":\"2027-01-15\",\"llmSession\":true}",
+        "{\"v\":1,\"runId\":\"run-2\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"incomplete\",\"reason\":\"pending\",\"attempt\":2,\"cost\":{\"ms\":0},\"counts\":{},\"sweep\":\"2027-01-15\",\"llmSession\":true}",
+        "{\"v\":1,\"runId\":\"run-3\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"abandoned\",\"reason\":\"abandoned_after_retries:pending\",\"attempt\":3,\"cost\":{\"ms\":0},\"counts\":{},\"diary\":{\"written\":false,\"reason\":\"no_workspace\"},\"sweep\":\"2027-01-15\",\"llmSession\":true}",
+        "{\"v\":1,\"runId\":\"run-4\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"skipped\",\"reason\":\"circuit_open\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{},\"sweep\":\"2027-01-15\",\"llmSession\":false}"
+      ],
+      "markers": [
+        {
+          "runId": "run-1",
+          "job": "rem-dream",
+          "phase": "rem",
+          "trigger": "manual",
+          "startedAt": 1800000000000
+        },
+        {
+          "runId": "run-2",
+          "job": "rem-dream",
+          "phase": "rem",
+          "trigger": "manual",
+          "startedAt": 1800000000000
+        },
+        {
+          "runId": "run-3",
+          "job": "rem-dream",
+          "phase": "rem",
+          "trigger": "manual",
+          "startedAt": 1800000000000
+        },
+        {
+          "runId": "run-4",
+          "job": "rem-dream",
+          "phase": "rem",
+          "trigger": "manual",
+          "startedAt": 1800000000000
+        }
+      ],
+      "removed": [
+        "run-1",
+        "run-2",
+        "run-3",
+        "run-4"
+      ],
+      "events": [
+        {
+          "name": "job.run",
+          "value": "{\"runId\":\"run-1\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"incomplete\",\"reason\":\"pending\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{}}"
+        },
+        {
+          "name": "job.run",
+          "value": "{\"runId\":\"run-2\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"incomplete\",\"reason\":\"pending\",\"attempt\":2,\"cost\":{\"ms\":0},\"counts\":{}}"
+        },
+        {
+          "name": "job.run",
+          "value": "{\"runId\":\"run-3\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"abandoned\",\"reason\":\"abandoned_after_retries:pending\",\"attempt\":3,\"cost\":{\"ms\":0},\"counts\":{},\"diary\":{\"written\":false,\"reason\":\"no_workspace\"}}"
+        },
+        {
+          "name": "job.run",
+          "value": "{\"runId\":\"run-4\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"skipped\",\"reason\":\"circuit_open\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{}}"
+        }
+      ]
+    },
+    {
+      "input": {
+        "name": "singleton-overlap",
+        "body": "concurrent",
+        "options": {}
+      },
+      "calls": 1,
+      "results": [
+        "{\"runId\":\"run-1\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"completed\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{}}",
+        "{\"runId\":\"run-2\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"skipped\",\"reason\":\"already_running\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{}}"
+      ],
+      "rows": [
+        "{\"v\":1,\"runId\":\"run-2\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"skipped\",\"reason\":\"already_running\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{},\"sweep\":\"2027-01-15\",\"llmSession\":false}",
+        "{\"v\":1,\"runId\":\"run-1\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"completed\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{},\"sweep\":\"2027-01-15\",\"llmSession\":false}"
+      ],
+      "markers": [
+        {
+          "runId": "run-1",
+          "job": "knowledge-update",
+          "phase": null,
+          "trigger": "manual",
+          "startedAt": 1800000000000
+        },
+        {
+          "runId": "run-2",
+          "job": "knowledge-update",
+          "phase": null,
+          "trigger": "manual",
+          "startedAt": 1800000000000
+        }
+      ],
+      "removed": [
+        "run-2",
+        "run-1"
+      ],
+      "events": [
+        {
+          "name": "job.run",
+          "value": "{\"runId\":\"run-2\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"skipped\",\"reason\":\"already_running\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{}}"
+        },
+        {
+          "name": "job.run",
+          "value": "{\"runId\":\"run-1\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"completed\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{}}"
+        }
+      ]
+    }
+  ]
+}

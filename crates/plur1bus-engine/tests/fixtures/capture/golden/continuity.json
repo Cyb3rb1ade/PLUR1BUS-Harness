@@ -1,0 +1,2417 @@
+{
+  "provenance": {
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "node": "v24.21.0",
+    "sourceHashes": {
+      "lib/continuity-gate.js": "74b57c98d4631c9d6d34ecc2c744b02f2f430584e270671f60b3ecadc2de84b6",
+      "lib/recall-decision-trace.js": "cee6208fa0a91654adae11ccd17c3b44e86c84fdf9b30c1addfa1d299c96711d"
+    }
+  },
+  "direct": [
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": -1,
+        "state": {
+          "associativeSurfacedCount": 0,
+          "patternSurfacedCount": 0
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"score_below_threshold\",\"traceDetail\":{\"score\":-1,\"threshold\":0.75}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": -1,
+        "state": {
+          "associativeSurfacedCount": 1,
+          "patternSurfacedCount": 1
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"score_below_threshold\",\"traceDetail\":{\"score\":-1,\"threshold\":0.75}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": -1,
+        "state": {
+          "associativeSurfacedCount": 2,
+          "patternSurfacedCount": 2
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"score_below_threshold\",\"traceDetail\":{\"score\":-1,\"threshold\":0.75}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": 0,
+        "state": {
+          "associativeSurfacedCount": 0,
+          "patternSurfacedCount": 0
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"score_below_threshold\",\"traceDetail\":{\"score\":0,\"threshold\":0.75}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": 0,
+        "state": {
+          "associativeSurfacedCount": 1,
+          "patternSurfacedCount": 1
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"score_below_threshold\",\"traceDetail\":{\"score\":0,\"threshold\":0.75}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": 0,
+        "state": {
+          "associativeSurfacedCount": 2,
+          "patternSurfacedCount": 2
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"score_below_threshold\",\"traceDetail\":{\"score\":0,\"threshold\":0.75}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": 0.7,
+        "state": {
+          "associativeSurfacedCount": 0,
+          "patternSurfacedCount": 0
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"score_below_threshold\",\"traceDetail\":{\"score\":0.7,\"threshold\":0.75}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": 0.7,
+        "state": {
+          "associativeSurfacedCount": 1,
+          "patternSurfacedCount": 1
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"score_below_threshold\",\"traceDetail\":{\"score\":0.7,\"threshold\":0.75}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": 0.7,
+        "state": {
+          "associativeSurfacedCount": 2,
+          "patternSurfacedCount": 2
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"score_below_threshold\",\"traceDetail\":{\"score\":0.7,\"threshold\":0.75}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": 0.75,
+        "state": {
+          "associativeSurfacedCount": 0,
+          "patternSurfacedCount": 0
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"score_below_threshold\",\"traceDetail\":{\"score\":0.75,\"threshold\":0.75}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": 0.75,
+        "state": {
+          "associativeSurfacedCount": 1,
+          "patternSurfacedCount": 1
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"score_below_threshold\",\"traceDetail\":{\"score\":0.75,\"threshold\":0.75}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": 0.75,
+        "state": {
+          "associativeSurfacedCount": 2,
+          "patternSurfacedCount": 2
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"score_below_threshold\",\"traceDetail\":{\"score\":0.75,\"threshold\":0.75}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": 0.75000001,
+        "state": {
+          "associativeSurfacedCount": 0,
+          "patternSurfacedCount": 0
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.75000001,\"threshold\":0.75}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": 0.75000001,
+        "state": {
+          "associativeSurfacedCount": 1,
+          "patternSurfacedCount": 1
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":0.75000001,\"maxAssociations\":1,\"surfacedCount\":1}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": 0.75000001,
+        "state": {
+          "associativeSurfacedCount": 2,
+          "patternSurfacedCount": 2
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":0.75000001,\"maxAssociations\":1,\"surfacedCount\":2}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": 1,
+        "state": {
+          "associativeSurfacedCount": 0,
+          "patternSurfacedCount": 0
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":1,\"threshold\":0.75}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": 1,
+        "state": {
+          "associativeSurfacedCount": 1,
+          "patternSurfacedCount": 1
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":1,\"maxAssociations\":1,\"surfacedCount\":1}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": 1,
+        "state": {
+          "associativeSurfacedCount": 2,
+          "patternSurfacedCount": 2
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":1,\"maxAssociations\":1,\"surfacedCount\":2}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": -1,
+        "state": {
+          "associativeSurfacedCount": 0,
+          "patternSurfacedCount": 0
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"score_below_threshold\",\"traceDetail\":{\"score\":-1,\"threshold\":0.7}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": -1,
+        "state": {
+          "associativeSurfacedCount": 1,
+          "patternSurfacedCount": 1
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"score_below_threshold\",\"traceDetail\":{\"score\":-1,\"threshold\":0.7}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": -1,
+        "state": {
+          "associativeSurfacedCount": 2,
+          "patternSurfacedCount": 2
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"score_below_threshold\",\"traceDetail\":{\"score\":-1,\"threshold\":0.7}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": 0,
+        "state": {
+          "associativeSurfacedCount": 0,
+          "patternSurfacedCount": 0
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"score_below_threshold\",\"traceDetail\":{\"score\":0,\"threshold\":0.7}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": 0,
+        "state": {
+          "associativeSurfacedCount": 1,
+          "patternSurfacedCount": 1
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"score_below_threshold\",\"traceDetail\":{\"score\":0,\"threshold\":0.7}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": 0,
+        "state": {
+          "associativeSurfacedCount": 2,
+          "patternSurfacedCount": 2
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"score_below_threshold\",\"traceDetail\":{\"score\":0,\"threshold\":0.7}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": 0.7,
+        "state": {
+          "associativeSurfacedCount": 0,
+          "patternSurfacedCount": 0
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"score_below_threshold\",\"traceDetail\":{\"score\":0.7,\"threshold\":0.7}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": 0.7,
+        "state": {
+          "associativeSurfacedCount": 1,
+          "patternSurfacedCount": 1
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"score_below_threshold\",\"traceDetail\":{\"score\":0.7,\"threshold\":0.7}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": 0.7,
+        "state": {
+          "associativeSurfacedCount": 2,
+          "patternSurfacedCount": 2
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"score_below_threshold\",\"traceDetail\":{\"score\":0.7,\"threshold\":0.7}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": 0.75,
+        "state": {
+          "associativeSurfacedCount": 0,
+          "patternSurfacedCount": 0
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.75,\"threshold\":0.7}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": 0.75,
+        "state": {
+          "associativeSurfacedCount": 1,
+          "patternSurfacedCount": 1
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":0.75,\"maxPatterns\":1,\"surfacedCount\":1}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": 0.75,
+        "state": {
+          "associativeSurfacedCount": 2,
+          "patternSurfacedCount": 2
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":0.75,\"maxPatterns\":1,\"surfacedCount\":2}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": 0.75000001,
+        "state": {
+          "associativeSurfacedCount": 0,
+          "patternSurfacedCount": 0
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.75000001,\"threshold\":0.7}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": 0.75000001,
+        "state": {
+          "associativeSurfacedCount": 1,
+          "patternSurfacedCount": 1
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":0.75000001,\"maxPatterns\":1,\"surfacedCount\":1}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": 0.75000001,
+        "state": {
+          "associativeSurfacedCount": 2,
+          "patternSurfacedCount": 2
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":0.75000001,\"maxPatterns\":1,\"surfacedCount\":2}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": 1,
+        "state": {
+          "associativeSurfacedCount": 0,
+          "patternSurfacedCount": 0
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":1,\"threshold\":0.7}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": 1,
+        "state": {
+          "associativeSurfacedCount": 1,
+          "patternSurfacedCount": 1
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":1,\"maxPatterns\":1,\"surfacedCount\":1}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": 1,
+        "state": {
+          "associativeSurfacedCount": 2,
+          "patternSurfacedCount": 2
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":1,\"maxPatterns\":1,\"surfacedCount\":2}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "unknown",
+        "score": -1,
+        "state": {
+          "associativeSurfacedCount": 0,
+          "patternSurfacedCount": 0
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"invalid_type\",\"traceDetail\":{\"type\":\"unknown\"}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "unknown",
+        "score": -1,
+        "state": {
+          "associativeSurfacedCount": 1,
+          "patternSurfacedCount": 1
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"invalid_type\",\"traceDetail\":{\"type\":\"unknown\"}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "unknown",
+        "score": -1,
+        "state": {
+          "associativeSurfacedCount": 2,
+          "patternSurfacedCount": 2
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"invalid_type\",\"traceDetail\":{\"type\":\"unknown\"}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "unknown",
+        "score": 0,
+        "state": {
+          "associativeSurfacedCount": 0,
+          "patternSurfacedCount": 0
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"invalid_type\",\"traceDetail\":{\"type\":\"unknown\"}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "unknown",
+        "score": 0,
+        "state": {
+          "associativeSurfacedCount": 1,
+          "patternSurfacedCount": 1
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"invalid_type\",\"traceDetail\":{\"type\":\"unknown\"}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "unknown",
+        "score": 0,
+        "state": {
+          "associativeSurfacedCount": 2,
+          "patternSurfacedCount": 2
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"invalid_type\",\"traceDetail\":{\"type\":\"unknown\"}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "unknown",
+        "score": 0.7,
+        "state": {
+          "associativeSurfacedCount": 0,
+          "patternSurfacedCount": 0
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"invalid_type\",\"traceDetail\":{\"type\":\"unknown\"}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "unknown",
+        "score": 0.7,
+        "state": {
+          "associativeSurfacedCount": 1,
+          "patternSurfacedCount": 1
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"invalid_type\",\"traceDetail\":{\"type\":\"unknown\"}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "unknown",
+        "score": 0.7,
+        "state": {
+          "associativeSurfacedCount": 2,
+          "patternSurfacedCount": 2
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"invalid_type\",\"traceDetail\":{\"type\":\"unknown\"}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "unknown",
+        "score": 0.75,
+        "state": {
+          "associativeSurfacedCount": 0,
+          "patternSurfacedCount": 0
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"invalid_type\",\"traceDetail\":{\"type\":\"unknown\"}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "unknown",
+        "score": 0.75,
+        "state": {
+          "associativeSurfacedCount": 1,
+          "patternSurfacedCount": 1
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"invalid_type\",\"traceDetail\":{\"type\":\"unknown\"}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "unknown",
+        "score": 0.75,
+        "state": {
+          "associativeSurfacedCount": 2,
+          "patternSurfacedCount": 2
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"invalid_type\",\"traceDetail\":{\"type\":\"unknown\"}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "unknown",
+        "score": 0.75000001,
+        "state": {
+          "associativeSurfacedCount": 0,
+          "patternSurfacedCount": 0
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"invalid_type\",\"traceDetail\":{\"type\":\"unknown\"}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "unknown",
+        "score": 0.75000001,
+        "state": {
+          "associativeSurfacedCount": 1,
+          "patternSurfacedCount": 1
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"invalid_type\",\"traceDetail\":{\"type\":\"unknown\"}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "unknown",
+        "score": 0.75000001,
+        "state": {
+          "associativeSurfacedCount": 2,
+          "patternSurfacedCount": 2
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"invalid_type\",\"traceDetail\":{\"type\":\"unknown\"}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "unknown",
+        "score": 1,
+        "state": {
+          "associativeSurfacedCount": 0,
+          "patternSurfacedCount": 0
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"invalid_type\",\"traceDetail\":{\"type\":\"unknown\"}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "unknown",
+        "score": 1,
+        "state": {
+          "associativeSurfacedCount": 1,
+          "patternSurfacedCount": 1
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"invalid_type\",\"traceDetail\":{\"type\":\"unknown\"}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "unknown",
+        "score": 1,
+        "state": {
+          "associativeSurfacedCount": 2,
+          "patternSurfacedCount": 2
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"invalid_type\",\"traceDetail\":{\"type\":\"unknown\"}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": 0.9,
+        "state": {},
+        "options": {
+          "depth": 2
+        }
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.9,\"threshold\":0.75,\"depth\":2}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": 0.9,
+        "state": {},
+        "options": {
+          "depth": 2
+        }
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.9,\"threshold\":0.7}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": 0.9,
+        "state": {},
+        "options": {
+          "depth": 2.1
+        }
+      },
+      "line": "{\"allow\":false,\"reason\":\"depth_too_deep\",\"traceDetail\":{\"score\":0.9,\"depth\":2.1,\"maxDepth\":2}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": 0.9,
+        "state": {},
+        "options": {
+          "depth": 2.1
+        }
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.9,\"threshold\":0.7}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": 0.9,
+        "state": {},
+        "options": {
+          "depth": -1
+        }
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.9,\"threshold\":0.75,\"depth\":-1}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": 0.9,
+        "state": {},
+        "options": {
+          "depth": -1
+        }
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.9,\"threshold\":0.7}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": 0.9,
+        "state": {},
+        "options": {
+          "depth": 3,
+          "id": "a",
+          "vectorTopIds": [
+            "a"
+          ]
+        }
+      },
+      "line": "{\"allow\":false,\"reason\":\"depth_too_deep\",\"traceDetail\":{\"score\":0.9,\"depth\":3,\"maxDepth\":2}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": 0.9,
+        "state": {},
+        "options": {
+          "depth": 3,
+          "id": "a",
+          "vectorTopIds": [
+            "a"
+          ]
+        }
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.9,\"threshold\":0.7}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": 0.9,
+        "state": {},
+        "options": {
+          "id": "a",
+          "vectorTopIds": [
+            "a"
+          ]
+        }
+      },
+      "line": "{\"allow\":false,\"reason\":\"already_in_vector_recall\",\"traceDetail\":{\"score\":0.9,\"id\":\"a\",\"vectorTopIds\":[\"a\"]}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": 0.9,
+        "state": {},
+        "options": {
+          "id": "a",
+          "vectorTopIds": [
+            "a"
+          ]
+        }
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.9,\"threshold\":0.7}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": 0.9,
+        "state": {},
+        "options": {
+          "id": "a",
+          "vectorTopIds": [
+            "b"
+          ]
+        }
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.9,\"threshold\":0.75}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": 0.9,
+        "state": {},
+        "options": {
+          "id": "a",
+          "vectorTopIds": [
+            "b"
+          ]
+        }
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.9,\"threshold\":0.7}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": 0.9,
+        "state": {},
+        "options": {
+          "id": "",
+          "vectorTopIds": [
+            ""
+          ]
+        }
+      },
+      "line": "{\"allow\":false,\"reason\":\"already_in_vector_recall\",\"traceDetail\":{\"score\":0.9,\"id\":\"\",\"vectorTopIds\":[\"\"]}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": 0.9,
+        "state": {},
+        "options": {
+          "id": "",
+          "vectorTopIds": [
+            ""
+          ]
+        }
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.9,\"threshold\":0.7}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": 0.9,
+        "state": {},
+        "options": {
+          "emotionalTrajectory": "GRIEF",
+          "currentRegister": "joy"
+        }
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.9,\"threshold\":0.75}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": 0.9,
+        "state": {},
+        "options": {
+          "emotionalTrajectory": "GRIEF",
+          "currentRegister": "joy"
+        }
+      },
+      "line": "{\"allow\":false,\"reason\":\"emotional_mismatch\",\"traceDetail\":{\"score\":0.9,\"emotionalTrajectory\":\"GRIEF\",\"currentRegister\":\"joy\"}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": 0.9,
+        "state": {},
+        "options": {
+          "emotionalTrajectory": "celebration",
+          "currentRegister": "anguish"
+        }
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.9,\"threshold\":0.75}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": 0.9,
+        "state": {},
+        "options": {
+          "emotionalTrajectory": "celebration",
+          "currentRegister": "anguish"
+        }
+      },
+      "line": "{\"allow\":false,\"reason\":\"emotional_mismatch\",\"traceDetail\":{\"score\":0.9,\"emotionalTrajectory\":\"celebration\",\"currentRegister\":\"anguish\"}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": 0.9,
+        "state": {},
+        "options": {
+          "emotionalTrajectory": "anger",
+          "currentRegister": "loss"
+        }
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.9,\"threshold\":0.75}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": 0.9,
+        "state": {},
+        "options": {
+          "emotionalTrajectory": "anger",
+          "currentRegister": "loss"
+        }
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.9,\"threshold\":0.7}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": 0.9,
+        "state": {},
+        "options": {
+          "emotionalTrajectory": "joy",
+          "currentRegister": "delight"
+        }
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.9,\"threshold\":0.75}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": 0.9,
+        "state": {},
+        "options": {
+          "emotionalTrajectory": "joy",
+          "currentRegister": "delight"
+        }
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.9,\"threshold\":0.7}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": 0.9,
+        "state": {},
+        "options": {
+          "emotionalTrajectory": "lossless",
+          "currentRegister": "elation"
+        }
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.9,\"threshold\":0.75}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": 0.9,
+        "state": {},
+        "options": {
+          "emotionalTrajectory": "lossless",
+          "currentRegister": "elation"
+        }
+      },
+      "line": "{\"allow\":false,\"reason\":\"emotional_mismatch\",\"traceDetail\":{\"score\":0.9,\"emotionalTrajectory\":\"lossless\",\"currentRegister\":\"elation\"}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "associative",
+        "score": 0.9,
+        "state": {},
+        "options": {
+          "emotionalTrajectory": "",
+          "currentRegister": "joy"
+        }
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.9,\"threshold\":0.75}}"
+    },
+    {
+      "input": {
+        "config": {},
+        "type": "pattern",
+        "score": 0.9,
+        "state": {},
+        "options": {
+          "emotionalTrajectory": "",
+          "currentRegister": "joy"
+        }
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.9,\"threshold\":0.7}}"
+    },
+    {
+      "input": {
+        "config": {
+          "assocThreshold": 0,
+          "patternThreshold": 0,
+          "maxAssociations": -1,
+          "maxPatterns": -1
+        },
+        "type": "associative",
+        "score": 0.5,
+        "state": {
+          "associativeSurfacedCount": 0,
+          "patternSurfacedCount": 0
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":0.5,\"maxAssociations\":-1,\"surfacedCount\":0}}"
+    },
+    {
+      "input": {
+        "config": {
+          "assocThreshold": 0,
+          "patternThreshold": 0,
+          "maxAssociations": -1,
+          "maxPatterns": -1
+        },
+        "type": "pattern",
+        "score": 0.5,
+        "state": {
+          "associativeSurfacedCount": 0,
+          "patternSurfacedCount": 0
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":0.5,\"maxPatterns\":-1,\"surfacedCount\":0}}"
+    },
+    {
+      "input": {
+        "config": {
+          "assocThreshold": 0,
+          "patternThreshold": 0,
+          "maxAssociations": -1,
+          "maxPatterns": -1
+        },
+        "type": "associative",
+        "score": 0.5,
+        "state": {
+          "associativeSurfacedCount": 1,
+          "patternSurfacedCount": 1
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":0.5,\"maxAssociations\":-1,\"surfacedCount\":1}}"
+    },
+    {
+      "input": {
+        "config": {
+          "assocThreshold": 0,
+          "patternThreshold": 0,
+          "maxAssociations": -1,
+          "maxPatterns": -1
+        },
+        "type": "pattern",
+        "score": 0.5,
+        "state": {
+          "associativeSurfacedCount": 1,
+          "patternSurfacedCount": 1
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":0.5,\"maxPatterns\":-1,\"surfacedCount\":1}}"
+    },
+    {
+      "input": {
+        "config": {
+          "assocThreshold": 0,
+          "patternThreshold": 0,
+          "maxAssociations": 0,
+          "maxPatterns": 0
+        },
+        "type": "associative",
+        "score": 0.5,
+        "state": {
+          "associativeSurfacedCount": 0,
+          "patternSurfacedCount": 0
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":0.5,\"maxAssociations\":0,\"surfacedCount\":0}}"
+    },
+    {
+      "input": {
+        "config": {
+          "assocThreshold": 0,
+          "patternThreshold": 0,
+          "maxAssociations": 0,
+          "maxPatterns": 0
+        },
+        "type": "pattern",
+        "score": 0.5,
+        "state": {
+          "associativeSurfacedCount": 0,
+          "patternSurfacedCount": 0
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":0.5,\"maxPatterns\":0,\"surfacedCount\":0}}"
+    },
+    {
+      "input": {
+        "config": {
+          "assocThreshold": 0,
+          "patternThreshold": 0,
+          "maxAssociations": 0,
+          "maxPatterns": 0
+        },
+        "type": "associative",
+        "score": 0.5,
+        "state": {
+          "associativeSurfacedCount": 1,
+          "patternSurfacedCount": 1
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":0.5,\"maxAssociations\":0,\"surfacedCount\":1}}"
+    },
+    {
+      "input": {
+        "config": {
+          "assocThreshold": 0,
+          "patternThreshold": 0,
+          "maxAssociations": 0,
+          "maxPatterns": 0
+        },
+        "type": "pattern",
+        "score": 0.5,
+        "state": {
+          "associativeSurfacedCount": 1,
+          "patternSurfacedCount": 1
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":0.5,\"maxPatterns\":0,\"surfacedCount\":1}}"
+    },
+    {
+      "input": {
+        "config": {
+          "assocThreshold": 0,
+          "patternThreshold": 0,
+          "maxAssociations": 0.5,
+          "maxPatterns": 0.5
+        },
+        "type": "associative",
+        "score": 0.5,
+        "state": {
+          "associativeSurfacedCount": 0,
+          "patternSurfacedCount": 0
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.5,\"threshold\":0}}"
+    },
+    {
+      "input": {
+        "config": {
+          "assocThreshold": 0,
+          "patternThreshold": 0,
+          "maxAssociations": 0.5,
+          "maxPatterns": 0.5
+        },
+        "type": "pattern",
+        "score": 0.5,
+        "state": {
+          "associativeSurfacedCount": 0,
+          "patternSurfacedCount": 0
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.5,\"threshold\":0}}"
+    },
+    {
+      "input": {
+        "config": {
+          "assocThreshold": 0,
+          "patternThreshold": 0,
+          "maxAssociations": 0.5,
+          "maxPatterns": 0.5
+        },
+        "type": "associative",
+        "score": 0.5,
+        "state": {
+          "associativeSurfacedCount": 1,
+          "patternSurfacedCount": 1
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":0.5,\"maxAssociations\":0.5,\"surfacedCount\":1}}"
+    },
+    {
+      "input": {
+        "config": {
+          "assocThreshold": 0,
+          "patternThreshold": 0,
+          "maxAssociations": 0.5,
+          "maxPatterns": 0.5
+        },
+        "type": "pattern",
+        "score": 0.5,
+        "state": {
+          "associativeSurfacedCount": 1,
+          "patternSurfacedCount": 1
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":0.5,\"maxPatterns\":0.5,\"surfacedCount\":1}}"
+    },
+    {
+      "input": {
+        "config": {
+          "assocThreshold": 0,
+          "patternThreshold": 0,
+          "maxAssociations": 1,
+          "maxPatterns": 1
+        },
+        "type": "associative",
+        "score": 0.5,
+        "state": {
+          "associativeSurfacedCount": 0,
+          "patternSurfacedCount": 0
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.5,\"threshold\":0}}"
+    },
+    {
+      "input": {
+        "config": {
+          "assocThreshold": 0,
+          "patternThreshold": 0,
+          "maxAssociations": 1,
+          "maxPatterns": 1
+        },
+        "type": "pattern",
+        "score": 0.5,
+        "state": {
+          "associativeSurfacedCount": 0,
+          "patternSurfacedCount": 0
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.5,\"threshold\":0}}"
+    },
+    {
+      "input": {
+        "config": {
+          "assocThreshold": 0,
+          "patternThreshold": 0,
+          "maxAssociations": 1,
+          "maxPatterns": 1
+        },
+        "type": "associative",
+        "score": 0.5,
+        "state": {
+          "associativeSurfacedCount": 1,
+          "patternSurfacedCount": 1
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":0.5,\"maxAssociations\":1,\"surfacedCount\":1}}"
+    },
+    {
+      "input": {
+        "config": {
+          "assocThreshold": 0,
+          "patternThreshold": 0,
+          "maxAssociations": 1,
+          "maxPatterns": 1
+        },
+        "type": "pattern",
+        "score": 0.5,
+        "state": {
+          "associativeSurfacedCount": 1,
+          "patternSurfacedCount": 1
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":0.5,\"maxPatterns\":1,\"surfacedCount\":1}}"
+    },
+    {
+      "input": {
+        "config": {
+          "assocThreshold": 0,
+          "patternThreshold": 0,
+          "maxAssociations": 2,
+          "maxPatterns": 2
+        },
+        "type": "associative",
+        "score": 0.5,
+        "state": {
+          "associativeSurfacedCount": 0,
+          "patternSurfacedCount": 0
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.5,\"threshold\":0}}"
+    },
+    {
+      "input": {
+        "config": {
+          "assocThreshold": 0,
+          "patternThreshold": 0,
+          "maxAssociations": 2,
+          "maxPatterns": 2
+        },
+        "type": "pattern",
+        "score": 0.5,
+        "state": {
+          "associativeSurfacedCount": 0,
+          "patternSurfacedCount": 0
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.5,\"threshold\":0}}"
+    },
+    {
+      "input": {
+        "config": {
+          "assocThreshold": 0,
+          "patternThreshold": 0,
+          "maxAssociations": 2,
+          "maxPatterns": 2
+        },
+        "type": "associative",
+        "score": 0.5,
+        "state": {
+          "associativeSurfacedCount": 1,
+          "patternSurfacedCount": 1
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.5,\"threshold\":0}}"
+    },
+    {
+      "input": {
+        "config": {
+          "assocThreshold": 0,
+          "patternThreshold": 0,
+          "maxAssociations": 2,
+          "maxPatterns": 2
+        },
+        "type": "pattern",
+        "score": 0.5,
+        "state": {
+          "associativeSurfacedCount": 1,
+          "patternSurfacedCount": 1
+        },
+        "options": {}
+      },
+      "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.5,\"threshold\":0}}"
+    }
+  ],
+  "sequences": [
+    {
+      "config": {},
+      "steps": [
+        {
+          "type": "associative",
+          "score": 0.9,
+          "id": "a",
+          "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.9,\"threshold\":0.75}}",
+          "state": {
+            "associativeSurfacedCount": 1,
+            "patternSurfacedCount": 0,
+            "surfacedIds": [
+              "a"
+            ]
+          }
+        },
+        {
+          "type": "pattern",
+          "score": 0.8,
+          "id": "p",
+          "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.8,\"threshold\":0.7}}",
+          "state": {
+            "associativeSurfacedCount": 1,
+            "patternSurfacedCount": 1,
+            "surfacedIds": [
+              "a",
+              "p"
+            ]
+          }
+        },
+        {
+          "type": "associative",
+          "score": 1,
+          "id": "a",
+          "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":1,\"maxAssociations\":1,\"surfacedCount\":1}}",
+          "state": {
+            "associativeSurfacedCount": 1,
+            "patternSurfacedCount": 1,
+            "surfacedIds": [
+              "a",
+              "p"
+            ]
+          }
+        },
+        {
+          "type": "pattern",
+          "score": 1,
+          "id": "p",
+          "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":1,\"maxPatterns\":1,\"surfacedCount\":1}}",
+          "state": {
+            "associativeSurfacedCount": 1,
+            "patternSurfacedCount": 1,
+            "surfacedIds": [
+              "a",
+              "p"
+            ]
+          }
+        },
+        {
+          "type": "unknown",
+          "score": 1,
+          "id": "x",
+          "line": "{\"allow\":false,\"reason\":\"invalid_type\",\"traceDetail\":{\"type\":\"unknown\"}}",
+          "state": {
+            "associativeSurfacedCount": 1,
+            "patternSurfacedCount": 1,
+            "surfacedIds": [
+              "a",
+              "p"
+            ]
+          }
+        },
+        {
+          "type": "associative",
+          "score": 1,
+          "id": "",
+          "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":1,\"maxAssociations\":1,\"surfacedCount\":1}}",
+          "state": {
+            "associativeSurfacedCount": 1,
+            "patternSurfacedCount": 1,
+            "surfacedIds": [
+              "a",
+              "p"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "config": {
+        "assocThreshold": 0,
+        "patternThreshold": 0,
+        "maxAssociations": 2,
+        "maxPatterns": 2
+      },
+      "steps": [
+        {
+          "type": "associative",
+          "score": 0.9,
+          "id": "a",
+          "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.9,\"threshold\":0}}",
+          "state": {
+            "associativeSurfacedCount": 1,
+            "patternSurfacedCount": 0,
+            "surfacedIds": [
+              "a"
+            ]
+          }
+        },
+        {
+          "type": "pattern",
+          "score": 0.8,
+          "id": "p",
+          "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":0.8,\"threshold\":0}}",
+          "state": {
+            "associativeSurfacedCount": 1,
+            "patternSurfacedCount": 1,
+            "surfacedIds": [
+              "a",
+              "p"
+            ]
+          }
+        },
+        {
+          "type": "associative",
+          "score": 1,
+          "id": "a",
+          "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":1,\"threshold\":0}}",
+          "state": {
+            "associativeSurfacedCount": 2,
+            "patternSurfacedCount": 1,
+            "surfacedIds": [
+              "a",
+              "p"
+            ]
+          }
+        },
+        {
+          "type": "pattern",
+          "score": 1,
+          "id": "p",
+          "line": "{\"allow\":true,\"reason\":\"ok\",\"traceDetail\":{\"score\":1,\"threshold\":0}}",
+          "state": {
+            "associativeSurfacedCount": 2,
+            "patternSurfacedCount": 2,
+            "surfacedIds": [
+              "a",
+              "p"
+            ]
+          }
+        },
+        {
+          "type": "unknown",
+          "score": 1,
+          "id": "x",
+          "line": "{\"allow\":false,\"reason\":\"invalid_type\",\"traceDetail\":{\"type\":\"unknown\"}}",
+          "state": {
+            "associativeSurfacedCount": 2,
+            "patternSurfacedCount": 2,
+            "surfacedIds": [
+              "a",
+              "p"
+            ]
+          }
+        },
+        {
+          "type": "associative",
+          "score": 1,
+          "id": "",
+          "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":1,\"maxAssociations\":2,\"surfacedCount\":2}}",
+          "state": {
+            "associativeSurfacedCount": 2,
+            "patternSurfacedCount": 2,
+            "surfacedIds": [
+              "a",
+              "p"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "config": {
+        "maxAssociations": 0,
+        "maxPatterns": 0
+      },
+      "steps": [
+        {
+          "type": "associative",
+          "score": 0.9,
+          "id": "a",
+          "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":0.9,\"maxAssociations\":0,\"surfacedCount\":0}}",
+          "state": {
+            "associativeSurfacedCount": 0,
+            "patternSurfacedCount": 0
+          }
+        },
+        {
+          "type": "pattern",
+          "score": 0.8,
+          "id": "p",
+          "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":0.8,\"maxPatterns\":0,\"surfacedCount\":0}}",
+          "state": {
+            "associativeSurfacedCount": 0,
+            "patternSurfacedCount": 0
+          }
+        },
+        {
+          "type": "associative",
+          "score": 1,
+          "id": "a",
+          "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":1,\"maxAssociations\":0,\"surfacedCount\":0}}",
+          "state": {
+            "associativeSurfacedCount": 0,
+            "patternSurfacedCount": 0
+          }
+        },
+        {
+          "type": "pattern",
+          "score": 1,
+          "id": "p",
+          "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":1,\"maxPatterns\":0,\"surfacedCount\":0}}",
+          "state": {
+            "associativeSurfacedCount": 0,
+            "patternSurfacedCount": 0
+          }
+        },
+        {
+          "type": "unknown",
+          "score": 1,
+          "id": "x",
+          "line": "{\"allow\":false,\"reason\":\"invalid_type\",\"traceDetail\":{\"type\":\"unknown\"}}",
+          "state": {
+            "associativeSurfacedCount": 0,
+            "patternSurfacedCount": 0
+          }
+        },
+        {
+          "type": "associative",
+          "score": 1,
+          "id": "",
+          "line": "{\"allow\":false,\"reason\":\"rate_limit\",\"traceDetail\":{\"score\":1,\"maxAssociations\":0,\"surfacedCount\":0}}",
+          "state": {
+            "associativeSurfacedCount": 0,
+            "patternSurfacedCount": 0
+          }
+        }
+      ]
+    }
+  ],
+  "lists": [
+    {
+      "maximum": 0,
+      "count": 0,
+      "candidates": [
+        {
+          "id": "plain"
+        },
+        {
+          "id": "weak",
+          "graphSource": "graph",
+          "relevanceScore": 0
+        },
+        {
+          "id": "deep",
+          "graphSource": "graph",
+          "associatedScore": 1,
+          "depth": 3
+        },
+        {
+          "id": "a",
+          "graphSource": "graph",
+          "associatedScore": 0.8
+        },
+        {
+          "id": "b",
+          "graphSource": "graph",
+          "associationStrength": 0.9
+        },
+        {
+          "id": "tail"
+        }
+      ],
+      "result": [
+        {
+          "id": "plain"
+        },
+        {
+          "id": "tail"
+        }
+      ],
+      "state": {
+        "associativeSurfacedCount": 0,
+        "patternSurfacedCount": 0
+      }
+    },
+    {
+      "maximum": 0,
+      "count": 1,
+      "candidates": [
+        {
+          "id": "plain"
+        },
+        {
+          "id": "weak",
+          "graphSource": "graph",
+          "relevanceScore": 0
+        },
+        {
+          "id": "deep",
+          "graphSource": "graph",
+          "associatedScore": 1,
+          "depth": 3
+        },
+        {
+          "id": "a",
+          "graphSource": "graph",
+          "associatedScore": 0.8
+        },
+        {
+          "id": "b",
+          "graphSource": "graph",
+          "associationStrength": 0.9
+        },
+        {
+          "id": "tail"
+        }
+      ],
+      "result": [
+        {
+          "id": "plain"
+        },
+        {
+          "id": "tail"
+        }
+      ],
+      "state": {
+        "associativeSurfacedCount": 1,
+        "patternSurfacedCount": 0
+      }
+    },
+    {
+      "maximum": 1,
+      "count": 0,
+      "candidates": [
+        {
+          "id": "plain"
+        },
+        {
+          "id": "weak",
+          "graphSource": "graph",
+          "relevanceScore": 0
+        },
+        {
+          "id": "deep",
+          "graphSource": "graph",
+          "associatedScore": 1,
+          "depth": 3
+        },
+        {
+          "id": "a",
+          "graphSource": "graph",
+          "associatedScore": 0.8
+        },
+        {
+          "id": "b",
+          "graphSource": "graph",
+          "associationStrength": 0.9
+        },
+        {
+          "id": "tail"
+        }
+      ],
+      "result": [
+        {
+          "id": "plain"
+        },
+        {
+          "id": "a",
+          "graphSource": "graph",
+          "associatedScore": 0.8
+        },
+        {
+          "id": "tail"
+        }
+      ],
+      "state": {
+        "associativeSurfacedCount": 1,
+        "patternSurfacedCount": 0,
+        "surfacedIds": [
+          "a"
+        ]
+      }
+    },
+    {
+      "maximum": 1,
+      "count": 1,
+      "candidates": [
+        {
+          "id": "plain"
+        },
+        {
+          "id": "weak",
+          "graphSource": "graph",
+          "relevanceScore": 0
+        },
+        {
+          "id": "deep",
+          "graphSource": "graph",
+          "associatedScore": 1,
+          "depth": 3
+        },
+        {
+          "id": "a",
+          "graphSource": "graph",
+          "associatedScore": 0.8
+        },
+        {
+          "id": "b",
+          "graphSource": "graph",
+          "associationStrength": 0.9
+        },
+        {
+          "id": "tail"
+        }
+      ],
+      "result": [
+        {
+          "id": "plain"
+        },
+        {
+          "id": "tail"
+        }
+      ],
+      "state": {
+        "associativeSurfacedCount": 1,
+        "patternSurfacedCount": 0
+      }
+    },
+    {
+      "maximum": 2,
+      "count": 0,
+      "candidates": [
+        {
+          "id": "plain"
+        },
+        {
+          "id": "weak",
+          "graphSource": "graph",
+          "relevanceScore": 0
+        },
+        {
+          "id": "deep",
+          "graphSource": "graph",
+          "associatedScore": 1,
+          "depth": 3
+        },
+        {
+          "id": "a",
+          "graphSource": "graph",
+          "associatedScore": 0.8
+        },
+        {
+          "id": "b",
+          "graphSource": "graph",
+          "associationStrength": 0.9
+        },
+        {
+          "id": "tail"
+        }
+      ],
+      "result": [
+        {
+          "id": "plain"
+        },
+        {
+          "id": "a",
+          "graphSource": "graph",
+          "associatedScore": 0.8
+        },
+        {
+          "id": "b",
+          "graphSource": "graph",
+          "associationStrength": 0.9
+        },
+        {
+          "id": "tail"
+        }
+      ],
+      "state": {
+        "associativeSurfacedCount": 2,
+        "patternSurfacedCount": 0,
+        "surfacedIds": [
+          "a",
+          "b"
+        ]
+      }
+    },
+    {
+      "maximum": 2,
+      "count": 1,
+      "candidates": [
+        {
+          "id": "plain"
+        },
+        {
+          "id": "weak",
+          "graphSource": "graph",
+          "relevanceScore": 0
+        },
+        {
+          "id": "deep",
+          "graphSource": "graph",
+          "associatedScore": 1,
+          "depth": 3
+        },
+        {
+          "id": "a",
+          "graphSource": "graph",
+          "associatedScore": 0.8
+        },
+        {
+          "id": "b",
+          "graphSource": "graph",
+          "associationStrength": 0.9
+        },
+        {
+          "id": "tail"
+        }
+      ],
+      "result": [
+        {
+          "id": "plain"
+        },
+        {
+          "id": "a",
+          "graphSource": "graph",
+          "associatedScore": 0.8
+        },
+        {
+          "id": "tail"
+        }
+      ],
+      "state": {
+        "associativeSurfacedCount": 2,
+        "patternSurfacedCount": 0,
+        "surfacedIds": [
+          "a"
+        ]
+      }
+    }
+  ],
+  "patterns": [
+    {
+      "maximum": 0,
+      "count": 0,
+      "matched": {
+        "pattern": {
+          "patternKey": "fixture-pattern",
+          "emotionalTrajectory": "grief"
+        },
+        "score": 0.8,
+        "triggerIds": [
+          "a",
+          "b"
+        ]
+      },
+      "result": null,
+      "state": {
+        "associativeSurfacedCount": 0,
+        "patternSurfacedCount": 0
+      }
+    },
+    {
+      "maximum": 0,
+      "count": 0,
+      "matched": {
+        "pattern": {
+          "patternKey": "fixture-pattern",
+          "emotionalTrajectory": "joy"
+        },
+        "score": 0.8,
+        "triggerIds": [
+          "a",
+          "b"
+        ]
+      },
+      "result": null,
+      "state": {
+        "associativeSurfacedCount": 0,
+        "patternSurfacedCount": 0
+      }
+    },
+    {
+      "maximum": 0,
+      "count": 0,
+      "matched": {
+        "pattern": {
+          "patternKey": "fixture-pattern",
+          "emotionalTrajectory": ""
+        },
+        "score": 0.8,
+        "triggerIds": [
+          "a",
+          "b"
+        ]
+      },
+      "result": null,
+      "state": {
+        "associativeSurfacedCount": 0,
+        "patternSurfacedCount": 0
+      }
+    },
+    {
+      "maximum": 0,
+      "count": 1,
+      "matched": {
+        "pattern": {
+          "patternKey": "fixture-pattern",
+          "emotionalTrajectory": "grief"
+        },
+        "score": 0.8,
+        "triggerIds": [
+          "a",
+          "b"
+        ]
+      },
+      "result": null,
+      "state": {
+        "associativeSurfacedCount": 0,
+        "patternSurfacedCount": 1
+      }
+    },
+    {
+      "maximum": 0,
+      "count": 1,
+      "matched": {
+        "pattern": {
+          "patternKey": "fixture-pattern",
+          "emotionalTrajectory": "joy"
+        },
+        "score": 0.8,
+        "triggerIds": [
+          "a",
+          "b"
+        ]
+      },
+      "result": null,
+      "state": {
+        "associativeSurfacedCount": 0,
+        "patternSurfacedCount": 1
+      }
+    },
+    {
+      "maximum": 0,
+      "count": 1,
+      "matched": {
+        "pattern": {
+          "patternKey": "fixture-pattern",
+          "emotionalTrajectory": ""
+        },
+        "score": 0.8,
+        "triggerIds": [
+          "a",
+          "b"
+        ]
+      },
+      "result": null,
+      "state": {
+        "associativeSurfacedCount": 0,
+        "patternSurfacedCount": 1
+      }
+    },
+    {
+      "maximum": 1,
+      "count": 0,
+      "matched": {
+        "pattern": {
+          "patternKey": "fixture-pattern",
+          "emotionalTrajectory": "grief"
+        },
+        "score": 0.8,
+        "triggerIds": [
+          "a",
+          "b"
+        ]
+      },
+      "result": null,
+      "state": {
+        "associativeSurfacedCount": 0,
+        "patternSurfacedCount": 0
+      }
+    },
+    {
+      "maximum": 1,
+      "count": 0,
+      "matched": {
+        "pattern": {
+          "patternKey": "fixture-pattern",
+          "emotionalTrajectory": "joy"
+        },
+        "score": 0.8,
+        "triggerIds": [
+          "a",
+          "b"
+        ]
+      },
+      "result": {
+        "pattern": {
+          "patternKey": "fixture-pattern",
+          "emotionalTrajectory": "joy"
+        },
+        "score": 0.8,
+        "triggerIds": [
+          "a",
+          "b"
+        ]
+      },
+      "state": {
+        "associativeSurfacedCount": 0,
+        "patternSurfacedCount": 1,
+        "surfacedIds": [
+          "fixture-pattern"
+        ]
+      }
+    },
+    {
+      "maximum": 1,
+      "count": 0,
+      "matched": {
+        "pattern": {
+          "patternKey": "fixture-pattern",
+          "emotionalTrajectory": ""
+        },
+        "score": 0.8,
+        "triggerIds": [
+          "a",
+          "b"
+        ]
+      },
+      "result": {
+        "pattern": {
+          "patternKey": "fixture-pattern",
+          "emotionalTrajectory": ""
+        },
+        "score": 0.8,
+        "triggerIds": [
+          "a",
+          "b"
+        ]
+      },
+      "state": {
+        "associativeSurfacedCount": 0,
+        "patternSurfacedCount": 1,
+        "surfacedIds": [
+          "fixture-pattern"
+        ]
+      }
+    },
+    {
+      "maximum": 1,
+      "count": 1,
+      "matched": {
+        "pattern": {
+          "patternKey": "fixture-pattern",
+          "emotionalTrajectory": "grief"
+        },
+        "score": 0.8,
+        "triggerIds": [
+          "a",
+          "b"
+        ]
+      },
+      "result": null,
+      "state": {
+        "associativeSurfacedCount": 0,
+        "patternSurfacedCount": 1
+      }
+    },
+    {
+      "maximum": 1,
+      "count": 1,
+      "matched": {
+        "pattern": {
+          "patternKey": "fixture-pattern",
+          "emotionalTrajectory": "joy"
+        },
+        "score": 0.8,
+        "triggerIds": [
+          "a",
+          "b"
+        ]
+      },
+      "result": null,
+      "state": {
+        "associativeSurfacedCount": 0,
+        "patternSurfacedCount": 1
+      }
+    },
+    {
+      "maximum": 1,
+      "count": 1,
+      "matched": {
+        "pattern": {
+          "patternKey": "fixture-pattern",
+          "emotionalTrajectory": ""
+        },
+        "score": 0.8,
+        "triggerIds": [
+          "a",
+          "b"
+        ]
+      },
+      "result": null,
+      "state": {
+        "associativeSurfacedCount": 0,
+        "patternSurfacedCount": 1
+      }
+    },
+    {
+      "maximum": 2,
+      "count": 0,
+      "matched": {
+        "pattern": {
+          "patternKey": "fixture-pattern",
+          "emotionalTrajectory": "grief"
+        },
+        "score": 0.8,
+        "triggerIds": [
+          "a",
+          "b"
+        ]
+      },
+      "result": null,
+      "state": {
+        "associativeSurfacedCount": 0,
+        "patternSurfacedCount": 0
+      }
+    },
+    {
+      "maximum": 2,
+      "count": 0,
+      "matched": {
+        "pattern": {
+          "patternKey": "fixture-pattern",
+          "emotionalTrajectory": "joy"
+        },
+        "score": 0.8,
+        "triggerIds": [
+          "a",
+          "b"
+        ]
+      },
+      "result": {
+        "pattern": {
+          "patternKey": "fixture-pattern",
+          "emotionalTrajectory": "joy"
+        },
+        "score": 0.8,
+        "triggerIds": [
+          "a",
+          "b"
+        ]
+      },
+      "state": {
+        "associativeSurfacedCount": 0,
+        "patternSurfacedCount": 1,
+        "surfacedIds": [
+          "fixture-pattern"
+        ]
+      }
+    },
+    {
+      "maximum": 2,
+      "count": 0,
+      "matched": {
+        "pattern": {
+          "patternKey": "fixture-pattern",
+          "emotionalTrajectory": ""
+        },
+        "score": 0.8,
+        "triggerIds": [
+          "a",
+          "b"
+        ]
+      },
+      "result": {
+        "pattern": {
+          "patternKey": "fixture-pattern",
+          "emotionalTrajectory": ""
+        },
+        "score": 0.8,
+        "triggerIds": [
+          "a",
+          "b"
+        ]
+      },
+      "state": {
+        "associativeSurfacedCount": 0,
+        "patternSurfacedCount": 1,
+        "surfacedIds": [
+          "fixture-pattern"
+        ]
+      }
+    },
+    {
+      "maximum": 2,
+      "count": 1,
+      "matched": {
+        "pattern": {
+          "patternKey": "fixture-pattern",
+          "emotionalTrajectory": "grief"
+        },
+        "score": 0.8,
+        "triggerIds": [
+          "a",
+          "b"
+        ]
+      },
+      "result": null,
+      "state": {
+        "associativeSurfacedCount": 0,
+        "patternSurfacedCount": 1
+      }
+    },
+    {
+      "maximum": 2,
+      "count": 1,
+      "matched": {
+        "pattern": {
+          "patternKey": "fixture-pattern",
+          "emotionalTrajectory": "joy"
+        },
+        "score": 0.8,
+        "triggerIds": [
+          "a",
+          "b"
+        ]
+      },
+      "result": {
+        "pattern": {
+          "patternKey": "fixture-pattern",
+          "emotionalTrajectory": "joy"
+        },
+        "score": 0.8,
+        "triggerIds": [
+          "a",
+          "b"
+        ]
+      },
+      "state": {
+        "associativeSurfacedCount": 0,
+        "patternSurfacedCount": 2,
+        "surfacedIds": [
+          "fixture-pattern"
+        ]
+      }
+    },
+    {
+      "maximum": 2,
+      "count": 1,
+      "matched": {
+        "pattern": {
+          "patternKey": "fixture-pattern",
+          "emotionalTrajectory": ""
+        },
+        "score": 0.8,
+        "triggerIds": [
+          "a",
+          "b"
+        ]
+      },
+      "result": {
+        "pattern": {
+          "patternKey": "fixture-pattern",
+          "emotionalTrajectory": ""
+        },
+        "score": 0.8,
+        "triggerIds": [
+          "a",
+          "b"
+        ]
+      },
+      "state": {
+        "associativeSurfacedCount": 0,
+        "patternSurfacedCount": 2,
+        "surfacedIds": [
+          "fixture-pattern"
+        ]
+      }
+    }
+  ]
+}

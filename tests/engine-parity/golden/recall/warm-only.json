@@ -1,0 +1,44 @@
+{
+  "schema": "engine-parity.golden/1",
+  "recordedFrom": {
+    "engine": "node",
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "at": "2026-11-09T22:41:44.073Z"
+  },
+  "steps": [
+    {
+      "result": {
+        "blocks": [],
+        "capChars": null,
+        "deferrals": [],
+        "degraded": null
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "blocks": [],
+        "capChars": null,
+        "deferrals": [],
+        "degraded": null,
+        "diagnostics": [
+          {
+            "fallback": "unreranked",
+            "feature": "reranker",
+            "reason": "reranker-not-configured"
+          }
+        ]
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "blocks": [],
+        "capChars": null,
+        "deferrals": [],
+        "degraded": null
+      },
+      "trace": null
+    }
+  ]
+}

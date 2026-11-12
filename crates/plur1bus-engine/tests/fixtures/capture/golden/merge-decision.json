@@ -1,0 +1,1026 @@
+{
+  "pin": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+  "node": "v24.21.0",
+  "sourcesSha256": {
+    "engine/runtime/llm-calls.js": "723c06bc2b32e62055d229ff3a6ee9d7a8c6cbd5aedea22dc7e2c7c30785a536",
+    "lib/llm-call.js": "835fef9f4de409410fa2bc423b01e1c41406f7139eb06b9652124d4e3d9f6481",
+    "lib/with-timeout.js": "b22921f334c70485563e75c25ecda00382a12f40846f612fae202125836c54f4",
+    "lib/provider-error.js": "a1c6864bed9f4aa6830b04710dae072de4be162851489d73a1ae1ced6918ad80",
+    "lib/safe-logging.js": "4a634fa3c4cce35d5c7cb29c7c2eb72378666ef400e79dc7869a4c50d2e2c0ac",
+    "lib/log-redact.js": "f64f7d2e2fbf13684ad16fe045a1e43a9755c57be00ee7532479286eed0068e3",
+    "lib/host-network.js": "360b692df2f2c3dc9761cfe73ca5165da4b5416f8b7778b5ec79b1dd253aaf69",
+    "lib/llm-router.js": "3ccc45e280d68b368265325214ff4154cc258505a18f4fb664dc1b846c1dadff",
+    "lib/llm-warmth.js": "ff53dd4f30535f23f1e49ab98e13b861ac59193a6dd25b29ab06964cf117c0ac",
+    "lib/llm-result-cache.js": "ae7fcf3cf803789613164ab7216f986e4a231a58db735700b99e2cd2d08fd306",
+    "lib/platform.js": "b210b81d3d27e65a4cd872d766d089ba7a96e9d9e7ebb65143e156d00a59ff61",
+    "lib/windows-acl-parse.js": "1241ba9d3a508f1e2be9c6ce840898f6f74a0aadca42feb4de35a8de44aa5da1",
+    "lib/sql-safety.js": "a6b949df02d29d3ed0494964c004d861d718eeb90abd271410e22a489de1bc62",
+    "engine/store/lancedb-loader.js": "d252ccbbf023bf4f73357656354605afb907be636984ddafb1c768c52a2be090",
+    "lib/plugin-meta.js": "a344cee3844324d78a11ced1826ad47d34b23b057cd3198fde62a189396b47d9"
+  },
+  "boundaries": {
+    "provider": "offline synthetic host callback",
+    "network": "refused",
+    "normalization": "none"
+  },
+  "recordings": [
+    {
+      "name": "response-0",
+      "a": "Synthetic existing fact",
+      "b": "Synthetic additional fact",
+      "response": "{\"merge\":true,\"reason\":\"fixture\",\"mergedText\":\"Combined synthetic fact\"}",
+      "port": "present",
+      "config": {},
+      "result": {
+        "merge": true,
+        "reason": "fixture",
+        "mergedText": "Combined synthetic fact"
+      },
+      "resultLine": "{\"merge\":true,\"reason\":\"fixture\",\"mergedText\":\"Combined synthetic fact\"}",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: Synthetic existing fact\nFragment B: Synthetic additional fact\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: Synthetic existing fact\\nFragment B: Synthetic additional fact\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "response-1",
+      "a": "Synthetic existing fact",
+      "b": "Synthetic additional fact",
+      "response": "{\"merge\":false,\"reason\":\"separate\"}",
+      "port": "present",
+      "config": {},
+      "result": {
+        "merge": false,
+        "reason": "separate"
+      },
+      "resultLine": "{\"merge\":false,\"reason\":\"separate\"}",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: Synthetic existing fact\nFragment B: Synthetic additional fact\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: Synthetic existing fact\\nFragment B: Synthetic additional fact\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "response-2",
+      "a": "Synthetic existing fact",
+      "b": "Synthetic additional fact",
+      "response": "{\"merge\":false,\"reason\":\"\",\"mergedText\":42}",
+      "port": "present",
+      "config": {},
+      "result": {
+        "merge": false,
+        "reason": "",
+        "mergedText": 42
+      },
+      "resultLine": "{\"merge\":false,\"reason\":\"\",\"mergedText\":42}",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: Synthetic existing fact\nFragment B: Synthetic additional fact\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: Synthetic existing fact\\nFragment B: Synthetic additional fact\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "response-3",
+      "a": "Synthetic existing fact",
+      "b": "Synthetic additional fact",
+      "response": "{\"merge\":true,\"reason\":\"\",\"mergedText\":\"\"}",
+      "port": "present",
+      "config": {},
+      "result": {
+        "merge": true,
+        "reason": "",
+        "mergedText": ""
+      },
+      "resultLine": "{\"merge\":true,\"reason\":\"\",\"mergedText\":\"\"}",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: Synthetic existing fact\nFragment B: Synthetic additional fact\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: Synthetic existing fact\\nFragment B: Synthetic additional fact\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "response-4",
+      "a": "Synthetic existing fact",
+      "b": "Synthetic additional fact",
+      "response": "{\"merge\":true,\"reason\":\"fixture\",\"mergedText\":\"A\",\"extra\":{\"x\":1}}",
+      "port": "present",
+      "config": {},
+      "result": {
+        "merge": true,
+        "reason": "fixture",
+        "mergedText": "A",
+        "extra": {
+          "x": 1
+        }
+      },
+      "resultLine": "{\"merge\":true,\"reason\":\"fixture\",\"mergedText\":\"A\",\"extra\":{\"x\":1}}",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: Synthetic existing fact\nFragment B: Synthetic additional fact\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: Synthetic existing fact\\nFragment B: Synthetic additional fact\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "response-5",
+      "a": "Synthetic existing fact",
+      "b": "Synthetic additional fact",
+      "response": "{\"merge\":true,\"mergedText\":\"A\"}",
+      "port": "present",
+      "config": {},
+      "result": null,
+      "resultLine": "null",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: Synthetic existing fact\nFragment B: Synthetic additional fact\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: Synthetic existing fact\\nFragment B: Synthetic additional fact\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "response-6",
+      "a": "Synthetic existing fact",
+      "b": "Synthetic additional fact",
+      "response": "{\"merge\":true,\"reason\":42,\"mergedText\":\"A\"}",
+      "port": "present",
+      "config": {},
+      "result": null,
+      "resultLine": "null",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: Synthetic existing fact\nFragment B: Synthetic additional fact\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: Synthetic existing fact\\nFragment B: Synthetic additional fact\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "response-7",
+      "a": "Synthetic existing fact",
+      "b": "Synthetic additional fact",
+      "response": "{\"merge\":\"true\",\"reason\":\"fixture\",\"mergedText\":\"A\"}",
+      "port": "present",
+      "config": {},
+      "result": null,
+      "resultLine": "null",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: Synthetic existing fact\nFragment B: Synthetic additional fact\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: Synthetic existing fact\\nFragment B: Synthetic additional fact\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "response-8",
+      "a": "Synthetic existing fact",
+      "b": "Synthetic additional fact",
+      "response": "{\"merge\":false,\"reason\":null}",
+      "port": "present",
+      "config": {},
+      "result": null,
+      "resultLine": "null",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: Synthetic existing fact\nFragment B: Synthetic additional fact\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: Synthetic existing fact\\nFragment B: Synthetic additional fact\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "response-9",
+      "a": "Synthetic existing fact",
+      "b": "Synthetic additional fact",
+      "response": "{\"merge\":true,\"reason\":\"fixture\"}",
+      "port": "present",
+      "config": {},
+      "result": null,
+      "resultLine": "null",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: Synthetic existing fact\nFragment B: Synthetic additional fact\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: Synthetic existing fact\\nFragment B: Synthetic additional fact\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "response-10",
+      "a": "Synthetic existing fact",
+      "b": "Synthetic additional fact",
+      "response": "null",
+      "port": "present",
+      "config": {},
+      "result": null,
+      "resultLine": "null",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: Synthetic existing fact\nFragment B: Synthetic additional fact\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: Synthetic existing fact\\nFragment B: Synthetic additional fact\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "response-11",
+      "a": "Synthetic existing fact",
+      "b": "Synthetic additional fact",
+      "response": "[]",
+      "port": "present",
+      "config": {},
+      "result": null,
+      "resultLine": "null",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: Synthetic existing fact\nFragment B: Synthetic additional fact\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: Synthetic existing fact\\nFragment B: Synthetic additional fact\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "response-12",
+      "a": "Synthetic existing fact",
+      "b": "Synthetic additional fact",
+      "response": "42",
+      "port": "present",
+      "config": {},
+      "result": null,
+      "resultLine": "null",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: Synthetic existing fact\nFragment B: Synthetic additional fact\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: Synthetic existing fact\\nFragment B: Synthetic additional fact\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "response-13",
+      "a": "Synthetic existing fact",
+      "b": "Synthetic additional fact",
+      "response": "true",
+      "port": "present",
+      "config": {},
+      "result": null,
+      "resultLine": "null",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: Synthetic existing fact\nFragment B: Synthetic additional fact\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: Synthetic existing fact\\nFragment B: Synthetic additional fact\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "response-14",
+      "a": "Synthetic existing fact",
+      "b": "Synthetic additional fact",
+      "response": "\"text\"",
+      "port": "present",
+      "config": {},
+      "result": null,
+      "resultLine": "null",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: Synthetic existing fact\nFragment B: Synthetic additional fact\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: Synthetic existing fact\\nFragment B: Synthetic additional fact\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "response-15",
+      "a": "Synthetic existing fact",
+      "b": "Synthetic additional fact",
+      "response": "{}",
+      "port": "present",
+      "config": {},
+      "result": null,
+      "resultLine": "null",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: Synthetic existing fact\nFragment B: Synthetic additional fact\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: Synthetic existing fact\\nFragment B: Synthetic additional fact\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "response-16",
+      "a": "Synthetic existing fact",
+      "b": "Synthetic additional fact",
+      "response": "invalid",
+      "port": "present",
+      "config": {},
+      "result": null,
+      "resultLine": "null",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: Synthetic existing fact\nFragment B: Synthetic additional fact\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: Synthetic existing fact\\nFragment B: Synthetic additional fact\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "response-17",
+      "a": "Synthetic existing fact",
+      "b": "Synthetic additional fact",
+      "response": "```json\n{\"merge\":true,\"reason\":\"fixture\",\"mergedText\":\"Combined synthetic fact\"}\n```",
+      "port": "present",
+      "config": {},
+      "result": null,
+      "resultLine": "null",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: Synthetic existing fact\nFragment B: Synthetic additional fact\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: Synthetic existing fact\\nFragment B: Synthetic additional fact\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "response-18",
+      "a": "Synthetic existing fact",
+      "b": "Synthetic additional fact",
+      "response": "",
+      "port": "present",
+      "config": {},
+      "result": null,
+      "resultLine": "null",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: Synthetic existing fact\nFragment B: Synthetic additional fact\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: Synthetic existing fact\\nFragment B: Synthetic additional fact\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "response-19",
+      "a": "Synthetic existing fact",
+      "b": "Synthetic additional fact",
+      "response": "   ",
+      "port": "present",
+      "config": {},
+      "result": null,
+      "resultLine": "null",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: Synthetic existing fact\nFragment B: Synthetic additional fact\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: Synthetic existing fact\\nFragment B: Synthetic additional fact\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "response-20",
+      "a": "Synthetic existing fact",
+      "b": "Synthetic additional fact",
+      "response": "﻿{\"merge\":true,\"reason\":\"fixture\",\"mergedText\":\"Combined synthetic fact\"} ",
+      "port": "present",
+      "config": {},
+      "result": {
+        "merge": true,
+        "reason": "fixture",
+        "mergedText": "Combined synthetic fact"
+      },
+      "resultLine": "{\"merge\":true,\"reason\":\"fixture\",\"mergedText\":\"Combined synthetic fact\"}",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: Synthetic existing fact\nFragment B: Synthetic additional fact\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: Synthetic existing fact\\nFragment B: Synthetic additional fact\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "response-21",
+      "a": "Synthetic existing fact",
+      "b": "Synthetic additional fact",
+      "response": "{\"merge\":true,\"reason\":\"fixture\",\"mergedText\":\"\\ud83d\"}",
+      "port": "present",
+      "config": {},
+      "result": {
+        "merge": true,
+        "reason": "fixture",
+        "mergedText": "\ud83d"
+      },
+      "resultLine": "{\"merge\":true,\"reason\":\"fixture\",\"mergedText\":\"\\ud83d\"}",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: Synthetic existing fact\nFragment B: Synthetic additional fact\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: Synthetic existing fact\\nFragment B: Synthetic additional fact\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "response-22",
+      "a": "Synthetic existing fact",
+      "b": "Synthetic additional fact",
+      "response": "{\"merge\":false,\"reason\":\"fixture\",\"2\":2,\"1\":1}",
+      "port": "present",
+      "config": {},
+      "result": {
+        "1": 1,
+        "2": 2,
+        "merge": false,
+        "reason": "fixture"
+      },
+      "resultLine": "{\"1\":1,\"2\":2,\"merge\":false,\"reason\":\"fixture\"}",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: Synthetic existing fact\nFragment B: Synthetic additional fact\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: Synthetic existing fact\\nFragment B: Synthetic additional fact\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "response-23",
+      "a": "Synthetic existing fact",
+      "b": "Synthetic additional fact",
+      "response": "{\"merge\":false,\"merge\":true,\"reason\":\"fixture\",\"mergedText\":\"A\"}",
+      "port": "present",
+      "config": {},
+      "result": {
+        "merge": true,
+        "reason": "fixture",
+        "mergedText": "A"
+      },
+      "resultLine": "{\"merge\":true,\"reason\":\"fixture\",\"mergedText\":\"A\"}",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: Synthetic existing fact\nFragment B: Synthetic additional fact\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: Synthetic existing fact\\nFragment B: Synthetic additional fact\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "input-0",
+      "a": null,
+      "b": false,
+      "response": "{\"merge\":true,\"reason\":\"fixture\",\"mergedText\":\"Combined synthetic fact\"}",
+      "port": "present",
+      "config": {},
+      "result": {
+        "merge": true,
+        "reason": "fixture",
+        "mergedText": "Combined synthetic fact"
+      },
+      "resultLine": "{\"merge\":true,\"reason\":\"fixture\",\"mergedText\":\"Combined synthetic fact\"}",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: \nFragment B: \n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: \\nFragment B: \\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "input-1",
+      "a": 0,
+      "b": 42,
+      "response": "{\"merge\":true,\"reason\":\"fixture\",\"mergedText\":\"Combined synthetic fact\"}",
+      "port": "present",
+      "config": {},
+      "result": {
+        "merge": true,
+        "reason": "fixture",
+        "mergedText": "Combined synthetic fact"
+      },
+      "resultLine": "{\"merge\":true,\"reason\":\"fixture\",\"mergedText\":\"Combined synthetic fact\"}",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: \nFragment B: 42\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: \\nFragment B: 42\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "input-2",
+      "a": true,
+      "b": {
+        "x": 1
+      },
+      "response": "{\"merge\":true,\"reason\":\"fixture\",\"mergedText\":\"Combined synthetic fact\"}",
+      "port": "present",
+      "config": {},
+      "result": {
+        "merge": true,
+        "reason": "fixture",
+        "mergedText": "Combined synthetic fact"
+      },
+      "resultLine": "{\"merge\":true,\"reason\":\"fixture\",\"mergedText\":\"Combined synthetic fact\"}",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: true\nFragment B: [object Object]\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: true\\nFragment B: [object Object]\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "input-3",
+      "a": [
+        "one",
+        null,
+        "two"
+      ],
+      "b": [
+        "three"
+      ],
+      "response": "{\"merge\":true,\"reason\":\"fixture\",\"mergedText\":\"Combined synthetic fact\"}",
+      "port": "present",
+      "config": {},
+      "result": {
+        "merge": true,
+        "reason": "fixture",
+        "mergedText": "Combined synthetic fact"
+      },
+      "resultLine": "{\"merge\":true,\"reason\":\"fixture\",\"mergedText\":\"Combined synthetic fact\"}",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: one,,two\nFragment B: three\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: one,,two\\nFragment B: three\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "input-4",
+      "a": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "b": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "response": "{\"merge\":true,\"reason\":\"fixture\",\"mergedText\":\"Combined synthetic fact\"}",
+      "port": "present",
+      "config": {},
+      "result": {
+        "merge": true,
+        "reason": "fixture",
+        "mergedText": "Combined synthetic fact"
+      },
+      "resultLine": "{\"merge\":true,\"reason\":\"fixture\",\"mergedText\":\"Combined synthetic fact\"}",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nFragment B: yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nFragment B: yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "input-5",
+      "a": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx😀tail",
+      "b": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy🪟tail",
+      "response": "{\"merge\":true,\"reason\":\"fixture\",\"mergedText\":\"Combined synthetic fact\"}",
+      "port": "present",
+      "config": {},
+      "result": {
+        "merge": true,
+        "reason": "fixture",
+        "mergedText": "Combined synthetic fact"
+      },
+      "resultLine": "{\"merge\":true,\"reason\":\"fixture\",\"mergedText\":\"Combined synthetic fact\"}",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\ud83d\nFragment B: yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\ud83e\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\ud83d\\nFragment B: yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\\ud83e\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "input-6",
+      "a": "\ud83dA",
+      "b": "B\ude00",
+      "response": "{\"merge\":true,\"reason\":\"fixture\",\"mergedText\":\"Combined synthetic fact\"}",
+      "port": "present",
+      "config": {},
+      "result": {
+        "merge": true,
+        "reason": "fixture",
+        "mergedText": "Combined synthetic fact"
+      },
+      "resultLine": "{\"merge\":true,\"reason\":\"fixture\",\"mergedText\":\"Combined synthetic fact\"}",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: \ud83dA\nFragment B: B\ude00\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: \\ud83dA\\nFragment B: B\\ude00\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "model-override",
+      "a": "A",
+      "b": "B",
+      "response": "{\"merge\":true,\"reason\":\"fixture\",\"mergedText\":\"Combined synthetic fact\"}",
+      "port": "present",
+      "config": {
+        "model": "fixture-model"
+      },
+      "result": {
+        "merge": true,
+        "reason": "fixture",
+        "mergedText": "Combined synthetic fact"
+      },
+      "resultLine": "{\"merge\":true,\"reason\":\"fixture\",\"mergedText\":\"Combined synthetic fact\"}",
+      "error": null,
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: A\nFragment B: B\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300,
+            "model": "fixture-model"
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: A\\nFragment B: B\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300,\"model\":\"fixture-model\"}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "no-provider",
+      "a": "A",
+      "b": "B",
+      "response": "{\"merge\":true,\"reason\":\"fixture\",\"mergedText\":\"Combined synthetic fact\"}",
+      "port": "absent",
+      "config": {},
+      "result": null,
+      "resultLine": "null",
+      "error": null,
+      "calls": []
+    },
+    {
+      "name": "provider-failure",
+      "a": "A",
+      "b": "B",
+      "response": "{\"merge\":true,\"reason\":\"fixture\",\"mergedText\":\"Combined synthetic fact\"}",
+      "port": "reject",
+      "config": {},
+      "result": null,
+      "resultLine": "null",
+      "error": "Error",
+      "calls": [
+        {
+          "contract": {
+            "messages": [
+              {
+                "role": "user",
+                "content": "Two memory fragments — should they be merged into one?\n\nFragment A: A\nFragment B: B\n\nRespond with JSON only: {\"merge\": boolean, \"reason\": \"brief explanation\", \"mergedText\": \"merged version (only if merge=true)\"}\nRules:\n- merge=true only if both fragments describe the same subject/fact from different angles\n- mergedText must contain ALL information from both fragments\n- mergedText must be longer than the shorter of the two fragments"
+              }
+            ],
+            "purpose": "merge-decision",
+            "maxTokens": 300
+          },
+          "line": "{\"messages\":[{\"role\":\"user\",\"content\":\"Two memory fragments — should they be merged into one?\\n\\nFragment A: A\\nFragment B: B\\n\\nRespond with JSON only: {\\\"merge\\\": boolean, \\\"reason\\\": \\\"brief explanation\\\", \\\"mergedText\\\": \\\"merged version (only if merge=true)\\\"}\\nRules:\\n- merge=true only if both fragments describe the same subject/fact from different angles\\n- mergedText must contain ALL information from both fragments\\n- mergedText must be longer than the shorter of the two fragments\"}],\"purpose\":\"merge-decision\",\"maxTokens\":300}",
+          "signal": true
+        }
+      ]
+    },
+    {
+      "name": "aborted",
+      "a": "A",
+      "b": "B",
+      "response": "{\"merge\":true,\"reason\":\"fixture\",\"mergedText\":\"Combined synthetic fact\"}",
+      "port": "present",
+      "config": {},
+      "aborted": true,
+      "result": null,
+      "resultLine": "null",
+      "error": "AbortError",
+      "calls": []
+    }
+  ]
+}

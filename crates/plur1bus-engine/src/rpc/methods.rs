@@ -2,8 +2,10 @@
 
 use crate::contract::{
     AgentContext, Cancel, CancelReason, EmbedError, Engine, EngineError, HistoryFilter, HostError,
-    MemoryCurationAction, MemoryOpErrorCode, Principal, RunOptions, StoreError,
+    MaintenanceGrant, MaintenanceMethod, MaintenanceOps, MemoryCurationAction, MemoryOpErrorCode,
+    Principal, RunOptions, SnapshotFailure, SnapshotGrant, SnapshotMethod, SnapshotOps, StoreError,
 };
+use crate::ops::snapshot::SnapshotError;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{json, Map, Value};
 use std::collections::BTreeMap;
@@ -107,6 +109,9 @@ impl From<EngineError> for WireError {
                     "embedding-unavailable" => "embedding-unavailable",
                     "reranker-unavailable" => "reranker-unavailable",
                     "host-unavailable" => "host-unavailable",
+                    // The server's saturation reason, also a mutation gate still held after
+                    // its wait (RE-D165): temporarily busy, retry.
+                    "engine-busy" => "engine-busy",
                     _ => "operation-unavailable",
                 },
                 "engine operation unavailable",
@@ -266,6 +271,185 @@ fn result(value: Result<impl Serialize, EngineError>) -> Result<Value, WireError
     encode(value.map_err(WireError::from)?)
 }
 
+/// The field of an `EngineError::Invalid` that carries one of the fixed re-embedding texts.
+pub(crate) const REEMBEDDING_FIELD: &str = "engine.reembedding";
+
+/// RE-D166/R1: the only re-embedding texts that reach the wire. Each is the pin's own constant
+/// (`9f34008c`), which the Core's migration driver (`packages/core/src/embedding-migrate/driver.ts`)
+/// classifies by text. No text is built from request or store data; any other re-embedding
+/// failure keeps the generic text of its class. Fixture: `tests/fixtures/ops/reembedding-wire-errors.json`.
+pub(crate) const REEMBEDDING_ERRORS: [(&str, &str, &str); 7] = [
+    // lib/reembedding/coordinator.js:120; driver.ts:114 → source-drift (final).
+    (
+        "reembedding source generation drift",
+        "E_CONFLICT",
+        "conflict",
+    ),
+    // coordinator.js:123; driver.ts:114 → source-drift (final).
+    (
+        "reembedding source config revision drift",
+        "E_CONFLICT",
+        "conflict",
+    ),
+    // coordinator.js:128, without the `: <tableId>` suffix; driver.ts:114 → source-drift (final).
+    ("reembedding source version drift", "E_CONFLICT", "conflict"),
+    // coordinator.js:133; driver.ts:114 → source-drift (final).
+    (
+        "reembedding workspace policy changed; explicit resume required",
+        "E_CONFLICT",
+        "conflict",
+    ),
+    // coordinator.js:220,303,321; driver.ts:115 → confirmation-invalid (final).
+    (
+        "invalid or expired reembedding confirmation",
+        "E_INVALID_PARAMS",
+        "invalid-input",
+    ),
+    // planner.js:115; driver.ts:183 → nothing to migrate (compatible).
+    (
+        "reembedding plan does not change the embedding fingerprint",
+        "E_INVALID_PARAMS",
+        "invalid-input",
+    ),
+    // state-store.js:247; driver.ts:187 → migration-active with its expiry.
+    (
+        "another reembedding migration is active",
+        "E_CONFLICT",
+        "conflict",
+    ),
+];
+
+/// The allowlisted static text for a re-embedding failure category, if any.
+pub(crate) fn reembedding_text(category: &str) -> Option<&'static str> {
+    REEMBEDDING_ERRORS
+        .iter()
+        .find(|(text, _, _)| *text == category)
+        .map(|(text, _, _)| *text)
+}
+
+fn maintenance_error(error: EngineError) -> WireError {
+    if let EngineError::Invalid { field, message } = &error {
+        if field == REEMBEDDING_FIELD {
+            if let Some((text, code, reason)) = REEMBEDDING_ERRORS
+                .iter()
+                .find(|(text, _, _)| *text == message.as_str())
+            {
+                let mut wire = WireError::application(code, reason, text);
+                if *code == "E_INVALID_PARAMS" {
+                    wire.code = -32602;
+                }
+                return wire;
+            }
+        }
+    }
+    WireError::from(error)
+}
+
+fn maintenance_result(value: Result<Value, EngineError>) -> Result<Value, WireError> {
+    value.map_err(maintenance_error)
+}
+
+/// Only the authenticated server adapter can supply a maintenance grant.
+pub(super) fn dispatch_maintenance(
+    operations: &dyn MaintenanceOps,
+    method: MaintenanceMethod,
+    params: &Value,
+    grant: &MaintenanceGrant,
+    cancel: &Cancel,
+) -> Result<Value, WireError> {
+    let request = || {
+        params
+            .get("request")
+            .cloned()
+            .ok_or_else(WireError::not_available)
+    };
+    match method {
+        MaintenanceMethod::Migrate => result(operations.migrate(
+            grant,
+            required(params, "from")?,
+            required(params, "to")?,
+            cancel,
+        )),
+        MaintenanceMethod::Plan => maintenance_result(operations.plan(grant, request()?, cancel)),
+        MaintenanceMethod::Apply => maintenance_result(operations.apply(grant, request()?, cancel)),
+        MaintenanceMethod::Resume => {
+            maintenance_result(operations.resume(grant, request()?, cancel))
+        }
+        MaintenanceMethod::Status => {
+            let id = params["id"].as_str().ok_or_else(WireError::not_available)?;
+            maintenance_result(operations.status(grant, id, cancel))
+        }
+        MaintenanceMethod::Validate => {
+            let id = params["request"]["id"]
+                .as_str()
+                .ok_or_else(WireError::not_available)?;
+            maintenance_result(operations.validate(grant, id, cancel))
+        }
+    }
+}
+
+/// RE-D170: the snapshot categories on the wire, as the Core's `admin.backup.snapshot`
+/// reports `source-busy` and `insufficient-disk` (E_STORAGE).
+fn snapshot_error(failure: SnapshotFailure) -> WireError {
+    let error = match failure {
+        SnapshotFailure::Engine(error) => return WireError::from(error),
+        SnapshotFailure::Snapshot(error) => error,
+    };
+    let code = match error {
+        SnapshotError::NotFound => "E_NOT_FOUND",
+        SnapshotError::UnsafePath => "E_DENIED",
+        SnapshotError::Cancelled => return WireError::cancelled(CancelReason::Caller),
+        SnapshotError::DigestMismatch
+        | SnapshotError::SourceBusy
+        | SnapshotError::InsufficientDisk
+        | SnapshotError::Storage => "E_STORAGE",
+    };
+    WireError::application(code, error.reason(), "engine snapshot operation failed")
+}
+
+/// The three snapshot methods outside the grant branch: never served (RE-D170).
+pub(crate) fn core_link_required() -> WireError {
+    WireError::application(
+        "E_UNAUTHORIZED",
+        "core-link-required",
+        "engine authentication required",
+    )
+}
+
+/// Only the authenticated server adapter can supply a snapshot grant.
+pub(super) fn dispatch_snapshot(
+    operations: &dyn SnapshotOps,
+    method: SnapshotMethod,
+    params: &Value,
+    grant: &SnapshotGrant,
+    cancel: &Cancel,
+) -> Result<Value, WireError> {
+    let path = |name: &str| match string(params, name) {
+        Ok(path) => Ok(std::path::Path::new(path)),
+        Err(_) => Err(refuse_snapshot(operations, method, grant, cancel)),
+    };
+    match method {
+        SnapshotMethod::Create => operations.create(grant, path("out")?, cancel),
+        SnapshotMethod::Verify => operations.verify(grant, path("dir")?, cancel),
+        SnapshotMethod::Reapply => operations.reapply(grant, cancel),
+    }
+    .map_err(snapshot_error)
+}
+
+/// Invalid parameters of a granted snapshot call: audited as `{"invalid":true}` (create and
+/// reapply), then answered as invalid. A failed audit answers its own failure.
+pub(super) fn refuse_snapshot(
+    operations: &dyn SnapshotOps,
+    method: SnapshotMethod,
+    grant: &SnapshotGrant,
+    cancel: &Cancel,
+) -> WireError {
+    match operations.refuse(grant, method, cancel) {
+        Ok(()) => WireError::invalid_params(),
+        Err(failure) => snapshot_error(failure),
+    }
+}
+
 fn projection(params: &Value, fields: &[&str]) -> Value {
     Value::Object(
         fields
@@ -405,8 +589,9 @@ pub(crate) fn dispatch(
         "engine.models" | "engine.models.status" => encode(engine.models().status()),
         "engine.models.warm" => result(engine.models().warm(cancel, refresh(params)?)),
         "engine.stores.adopt" => result(engine.stores().adopt(required(params, "req")?)),
+        // RE-D170: served only through the server's Core snapshot grant branch.
         "engine.snapshot.create" | "engine.snapshot.verify" | "engine.tombstones.reapply" => {
-            Err(WireError::not_available())
+            Err(core_link_required())
         }
         // These frozen native methods require a principal/context that this wire
         // contract does not carry. RE-07 must supply an explicit adapter. Its
@@ -759,10 +944,12 @@ mod tests {
             ),
             ("engine.admin.reembedding.status", json!({"id":"test"})),
             ("engine.admin.workspacePolicy.get", json!({})),
+            ("engine.admin.workspacePolicy.list", json!({})),
+            (
+                "engine.admin.workspacePolicy.set",
+                json!({"patch":{"enabled":false,"actorId":"synthetic-operator"}}),
+            ),
             ("engine.embedding.serve", json!({"address":null})),
-            ("engine.snapshot.create", json!({"out":"/tmp/snapshot"})),
-            ("engine.snapshot.verify", json!({"dir":"/tmp/snapshot"})),
-            ("engine.tombstones.reapply", json!({})),
         ] {
             let error = dispatch(&engine, method, &params, &Cancel::never()).unwrap_err();
             assert_eq!(
@@ -770,6 +957,60 @@ mod tests {
                 ("E_NOT_AVAILABLE", "operation-unavailable")
             );
         }
+    }
+
+    #[test]
+    fn snapshot_methods_are_served_only_through_the_core_snapshot_grant() {
+        // RE-D170: the ordinary dispatch never reaches a snapshot port; without the server's
+        // per-call Core peer binding the three methods answer core-link-required.
+        let (root, engine) = engine();
+        for (method, params) in [
+            ("engine.snapshot.create", json!({"out":root.path()})),
+            ("engine.snapshot.verify", json!({"dir":root.path()})),
+            ("engine.tombstones.reapply", json!({})),
+        ] {
+            let error = dispatch(&engine, method, &params, &Cancel::never()).unwrap_err();
+            assert_eq!(
+                (error.code, error.error, error.reason),
+                (-32000, "E_UNAUTHORIZED", "core-link-required"),
+                "{method}"
+            );
+            assert!(SnapshotMethod::from_wire(method).is_some());
+            assert!(MaintenanceMethod::from_wire(method).is_none());
+        }
+        assert_eq!(std::fs::read_dir(root.path()).unwrap().count(), 0);
+    }
+
+    #[test]
+    fn snapshot_failures_keep_only_their_category() {
+        for (error, code, reason) in [
+            (SnapshotError::NotFound, "E_NOT_FOUND", "not-found"),
+            (SnapshotError::UnsafePath, "E_DENIED", "unsafe-path"),
+            (
+                SnapshotError::DigestMismatch,
+                "E_STORAGE",
+                "digest-mismatch",
+            ),
+            (SnapshotError::SourceBusy, "E_STORAGE", "source-busy"),
+            (
+                SnapshotError::InsufficientDisk,
+                "E_STORAGE",
+                "insufficient-disk",
+            ),
+            (SnapshotError::Storage, "E_STORAGE", "storage"),
+            (SnapshotError::Cancelled, "E_NOT_AVAILABLE", "aborted"),
+        ] {
+            let wire = snapshot_error(error.into());
+            assert_eq!((wire.code, wire.error, wire.reason), (-32000, code, reason));
+            assert!(wire.ids.is_none());
+        }
+        let busy = snapshot_error(SnapshotFailure::Engine(EngineError::NotAvailable {
+            reason: "engine-busy".into(),
+        }));
+        assert_eq!(
+            (busy.error, busy.reason),
+            ("E_NOT_AVAILABLE", "engine-busy")
+        );
     }
 
     #[test]
@@ -790,5 +1031,59 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!((error.code, error.error), (-32602, "E_INVALID_PARAMS"));
+    }
+}
+
+#[cfg(test)]
+mod reembedding_wire_tests {
+    #![allow(clippy::unwrap_used, reason = "fixture errors are fatal")]
+    use super::*;
+
+    #[test]
+    fn only_the_fixed_pin_texts_of_the_fixture_reach_the_wire() {
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../tests/fixtures/ops/reembedding-wire-errors.json"
+        ))
+        .unwrap();
+        let entries = fixture["errors"].as_array().unwrap();
+        assert_eq!(entries.len(), REEMBEDDING_ERRORS.len());
+        for (entry, (text, code, reason)) in entries.iter().zip(REEMBEDDING_ERRORS) {
+            assert_eq!(entry["text"], text);
+            assert_eq!(entry["error"], code);
+            assert_eq!(entry["reason"], reason);
+            assert_eq!(reembedding_text(text), Some(text));
+            let wire = maintenance_error(EngineError::Invalid {
+                field: REEMBEDDING_FIELD.into(),
+                message: text.into(),
+            });
+            assert_eq!(
+                (wire.error, wire.reason, wire.message),
+                (code, reason, text)
+            );
+            let expected = if code == "E_INVALID_PARAMS" {
+                -32602
+            } else {
+                -32000
+            };
+            assert_eq!(wire.code, expected);
+        }
+        // Nothing outside the list passes, not even a pin text with its table suffix.
+        for (field, message) in [
+            (
+                REEMBEDDING_FIELD,
+                "reembedding source version drift: agent/memories",
+            ),
+            (REEMBEDDING_FIELD, "free caller text"),
+            ("engine.other", "reembedding source generation drift"),
+        ] {
+            assert_eq!(
+                maintenance_error(EngineError::Invalid {
+                    field: field.into(),
+                    message: message.into(),
+                }),
+                WireError::invalid_params()
+            );
+        }
+        assert_eq!(reembedding_text("free caller text"), None);
     }
 }

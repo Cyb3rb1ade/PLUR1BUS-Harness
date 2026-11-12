@@ -1,0 +1,634 @@
+{
+  "pin": "9b935ce1f970bd92a931aa99a58c620669c8085f",
+  "node": "v24.21.0",
+  "sourceHashes": [
+    {
+      "path": "package.json",
+      "sha256": "62985e09c9dbbbf89352bbda6da3fc1c1a92e1006d6b92e680dca0d0d89fdaf9"
+    },
+    {
+      "path": "engine/jobs/job-registry.js",
+      "sha256": "74fd274fb9d2edaf28690882f24f5f1fc3aea5c469681af27972f03383f45d5a"
+    },
+    {
+      "path": "engine/jobs/job-ledger.js",
+      "sha256": "2bdfd31f59ddf0cedc35175c67b9238bedd242780465c79dc98de2eec742f002"
+    },
+    {
+      "path": "engine/jobs/job-specs.js",
+      "sha256": "6f7e191a08e0cedb281b1015dee018b4891f45c359ed5de5a581594945af9f8b"
+    },
+    {
+      "path": "engine/events.js",
+      "sha256": "5a0a2f7a09d8214812549d177ad876d7a12a6fdf0f2f68d2c7adee6beef01952"
+    },
+    {
+      "path": "lib/dreaming/dream-diary.js",
+      "sha256": "8108796bc7f46b1246f9a69c6fde993a84a915a45915385daf3d07c0cd508780"
+    },
+    {
+      "path": "lib/host-sdk-loader.js",
+      "sha256": "ce7aff857496e068e077b358dfe0f8e64551652b7484281351f329745887925e"
+    },
+    {
+      "path": "lib/feature-cron-specs.js",
+      "sha256": "7f4aa7a1ffe3d623cc17c503013b9cb8b5a6a1bbb8768749081febc4a0f77f3e"
+    },
+    {
+      "path": "lib/sql-safety.js",
+      "sha256": "a6b949df02d29d3ed0494964c004d861d718eeb90abd271410e22a489de1bc62"
+    },
+    {
+      "path": "lib/log-redact.js",
+      "sha256": "f64f7d2e2fbf13684ad16fe045a1e43a9755c57be00ee7532479286eed0068e3"
+    }
+  ],
+  "now": 1800000000000,
+  "boundaries": {
+    "registry": "actual A1 recovery and history",
+    "ledger": "explicit in-memory collaborator; file protocol separately tested",
+    "clock": "fixed UTC milliseconds",
+    "providers": "none",
+    "normalization": "none"
+  },
+  "recovered": [
+    {
+      "input": {
+        "name": "empty",
+        "markers": []
+      },
+      "rowsJson": [],
+      "removed": []
+    },
+    {
+      "input": {
+        "name": "unfinished",
+        "markers": [
+          {
+            "runId": "old-001",
+            "job": "knowledge-update",
+            "phase": null,
+            "trigger": "manual",
+            "startedAt": 1799999999990
+          }
+        ]
+      },
+      "rowsJson": [
+        "{\"v\":1,\"runId\":\"old-001\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1799999999990,\"finishedAt\":1800000000000,\"durationMs\":10,\"outcome\":\"failed\",\"reason\":\"crash\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{},\"sweep\":\"2027-01-15\",\"llmSession\":false}"
+      ],
+      "removed": [
+        "old-001"
+      ]
+    },
+    {
+      "input": {
+        "name": "finished",
+        "markers": [
+          {
+            "runId": "old-001",
+            "job": "knowledge-update",
+            "phase": null,
+            "trigger": "manual",
+            "startedAt": 1799999999990
+          }
+        ],
+        "rows": [
+          {
+            "runId": "old-001",
+            "outcome": "completed"
+          }
+        ]
+      },
+      "rowsJson": [],
+      "removed": [
+        "old-001"
+      ]
+    },
+    {
+      "input": {
+        "name": "corrupt",
+        "markers": [
+          {
+            "runId": "old-001",
+            "corrupt": true
+          }
+        ]
+      },
+      "rowsJson": [
+        "{\"v\":1,\"runId\":\"old-001\",\"job\":\"unknown\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"unknown\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"failed\",\"reason\":\"crash\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{},\"sweep\":\"2027-01-15\",\"llmSession\":false}"
+      ],
+      "removed": [
+        "old-001"
+      ]
+    },
+    {
+      "input": {
+        "name": "legacy-fields-absent",
+        "markers": [
+          {
+            "runId": "old-001"
+          }
+        ]
+      },
+      "rowsJson": [
+        "{\"v\":1,\"runId\":\"old-001\",\"job\":\"unknown\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"cron\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"failed\",\"reason\":\"crash\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{},\"sweep\":\"2027-01-15\",\"llmSession\":false}"
+      ],
+      "removed": [
+        "old-001"
+      ]
+    },
+    {
+      "input": {
+        "name": "non-numeric-time",
+        "markers": [
+          {
+            "runId": "old-001",
+            "job": "knowledge-update",
+            "phase": null,
+            "trigger": "manual",
+            "startedAt": "10"
+          }
+        ]
+      },
+      "rowsJson": [
+        "{\"v\":1,\"runId\":\"old-001\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"failed\",\"reason\":\"crash\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{},\"sweep\":\"2027-01-15\",\"llmSession\":false}"
+      ],
+      "removed": [
+        "old-001"
+      ]
+    },
+    {
+      "input": {
+        "name": "negative-fraction-time",
+        "markers": [
+          {
+            "runId": "old-001",
+            "job": "knowledge-update",
+            "phase": null,
+            "trigger": "manual",
+            "startedAt": -0.5
+          }
+        ]
+      },
+      "rowsJson": [
+        "{\"v\":1,\"runId\":\"old-001\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":-0.5,\"finishedAt\":1800000000000,\"durationMs\":1800000000000.5,\"outcome\":\"failed\",\"reason\":\"crash\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{},\"sweep\":\"1970-01-01\",\"llmSession\":false}"
+      ],
+      "removed": [
+        "old-001"
+      ]
+    },
+    {
+      "input": {
+        "name": "extended-year",
+        "markers": [
+          {
+            "runId": "old-001",
+            "job": "knowledge-update",
+            "phase": null,
+            "trigger": "manual",
+            "startedAt": 253402300800000
+          }
+        ]
+      },
+      "rowsJson": [
+        "{\"v\":1,\"runId\":\"old-001\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":253402300800000,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"failed\",\"reason\":\"crash\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{},\"sweep\":\"+010000-01\",\"llmSession\":false}"
+      ],
+      "removed": [
+        "old-001"
+      ]
+    },
+    {
+      "input": {
+        "name": "future-time",
+        "markers": [
+          {
+            "runId": "old-001",
+            "job": "knowledge-update",
+            "phase": null,
+            "trigger": "manual",
+            "startedAt": 1800000000010
+          }
+        ]
+      },
+      "rowsJson": [
+        "{\"v\":1,\"runId\":\"old-001\",\"job\":\"knowledge-update\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1800000000010,\"finishedAt\":1800000000000,\"durationMs\":0,\"outcome\":\"failed\",\"reason\":\"crash\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{},\"sweep\":\"2027-01-15\",\"llmSession\":false}"
+      ],
+      "removed": [
+        "old-001"
+      ]
+    },
+    {
+      "input": {
+        "name": "rem-crash-counts-session",
+        "markers": [
+          {
+            "runId": "old-001",
+            "job": "rem-dream",
+            "phase": "rem",
+            "trigger": "manual",
+            "startedAt": 1799999999990
+          }
+        ]
+      },
+      "rowsJson": [
+        "{\"v\":1,\"runId\":\"old-001\",\"job\":\"rem-dream\",\"phase\":\"rem\",\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1799999999990,\"finishedAt\":1800000000000,\"durationMs\":10,\"outcome\":\"failed\",\"reason\":\"crash\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{},\"sweep\":\"2027-01-15\",\"llmSession\":true}"
+      ],
+      "removed": [
+        "old-001"
+      ]
+    },
+    {
+      "input": {
+        "name": "deep-crash-counts-session",
+        "markers": [
+          {
+            "runId": "old-001",
+            "job": "consolidate-daily",
+            "phase": "deep",
+            "trigger": "manual",
+            "startedAt": 1799999999990
+          }
+        ]
+      },
+      "rowsJson": [
+        "{\"v\":1,\"runId\":\"old-001\",\"job\":\"consolidate-daily\",\"phase\":\"deep\",\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1799999999990,\"finishedAt\":1800000000000,\"durationMs\":10,\"outcome\":\"failed\",\"reason\":\"crash\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{},\"sweep\":\"2027-01-15\",\"llmSession\":true}"
+      ],
+      "removed": [
+        "old-001"
+      ]
+    },
+    {
+      "input": {
+        "name": "light-crash-no-session",
+        "markers": [
+          {
+            "runId": "old-001",
+            "job": "light-dream",
+            "phase": "light",
+            "trigger": "manual",
+            "startedAt": 1799999999990
+          }
+        ]
+      },
+      "rowsJson": [
+        "{\"v\":1,\"runId\":\"old-001\",\"job\":\"light-dream\",\"phase\":\"light\",\"agentId\":\"alpha\",\"trigger\":\"manual\",\"startedAt\":1799999999990,\"finishedAt\":1800000000000,\"durationMs\":10,\"outcome\":\"failed\",\"reason\":\"crash\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{},\"sweep\":\"2027-01-15\",\"llmSession\":false}"
+      ],
+      "removed": [
+        "old-001"
+      ]
+    },
+    {
+      "input": {
+        "name": "legacy-nullish",
+        "markers": [
+          {
+            "runId": "old-001",
+            "job": null,
+            "phase": null,
+            "trigger": null,
+            "startedAt": 0
+          }
+        ]
+      },
+      "rowsJson": [
+        "{\"v\":1,\"runId\":\"old-001\",\"job\":\"unknown\",\"phase\":null,\"agentId\":\"alpha\",\"trigger\":\"cron\",\"startedAt\":0,\"finishedAt\":1800000000000,\"durationMs\":1800000000000,\"outcome\":\"failed\",\"reason\":\"crash\",\"attempt\":1,\"cost\":{\"ms\":0},\"counts\":{},\"sweep\":\"1970-01-01\",\"llmSession\":false}"
+      ],
+      "removed": [
+        "old-001"
+      ]
+    }
+  ],
+  "histories": [
+    {
+      "input": {
+        "name": "append-order-not-time",
+        "rows": [
+          {
+            "runId": "one",
+            "job": "gc-run",
+            "startedAt": 300,
+            "extra": "retained"
+          },
+          {
+            "runId": "two",
+            "job": "knowledge-update",
+            "startedAt": 100
+          },
+          {
+            "runId": "three",
+            "job": "gc-run",
+            "startedAt": 200
+          }
+        ],
+        "filter": {}
+      },
+      "rowsJson": [
+        "{\"runId\":\"three\",\"job\":\"gc-run\",\"startedAt\":200}",
+        "{\"runId\":\"two\",\"job\":\"knowledge-update\",\"startedAt\":100}",
+        "{\"runId\":\"one\",\"job\":\"gc-run\",\"startedAt\":300,\"extra\":\"retained\"}"
+      ]
+    },
+    {
+      "input": {
+        "name": "job",
+        "rows": [
+          {
+            "runId": "one",
+            "job": "gc-run",
+            "startedAt": 300,
+            "extra": "retained"
+          },
+          {
+            "runId": "two",
+            "job": "knowledge-update",
+            "startedAt": 100
+          },
+          {
+            "runId": "three",
+            "job": "gc-run",
+            "startedAt": 200
+          }
+        ],
+        "filter": {
+          "job": "gc-run"
+        }
+      },
+      "rowsJson": [
+        "{\"runId\":\"three\",\"job\":\"gc-run\",\"startedAt\":200}",
+        "{\"runId\":\"one\",\"job\":\"gc-run\",\"startedAt\":300,\"extra\":\"retained\"}"
+      ]
+    },
+    {
+      "input": {
+        "name": "since-inclusive",
+        "rows": [
+          {
+            "runId": "one",
+            "job": "gc-run",
+            "startedAt": 300,
+            "extra": "retained"
+          },
+          {
+            "runId": "two",
+            "job": "knowledge-update",
+            "startedAt": 100
+          },
+          {
+            "runId": "three",
+            "job": "gc-run",
+            "startedAt": 200
+          }
+        ],
+        "filter": {
+          "since": 200
+        }
+      },
+      "rowsJson": [
+        "{\"runId\":\"three\",\"job\":\"gc-run\",\"startedAt\":200}",
+        "{\"runId\":\"one\",\"job\":\"gc-run\",\"startedAt\":300,\"extra\":\"retained\"}"
+      ]
+    },
+    {
+      "input": {
+        "name": "filter-before-limit",
+        "rows": [
+          {
+            "runId": "one",
+            "job": "gc-run",
+            "startedAt": 300,
+            "extra": "retained"
+          },
+          {
+            "runId": "two",
+            "job": "knowledge-update",
+            "startedAt": 100
+          },
+          {
+            "runId": "three",
+            "job": "gc-run",
+            "startedAt": 200
+          }
+        ],
+        "filter": {
+          "job": "gc-run",
+          "since": 200,
+          "limit": 1
+        }
+      },
+      "rowsJson": [
+        "{\"runId\":\"three\",\"job\":\"gc-run\",\"startedAt\":200}"
+      ]
+    },
+    {
+      "input": {
+        "name": "zero",
+        "rows": [
+          {
+            "runId": "one",
+            "job": "gc-run",
+            "startedAt": 300,
+            "extra": "retained"
+          },
+          {
+            "runId": "two",
+            "job": "knowledge-update",
+            "startedAt": 100
+          },
+          {
+            "runId": "three",
+            "job": "gc-run",
+            "startedAt": 200
+          }
+        ],
+        "filter": {
+          "limit": 0
+        }
+      },
+      "rowsJson": []
+    },
+    {
+      "input": {
+        "name": "negative-ignored",
+        "rows": [
+          {
+            "runId": "one",
+            "job": "gc-run",
+            "startedAt": 300,
+            "extra": "retained"
+          },
+          {
+            "runId": "two",
+            "job": "knowledge-update",
+            "startedAt": 100
+          },
+          {
+            "runId": "three",
+            "job": "gc-run",
+            "startedAt": 200
+          }
+        ],
+        "filter": {
+          "limit": -1
+        }
+      },
+      "rowsJson": [
+        "{\"runId\":\"three\",\"job\":\"gc-run\",\"startedAt\":200}",
+        "{\"runId\":\"two\",\"job\":\"knowledge-update\",\"startedAt\":100}",
+        "{\"runId\":\"one\",\"job\":\"gc-run\",\"startedAt\":300,\"extra\":\"retained\"}"
+      ]
+    },
+    {
+      "input": {
+        "name": "fraction-ignored",
+        "rows": [
+          {
+            "runId": "one",
+            "job": "gc-run",
+            "startedAt": 300,
+            "extra": "retained"
+          },
+          {
+            "runId": "two",
+            "job": "knowledge-update",
+            "startedAt": 100
+          },
+          {
+            "runId": "three",
+            "job": "gc-run",
+            "startedAt": 200
+          }
+        ],
+        "filter": {
+          "limit": 0.5
+        }
+      },
+      "rowsJson": [
+        "{\"runId\":\"three\",\"job\":\"gc-run\",\"startedAt\":200}",
+        "{\"runId\":\"two\",\"job\":\"knowledge-update\",\"startedAt\":100}",
+        "{\"runId\":\"one\",\"job\":\"gc-run\",\"startedAt\":300,\"extra\":\"retained\"}"
+      ]
+    },
+    {
+      "input": {
+        "name": "unknown-job",
+        "rows": [
+          {
+            "runId": "one",
+            "job": "gc-run",
+            "startedAt": 300,
+            "extra": "retained"
+          },
+          {
+            "runId": "two",
+            "job": "knowledge-update",
+            "startedAt": 100
+          },
+          {
+            "runId": "three",
+            "job": "gc-run",
+            "startedAt": 200
+          }
+        ],
+        "filter": {
+          "job": "unknown"
+        }
+      },
+      "rowsJson": []
+    },
+    {
+      "input": {
+        "name": "empty-job-ignored",
+        "rows": [
+          {
+            "runId": "one",
+            "job": "gc-run",
+            "startedAt": 300,
+            "extra": "retained"
+          },
+          {
+            "runId": "two",
+            "job": "knowledge-update",
+            "startedAt": 100
+          },
+          {
+            "runId": "three",
+            "job": "gc-run",
+            "startedAt": 200
+          }
+        ],
+        "filter": {
+          "job": ""
+        }
+      },
+      "rowsJson": [
+        "{\"runId\":\"three\",\"job\":\"gc-run\",\"startedAt\":200}",
+        "{\"runId\":\"two\",\"job\":\"knowledge-update\",\"startedAt\":100}",
+        "{\"runId\":\"one\",\"job\":\"gc-run\",\"startedAt\":300,\"extra\":\"retained\"}"
+      ]
+    },
+    {
+      "input": {
+        "name": "legacy-coercion",
+        "rows": [
+          {
+            "runId": "0",
+            "startedAt": null
+          },
+          {
+            "runId": "1",
+            "startedAt": true
+          },
+          {
+            "runId": "2",
+            "startedAt": false
+          },
+          {
+            "runId": "3",
+            "startedAt": " 0x10 "
+          },
+          {
+            "runId": "4",
+            "startedAt": [
+              20
+            ]
+          },
+          {
+            "runId": "5",
+            "startedAt": []
+          },
+          {
+            "runId": "6",
+            "startedAt": {}
+          },
+          {
+            "runId": "7",
+            "startedAt": "bad"
+          }
+        ],
+        "filter": {
+          "since": 1
+        }
+      },
+      "rowsJson": [
+        "{\"runId\":\"4\",\"startedAt\":[20]}",
+        "{\"runId\":\"3\",\"startedAt\":\" 0x10 \"}",
+        "{\"runId\":\"1\",\"startedAt\":true}"
+      ]
+    },
+    {
+      "input": {
+        "name": "opaque-field",
+        "rows": [
+          {
+            "runId": "opaque",
+            "extra": "\ud800"
+          }
+        ],
+        "filter": {}
+      },
+      "rowsJson": [
+        "{\"runId\":\"opaque\",\"extra\":\"\\ud800\"}"
+      ]
+    }
+  ]
+}

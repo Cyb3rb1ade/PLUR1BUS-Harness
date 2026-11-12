@@ -1,0 +1,22 @@
+{
+  "schema": "engine-parity.scenario/1",
+  "store": "store-v1",
+  "config": {},
+  "seams": {
+    "embedder": "flat",
+    "reranker": "none",
+    "llm": "none",
+    "clock": 1768305600000
+  },
+  "steps": [
+    {
+      "op": "jobs.run",
+      "args": {
+        "job": "embedding-drain",
+        "agentId": "a1"
+      },
+      "expect": "golden",
+      "tolerance": "default"
+    }
+  ]
+}

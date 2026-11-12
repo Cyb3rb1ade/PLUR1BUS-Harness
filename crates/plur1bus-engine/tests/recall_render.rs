@@ -18,6 +18,27 @@ fn verify(name: &str) {
 }
 
 fn verify_case(name: &str, case: &serde_json::Value) {
+    let mut case = case.clone();
+    let exceptions: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/recall/unicode-exceptions.json")).unwrap();
+    if let Some(exception) = exceptions["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|exception| {
+            exception["golden"] == name && exception["variant"] == case["input"]["variant"]
+        })
+    {
+        use sha2::{Digest, Sha256};
+        let digest = format!(
+            "{:x}",
+            Sha256::digest(fixture::text(&case["rawLine"]).as_bytes())
+        );
+        assert_eq!(digest, exception["nodeRawLineSha256"]);
+        case["rawLine"] = exception["rustRawLine"].clone();
+        case["joinedLine"] = exception["rustJoinedLine"].clone();
+    }
+    let case = &case;
     if case["input"]["kind"].is_string() {
         fixture::verify_helper(case);
         return;

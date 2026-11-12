@@ -3,8 +3,8 @@
   "scenario": "knowledge-section-failed-not-cached",
   "recordedFrom": {
     "engine": "node",
-    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
-    "pipelineSha256": "ade8fb665973fb71fedf076a0d4394da4f12f4e73ea5d76bd146f80e01360b6f",
+    "commit": "432313664242fc6c29c0b9bf3bcea8b9e5ad93c0",
+    "pipelineSha256": "3768ebf0fcaae42dc89d82efea54097780be80965cfbaa98178a7863de69c084",
     "node": "v24.21.0",
     "now": 1768305600000
   },
@@ -18,7 +18,7 @@
       ],
       "canonical": [],
       "rejections": [],
-      "cacheChunks": 0
+      "cacheChunks": null
     },
     {
       "orderedIds": [

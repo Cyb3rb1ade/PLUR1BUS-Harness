@@ -1,0 +1,18 @@
+{
+  "decision": "RE-D63",
+  "nodeGoldenSha256": "2313abdd81be37e9353818f96fef9f6c024ecbd69b3af0f6cd2a8ff8f90997ef",
+  "cases": [
+    "conversation-0-baseline-1",
+    "conversation-0-baseline-2",
+    "conversation-1-baseline-1",
+    "conversation-1-baseline-2",
+    "conversation-1-baseline-3",
+    "conversation-2-baseline-3",
+    "conversation-2-baseline-4",
+    "conversation-2-baseline-5",
+    "conversation-2-baseline-6",
+    "conversation-3-baseline-1",
+    "conversation-3-baseline-2"
+  ],
+  "reason": "Select the actual full-journal suffix after normalizing the prefix. Separate delta normalization resets duplicate ordinals, display positions and previous-assistant links. The native hash algorithm and original Node outputs are unchanged."
+}

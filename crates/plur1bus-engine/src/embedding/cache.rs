@@ -133,6 +133,10 @@ impl Drop for Publication {
 }
 
 impl Cache {
+    pub(crate) fn has_persistence(&self) -> bool {
+        self.persistent.is_some()
+    }
+
     pub(crate) fn new(
         persistent: Option<EmbeddingCache>,
         enabled: bool,

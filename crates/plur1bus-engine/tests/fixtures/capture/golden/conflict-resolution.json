@@ -1,0 +1,709 @@
+{
+  "pin": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+  "now": 1735689600000,
+  "sourcesSha256": {
+    "lib/jobs/conflict-resolver.js": "a4a728f1107c5f2a756663ef5c7844c2ac7b9870928bcaddd6fcc5109aed438f",
+    "lib/jsonl-utils.js": "a6fcd196cf18598dc54d268e9cf8af641e0298da1dbfdb63376cdf41a59041db",
+    "lib/llm-result-cache.js": "ae7fcf3cf803789613164ab7216f986e4a231a58db735700b99e2cd2d08fd306",
+    "lib/safe-logging.js": "4a634fa3c4cce35d5c7cb29c7c2eb72378666ef400e79dc7869a4c50d2e2c0ac",
+    "lib/log-redact.js": "f64f7d2e2fbf13684ad16fe045a1e43a9755c57be00ee7532479286eed0068e3",
+    "lib/platform.js": "b210b81d3d27e65a4cd872d766d089ba7a96e9d9e7ebb65143e156d00a59ff61",
+    "lib/windows-acl-parse.js": "1241ba9d3a508f1e2be9c6ce840898f6f74a0aadca42feb4de35a8de44aa5da1",
+    "lib/sql-safety.js": "a6b949df02d29d3ed0494964c004d861d718eeb90abd271410e22a489de1bc62",
+    "lib/llm-failure.js": "5b90ec7871063b9a102df39088dcacb7b4e76c4feec13b66b198eef83e9585a2",
+    "lib/with-timeout.js": "b22921f334c70485563e75c25ecda00382a12f40846f612fae202125836c54f4",
+    "lib/jobs/apply-conflict-resolution.js": "221cdffb3d4930fa1239fc85a0613c731d5e9dd2f8a05093fed09f8322de6e3a",
+    "lib/safe-update.js": "d437fe2c7611b9bde0e938a2de5ab372483dfcde21e6883b0283190c0e8c0331",
+    "lib/text-utils.js": "e5b1c6bc77dc8af1cfa5028d3cb22eca0bba549dbb7901da74f57b9f8ad98e29",
+    "lib/memory-dynamics.js": "95c310c6446a168a48333a40d3ad6fcbdd6ce9a54b769a1f1eda04bc3d8495d5",
+    "lib/acl-middleware.js": "28a8db1d9c2f1dafba03a6097bb8ef27785b53c1fb83b2913b6ea1245e55f2ba",
+    "lib/input-limits.js": "2f0ad85dd65db20180255dabdb88a674882a427f14766704f991db23b7924193",
+    "lib/memory-request-context.js": "cbbd174b6ece893384320e2f673096f2d1f217b68450d3eec1ef06c413560a96",
+    "lib/process-singleton.js": "f729cff5ead35c4c18fc85cf79e3f4dcca8090838b5664d8911a18234ba8c576",
+    "lib/epistemic-status.js": "552a71f9616c8caa2151b54feadd3e6ab19a470218022027425b11ccaf967fec",
+    "lib/importance-status.js": "8b7ccd7f9dccdc02d7f157c4ba67e16545ac2953614e1a755cbe17a153082cdc"
+  },
+  "proposals": [
+    {
+      "decision": {
+        "resolution": "keep_a",
+        "confidence": 0.95,
+        "reason": "fixture"
+      },
+      "result": {
+        "resolved": 1,
+        "proposed": 0,
+        "uncertain": 0,
+        "scanned": 1,
+        "groups": 1,
+        "dryRun": false,
+        "durationMs": 0,
+        "errors": 0
+      },
+      "calls": 1,
+      "line": "{\"original\":{\"schemaVersion\":1,\"timestamp\":\"2024-12-01T00:00:00.000Z\",\"newMemoryId\":\"00000000-0000-4000-8000-000000000001\",\"existingMemoryId\":\"00000000-0000-4000-8000-000000000002\",\"newAgentId\":\"alpha\",\"existingAgentId\":\"alpha\",\"newText\":\"New synthetic decision\",\"existingText\":\"Prior synthetic decision\",\"score\":0.8,\"category\":\"decision\",\"mergeDecision\":\"stored_separately\"},\"resolution\":\"keep_a\",\"confidence\":0.95,\"reason\":\"fixture\",\"recommendation\":\"apply_via_safe_reconsolidation\",\"resolvedAt\":\"2025-01-01T00:00:00.000Z\",\"dryRun\":false}\n",
+      "found": {
+        "original": {
+          "schemaVersion": 1,
+          "timestamp": "2024-12-01T00:00:00.000Z",
+          "newMemoryId": "00000000-0000-4000-8000-000000000001",
+          "existingMemoryId": "00000000-0000-4000-8000-000000000002",
+          "newAgentId": "alpha",
+          "existingAgentId": "alpha",
+          "newText": "New synthetic decision",
+          "existingText": "Prior synthetic decision",
+          "score": 0.8,
+          "category": "decision",
+          "mergeDecision": "stored_separately"
+        },
+        "resolution": "keep_a",
+        "confidence": 0.95,
+        "reason": "fixture",
+        "recommendation": "apply_via_safe_reconsolidation",
+        "resolvedAt": "2025-01-01T00:00:00.000Z",
+        "dryRun": false
+      }
+    },
+    {
+      "decision": {
+        "resolution": "keep_b",
+        "confidence": 1,
+        "reason": "fixture"
+      },
+      "result": {
+        "resolved": 1,
+        "proposed": 0,
+        "uncertain": 0,
+        "scanned": 1,
+        "groups": 1,
+        "dryRun": false,
+        "durationMs": 0,
+        "errors": 0
+      },
+      "calls": 1,
+      "line": "{\"original\":{\"schemaVersion\":1,\"timestamp\":\"2024-12-01T00:00:00.000Z\",\"newMemoryId\":\"00000000-0000-4000-8000-000000000001\",\"existingMemoryId\":\"00000000-0000-4000-8000-000000000002\",\"newAgentId\":\"alpha\",\"existingAgentId\":\"alpha\",\"newText\":\"New synthetic decision\",\"existingText\":\"Prior synthetic decision\",\"score\":0.8,\"category\":\"decision\",\"mergeDecision\":\"stored_separately\"},\"resolution\":\"keep_b\",\"confidence\":1,\"reason\":\"fixture\",\"recommendation\":\"apply_via_safe_reconsolidation\",\"resolvedAt\":\"2025-01-01T00:00:00.000Z\",\"dryRun\":false}\n",
+      "found": {
+        "original": {
+          "schemaVersion": 1,
+          "timestamp": "2024-12-01T00:00:00.000Z",
+          "newMemoryId": "00000000-0000-4000-8000-000000000001",
+          "existingMemoryId": "00000000-0000-4000-8000-000000000002",
+          "newAgentId": "alpha",
+          "existingAgentId": "alpha",
+          "newText": "New synthetic decision",
+          "existingText": "Prior synthetic decision",
+          "score": 0.8,
+          "category": "decision",
+          "mergeDecision": "stored_separately"
+        },
+        "resolution": "keep_b",
+        "confidence": 1,
+        "reason": "fixture",
+        "recommendation": "apply_via_safe_reconsolidation",
+        "resolvedAt": "2025-01-01T00:00:00.000Z",
+        "dryRun": false
+      }
+    },
+    {
+      "decision": {
+        "resolution": "merge",
+        "confidence": 0.9,
+        "reason": "fixture",
+        "mergedText": "Combined synthetic decision"
+      },
+      "result": {
+        "resolved": 1,
+        "proposed": 0,
+        "uncertain": 0,
+        "scanned": 1,
+        "groups": 1,
+        "dryRun": false,
+        "durationMs": 0,
+        "errors": 0
+      },
+      "calls": 1,
+      "line": "{\"original\":{\"schemaVersion\":1,\"timestamp\":\"2024-12-01T00:00:00.000Z\",\"newMemoryId\":\"00000000-0000-4000-8000-000000000001\",\"existingMemoryId\":\"00000000-0000-4000-8000-000000000002\",\"newAgentId\":\"alpha\",\"existingAgentId\":\"alpha\",\"newText\":\"New synthetic decision\",\"existingText\":\"Prior synthetic decision\",\"score\":0.8,\"category\":\"decision\",\"mergeDecision\":\"stored_separately\"},\"resolution\":\"merge\",\"confidence\":0.9,\"reason\":\"fixture\",\"recommendation\":\"apply_via_safe_reconsolidation\",\"mergedText\":\"Combined synthetic decision\",\"resolvedAt\":\"2025-01-01T00:00:00.000Z\",\"dryRun\":false}\n",
+      "found": {
+        "original": {
+          "schemaVersion": 1,
+          "timestamp": "2024-12-01T00:00:00.000Z",
+          "newMemoryId": "00000000-0000-4000-8000-000000000001",
+          "existingMemoryId": "00000000-0000-4000-8000-000000000002",
+          "newAgentId": "alpha",
+          "existingAgentId": "alpha",
+          "newText": "New synthetic decision",
+          "existingText": "Prior synthetic decision",
+          "score": 0.8,
+          "category": "decision",
+          "mergeDecision": "stored_separately"
+        },
+        "resolution": "merge",
+        "confidence": 0.9,
+        "reason": "fixture",
+        "recommendation": "apply_via_safe_reconsolidation",
+        "mergedText": "Combined synthetic decision",
+        "resolvedAt": "2025-01-01T00:00:00.000Z",
+        "dryRun": false
+      }
+    },
+    {
+      "decision": {
+        "resolution": "uncertain",
+        "confidence": 1,
+        "reason": "fixture"
+      },
+      "result": {
+        "resolved": 0,
+        "proposed": 0,
+        "uncertain": 1,
+        "scanned": 1,
+        "groups": 1,
+        "dryRun": false,
+        "durationMs": 0,
+        "errors": 0
+      },
+      "calls": 1,
+      "line": "{\"original\":{\"schemaVersion\":1,\"timestamp\":\"2024-12-01T00:00:00.000Z\",\"newMemoryId\":\"00000000-0000-4000-8000-000000000001\",\"existingMemoryId\":\"00000000-0000-4000-8000-000000000002\",\"newAgentId\":\"alpha\",\"existingAgentId\":\"alpha\",\"newText\":\"New synthetic decision\",\"existingText\":\"Prior synthetic decision\",\"score\":0.8,\"category\":\"decision\",\"mergeDecision\":\"stored_separately\"},\"resolution\":\"uncertain\",\"confidence\":1,\"reason\":\"fixture\",\"recommendation\":\"review_only\",\"resolvedAt\":\"2025-01-01T00:00:00.000Z\",\"dryRun\":false}\n",
+      "found": null
+    },
+    {
+      "decision": {
+        "resolution": "merge",
+        "confidence": 0.89,
+        "reason": "fixture",
+        "mergedText": "Review synthetic decision"
+      },
+      "result": {
+        "resolved": 0,
+        "proposed": 1,
+        "uncertain": 0,
+        "scanned": 1,
+        "groups": 1,
+        "dryRun": false,
+        "durationMs": 0,
+        "errors": 0
+      },
+      "calls": 1,
+      "line": "{\"original\":{\"schemaVersion\":1,\"timestamp\":\"2024-12-01T00:00:00.000Z\",\"newMemoryId\":\"00000000-0000-4000-8000-000000000001\",\"existingMemoryId\":\"00000000-0000-4000-8000-000000000002\",\"newAgentId\":\"alpha\",\"existingAgentId\":\"alpha\",\"newText\":\"New synthetic decision\",\"existingText\":\"Prior synthetic decision\",\"score\":0.8,\"category\":\"decision\",\"mergeDecision\":\"stored_separately\"},\"resolution\":\"merge\",\"confidence\":0.89,\"reason\":\"fixture\",\"recommendation\":\"review_only\",\"mergedText\":\"Review synthetic decision\",\"resolvedAt\":\"2025-01-01T00:00:00.000Z\",\"dryRun\":false}\n",
+      "found": null
+    },
+    {
+      "decision": {
+        "resolution": "keep_a",
+        "confidence": 0.9,
+        "reason": "fixture"
+      },
+      "result": {
+        "resolved": 1,
+        "proposed": 0,
+        "uncertain": 0,
+        "scanned": 1,
+        "groups": 1,
+        "dryRun": false,
+        "durationMs": 0,
+        "errors": 0
+      },
+      "calls": 1,
+      "line": "{\"original\":{\"schemaVersion\":1,\"timestamp\":\"2024-12-01T00:00:00.000Z\",\"newMemoryId\":\"00000000-0000-4000-8000-000000000001\",\"existingMemoryId\":\"00000000-0000-4000-8000-000000000002\",\"newAgentId\":\"alpha\",\"existingAgentId\":\"alpha\",\"newText\":\"New synthetic decision\",\"existingText\":\"Prior synthetic decision\",\"score\":0.8,\"category\":\"decision\",\"mergeDecision\":\"stored_separately\"},\"resolution\":\"keep_a\",\"confidence\":0.9,\"reason\":\"fixture\",\"recommendation\":\"apply_via_safe_reconsolidation\",\"resolvedAt\":\"2025-01-01T00:00:00.000Z\",\"dryRun\":false}\n",
+      "found": {
+        "original": {
+          "schemaVersion": 1,
+          "timestamp": "2024-12-01T00:00:00.000Z",
+          "newMemoryId": "00000000-0000-4000-8000-000000000001",
+          "existingMemoryId": "00000000-0000-4000-8000-000000000002",
+          "newAgentId": "alpha",
+          "existingAgentId": "alpha",
+          "newText": "New synthetic decision",
+          "existingText": "Prior synthetic decision",
+          "score": 0.8,
+          "category": "decision",
+          "mergeDecision": "stored_separately"
+        },
+        "resolution": "keep_a",
+        "confidence": 0.9,
+        "reason": "fixture",
+        "recommendation": "apply_via_safe_reconsolidation",
+        "resolvedAt": "2025-01-01T00:00:00.000Z",
+        "dryRun": false
+      }
+    },
+    {
+      "decision": {
+        "resolution": "unknown",
+        "confidence": 0.95,
+        "reason": "fixture"
+      },
+      "result": {
+        "resolved": 0,
+        "proposed": 0,
+        "uncertain": 1,
+        "scanned": 1,
+        "groups": 1,
+        "dryRun": false,
+        "durationMs": 0,
+        "errors": 0
+      },
+      "calls": 1,
+      "line": "{\"original\":{\"schemaVersion\":1,\"timestamp\":\"2024-12-01T00:00:00.000Z\",\"newMemoryId\":\"00000000-0000-4000-8000-000000000001\",\"existingMemoryId\":\"00000000-0000-4000-8000-000000000002\",\"newAgentId\":\"alpha\",\"existingAgentId\":\"alpha\",\"newText\":\"New synthetic decision\",\"existingText\":\"Prior synthetic decision\",\"score\":0.8,\"category\":\"decision\",\"mergeDecision\":\"stored_separately\"},\"resolution\":\"uncertain\",\"confidence\":0,\"reason\":\"invalid_response\",\"recommendation\":\"review_only\",\"resolvedAt\":\"2025-01-01T00:00:00.000Z\",\"dryRun\":false}\n",
+      "found": null
+    },
+    {
+      "decision": {
+        "resolution": "keep_a",
+        "reason": "fixture"
+      },
+      "result": {
+        "resolved": 0,
+        "proposed": 1,
+        "uncertain": 0,
+        "scanned": 1,
+        "groups": 1,
+        "dryRun": false,
+        "durationMs": 0,
+        "errors": 0
+      },
+      "calls": 1,
+      "line": "{\"original\":{\"schemaVersion\":1,\"timestamp\":\"2024-12-01T00:00:00.000Z\",\"newMemoryId\":\"00000000-0000-4000-8000-000000000001\",\"existingMemoryId\":\"00000000-0000-4000-8000-000000000002\",\"newAgentId\":\"alpha\",\"existingAgentId\":\"alpha\",\"newText\":\"New synthetic decision\",\"existingText\":\"Prior synthetic decision\",\"score\":0.8,\"category\":\"decision\",\"mergeDecision\":\"stored_separately\"},\"resolution\":\"keep_a\",\"confidence\":0,\"reason\":\"fixture\",\"recommendation\":\"review_only\",\"resolvedAt\":\"2025-01-01T00:00:00.000Z\",\"dryRun\":false}\n",
+      "found": null
+    },
+    {
+      "decision": {
+        "resolution": "keep_a",
+        "confidence": "0.99",
+        "reason": "fixture"
+      },
+      "result": {
+        "resolved": 0,
+        "proposed": 1,
+        "uncertain": 0,
+        "scanned": 1,
+        "groups": 1,
+        "dryRun": false,
+        "durationMs": 0,
+        "errors": 0
+      },
+      "calls": 1,
+      "line": "{\"original\":{\"schemaVersion\":1,\"timestamp\":\"2024-12-01T00:00:00.000Z\",\"newMemoryId\":\"00000000-0000-4000-8000-000000000001\",\"existingMemoryId\":\"00000000-0000-4000-8000-000000000002\",\"newAgentId\":\"alpha\",\"existingAgentId\":\"alpha\",\"newText\":\"New synthetic decision\",\"existingText\":\"Prior synthetic decision\",\"score\":0.8,\"category\":\"decision\",\"mergeDecision\":\"stored_separately\"},\"resolution\":\"keep_a\",\"confidence\":0,\"reason\":\"fixture\",\"recommendation\":\"review_only\",\"resolvedAt\":\"2025-01-01T00:00:00.000Z\",\"dryRun\":false}\n",
+      "found": null
+    },
+    {
+      "decision": {
+        "resolution": "merge",
+        "confidence": 2,
+        "reason": "fixture",
+        "mergedText": "Out of range fixture"
+      },
+      "result": {
+        "resolved": 1,
+        "proposed": 0,
+        "uncertain": 0,
+        "scanned": 1,
+        "groups": 1,
+        "dryRun": false,
+        "durationMs": 0,
+        "errors": 0
+      },
+      "calls": 1,
+      "line": "{\"original\":{\"schemaVersion\":1,\"timestamp\":\"2024-12-01T00:00:00.000Z\",\"newMemoryId\":\"00000000-0000-4000-8000-000000000001\",\"existingMemoryId\":\"00000000-0000-4000-8000-000000000002\",\"newAgentId\":\"alpha\",\"existingAgentId\":\"alpha\",\"newText\":\"New synthetic decision\",\"existingText\":\"Prior synthetic decision\",\"score\":0.8,\"category\":\"decision\",\"mergeDecision\":\"stored_separately\"},\"resolution\":\"merge\",\"confidence\":2,\"reason\":\"fixture\",\"recommendation\":\"apply_via_safe_reconsolidation\",\"mergedText\":\"Out of range fixture\",\"resolvedAt\":\"2025-01-01T00:00:00.000Z\",\"dryRun\":false}\n",
+      "found": {
+        "original": {
+          "schemaVersion": 1,
+          "timestamp": "2024-12-01T00:00:00.000Z",
+          "newMemoryId": "00000000-0000-4000-8000-000000000001",
+          "existingMemoryId": "00000000-0000-4000-8000-000000000002",
+          "newAgentId": "alpha",
+          "existingAgentId": "alpha",
+          "newText": "New synthetic decision",
+          "existingText": "Prior synthetic decision",
+          "score": 0.8,
+          "category": "decision",
+          "mergeDecision": "stored_separately"
+        },
+        "resolution": "merge",
+        "confidence": 2,
+        "reason": "fixture",
+        "recommendation": "apply_via_safe_reconsolidation",
+        "mergedText": "Out of range fixture",
+        "resolvedAt": "2025-01-01T00:00:00.000Z",
+        "dryRun": false
+      }
+    }
+  ],
+  "selectors": [
+    {
+      "input": null,
+      "id": "",
+      "text": ""
+    },
+    {
+      "input": {},
+      "id": "",
+      "text": ""
+    },
+    {
+      "input": {
+        "resolution": "keep_a",
+        "confidence": 0.95,
+        "reason": "fixture",
+        "original": {
+          "schemaVersion": 1,
+          "timestamp": "2024-12-01T00:00:00.000Z",
+          "newMemoryId": "00000000-0000-4000-8000-000000000001",
+          "existingMemoryId": "00000000-0000-4000-8000-000000000002",
+          "newAgentId": "alpha",
+          "existingAgentId": "alpha",
+          "newText": "New synthetic decision",
+          "existingText": "Prior synthetic decision",
+          "score": 0.8,
+          "category": "decision",
+          "mergeDecision": "stored_separately"
+        }
+      },
+      "id": "00000000-0000-4000-8000-000000000002",
+      "text": "Prior synthetic decision"
+    },
+    {
+      "input": {
+        "resolution": "keep_b",
+        "confidence": 1,
+        "reason": "fixture",
+        "original": {
+          "schemaVersion": 1,
+          "timestamp": "2024-12-01T00:00:00.000Z",
+          "newMemoryId": "00000000-0000-4000-8000-000000000001",
+          "existingMemoryId": "00000000-0000-4000-8000-000000000002",
+          "newAgentId": "alpha",
+          "existingAgentId": "alpha",
+          "newText": "New synthetic decision",
+          "existingText": "Prior synthetic decision",
+          "score": 0.8,
+          "category": "decision",
+          "mergeDecision": "stored_separately"
+        }
+      },
+      "id": "00000000-0000-4000-8000-000000000002",
+      "text": "New synthetic decision"
+    },
+    {
+      "input": {
+        "resolution": "merge",
+        "confidence": 0.9,
+        "reason": "fixture",
+        "mergedText": "Combined synthetic decision",
+        "original": {
+          "schemaVersion": 1,
+          "timestamp": "2024-12-01T00:00:00.000Z",
+          "newMemoryId": "00000000-0000-4000-8000-000000000001",
+          "existingMemoryId": "00000000-0000-4000-8000-000000000002",
+          "newAgentId": "alpha",
+          "existingAgentId": "alpha",
+          "newText": "New synthetic decision",
+          "existingText": "Prior synthetic decision",
+          "score": 0.8,
+          "category": "decision",
+          "mergeDecision": "stored_separately"
+        }
+      },
+      "id": "00000000-0000-4000-8000-000000000002",
+      "text": "Combined synthetic decision"
+    },
+    {
+      "input": {
+        "resolution": "uncertain",
+        "confidence": 1,
+        "reason": "fixture",
+        "original": {
+          "schemaVersion": 1,
+          "timestamp": "2024-12-01T00:00:00.000Z",
+          "newMemoryId": "00000000-0000-4000-8000-000000000001",
+          "existingMemoryId": "00000000-0000-4000-8000-000000000002",
+          "newAgentId": "alpha",
+          "existingAgentId": "alpha",
+          "newText": "New synthetic decision",
+          "existingText": "Prior synthetic decision",
+          "score": 0.8,
+          "category": "decision",
+          "mergeDecision": "stored_separately"
+        }
+      },
+      "id": "00000000-0000-4000-8000-000000000002",
+      "text": ""
+    },
+    {
+      "input": {
+        "resolution": "merge",
+        "confidence": 0.89,
+        "reason": "fixture",
+        "mergedText": "Review synthetic decision",
+        "original": {
+          "schemaVersion": 1,
+          "timestamp": "2024-12-01T00:00:00.000Z",
+          "newMemoryId": "00000000-0000-4000-8000-000000000001",
+          "existingMemoryId": "00000000-0000-4000-8000-000000000002",
+          "newAgentId": "alpha",
+          "existingAgentId": "alpha",
+          "newText": "New synthetic decision",
+          "existingText": "Prior synthetic decision",
+          "score": 0.8,
+          "category": "decision",
+          "mergeDecision": "stored_separately"
+        }
+      },
+      "id": "00000000-0000-4000-8000-000000000002",
+      "text": "Review synthetic decision"
+    },
+    {
+      "input": {
+        "resolution": "keep_a",
+        "confidence": 0.9,
+        "reason": "fixture",
+        "original": {
+          "schemaVersion": 1,
+          "timestamp": "2024-12-01T00:00:00.000Z",
+          "newMemoryId": "00000000-0000-4000-8000-000000000001",
+          "existingMemoryId": "00000000-0000-4000-8000-000000000002",
+          "newAgentId": "alpha",
+          "existingAgentId": "alpha",
+          "newText": "New synthetic decision",
+          "existingText": "Prior synthetic decision",
+          "score": 0.8,
+          "category": "decision",
+          "mergeDecision": "stored_separately"
+        }
+      },
+      "id": "00000000-0000-4000-8000-000000000002",
+      "text": "Prior synthetic decision"
+    },
+    {
+      "input": {
+        "resolution": "unknown",
+        "confidence": 0.95,
+        "reason": "fixture",
+        "original": {
+          "schemaVersion": 1,
+          "timestamp": "2024-12-01T00:00:00.000Z",
+          "newMemoryId": "00000000-0000-4000-8000-000000000001",
+          "existingMemoryId": "00000000-0000-4000-8000-000000000002",
+          "newAgentId": "alpha",
+          "existingAgentId": "alpha",
+          "newText": "New synthetic decision",
+          "existingText": "Prior synthetic decision",
+          "score": 0.8,
+          "category": "decision",
+          "mergeDecision": "stored_separately"
+        }
+      },
+      "id": "00000000-0000-4000-8000-000000000002",
+      "text": ""
+    },
+    {
+      "input": {
+        "resolution": "keep_a",
+        "reason": "fixture",
+        "original": {
+          "schemaVersion": 1,
+          "timestamp": "2024-12-01T00:00:00.000Z",
+          "newMemoryId": "00000000-0000-4000-8000-000000000001",
+          "existingMemoryId": "00000000-0000-4000-8000-000000000002",
+          "newAgentId": "alpha",
+          "existingAgentId": "alpha",
+          "newText": "New synthetic decision",
+          "existingText": "Prior synthetic decision",
+          "score": 0.8,
+          "category": "decision",
+          "mergeDecision": "stored_separately"
+        }
+      },
+      "id": "00000000-0000-4000-8000-000000000002",
+      "text": "Prior synthetic decision"
+    },
+    {
+      "input": {
+        "resolution": "keep_a",
+        "confidence": "0.99",
+        "reason": "fixture",
+        "original": {
+          "schemaVersion": 1,
+          "timestamp": "2024-12-01T00:00:00.000Z",
+          "newMemoryId": "00000000-0000-4000-8000-000000000001",
+          "existingMemoryId": "00000000-0000-4000-8000-000000000002",
+          "newAgentId": "alpha",
+          "existingAgentId": "alpha",
+          "newText": "New synthetic decision",
+          "existingText": "Prior synthetic decision",
+          "score": 0.8,
+          "category": "decision",
+          "mergeDecision": "stored_separately"
+        }
+      },
+      "id": "00000000-0000-4000-8000-000000000002",
+      "text": "Prior synthetic decision"
+    },
+    {
+      "input": {
+        "resolution": "merge",
+        "confidence": 2,
+        "reason": "fixture",
+        "mergedText": "Out of range fixture",
+        "original": {
+          "schemaVersion": 1,
+          "timestamp": "2024-12-01T00:00:00.000Z",
+          "newMemoryId": "00000000-0000-4000-8000-000000000001",
+          "existingMemoryId": "00000000-0000-4000-8000-000000000002",
+          "newAgentId": "alpha",
+          "existingAgentId": "alpha",
+          "newText": "New synthetic decision",
+          "existingText": "Prior synthetic decision",
+          "score": 0.8,
+          "category": "decision",
+          "mergeDecision": "stored_separately"
+        }
+      },
+      "id": "00000000-0000-4000-8000-000000000002",
+      "text": "Out of range fixture"
+    },
+    {
+      "input": {
+        "resolution": "merge",
+        "original": {
+          "newMemoryId": "only-new",
+          "mergedText": "original fallback"
+        }
+      },
+      "id": "only-new",
+      "text": "original fallback"
+    },
+    {
+      "input": {
+        "resolution": "keep_a",
+        "original": {
+          "existingMemoryId": 123,
+          "existingText": 42
+        }
+      },
+      "id": 123,
+      "text": "42"
+    },
+    {
+      "input": {
+        "resolution": "keep_b",
+        "original": {
+          "newMemoryId": false,
+          "newText": [
+            "one",
+            "two"
+          ]
+        }
+      },
+      "id": "",
+      "text": "one,two"
+    },
+    {
+      "input": {
+        "resolution": "other",
+        "mergedText": {
+          "key": "value"
+        },
+        "original": {
+          "existingMemoryId": "x"
+        }
+      },
+      "id": "x",
+      "text": "[object Object]"
+    },
+    {
+      "input": {
+        "resolution": "keep_b",
+        "original": {
+          "newMemoryId": "unicode",
+          "newText": "A\ud83d"
+        }
+      },
+      "id": "unicode",
+      "text": "A\ud83d"
+    },
+    {
+      "input": {
+        "resolution": "merge",
+        "mergedText": [
+          "\ude00",
+          [
+            "nested",
+            null
+          ]
+        ]
+      },
+      "id": "",
+      "text": "\ude00,nested,"
+    }
+  ],
+  "apply": [
+    {
+      "conflict": {
+        "existingMemoryId": "00000000-0000-4000-8000-000000000002",
+        "mergedText": "text",
+        "vector": [
+          1,
+          0
+        ]
+      },
+      "options": {},
+      "result": {
+        "ok": false,
+        "reason": "confirm_required"
+      }
+    },
+    {
+      "conflict": {
+        "existingMemoryId": "00000000-0000-4000-8000-000000000002",
+        "mergedText": "text",
+        "vector": [
+          1,
+          0
+        ]
+      },
+      "options": {
+        "confirm": "true"
+      },
+      "result": {
+        "ok": false,
+        "reason": "confirm_required"
+      }
+    },
+    {
+      "conflict": {},
+      "options": {
+        "confirm": true
+      },
+      "result": {
+        "ok": false,
+        "reason": "incomplete_patch"
+      }
+    },
+    {
+      "conflict": {
+        "existingMemoryId": "00000000-0000-4000-8000-000000000002"
+      },
+      "options": {
+        "confirm": true
+      },
+      "result": {
+        "ok": false,
+        "reason": "incomplete_patch"
+      }
+    },
+    {
+      "conflict": {
+        "existingMemoryId": "00000000-0000-4000-8000-000000000002",
+        "mergedText": "text"
+      },
+      "options": {
+        "confirm": true
+      },
+      "result": {
+        "ok": false,
+        "reason": "incomplete_patch"
+      }
+    }
+  ]
+}

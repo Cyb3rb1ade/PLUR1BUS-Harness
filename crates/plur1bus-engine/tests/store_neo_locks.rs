@@ -268,3 +268,49 @@ fn neo_live_owner_survives_lossy_utf8_and_node_number_coercion() {
         assert_eq!(fs::read(path.join("owner.json")).unwrap(), bytes);
     }
 }
+
+#[test]
+fn neo_mutation_ownership_checks_the_held_directory_and_exact_owner_record() {
+    let directory = scratch();
+    let path = directory.path().join(".neo-write.lock");
+    let mut guard = Lock::try_acquire_neo(&path, STALE).unwrap().unwrap();
+    assert!(guard.is_neo_owned());
+    assert!(!guard.is_owned()); // Existing registry-lock contract is unchanged.
+    let bytes = fs::read(path.join("owner.json")).unwrap();
+    fs::write(path.join("owner.json"), b"changed").unwrap();
+    assert!(!guard.is_neo_owned());
+    fs::write(path.join("owner.json"), &bytes).unwrap();
+    assert!(guard.is_neo_owned());
+    fs::rename(&path, directory.path().join("previous")).unwrap();
+    fs::create_dir(&path).unwrap();
+    fs::write(path.join("owner.json"), &bytes).unwrap();
+    assert!(!guard.is_neo_owned()); // Same nonce bytes cannot authorize a new directory inode.
+    fs::remove_dir_all(&path).unwrap();
+    fs::rename(directory.path().join("previous"), &path).unwrap();
+    assert!(guard.is_neo_owned());
+    guard.release();
+    assert!(!guard.is_neo_owned());
+    let ordinary = Lock::try_acquire(&directory.path().join("ordinary.lock"), STALE, None)
+        .unwrap()
+        .unwrap();
+    assert!(!ordinary.is_neo_owned());
+}
+
+#[cfg(unix)]
+#[test]
+fn neo_mutation_ownership_refuses_linked_owner_files_without_reading_them_as_authority() {
+    use std::os::unix::fs::symlink;
+    let directory = scratch();
+    let path = directory.path().join(".neo-write.lock");
+    let guard = Lock::try_acquire_neo(&path, STALE).unwrap().unwrap();
+    let owner = path.join("owner.json");
+    fs::rename(&owner, directory.path().join("saved-owner")).unwrap();
+    symlink(directory.path().join("saved-owner"), &owner).unwrap();
+    assert!(!guard.is_neo_owned());
+    fs::remove_file(&owner).unwrap();
+    fs::hard_link(directory.path().join("saved-owner"), &owner).unwrap();
+    assert!(!guard.is_neo_owned());
+    fs::remove_file(&owner).unwrap();
+    fs::rename(directory.path().join("saved-owner"), &owner).unwrap();
+    assert!(guard.is_neo_owned());
+}

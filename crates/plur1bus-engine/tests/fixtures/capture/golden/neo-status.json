@@ -1,0 +1,6915 @@
+{
+  "provenance": {
+    "commit": "b097045b6f115275baa8b15016321c3ba080c812",
+    "node": "v24.21.0",
+    "sourceHashes": {
+      "lib/neo-arch.js": "8c6b87d7669d9ae041b4c661bb7d9d24465a75e3ff22333af0c653e6e17e4950",
+      "lib/emotion.js": "4fad4d37803bbee8bf95a8d3db11b5e2fdc3b195d617055a8af63a0d52780c27",
+      "lib/emotion-engine.js": "b8d4e60b785c9d19809b7f2bfe67e6d2871dfb1b4699bd96b6ee666391372557",
+      "lib/emotion-score.js": "4f5aff9b4bb80e9673c2d1d0a748bd69f12979e11241f946e0b43e48a0df3573",
+      "lib/tier1-lexicon.js": "b4f0e03d727355e52806cda8761f4b38c3af3dc064a051f804ed99981b3d09f8",
+      "lib/tier2-transformer.js": "f928294f31e1cf5c69ffff8b3a8c98b42af8ccc4205877036895d35acc13a120",
+      "lib/tier3-llm.js": "7749de629deee9a0cc8cd01dc51cb7bbcc6e5a99256b5eb794abf0fd41ab0dc6",
+      "lib/host-network.js": "360b692df2f2c3dc9761cfe73ca5165da4b5416f8b7778b5ec79b1dd253aaf69",
+      "lib/emotion-blends.js": "653021f8048772dc6a2c1da0e60bfef08250bcd61aacf45ba1a9bf379fa7ca29",
+      "lib/abort.js": "435016008fa477f7ed7d3215505324bb3e7159e123ea553b35fb8a14d5a4055d",
+      "lib/relevant-memory-context.js": "021cb6e3e568915dbd12602f77ba924ac8c6f1cbc43fcb93cd8697156dca4c66",
+      "lib/memory-context-sanitize.js": "476528aa230fcda996245aa22efee376153ea4bc9a6287ce77da62c1a54e2377",
+      "lib/pattern-surface.js": "e65b2ec958b0564f44ae374579ee59f52f2c9b5be50e3a95e9bb33527b276b8b",
+      "lib/continuity-gate.js": "74b57c98d4631c9d6d34ecc2c744b02f2f430584e270671f60b3ecadc2de84b6",
+      "lib/recall-decision-trace.js": "cee6208fa0a91654adae11ccd17c3b44e86c84fdf9b30c1addfa1d299c96711d",
+      "lib/temporal-provenance.js": "b15da5a91b134fddd99a8ff2448999b9b9e8da3f069b05dd73a2c1ae3a89cc60",
+      "lib/prompt-memory-fields.js": "f20716b535734930677a4657ee62c01247679aa2ba2f0f6a3d7a6de62396bbda",
+      "lib/epistemic-status.js": "552a71f9616c8caa2151b54feadd3e6ab19a470218022027425b11ccaf967fec",
+      "lib/inject-budget.js": "5897fe0a629543e60997e4749f4692c841a8f21a66526c618d7ff3fc1f52d945",
+      "lib/safe-logging.js": "4a634fa3c4cce35d5c7cb29c7c2eb72378666ef400e79dc7869a4c50d2e2c0ac",
+      "lib/log-redact.js": "f64f7d2e2fbf13684ad16fe045a1e43a9755c57be00ee7532479286eed0068e3",
+      "lib/registry-lock.js": "718791a188344b396e72db33c908fb2ef3d71a67dc1ac29a3b2b882c7b76a4e9"
+    }
+  },
+  "cases": [
+    {
+      "name": "candidate-0",
+      "status": "candidate",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "candidate",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "candidate-1",
+      "status": "candidate",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": null,
+        "salience": null,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "candidate",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": null,
+        "salience": null,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "candidate-2",
+      "status": "candidate",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": false,
+        "salience": false,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "candidate",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": false,
+        "salience": false,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "candidate-3",
+      "status": "candidate",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": true,
+        "salience": true,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "candidate",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": true,
+        "salience": true,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "candidate-4",
+      "status": "candidate",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0,
+        "salience": 0,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "candidate",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0,
+        "salience": 0,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "candidate-5",
+      "status": "candidate",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.15,
+        "salience": 0.15,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "candidate",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.15,
+        "salience": 0.15,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "candidate-6",
+      "status": "candidate",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.5,
+        "salience": 0.5,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "candidate",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.5,
+        "salience": 0.5,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "candidate-7",
+      "status": "candidate",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.9,
+        "salience": 0.9,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "candidate",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.9,
+        "salience": 0.9,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "candidate-8",
+      "status": "candidate",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 2,
+        "salience": 2,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "candidate",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 2,
+        "salience": 2,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "candidate-9",
+      "status": "candidate",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": -1,
+        "salience": -1,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "candidate",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": -1,
+        "salience": -1,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "candidate-10",
+      "status": "candidate",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "0.5",
+        "salience": "0.5",
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "candidate",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "0.5",
+        "salience": "0.5",
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "candidate-11",
+      "status": "candidate",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "",
+        "salience": "",
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "candidate",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "",
+        "salience": "",
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "candidate-12",
+      "status": "candidate",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "  ",
+        "salience": "  ",
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "candidate",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "  ",
+        "salience": "  ",
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "candidate-13",
+      "status": "candidate",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "invalid",
+        "salience": "invalid",
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "candidate",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "invalid",
+        "salience": "invalid",
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "candidate-14",
+      "status": "candidate",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "Infinity",
+        "salience": "Infinity",
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "candidate",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "Infinity",
+        "salience": "Infinity",
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "candidate-15",
+      "status": "candidate",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [],
+        "salience": [],
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "candidate",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [],
+        "salience": [],
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "candidate-16",
+      "status": "candidate",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [
+          0.5
+        ],
+        "salience": [
+          0.5
+        ],
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "candidate",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [
+          0.5
+        ],
+        "salience": [
+          0.5
+        ],
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "candidate-17",
+      "status": "candidate",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [
+          1,
+          2
+        ],
+        "salience": [
+          1,
+          2
+        ],
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "candidate",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [
+          1,
+          2
+        ],
+        "salience": [
+          1,
+          2
+        ],
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "candidate-18",
+      "status": "candidate",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": {},
+        "salience": {},
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "candidate",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": {},
+        "salience": {},
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "active-0",
+      "status": "active",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "active",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "active-1",
+      "status": "active",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": null,
+        "salience": null,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "active",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": null,
+        "salience": null,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "active-2",
+      "status": "active",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": false,
+        "salience": false,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "active",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": false,
+        "salience": false,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "active-3",
+      "status": "active",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": true,
+        "salience": true,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "active",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": true,
+        "salience": true,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "active-4",
+      "status": "active",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0,
+        "salience": 0,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "active",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0,
+        "salience": 0,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "active-5",
+      "status": "active",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.15,
+        "salience": 0.15,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "active",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.15,
+        "salience": 0.15,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "active-6",
+      "status": "active",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.5,
+        "salience": 0.5,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "active",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.5,
+        "salience": 0.5,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "active-7",
+      "status": "active",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.9,
+        "salience": 0.9,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "active",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.9,
+        "salience": 0.9,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "active-8",
+      "status": "active",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 2,
+        "salience": 2,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "active",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 2,
+        "salience": 2,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "active-9",
+      "status": "active",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": -1,
+        "salience": -1,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "active",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": -1,
+        "salience": -1,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "active-10",
+      "status": "active",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "0.5",
+        "salience": "0.5",
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "active",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "0.5",
+        "salience": "0.5",
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "active-11",
+      "status": "active",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "",
+        "salience": "",
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "active",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "",
+        "salience": "",
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "active-12",
+      "status": "active",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "  ",
+        "salience": "  ",
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "active",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "  ",
+        "salience": "  ",
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "active-13",
+      "status": "active",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "invalid",
+        "salience": "invalid",
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "active",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "invalid",
+        "salience": "invalid",
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "active-14",
+      "status": "active",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "Infinity",
+        "salience": "Infinity",
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "active",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "Infinity",
+        "salience": "Infinity",
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "active-15",
+      "status": "active",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [],
+        "salience": [],
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "active",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [],
+        "salience": [],
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "active-16",
+      "status": "active",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [
+          0.5
+        ],
+        "salience": [
+          0.5
+        ],
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "active",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [
+          0.5
+        ],
+        "salience": [
+          0.5
+        ],
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "active-17",
+      "status": "active",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [
+          1,
+          2
+        ],
+        "salience": [
+          1,
+          2
+        ],
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "active",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [
+          1,
+          2
+        ],
+        "salience": [
+          1,
+          2
+        ],
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "active-18",
+      "status": "active",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": {},
+        "salience": {},
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "active",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": {},
+        "salience": {},
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "promoted-0",
+      "status": "promoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "promoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z",
+        "confidence": 0.7,
+        "salience": 0.7
+      }
+    },
+    {
+      "name": "promoted-1",
+      "status": "promoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": null,
+        "salience": null,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "promoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.7,
+        "salience": 0.7,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "promoted-2",
+      "status": "promoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": false,
+        "salience": false,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "promoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.2,
+        "salience": 0.2,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "promoted-3",
+      "status": "promoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": true,
+        "salience": true,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "promoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 1,
+        "salience": 1,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "promoted-4",
+      "status": "promoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0,
+        "salience": 0,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "promoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.2,
+        "salience": 0.2,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "promoted-5",
+      "status": "promoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.15,
+        "salience": 0.15,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "promoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.35,
+        "salience": 0.35,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "promoted-6",
+      "status": "promoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.5,
+        "salience": 0.5,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "promoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.7,
+        "salience": 0.7,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "promoted-7",
+      "status": "promoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.9,
+        "salience": 0.9,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "promoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 1,
+        "salience": 1,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "promoted-8",
+      "status": "promoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 2,
+        "salience": 2,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "promoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 1,
+        "salience": 1,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "promoted-9",
+      "status": "promoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": -1,
+        "salience": -1,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "promoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0,
+        "salience": 0,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "promoted-10",
+      "status": "promoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "0.5",
+        "salience": "0.5",
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "promoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0,
+        "salience": 0,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "promoted-11",
+      "status": "promoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "",
+        "salience": "",
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "promoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.2,
+        "salience": 0.2,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "promoted-12",
+      "status": "promoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "  ",
+        "salience": "  ",
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "promoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.2,
+        "salience": 0.2,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "promoted-13",
+      "status": "promoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "invalid",
+        "salience": "invalid",
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "promoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0,
+        "salience": 0,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "promoted-14",
+      "status": "promoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "Infinity",
+        "salience": "Infinity",
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "promoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0,
+        "salience": 0,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "promoted-15",
+      "status": "promoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [],
+        "salience": [],
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "promoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.2,
+        "salience": 0.2,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "promoted-16",
+      "status": "promoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [
+          0.5
+        ],
+        "salience": [
+          0.5
+        ],
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "promoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0,
+        "salience": 0,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "promoted-17",
+      "status": "promoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [
+          1,
+          2
+        ],
+        "salience": [
+          1,
+          2
+        ],
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "promoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0,
+        "salience": 0,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "promoted-18",
+      "status": "promoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": {},
+        "salience": {},
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "promoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0,
+        "salience": 0,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "demoted-0",
+      "status": "demoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "demoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z",
+        "salience": 0.25
+      }
+    },
+    {
+      "name": "demoted-1",
+      "status": "demoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": null,
+        "salience": null,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "demoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": null,
+        "salience": 0.25,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "demoted-2",
+      "status": "demoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": false,
+        "salience": false,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "demoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": false,
+        "salience": 0,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "demoted-3",
+      "status": "demoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": true,
+        "salience": true,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "demoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": true,
+        "salience": 0.75,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "demoted-4",
+      "status": "demoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0,
+        "salience": 0,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "demoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0,
+        "salience": 0,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "demoted-5",
+      "status": "demoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.15,
+        "salience": 0.15,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "demoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.15,
+        "salience": 0,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "demoted-6",
+      "status": "demoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.5,
+        "salience": 0.5,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "demoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.5,
+        "salience": 0.25,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "demoted-7",
+      "status": "demoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.9,
+        "salience": 0.9,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "demoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.9,
+        "salience": 0.65,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "demoted-8",
+      "status": "demoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 2,
+        "salience": 2,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "demoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 2,
+        "salience": 1,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "demoted-9",
+      "status": "demoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": -1,
+        "salience": -1,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "demoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": -1,
+        "salience": 0,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "demoted-10",
+      "status": "demoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "0.5",
+        "salience": "0.5",
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "demoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "0.5",
+        "salience": 0.25,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "demoted-11",
+      "status": "demoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "",
+        "salience": "",
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "demoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "",
+        "salience": 0,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "demoted-12",
+      "status": "demoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "  ",
+        "salience": "  ",
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "demoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "  ",
+        "salience": 0,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "demoted-13",
+      "status": "demoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "invalid",
+        "salience": "invalid",
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "demoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "invalid",
+        "salience": 0,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "demoted-14",
+      "status": "demoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "Infinity",
+        "salience": "Infinity",
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "demoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "Infinity",
+        "salience": 0,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "demoted-15",
+      "status": "demoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [],
+        "salience": [],
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "demoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [],
+        "salience": 0,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "demoted-16",
+      "status": "demoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [
+          0.5
+        ],
+        "salience": [
+          0.5
+        ],
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "demoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [
+          0.5
+        ],
+        "salience": 0.25,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "demoted-17",
+      "status": "demoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [
+          1,
+          2
+        ],
+        "salience": [
+          1,
+          2
+        ],
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "demoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [
+          1,
+          2
+        ],
+        "salience": 0,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "demoted-18",
+      "status": "demoted",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": {},
+        "salience": {},
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "demoted",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": {},
+        "salience": 0,
+        "embeddingStatus": "stale",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "conflict-0",
+      "status": "conflict",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "conflict-1",
+      "status": "conflict",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": null,
+        "salience": null,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": null,
+        "salience": null,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "conflict-2",
+      "status": "conflict",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": false,
+        "salience": false,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": false,
+        "salience": false,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "conflict-3",
+      "status": "conflict",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": true,
+        "salience": true,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": true,
+        "salience": true,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "conflict-4",
+      "status": "conflict",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0,
+        "salience": 0,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0,
+        "salience": 0,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "conflict-5",
+      "status": "conflict",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.15,
+        "salience": 0.15,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.15,
+        "salience": 0.15,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "conflict-6",
+      "status": "conflict",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.5,
+        "salience": 0.5,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.5,
+        "salience": 0.5,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "conflict-7",
+      "status": "conflict",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.9,
+        "salience": 0.9,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.9,
+        "salience": 0.9,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "conflict-8",
+      "status": "conflict",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 2,
+        "salience": 2,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 2,
+        "salience": 2,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "conflict-9",
+      "status": "conflict",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": -1,
+        "salience": -1,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": -1,
+        "salience": -1,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "conflict-10",
+      "status": "conflict",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "0.5",
+        "salience": "0.5",
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "0.5",
+        "salience": "0.5",
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "conflict-11",
+      "status": "conflict",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "",
+        "salience": "",
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "",
+        "salience": "",
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "conflict-12",
+      "status": "conflict",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "  ",
+        "salience": "  ",
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "  ",
+        "salience": "  ",
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "conflict-13",
+      "status": "conflict",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "invalid",
+        "salience": "invalid",
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "invalid",
+        "salience": "invalid",
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "conflict-14",
+      "status": "conflict",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "Infinity",
+        "salience": "Infinity",
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "Infinity",
+        "salience": "Infinity",
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "conflict-15",
+      "status": "conflict",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [],
+        "salience": [],
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [],
+        "salience": [],
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "conflict-16",
+      "status": "conflict",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [
+          0.5
+        ],
+        "salience": [
+          0.5
+        ],
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [
+          0.5
+        ],
+        "salience": [
+          0.5
+        ],
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "conflict-17",
+      "status": "conflict",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [
+          1,
+          2
+        ],
+        "salience": [
+          1,
+          2
+        ],
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [
+          1,
+          2
+        ],
+        "salience": [
+          1,
+          2
+        ],
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "conflict-18",
+      "status": "conflict",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": {},
+        "salience": {},
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": {},
+        "salience": {},
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "pruned-0",
+      "status": "pruned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "pruned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "embeddingStatus": "excluded",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "pruned-1",
+      "status": "pruned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": null,
+        "salience": null,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "pruned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": null,
+        "salience": null,
+        "embeddingStatus": "excluded",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "pruned-2",
+      "status": "pruned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": false,
+        "salience": false,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "pruned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": false,
+        "salience": false,
+        "embeddingStatus": "excluded",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "pruned-3",
+      "status": "pruned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": true,
+        "salience": true,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "pruned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": true,
+        "salience": true,
+        "embeddingStatus": "excluded",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "pruned-4",
+      "status": "pruned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0,
+        "salience": 0,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "pruned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0,
+        "salience": 0,
+        "embeddingStatus": "excluded",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "pruned-5",
+      "status": "pruned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.15,
+        "salience": 0.15,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "pruned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.15,
+        "salience": 0.15,
+        "embeddingStatus": "excluded",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "pruned-6",
+      "status": "pruned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.5,
+        "salience": 0.5,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "pruned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.5,
+        "salience": 0.5,
+        "embeddingStatus": "excluded",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "pruned-7",
+      "status": "pruned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.9,
+        "salience": 0.9,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "pruned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.9,
+        "salience": 0.9,
+        "embeddingStatus": "excluded",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "pruned-8",
+      "status": "pruned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 2,
+        "salience": 2,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "pruned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 2,
+        "salience": 2,
+        "embeddingStatus": "excluded",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "pruned-9",
+      "status": "pruned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": -1,
+        "salience": -1,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "pruned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": -1,
+        "salience": -1,
+        "embeddingStatus": "excluded",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "pruned-10",
+      "status": "pruned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "0.5",
+        "salience": "0.5",
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "pruned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "0.5",
+        "salience": "0.5",
+        "embeddingStatus": "excluded",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "pruned-11",
+      "status": "pruned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "",
+        "salience": "",
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "pruned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "",
+        "salience": "",
+        "embeddingStatus": "excluded",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "pruned-12",
+      "status": "pruned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "  ",
+        "salience": "  ",
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "pruned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "  ",
+        "salience": "  ",
+        "embeddingStatus": "excluded",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "pruned-13",
+      "status": "pruned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "invalid",
+        "salience": "invalid",
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "pruned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "invalid",
+        "salience": "invalid",
+        "embeddingStatus": "excluded",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "pruned-14",
+      "status": "pruned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "Infinity",
+        "salience": "Infinity",
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "pruned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "Infinity",
+        "salience": "Infinity",
+        "embeddingStatus": "excluded",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "pruned-15",
+      "status": "pruned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [],
+        "salience": [],
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "pruned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [],
+        "salience": [],
+        "embeddingStatus": "excluded",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "pruned-16",
+      "status": "pruned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [
+          0.5
+        ],
+        "salience": [
+          0.5
+        ],
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "pruned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [
+          0.5
+        ],
+        "salience": [
+          0.5
+        ],
+        "embeddingStatus": "excluded",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "pruned-17",
+      "status": "pruned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [
+          1,
+          2
+        ],
+        "salience": [
+          1,
+          2
+        ],
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "pruned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [
+          1,
+          2
+        ],
+        "salience": [
+          1,
+          2
+        ],
+        "embeddingStatus": "excluded",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "pruned-18",
+      "status": "pruned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": {},
+        "salience": {},
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "pruned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": {},
+        "salience": {},
+        "embeddingStatus": "excluded",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "tombstoned-0",
+      "status": "tombstoned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "tombstoned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "embeddingStatus": "tombstoned",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "tombstoned-1",
+      "status": "tombstoned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": null,
+        "salience": null,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "tombstoned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": null,
+        "salience": null,
+        "embeddingStatus": "tombstoned",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "tombstoned-2",
+      "status": "tombstoned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": false,
+        "salience": false,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "tombstoned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": false,
+        "salience": false,
+        "embeddingStatus": "tombstoned",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "tombstoned-3",
+      "status": "tombstoned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": true,
+        "salience": true,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "tombstoned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": true,
+        "salience": true,
+        "embeddingStatus": "tombstoned",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "tombstoned-4",
+      "status": "tombstoned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0,
+        "salience": 0,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "tombstoned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0,
+        "salience": 0,
+        "embeddingStatus": "tombstoned",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "tombstoned-5",
+      "status": "tombstoned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.15,
+        "salience": 0.15,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "tombstoned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.15,
+        "salience": 0.15,
+        "embeddingStatus": "tombstoned",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "tombstoned-6",
+      "status": "tombstoned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.5,
+        "salience": 0.5,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "tombstoned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.5,
+        "salience": 0.5,
+        "embeddingStatus": "tombstoned",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "tombstoned-7",
+      "status": "tombstoned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.9,
+        "salience": 0.9,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "tombstoned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 0.9,
+        "salience": 0.9,
+        "embeddingStatus": "tombstoned",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "tombstoned-8",
+      "status": "tombstoned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 2,
+        "salience": 2,
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "tombstoned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": 2,
+        "salience": 2,
+        "embeddingStatus": "tombstoned",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "tombstoned-9",
+      "status": "tombstoned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": -1,
+        "salience": -1,
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "tombstoned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": -1,
+        "salience": -1,
+        "embeddingStatus": "tombstoned",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "tombstoned-10",
+      "status": "tombstoned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "0.5",
+        "salience": "0.5",
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "tombstoned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "0.5",
+        "salience": "0.5",
+        "embeddingStatus": "tombstoned",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "tombstoned-11",
+      "status": "tombstoned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "",
+        "salience": "",
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "tombstoned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "",
+        "salience": "",
+        "embeddingStatus": "tombstoned",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "tombstoned-12",
+      "status": "tombstoned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "  ",
+        "salience": "  ",
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "tombstoned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "  ",
+        "salience": "  ",
+        "embeddingStatus": "tombstoned",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "tombstoned-13",
+      "status": "tombstoned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "invalid",
+        "salience": "invalid",
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "tombstoned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "invalid",
+        "salience": "invalid",
+        "embeddingStatus": "tombstoned",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "tombstoned-14",
+      "status": "tombstoned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "Infinity",
+        "salience": "Infinity",
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "tombstoned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": "Infinity",
+        "salience": "Infinity",
+        "embeddingStatus": "tombstoned",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "tombstoned-15",
+      "status": "tombstoned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [],
+        "salience": [],
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "tombstoned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [],
+        "salience": [],
+        "embeddingStatus": "tombstoned",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "tombstoned-16",
+      "status": "tombstoned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [
+          0.5
+        ],
+        "salience": [
+          0.5
+        ],
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "tombstoned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [
+          0.5
+        ],
+        "salience": [
+          0.5
+        ],
+        "embeddingStatus": "tombstoned",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "tombstoned-17",
+      "status": "tombstoned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [
+          1,
+          2
+        ],
+        "salience": [
+          1,
+          2
+        ],
+        "embeddingStatus": "fresh",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "tombstoned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": [
+          1,
+          2
+        ],
+        "salience": [
+          1,
+          2
+        ],
+        "embeddingStatus": "tombstoned",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    },
+    {
+      "name": "tombstoned-18",
+      "status": "tombstoned",
+      "record": {
+        "id": "fixture-record",
+        "status": "conflict",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": {},
+        "salience": {},
+        "embeddingStatus": "pending",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "old"
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "output": {
+        "id": "fixture-record",
+        "status": "tombstoned",
+        "agentId": "alpha",
+        "origin": {
+          "scope": "agent_private"
+        },
+        "visibility": {
+          "scope": "agent_private"
+        },
+        "confidence": {},
+        "salience": {},
+        "embeddingStatus": "tombstoned",
+        "unknown": {
+          "opaque": "\ud800",
+          "kept": [
+            1,
+            true,
+            null
+          ]
+        },
+        "updatedAt": "2026-11-08T12:00:00.000Z"
+      }
+    }
+  ]
+}

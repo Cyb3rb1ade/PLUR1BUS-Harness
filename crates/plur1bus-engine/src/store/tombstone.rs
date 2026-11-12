@@ -438,6 +438,48 @@ impl TombstoneRegistry {
         }))
     }
 
+    /// Read-only outbound eligibility check: a warm call never repairs the registry.
+    /// An interrupted deletion may still be physically present until S5 can reconcile it.
+    pub(crate) fn blocks_warm_read(&self, origin: &str) -> Result<bool, StoreError> {
+        Ok(self.recall_blocked_origins()?.contains(origin))
+    }
+
+    /// Every origin no recall path may read (RE-D153 review N5, one predicate for warm and
+    /// foreground recall): a committed deletion, or an attempt whose latest record is still
+    /// `attempted`, i.e. interrupted until S5 reconciles it. Read-only; a corrupt line fails.
+    pub(crate) fn recall_blocked_origins(
+        &self,
+    ) -> Result<std::collections::HashSet<String>, StoreError> {
+        let rows = self.read(false)?;
+        if rows.corrupt_lines != 0 {
+            return Err(StoreError::Corrupt);
+        }
+        let mut seen = std::collections::HashSet::new();
+        let mut blocked = std::collections::HashSet::new();
+        for row in rows.tombstones.iter().rev() {
+            let memory = string(row, "memoryId").unwrap_or_default();
+            let status = string(row, "status");
+            let attempt = property(row, "tombstoneId")
+                .filter(|v| !matches!(v, TolerantJsonValue::Null))
+                .map(write_json)
+                .unwrap_or_else(|| {
+                    format!("{memory}:{}", string(row, "deletedAt").unwrap_or_default())
+                });
+            let latest = seen.insert(attempt);
+            let committed = status.as_deref() == Some("committed");
+            if committed || (latest && status.as_deref() == Some("attempted")) {
+                if let Some(canonical) = string(row, "canonicalOriginId").filter(|c| !c.is_empty())
+                {
+                    blocked.insert(canonical);
+                }
+                if !memory.is_empty() {
+                    blocked.insert(memory);
+                }
+            }
+        }
+        Ok(blocked)
+    }
+
     /// The latest committed exact fingerprint match.
     pub fn find_by_fingerprint(
         &self,
@@ -455,11 +497,29 @@ impl TombstoneRegistry {
         text: &str,
         context: TombstoneContext<'_>,
     ) -> Result<Option<TolerantJsonValue>, StoreError> {
+        self.find_blocking_inner(text, context, true)
+    }
+
+    /// Dry-run lookup never repairs a torn registry tail or creates a quarantine file.
+    pub fn find_blocking_readonly(
+        &self,
+        text: &str,
+        context: TombstoneContext<'_>,
+    ) -> Result<Option<TolerantJsonValue>, StoreError> {
+        self.find_blocking_inner(text, context, false)
+    }
+
+    fn find_blocking_inner(
+        &self,
+        text: &str,
+        context: TombstoneContext<'_>,
+        repair: bool,
+    ) -> Result<Option<TolerantJsonValue>, StoreError> {
         if text.is_empty() {
             return Ok(None);
         }
         let fingerprint = content_fingerprint(text);
-        Ok(self.valid_rows(true)?.into_iter().find(|row| {
+        Ok(self.valid_rows(repair)?.into_iter().find(|row| {
             string(row, "status").as_deref() == Some("committed")
                 && string(row, "contentFingerprint").as_deref() == Some(fingerprint.as_str())
                 && tombstone_blocks_capture(row, context)

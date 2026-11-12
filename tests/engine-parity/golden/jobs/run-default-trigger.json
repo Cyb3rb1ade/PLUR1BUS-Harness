@@ -1,0 +1,26 @@
+{
+  "schema": "engine-parity.golden/1",
+  "recordedFrom": {
+    "engine": "node",
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "at": "2026-11-12T00:14:35.751Z"
+  },
+  "steps": [
+    {
+      "result": {
+        "agentId": "a1",
+        "attempt": 1,
+        "cost": {
+          "ms": 0
+        },
+        "counts": {},
+        "job": "embedding-drain",
+        "outcome": "skipped",
+        "phase": null,
+        "reason": "neo_disabled",
+        "trigger": "harness"
+      },
+      "trace": null
+    }
+  ]
+}

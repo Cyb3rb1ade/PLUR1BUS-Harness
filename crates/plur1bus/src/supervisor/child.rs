@@ -50,6 +50,15 @@ pub struct ChildSpec {
     pub cwd: Option<PathBuf>,
 }
 
+/// The engine slot's spawn spec (RE-D172): the shared [`crate::engine_process`] specification, `plur1bus-engine serve
+/// --home <home> --lifeline stdin --instance <id>` from `PLUR1BUS_ENGINE_BIN` or beside this executable. Fails when
+/// the Rust engine is not selected or its executable is missing.
+pub fn engine_spec(layout: &Layout, instance_id: &str) -> Result<ChildSpec, String> {
+    crate::engine_process::configured_spec(layout, instance_id)
+        .map_err(str::to_owned)?
+        .ok_or_else(|| "native engine is not selected".to_owned())
+}
+
 /// The core in supervised mode: `node <core.js> --home <home> --lifeline stdin --instance <id>`, plus
 /// `--test-internals <v>` when `PLUR1BUS_TEST_INTERNALS` is set (exactly like `core run`). With `core.impl: "rust"` (or
 /// `PLUR1BUS_CORE_IMPL=rust`, P4-10) the slot runs the front door instead, `plur1bus-core serve --home <home> --lifeline
@@ -284,6 +293,9 @@ pub fn spec_for(layout: &Layout, role: &Role, instance_id: &str) -> Result<Child
             tools_spec(layout, instance_id).map_err(|e| (CrashReason::ConfigInvalid, e))
         }
         RoleKind::Api => api_spec(layout, instance_id).map_err(|e| (CrashReason::ConfigInvalid, e)),
+        RoleKind::Engine => {
+            engine_spec(layout, instance_id).map_err(|e| (CrashReason::ConfigInvalid, e))
+        }
         RoleKind::Module => module_plan(layout, role, instance_id).map(|p| p.spec),
     }
 }
@@ -372,15 +384,30 @@ pub fn child_env(run_acl_inherited: bool) -> Vec<(&'static str, &'static str)> {
     }
 }
 
-/// The ready timeout of a spawned child of `kind` at time scale `scale`: 60 s × scale, for a module at least
-/// [`MODULE_READY_FLOOR`], for the core at least [`CORE_READY_FLOOR`] unless `core_floor` is false (the test seam
-/// [`NO_CORE_READY_FLOOR_ENV`]; `State::core_ready_floor`).
+/// The environment policy every spawned child gets on top of what it inherits (one code path for the supervisor's
+/// children and `core run`'s engine, RE-D173): the spec's own entries, [`RUN_ACL_ENV`] only as [`child_env`] sets it
+/// (an inherited value is removed), and never an inherited `PLUR1BUS_IMPORT_MAINTENANCE`: a maintenance hold belongs to
+/// one generation of the core, which the supervisor sets after this, never to the reusable child spec or the ambient
+/// environment.
+pub fn apply_child_env(cmd: &mut Command, spec: &ChildSpec, run_acl_inherited: bool) {
+    cmd.envs(spec.env.iter().map(|(k, v)| (k, v)))
+        .env_remove(RUN_ACL_ENV)
+        .envs(child_env(run_acl_inherited))
+        .env_remove("PLUR1BUS_IMPORT_MAINTENANCE");
+}
+
+/// The ready timeout of a spawned child of `kind` at time scale `scale`: 60 s × scale, for a module, the tools, the API
+/// and the engine at least [`MODULE_READY_FLOOR`], for the core at least [`CORE_READY_FLOOR`] unless `core_floor` is
+/// false (the test seam [`NO_CORE_READY_FLOOR_ENV`]; `State::core_ready_floor`). The engine opens its stores and
+/// models lazily and answers `engine.auth` early, so it needs no larger allowance.
 pub fn ready_timeout(kind: RoleKind, scale: f64, core_floor: bool) -> Duration {
     let scaled = READY_TIMEOUT.mul_f64(scale);
     match kind {
         RoleKind::Core if core_floor => scaled.max(CORE_READY_FLOOR),
         RoleKind::Core => scaled,
-        RoleKind::Tools | RoleKind::Module | RoleKind::Api => scaled.max(MODULE_READY_FLOOR),
+        RoleKind::Tools | RoleKind::Module | RoleKind::Api | RoleKind::Engine => {
+            scaled.max(MODULE_READY_FLOOR)
+        }
     }
 }
 
@@ -690,7 +717,9 @@ impl Monitor {
         };
         // `logs/core.out.log`; a module's is `logs/module-<name>.out.log`, beside the `module-<name>.log` it writes.
         let out_path = match role.kind {
-            RoleKind::Core | RoleKind::Api | RoleKind::Tools => layout.out_log(&role.name),
+            RoleKind::Core | RoleKind::Api | RoleKind::Tools | RoleKind::Engine => {
+                layout.out_log(&role.name)
+            }
             RoleKind::Module => layout.out_log(&format!("module-{}", role.name)),
         };
         let out = match RotatingFile::open(&out_path, max_bytes, keep) {
@@ -722,6 +751,12 @@ impl Monitor {
             current: None,
             spawned: false,
         }
+    }
+
+    /// Drops this monitor's out log from [`Shared::out_logs`] (RE-D172, B13): called when its slot is removed for
+    /// good, so switching the engine on and off does not grow the list.
+    pub fn release_out_log(&self) {
+        relock(&self.shared.out_logs).retain(|out| !Arc::ptr_eq(out, &self.ctx.out));
     }
 
     /// Whether a spawned process has not exited yet.
@@ -865,14 +900,11 @@ impl Monitor {
         if let Some(dir) = &spec.cwd {
             cmd.current_dir(dir);
         }
-        cmd.envs(spec.env.iter().map(|(k, v)| (k, v)))
-            .env_remove(RUN_ACL_ENV)
-            .envs(child_env(self.shared.lock().run_acl_inherited))
-            .stdin(Stdio::piped())
+        let run_acl_inherited = self.shared.lock().run_acl_inherited;
+        apply_child_env(&mut cmd, &spec, run_acl_inherited);
+        cmd.stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
-        // A maintenance hold belongs to this generation, never to the reusable child spec or ambient environment.
-        cmd.env_remove("PLUR1BUS_IMPORT_MAINTENANCE");
         if self.ctx.role.kind == RoleKind::Core {
             if let Some(job) = super::relock(&self.shared.maintenance)
                 .active
@@ -1094,7 +1126,10 @@ impl Monitor {
                 json!({ "pid": gen.pid }),
             );
             gen.kill();
-            if !wait_exited(&gen, Instant::now() + POST_KILL_WAIT) {
+            // T8a N2: the reaping wait ends POST_KILL_WAIT after the deadline, not after this kill, so a child stopped
+            // after another one that was killed at the same deadline (the engine after the core) adds no second wait:
+            // the whole stop stays within budget + grace + one POST_KILL_WAIT.
+            if !wait_exited(&gen, deadline + POST_KILL_WAIT) {
                 self.shared.log.error(
                     &format!("{name} not reaped after the kill"),
                     json!({ "pid": gen.pid }),
@@ -1130,6 +1165,13 @@ impl Monitor {
     /// `none`), so it never counts toward the give-up budget. A core that is `crashed` for good (fatal or given up)
     /// has its backoff reset first.
     pub fn restart_requested(&mut self, budget: Duration) {
+        self.restart_requested_around(budget, || true);
+    }
+
+    /// [`Monitor::restart_requested`] with `between` run after the stop and before the spawn (RE-D172, B6: the
+    /// engine's own stop and start sit there, so a requested core restart runs core stop → engine stop → engine start →
+    /// core start). The spawn follows only when `between` returns true (T8a N1: the engine-lock gate decides).
+    pub fn restart_requested_around(&mut self, budget: Duration, between: impl FnOnce() -> bool) {
         let pid = self
             .current
             .as_ref()
@@ -1151,7 +1193,7 @@ impl Monitor {
             json!({ "pid": pid }),
         );
         self.stop(budget);
-        if self.shared.lock().stopping.is_some() {
+        if !between() || self.shared.lock().stopping.is_some() {
             return;
         }
         self.spawn();
@@ -1264,7 +1306,8 @@ fn connect(ctx: &Ctx, pid: u32) -> Option<Client> {
     (client.hello()["pid"].as_u64() == Some(u64::from(pid))).then_some(client)
 }
 
-/// The core's own `process` state as a [`Health`].
+/// A child's own `process` state as a [`Health`]: the core's and a module's `ProcessState`, or the engine's
+/// `EngineProcessStatus.process` (`ready`, `orphaned` with `orphanedSince`, `stopping`).
 fn health_from(process: &Value) -> Option<Health> {
     let reason = process["reason"].as_str().map(str::to_string);
     Some(match process["state"].as_str()? {
@@ -1272,7 +1315,10 @@ fn health_from(process: &Value) -> Option<Health> {
         "ready" => Health::Ready,
         "degraded" => Health::Degraded(reason.unwrap_or_else(|| "unknown".into())),
         "orphaned" => Health::Orphaned {
-            since: process["since"].as_u64().unwrap_or_else(now_ms),
+            since: process["since"]
+                .as_u64()
+                .or_else(|| process["orphanedSince"].as_f64().map(|ms| ms as u64))
+                .unwrap_or_else(now_ms),
         },
         "stopping" => Health::Stopping,
         _ => return None,
@@ -1886,21 +1932,37 @@ fn record_exit(
         ExitClass::Retryable { reason } => {
             let lock_held = reason.as_deref() == Some(CrashReason::LockHeld.as_str());
             let reason = forced.map(|r| r.to_string()).or(reason);
-            let decision = if lock_held {
-                slot.backoff.on_lock_held_exit(now)
+            let decision = if lock_held && slot.role.kind == RoleKind::Engine {
+                // RE-D172 (B4): the engine's exit 3 is retried like the core's, up to the stamp ceiling.
+                slot.backoff
+                    .on_lock_held_exit_within(now, super::state::ENGINE_LOCK_HELD_CEILING)
+            } else if lock_held {
+                Some(slot.backoff.on_lock_held_exit(now))
             } else {
-                slot.backoff.on_exit(now)
+                Some(slot.backoff.on_exit(now))
             };
             match decision {
-                RestartDecision::After(d) => {
+                Some(RestartDecision::After(d)) => {
                     slot.restart_at = Some(now + d);
                     (crashed(&reason), reason, Some(at + d.as_millis() as u64))
                 }
-                RestartDecision::GiveUp => (
+                Some(RestartDecision::GiveUp) => (
                     crashed(&Some(CrashReason::GaveUp.to_string())),
                     reason,
                     None,
                 ),
+                None => {
+                    // T8a N7: the supervisor's own measurement on the clock its ceiling check used.
+                    let held = slot.backoff.lock_held_for(now).unwrap_or_default();
+                    shared.log.warn(
+                        "engine lock-held past its ceiling",
+                        json!({
+                            "lockHeldMs": held.as_millis() as u64,
+                            "ceilingMs": slot.backoff.scaled(super::state::ENGINE_LOCK_HELD_CEILING).as_millis() as u64,
+                        }),
+                    );
+                    (crashed(&reason), reason, None)
+                }
             }
         }
     };
@@ -1947,6 +2009,28 @@ fn mark_exited(g: &Gen) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// RE-D172 (B13): adding and removing the engine slot again and again leaves `out_logs` where it was.
+    #[test]
+    fn a_released_monitor_leaves_no_out_log_behind() {
+        let temp = tempfile::tempdir().unwrap();
+        let layout = Layout::new(temp.path().to_path_buf());
+        let shared = Arc::new(Shared {
+            state: Mutex::new(super::super::test_state()),
+            maintenance: Default::default(),
+            wake: Default::default(),
+            config: Mutex::new(super::super::config::initial(&layout)),
+            log: super::super::Log::none(),
+            subscribers: Default::default(),
+            out_logs: Default::default(),
+        });
+        for _ in 0..5 {
+            let monitor = Monitor::new(shared.clone(), &layout, None, Role::engine());
+            assert_eq!(relock(&shared.out_logs).len(), 1);
+            monitor.release_out_log();
+            assert_eq!(relock(&shared.out_logs).len(), 0);
+        }
+    }
 
     struct ChunkedOutput {
         bytes: std::io::Cursor<Vec<u8>>,

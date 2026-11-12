@@ -10,6 +10,7 @@ import {
   type EngineContractMemoryCurationListResultData, type EngineContractMemoryPromotionResultData, type EngineContractMemoryStatsResultData,
 } from "@plur1bus/rpc-schema";
 import { assertEngineContract, CORE_CONTRACT } from "../engine.ts";
+import type { A1Capability } from "./capabilities.ts";
 import { RpcError } from "../rpc/errors.ts";
 
 export interface EngineClientOptions {
@@ -33,6 +34,9 @@ type RpcMemory = E.MemoryOps & {
     drop(id: string, p: E.Principal, a: E.AgentContext): Promise<EngineMemoryCurationResolveResult>;
   };
 };
+
+/** RE-D167: the A1 flags join `memoryLink` additively; the pinned declaration does not list them yet. */
+type A1EngineCapabilities = E.EngineCapabilities & { readonly [flag in A1Capability]: boolean };
 
 type AsyncMethod = (...args: any[]) => Promise<any>;
 type PendingCapture = {
@@ -93,8 +97,9 @@ export class EngineClient implements E.Engine {
   private connecting: Promise<CoreClient> | undefined;
   private closing: Promise<void> | undefined;
   private closed = false;
-  private version: E.ContractVersion = CORE_CONTRACT;
-  private advertised: E.EngineCapabilities = Object.freeze({ memoryLink: false });
+  // The pinned declaration types the contract as its own 1.17.0; the Core is built against 1.18.0 (RE-D167).
+  private version: E.ContractVersion = CORE_CONTRACT as E.ContractVersion;
+  private advertised: A1EngineCapabilities = Object.freeze({ memoryLink: false, recallStats: false, knowledgePromotion: false, memoryCuration: false });
   private jobSpecs: E.JobSpec[] = [];
   private embeddingIdentities: E.EmbeddingIdentity[] = [];
   private modelStatus = initialModels();
@@ -122,7 +127,7 @@ export class EngineClient implements E.Engine {
   }
 
   get contract(): E.ContractVersion { return this.version; }
-  get capabilities(): E.EngineCapabilities { return this.advertised; }
+  get capabilities(): A1EngineCapabilities { return this.advertised; }
 
   private async client(): Promise<CoreClient> {
     if (this.closed) throw unavailable();
@@ -147,8 +152,12 @@ export class EngineClient implements E.Engine {
           assertEngineContract({ contract: (client.hello.contract ?? "") as E.ContractVersion });
           if (this.closed) { await client.close(); throw unavailable(); }
           this.version = client.hello.contract as E.ContractVersion;
-          const flags = (client.hello as typeof client.hello & { engineCapabilities?: { memoryLink?: boolean } }).engineCapabilities;
-          this.advertised = Object.freeze({ memoryLink: typeof flags?.memoryLink === "boolean" ? flags.memoryLink : client.supports("engine.memory.link") });
+          const flags = (client.hello as typeof client.hello & { engineCapabilities?: { memoryLink?: boolean } & { [flag in A1Capability]?: unknown } }).engineCapabilities;
+          // A1 flags are taken additively from the handshake; an absent or non-boolean flag is false (RE-D167).
+          this.advertised = Object.freeze({
+            memoryLink: typeof flags?.memoryLink === "boolean" ? flags.memoryLink : client.supports("engine.memory.link"),
+            recallStats: flags?.recallStats === true, knowledgePromotion: flags?.knowledgePromotion === true, memoryCuration: flags?.memoryCuration === true,
+          });
           client.onNotification((method, params) => this.notification(method, params));
           const connected = client;
           client.onClose(() => {

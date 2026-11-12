@@ -1,0 +1,4734 @@
+{
+  "recordedFrom": {
+    "engine": "node",
+    "source": {
+      "commit": "088ba31e441c170b47dfa41d97bd78c5265e6f69",
+      "treeSha256": "83172f93354fc16837375db5f3e405815bf3ae5ce7b63c8c5d321a7d988561ff",
+      "paths": [
+        "engine/**/*.js",
+        "lib/**/*.js"
+      ],
+      "purpose": "C2 reembedding hardening from engine PR 266; validate facade and empty-agent acceptance additionally use pin 9f34008c"
+    },
+    "node": "v24.21.0"
+  },
+  "cases": [
+    {
+      "name": "remote",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory",
+        "disk",
+        "probe"
+      ],
+      "result": {
+        "plan": {
+          "schemaVersion": 1,
+          "id": "migration-a",
+          "createdAt": "1970-01-01T00:00:01.000Z",
+          "source": {
+            "generation": "active",
+            "selection": {
+              "mode": "legacy"
+            },
+            "configRevision": "config-synthetic-a",
+            "fingerprintId": "embedding:v1:sha256:f33c2d3a06debe90e40bcb4ff2ea12fba271638e50a6da24e838a62845301f71",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 4,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 4,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "2559c4548f16f8f206d8efd3858961813bd43fc960188b17b730ee717de54099",
+            "tables": [
+              {
+                "tableId": "agent-a/memories",
+                "version": "7",
+                "rowCount": 3,
+                "estimatedBytes": 100
+              },
+              {
+                "tableId": "agent-b/memories",
+                "version": "9",
+                "rowCount": 2,
+                "estimatedBytes": 50
+              }
+            ]
+          },
+          "target": {
+            "generation": "generation-migration-a",
+            "selection": {
+              "mode": "generation",
+              "generation": "generation-migration-a"
+            },
+            "fingerprintId": "embedding:v1:sha256:e1f705d1659c16811aa9eb1379352ba523cced98c13e20e1de4e4cecf2c20413",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 8,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 8,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "3468fd07ad558e2cf3231db94b707e33d6e8cfd929813d8147a6f9f1a08d84bd",
+            "probeStatus": "passed"
+          },
+          "estimates": {
+            "rows": 5,
+            "providerCalls": 5,
+            "sourceBytes": 150,
+            "targetBytes": 310,
+            "requiredFreeBytes": 388,
+            "freeBytes": 1000000
+          }
+        },
+        "planDigest": "sha256:cd5fa547c862343a219aa22a56a4eb959ad9e5fa3c0ca7d18fa729e0efac6fa6",
+        "persisted": {
+          "schemaVersion": 1,
+          "tokenHash": "2f44a5fdd79714ff677463253aeda37dcdf840799fac5719590e531c09392155",
+          "planDigest": "sha256:cd5fa547c862343a219aa22a56a4eb959ad9e5fa3c0ca7d18fa729e0efac6fa6",
+          "expiresAt": 61000
+        },
+        "proofSha256": "7bb720513d284aa13d2eaae6bc6a233e90619d8147760f9ba4172a0c345c4d04"
+      }
+    },
+    {
+      "name": "empty-tables",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": []
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory",
+        "disk",
+        "probe"
+      ],
+      "result": {
+        "plan": {
+          "schemaVersion": 1,
+          "id": "migration-a",
+          "createdAt": "1970-01-01T00:00:01.000Z",
+          "source": {
+            "generation": "active",
+            "selection": {
+              "mode": "legacy"
+            },
+            "configRevision": "config-synthetic-a",
+            "fingerprintId": "embedding:v1:sha256:f33c2d3a06debe90e40bcb4ff2ea12fba271638e50a6da24e838a62845301f71",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 4,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 4,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "2559c4548f16f8f206d8efd3858961813bd43fc960188b17b730ee717de54099",
+            "tables": []
+          },
+          "target": {
+            "generation": "generation-migration-a",
+            "selection": {
+              "mode": "generation",
+              "generation": "generation-migration-a"
+            },
+            "fingerprintId": "embedding:v1:sha256:e1f705d1659c16811aa9eb1379352ba523cced98c13e20e1de4e4cecf2c20413",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 8,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 8,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "3468fd07ad558e2cf3231db94b707e33d6e8cfd929813d8147a6f9f1a08d84bd",
+            "probeStatus": "passed"
+          },
+          "estimates": {
+            "rows": 0,
+            "providerCalls": 0,
+            "sourceBytes": 0,
+            "targetBytes": 0,
+            "requiredFreeBytes": 1,
+            "freeBytes": 1000000
+          }
+        },
+        "planDigest": "sha256:ce15cacdc62ebb7e67ab25591311b8dbae364b0f9b6425c8b4c74febd7fa545a",
+        "persisted": {
+          "schemaVersion": 1,
+          "tokenHash": "780d0c3b4337d6d86b931452845cf45f506abf1d9a32090aa55b96f1e37243d3",
+          "planDigest": "sha256:ce15cacdc62ebb7e67ab25591311b8dbae364b0f9b6425c8b4c74febd7fa545a",
+          "expiresAt": 61000
+        },
+        "proofSha256": "7bb720513d284aa13d2eaae6bc6a233e90619d8147760f9ba4172a0c345c4d04"
+      }
+    },
+    {
+      "name": "generation-source",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory",
+        "disk",
+        "probe"
+      ],
+      "result": {
+        "plan": {
+          "schemaVersion": 1,
+          "id": "migration-a",
+          "createdAt": "1970-01-01T00:00:01.000Z",
+          "source": {
+            "generation": "active",
+            "selection": {
+              "mode": "generation",
+              "generation": "active"
+            },
+            "configRevision": "config-synthetic-a",
+            "fingerprintId": "embedding:v1:sha256:f33c2d3a06debe90e40bcb4ff2ea12fba271638e50a6da24e838a62845301f71",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 4,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 4,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "2559c4548f16f8f206d8efd3858961813bd43fc960188b17b730ee717de54099",
+            "tables": [
+              {
+                "tableId": "agent-a/memories",
+                "version": "7",
+                "rowCount": 3,
+                "estimatedBytes": 100
+              },
+              {
+                "tableId": "agent-b/memories",
+                "version": "9",
+                "rowCount": 2,
+                "estimatedBytes": 50
+              }
+            ]
+          },
+          "target": {
+            "generation": "generation-migration-a",
+            "selection": {
+              "mode": "generation",
+              "generation": "generation-migration-a"
+            },
+            "fingerprintId": "embedding:v1:sha256:e1f705d1659c16811aa9eb1379352ba523cced98c13e20e1de4e4cecf2c20413",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 8,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 8,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "3468fd07ad558e2cf3231db94b707e33d6e8cfd929813d8147a6f9f1a08d84bd",
+            "probeStatus": "passed"
+          },
+          "estimates": {
+            "rows": 5,
+            "providerCalls": 5,
+            "sourceBytes": 150,
+            "targetBytes": 310,
+            "requiredFreeBytes": 388,
+            "freeBytes": 1000000
+          }
+        },
+        "planDigest": "sha256:0ea738c1c1cf92405081aaf595aadc2371749f01b2073be5683bc646253d3759",
+        "persisted": {
+          "schemaVersion": 1,
+          "tokenHash": "790fd60bb8351cabb2e887792195fbe7af51b262d8409db2925db40224acd7b1",
+          "planDigest": "sha256:0ea738c1c1cf92405081aaf595aadc2371749f01b2073be5683bc646253d3759",
+          "expiresAt": 61000
+        },
+        "proofSha256": "7bb720513d284aa13d2eaae6bc6a233e90619d8147760f9ba4172a0c345c4d04"
+      }
+    },
+    {
+      "name": "explicit-target",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000,
+        "targetGeneration": "target-generation"
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory",
+        "disk",
+        "probe"
+      ],
+      "result": {
+        "plan": {
+          "schemaVersion": 1,
+          "id": "migration-a",
+          "createdAt": "1970-01-01T00:00:01.000Z",
+          "source": {
+            "generation": "active",
+            "selection": {
+              "mode": "legacy"
+            },
+            "configRevision": "config-synthetic-a",
+            "fingerprintId": "embedding:v1:sha256:f33c2d3a06debe90e40bcb4ff2ea12fba271638e50a6da24e838a62845301f71",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 4,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 4,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "2559c4548f16f8f206d8efd3858961813bd43fc960188b17b730ee717de54099",
+            "tables": [
+              {
+                "tableId": "agent-a/memories",
+                "version": "7",
+                "rowCount": 3,
+                "estimatedBytes": 100
+              },
+              {
+                "tableId": "agent-b/memories",
+                "version": "9",
+                "rowCount": 2,
+                "estimatedBytes": 50
+              }
+            ]
+          },
+          "target": {
+            "generation": "target-generation",
+            "selection": {
+              "mode": "generation",
+              "generation": "target-generation"
+            },
+            "fingerprintId": "embedding:v1:sha256:e1f705d1659c16811aa9eb1379352ba523cced98c13e20e1de4e4cecf2c20413",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 8,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 8,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "3468fd07ad558e2cf3231db94b707e33d6e8cfd929813d8147a6f9f1a08d84bd",
+            "probeStatus": "passed"
+          },
+          "estimates": {
+            "rows": 5,
+            "providerCalls": 5,
+            "sourceBytes": 150,
+            "targetBytes": 310,
+            "requiredFreeBytes": 388,
+            "freeBytes": 1000000
+          }
+        },
+        "planDigest": "sha256:4b25318771e87282e019fa044aaea2943858112c7c49ae85121a6686a78eeb8f",
+        "persisted": {
+          "schemaVersion": 1,
+          "tokenHash": "1c600f583f41be2d5f63f4a187cabc5d8ea7f76aff77ffa4dce48ea2caa52b4c",
+          "planDigest": "sha256:4b25318771e87282e019fa044aaea2943858112c7c49ae85121a6686a78eeb8f",
+          "expiresAt": 61000
+        },
+        "proofSha256": "7bb720513d284aa13d2eaae6bc6a233e90619d8147760f9ba4172a0c345c4d04"
+      }
+    },
+    {
+      "name": "source-and-target-secret-ref",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          },
+          "secretRef": {
+            "source": "store",
+            "provider": "local",
+            "id": "TARGET_CONFIG"
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ],
+          "secretRef": {
+            "source": "env",
+            "provider": "local",
+            "id": "SOURCE_CONFIG"
+          }
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory",
+        "disk",
+        "probe"
+      ],
+      "result": {
+        "plan": {
+          "schemaVersion": 1,
+          "id": "migration-a",
+          "createdAt": "1970-01-01T00:00:01.000Z",
+          "source": {
+            "generation": "active",
+            "selection": {
+              "mode": "legacy"
+            },
+            "configRevision": "config-synthetic-a",
+            "fingerprintId": "embedding:v1:sha256:f33c2d3a06debe90e40bcb4ff2ea12fba271638e50a6da24e838a62845301f71",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 4,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 4,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "2559c4548f16f8f206d8efd3858961813bd43fc960188b17b730ee717de54099",
+            "secretRef": {
+              "source": "env",
+              "provider": "local",
+              "id": "SOURCE_CONFIG"
+            },
+            "tables": [
+              {
+                "tableId": "agent-a/memories",
+                "version": "7",
+                "rowCount": 3,
+                "estimatedBytes": 100
+              },
+              {
+                "tableId": "agent-b/memories",
+                "version": "9",
+                "rowCount": 2,
+                "estimatedBytes": 50
+              }
+            ]
+          },
+          "target": {
+            "generation": "generation-migration-a",
+            "selection": {
+              "mode": "generation",
+              "generation": "generation-migration-a"
+            },
+            "fingerprintId": "embedding:v1:sha256:e1f705d1659c16811aa9eb1379352ba523cced98c13e20e1de4e4cecf2c20413",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 8,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 8,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "3468fd07ad558e2cf3231db94b707e33d6e8cfd929813d8147a6f9f1a08d84bd",
+            "secretRef": {
+              "source": "store",
+              "provider": "local",
+              "id": "TARGET_CONFIG"
+            },
+            "probeStatus": "passed"
+          },
+          "estimates": {
+            "rows": 5,
+            "providerCalls": 5,
+            "sourceBytes": 150,
+            "targetBytes": 310,
+            "requiredFreeBytes": 388,
+            "freeBytes": 1000000
+          }
+        },
+        "planDigest": "sha256:00bcdec8c131c1a903affc4a29838df2667a5adb3b7ba54b99bd417ac9162467",
+        "persisted": {
+          "schemaVersion": 1,
+          "tokenHash": "9e2feae4b748d45368bd4098e4aba2b2e54bd73b997a794e9a361040ee8780f4",
+          "planDigest": "sha256:00bcdec8c131c1a903affc4a29838df2667a5adb3b7ba54b99bd417ac9162467",
+          "expiresAt": 61000
+        },
+        "proofSha256": "7bb720513d284aa13d2eaae6bc6a233e90619d8147760f9ba4172a0c345c4d04"
+      }
+    },
+    {
+      "name": "raw-fingerprint-order",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "artifacts": [],
+            "dimensions": 8,
+            "revision": "synthetic-immutable-r1",
+            "model": "target",
+            "provider": "openai",
+            "schemaVersion": 1
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory",
+        "disk",
+        "probe"
+      ],
+      "result": {
+        "plan": {
+          "schemaVersion": 1,
+          "id": "migration-a",
+          "createdAt": "1970-01-01T00:00:01.000Z",
+          "source": {
+            "generation": "active",
+            "selection": {
+              "mode": "legacy"
+            },
+            "configRevision": "config-synthetic-a",
+            "fingerprintId": "embedding:v1:sha256:f33c2d3a06debe90e40bcb4ff2ea12fba271638e50a6da24e838a62845301f71",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 4,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 4,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "2559c4548f16f8f206d8efd3858961813bd43fc960188b17b730ee717de54099",
+            "tables": [
+              {
+                "tableId": "agent-a/memories",
+                "version": "7",
+                "rowCount": 3,
+                "estimatedBytes": 100
+              },
+              {
+                "tableId": "agent-b/memories",
+                "version": "9",
+                "rowCount": 2,
+                "estimatedBytes": 50
+              }
+            ]
+          },
+          "target": {
+            "generation": "generation-migration-a",
+            "selection": {
+              "mode": "generation",
+              "generation": "generation-migration-a"
+            },
+            "fingerprintId": "embedding:v1:sha256:e1f705d1659c16811aa9eb1379352ba523cced98c13e20e1de4e4cecf2c20413",
+            "fingerprint": {
+              "artifacts": [],
+              "dimensions": 8,
+              "revision": "synthetic-immutable-r1",
+              "model": "target",
+              "provider": "openai",
+              "schemaVersion": 1
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 8,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "3468fd07ad558e2cf3231db94b707e33d6e8cfd929813d8147a6f9f1a08d84bd",
+            "probeStatus": "passed"
+          },
+          "estimates": {
+            "rows": 5,
+            "providerCalls": 5,
+            "sourceBytes": 150,
+            "targetBytes": 310,
+            "requiredFreeBytes": 388,
+            "freeBytes": 1000000
+          }
+        },
+        "planDigest": "sha256:b81f82e5e5f62491bf62a64f1a0c75db9eb09d923cee817a7e53ced73be08d81",
+        "persisted": {
+          "schemaVersion": 1,
+          "tokenHash": "4f785529358e36a17dd94089158ce1bb5694a45e8febed6a13aa5b1e9a8c754f",
+          "planDigest": "sha256:b81f82e5e5f62491bf62a64f1a0c75db9eb09d923cee817a7e53ced73be08d81",
+          "expiresAt": 61000
+        },
+        "proofSha256": "7bb720513d284aa13d2eaae6bc6a233e90619d8147760f9ba4172a0c345c4d04"
+      }
+    },
+    {
+      "name": "local-deferred",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "local-transformers",
+            "model": "target-local",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory",
+        "disk",
+        "artifacts"
+      ],
+      "result": {
+        "plan": {
+          "schemaVersion": 1,
+          "id": "migration-a",
+          "createdAt": "1970-01-01T00:00:01.000Z",
+          "source": {
+            "generation": "active",
+            "selection": {
+              "mode": "legacy"
+            },
+            "configRevision": "config-synthetic-a",
+            "fingerprintId": "embedding:v1:sha256:f33c2d3a06debe90e40bcb4ff2ea12fba271638e50a6da24e838a62845301f71",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 4,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 4,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "2559c4548f16f8f206d8efd3858961813bd43fc960188b17b730ee717de54099",
+            "tables": [
+              {
+                "tableId": "agent-a/memories",
+                "version": "7",
+                "rowCount": 3,
+                "estimatedBytes": 100
+              },
+              {
+                "tableId": "agent-b/memories",
+                "version": "9",
+                "rowCount": 2,
+                "estimatedBytes": 50
+              }
+            ]
+          },
+          "target": {
+            "generation": "generation-migration-a",
+            "selection": {
+              "mode": "generation",
+              "generation": "generation-migration-a"
+            },
+            "fingerprintId": "embedding:v1:sha256:e336e568281e1238f8db3245030afa2839ecec132a4ec65db626490928b5fe2e",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "local-transformers",
+              "model": "target-local",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 8,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "local-transformers",
+              "model": "target-local",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 8,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "a0232d196101a3a41c9cfb0082b641f902a9f353f0f723c783638e03476078d3",
+            "probeStatus": "probe_deferred_local_artifact"
+          },
+          "estimates": {
+            "rows": 5,
+            "providerCalls": 5,
+            "sourceBytes": 150,
+            "targetBytes": 310,
+            "requiredFreeBytes": 388,
+            "freeBytes": 1000000
+          }
+        },
+        "planDigest": "sha256:d8cde87058b0d8c36f7267092082ff72066719ebfb4705f54f714b46cf841460",
+        "persisted": {
+          "schemaVersion": 1,
+          "tokenHash": "8964868aeb01b6d8ae4cadd850fba94566411bbd545618ad2b5bfe00001cde74",
+          "planDigest": "sha256:d8cde87058b0d8c36f7267092082ff72066719ebfb4705f54f714b46cf841460",
+          "expiresAt": 61000
+        },
+        "proofSha256": "7bb720513d284aa13d2eaae6bc6a233e90619d8147760f9ba4172a0c345c4d04"
+      }
+    },
+    {
+      "name": "local-ready-unverified",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "local-transformers",
+            "model": "target-local",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": true,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory",
+        "disk",
+        "artifacts"
+      ],
+      "result": {
+        "plan": {
+          "schemaVersion": 1,
+          "id": "migration-a",
+          "createdAt": "1970-01-01T00:00:01.000Z",
+          "source": {
+            "generation": "active",
+            "selection": {
+              "mode": "legacy"
+            },
+            "configRevision": "config-synthetic-a",
+            "fingerprintId": "embedding:v1:sha256:f33c2d3a06debe90e40bcb4ff2ea12fba271638e50a6da24e838a62845301f71",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 4,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 4,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "2559c4548f16f8f206d8efd3858961813bd43fc960188b17b730ee717de54099",
+            "tables": [
+              {
+                "tableId": "agent-a/memories",
+                "version": "7",
+                "rowCount": 3,
+                "estimatedBytes": 100
+              },
+              {
+                "tableId": "agent-b/memories",
+                "version": "9",
+                "rowCount": 2,
+                "estimatedBytes": 50
+              }
+            ]
+          },
+          "target": {
+            "generation": "generation-migration-a",
+            "selection": {
+              "mode": "generation",
+              "generation": "generation-migration-a"
+            },
+            "fingerprintId": "embedding:v1:sha256:e336e568281e1238f8db3245030afa2839ecec132a4ec65db626490928b5fe2e",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "local-transformers",
+              "model": "target-local",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 8,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "local-transformers",
+              "model": "target-local",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 8,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "a0232d196101a3a41c9cfb0082b641f902a9f353f0f723c783638e03476078d3",
+            "probeStatus": "probe_deferred_local_artifact"
+          },
+          "estimates": {
+            "rows": 5,
+            "providerCalls": 5,
+            "sourceBytes": 150,
+            "targetBytes": 310,
+            "requiredFreeBytes": 388,
+            "freeBytes": 1000000
+          }
+        },
+        "planDigest": "sha256:d8cde87058b0d8c36f7267092082ff72066719ebfb4705f54f714b46cf841460",
+        "persisted": {
+          "schemaVersion": 1,
+          "tokenHash": "8964868aeb01b6d8ae4cadd850fba94566411bbd545618ad2b5bfe00001cde74",
+          "planDigest": "sha256:d8cde87058b0d8c36f7267092082ff72066719ebfb4705f54f714b46cf841460",
+          "expiresAt": 61000
+        },
+        "proofSha256": "7bb720513d284aa13d2eaae6bc6a233e90619d8147760f9ba4172a0c345c4d04"
+      }
+    },
+    {
+      "name": "local-verified",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "local-transformers",
+            "model": "target-local",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": true,
+        "verified": true
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory",
+        "disk",
+        "artifacts",
+        "probe"
+      ],
+      "result": {
+        "plan": {
+          "schemaVersion": 1,
+          "id": "migration-a",
+          "createdAt": "1970-01-01T00:00:01.000Z",
+          "source": {
+            "generation": "active",
+            "selection": {
+              "mode": "legacy"
+            },
+            "configRevision": "config-synthetic-a",
+            "fingerprintId": "embedding:v1:sha256:f33c2d3a06debe90e40bcb4ff2ea12fba271638e50a6da24e838a62845301f71",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 4,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 4,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "2559c4548f16f8f206d8efd3858961813bd43fc960188b17b730ee717de54099",
+            "tables": [
+              {
+                "tableId": "agent-a/memories",
+                "version": "7",
+                "rowCount": 3,
+                "estimatedBytes": 100
+              },
+              {
+                "tableId": "agent-b/memories",
+                "version": "9",
+                "rowCount": 2,
+                "estimatedBytes": 50
+              }
+            ]
+          },
+          "target": {
+            "generation": "generation-migration-a",
+            "selection": {
+              "mode": "generation",
+              "generation": "generation-migration-a"
+            },
+            "fingerprintId": "embedding:v1:sha256:e336e568281e1238f8db3245030afa2839ecec132a4ec65db626490928b5fe2e",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "local-transformers",
+              "model": "target-local",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 8,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "local-transformers",
+              "model": "target-local",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 8,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "a0232d196101a3a41c9cfb0082b641f902a9f353f0f723c783638e03476078d3",
+            "probeStatus": "passed"
+          },
+          "estimates": {
+            "rows": 5,
+            "providerCalls": 5,
+            "sourceBytes": 150,
+            "targetBytes": 310,
+            "requiredFreeBytes": 388,
+            "freeBytes": 1000000
+          }
+        },
+        "planDigest": "sha256:b8fd3c79872facc4215bcca9207e4e84883523a32b7cc74d1d771ce43a7d965f",
+        "persisted": {
+          "schemaVersion": 1,
+          "tokenHash": "4efd761da62c74944e000e59ca9868316d95425b462fd22f408357aaa7329662",
+          "planDigest": "sha256:b8fd3c79872facc4215bcca9207e4e84883523a32b7cc74d1d771ce43a7d965f",
+          "expiresAt": 61000
+        },
+        "proofSha256": "7bb720513d284aa13d2eaae6bc6a233e90619d8147760f9ba4172a0c345c4d04"
+      }
+    },
+    {
+      "name": "default-ttl",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        }
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory",
+        "disk",
+        "probe"
+      ],
+      "result": {
+        "plan": {
+          "schemaVersion": 1,
+          "id": "migration-a",
+          "createdAt": "1970-01-01T00:00:01.000Z",
+          "source": {
+            "generation": "active",
+            "selection": {
+              "mode": "legacy"
+            },
+            "configRevision": "config-synthetic-a",
+            "fingerprintId": "embedding:v1:sha256:f33c2d3a06debe90e40bcb4ff2ea12fba271638e50a6da24e838a62845301f71",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 4,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 4,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "2559c4548f16f8f206d8efd3858961813bd43fc960188b17b730ee717de54099",
+            "tables": [
+              {
+                "tableId": "agent-a/memories",
+                "version": "7",
+                "rowCount": 3,
+                "estimatedBytes": 100
+              },
+              {
+                "tableId": "agent-b/memories",
+                "version": "9",
+                "rowCount": 2,
+                "estimatedBytes": 50
+              }
+            ]
+          },
+          "target": {
+            "generation": "generation-migration-a",
+            "selection": {
+              "mode": "generation",
+              "generation": "generation-migration-a"
+            },
+            "fingerprintId": "embedding:v1:sha256:e1f705d1659c16811aa9eb1379352ba523cced98c13e20e1de4e4cecf2c20413",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 8,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 8,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "3468fd07ad558e2cf3231db94b707e33d6e8cfd929813d8147a6f9f1a08d84bd",
+            "probeStatus": "passed"
+          },
+          "estimates": {
+            "rows": 5,
+            "providerCalls": 5,
+            "sourceBytes": 150,
+            "targetBytes": 310,
+            "requiredFreeBytes": 388,
+            "freeBytes": 1000000
+          }
+        },
+        "planDigest": "sha256:cd5fa547c862343a219aa22a56a4eb959ad9e5fa3c0ca7d18fa729e0efac6fa6",
+        "persisted": {
+          "schemaVersion": 1,
+          "tokenHash": "2f44a5fdd79714ff677463253aeda37dcdf840799fac5719590e531c09392155",
+          "planDigest": "sha256:cd5fa547c862343a219aa22a56a4eb959ad9e5fa3c0ca7d18fa729e0efac6fa6",
+          "expiresAt": 901000
+        },
+        "proofSha256": "7bb720513d284aa13d2eaae6bc6a233e90619d8147760f9ba4172a0c345c4d04"
+      }
+    },
+    {
+      "name": "id-length-1",
+      "request": {
+        "id": "m",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory",
+        "disk",
+        "probe"
+      ],
+      "result": {
+        "plan": {
+          "schemaVersion": 1,
+          "id": "m",
+          "createdAt": "1970-01-01T00:00:01.000Z",
+          "source": {
+            "generation": "active",
+            "selection": {
+              "mode": "legacy"
+            },
+            "configRevision": "config-synthetic-a",
+            "fingerprintId": "embedding:v1:sha256:f33c2d3a06debe90e40bcb4ff2ea12fba271638e50a6da24e838a62845301f71",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 4,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 4,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "2559c4548f16f8f206d8efd3858961813bd43fc960188b17b730ee717de54099",
+            "tables": [
+              {
+                "tableId": "agent-a/memories",
+                "version": "7",
+                "rowCount": 3,
+                "estimatedBytes": 100
+              },
+              {
+                "tableId": "agent-b/memories",
+                "version": "9",
+                "rowCount": 2,
+                "estimatedBytes": 50
+              }
+            ]
+          },
+          "target": {
+            "generation": "generation-m",
+            "selection": {
+              "mode": "generation",
+              "generation": "generation-m"
+            },
+            "fingerprintId": "embedding:v1:sha256:e1f705d1659c16811aa9eb1379352ba523cced98c13e20e1de4e4cecf2c20413",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 8,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 8,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "3468fd07ad558e2cf3231db94b707e33d6e8cfd929813d8147a6f9f1a08d84bd",
+            "probeStatus": "passed"
+          },
+          "estimates": {
+            "rows": 5,
+            "providerCalls": 5,
+            "sourceBytes": 150,
+            "targetBytes": 310,
+            "requiredFreeBytes": 388,
+            "freeBytes": 1000000
+          }
+        },
+        "planDigest": "sha256:835f303c154813760dc689741f9493ca1997cc6931b1615f8365044a8bec41a5",
+        "persisted": {
+          "schemaVersion": 1,
+          "tokenHash": "f0b29029ad638d38028ca04fdf1010fdbe5f649e88daf136dfc760ac69362028",
+          "planDigest": "sha256:835f303c154813760dc689741f9493ca1997cc6931b1615f8365044a8bec41a5",
+          "expiresAt": 61000
+        },
+        "proofSha256": "7bb720513d284aa13d2eaae6bc6a233e90619d8147760f9ba4172a0c345c4d04"
+      }
+    },
+    {
+      "name": "id-length-53",
+      "request": {
+        "id": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory",
+        "disk",
+        "probe"
+      ],
+      "result": {
+        "plan": {
+          "schemaVersion": 1,
+          "id": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
+          "createdAt": "1970-01-01T00:00:01.000Z",
+          "source": {
+            "generation": "active",
+            "selection": {
+              "mode": "legacy"
+            },
+            "configRevision": "config-synthetic-a",
+            "fingerprintId": "embedding:v1:sha256:f33c2d3a06debe90e40bcb4ff2ea12fba271638e50a6da24e838a62845301f71",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 4,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 4,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "2559c4548f16f8f206d8efd3858961813bd43fc960188b17b730ee717de54099",
+            "tables": [
+              {
+                "tableId": "agent-a/memories",
+                "version": "7",
+                "rowCount": 3,
+                "estimatedBytes": 100
+              },
+              {
+                "tableId": "agent-b/memories",
+                "version": "9",
+                "rowCount": 2,
+                "estimatedBytes": 50
+              }
+            ]
+          },
+          "target": {
+            "generation": "generation-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
+            "selection": {
+              "mode": "generation",
+              "generation": "generation-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm"
+            },
+            "fingerprintId": "embedding:v1:sha256:e1f705d1659c16811aa9eb1379352ba523cced98c13e20e1de4e4cecf2c20413",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 8,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 8,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "3468fd07ad558e2cf3231db94b707e33d6e8cfd929813d8147a6f9f1a08d84bd",
+            "probeStatus": "passed"
+          },
+          "estimates": {
+            "rows": 5,
+            "providerCalls": 5,
+            "sourceBytes": 150,
+            "targetBytes": 310,
+            "requiredFreeBytes": 388,
+            "freeBytes": 1000000
+          }
+        },
+        "planDigest": "sha256:9d8e83e876c2f170f45818e250c57d4aa9720bd35035d5aefc93a1fd1b74628d",
+        "persisted": {
+          "schemaVersion": 1,
+          "tokenHash": "9b4afbde9b2f44a7b652ef76d3c643e907265afd40ba0ea79dce88908d88d59e",
+          "planDigest": "sha256:9d8e83e876c2f170f45818e250c57d4aa9720bd35035d5aefc93a1fd1b74628d",
+          "expiresAt": 61000
+        },
+        "proofSha256": "7bb720513d284aa13d2eaae6bc6a233e90619d8147760f9ba4172a0c345c4d04"
+      }
+    },
+    {
+      "name": "id-length-54",
+      "request": {
+        "id": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory",
+        "disk",
+        "probe"
+      ],
+      "result": {
+        "plan": {
+          "schemaVersion": 1,
+          "id": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
+          "createdAt": "1970-01-01T00:00:01.000Z",
+          "source": {
+            "generation": "active",
+            "selection": {
+              "mode": "legacy"
+            },
+            "configRevision": "config-synthetic-a",
+            "fingerprintId": "embedding:v1:sha256:f33c2d3a06debe90e40bcb4ff2ea12fba271638e50a6da24e838a62845301f71",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 4,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 4,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "2559c4548f16f8f206d8efd3858961813bd43fc960188b17b730ee717de54099",
+            "tables": [
+              {
+                "tableId": "agent-a/memories",
+                "version": "7",
+                "rowCount": 3,
+                "estimatedBytes": 100
+              },
+              {
+                "tableId": "agent-b/memories",
+                "version": "9",
+                "rowCount": 2,
+                "estimatedBytes": 50
+              }
+            ]
+          },
+          "target": {
+            "generation": "generation-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm-640acda6bbc3",
+            "selection": {
+              "mode": "generation",
+              "generation": "generation-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm-640acda6bbc3"
+            },
+            "fingerprintId": "embedding:v1:sha256:e1f705d1659c16811aa9eb1379352ba523cced98c13e20e1de4e4cecf2c20413",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 8,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 8,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "3468fd07ad558e2cf3231db94b707e33d6e8cfd929813d8147a6f9f1a08d84bd",
+            "probeStatus": "passed"
+          },
+          "estimates": {
+            "rows": 5,
+            "providerCalls": 5,
+            "sourceBytes": 150,
+            "targetBytes": 310,
+            "requiredFreeBytes": 388,
+            "freeBytes": 1000000
+          }
+        },
+        "planDigest": "sha256:e126802d1b37e7bb6255a3edb244262cf1cdbc66b450cd564b34f5d127212295",
+        "persisted": {
+          "schemaVersion": 1,
+          "tokenHash": "6e76065c78d0c43ce74e7f5c6cea741e5200a3e7bd92f52dc2a1f8aff68817c5",
+          "planDigest": "sha256:e126802d1b37e7bb6255a3edb244262cf1cdbc66b450cd564b34f5d127212295",
+          "expiresAt": 61000
+        },
+        "proofSha256": "7bb720513d284aa13d2eaae6bc6a233e90619d8147760f9ba4172a0c345c4d04"
+      }
+    },
+    {
+      "name": "id-length-64",
+      "request": {
+        "id": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory",
+        "disk",
+        "probe"
+      ],
+      "result": {
+        "plan": {
+          "schemaVersion": 1,
+          "id": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
+          "createdAt": "1970-01-01T00:00:01.000Z",
+          "source": {
+            "generation": "active",
+            "selection": {
+              "mode": "legacy"
+            },
+            "configRevision": "config-synthetic-a",
+            "fingerprintId": "embedding:v1:sha256:f33c2d3a06debe90e40bcb4ff2ea12fba271638e50a6da24e838a62845301f71",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 4,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 4,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "2559c4548f16f8f206d8efd3858961813bd43fc960188b17b730ee717de54099",
+            "tables": [
+              {
+                "tableId": "agent-a/memories",
+                "version": "7",
+                "rowCount": 3,
+                "estimatedBytes": 100
+              },
+              {
+                "tableId": "agent-b/memories",
+                "version": "9",
+                "rowCount": 2,
+                "estimatedBytes": 50
+              }
+            ]
+          },
+          "target": {
+            "generation": "generation-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm-55d24d1e5bb5",
+            "selection": {
+              "mode": "generation",
+              "generation": "generation-mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm-55d24d1e5bb5"
+            },
+            "fingerprintId": "embedding:v1:sha256:e1f705d1659c16811aa9eb1379352ba523cced98c13e20e1de4e4cecf2c20413",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 8,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 8,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "3468fd07ad558e2cf3231db94b707e33d6e8cfd929813d8147a6f9f1a08d84bd",
+            "probeStatus": "passed"
+          },
+          "estimates": {
+            "rows": 5,
+            "providerCalls": 5,
+            "sourceBytes": 150,
+            "targetBytes": 310,
+            "requiredFreeBytes": 388,
+            "freeBytes": 1000000
+          }
+        },
+        "planDigest": "sha256:190b443f7078b031ac5c02d48521e01bd32647701840253146517995215592cc",
+        "persisted": {
+          "schemaVersion": 1,
+          "tokenHash": "88dc1f307b105e702833439c2581703a40195c192674a92c9dc1c4cbefbbd19a",
+          "planDigest": "sha256:190b443f7078b031ac5c02d48521e01bd32647701840253146517995215592cc",
+          "expiresAt": 61000
+        },
+        "proofSha256": "7bb720513d284aa13d2eaae6bc6a233e90619d8147760f9ba4172a0c345c4d04"
+      }
+    },
+    {
+      "name": "id-length-65",
+      "request": {
+        "id": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [],
+      "error": "invalid reembedding migration id"
+    },
+    {
+      "name": "id-length-128",
+      "request": {
+        "id": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [],
+      "error": "invalid reembedding migration id"
+    },
+    {
+      "name": "generation-length-64",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000,
+        "targetGeneration": "gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg"
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory",
+        "disk",
+        "probe"
+      ],
+      "result": {
+        "plan": {
+          "schemaVersion": 1,
+          "id": "migration-a",
+          "createdAt": "1970-01-01T00:00:01.000Z",
+          "source": {
+            "generation": "active",
+            "selection": {
+              "mode": "legacy"
+            },
+            "configRevision": "config-synthetic-a",
+            "fingerprintId": "embedding:v1:sha256:f33c2d3a06debe90e40bcb4ff2ea12fba271638e50a6da24e838a62845301f71",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 4,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 4,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "2559c4548f16f8f206d8efd3858961813bd43fc960188b17b730ee717de54099",
+            "tables": [
+              {
+                "tableId": "agent-a/memories",
+                "version": "7",
+                "rowCount": 3,
+                "estimatedBytes": 100
+              },
+              {
+                "tableId": "agent-b/memories",
+                "version": "9",
+                "rowCount": 2,
+                "estimatedBytes": 50
+              }
+            ]
+          },
+          "target": {
+            "generation": "gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg",
+            "selection": {
+              "mode": "generation",
+              "generation": "gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg"
+            },
+            "fingerprintId": "embedding:v1:sha256:e1f705d1659c16811aa9eb1379352ba523cced98c13e20e1de4e4cecf2c20413",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 8,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 8,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "3468fd07ad558e2cf3231db94b707e33d6e8cfd929813d8147a6f9f1a08d84bd",
+            "probeStatus": "passed"
+          },
+          "estimates": {
+            "rows": 5,
+            "providerCalls": 5,
+            "sourceBytes": 150,
+            "targetBytes": 310,
+            "requiredFreeBytes": 388,
+            "freeBytes": 1000000
+          }
+        },
+        "planDigest": "sha256:5cf64299197f475792b30cd655db6fd3dcca95e1727bb2408c9aa0619bd55259",
+        "persisted": {
+          "schemaVersion": 1,
+          "tokenHash": "12cbb44f3ef4a372e117e787ee655306204ab49bff57cb93ba936034289f0d39",
+          "planDigest": "sha256:5cf64299197f475792b30cd655db6fd3dcca95e1727bb2408c9aa0619bd55259",
+          "expiresAt": 61000
+        },
+        "proofSha256": "7bb720513d284aa13d2eaae6bc6a233e90619d8147760f9ba4172a0c345c4d04"
+      }
+    },
+    {
+      "name": "generation-length-65",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000,
+        "targetGeneration": "ggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg"
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [],
+      "error": "invalid reembedding target generation"
+    },
+    {
+      "name": "ttl-0",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 0
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory",
+        "disk",
+        "probe"
+      ],
+      "error": "invalid reembedding confirmation TTL"
+    },
+    {
+      "name": "ttl-999",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 999
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory",
+        "disk",
+        "probe"
+      ],
+      "error": "invalid reembedding confirmation TTL"
+    },
+    {
+      "name": "ttl-1000",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 1000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory",
+        "disk",
+        "probe"
+      ],
+      "result": {
+        "plan": {
+          "schemaVersion": 1,
+          "id": "migration-a",
+          "createdAt": "1970-01-01T00:00:01.000Z",
+          "source": {
+            "generation": "active",
+            "selection": {
+              "mode": "legacy"
+            },
+            "configRevision": "config-synthetic-a",
+            "fingerprintId": "embedding:v1:sha256:f33c2d3a06debe90e40bcb4ff2ea12fba271638e50a6da24e838a62845301f71",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 4,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 4,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "2559c4548f16f8f206d8efd3858961813bd43fc960188b17b730ee717de54099",
+            "tables": [
+              {
+                "tableId": "agent-a/memories",
+                "version": "7",
+                "rowCount": 3,
+                "estimatedBytes": 100
+              },
+              {
+                "tableId": "agent-b/memories",
+                "version": "9",
+                "rowCount": 2,
+                "estimatedBytes": 50
+              }
+            ]
+          },
+          "target": {
+            "generation": "generation-migration-a",
+            "selection": {
+              "mode": "generation",
+              "generation": "generation-migration-a"
+            },
+            "fingerprintId": "embedding:v1:sha256:e1f705d1659c16811aa9eb1379352ba523cced98c13e20e1de4e4cecf2c20413",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 8,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 8,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "3468fd07ad558e2cf3231db94b707e33d6e8cfd929813d8147a6f9f1a08d84bd",
+            "probeStatus": "passed"
+          },
+          "estimates": {
+            "rows": 5,
+            "providerCalls": 5,
+            "sourceBytes": 150,
+            "targetBytes": 310,
+            "requiredFreeBytes": 388,
+            "freeBytes": 1000000
+          }
+        },
+        "planDigest": "sha256:cd5fa547c862343a219aa22a56a4eb959ad9e5fa3c0ca7d18fa729e0efac6fa6",
+        "persisted": {
+          "schemaVersion": 1,
+          "tokenHash": "2f44a5fdd79714ff677463253aeda37dcdf840799fac5719590e531c09392155",
+          "planDigest": "sha256:cd5fa547c862343a219aa22a56a4eb959ad9e5fa3c0ca7d18fa729e0efac6fa6",
+          "expiresAt": 2000
+        },
+        "proofSha256": "7bb720513d284aa13d2eaae6bc6a233e90619d8147760f9ba4172a0c345c4d04"
+      }
+    },
+    {
+      "name": "ttl-3600000",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 3600000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory",
+        "disk",
+        "probe"
+      ],
+      "result": {
+        "plan": {
+          "schemaVersion": 1,
+          "id": "migration-a",
+          "createdAt": "1970-01-01T00:00:01.000Z",
+          "source": {
+            "generation": "active",
+            "selection": {
+              "mode": "legacy"
+            },
+            "configRevision": "config-synthetic-a",
+            "fingerprintId": "embedding:v1:sha256:f33c2d3a06debe90e40bcb4ff2ea12fba271638e50a6da24e838a62845301f71",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 4,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 4,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "2559c4548f16f8f206d8efd3858961813bd43fc960188b17b730ee717de54099",
+            "tables": [
+              {
+                "tableId": "agent-a/memories",
+                "version": "7",
+                "rowCount": 3,
+                "estimatedBytes": 100
+              },
+              {
+                "tableId": "agent-b/memories",
+                "version": "9",
+                "rowCount": 2,
+                "estimatedBytes": 50
+              }
+            ]
+          },
+          "target": {
+            "generation": "generation-migration-a",
+            "selection": {
+              "mode": "generation",
+              "generation": "generation-migration-a"
+            },
+            "fingerprintId": "embedding:v1:sha256:e1f705d1659c16811aa9eb1379352ba523cced98c13e20e1de4e4cecf2c20413",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 8,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 8,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "3468fd07ad558e2cf3231db94b707e33d6e8cfd929813d8147a6f9f1a08d84bd",
+            "probeStatus": "passed"
+          },
+          "estimates": {
+            "rows": 5,
+            "providerCalls": 5,
+            "sourceBytes": 150,
+            "targetBytes": 310,
+            "requiredFreeBytes": 388,
+            "freeBytes": 1000000
+          }
+        },
+        "planDigest": "sha256:cd5fa547c862343a219aa22a56a4eb959ad9e5fa3c0ca7d18fa729e0efac6fa6",
+        "persisted": {
+          "schemaVersion": 1,
+          "tokenHash": "2f44a5fdd79714ff677463253aeda37dcdf840799fac5719590e531c09392155",
+          "planDigest": "sha256:cd5fa547c862343a219aa22a56a4eb959ad9e5fa3c0ca7d18fa729e0efac6fa6",
+          "expiresAt": 3601000
+        },
+        "proofSha256": "7bb720513d284aa13d2eaae6bc6a233e90619d8147760f9ba4172a0c345c4d04"
+      }
+    },
+    {
+      "name": "ttl-3600001",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 3600001
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory",
+        "disk",
+        "probe"
+      ],
+      "error": "invalid reembedding confirmation TTL"
+    },
+    {
+      "name": "ttl-1.5",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 1.5
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory",
+        "disk",
+        "probe"
+      ],
+      "error": "invalid reembedding confirmation TTL"
+    },
+    {
+      "name": "no-active",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory"
+      ],
+      "error": "reembedding requires exactly one active generation"
+    },
+    {
+      "name": "two-active",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        },
+        {
+          "generation": "other",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory"
+      ],
+      "error": "reembedding requires exactly one active generation"
+    },
+    {
+      "name": "target-is-source",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000,
+        "targetGeneration": "active"
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory"
+      ],
+      "error": "target generation must differ from the active generation"
+    },
+    {
+      "name": "no-change",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory"
+      ],
+      "error": "reembedding plan does not change the embedding fingerprint"
+    },
+    {
+      "name": "low-disk",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory",
+        "disk"
+      ],
+      "error": "insufficient disk space for reembedding target generation (required 388 bytes)"
+    },
+    {
+      "name": "disk-exact",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 388,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory",
+        "disk",
+        "probe"
+      ],
+      "result": {
+        "plan": {
+          "schemaVersion": 1,
+          "id": "migration-a",
+          "createdAt": "1970-01-01T00:00:01.000Z",
+          "source": {
+            "generation": "active",
+            "selection": {
+              "mode": "legacy"
+            },
+            "configRevision": "config-synthetic-a",
+            "fingerprintId": "embedding:v1:sha256:f33c2d3a06debe90e40bcb4ff2ea12fba271638e50a6da24e838a62845301f71",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 4,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 4,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "2559c4548f16f8f206d8efd3858961813bd43fc960188b17b730ee717de54099",
+            "tables": [
+              {
+                "tableId": "agent-a/memories",
+                "version": "7",
+                "rowCount": 3,
+                "estimatedBytes": 100
+              },
+              {
+                "tableId": "agent-b/memories",
+                "version": "9",
+                "rowCount": 2,
+                "estimatedBytes": 50
+              }
+            ]
+          },
+          "target": {
+            "generation": "generation-migration-a",
+            "selection": {
+              "mode": "generation",
+              "generation": "generation-migration-a"
+            },
+            "fingerprintId": "embedding:v1:sha256:e1f705d1659c16811aa9eb1379352ba523cced98c13e20e1de4e4cecf2c20413",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 8,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 8,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "3468fd07ad558e2cf3231db94b707e33d6e8cfd929813d8147a6f9f1a08d84bd",
+            "probeStatus": "passed"
+          },
+          "estimates": {
+            "rows": 5,
+            "providerCalls": 5,
+            "sourceBytes": 150,
+            "targetBytes": 310,
+            "requiredFreeBytes": 388,
+            "freeBytes": 388
+          }
+        },
+        "planDigest": "sha256:9afa1efdb4ff7ab3cc85b18960bb11e589cd5382c7d722afbd6cbbaf3af54790",
+        "persisted": {
+          "schemaVersion": 1,
+          "tokenHash": "75d68209369b577937ac215bd67ef8aee23dd4858305fbb4d7bfdfccaba906a0",
+          "planDigest": "sha256:9afa1efdb4ff7ab3cc85b18960bb11e589cd5382c7d722afbd6cbbaf3af54790",
+          "expiresAt": 61000
+        },
+        "proofSha256": "7bb720513d284aa13d2eaae6bc6a233e90619d8147760f9ba4172a0c345c4d04"
+      }
+    },
+    {
+      "name": "disk-one-short",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 387,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory",
+        "disk"
+      ],
+      "error": "insufficient disk space for reembedding target generation (required 388 bytes)"
+    },
+    {
+      "name": "invalid-probe-width",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "short",
+      "calls": [
+        "inventory",
+        "disk",
+        "probe"
+      ],
+      "error": "target provider probe dimension mismatch: expected 8"
+    },
+    {
+      "name": "invalid-probe-finite",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "nan",
+      "calls": [
+        "inventory",
+        "disk",
+        "probe"
+      ],
+      "error": "target provider probe returned a non-finite vector"
+    },
+    {
+      "name": "probe-failure",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "throw",
+      "calls": [
+        "inventory",
+        "disk",
+        "probe"
+      ],
+      "error": "synthetic probe failure"
+    },
+    {
+      "name": "duplicate-table",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            },
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory"
+      ],
+      "error": "duplicate source table inventory"
+    },
+    {
+      "name": "table-dimension",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100,
+              "dimensions": 9
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory"
+      ],
+      "error": "source table dimension mismatch: agent-a/memories"
+    },
+    {
+      "name": "table-traversal",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "../memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory"
+      ],
+      "error": "invalid reembedding table id"
+    },
+    {
+      "name": "missing-table-version",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory"
+      ],
+      "error": "source table version is required"
+    },
+    {
+      "name": "negative-rows",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": -1,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory"
+      ],
+      "error": "invalid source table row count"
+    },
+    {
+      "name": "fractional-bytes",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 1.5
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory"
+      ],
+      "error": "invalid source table byte estimate"
+    },
+    {
+      "name": "invalid-selection",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy",
+            "extra": true
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory",
+        "disk",
+        "probe"
+      ],
+      "error": "invalid reembedding generation selection"
+    },
+    {
+      "name": "invalid-secret-ref",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          },
+          "secretRef": {
+            "source": "env",
+            "provider": "INVALID",
+            "id": "SYNTHETIC_CONFIG"
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [
+        "inventory",
+        "disk",
+        "probe"
+      ],
+      "error": "invalid target SecretRef provider"
+    },
+    {
+      "name": "negative-clock",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": -1,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [],
+      "error": "invalid reembedding planner clock"
+    },
+    {
+      "name": "fractional-clock",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1.5,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "calls": [],
+      "error": "invalid reembedding planner clock"
+    },
+    {
+      "name": "raw-target-credential",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": [],
+            "apiKey": "synthetic-private-value"
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": []
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "rustException": "secret-bearing-plan",
+      "calls": [
+        "inventory",
+        "disk",
+        "probe"
+      ],
+      "result": {
+        "plan": {
+          "schemaVersion": 1,
+          "id": "migration-a",
+          "createdAt": "1970-01-01T00:00:01.000Z",
+          "source": {
+            "generation": "active",
+            "selection": {
+              "mode": "legacy"
+            },
+            "configRevision": "config-synthetic-a",
+            "fingerprintId": "embedding:v1:sha256:f33c2d3a06debe90e40bcb4ff2ea12fba271638e50a6da24e838a62845301f71",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 4,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 4,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "2559c4548f16f8f206d8efd3858961813bd43fc960188b17b730ee717de54099",
+            "tables": [
+              {
+                "tableId": "agent-a/memories",
+                "version": "7",
+                "rowCount": 3,
+                "estimatedBytes": 100
+              },
+              {
+                "tableId": "agent-b/memories",
+                "version": "9",
+                "rowCount": 2,
+                "estimatedBytes": 50
+              }
+            ]
+          },
+          "target": {
+            "generation": "generation-migration-a",
+            "selection": {
+              "mode": "generation",
+              "generation": "generation-migration-a"
+            },
+            "fingerprintId": "embedding:v1:sha256:e1f705d1659c16811aa9eb1379352ba523cced98c13e20e1de4e4cecf2c20413",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 8,
+              "artifacts": [],
+              "apiKey": "synthetic-private-value"
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 8,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "3468fd07ad558e2cf3231db94b707e33d6e8cfd929813d8147a6f9f1a08d84bd",
+            "probeStatus": "passed"
+          },
+          "estimates": {
+            "rows": 5,
+            "providerCalls": 5,
+            "sourceBytes": 150,
+            "targetBytes": 310,
+            "requiredFreeBytes": 388,
+            "freeBytes": 1000000
+          }
+        },
+        "planDigest": "sha256:ca70f12c5e1b1b8ce32efb7d99c33c95b41310fd7abeb160a9cabb62b25486f3",
+        "persisted": {
+          "schemaVersion": 1,
+          "tokenHash": "23da7e0e242b57ff9a9059270e1077d62b75a6ea070394078bb489893a2e3598",
+          "planDigest": "sha256:ca70f12c5e1b1b8ce32efb7d99c33c95b41310fd7abeb160a9cabb62b25486f3",
+          "expiresAt": 61000
+        },
+        "proofSha256": "7bb720513d284aa13d2eaae6bc6a233e90619d8147760f9ba4172a0c345c4d04"
+      }
+    },
+    {
+      "name": "raw-source-credential",
+      "request": {
+        "id": "migration-a",
+        "target": {
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "target",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 8,
+            "artifacts": []
+          }
+        },
+        "confirmationTtlMs": 60000
+      },
+      "inventory": [
+        {
+          "generation": "active",
+          "selection": {
+            "mode": "legacy"
+          },
+          "configRevision": "config-synthetic-a",
+          "fingerprint": {
+            "schemaVersion": 1,
+            "provider": "openai",
+            "model": "source",
+            "revision": "synthetic-immutable-r1",
+            "dimensions": 4,
+            "artifacts": [],
+            "apiKey": "synthetic-private-value"
+          },
+          "tables": [
+            {
+              "tableId": "agent-a/memories",
+              "version": "7",
+              "rowCount": 3,
+              "estimatedBytes": 100
+            },
+            {
+              "tableId": "agent-b/memories",
+              "version": "9",
+              "rowCount": 2,
+              "estimatedBytes": 50
+            }
+          ]
+        }
+      ],
+      "now": 1000,
+      "freeBytes": 1000000,
+      "artifacts": {
+        "ready": false,
+        "verified": false
+      },
+      "probe": "valid",
+      "rustException": "secret-bearing-plan",
+      "calls": [
+        "inventory",
+        "disk",
+        "probe"
+      ],
+      "result": {
+        "plan": {
+          "schemaVersion": 1,
+          "id": "migration-a",
+          "createdAt": "1970-01-01T00:00:01.000Z",
+          "source": {
+            "generation": "active",
+            "selection": {
+              "mode": "legacy"
+            },
+            "configRevision": "config-synthetic-a",
+            "fingerprintId": "embedding:v1:sha256:f33c2d3a06debe90e40bcb4ff2ea12fba271638e50a6da24e838a62845301f71",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 4,
+              "artifacts": [],
+              "apiKey": "synthetic-private-value"
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "source",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 4,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "2559c4548f16f8f206d8efd3858961813bd43fc960188b17b730ee717de54099",
+            "tables": [
+              {
+                "tableId": "agent-a/memories",
+                "version": "7",
+                "rowCount": 3,
+                "estimatedBytes": 100
+              },
+              {
+                "tableId": "agent-b/memories",
+                "version": "9",
+                "rowCount": 2,
+                "estimatedBytes": 50
+              }
+            ]
+          },
+          "target": {
+            "generation": "generation-migration-a",
+            "selection": {
+              "mode": "generation",
+              "generation": "generation-migration-a"
+            },
+            "fingerprintId": "embedding:v1:sha256:e1f705d1659c16811aa9eb1379352ba523cced98c13e20e1de4e4cecf2c20413",
+            "fingerprint": {
+              "schemaVersion": 1,
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimensions": 8,
+              "artifacts": []
+            },
+            "identity": {
+              "provider": "openai",
+              "model": "target",
+              "revision": "synthetic-immutable-r1",
+              "dimension": 8,
+              "normalization": "none",
+              "prefixScheme": "[\"\",\"\",\"\",null]",
+              "instruction": "",
+              "dtype": "float32",
+              "tokenCap": null,
+              "pooling": "unspecified",
+              "artifacts": []
+            },
+            "identityId": "3468fd07ad558e2cf3231db94b707e33d6e8cfd929813d8147a6f9f1a08d84bd",
+            "probeStatus": "passed"
+          },
+          "estimates": {
+            "rows": 5,
+            "providerCalls": 5,
+            "sourceBytes": 150,
+            "targetBytes": 310,
+            "requiredFreeBytes": 388,
+            "freeBytes": 1000000
+          }
+        },
+        "planDigest": "sha256:5022885c7db161d88bf2d855f45685d082ecc061ead0c8e173774ed118eaa0c7",
+        "persisted": {
+          "schemaVersion": 1,
+          "tokenHash": "37280dcf669842c79d64a74ae75a1a9cc79f2b7d718feb6cda441098fe9d2901",
+          "planDigest": "sha256:5022885c7db161d88bf2d855f45685d082ecc061ead0c8e173774ed118eaa0c7",
+          "expiresAt": 61000
+        },
+        "proofSha256": "7bb720513d284aa13d2eaae6bc6a233e90619d8147760f9ba4172a0c345c4d04"
+      }
+    }
+  ]
+}

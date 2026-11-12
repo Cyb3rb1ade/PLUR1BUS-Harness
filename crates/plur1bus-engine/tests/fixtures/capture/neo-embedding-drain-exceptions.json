@@ -1,0 +1,15 @@
+{
+  "decision": "RE-D66",
+  "nodeGoldenSha256": "ebd5a8362ec71155a1406c8bc66d7132766fc4bac94df807294cfe7c978648e5",
+  "exceptions": [
+    "RE-D62 canonical private authority is explicitly stamped on native fixture inputs. Foreign queue rows are excluded before counts; missing, deleted, hidden or foreign targets never reach the provider.",
+    "Current semantic source revision takes precedence over a later physical row with an older revision timestamp. Queue ordering remains last physical occurrence.",
+    "Failed attempts consume the same bounded work budget as successful attempts; native max_items is unsigned, zero means 100, values above 1000 refuse.",
+    "Cancellation or current policy revocation before frozen-plan publication returns an error without partial publication; Node flushes the already-completed batch prefix.",
+    "Provider failure reasons are fixed content-free values; no provider error message is stored.",
+    "A native workspace model-identity marker prevents same-dimension model mixing. Existing nonempty unbound sidecars require explicit migration; a pending native plan recovers from its saved original identity and vectors without inference.",
+    "Native target revisions refresh the authority-preserving candidate index as well as Node record-index. Repeated targets in one batch retain every vector append but publish only their final metadata revision.",
+    "Non-UTF8 target text or identifiers are refused before provider disclosure; no lossy UTF16 conversion is silently embedded."
+  ],
+  "persistence": "Original-caller private pending plan, source old/new checks, complete binary prefix SHA256, exact partial suffix replay, fsync before metadata acknowledgement. Durable prepared recovery replaces Node unsynced append; no global batch-reader atomicity or physical power-loss test claimed."
+}

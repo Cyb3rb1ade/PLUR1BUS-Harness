@@ -1,9 +1,9 @@
-//! Lossless prompt blocks; JSON field order follows the pinned value helpers.
+//! Unicode-safe prompt blocks; JSON field order follows the pinned value helpers.
 
 use crate::text::js::JsString;
 use serde::Serialize;
 
-/// A T5 block whose text may contain an unpaired UTF-16 surrogate.
+/// A T5 block with well-formed presentation text (RE-D17/F3).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ContextBlock {
     /// Stable block name.
@@ -20,6 +20,7 @@ impl ContextBlock {
     /// Construct a block and compute its UTF-16 length.
     #[must_use]
     pub fn new(name: String, text: JsString, droppable: bool) -> Self {
+        let text = super::output_unicode::well_formed(text);
         Self {
             name,
             chars: text.utf16_len(),
@@ -28,7 +29,7 @@ impl ContextBlock {
         }
     }
 
-    /// Serialize without losing lone surrogates or adding `tokensEstimate`.
+    /// Serialize the presentation text without adding `tokensEstimate`.
     #[must_use]
     pub fn to_json_line(&self) -> String {
         format!(

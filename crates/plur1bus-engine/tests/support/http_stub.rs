@@ -145,6 +145,11 @@ impl Stub {
     pub fn url(&self, path: &str) -> String {
         format!("http://provider.test:{}{path}", self.port)
     }
+
+    /// Credentialed HTTP fixtures use a loopback origin; DNS policy tests retain url().
+    pub fn loopback_url(&self, path: &str) -> String {
+        format!("http://localhost:{}{path}", self.port)
+    }
 }
 
 impl Drop for Stub {

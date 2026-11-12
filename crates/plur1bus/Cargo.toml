@@ -50,6 +50,8 @@ semver = "1"
 clap_complete = "4.6"
 clap_mangen = "0.2"
 ruzstd = "0.9.0"
+# Offline restore holds the same SQLite EXCLUSIVE lock as the Node core/import writer.
+rusqlite = { version = "0.41", features = ["bundled"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

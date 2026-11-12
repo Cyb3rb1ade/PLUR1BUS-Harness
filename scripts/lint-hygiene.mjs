@@ -7,6 +7,7 @@ import { workflowPinFindings } from "./workflow-pin-gate.mjs";
 import { foreignClientFindings } from "./foreign-client-fingerprints.mjs";
 import { lstatSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { join, relative } from "node:path";
 
@@ -97,6 +98,34 @@ const ALLOW_FILES = new Set([
 const ALLOW_DIRS = ["packages/core/src/import/", "packages/core/test/import/"];
 // Path -> regexes; a matching line is allowed only if it also matches one of these.
 const ALLOW = new Map([
+  // RE-05/T1's hash-verified Node oracle constructs the pinned public engine with its stub host.
+  // Only this exact recorder import and the golden's source-path metadata are exempt; runtime
+  // Harness imports and other adapter imports in the recorder remain forbidden.
+  ["crates/plur1bus-engine/tests/fixtures/capture/record-accept.mjs", [
+    /^\s*load\("engine\/create-engine\.js"\), load\("lib\/host-services\.js"\), load\("tests\/helpers\/hash-embedder\.js"\),\s*$/,
+  ]],
+  ["crates/plur1bus-engine/tests/fixtures/capture/golden/accept.json", [
+    /^\s*"lib\/(?:host-services\.js|setup\/(?:control-ui|feature-cron|obsidian-vault|reembedding|selftest|skill-workshop|workspace-policy)-plugin-runtime\.js)"\s*$/,
+  ]],
+  // RX6 row/classifier/merge recorders: exact verified test-host import and source provenance, never runtime imports.
+  ...["record-rows", "record-pipeline-boundaries", "record-classifier", "record-durable-merge", "record-normal-store-merge", "record-normal-store-candidates", "record-normal-store-new", "record-normal-store-effects"].map(name => [`crates/plur1bus-engine/tests/fixtures/capture/${name}.mjs`, [
+    /^\s*load\("engine\/create-engine\.js"\), load\("engine\/internals\.js"\), load\("lib\/host-services\.js"\),\s*$/,
+  ]]),
+  ...["chunk-decider", "chunk-expansions", "chunk-plans", "dedupe", "rows", "schema-seed", "classifier", "durable-merge", "normal-store-merge", "normal-store-candidates", "normal-store-new", "normal-store-effects", "knowledge-pending"].map(name => [
+    `crates/plur1bus-engine/tests/fixtures/capture/golden/${name}.json`, [
+      /^\s*"lib\/(?:host-services\.js|setup\/(?:control-ui|feature-cron|obsidian-vault|reembedding|selftest|skill-workshop|workspace-policy)-plugin-runtime\.js)"\s*$/,
+    ],
+  ]),
+  // A1 assembler reference: exact verified source-path metadata, never executable imports.
+  ...["recall/golden/recall-stats-render", "ops/golden/knowledge-promotion", "ops/golden/curation-list"].map(name => [`crates/plur1bus-engine/tests/fixtures/${name}.json`, [
+    /^\s*"path": "lib\/(?:host-services\.js|providers\/openclaw-memory-embedding-adapters\.js|setup\/(?:control-ui|feature-cron|obsidian-vault|reembedding|selftest|skill-workshop|workspace-policy)-plugin-runtime\.js)",\s*$/,
+  ]]),
+  // Preserve this exact frozen Node error in its recorded parity fixture only.
+  ["crates/plur1bus-engine/tests/fixtures/ops/golden/reembedding-runtime-probe.json", [/^\s*"error": "active generation selection drift after OpenClaw config mutation",?\s*$/]],
+  // The frozen Node temporal-context block is prompt data. Permit only its recorded line.
+  ["tests/engine-parity/golden/recall/temporal.json", [{
+    test: line => createHash("sha256").update(line).digest("hex") === "f58aa1525513014b6a7829c8d9c485b996f708547cece98062d6373212fba9e9",
+  }]],
   ["packages/core/test/principal.test.ts", [/lib\/memory-request-context\.js/]],
   [
     "packages/core/package.json",

@@ -48,7 +48,7 @@ fn civil_from_days(days: i64) -> (i64, i64, i64) {
     (year, month, day)
 }
 
-pub(super) fn iso_timestamp(ms: f64) -> Result<String, RenderError> {
+pub(crate) fn iso_timestamp(ms: f64) -> Result<String, RenderError> {
     if !ms.is_finite() || ms.abs() > MAX_DATE_MS {
         return Err(RenderError::InvalidTimestamp);
     }

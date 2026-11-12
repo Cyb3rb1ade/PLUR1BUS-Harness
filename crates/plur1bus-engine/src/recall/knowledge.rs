@@ -1,9 +1,9 @@
 //! Canonical sections from `memory/KNOWLEDGE.md`.
 //!
-//! The cache is written after the embed loop even when every section threw.
-//! A cache whose `chunks` array is empty is not reused, so the next recall reads
-//! the file again (CP-5.7). The pinned recorder leaves `embeddings.identity`
-//! unset, so the cache identity is `"legacy"`.
+//! C1 serves successfully embedded sections but persists only a complete set.
+//! A failed section must be retried even when the source mtime is unchanged.
+//! The pinned recorder leaves `embeddings.identity` unset, so the cache identity
+//! is `"legacy"`.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -71,8 +71,8 @@ pub fn parse_knowledge_md(content: &str) -> Vec<KnowledgeSection> {
 
 /// Embed `memory/KNOWLEDGE.md` and return the sections at or above `min_score`.
 ///
-/// Passage embeddings that throw are skipped. The cache file is still written when
-/// `persist` is set. The query vector is the one `embedQuery` already produced.
+/// Failed passage embeddings are skipped and prevent cache persistence for this call.
+/// The query vector is the one `embedQuery` already produced.
 pub fn search_canonical(
     workspace: &Path,
     query_vector: &[f32],
@@ -81,7 +81,27 @@ pub fn search_canonical(
     top_n: usize,
     persist: bool,
 ) -> Vec<CanonicalHit> {
-    let chunks = knowledge_chunks(workspace, embedder, persist);
+    search_canonical_with_cancel(
+        workspace,
+        query_vector,
+        embedder,
+        min_score,
+        top_n,
+        persist,
+        &Cancel::never(),
+    )
+}
+
+pub(crate) fn search_canonical_with_cancel(
+    workspace: &Path,
+    query_vector: &[f32],
+    embedder: &dyn EmbeddingProvider,
+    min_score: f64,
+    top_n: usize,
+    persist: bool,
+    cancel: &Cancel,
+) -> Vec<CanonicalHit> {
+    let chunks = knowledge_chunks(workspace, embedder, persist, cancel);
     let mut scored = chunks
         .into_iter()
         .map(|chunk| CanonicalHit {
@@ -116,6 +136,7 @@ fn knowledge_chunks(
     workspace: &Path,
     embedder: &dyn EmbeddingProvider,
     persist: bool,
+    cancel: &Cancel,
 ) -> Vec<Chunk> {
     let path = workspace.join("memory").join("KNOWLEDGE.md");
     let Some(mtime) = mtime_ms(&path) else {
@@ -133,8 +154,11 @@ fn knowledge_chunks(
     }
     let mut chunks = Vec::new();
     for section in &sections {
+        if cancel.is_cancelled() {
+            break;
+        }
         let text = utf16_slice(&section.text, 0, 4000).to_utf8_lossy();
-        let embedded = embedder.embed(&[text], EmbedKind::Passage, &Cancel::never());
+        let embedded = embedder.embed(&[text], EmbedKind::Passage, cancel);
         if let Ok(vectors) = embedded {
             if let Some(vector) = vectors.into_iter().next() {
                 chunks.push(Chunk {
@@ -146,7 +170,7 @@ fn knowledge_chunks(
             }
         }
     }
-    if persist {
+    if persist && chunks.len() == sections.len() && !cancel.is_cancelled() {
         write_cache(workspace, mtime, &chunks);
     }
     chunks

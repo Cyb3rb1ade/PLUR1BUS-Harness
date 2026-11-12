@@ -5,6 +5,94 @@
 //! core, canonical, project, episodic, associative. It is not a score sort.
 
 use super::candidate::RecallCandidate;
+use serde_json::Value;
+use std::time::{Duration, Instant};
+
+const DEFAULT_SOFT_MS: f64 = 35_000.0;
+const DEFAULT_HARD_MS: f64 = 45_000.0;
+const DEFAULT_CAP_CHARS: f64 = 17_000.0;
+
+/// Request time/character budgets; item selection is resolved independently below.
+#[derive(Clone, Copy, Debug)]
+pub struct RecallBudget {
+    /// Elapsed milliseconds after which optional work takes the fast path.
+    pub soft_ms: f64,
+    /// Maximum request duration before returning classified partial output.
+    pub hard_ms: f64,
+    /// Host aggregate UTF-16 cap, with the renderer's non-positive uncapped semantics.
+    pub cap_chars: f64,
+}
+
+impl RecallBudget {
+    /// Resolve query overrides against the existing engine config and Node defaults.
+    #[must_use]
+    pub fn resolve(overrides: &Value, config: &Value) -> Self {
+        let soft = valid_milliseconds(&config["recall"]["softBudgetMs"]).unwrap_or(DEFAULT_SOFT_MS);
+        let hard =
+            valid_milliseconds(&config["runtime"]["recallTimeoutMs"]).unwrap_or(DEFAULT_HARD_MS);
+        Self {
+            soft_ms: valid_milliseconds(&overrides["softMs"]).unwrap_or(soft),
+            hard_ms: valid_milliseconds(&overrides["hardMs"]).unwrap_or(hard),
+            cap_chars: overrides["capChars"]
+                .as_f64()
+                .or_else(|| config["recall"]["globalInjectMaxChars"].as_f64())
+                .unwrap_or(DEFAULT_CAP_CHARS),
+        }
+    }
+
+    /// Hard deadline anchored at request entry; caller deadlines can only shorten it.
+    #[must_use]
+    pub fn cancellation(
+        &self,
+        started: Instant,
+        caller: &crate::contract::Cancel,
+    ) -> crate::contract::Cancel {
+        let duration = Duration::try_from_secs_f64(self.hard_ms / 1000.0)
+            .ok()
+            .filter(|duration| !duration.is_zero())
+            .unwrap_or(Duration::from_millis(DEFAULT_HARD_MS as u64));
+        caller.limited_to(started.checked_add(duration).unwrap_or(started))
+    }
+}
+
+fn valid_milliseconds(value: &Value) -> Option<f64> {
+    let milliseconds = value
+        .as_f64()
+        .filter(|value| value.is_finite() && *value > 0.0)?;
+    let duration = Duration::try_from_secs_f64(milliseconds / 1000.0).ok()?;
+    (!duration.is_zero() && Instant::now().checked_add(duration).is_some()).then_some(milliseconds)
+}
+
+/// The pinned runtime's automatic item limit, separate from time and character budgets.
+/// Only boolean `enabled: true` enables adaptation; invalid ceilings default to twelve.
+#[must_use]
+pub fn resolve_runtime_recall_budget(query: &str, ceiling: f64, adaptive: &Value) -> usize {
+    let cap = super::namespace_budget::normalize_bounded_recall_integer(ceiling, 12.0, 1.0, 100.0);
+    if adaptive.get("enabled") != Some(&Value::Bool(true)) {
+        return cap as usize;
+    }
+    let pct = adaptive
+        .get("tokenBudgetPct")
+        .and_then(Value::as_f64)
+        .filter(|value| value.is_finite())
+        .unwrap_or(0.3)
+        .clamp(0.0, 1.0);
+    // JavaScript's word boundary is ASCII: accented letters are separators too.
+    let project_signal = query
+        .split(|c: char| !c.is_ascii_alphanumeric() && c != '_')
+        .any(|word| {
+            ["project", "plan", "milestone", "roadmap", "deadline"]
+                .iter()
+                .any(|signal| word.eq_ignore_ascii_case(signal))
+        });
+    let resolved = resolve_recall_budget(
+        crate::text::js::utf16_len(query) as f64,
+        project_signal,
+        cap,
+        pct,
+    );
+    resolved.budget.floor().max(1.0).min(cap) as usize
+}
 
 /// `resolveRecallBudget` output. `budget` stays a float so a non-integer cap is not rounded away.
 #[derive(Clone, Copy, Debug, PartialEq)]

@@ -1,0 +1,229 @@
+{
+  "pin": "9b935ce1f970bd92a931aa99a58c620669c8085f",
+  "node": "v24.21.0",
+  "sourceHashes": [
+    {
+      "path": "package.json",
+      "sha256": "62985e09c9dbbbf89352bbda6da3fc1c1a92e1006d6b92e680dca0d0d89fdaf9"
+    },
+    {
+      "path": "engine/jobs/job-specs.js",
+      "sha256": "6f7e191a08e0cedb281b1015dee018b4891f45c359ed5de5a581594945af9f8b"
+    },
+    {
+      "path": "lib/feature-cron-specs.js",
+      "sha256": "7f4aa7a1ffe3d623cc17c503013b9cb8b5a6a1bbb8768749081febc4a0f77f3e"
+    }
+  ],
+  "boundaries": {
+    "catalog": "actual A1 JOB_SPECS and required cron defaults",
+    "execution": "not invoked",
+    "providers": "none",
+    "normalization": "none"
+  },
+  "catalog": {
+    "names": [
+      "persona-evolve",
+      "afterthought",
+      "consolidate-daily",
+      "auto-accept-stale",
+      "embedding-drain",
+      "emotion-refine",
+      "post-turn-refine",
+      "classify-recent",
+      "rem-dream",
+      "skill-miner",
+      "discover-semantic-links",
+      "gc-run",
+      "reminder-dispatch",
+      "feedback-report",
+      "proactive-check",
+      "meta-reflect",
+      "skill-benefit-backfill",
+      "episodes-rebuild",
+      "light-dream",
+      "knowledge-update"
+    ],
+    "internalNames": [
+      "persona-evolve",
+      "afterthought",
+      "consolidate-daily",
+      "auto-accept-stale",
+      "embedding-drain",
+      "emotion-refine",
+      "post-turn-refine",
+      "classify-recent",
+      "rem-dream",
+      "skill-miner",
+      "discover-semantic-links",
+      "gc-run",
+      "reminder-dispatch",
+      "feedback-report",
+      "proactive-check",
+      "meta-reflect",
+      "skill-benefit-backfill",
+      "episodes-rebuild",
+      "knowledge-update"
+    ],
+    "specs": [
+      {
+        "name": "persona-evolve",
+        "needsLlm": true,
+        "singleton": false,
+        "defaultSchedule": {
+          "kind": "cron",
+          "expr": "15 4 * * *"
+        }
+      },
+      {
+        "name": "afterthought",
+        "needsLlm": true,
+        "singleton": false,
+        "defaultSchedule": {
+          "kind": "every",
+          "expr": "10800000"
+        }
+      },
+      {
+        "name": "consolidate-daily",
+        "needsLlm": true,
+        "singleton": false,
+        "phase": "deep",
+        "defaultSchedule": {
+          "kind": "cron",
+          "expr": "0 4 * * *",
+          "timezone": "Europe/Berlin"
+        }
+      },
+      {
+        "name": "auto-accept-stale",
+        "needsLlm": false,
+        "singleton": false,
+        "defaultSchedule": {
+          "kind": "cron",
+          "expr": "50 4 * * *",
+          "timezone": "Europe/Berlin"
+        }
+      },
+      {
+        "name": "embedding-drain",
+        "needsLlm": false,
+        "singleton": false,
+        "defaultSchedule": {
+          "kind": "cron",
+          "expr": "20 3 * * *",
+          "timezone": "Europe/Berlin"
+        }
+      },
+      {
+        "name": "emotion-refine",
+        "needsLlm": true,
+        "singleton": false,
+        "defaultSchedule": {
+          "kind": "every",
+          "expr": "3600000"
+        }
+      },
+      {
+        "name": "post-turn-refine",
+        "needsLlm": true,
+        "singleton": false,
+        "defaultSchedule": {
+          "kind": "every",
+          "expr": "1200000"
+        }
+      },
+      {
+        "name": "classify-recent",
+        "needsLlm": true,
+        "singleton": false,
+        "defaultSchedule": {
+          "kind": "every",
+          "expr": "10800000"
+        }
+      },
+      {
+        "name": "rem-dream",
+        "needsLlm": true,
+        "singleton": false,
+        "phase": "rem",
+        "defaultSchedule": {
+          "kind": "cron",
+          "expr": "15 1 * * *",
+          "timezone": "Europe/Berlin"
+        }
+      },
+      {
+        "name": "skill-miner",
+        "needsLlm": true,
+        "singleton": false,
+        "defaultSchedule": {
+          "kind": "cron",
+          "expr": "0 5 * * *",
+          "timezone": "Europe/Berlin"
+        }
+      },
+      {
+        "name": "discover-semantic-links",
+        "needsLlm": false,
+        "singleton": false,
+        "defaultSchedule": {
+          "kind": "cron",
+          "expr": "0 2 * * *",
+          "timezone": "Europe/Berlin"
+        }
+      },
+      {
+        "name": "gc-run",
+        "needsLlm": false,
+        "singleton": true,
+        "defaultSchedule": {
+          "kind": "cron",
+          "expr": "45 4 * * *",
+          "timezone": "Europe/Berlin"
+        }
+      },
+      {
+        "name": "reminder-dispatch",
+        "needsLlm": false,
+        "singleton": false
+      },
+      {
+        "name": "feedback-report",
+        "needsLlm": false,
+        "singleton": false
+      },
+      {
+        "name": "proactive-check",
+        "needsLlm": false,
+        "singleton": false
+      },
+      {
+        "name": "meta-reflect",
+        "needsLlm": true,
+        "singleton": false
+      },
+      {
+        "name": "skill-benefit-backfill",
+        "needsLlm": true,
+        "singleton": false
+      },
+      {
+        "name": "episodes-rebuild",
+        "needsLlm": true,
+        "singleton": false
+      },
+      {
+        "name": "light-dream",
+        "needsLlm": true,
+        "singleton": false,
+        "phase": "light"
+      },
+      {
+        "name": "knowledge-update",
+        "needsLlm": false,
+        "singleton": true
+      }
+    ]
+  }
+}

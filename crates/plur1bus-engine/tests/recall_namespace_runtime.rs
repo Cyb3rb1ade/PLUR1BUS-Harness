@@ -457,6 +457,8 @@ fn pipeline<'a>(
         reranker: (!fixture["rerank"].is_null()).then_some(ranker as &dyn Reranker),
         workspace_dir: fixture["knowledge"].is_string().then_some(workspace),
         edges,
+        bound_graph: None,
+        tombstones: None,
         cancel,
         limits: StageLimits {
             top_n: top,

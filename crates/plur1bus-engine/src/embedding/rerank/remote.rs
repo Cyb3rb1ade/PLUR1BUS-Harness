@@ -13,6 +13,7 @@ pub struct RemoteReranker<'a> {
     credential: Credential<'a>,
     endpoint: String,
     protocol: String,
+    provider: String,
     model: Option<String>,
     timeout: Duration,
     max_documents: usize,
@@ -177,6 +178,11 @@ impl<'a> RemoteReranker<'a> {
             credential: Credential::new(config, secret, store)?,
             endpoint: endpoint.into(),
             protocol,
+            provider: config
+                .get("provider")
+                .and_then(Value::as_str)
+                .unwrap_or("remote")
+                .to_owned(),
             model,
             timeout,
             max_documents: limit(config, "maxDocuments", 1000)?,
@@ -186,6 +192,17 @@ impl<'a> RemoteReranker<'a> {
     }
 }
 impl Reranker for RemoteReranker<'_> {
+    fn model_selections(&self) -> Vec<crate::embedding::model_selection::ModelSelection> {
+        use crate::embedding::model_selection::{ModelLocation, ModelRole, ModelSelection};
+        vec![ModelSelection {
+            provider: self.provider.clone(),
+            model: self.model.clone(),
+            revision: None,
+            dtype: None,
+            role: ModelRole::Reranker,
+            location: ModelLocation::Remote,
+        }]
+    }
     fn invalidate_egress(&self) {
         self.client.invalidate();
     }

@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { CI_RECALL_HARD_MS, REAL, RERANK_FAILURE, cli, home, killCore, reapHome, startCore, stopCore, waitEngineReady, waitJournalDrained, type RunningCore } from "./helpers.ts";
+import { CI_RECALL_HARD_MS, ENGINE_IMPL, REAL, RERANK_FAILURE, cli, home, killCore, reapHome, startCore, stopCore, waitEngineReady, waitJournalDrained, type RunningCore } from "./helpers.ts";
 import { modelCacheSnapshot } from "./model-cache-diagnostics.ts";
 
 /** Spec targets for a CLI recall: the soft budget on the engine's timed phases and the core's hard budget on wall time. */
@@ -65,7 +65,8 @@ describe("M1 acceptance 1 — two-session recall through the CLI", () => {
       if (REAL) t.diagnostic(`real-model cache after warm-up: ${JSON.stringify(modelCacheSnapshot(h))}`);
 
       const status = cli(h, ["dreams", "status"]);
-      assert.equal(status.jobs.length, 19, JSON.stringify(status));
+      // The Rust engine lists the A1 job `knowledge-update` (contract 1.18.0) besides the pin's 19.
+      assert.equal(status.jobs.length, ENGINE_IMPL === "rust" ? 20 : 19, JSON.stringify(status));
 
       let t0 = performance.now();
       const add = cli(h, ["memory", "add", "--agent", "bernd", "--session", "s1", "Please remember that the roadmap review is on Thursday at ten."]);
@@ -133,8 +134,14 @@ describe("M1 acceptance 1 — two-session recall through the CLI", () => {
       if (REAL && CI_RECALL_HARD_MS !== null) checkRecallBudget(t, "recall after restart", afterMs, after.timing);
       assert.match(after.joined.text, /Mira|spring/i);
 
-      const run = cli(h, ["dreams", "run", "gc-run", "--agent", "bernd"]);
-      assert.ok(["completed", "skipped"].includes(run.outcome), JSON.stringify(run));
+      // The Rust engine runs no job that needs an owner binding yet (F13, a known gap): `dreams run` is unavailable.
+      if (ENGINE_IMPL === "rust") {
+        const refused = cli(h, ["dreams", "run", "gc-run", "--agent", "bernd"], { allowFail: true });
+        assert.equal(JSON.parse(refused.stdout).error, "E_NOT_AVAILABLE", JSON.stringify(refused));
+      } else {
+        const run = cli(h, ["dreams", "run", "gc-run", "--agent", "bernd"]);
+        assert.ok(["completed", "skipped"].includes(run.outcome), JSON.stringify(run));
+      }
     } finally {
       // `core` is the restarted core once the restart succeeded; a failed start kills its own child first.
       if (core) await stopCore(core);

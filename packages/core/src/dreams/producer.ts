@@ -1,7 +1,8 @@
-// Public memory cards provide identity/age; Engine 1.17.0 (A1) adds persistent recall
+// Public memory cards provide identity/age; Engine 1.18.0 (A1) adds persistent recall
 // statistics and confirmed promotion. The pinned contract is allowed to lack both.
 // ADR-009 Q5: dreaming considers agent-private cards only; no invented recall signals.
 import type { AgentContext, Principal, MemoryListQuery } from "@cyb3rb1ade/plur1bus-memory/types/engine.js";
+import { hasA1Capability } from "../engine/capabilities.ts";
 import { contentHash } from "./candidates.ts";
 import type { CandidateInput, CandidateSource, CandidatePromotionResult, CandidateRecallStats } from "./types.ts";
 
@@ -70,15 +71,36 @@ export function itemsFromEngineList(r: EngineMemoryList): CandidateMemoryItem[] 
   }));
 }
 
+/** RE-D167: the A1 dream ports behind the engine's capability flags. `stats` and `promote` are getters, so every
+ *  access (each dream run) reads the engine's last known handshake; nothing here calls the engine to refresh it. */
+export function a1CandidateMemory(
+  engine: { readonly capabilities?: object }, memory: A1MemoryOperations,
+  scope: (agentId: string) => { principal: Principal; context: AgentContext }, list: CandidateMemory["list"],
+): CandidateMemory {
+  return {
+    list,
+    get stats() {
+      return hasA1Capability(engine, "recallStats") && typeof memory.stats === "function"
+        ? (agentId: string, ids: readonly string[]) => { const s = scope(agentId); return memory.stats!(ids, s.principal, s.context); } : undefined;
+    },
+    get promote() {
+      return hasA1Capability(engine, "knowledgePromotion") && typeof memory.promote === "function"
+        ? (agentId: string, ids: readonly string[]) => { const s = scope(agentId); return memory.promote!({ ids }, s.principal, s.context); } : undefined;
+    },
+  } as CandidateMemory;
+}
+
 export function createCandidateSource(memory: CandidateMemory): CandidateSource {
   return {
     async pull(agentId) {
+      // One flag reading per run: the statistics port cannot change between the batches and the mapping below.
+      const stats = memory.stats?.bind(memory);
       const items = (await memory.list(agentId)).filter((i) => i.partition === undefined || i.partition === AGENT_PRIVATE);
       const ids = [...new Set(items.flatMap((i) => i.memoryId ? [i.memoryId] : []))];
       const byId = new Map<string, CandidateRecallStats["items"][number]>();
-      for (let start = 0; memory.stats && start < ids.length; start += 500) {
+      for (let start = 0; stats && start < ids.length; start += 500) {
         const batch = ids.slice(start, start + 500);
-        const result = await memory.stats(agentId, batch);
+        const result = await stats(agentId, batch);
         if (result.agentId !== agentId || !Array.isArray(result.items)) throw new Error("invalid Engine recall statistics agent");
         const requested = new Set(batch);
         for (const s of result.items) {
@@ -91,9 +113,13 @@ export function createCandidateSource(memory: CandidateMemory): CandidateSource 
       return items.map((i) => {
         const s = i.memoryId ? byId.get(i.memoryId) : undefined;
         const { recalls: _recalls, uniqueQueries: _queries, lastRecalledAt: _lastRecall, ...withoutCounters } = i;
-        return { ...(memory.stats ? withoutCounters : i), ...(s ? { recalls: s.recalls, uniqueQueries: s.distinctQueries, lastRecalledAt: s.lastRecalledAt } : {}) };
+        return { ...(stats ? withoutCounters : i), ...(s ? { recalls: s.recalls, uniqueQueries: s.distinctQueries, lastRecalledAt: s.lastRecalledAt } : {}) };
       });
     },
-    ...(memory.promote ? { promote: (agentId: string, ids: readonly string[]) => memory.promote!(agentId, ids) } : {}),
-  };
+    // Live: the scheduler reads `promote` per run, so a flag change reaches the next run (RE-D167).
+    get promote() {
+      const promote = memory.promote?.bind(memory);
+      return promote ? (agentId: string, ids: readonly string[]) => promote(agentId, ids) : undefined;
+    },
+  } as CandidateSource;
 }

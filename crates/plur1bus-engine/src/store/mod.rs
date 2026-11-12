@@ -3,7 +3,10 @@ pub mod atomic_write;
 pub mod checkpoint;
 pub mod directory;
 pub mod filter;
+/// Bounded LanceDB fragment compaction after capture (RE-D161).
+pub mod fragment_compactor;
 pub mod identity;
+pub(crate) mod kernel_lease;
 pub mod lance;
 pub mod ledger;
 pub mod ledger_types;
@@ -12,9 +15,16 @@ pub mod neo_files;
 mod neo_lock;
 pub mod paths;
 pub mod pool;
+/// Private A1 recall counters and query digests; callers own ACL and render admission.
+pub mod recall_stats;
 pub mod routes;
 pub mod row;
 pub mod schema_version;
+mod shared_policy;
+/// Authenticated workspace/user physical pool routing.
+pub mod shared_pool;
+/// Node shared-copy columns outside the frozen MemoryRow contract.
+pub mod shared_row;
 pub mod sqlite;
 pub mod state_file;
 pub mod tombstone;

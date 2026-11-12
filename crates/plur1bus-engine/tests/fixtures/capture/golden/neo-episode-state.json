@@ -1,0 +1,4429 @@
+{
+  "provenance": {
+    "commit": "b097045b6f115275baa8b15016321c3ba080c812",
+    "node": "v24.21.0",
+    "sourceHashes": {
+      "lib/episodes.js": "180648f562da7360598eec1de90ede158b448d902200cefca94e4d7ff52f2c7b",
+      "lib/llm-result-cache.js": "ae7fcf3cf803789613164ab7216f986e4a231a58db735700b99e2cd2d08fd306",
+      "lib/safe-logging.js": "4a634fa3c4cce35d5c7cb29c7c2eb72378666ef400e79dc7869a4c50d2e2c0ac",
+      "lib/log-redact.js": "f64f7d2e2fbf13684ad16fe045a1e43a9755c57be00ee7532479286eed0068e3",
+      "lib/platform.js": "b210b81d3d27e65a4cd872d766d089ba7a96e9d9e7ebb65143e156d00a59ff61",
+      "lib/windows-acl-parse.js": "1241ba9d3a508f1e2be9c6ce840898f6f74a0aadca42feb4de35a8de44aa5da1",
+      "lib/sql-safety.js": "a6b949df02d29d3ed0494964c004d861d718eeb90abd271410e22a489de1bc62",
+      "lib/abort.js": "435016008fa477f7ed7d3215505324bb3e7159e123ea553b35fb8a14d5a4055d"
+    },
+    "clock": "2026-11-08T12:00:00.000Z",
+    "uuidProvider": "sequential deterministic Node builtin fixture",
+    "llm": "absent"
+  },
+  "cases": [
+    {
+      "name": "empty",
+      "turns": [],
+      "options": {
+        "workspaceKey": "workspace:v1:fixture",
+        "agentId": "alpha",
+        "sessionKey": "agent:alpha:direct:fixture",
+        "participantNames": {
+          "user": "Nutzer",
+          "assistant": "alpha"
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "allocatedIds": [],
+      "output": {
+        "episodes": [],
+        "openEpisode": null,
+        "continuedId": null,
+        "skippedEpisodedSpans": 0
+      }
+    },
+    {
+      "name": "first-three",
+      "turns": [
+        {
+          "id": "turn-0",
+          "role": "user",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:00:00.000Z"
+        },
+        {
+          "id": "turn-1",
+          "role": "assistant",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:01:00.000Z"
+        },
+        {
+          "id": "turn-2",
+          "role": "user",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:02:00.000Z"
+        }
+      ],
+      "options": {
+        "workspaceKey": "workspace:v1:fixture",
+        "agentId": "alpha",
+        "sessionKey": "agent:alpha:direct:fixture",
+        "participantNames": {
+          "user": "Nutzer",
+          "assistant": "alpha"
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "allocatedIds": [
+        "00000000-0000-4000-8000-000000000001"
+      ],
+      "output": {
+        "episodes": [
+          {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "3 Turns, 2 Min",
+            "startTime": "2026-11-08T12:00:00.000Z",
+            "endTime": "2026-11-08T12:02:00.000Z",
+            "durationMinutes": 2,
+            "participants": [
+              "Nutzer",
+              "alpha"
+            ],
+            "topics": [
+              "architecture",
+              "project"
+            ],
+            "memoryIds": [
+              "turn-0",
+              "turn-1",
+              "turn-2"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.30666666666666664,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 3,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            }
+          }
+        ],
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:02:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": null,
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            }
+          ]
+        },
+        "continuedId": null,
+        "skippedEpisodedSpans": 0
+      }
+    },
+    {
+      "name": "empty-keeps-open",
+      "turns": [],
+      "options": {
+        "workspaceKey": "workspace:v1:fixture",
+        "agentId": "alpha",
+        "sessionKey": "agent:alpha:direct:fixture",
+        "participantNames": {
+          "user": "Nutzer",
+          "assistant": "alpha"
+        },
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:02:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            }
+          ]
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "allocatedIds": [],
+      "output": {
+        "episodes": [],
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:02:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            }
+          ]
+        },
+        "continuedId": null,
+        "skippedEpisodedSpans": 0
+      }
+    },
+    {
+      "name": "continue-five",
+      "turns": [
+        {
+          "id": "turn-3",
+          "role": "assistant",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:03:00.000Z"
+        },
+        {
+          "id": "turn-4",
+          "role": "user",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:04:00.000Z"
+        }
+      ],
+      "options": {
+        "workspaceKey": "workspace:v1:fixture",
+        "agentId": "alpha",
+        "sessionKey": "agent:alpha:direct:fixture",
+        "participantNames": {
+          "user": "Nutzer",
+          "assistant": "alpha"
+        },
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:02:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            }
+          ]
+        },
+        "episodedTurnIds": [
+          "turn-0",
+          "turn-1",
+          "turn-2"
+        ]
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "allocatedIds": [
+        "00000000-0000-4000-8000-000000000002"
+      ],
+      "output": {
+        "episodes": [
+          {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "5 Turns, 4 Min",
+            "startTime": "2026-11-08T12:00:00.000Z",
+            "endTime": "2026-11-08T12:04:00.000Z",
+            "durationMinutes": 4,
+            "participants": [
+              "Nutzer",
+              "alpha"
+            ],
+            "topics": [
+              "architecture",
+              "project"
+            ],
+            "memoryIds": [
+              "turn-0",
+              "turn-1",
+              "turn-2",
+              "turn-3",
+              "turn-4"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.3133333333333333,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 5,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            },
+            "continued": true,
+            "revision": 1
+          }
+        ],
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:04:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 1,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            },
+            {
+              "id": "turn-3",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:03:00.000Z"
+            },
+            {
+              "id": "turn-4",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:04:00.000Z"
+            }
+          ]
+        },
+        "continuedId": "00000000-0000-4000-8000-000000000001",
+        "skippedEpisodedSpans": 0
+      }
+    },
+    {
+      "name": "overlap-keeps-novel",
+      "turns": [
+        {
+          "id": "turn-1",
+          "role": "assistant",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:01:00.000Z"
+        },
+        {
+          "id": "turn-2",
+          "role": "user",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:02:00.000Z"
+        },
+        {
+          "id": "turn-3",
+          "role": "assistant",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:03:00.000Z"
+        }
+      ],
+      "options": {
+        "workspaceKey": "workspace:v1:fixture",
+        "agentId": "alpha",
+        "sessionKey": "agent:alpha:direct:fixture",
+        "participantNames": {
+          "user": "Nutzer",
+          "assistant": "alpha"
+        },
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:02:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            }
+          ]
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "allocatedIds": [
+        "00000000-0000-4000-8000-000000000003"
+      ],
+      "output": {
+        "episodes": [
+          {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "4 Turns, 3 Min",
+            "startTime": "2026-11-08T12:00:00.000Z",
+            "endTime": "2026-11-08T12:03:00.000Z",
+            "durationMinutes": 3,
+            "participants": [
+              "Nutzer",
+              "alpha"
+            ],
+            "topics": [
+              "architecture",
+              "project"
+            ],
+            "memoryIds": [
+              "turn-0",
+              "turn-1",
+              "turn-2",
+              "turn-3"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.31,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 4,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            },
+            "continued": true,
+            "revision": 1
+          }
+        ],
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:03:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 1,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            },
+            {
+              "id": "turn-3",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:03:00.000Z"
+            }
+          ]
+        },
+        "continuedId": "00000000-0000-4000-8000-000000000001",
+        "skippedEpisodedSpans": 0
+      }
+    },
+    {
+      "name": "all-known",
+      "turns": [
+        {
+          "id": "turn-0",
+          "role": "user",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:00:00.000Z"
+        },
+        {
+          "id": "turn-1",
+          "role": "assistant",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:01:00.000Z"
+        },
+        {
+          "id": "turn-2",
+          "role": "user",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:02:00.000Z"
+        }
+      ],
+      "options": {
+        "workspaceKey": "workspace:v1:fixture",
+        "agentId": "alpha",
+        "sessionKey": "agent:alpha:direct:fixture",
+        "participantNames": {
+          "user": "Nutzer",
+          "assistant": "alpha"
+        },
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:02:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            }
+          ]
+        },
+        "episodedTurnIds": [
+          "turn-0",
+          "turn-1",
+          "turn-2"
+        ]
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "allocatedIds": [
+        "00000000-0000-4000-8000-000000000004"
+      ],
+      "output": {
+        "episodes": [
+          {
+            "id": "00000000-0000-4000-8000-000000000004",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "3 Turns, 2 Min",
+            "startTime": "2026-11-08T12:00:00.000Z",
+            "endTime": "2026-11-08T12:02:00.000Z",
+            "durationMinutes": 2,
+            "participants": [
+              "Nutzer",
+              "alpha"
+            ],
+            "topics": [
+              "architecture",
+              "project"
+            ],
+            "memoryIds": [
+              "turn-0",
+              "turn-1",
+              "turn-2"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.30666666666666664,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 3,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            }
+          }
+        ],
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:02:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            }
+          ]
+        },
+        "continuedId": null,
+        "skippedEpisodedSpans": 1
+      }
+    },
+    {
+      "name": "all-known-without-open",
+      "turns": [
+        {
+          "id": "turn-0",
+          "role": "user",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:00:00.000Z"
+        },
+        {
+          "id": "turn-1",
+          "role": "assistant",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:01:00.000Z"
+        }
+      ],
+      "options": {
+        "workspaceKey": "workspace:v1:fixture",
+        "agentId": "alpha",
+        "sessionKey": "agent:alpha:direct:fixture",
+        "participantNames": {
+          "user": "Nutzer",
+          "assistant": "alpha"
+        },
+        "episodedTurnIds": [
+          "turn-0",
+          "turn-1"
+        ]
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "allocatedIds": [
+        "00000000-0000-4000-8000-000000000005"
+      ],
+      "output": {
+        "episodes": [
+          {
+            "id": "00000000-0000-4000-8000-000000000005",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "2 Turns, 1 Min",
+            "startTime": "2026-11-08T12:00:00.000Z",
+            "endTime": "2026-11-08T12:01:00.000Z",
+            "durationMinutes": 1,
+            "participants": [
+              "Nutzer",
+              "alpha"
+            ],
+            "topics": [
+              "architecture",
+              "project"
+            ],
+            "memoryIds": [
+              "turn-0",
+              "turn-1"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.30333333333333334,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 2,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            }
+          }
+        ],
+        "openEpisode": null,
+        "continuedId": null,
+        "skippedEpisodedSpans": 1
+      }
+    },
+    {
+      "name": "gap-0",
+      "turns": [
+        {
+          "id": "turn-3",
+          "role": "assistant",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:02:00.000Z"
+        }
+      ],
+      "options": {
+        "workspaceKey": "workspace:v1:fixture",
+        "agentId": "alpha",
+        "sessionKey": "agent:alpha:direct:fixture",
+        "participantNames": {
+          "user": "Nutzer",
+          "assistant": "alpha"
+        },
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:02:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            }
+          ]
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "allocatedIds": [
+        "00000000-0000-4000-8000-000000000006"
+      ],
+      "output": {
+        "episodes": [
+          {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "4 Turns, 2 Min",
+            "startTime": "2026-11-08T12:00:00.000Z",
+            "endTime": "2026-11-08T12:02:00.000Z",
+            "durationMinutes": 2,
+            "participants": [
+              "Nutzer",
+              "alpha"
+            ],
+            "topics": [
+              "architecture",
+              "project"
+            ],
+            "memoryIds": [
+              "turn-0",
+              "turn-1",
+              "turn-2",
+              "turn-3"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.30666666666666664,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 4,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            },
+            "continued": true,
+            "revision": 1
+          }
+        ],
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:02:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 1,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            },
+            {
+              "id": "turn-3",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            }
+          ]
+        },
+        "continuedId": "00000000-0000-4000-8000-000000000001",
+        "skippedEpisodedSpans": 0
+      }
+    },
+    {
+      "name": "gap-30",
+      "turns": [
+        {
+          "id": "turn-3",
+          "role": "assistant",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:32:00.000Z"
+        }
+      ],
+      "options": {
+        "workspaceKey": "workspace:v1:fixture",
+        "agentId": "alpha",
+        "sessionKey": "agent:alpha:direct:fixture",
+        "participantNames": {
+          "user": "Nutzer",
+          "assistant": "alpha"
+        },
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:02:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            }
+          ]
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "allocatedIds": [
+        "00000000-0000-4000-8000-000000000007"
+      ],
+      "output": {
+        "episodes": [
+          {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "4 Turns, 32 Min",
+            "startTime": "2026-11-08T12:00:00.000Z",
+            "endTime": "2026-11-08T12:32:00.000Z",
+            "durationMinutes": 32,
+            "participants": [
+              "Nutzer",
+              "alpha"
+            ],
+            "topics": [
+              "architecture",
+              "project"
+            ],
+            "memoryIds": [
+              "turn-0",
+              "turn-1",
+              "turn-2",
+              "turn-3"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.4066666666666667,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 4,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            },
+            "continued": true,
+            "revision": 1
+          }
+        ],
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:32:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 1,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            },
+            {
+              "id": "turn-3",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:32:00.000Z"
+            }
+          ]
+        },
+        "continuedId": "00000000-0000-4000-8000-000000000001",
+        "skippedEpisodedSpans": 0
+      }
+    },
+    {
+      "name": "gap-30.001",
+      "turns": [
+        {
+          "id": "turn-3",
+          "role": "assistant",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:32:00.060Z"
+        }
+      ],
+      "options": {
+        "workspaceKey": "workspace:v1:fixture",
+        "agentId": "alpha",
+        "sessionKey": "agent:alpha:direct:fixture",
+        "participantNames": {
+          "user": "Nutzer",
+          "assistant": "alpha"
+        },
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:02:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            }
+          ]
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "allocatedIds": [
+        "00000000-0000-4000-8000-000000000008"
+      ],
+      "output": {
+        "episodes": [
+          {
+            "id": "00000000-0000-4000-8000-000000000008",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "1 Turns, 0 Min",
+            "startTime": "2026-11-08T12:32:00.060Z",
+            "endTime": "2026-11-08T12:32:00.060Z",
+            "durationMinutes": 0,
+            "participants": [
+              "alpha"
+            ],
+            "topics": [],
+            "memoryIds": [
+              "turn-3"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.3002222291666667,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 1,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            }
+          }
+        ],
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000008",
+          "endTime": "2026-11-08T12:32:00.060Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": null,
+          "turns": [
+            {
+              "id": "turn-3",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:32:00.060Z"
+            }
+          ]
+        },
+        "continuedId": null,
+        "skippedEpisodedSpans": 0
+      }
+    },
+    {
+      "name": "gap--1",
+      "turns": [
+        {
+          "id": "turn-3",
+          "role": "assistant",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:01:00.000Z"
+        }
+      ],
+      "options": {
+        "workspaceKey": "workspace:v1:fixture",
+        "agentId": "alpha",
+        "sessionKey": "agent:alpha:direct:fixture",
+        "participantNames": {
+          "user": "Nutzer",
+          "assistant": "alpha"
+        },
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:02:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            }
+          ]
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "allocatedIds": [
+        "00000000-0000-4000-8000-000000000009"
+      ],
+      "output": {
+        "episodes": [
+          {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "4 Turns, 2 Min",
+            "startTime": "2026-11-08T12:00:00.000Z",
+            "endTime": "2026-11-08T12:02:00.000Z",
+            "durationMinutes": 2,
+            "participants": [
+              "Nutzer",
+              "alpha"
+            ],
+            "topics": [
+              "architecture",
+              "project"
+            ],
+            "memoryIds": [
+              "turn-0",
+              "turn-1",
+              "turn-3",
+              "turn-2"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.30666666666666664,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 4,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            },
+            "continued": true,
+            "revision": 1
+          }
+        ],
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:02:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 1,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-3",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            }
+          ]
+        },
+        "continuedId": "00000000-0000-4000-8000-000000000001",
+        "skippedEpisodedSpans": 0
+      }
+    },
+    {
+      "name": "gap--100",
+      "turns": [
+        {
+          "id": "turn-3",
+          "role": "assistant",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T10:22:00.000Z"
+        }
+      ],
+      "options": {
+        "workspaceKey": "workspace:v1:fixture",
+        "agentId": "alpha",
+        "sessionKey": "agent:alpha:direct:fixture",
+        "participantNames": {
+          "user": "Nutzer",
+          "assistant": "alpha"
+        },
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:02:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            }
+          ]
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "allocatedIds": [
+        "00000000-0000-4000-8000-000000000010",
+        "00000000-0000-4000-8000-000000000011"
+      ],
+      "output": {
+        "episodes": [
+          {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "1 Turns, 0 Min",
+            "startTime": "2026-11-08T10:22:00.000Z",
+            "endTime": "2026-11-08T10:22:00.000Z",
+            "durationMinutes": 0,
+            "participants": [
+              "alpha"
+            ],
+            "topics": [],
+            "memoryIds": [
+              "turn-3"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.2993194444444444,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 1,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            },
+            "continued": true,
+            "revision": 1
+          },
+          {
+            "id": "00000000-0000-4000-8000-000000000011",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "3 Turns, 2 Min",
+            "startTime": "2026-11-08T12:00:00.000Z",
+            "endTime": "2026-11-08T12:02:00.000Z",
+            "durationMinutes": 2,
+            "participants": [
+              "Nutzer",
+              "alpha"
+            ],
+            "topics": [
+              "architecture",
+              "project"
+            ],
+            "memoryIds": [
+              "turn-0",
+              "turn-1",
+              "turn-2"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.30666666666666664,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 3,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            }
+          }
+        ],
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000011",
+          "endTime": "2026-11-08T12:02:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": null,
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            }
+          ]
+        },
+        "continuedId": "00000000-0000-4000-8000-000000000001",
+        "skippedEpisodedSpans": 0
+      }
+    },
+    {
+      "name": "cap-1",
+      "turns": [
+        {
+          "id": "turn-3",
+          "role": "assistant",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:03:00.000Z"
+        },
+        {
+          "id": "turn-4",
+          "role": "user",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:04:00.000Z"
+        }
+      ],
+      "options": {
+        "workspaceKey": "workspace:v1:fixture",
+        "agentId": "alpha",
+        "sessionKey": "agent:alpha:direct:fixture",
+        "participantNames": {
+          "user": "Nutzer",
+          "assistant": "alpha"
+        },
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:02:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            }
+          ]
+        },
+        "maxEpisodeTurns": 1
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "allocatedIds": [
+        "00000000-0000-4000-8000-000000000012",
+        "00000000-0000-4000-8000-000000000013"
+      ],
+      "output": {
+        "episodes": [
+          {
+            "id": "00000000-0000-4000-8000-000000000012",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "1 Turns, 0 Min",
+            "startTime": "2026-11-08T12:03:00.000Z",
+            "endTime": "2026-11-08T12:03:00.000Z",
+            "durationMinutes": 0,
+            "participants": [
+              "alpha"
+            ],
+            "topics": [],
+            "memoryIds": [
+              "turn-3"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.30002083333333335,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 1,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            }
+          },
+          {
+            "id": "00000000-0000-4000-8000-000000000013",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "1 Turns, 0 Min",
+            "startTime": "2026-11-08T12:04:00.000Z",
+            "endTime": "2026-11-08T12:04:00.000Z",
+            "durationMinutes": 0,
+            "participants": [
+              "Nutzer"
+            ],
+            "topics": [],
+            "memoryIds": [
+              "turn-4"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.3000277777777777,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 1,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            }
+          }
+        ],
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000013",
+          "endTime": "2026-11-08T12:04:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": null,
+          "turns": [
+            {
+              "id": "turn-4",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:04:00.000Z"
+            }
+          ]
+        },
+        "continuedId": null,
+        "skippedEpisodedSpans": 0
+      }
+    },
+    {
+      "name": "cap-2",
+      "turns": [
+        {
+          "id": "turn-3",
+          "role": "assistant",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:03:00.000Z"
+        },
+        {
+          "id": "turn-4",
+          "role": "user",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:04:00.000Z"
+        }
+      ],
+      "options": {
+        "workspaceKey": "workspace:v1:fixture",
+        "agentId": "alpha",
+        "sessionKey": "agent:alpha:direct:fixture",
+        "participantNames": {
+          "user": "Nutzer",
+          "assistant": "alpha"
+        },
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:02:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            }
+          ]
+        },
+        "maxEpisodeTurns": 2
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "allocatedIds": [
+        "00000000-0000-4000-8000-000000000014"
+      ],
+      "output": {
+        "episodes": [
+          {
+            "id": "00000000-0000-4000-8000-000000000014",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "2 Turns, 1 Min",
+            "startTime": "2026-11-08T12:03:00.000Z",
+            "endTime": "2026-11-08T12:04:00.000Z",
+            "durationMinutes": 1,
+            "participants": [
+              "Nutzer",
+              "alpha"
+            ],
+            "topics": [
+              "architecture",
+              "project"
+            ],
+            "memoryIds": [
+              "turn-3",
+              "turn-4"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.3033541666666667,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 2,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            }
+          }
+        ],
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000014",
+          "endTime": "2026-11-08T12:04:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": null,
+          "turns": [
+            {
+              "id": "turn-3",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:03:00.000Z"
+            },
+            {
+              "id": "turn-4",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:04:00.000Z"
+            }
+          ]
+        },
+        "continuedId": null,
+        "skippedEpisodedSpans": 0
+      }
+    },
+    {
+      "name": "cap-3",
+      "turns": [
+        {
+          "id": "turn-3",
+          "role": "assistant",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:03:00.000Z"
+        },
+        {
+          "id": "turn-4",
+          "role": "user",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:04:00.000Z"
+        }
+      ],
+      "options": {
+        "workspaceKey": "workspace:v1:fixture",
+        "agentId": "alpha",
+        "sessionKey": "agent:alpha:direct:fixture",
+        "participantNames": {
+          "user": "Nutzer",
+          "assistant": "alpha"
+        },
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:02:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            }
+          ]
+        },
+        "maxEpisodeTurns": 3
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "allocatedIds": [
+        "00000000-0000-4000-8000-000000000015"
+      ],
+      "output": {
+        "episodes": [
+          {
+            "id": "00000000-0000-4000-8000-000000000015",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "2 Turns, 1 Min",
+            "startTime": "2026-11-08T12:03:00.000Z",
+            "endTime": "2026-11-08T12:04:00.000Z",
+            "durationMinutes": 1,
+            "participants": [
+              "Nutzer",
+              "alpha"
+            ],
+            "topics": [
+              "architecture",
+              "project"
+            ],
+            "memoryIds": [
+              "turn-3",
+              "turn-4"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.3033541666666667,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 2,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            }
+          }
+        ],
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000015",
+          "endTime": "2026-11-08T12:04:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": null,
+          "turns": [
+            {
+              "id": "turn-3",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:03:00.000Z"
+            },
+            {
+              "id": "turn-4",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:04:00.000Z"
+            }
+          ]
+        },
+        "continuedId": null,
+        "skippedEpisodedSpans": 0
+      }
+    },
+    {
+      "name": "cap-4",
+      "turns": [
+        {
+          "id": "turn-3",
+          "role": "assistant",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:03:00.000Z"
+        },
+        {
+          "id": "turn-4",
+          "role": "user",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:04:00.000Z"
+        }
+      ],
+      "options": {
+        "workspaceKey": "workspace:v1:fixture",
+        "agentId": "alpha",
+        "sessionKey": "agent:alpha:direct:fixture",
+        "participantNames": {
+          "user": "Nutzer",
+          "assistant": "alpha"
+        },
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:02:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            }
+          ]
+        },
+        "maxEpisodeTurns": 4
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "allocatedIds": [
+        "00000000-0000-4000-8000-000000000016",
+        "00000000-0000-4000-8000-000000000017"
+      ],
+      "output": {
+        "episodes": [
+          {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "4 Turns, 3 Min",
+            "startTime": "2026-11-08T12:00:00.000Z",
+            "endTime": "2026-11-08T12:03:00.000Z",
+            "durationMinutes": 3,
+            "participants": [
+              "Nutzer",
+              "alpha"
+            ],
+            "topics": [
+              "architecture",
+              "project"
+            ],
+            "memoryIds": [
+              "turn-0",
+              "turn-1",
+              "turn-2",
+              "turn-3"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.31,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 4,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            },
+            "continued": true,
+            "revision": 1
+          },
+          {
+            "id": "00000000-0000-4000-8000-000000000017",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "1 Turns, 0 Min",
+            "startTime": "2026-11-08T12:04:00.000Z",
+            "endTime": "2026-11-08T12:04:00.000Z",
+            "durationMinutes": 0,
+            "participants": [
+              "Nutzer"
+            ],
+            "topics": [],
+            "memoryIds": [
+              "turn-4"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.3000277777777777,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 1,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            }
+          }
+        ],
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000017",
+          "endTime": "2026-11-08T12:04:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": null,
+          "turns": [
+            {
+              "id": "turn-4",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:04:00.000Z"
+            }
+          ]
+        },
+        "continuedId": "00000000-0000-4000-8000-000000000001",
+        "skippedEpisodedSpans": 0
+      }
+    },
+    {
+      "name": "cap-50",
+      "turns": [
+        {
+          "id": "turn-3",
+          "role": "assistant",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:03:00.000Z"
+        },
+        {
+          "id": "turn-4",
+          "role": "user",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:04:00.000Z"
+        }
+      ],
+      "options": {
+        "workspaceKey": "workspace:v1:fixture",
+        "agentId": "alpha",
+        "sessionKey": "agent:alpha:direct:fixture",
+        "participantNames": {
+          "user": "Nutzer",
+          "assistant": "alpha"
+        },
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:02:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            }
+          ]
+        },
+        "maxEpisodeTurns": 50
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "allocatedIds": [
+        "00000000-0000-4000-8000-000000000018"
+      ],
+      "output": {
+        "episodes": [
+          {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "5 Turns, 4 Min",
+            "startTime": "2026-11-08T12:00:00.000Z",
+            "endTime": "2026-11-08T12:04:00.000Z",
+            "durationMinutes": 4,
+            "participants": [
+              "Nutzer",
+              "alpha"
+            ],
+            "topics": [
+              "architecture",
+              "project"
+            ],
+            "memoryIds": [
+              "turn-0",
+              "turn-1",
+              "turn-2",
+              "turn-3",
+              "turn-4"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.3133333333333333,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 5,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            },
+            "continued": true,
+            "revision": 1
+          }
+        ],
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:04:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 1,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            },
+            {
+              "id": "turn-3",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:03:00.000Z"
+            },
+            {
+              "id": "turn-4",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:04:00.000Z"
+            }
+          ]
+        },
+        "continuedId": "00000000-0000-4000-8000-000000000001",
+        "skippedEpisodedSpans": 0
+      }
+    },
+    {
+      "name": "known-last-preserves-old-open",
+      "turns": [
+        {
+          "id": "turn-3",
+          "role": "assistant",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:03:00.000Z"
+        },
+        {
+          "id": "turn-0",
+          "role": "user",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T13:40:00.000Z"
+        }
+      ],
+      "options": {
+        "workspaceKey": "workspace:v1:fixture",
+        "agentId": "alpha",
+        "sessionKey": "agent:alpha:direct:fixture",
+        "participantNames": {
+          "user": "Nutzer",
+          "assistant": "alpha"
+        },
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:02:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            }
+          ]
+        },
+        "episodedTurnIds": [
+          "turn-0"
+        ],
+        "maxGapMinutes": 30
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "allocatedIds": [
+        "00000000-0000-4000-8000-000000000019"
+      ],
+      "output": {
+        "episodes": [
+          {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "4 Turns, 3 Min",
+            "startTime": "2026-11-08T12:00:00.000Z",
+            "endTime": "2026-11-08T12:03:00.000Z",
+            "durationMinutes": 3,
+            "participants": [
+              "Nutzer",
+              "alpha"
+            ],
+            "topics": [
+              "architecture",
+              "project"
+            ],
+            "memoryIds": [
+              "turn-0",
+              "turn-1",
+              "turn-2",
+              "turn-3"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.31,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 4,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            },
+            "continued": true,
+            "revision": 1
+          }
+        ],
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:03:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 1,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            },
+            {
+              "id": "turn-3",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:03:00.000Z"
+            }
+          ]
+        },
+        "continuedId": "00000000-0000-4000-8000-000000000001",
+        "skippedEpisodedSpans": 0
+      }
+    },
+    {
+      "name": "known-last-without-open",
+      "turns": [
+        {
+          "id": "turn-3",
+          "role": "assistant",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:03:00.000Z"
+        },
+        {
+          "id": "turn-0",
+          "role": "user",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T13:40:00.000Z"
+        }
+      ],
+      "options": {
+        "workspaceKey": "workspace:v1:fixture",
+        "agentId": "alpha",
+        "sessionKey": "agent:alpha:direct:fixture",
+        "participantNames": {
+          "user": "Nutzer",
+          "assistant": "alpha"
+        },
+        "episodedTurnIds": [
+          "turn-0"
+        ]
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "allocatedIds": [
+        "00000000-0000-4000-8000-000000000020",
+        "00000000-0000-4000-8000-000000000021"
+      ],
+      "output": {
+        "episodes": [
+          {
+            "id": "00000000-0000-4000-8000-000000000020",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "1 Turns, 0 Min",
+            "startTime": "2026-11-08T12:03:00.000Z",
+            "endTime": "2026-11-08T12:03:00.000Z",
+            "durationMinutes": 0,
+            "participants": [
+              "alpha"
+            ],
+            "topics": [],
+            "memoryIds": [
+              "turn-3"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.30002083333333335,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 1,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            }
+          },
+          {
+            "id": "00000000-0000-4000-8000-000000000021",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "1 Turns, 0 Min",
+            "startTime": "2026-11-08T13:40:00.000Z",
+            "endTime": "2026-11-08T13:40:00.000Z",
+            "durationMinutes": 0,
+            "participants": [
+              "Nutzer"
+            ],
+            "topics": [],
+            "memoryIds": [
+              "turn-0"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.30069444444444443,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 1,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            }
+          }
+        ],
+        "openEpisode": null,
+        "continuedId": null,
+        "skippedEpisodedSpans": 1
+      }
+    },
+    {
+      "name": "snapshot-utf16",
+      "turns": [
+        {
+          "id": "turn-3",
+          "role": "assistant",
+          "content": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx🚀",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:03:00.000Z"
+        },
+        {
+          "id": "turn-4",
+          "role": "user",
+          "content": "opaque \ud800",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:04:00.000Z"
+        }
+      ],
+      "options": {
+        "workspaceKey": "workspace:v1:fixture",
+        "agentId": "alpha",
+        "sessionKey": "agent:alpha:direct:fixture",
+        "participantNames": {
+          "user": "Nutzer",
+          "assistant": "alpha"
+        },
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:02:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            }
+          ]
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "allocatedIds": [
+        "00000000-0000-4000-8000-000000000022"
+      ],
+      "output": {
+        "episodes": [
+          {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "5 Turns, 4 Min",
+            "startTime": "2026-11-08T12:00:00.000Z",
+            "endTime": "2026-11-08T12:04:00.000Z",
+            "durationMinutes": 4,
+            "participants": [
+              "Nutzer",
+              "alpha"
+            ],
+            "topics": [
+              "architecture",
+              "project"
+            ],
+            "memoryIds": [
+              "turn-0",
+              "turn-1",
+              "turn-2",
+              "turn-3",
+              "turn-4"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.3133333333333333,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 5,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            },
+            "continued": true,
+            "revision": 1
+          }
+        ],
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:04:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 1,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            },
+            {
+              "id": "turn-3",
+              "role": "assistant",
+              "content": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\ud83d",
+              "createdAt": "2026-11-08T12:03:00.000Z"
+            },
+            {
+              "id": "turn-4",
+              "role": "user",
+              "content": "opaque \ud800",
+              "createdAt": "2026-11-08T12:04:00.000Z"
+            }
+          ]
+        },
+        "continuedId": "00000000-0000-4000-8000-000000000001",
+        "skippedEpisodedSpans": 0
+      }
+    },
+    {
+      "name": "revision-0",
+      "turns": [
+        {
+          "id": "turn-3",
+          "role": "assistant",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:03:00.000Z"
+        }
+      ],
+      "options": {
+        "workspaceKey": "workspace:v1:fixture",
+        "agentId": "alpha",
+        "sessionKey": "agent:alpha:direct:fixture",
+        "participantNames": {
+          "user": "Nutzer",
+          "assistant": "alpha"
+        },
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:02:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            }
+          ]
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "allocatedIds": [
+        "00000000-0000-4000-8000-000000000023"
+      ],
+      "output": {
+        "episodes": [
+          {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "4 Turns, 3 Min",
+            "startTime": "2026-11-08T12:00:00.000Z",
+            "endTime": "2026-11-08T12:03:00.000Z",
+            "durationMinutes": 3,
+            "participants": [
+              "Nutzer",
+              "alpha"
+            ],
+            "topics": [
+              "architecture",
+              "project"
+            ],
+            "memoryIds": [
+              "turn-0",
+              "turn-1",
+              "turn-2",
+              "turn-3"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.31,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 4,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            },
+            "continued": true,
+            "revision": 1
+          }
+        ],
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:03:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 1,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            },
+            {
+              "id": "turn-3",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:03:00.000Z"
+            }
+          ]
+        },
+        "continuedId": "00000000-0000-4000-8000-000000000001",
+        "skippedEpisodedSpans": 0
+      }
+    },
+    {
+      "name": "revision-3",
+      "turns": [
+        {
+          "id": "turn-3",
+          "role": "assistant",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:03:00.000Z"
+        }
+      ],
+      "options": {
+        "workspaceKey": "workspace:v1:fixture",
+        "agentId": "alpha",
+        "sessionKey": "agent:alpha:direct:fixture",
+        "participantNames": {
+          "user": "Nutzer",
+          "assistant": "alpha"
+        },
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:02:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 3,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            }
+          ]
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "allocatedIds": [
+        "00000000-0000-4000-8000-000000000024"
+      ],
+      "output": {
+        "episodes": [
+          {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "4 Turns, 3 Min",
+            "startTime": "2026-11-08T12:00:00.000Z",
+            "endTime": "2026-11-08T12:03:00.000Z",
+            "durationMinutes": 3,
+            "participants": [
+              "Nutzer",
+              "alpha"
+            ],
+            "topics": [
+              "architecture",
+              "project"
+            ],
+            "memoryIds": [
+              "turn-0",
+              "turn-1",
+              "turn-2",
+              "turn-3"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.31,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 4,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            },
+            "continued": true,
+            "revision": 4
+          }
+        ],
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:03:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 4,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            },
+            {
+              "id": "turn-3",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:03:00.000Z"
+            }
+          ]
+        },
+        "continuedId": "00000000-0000-4000-8000-000000000001",
+        "skippedEpisodedSpans": 0
+      }
+    },
+    {
+      "name": "revision-2.5",
+      "turns": [
+        {
+          "id": "turn-3",
+          "role": "assistant",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:03:00.000Z"
+        }
+      ],
+      "options": {
+        "workspaceKey": "workspace:v1:fixture",
+        "agentId": "alpha",
+        "sessionKey": "agent:alpha:direct:fixture",
+        "participantNames": {
+          "user": "Nutzer",
+          "assistant": "alpha"
+        },
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:02:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": "2.5",
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            }
+          ]
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "allocatedIds": [
+        "00000000-0000-4000-8000-000000000025"
+      ],
+      "output": {
+        "episodes": [
+          {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "4 Turns, 3 Min",
+            "startTime": "2026-11-08T12:00:00.000Z",
+            "endTime": "2026-11-08T12:03:00.000Z",
+            "durationMinutes": 3,
+            "participants": [
+              "Nutzer",
+              "alpha"
+            ],
+            "topics": [
+              "architecture",
+              "project"
+            ],
+            "memoryIds": [
+              "turn-0",
+              "turn-1",
+              "turn-2",
+              "turn-3"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.31,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 4,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            },
+            "continued": true,
+            "revision": 3.5
+          }
+        ],
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:03:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 3.5,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            },
+            {
+              "id": "turn-3",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:03:00.000Z"
+            }
+          ]
+        },
+        "continuedId": "00000000-0000-4000-8000-000000000001",
+        "skippedEpisodedSpans": 0
+      }
+    },
+    {
+      "name": "revision-invalid",
+      "turns": [
+        {
+          "id": "turn-3",
+          "role": "assistant",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:03:00.000Z"
+        }
+      ],
+      "options": {
+        "workspaceKey": "workspace:v1:fixture",
+        "agentId": "alpha",
+        "sessionKey": "agent:alpha:direct:fixture",
+        "participantNames": {
+          "user": "Nutzer",
+          "assistant": "alpha"
+        },
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:02:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": "invalid",
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            }
+          ]
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "allocatedIds": [
+        "00000000-0000-4000-8000-000000000026"
+      ],
+      "output": {
+        "episodes": [
+          {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "4 Turns, 3 Min",
+            "startTime": "2026-11-08T12:00:00.000Z",
+            "endTime": "2026-11-08T12:03:00.000Z",
+            "durationMinutes": 3,
+            "participants": [
+              "Nutzer",
+              "alpha"
+            ],
+            "topics": [
+              "architecture",
+              "project"
+            ],
+            "memoryIds": [
+              "turn-0",
+              "turn-1",
+              "turn-2",
+              "turn-3"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.31,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 4,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            },
+            "continued": true,
+            "revision": 1
+          }
+        ],
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:03:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 1,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            },
+            {
+              "id": "turn-3",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:03:00.000Z"
+            }
+          ]
+        },
+        "continuedId": "00000000-0000-4000-8000-000000000001",
+        "skippedEpisodedSpans": 0
+      }
+    },
+    {
+      "name": "revision--1",
+      "turns": [
+        {
+          "id": "turn-3",
+          "role": "assistant",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:03:00.000Z"
+        }
+      ],
+      "options": {
+        "workspaceKey": "workspace:v1:fixture",
+        "agentId": "alpha",
+        "sessionKey": "agent:alpha:direct:fixture",
+        "participantNames": {
+          "user": "Nutzer",
+          "assistant": "alpha"
+        },
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:02:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": -1,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            }
+          ]
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "allocatedIds": [
+        "00000000-0000-4000-8000-000000000027"
+      ],
+      "output": {
+        "episodes": [
+          {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "4 Turns, 3 Min",
+            "startTime": "2026-11-08T12:00:00.000Z",
+            "endTime": "2026-11-08T12:03:00.000Z",
+            "durationMinutes": 3,
+            "participants": [
+              "Nutzer",
+              "alpha"
+            ],
+            "topics": [
+              "architecture",
+              "project"
+            ],
+            "memoryIds": [
+              "turn-0",
+              "turn-1",
+              "turn-2",
+              "turn-3"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.31,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 4,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            },
+            "continued": true,
+            "revision": 0
+          }
+        ],
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:03:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            },
+            {
+              "id": "turn-3",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:03:00.000Z"
+            }
+          ]
+        },
+        "continuedId": "00000000-0000-4000-8000-000000000001",
+        "skippedEpisodedSpans": 0
+      }
+    },
+    {
+      "name": "missing-open-25",
+      "turns": [
+        {
+          "id": "turn-3",
+          "role": "assistant",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:03:00.000Z"
+        }
+      ],
+      "options": {
+        "workspaceKey": "workspace:v1:fixture",
+        "agentId": "alpha",
+        "sessionKey": "agent:alpha:direct:fixture",
+        "participantNames": {
+          "user": "Nutzer",
+          "assistant": "alpha"
+        },
+        "openEpisode": null
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "allocatedIds": [
+        "00000000-0000-4000-8000-000000000028"
+      ],
+      "output": {
+        "episodes": [
+          {
+            "id": "00000000-0000-4000-8000-000000000028",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "1 Turns, 0 Min",
+            "startTime": "2026-11-08T12:03:00.000Z",
+            "endTime": "2026-11-08T12:03:00.000Z",
+            "durationMinutes": 0,
+            "participants": [
+              "alpha"
+            ],
+            "topics": [],
+            "memoryIds": [
+              "turn-3"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.30002083333333335,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 1,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            }
+          }
+        ],
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000028",
+          "endTime": "2026-11-08T12:03:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": null,
+          "turns": [
+            {
+              "id": "turn-3",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:03:00.000Z"
+            }
+          ]
+        },
+        "continuedId": null,
+        "skippedEpisodedSpans": 0
+      }
+    },
+    {
+      "name": "missing-open-26",
+      "turns": [
+        {
+          "id": "turn-3",
+          "role": "assistant",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:03:00.000Z"
+        }
+      ],
+      "options": {
+        "workspaceKey": "workspace:v1:fixture",
+        "agentId": "alpha",
+        "sessionKey": "agent:alpha:direct:fixture",
+        "participantNames": {
+          "user": "Nutzer",
+          "assistant": "alpha"
+        },
+        "openEpisode": {}
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "allocatedIds": [
+        "00000000-0000-4000-8000-000000000029"
+      ],
+      "output": {
+        "episodes": [
+          {
+            "id": "00000000-0000-4000-8000-000000000029",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "1 Turns, 0 Min",
+            "startTime": "2026-11-08T12:03:00.000Z",
+            "endTime": "2026-11-08T12:03:00.000Z",
+            "durationMinutes": 0,
+            "participants": [
+              "alpha"
+            ],
+            "topics": [],
+            "memoryIds": [
+              "turn-3"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.30002083333333335,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 1,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            }
+          }
+        ],
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000029",
+          "endTime": "2026-11-08T12:03:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": null,
+          "turns": [
+            {
+              "id": "turn-3",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:03:00.000Z"
+            }
+          ]
+        },
+        "continuedId": null,
+        "skippedEpisodedSpans": 0
+      }
+    },
+    {
+      "name": "missing-open-27",
+      "turns": [
+        {
+          "id": "turn-3",
+          "role": "assistant",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:03:00.000Z"
+        }
+      ],
+      "options": {
+        "workspaceKey": "workspace:v1:fixture",
+        "agentId": "alpha",
+        "sessionKey": "agent:alpha:direct:fixture",
+        "participantNames": {
+          "user": "Nutzer",
+          "assistant": "alpha"
+        },
+        "openEpisode": {
+          "turns": []
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "allocatedIds": [
+        "00000000-0000-4000-8000-000000000030"
+      ],
+      "output": {
+        "episodes": [
+          {
+            "id": "00000000-0000-4000-8000-000000000030",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "1 Turns, 0 Min",
+            "startTime": "2026-11-08T12:03:00.000Z",
+            "endTime": "2026-11-08T12:03:00.000Z",
+            "durationMinutes": 0,
+            "participants": [
+              "alpha"
+            ],
+            "topics": [],
+            "memoryIds": [
+              "turn-3"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.30002083333333335,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 1,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            }
+          }
+        ],
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000030",
+          "endTime": "2026-11-08T12:03:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": null,
+          "turns": [
+            {
+              "id": "turn-3",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:03:00.000Z"
+            }
+          ]
+        },
+        "continuedId": null,
+        "skippedEpisodedSpans": 0
+      }
+    },
+    {
+      "name": "fifty-turn-cap-continues-then-opens-new",
+      "turns": [
+        {
+          "id": "turn-49",
+          "role": "assistant",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:04:54.000Z"
+        },
+        {
+          "id": "turn-50",
+          "role": "user",
+          "content": "Architecture project fact",
+          "workspaceKey": "workspace:v1:fixture",
+          "agentId": "alpha",
+          "createdAt": "2026-11-08T12:05:00.000Z"
+        }
+      ],
+      "options": {
+        "workspaceKey": "workspace:v1:fixture",
+        "agentId": "alpha",
+        "sessionKey": "agent:alpha:direct:fixture",
+        "participantNames": {
+          "user": "Nutzer",
+          "assistant": "alpha"
+        },
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "endTime": "2026-11-08T12:04:48.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": "fixture/episode.md",
+          "turns": [
+            {
+              "id": "turn-0",
+              "role": "user",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:00:00.000Z"
+            },
+            {
+              "id": "turn-1",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:00:06.000Z"
+            },
+            {
+              "id": "turn-2",
+              "role": "user",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:00:12.000Z"
+            },
+            {
+              "id": "turn-3",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:00:18.000Z"
+            },
+            {
+              "id": "turn-4",
+              "role": "user",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:00:24.000Z"
+            },
+            {
+              "id": "turn-5",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:00:30.000Z"
+            },
+            {
+              "id": "turn-6",
+              "role": "user",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:00:36.000Z"
+            },
+            {
+              "id": "turn-7",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:00:42.000Z"
+            },
+            {
+              "id": "turn-8",
+              "role": "user",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:00:48.000Z"
+            },
+            {
+              "id": "turn-9",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:00:54.000Z"
+            },
+            {
+              "id": "turn-10",
+              "role": "user",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:01:00.000Z"
+            },
+            {
+              "id": "turn-11",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:01:06.000Z"
+            },
+            {
+              "id": "turn-12",
+              "role": "user",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:01:12.000Z"
+            },
+            {
+              "id": "turn-13",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:01:18.000Z"
+            },
+            {
+              "id": "turn-14",
+              "role": "user",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:01:24.000Z"
+            },
+            {
+              "id": "turn-15",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:01:30.000Z"
+            },
+            {
+              "id": "turn-16",
+              "role": "user",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:01:36.000Z"
+            },
+            {
+              "id": "turn-17",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:01:42.000Z"
+            },
+            {
+              "id": "turn-18",
+              "role": "user",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:01:48.000Z"
+            },
+            {
+              "id": "turn-19",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:01:54.000Z"
+            },
+            {
+              "id": "turn-20",
+              "role": "user",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:02:00.000Z"
+            },
+            {
+              "id": "turn-21",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:02:06.000Z"
+            },
+            {
+              "id": "turn-22",
+              "role": "user",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:02:12.000Z"
+            },
+            {
+              "id": "turn-23",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:02:18.000Z"
+            },
+            {
+              "id": "turn-24",
+              "role": "user",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:02:24.000Z"
+            },
+            {
+              "id": "turn-25",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:02:30.000Z"
+            },
+            {
+              "id": "turn-26",
+              "role": "user",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:02:36.000Z"
+            },
+            {
+              "id": "turn-27",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:02:42.000Z"
+            },
+            {
+              "id": "turn-28",
+              "role": "user",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:02:48.000Z"
+            },
+            {
+              "id": "turn-29",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:02:54.000Z"
+            },
+            {
+              "id": "turn-30",
+              "role": "user",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:03:00.000Z"
+            },
+            {
+              "id": "turn-31",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:03:06.000Z"
+            },
+            {
+              "id": "turn-32",
+              "role": "user",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:03:12.000Z"
+            },
+            {
+              "id": "turn-33",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:03:18.000Z"
+            },
+            {
+              "id": "turn-34",
+              "role": "user",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:03:24.000Z"
+            },
+            {
+              "id": "turn-35",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:03:30.000Z"
+            },
+            {
+              "id": "turn-36",
+              "role": "user",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:03:36.000Z"
+            },
+            {
+              "id": "turn-37",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:03:42.000Z"
+            },
+            {
+              "id": "turn-38",
+              "role": "user",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:03:48.000Z"
+            },
+            {
+              "id": "turn-39",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:03:54.000Z"
+            },
+            {
+              "id": "turn-40",
+              "role": "user",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:04:00.000Z"
+            },
+            {
+              "id": "turn-41",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:04:06.000Z"
+            },
+            {
+              "id": "turn-42",
+              "role": "user",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:04:12.000Z"
+            },
+            {
+              "id": "turn-43",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:04:18.000Z"
+            },
+            {
+              "id": "turn-44",
+              "role": "user",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:04:24.000Z"
+            },
+            {
+              "id": "turn-45",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:04:30.000Z"
+            },
+            {
+              "id": "turn-46",
+              "role": "user",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:04:36.000Z"
+            },
+            {
+              "id": "turn-47",
+              "role": "assistant",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:04:42.000Z"
+            },
+            {
+              "id": "turn-48",
+              "role": "user",
+              "content": "Architecture project fact",
+              "workspaceKey": "workspace:v1:fixture",
+              "agentId": "alpha",
+              "createdAt": "2026-11-08T12:04:48.000Z"
+            }
+          ]
+        }
+      },
+      "now": "2026-11-08T12:00:00.000Z",
+      "allocatedIds": [
+        "00000000-0000-4000-8000-000000000031",
+        "00000000-0000-4000-8000-000000000032"
+      ],
+      "output": {
+        "episodes": [
+          {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "50 Turns, 5 Min",
+            "startTime": "2026-11-08T12:00:00.000Z",
+            "endTime": "2026-11-08T12:04:54.000Z",
+            "durationMinutes": 5,
+            "participants": [
+              "Nutzer",
+              "alpha"
+            ],
+            "topics": [
+              "architecture",
+              "project"
+            ],
+            "memoryIds": [
+              "turn-0",
+              "turn-1",
+              "turn-2",
+              "turn-3",
+              "turn-4",
+              "turn-5",
+              "turn-6",
+              "turn-7",
+              "turn-8",
+              "turn-9",
+              "turn-10",
+              "turn-11",
+              "turn-12",
+              "turn-13",
+              "turn-14",
+              "turn-15",
+              "turn-16",
+              "turn-17",
+              "turn-18",
+              "turn-19",
+              "turn-20",
+              "turn-21",
+              "turn-22",
+              "turn-23",
+              "turn-24",
+              "turn-25",
+              "turn-26",
+              "turn-27",
+              "turn-28",
+              "turn-29",
+              "turn-30",
+              "turn-31",
+              "turn-32",
+              "turn-33",
+              "turn-34",
+              "turn-35",
+              "turn-36",
+              "turn-37",
+              "turn-38",
+              "turn-39",
+              "turn-40",
+              "turn-41",
+              "turn-42",
+              "turn-43",
+              "turn-44",
+              "turn-45",
+              "turn-46",
+              "turn-47",
+              "turn-48",
+              "turn-49"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.31666666666666665,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 50,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            },
+            "continued": true,
+            "revision": 1
+          },
+          {
+            "id": "00000000-0000-4000-8000-000000000032",
+            "mentioned": [],
+            "voiceSpeakers": [],
+            "workspaceKey": "workspace:v1:fixture",
+            "agentId": "alpha",
+            "title": "Gespräch vom 2026-11-08",
+            "summary": "1 Turns, 0 Min",
+            "startTime": "2026-11-08T12:05:00.000Z",
+            "endTime": "2026-11-08T12:05:00.000Z",
+            "durationMinutes": 0,
+            "participants": [
+              "Nutzer"
+            ],
+            "topics": [],
+            "memoryIds": [
+              "turn-50"
+            ],
+            "emotionalTone": {
+              "joy": 0,
+              "trust": 0,
+              "anticipation": 0,
+              "sadness": 0,
+              "anger": 0,
+              "fear": 0,
+              "surprise": 0
+            },
+            "emotionalDominant": "neutral",
+            "emotionalIntensity": 0,
+            "location": "dm",
+            "importance": 0.6,
+            "narrativeArc": "exploration",
+            "turningPoint": "",
+            "vividness": 0.3000347222222222,
+            "replayCount": 0,
+            "lastReplayed": null,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "turnCount": 1,
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": ""
+            }
+          }
+        ],
+        "openEpisode": {
+          "id": "00000000-0000-4000-8000-000000000032",
+          "endTime": "2026-11-08T12:05:00.000Z",
+          "createdAt": "2026-11-08T12:00:00.000Z",
+          "revision": 0,
+          "vaultPath": null,
+          "turns": [
+            {
+              "id": "turn-50",
+              "role": "user",
+              "content": "Architecture project fact",
+              "createdAt": "2026-11-08T12:05:00.000Z"
+            }
+          ]
+        },
+        "continuedId": "00000000-0000-4000-8000-000000000001",
+        "skippedEpisodedSpans": 0
+      }
+    }
+  ]
+}

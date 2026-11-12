@@ -97,8 +97,10 @@ fn hashes(root: &Path) -> BTreeMap<String, String> {
 
 fn opts() -> RestoreOpts {
     RestoreOpts {
+        force: false,
         dry_run: false,
         fail_at: None,
+        keep: None,
     }
 }
 
@@ -166,13 +168,24 @@ fn a_backup_restores_to_identical_files_in_a_fresh_home() {
             "{path} differs after the round trip"
         );
     }
-    // Nothing was restored that the source did not have.
+    // A fresh home gains only the three empty permanent lock inodes needed to fence
+    // later writers. They are runtime metadata, never archive payload or holder rows.
+    let fences = [
+        "run/engine.process.lock",
+        "run/supervisor.lock",
+        "state/core.lock",
+    ];
+    for fence in fences {
+        assert_eq!(fs::read(b.home.join(fence)).unwrap(), b"", "{fence}");
+    }
+    // Nothing else was restored that the source did not have.
     let extra: Vec<&String> = restored
         .keys()
         .filter(|k| {
             !original.contains_key(*k)
                 && !k.starts_with("state/lancedb/")
                 && !k.starts_with("state/budget")
+                && !fences.contains(&k.as_str())
         })
         .collect();
     assert!(extra.is_empty(), "{extra:?}");

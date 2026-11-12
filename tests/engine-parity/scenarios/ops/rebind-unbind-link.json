@@ -1,0 +1,300 @@
+{
+  "schema": "engine-parity.scenario/1",
+  "store": "store-v1",
+  "config": {},
+  "seams": {
+    "embedder": "flat",
+    "reranker": "none",
+    "llm": "none",
+    "clock": 1768305600000
+  },
+  "steps": [
+    {
+      "op": "memory.rebind",
+      "args": {
+        "req": {
+          "agentId": "a1",
+          "fromIdentity": {
+            "channel": "telegram",
+            "identityKey": "synthetic-channel-user",
+            "accountId": "fixture"
+          },
+          "toUser": "synthetic-harness-user"
+        },
+        "p": {
+          "agentId": "a1",
+          "workspace": "workspace:v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "channel": "telegram",
+          "accountId": "fixture",
+          "chat": {
+            "id": "parity-direct",
+            "kind": "direct"
+          },
+          "trust": "inferred"
+        },
+        "a": {
+          "origin": "system",
+          "background": false
+        }
+      },
+      "expect": "golden",
+      "tolerance": "default"
+    },
+    {
+      "op": "memory.unbind",
+      "args": {
+        "req": {
+          "rebindId": "synthetic-unknown-rebind",
+          "dryRun": true
+        },
+        "p": {
+          "agentId": "a1",
+          "workspace": "workspace:v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "channel": "telegram",
+          "accountId": "fixture",
+          "chat": {
+            "id": "parity-direct",
+            "kind": "direct"
+          },
+          "trust": "inferred"
+        },
+        "a": {
+          "origin": "system",
+          "background": false
+        }
+      },
+      "expect": {
+        "error": {
+          "code": "invalid-input"
+        }
+      },
+      "tolerance": "default"
+    },
+    {
+      "op": "memory.unbind",
+      "args": {
+        "req": {
+          "rebindId": "00000000-0000-4000-8000-0000000000aa",
+          "dryRun": true
+        },
+        "p": {
+          "agentId": "a1",
+          "workspace": "workspace:v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "channel": "telegram",
+          "accountId": "fixture",
+          "chat": {
+            "id": "parity-direct",
+            "kind": "direct"
+          },
+          "trust": "inferred"
+        },
+        "a": {
+          "origin": "system",
+          "background": false
+        }
+      },
+      "expect": {
+        "error": {
+          "code": "not-found"
+        }
+      },
+      "tolerance": "default"
+    },
+    {
+      "op": "memory.unbind",
+      "args": {
+        "req": {
+          "rebindId": "00000000-0000-4000-8000-0000000000aa"
+        },
+        "p": {
+          "agentId": "a1",
+          "workspace": "workspace:v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "channel": "telegram",
+          "accountId": "fixture",
+          "chat": {
+            "id": "parity-direct",
+            "kind": "direct"
+          },
+          "trust": "inferred"
+        },
+        "a": {
+          "origin": "system",
+          "background": false
+        }
+      },
+      "expect": {
+        "error": {
+          "code": "not-found"
+        }
+      },
+      "tolerance": "default"
+    },
+    {
+      "op": "memory.link",
+      "args": {
+        "id": "00000000-0000-4000-8000-0000000000ff",
+        "req": {
+          "sourceRef": "fixture:source;run=run-1",
+          "provenance": "imported"
+        },
+        "p": {
+          "agentId": "a1",
+          "workspace": "workspace:v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "channel": "telegram",
+          "accountId": "fixture",
+          "chat": {
+            "id": "parity-direct",
+            "kind": "direct"
+          },
+          "trust": "inferred"
+        },
+        "a": {
+          "origin": "system",
+          "background": false
+        }
+      },
+      "expect": {
+        "error": {
+          "code": "not-found"
+        }
+      },
+      "tolerance": "default"
+    },
+    {
+      "op": "memory.link",
+      "args": {
+        "id": "00000000-0000-4000-8000-000000000003",
+        "req": {
+          "sourceRef": "fixture:source;run=run-1",
+          "provenance": "imported",
+          "dryRun": true
+        },
+        "p": {
+          "agentId": "a1",
+          "workspace": "workspace:v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "channel": "telegram",
+          "accountId": "fixture",
+          "chat": {
+            "id": "parity-direct",
+            "kind": "direct"
+          },
+          "trust": "inferred"
+        },
+        "a": {
+          "origin": "system",
+          "background": false
+        }
+      },
+      "expect": "golden",
+      "tolerance": "default"
+    },
+    {
+      "op": "memory.link",
+      "args": {
+        "id": "00000000-0000-4000-8000-000000000003",
+        "req": {
+          "sourceRef": "fixture:source;run=run-1",
+          "provenance": "imported"
+        },
+        "p": {
+          "agentId": "a1",
+          "workspace": "workspace:v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "channel": "telegram",
+          "accountId": "fixture",
+          "chat": {
+            "id": "parity-direct",
+            "kind": "direct"
+          },
+          "trust": "inferred"
+        },
+        "a": {
+          "origin": "system",
+          "background": false
+        }
+      },
+      "expect": "golden",
+      "tolerance": "default"
+    },
+    {
+      "op": "memory.link",
+      "args": {
+        "id": "00000000-0000-4000-8000-000000000003",
+        "req": {
+          "sourceRef": "fixture:source;run=run-1",
+          "provenance": "imported"
+        },
+        "p": {
+          "agentId": "a1",
+          "workspace": "workspace:v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "channel": "telegram",
+          "accountId": "fixture",
+          "chat": {
+            "id": "parity-direct",
+            "kind": "direct"
+          },
+          "trust": "inferred"
+        },
+        "a": {
+          "origin": "system",
+          "background": false
+        }
+      },
+      "expect": "golden",
+      "tolerance": "default"
+    },
+    {
+      "op": "memory.link",
+      "args": {
+        "id": "00000000-0000-4000-8000-000000000003",
+        "req": {
+          "sourceRef": "  ",
+          "provenance": "imported"
+        },
+        "p": {
+          "agentId": "a1",
+          "workspace": "workspace:v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "channel": "telegram",
+          "accountId": "fixture",
+          "chat": {
+            "id": "parity-direct",
+            "kind": "direct"
+          },
+          "trust": "inferred"
+        },
+        "a": {
+          "origin": "system",
+          "background": false
+        }
+      },
+      "expect": {
+        "error": {
+          "code": "invalid-input"
+        }
+      },
+      "tolerance": "default"
+    },
+    {
+      "op": "memory.show",
+      "args": {
+        "id": "00000000-0000-4000-8000-000000000003",
+        "p": {
+          "agentId": "a1",
+          "workspace": "workspace:v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "channel": "telegram",
+          "accountId": "fixture",
+          "chat": {
+            "id": "parity-direct",
+            "kind": "direct"
+          },
+          "trust": "inferred"
+        },
+        "a": {
+          "origin": "system",
+          "background": false
+        }
+      },
+      "expect": "golden",
+      "tolerance": "default"
+    }
+  ]
+}

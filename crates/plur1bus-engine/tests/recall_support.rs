@@ -33,15 +33,24 @@ pub struct TestHost {
     config: EngineConfig,
     workspaces: Mutex<BTreeMap<String, PathBuf>>,
     platform: PlatformCapabilities,
+    pub events: Mutex<Vec<Value>>,
+    pub time: std::sync::atomic::AtomicI64,
 }
 
 impl TestHost {
+    pub fn with_config(mut self, config: EngineConfig) -> Self {
+        self.config = config;
+        self
+    }
+
     pub fn new(state_dir: PathBuf) -> Self {
         Self {
             state_dir,
             config: serde_json::from_value(json!({})).unwrap(),
             workspaces: Mutex::new(BTreeMap::new()),
             platform: PlatformCapabilities::default(),
+            events: Mutex::new(Vec::new()),
+            time: std::sync::atomic::AtomicI64::new(0),
         }
     }
 
@@ -83,10 +92,15 @@ impl HostServices for TestHost {
         self
     }
 
-    fn emit(&self, _event: &str, _payload: Value) {}
+    fn emit(&self, event: &str, payload: Value) {
+        self.events
+            .lock()
+            .unwrap()
+            .push(json!({"name":event,"payload":payload}));
+    }
 
     fn now_ms(&self) -> i64 {
-        0
+        self.time.load(std::sync::atomic::Ordering::SeqCst)
     }
 
     fn platform(&self) -> &PlatformCapabilities {

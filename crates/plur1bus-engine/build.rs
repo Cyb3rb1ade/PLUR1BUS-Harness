@@ -239,6 +239,42 @@ fn install_field(root: &mut Value, path: &str, schema: Value) {
     }
 }
 
+// Typify reuses field-name-derived enum names across tagged oneOf branches. The
+// capture Inline branch must not inherit the reranker's incompatible feature/reason
+// enums. This changes only the Rust projection, never the frozen contract schema.
+fn separate_capture_diagnostic_enums(root: &mut Value) {
+    let Some(definitions) = root["definitions"].as_object_mut() else {
+        return;
+    };
+    let Some(mut diagnostic) = definitions.get("PerCallDiagnostic").cloned() else {
+        return;
+    };
+    let union = if diagnostic.get("oneOf").is_some() {
+        "oneOf"
+    } else {
+        "anyOf"
+    };
+    let Some(branches) = diagnostic[union].as_array_mut() else {
+        return;
+    };
+    for branch in branches {
+        if branch["properties"]["fallback"]["enum"] != serde_json::json!(["inline"]) {
+            continue;
+        }
+        for (field, name) in [
+            ("feature", "CaptureInlineFeature"),
+            ("reason", "CaptureInlineReason"),
+        ] {
+            let mut schema = branch["properties"][field].clone();
+            schema["title"] = Value::String(name.to_owned());
+            definitions.insert(name.to_owned(), schema);
+            branch["properties"][field] =
+                serde_json::json!({"$ref": format!("#/definitions/{name}")});
+        }
+    }
+    definitions.insert("PerCallDiagnostic".to_owned(), diagnostic);
+}
+
 fn generate(mut root: Value, config: bool, output: &str) {
     if let Some(defs) = root.as_object_mut().expect("schema object").remove("$defs") {
         root["definitions"] = defs;
@@ -257,6 +293,9 @@ fn generate(mut root: Value, config: bool, output: &str) {
         })
         .unwrap_or_default();
     prepare(&mut root, config);
+    if !config {
+        separate_capture_diagnostic_enums(&mut root);
+    }
     let definitions = root["definitions"].as_object().cloned().unwrap_or_default();
     let root_title = root["title"].as_str().expect("schema title").to_owned();
     let mut all_definitions = definitions.clone();
@@ -367,6 +406,7 @@ fn main() {
         "build.rs",
         "schema/engine-contract.schema.json",
         "schema/engine-config.schema.json",
+        "schema/native-neo-n1.schema.json",
         "schema/DRIFT.json",
         "schema/input-limits.json",
     ] {
@@ -412,6 +452,12 @@ fn main() {
                 issue["runtimeSchema"].clone(),
             );
         }
+    }
+    for (name, field) in read("schema/native-neo-n1.schema.json")["properties"]
+        .as_object()
+        .expect("N1 native Neo fields")
+    {
+        install_field(&mut config, &format!("neo.{name}"), field.clone());
     }
     generate(config, true, "engine_config.rs");
     let limits = read("schema/input-limits.json");

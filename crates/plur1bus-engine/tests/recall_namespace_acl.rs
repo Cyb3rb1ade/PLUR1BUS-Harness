@@ -392,6 +392,8 @@ fn pipeline<'a>(
         reranker,
         workspace_dir: None,
         edges: &[],
+        bound_graph: None,
+        tombstones: None,
         cancel,
         limits: StageLimits {
             top_n: 4,
@@ -512,3 +514,6 @@ fn vector() -> Vec<f32> {
     vector[0] = 1.0;
     vector
 }
+
+#[path = "support/recall_bound_graph.rs"]
+mod bound_graph;

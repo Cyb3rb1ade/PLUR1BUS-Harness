@@ -1,0 +1,25 @@
+{
+  "ruling": "RE-D38",
+  "goldenSha256": "0edc75ee0c0c3b27a0b7c63b040d84851b8d69d85338848890e02d6047068a26",
+  "cases": {
+    "manifest-provider-conflict": {
+      "reason": "A matching generation manifest cannot attest the different active provider.",
+      "result": {
+        "verdict": "incompatible",
+        "dryRun": true,
+        "storeSchema": {
+          "current": "1",
+          "expected": "1"
+        },
+        "identity": {
+          "fingerprintId": "different",
+          "provider": "local-transformers",
+          "model": "synthetic",
+          "dimensions": 4
+        },
+        "identitySource": "manifest",
+        "reason": "identity-mismatch"
+      }
+    }
+  }
+}

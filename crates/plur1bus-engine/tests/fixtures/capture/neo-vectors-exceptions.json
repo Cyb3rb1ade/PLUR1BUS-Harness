@@ -1,0 +1,66 @@
+{
+  "decision": "RE-D58 / RX Ruling 4 / D130",
+  "nodeGoldenSha256": "b0f2a46ae19e057e5691c6819838a43b779a265b44ba769162e4c1cce0471d75",
+  "reason": "Sidecar vectors follow the winning metadata revision physical source. Invalid manifests, indexed missing/truncated files and non-finite stored vectors fail explicitly. Metadata projection never gains an enumerable synthetic embedding.",
+  "cases": {
+    "legacy-origin": {
+      "output": [
+        {
+          "metadata": {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000000
+          },
+          "embedding": [
+            1,
+            2,
+            3
+          ]
+        }
+      ]
+    },
+    "legacy-newest": {
+      "output": [
+        {
+          "metadata": {
+            "id": "a",
+            "agentId": "alpha",
+            "origin": {
+              "scope": "agent_private"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "agentId": "alpha"
+            },
+            "createdAt": 1700000000000,
+            "updatedAt": 1700000000001
+          },
+          "embedding": [
+            1,
+            2,
+            3
+          ]
+        }
+      ]
+    },
+    "missing-file": {
+      "error": "Corrupt"
+    },
+    "truncated": {
+      "error": "Corrupt"
+    },
+    "non-finite": {
+      "error": "Corrupt"
+    },
+    "invalid-index": {
+      "error": "Corrupt"
+    }
+  }
+}

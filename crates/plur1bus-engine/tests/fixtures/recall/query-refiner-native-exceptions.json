@@ -1,0 +1,61 @@
+{
+  "exception": "RE-D151",
+  "source": {
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "path": "lib/query-refiner.js",
+    "sha256": "136e4aa6b2408bffbe6a02791b118818abb5ae4e1c3a25d1565b27373453c389"
+  },
+  "node": {
+    "version": "v24.21.0"
+  },
+  "cases": [
+    {
+      "input": "Constructor setup",
+      "node": {
+        "expandQuery": "Constructor setup function Object() { [native code] } Installation",
+        "refineQuery": "Constructor setup function Object() { [native code] } Installation"
+      },
+      "native": {
+        "expandQuery": "Constructor setup Installation",
+        "refineQuery": "Constructor setup Installation"
+      },
+      "reason": "inherited Object.prototype member through SYNONYM_MAP[w.toLowerCase()]; native: a word without a synonym"
+    },
+    {
+      "input": "the constructor pattern",
+      "node": {
+        "expandQuery": "the constructor pattern function Object() { [native code] }",
+        "refineQuery": "constructor pattern function Object() { [native code] }"
+      },
+      "native": {
+        "expandQuery": "the constructor pattern",
+        "refineQuery": "constructor pattern"
+      },
+      "reason": "inherited Object.prototype member through SYNONYM_MAP[w.toLowerCase()]; native: a word without a synonym"
+    },
+    {
+      "input": "CONSTRUCTOR",
+      "node": {
+        "expandQuery": "CONSTRUCTOR function Object() { [native code] }",
+        "refineQuery": "CONSTRUCTOR function Object() { [native code] }"
+      },
+      "native": {
+        "expandQuery": "CONSTRUCTOR",
+        "refineQuery": "CONSTRUCTOR"
+      },
+      "reason": "inherited Object.prototype member through SYNONYM_MAP[w.toLowerCase()]; native: a word without a synonym"
+    },
+    {
+      "input": "constructor docker",
+      "node": {
+        "expandQuery": "constructor docker function Object() { [native code] } Container",
+        "refineQuery": "constructor docker function Object() { [native code] } Container"
+      },
+      "native": {
+        "expandQuery": "constructor docker Container",
+        "refineQuery": "constructor docker Container"
+      },
+      "reason": "inherited Object.prototype member through SYNONYM_MAP[w.toLowerCase()]; native: a word without a synonym"
+    }
+  ]
+}

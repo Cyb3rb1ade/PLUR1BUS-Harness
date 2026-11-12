@@ -17,6 +17,23 @@ use super::lifeline::{Lifeline, Watch};
 use super::methods::{self, WireError};
 use crate::contract::{AgentId, AgentStoreHandle, Cancel, CaptureHandle, CaptureResult, Engine};
 
+use crate::contract::{MaintenanceGrant, MaintenanceMethod, MaintenanceOps};
+use crate::contract::{SnapshotGrant, SnapshotMethod, SnapshotOps};
+
+/// Proof created only after this adapter has authenticated the actual Core link.
+pub(crate) struct AuthenticatedCoreLink {
+    instance: String,
+    cancellation: Cancel,
+}
+impl AuthenticatedCoreLink {
+    pub(crate) fn instance(&self) -> &str {
+        &self.instance
+    }
+    pub(crate) fn cancellation(&self) -> &Cancel {
+        &self.cancellation
+    }
+}
+
 const TICK: Duration = Duration::from_millis(25);
 const MAX_CONNECTIONS: usize = 64;
 const MAX_IN_FLIGHT: usize = 8;
@@ -67,6 +84,8 @@ fn epoch_ms() -> u64 {
 #[derive(Default)]
 pub(super) struct ServerOptions {
     pub(super) permission_denied_accept: bool,
+    pub(super) maintenance: Option<Arc<dyn MaintenanceOps>>,
+    pub(super) snapshots: Option<Arc<dyn SnapshotOps>>,
     #[cfg(test)]
     pub(super) accept_errors: usize,
     #[cfg(test)]
@@ -206,6 +225,7 @@ struct Connection {
     closer: Arc<dyn Fn() + Send + Sync>,
     cancel: Cancel,
     authenticated: AtomicBool,
+    peer_pid: Option<u32>,
     agents: Mutex<HashMap<String, Vec<AgentStoreHandle>>>,
 }
 
@@ -368,6 +388,8 @@ impl Connection {
 
 struct Shared {
     engine: Arc<dyn Engine>,
+    maintenance: Option<Arc<dyn MaintenanceOps>>,
+    snapshots: Option<Arc<dyn SnapshotOps>>,
     home: std::path::PathBuf,
     token: String,
     instance: String,
@@ -523,12 +545,70 @@ impl Shared {
         }
     }
 
+    /// Core can bootstrap its EngineClient before publishing its PID file. Check the
+    /// authenticated socket's actual peer at every maintenance or snapshot call.
+    fn core_instance(&self, connection: &Connection) -> Result<uuid::Uuid, WireError> {
+        connection
+            .peer_pid
+            .and_then(|pid| super::host_client::core_instance_for_peer(&self.home, pid))
+            .ok_or_else(|| unauthorized("core-link-required"))
+    }
+
+    /// Invalid parameters for a snapshot method: the Core link is checked first (anyone else
+    /// is refused without an audit line), then the refusal is audited and answered as invalid.
+    fn refuse_snapshot(&self, connection: &Connection, method: SnapshotMethod) -> WireError {
+        let instance = match self.core_instance(connection) {
+            Ok(instance) => instance,
+            Err(error) => return error,
+        };
+        let Some(port) = self.snapshots.as_deref() else {
+            return WireError::not_available();
+        };
+        // A stopping server starts no audit step, like every other call after the stop.
+        if self.stopping.load(Ordering::Acquire) {
+            return WireError::not_available();
+        }
+        let link = AuthenticatedCoreLink {
+            instance: format!("{instance}:{}", connection.id),
+            cancellation: connection.cancel.clone(),
+        };
+        let grant = SnapshotGrant::from_authenticated_core_link(&link);
+        methods::refuse_snapshot(port, method, &grant, &connection.cancel)
+    }
+
     fn call(
         &self,
         connection: &Arc<Connection>,
         method: &str,
         params: &Value,
     ) -> Result<Value, WireError> {
+        if let Some(method) = MaintenanceMethod::from_wire(method) {
+            let instance = self.core_instance(connection)?;
+            let port = self
+                .maintenance
+                .as_deref()
+                .ok_or_else(WireError::not_available)?;
+            let link = AuthenticatedCoreLink {
+                instance: format!("{instance}:{}", connection.id),
+                cancellation: connection.cancel.clone(),
+            };
+            let grant = MaintenanceGrant::from_authenticated_core_link(&link);
+            return methods::dispatch_maintenance(port, method, params, &grant, &connection.cancel);
+        }
+        if let Some(method) = SnapshotMethod::from_wire(method) {
+            // RE-D170: the same per-call peer binding, a separate grant and allowlist.
+            let instance = self.core_instance(connection)?;
+            let port = self
+                .snapshots
+                .as_deref()
+                .ok_or_else(WireError::not_available)?;
+            let link = AuthenticatedCoreLink {
+                instance: format!("{instance}:{}", connection.id),
+                cancellation: connection.cancel.clone(),
+            };
+            let grant = SnapshotGrant::from_authenticated_core_link(&link);
+            return methods::dispatch_snapshot(port, method, params, &grant, &connection.cancel);
+        }
         match method {
             "engine.status" => Ok(self.status()),
             "engine.shutdown" => Ok(json!({})),
@@ -646,6 +726,7 @@ fn reap(workers: &mut Vec<JoinHandle<()>>) {
 
 fn connection_loop(state: &Arc<Shared>, accepted: Accepted, id: u64) {
     let _ = accepted.set_read_timeout(Some(Duration::from_secs(30)));
+    let peer_pid = accepted.peer_pid();
     let (outbound, notifications) = std::sync::mpsc::sync_channel(MAX_OUTBOUND_FRAMES);
     let connection = Arc::new(Connection {
         id,
@@ -656,6 +737,7 @@ fn connection_loop(state: &Arc<Shared>, accepted: Accepted, id: u64) {
         closer: accepted.closer,
         cancel: Cancel::never(),
         authenticated: AtomicBool::new(false),
+        peer_pid,
         agents: Mutex::new(HashMap::new()),
     });
     let notification_connection = Arc::downgrade(&connection);
@@ -727,7 +809,12 @@ fn connection_loop(state: &Arc<Shared>, accepted: Accepted, id: u64) {
             continue;
         };
         if !validator.is_valid(&params) {
-            connection.reply(request_id, Err(WireError::invalid_params()));
+            // RE-D170: a refused create/reapply of the Core link is audited as invalid.
+            let refusal = match SnapshotMethod::from_wire(method) {
+                Some(snapshot) if authenticated => state.refuse_snapshot(&connection, snapshot),
+                _ => WireError::invalid_params(),
+            };
+            connection.reply(request_id, Err(refusal));
             if !authenticated {
                 break;
             }
@@ -913,7 +1000,43 @@ pub fn serve(
     layout: &EngineLayout,
     lifeline: Lifeline,
 ) -> Result<(), ServeError> {
-    let mut options = ServerOptions::default();
+    serve_configured(engine, layout, lifeline, None, None)
+}
+
+/// Bind the existing wire methods to a separate native maintenance service.
+pub fn serve_with_maintenance(
+    engine: Arc<dyn Engine>,
+    layout: &EngineLayout,
+    lifeline: Lifeline,
+    maintenance: Arc<dyn MaintenanceOps>,
+) -> Result<(), ServeError> {
+    serve_configured(engine, layout, lifeline, Some(maintenance), None)
+}
+
+/// Bind the existing wire methods to the separate native maintenance (F7) and snapshot
+/// (F9, RE-D170) services.
+pub fn serve_with_ports(
+    engine: Arc<dyn Engine>,
+    layout: &EngineLayout,
+    lifeline: Lifeline,
+    maintenance: Arc<dyn MaintenanceOps>,
+    snapshots: Arc<dyn SnapshotOps>,
+) -> Result<(), ServeError> {
+    serve_configured(engine, layout, lifeline, Some(maintenance), Some(snapshots))
+}
+
+fn serve_configured(
+    engine: Arc<dyn Engine>,
+    layout: &EngineLayout,
+    lifeline: Lifeline,
+    maintenance: Option<Arc<dyn MaintenanceOps>>,
+    snapshots: Option<Arc<dyn SnapshotOps>>,
+) -> Result<(), ServeError> {
+    let mut options = ServerOptions {
+        maintenance,
+        snapshots,
+        ..ServerOptions::default()
+    };
     if super::seams::permission_denied_accept_from_env()
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "engine test seam refused"))?
     {
@@ -950,6 +1073,8 @@ pub(super) fn serve_with_options(
         .inspect_err(|error| diagnostics::failure(Stage::Startup, error))?;
     let state = Arc::new(Shared {
         engine,
+        maintenance: options.maintenance.clone(),
+        snapshots: options.snapshots.clone(),
         home: layout.home.clone(),
         token: layout.token().into(),
         instance: layout.instance_id.clone(),

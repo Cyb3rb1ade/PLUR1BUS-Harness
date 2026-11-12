@@ -1,7 +1,7 @@
 // Tests fail immediately on invalid fixtures or failed cleanup; no unchecked values reach production.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use plur1bus_engine::embedding::{Cancel, EmbedKind, EmbeddingProvider};
+use plur1bus_engine::embedding::{seam::FlatEmbedder, Cancel, EmbedKind, EmbeddingProvider};
 use plur1bus_engine::rpc::seams::{from_env, parse, Seam, SeamError};
 use std::{
     process::Command,
@@ -41,6 +41,7 @@ fn environment_reader_fixture() {
         "absent" => assert_eq!(from_env().unwrap(), None),
         "flat" => assert_eq!(from_env().unwrap(), Some(Seam::FlatEmbedder)),
         "cold" => assert_eq!(from_env().unwrap(), Some(Seam::FlatEmbedderCold)),
+        "hash" => assert_eq!(from_env().unwrap(), Some(Seam::HashEmbedder)),
         "denied" => assert!(from_env()
             .unwrap_err()
             .to_string()
@@ -61,12 +62,18 @@ fn only_known_variants_are_enabled_with_the_explicit_allow_flag() {
     env_case(None, None, "absent");
     env_case(Some("flat-embedder"), Some("1"), "flat");
     env_case(Some("flat-embedder-cold"), Some("1"), "cold");
+    env_case(Some("hash-embedder"), Some("1"), "hash");
     env_case(Some("unknown-private-value"), Some("1"), "unknown");
 }
 
 #[test]
 fn flat_embedder_cold_delays_the_first_two_query_embeds_one_at_a_time() {
-    let provider = Arc::new(Seam::FlatEmbedderCold.embedder(3));
+    let fixture = FlatEmbedder::new(3, false);
+    let provider = Arc::new(
+        Seam::FlatEmbedderCold
+            .embedder(3, fixture.identity())
+            .unwrap(),
+    );
     let passage_start = Instant::now();
     assert_eq!(
         provider

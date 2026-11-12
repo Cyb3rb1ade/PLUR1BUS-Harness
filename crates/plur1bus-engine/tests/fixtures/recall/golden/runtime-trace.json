@@ -1,0 +1,843 @@
+{
+  "recordedFrom": {
+    "source": {
+      "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+      "sha256": {
+        "lib/recall-decision-trace.js": "cee6208fa0a91654adae11ccd17c3b44e86c84fdf9b30c1addfa1d299c96711d"
+      }
+    },
+    "node": "v24.21.0"
+  },
+  "inputs": [
+    "",
+    "short",
+    "alpha beta gamma",
+    "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "😀😀😀",
+    "a\u0001b\t c d",
+    "é🤖word next",
+    "﻿trim this "
+  ],
+  "limits": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    7,
+    12,
+    160
+  ],
+  "expected": [
+    [
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      []
+    ],
+    [
+      [
+        115,
+        8230
+      ],
+      [
+        115,
+        104,
+        8230
+      ],
+      [
+        115,
+        104,
+        111,
+        8230
+      ],
+      [
+        115,
+        104,
+        111,
+        114,
+        8230
+      ],
+      [
+        115,
+        104,
+        111,
+        114,
+        116
+      ],
+      [
+        115,
+        104,
+        111,
+        114,
+        116
+      ],
+      [
+        115,
+        104,
+        111,
+        114,
+        116
+      ],
+      [
+        115,
+        104,
+        111,
+        114,
+        116
+      ]
+    ],
+    [
+      [
+        97,
+        8230
+      ],
+      [
+        97,
+        108,
+        8230
+      ],
+      [
+        97,
+        108,
+        112,
+        8230
+      ],
+      [
+        97,
+        108,
+        112,
+        104,
+        8230
+      ],
+      [
+        97,
+        108,
+        112,
+        104,
+        97,
+        8230
+      ],
+      [
+        97,
+        108,
+        112,
+        104,
+        97,
+        8230
+      ],
+      [
+        97,
+        108,
+        112,
+        104,
+        97,
+        32,
+        98,
+        101,
+        116,
+        97,
+        8230
+      ],
+      [
+        97,
+        108,
+        112,
+        104,
+        97,
+        32,
+        98,
+        101,
+        116,
+        97,
+        32,
+        103,
+        97,
+        109,
+        109,
+        97
+      ]
+    ],
+    [
+      [
+        120,
+        8230
+      ],
+      [
+        120,
+        120,
+        8230
+      ],
+      [
+        120,
+        120,
+        120,
+        8230
+      ],
+      [
+        120,
+        120,
+        120,
+        120,
+        8230
+      ],
+      [
+        120,
+        120,
+        120,
+        120,
+        120,
+        8230
+      ],
+      [
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        8230
+      ],
+      [
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        8230
+      ],
+      [
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        120,
+        8230
+      ]
+    ],
+    [
+      [
+        55357,
+        8230
+      ],
+      [
+        55357,
+        56832,
+        8230
+      ],
+      [
+        55357,
+        56832,
+        55357,
+        8230
+      ],
+      [
+        55357,
+        56832,
+        55357,
+        56832,
+        8230
+      ],
+      [
+        55357,
+        56832,
+        55357,
+        56832,
+        55357,
+        8230
+      ],
+      [
+        55357,
+        56832,
+        55357,
+        56832,
+        55357,
+        56832
+      ],
+      [
+        55357,
+        56832,
+        55357,
+        56832,
+        55357,
+        56832
+      ],
+      [
+        55357,
+        56832,
+        55357,
+        56832,
+        55357,
+        56832
+      ]
+    ],
+    [
+      [
+        97,
+        8230
+      ],
+      [
+        97,
+        8230
+      ],
+      [
+        97,
+        32,
+        98,
+        8230
+      ],
+      [
+        97,
+        32,
+        98,
+        8230
+      ],
+      [
+        97,
+        32,
+        98,
+        32,
+        99,
+        8230
+      ],
+      [
+        97,
+        32,
+        98,
+        32,
+        99,
+        32,
+        100
+      ],
+      [
+        97,
+        32,
+        98,
+        32,
+        99,
+        32,
+        100
+      ],
+      [
+        97,
+        32,
+        98,
+        32,
+        99,
+        32,
+        100
+      ]
+    ],
+    [
+      [
+        233,
+        8230
+      ],
+      [
+        233,
+        55358,
+        8230
+      ],
+      [
+        233,
+        55358,
+        56598,
+        8230
+      ],
+      [
+        233,
+        55358,
+        56598,
+        119,
+        8230
+      ],
+      [
+        233,
+        55358,
+        56598,
+        119,
+        111,
+        8230
+      ],
+      [
+        233,
+        55358,
+        56598,
+        119,
+        111,
+        114,
+        100,
+        8230
+      ],
+      [
+        233,
+        55358,
+        56598,
+        119,
+        111,
+        114,
+        100,
+        32,
+        110,
+        101,
+        120,
+        116
+      ],
+      [
+        233,
+        55358,
+        56598,
+        119,
+        111,
+        114,
+        100,
+        32,
+        110,
+        101,
+        120,
+        116
+      ]
+    ],
+    [
+      [
+        116,
+        8230
+      ],
+      [
+        116,
+        114,
+        8230
+      ],
+      [
+        116,
+        114,
+        105,
+        8230
+      ],
+      [
+        116,
+        114,
+        105,
+        109,
+        8230
+      ],
+      [
+        116,
+        114,
+        105,
+        109,
+        8230
+      ],
+      [
+        116,
+        114,
+        105,
+        109,
+        8230
+      ],
+      [
+        116,
+        114,
+        105,
+        109,
+        32,
+        116,
+        104,
+        105,
+        115
+      ],
+      [
+        116,
+        114,
+        105,
+        109,
+        32,
+        116,
+        104,
+        105,
+        115
+      ]
+    ]
+  ],
+  "config": {
+    "maxCandidates": 2,
+    "maxDecisions": 2,
+    "maxGuards": 1,
+    "maxStoreDecisions": 1,
+    "maxTextPreviewChars": 12
+  },
+  "streams": {
+    "candidates": [
+      {
+        "id": "id-0",
+        "source": "vector",
+        "category": "general",
+        "status": "active",
+        "preview": "alpha beta gamma delta",
+        "score": 0.25,
+        "vectorScore": 0.125,
+        "namespace": "private-1"
+      },
+      {
+        "id": "id-1",
+        "source": "vector",
+        "category": "general",
+        "status": "active",
+        "preview": "alpha beta gamma delta",
+        "score": 0.25,
+        "vectorScore": 0.125,
+        "namespace": "private-1"
+      },
+      {
+        "id": "id-2",
+        "source": "vector",
+        "category": "general",
+        "status": "active",
+        "preview": "alpha beta gamma delta",
+        "score": 0.25,
+        "vectorScore": 0.125,
+        "namespace": "private-1"
+      }
+    ],
+    "decisions": [
+      {
+        "memoryId": "id-0",
+        "action": "rejection",
+        "stage": "acl",
+        "reason": "synthetic denied"
+      },
+      {
+        "memoryId": "id-1",
+        "action": "inclusion",
+        "stage": "rerank",
+        "reason": "synthetic included"
+      },
+      {
+        "memoryId": "id-2",
+        "action": "deduped",
+        "stage": "dedup",
+        "reason": "synthetic duplicate"
+      }
+    ],
+    "guards": [
+      {
+        "name": "old",
+        "passed": true
+      },
+      {
+        "name": "soft-budget",
+        "passed": false,
+        "reason": "soft_budget_fallback"
+      }
+    ],
+    "storeDecisions": [
+      {
+        "memoryId": "old",
+        "action": "stored"
+      },
+      {
+        "memoryId": "new",
+        "action": "rejected",
+        "reason": "synthetic denied"
+      }
+    ]
+  },
+  "trace": {
+    "query": {
+      "text": "alpha beta…"
+    },
+    "config": {
+      "maxCandidates": 2,
+      "maxTextPreviewChars": 12,
+      "maxDecisions": 2,
+      "maxGuards": 1,
+      "maxStoreDecisions": 1
+    },
+    "candidates": [
+      {
+        "id": "id-1",
+        "source": "vector",
+        "category": "general",
+        "status": "active",
+        "preview": "alpha beta…",
+        "score": 0.25,
+        "vectorScore": 0.125,
+        "namespace": "private-1"
+      },
+      {
+        "id": "id-2",
+        "source": "vector",
+        "category": "general",
+        "status": "active",
+        "preview": "alpha beta…",
+        "score": 0.25,
+        "vectorScore": 0.125,
+        "namespace": "private-1"
+      }
+    ],
+    "decisions": [
+      {
+        "memoryId": "id-1",
+        "action": "inclusion",
+        "stage": "rerank",
+        "reason": "synthetic…"
+      },
+      {
+        "memoryId": "id-2",
+        "action": "deduped",
+        "stage": "dedup",
+        "reason": "synthetic…"
+      }
+    ],
+    "guards": [
+      {
+        "name": "soft-budget",
+        "passed": false,
+        "reason": "soft_budget_…"
+      }
+    ],
+    "storeDecisions": [
+      {
+        "memoryId": "new",
+        "action": "rejected",
+        "reason": "synthetic…"
+      }
+    ],
+    "summary": {
+      "totalCandidates": 2,
+      "included": 1,
+      "rejected": 0,
+      "downranked": 0,
+      "superseded": 0,
+      "deduped": 1,
+      "merged": 0,
+      "guardPass": 0,
+      "guardFail": 1,
+      "storeAccepted": 0,
+      "storeRejected": 1
+    }
+  },
+  "markers": [
+    {
+      "marker": "redact-probe-vault-alpha /+\"",
+      "forms": [
+        "redact-probe-vault-alpha /+\"",
+        "Bearer redact-probe-vault-alpha /+\"",
+        "redact-probe-vault-alpha%20%2F%2B%22",
+        "redact-probe-vault-alpha /+\\\"",
+        "cmVkYWN0LXByb2JlLXZhdWx0LWFscGhhIC8rIg==",
+        "cmVkYWN0LXByb2JlLXZhdWx0LWFscGhhIC8rIg"
+      ]
+    },
+    {
+      "marker": "redact-probe-provider-alpha /+\"",
+      "forms": [
+        "redact-probe-provider-alpha /+\"",
+        "Bearer redact-probe-provider-alpha /+\"",
+        "redact-probe-provider-alpha%20%2F%2B%22",
+        "redact-probe-provider-alpha /+\\\"",
+        "cmVkYWN0LXByb2JlLXByb3ZpZGVyLWFscGhhIC8rIg==",
+        "cmVkYWN0LXByb2JlLXByb3ZpZGVyLWFscGhhIC8rIg"
+      ]
+    },
+    {
+      "marker": "redact-probe-channel-alpha /+\"",
+      "forms": [
+        "redact-probe-channel-alpha /+\"",
+        "Bearer redact-probe-channel-alpha /+\"",
+        "redact-probe-channel-alpha%20%2F%2B%22",
+        "redact-probe-channel-alpha /+\\\"",
+        "cmVkYWN0LXByb2JlLWNoYW5uZWwtYWxwaGEgLysi"
+      ]
+    },
+    {
+      "marker": "redact-probe-mcp-alpha /+\"",
+      "forms": [
+        "redact-probe-mcp-alpha /+\"",
+        "Bearer redact-probe-mcp-alpha /+\"",
+        "redact-probe-mcp-alpha%20%2F%2B%22",
+        "redact-probe-mcp-alpha /+\\\"",
+        "cmVkYWN0LXByb2JlLW1jcC1hbHBoYSAvKyI=",
+        "cmVkYWN0LXByb2JlLW1jcC1hbHBoYSAvKyI"
+      ]
+    },
+    {
+      "marker": "redact-probe-import-alpha /+\"",
+      "forms": [
+        "redact-probe-import-alpha /+\"",
+        "Bearer redact-probe-import-alpha /+\"",
+        "redact-probe-import-alpha%20%2F%2B%22",
+        "redact-probe-import-alpha /+\\\"",
+        "cmVkYWN0LXByb2JlLWltcG9ydC1hbHBoYSAvKyI=",
+        "cmVkYWN0LXByb2JlLWltcG9ydC1hbHBoYSAvKyI"
+      ]
+    }
+  ]
+}

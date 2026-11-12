@@ -1,0 +1,19 @@
+{
+  "decision": "RE-D135 / S4 / D130",
+  "metadataCommit": "b097045b6f115275baa8b15016321c3ba080c812",
+  "metadataGoldenSha256": "33e8caabe57d1469ad04623b0fd3ddfc39251b6fb85e44763d8e6274bdd50e81",
+  "renderCommit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+  "renderGoldenSha256": "a169d71712ac7c3f179b29ff23eba8ac3726e9e09bcef8bddc8b8964c52e2dff",
+  "referenceBinding": "Existing neo_merged and recall_render suites exercise the unchanged actual Node reference files. New synthetic real-file/Lance/runtime integration tests verify the composition, not a newly claimed Node recording.",
+  "differences": [
+    "Reuse existing RE-D57 neo-merged-exceptions: latest revision before visibility, no resurrection and expanding tails.",
+    "Require the original canonical request and physical root; no requester-free native source.",
+    "Skip records containing duplicate JSON keys or unrepresentable UTF-16 before serde projection; source files remain untouched.",
+    "A configured source replaces caller pattern snapshots, propagates ordinary source errors and never falls back. Cancelled/soft-budget optional reads and disabled patterns are omitted."
+  ],
+  "boundaries": [
+    "Uses the Node assembler readPatterns limit of 100 after ACL/latest selection.",
+    "No new Node golden, new model, wire/frozen trait/dependency change or ProcessEngine activation.",
+    "Metadata snapshots are not atomic transactions with Lance or independent writers."
+  ]
+}

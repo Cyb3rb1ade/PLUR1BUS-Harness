@@ -27,6 +27,9 @@ impl<'a> CohereReranker<'a> {
     }
 }
 impl Reranker for CohereReranker<'_> {
+    fn model_selections(&self) -> Vec<crate::embedding::model_selection::ModelSelection> {
+        self.0.model_selections()
+    }
     fn invalidate_egress(&self) {
         self.0.invalidate_egress();
     }

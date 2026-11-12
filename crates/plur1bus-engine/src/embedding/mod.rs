@@ -15,6 +15,18 @@ pub use crate::contract::{
 
 /// Canonical vector-space identity and batched query/passage embeddings.
 pub trait EmbeddingProvider: Send + Sync {
+    /// Describe the constructed model without inference, preparation or transport calls.
+    /// Custom providers without artifact metadata remain explicitly unresolved.
+    fn model_selection(&self) -> model_selection::ModelSelection {
+        model_selection::ModelSelection {
+            provider: self.identity().provider.clone(),
+            model: Some(self.identity().model.clone()),
+            revision: None,
+            dtype: None,
+            role: model_selection::ModelRole::Embedding,
+            location: model_selection::ModelLocation::Unresolved,
+        }
+    }
     /// Identity of every vector returned by this provider.
     fn identity(&self) -> &VectorSpaceIdentity;
     /// Embed a batch with the purpose-specific instruction and cancellation budget.
@@ -31,6 +43,18 @@ pub trait EmbeddingProvider: Send + Sync {
 
 /// Document reranking with a shared caller cancellation budget.
 pub trait Reranker: Send + Sync {
+    /// Describe the constructed primary/fallback chain without contacting providers.
+    /// Unknown custom providers are visible as unresolved rather than silently omitted.
+    fn model_selections(&self) -> Vec<model_selection::ModelSelection> {
+        vec![model_selection::ModelSelection {
+            provider: "unknown".into(),
+            model: None,
+            revision: None,
+            dtype: None,
+            role: model_selection::ModelRole::Reranker,
+            location: model_selection::ModelLocation::Unresolved,
+        }]
+    }
     /// Return document indices and finite scores, ordered best first.
     fn rerank(
         &self,
@@ -97,8 +121,12 @@ pub mod identity;
 pub mod local_ort;
 /// Local cross-encoder rerankers.
 pub mod local_rerank;
+/// Native metadata captured from constructed provider instances.
+pub mod model_selection;
 /// Configuration normalization shared with the Node engine.
 pub mod normalize;
+/// Explicit planned-generation identity construction, preserving legacy store identities.
+pub mod planned;
 /// Model probe coalescing and caller wait cancellation.
 pub mod readiness;
 /// OpenAI-compatible embedding provider over the guarded transport.
@@ -141,6 +169,15 @@ fn normalized_embedding(
             ));
         }
         block.insert("provider".into(), json!("local-transformers"));
+    }
+    if !matches!(
+        block.get("provider").and_then(Value::as_str),
+        Some("openai" | "openai-compatible" | "local-transformers")
+    ) {
+        return Err(invalid_config(
+            "embedding.provider",
+            "supported providers are openai, openai-compatible and local-transformers",
+        ));
     }
     if block.get("provider").and_then(Value::as_str) == Some("local-transformers") {
         let outer_cache = block.get("cacheDir").cloned();

@@ -31,7 +31,7 @@ A test file with no mode carries a reason instead (test support, a package that 
 |---|---:|---:|---:|---:|---:|---:|---:|
 | D123 Containment and sandbox (D123, not a Phase 4 package) | 9 | 9 | 0 | 0 | 0 | 0 | 0 |
 | P4-02 Parity harness (this package) | 1 | 0 | 0 | 0 | 0 | 1 | 0 |
-| P4-10 Front door, relay, legacy demotion | 30 | 22 | 2 | 0 | 0 | 6 | 0 |
+| P4-10 Front door, relay, legacy demotion | 31 | 23 | 2 | 0 | 0 | 6 | 0 |
 | P4-11 Configuration, logs, doctor, metrics | 42 | 29 | 3 | 0 | 0 | 10 | 0 |
 | P4-12 Identity, RBAC, principals, memory exposure | 47 | 47 | 0 | 0 | 0 | 0 | 0 |
 | P4-20 Secrets and the redactor | 19 | 19 | 0 | 0 | 0 | 0 | 0 |
@@ -71,7 +71,7 @@ A test file with no mode carries a reason instead (test support, a package that 
 | P4-93 Local ML on ONNX Runtime (after 0.1) | 5 | 5 | 0 | 0 | 0 | 0 | 0 |
 | RE-11 Node engine retired (RE programme) | 2 | 0 | 0 | 0 | 2 | 0 | 0 |
 | — no package: stays as it is | 26 | 0 | 0 | 0 | 0 | 26 | 0 |
-| **all** | **1203** | **880** | **5** | **28** | **2** | **288** | **0** |
+| **all** | **1204** | **881** | **5** | **28** | **2** | **288** | **0** |
 
 ## Files by TypeScript package
 
@@ -86,7 +86,7 @@ A test file with no mode carries a reason instead (test support, a package that 
 | `packages/channels-slack` | 15 | 17 | 0 | 15 | 0 | 0 | 0 | 0 | 0 |
 | `packages/channels-telegram` | 10 | 12 | 0 | 10 | 0 | 0 | 0 | 0 | 0 |
 | `packages/config-schema` | 10 | 42 | 0 | 0 | 0 | 0 | 0 | 10 | 0 |
-| `packages/core` | 797 | 1075 | 1 | 660 | 2 | 1 | 2 | 132 | 0 |
+| `packages/core` | 798 | 1077 | 1 | 661 | 2 | 1 | 2 | 132 | 0 |
 | `packages/documents` | 14 | 9 | 2 | 14 | 0 | 0 | 0 | 0 | 0 |
 | `packages/embedding-adapters` | 27 | 25 | 0 | 0 | 0 | 27 | 0 | 0 | 0 |
 | `packages/hostctl` | 10 | 21 | 0 | 10 | 0 | 0 | 0 | 0 | 0 |
@@ -106,13 +106,13 @@ A test file with no mode carries a reason instead (test support, a package that 
 | Mode | Test files |
 |---|---:|
 | `V` | 554 |
-| `T` | 899 |
+| `T` | 901 |
 | `S` | 0 |
 | `W` | 414 |
 | `B` | 166 |
 | no mode, with a reason | 127 |
 | unassigned owner | 0 |
-| **all** | **1637** |
+| **all** | **1639** |
 
 Test files for mode S are the suites of `tests/system/` (28, table at the end): they run on both legs of `PLUR1BUS_CORE_IMPL`.
 
@@ -182,6 +182,7 @@ Columns: file · disposition · note. A note starting with `PROVISIONAL` is a lo
 | `packages/core/src/capabilities.ts` | fold | crates/plur1bus-rpc/src/capabilities.rs builds the feature list |
 | `packages/core/src/core.ts` | port | plan §1.2 process and RPC front door |
 | `packages/core/src/engine-host-ports.ts` | port | plan §1.2 process and RPC front door |
+| `packages/core/src/engine/capabilities.ts` | port | EngineClient, select.ts, host methods; the node branch of select.ts goes with RE-11 |
 | `packages/core/src/engine/client.ts` | port | EngineClient, select.ts, host methods; the node branch of select.ts goes with RE-11 |
 | `packages/core/src/engine/engine-principal.ts` | port | EngineClient, select.ts, host methods; the node branch of select.ts goes with RE-11 |
 | `packages/core/src/engine/host-methods.ts` | port | EngineClient, select.ts, host methods; the node branch of select.ts goes with RE-11 |
@@ -2493,6 +2494,7 @@ Columns: file · mode · reason (the reason names why a test has no mode, or wha
 | `packages/core/test/dreams-no-host-cron.test.ts` | T | plan P4-51 parity list |
 | `packages/core/test/dreams-rpc.test.ts` | T | plan P4-51 parity list |
 | `packages/core/test/dreams-scheduler.test.ts` | T | plan P4-51 parity list |
+| `packages/core/test/dreams/a1-gate.test.ts` | T | plan P4-51 parity list |
 | `packages/core/test/dreams/candidates-table.test.ts` | T | plan P4-51 parity list |
 | `packages/core/test/dreams/cron-table.test.ts` | T | plan P4-51 parity list |
 | `packages/core/test/dreams/deep-fail-closed.test.ts` | T | plan P4-51 parity list |
@@ -2532,6 +2534,7 @@ Columns: file · mode · reason (the reason names why a test has no mode, or wha
 | `packages/core/test/embedding-migrate/probe.test.ts` | T | plan P4-51 parity list |
 | `packages/core/test/embedding-migrate/quality.test.ts` | T | plan P4-51 parity list |
 | `packages/core/test/embedding-migrate/rpc.test.ts` | T | plan P4-51 parity list |
+| `packages/core/test/embedding-migrate/rust-wire-errors.test.ts` | T | plan P4-51 parity list |
 | `packages/core/test/embedding-migrate/selection.test.ts` | T | plan P4-51 parity list |
 | `packages/core/test/embedding-migrate/state.test.ts` | T | plan P4-51 parity list |
 | `packages/core/test/embedding-migrate/switch.test.ts` | T | plan P4-51 parity list |

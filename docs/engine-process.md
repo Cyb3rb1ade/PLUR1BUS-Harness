@@ -4,10 +4,56 @@
 engine binary, with its actual PID in the readiness line and authentication result. It does not select the Rust
 engine in the Core: `engine.implementation` still defaults to `node`.
 
-The process server is implemented. Recall, capture, jobs and memory/admin operations are connected through the
-frozen Rust `Engine` traits, but their unfinished production implementations answer `E_NOT_AVAILABLE` with
-`composition-pending`. Embedding and model methods use the existing RE-03 providers. Transport tests inject an
-explicit test-only engine to exercise recall and capture receipts without claiming that production pipelines exist.
+The process server is implemented. With a configured store base, recall (normal and warm), capture, every
+memory operation (list/show/state/forget/link/import/rebind/unbind; since RE-D165 also correct, share, propose,
+`proposals.list/accept/reject`, unimport, and the A1 methods `stats`, `promote` and `curation.list/resolve/keep/drop`),
+store adoption and the job registry (`engine.jobs.list/run/history`, RE-D158) are served by their native
+compositions. Since RE-D167 the contract is 1.18.0 and the A1 capability flags are `true`; only
+`knowledgePromotion` stays `false` in RX, because it also covers the `knowledge-update` job (F13).
+`engine.admin.share` and `engine.admin.forget` stay `E_NOT_AVAILABLE`/`composition-pending`
+(no native implementation, no productive Harness caller; RE-D165, KNOWN-GAP → RY), as do the F6/F14 admin
+methods and the F7 `reembedding.rollback`/`switch`. The F9 snapshot methods are served over the Core link's
+snapshot grant (RE-D170). `engine.admin.migrate` (RE-D143) and
+`engine.admin.reembedding.{plan,apply,resume,status,validate}` (RE-D166) are served only over the authenticated
+Core link's maintenance grant; each call is audited in `state/engine-maintenance.jsonl`, and each `apply`/`resume`
+commits one durable batch while recall and capture go on against the active generation. KNOWN-GAP (found by the
+system suites, RE-D176): the closed wire schema of `plan` lacks the fingerprint members `schemaVersion` and
+`prefixScheme` that the Core sends, so a real Core's plan is refused as `E_INVALID_PARAMS` before the planner sees
+it; these methods are exercised by wire fixtures only until the schema carries the Core's fingerprint (→ RY). Each memory operation
+runs in the foreground with its caller's principal; what an owner without a user principal cannot get (a Neo
+partition) fails closed as described in `docs/engine-stores.md` (RE-D165).
+A memory write that still finds the engine-wide mutation gate held after 20 s, or finds four callers already
+waiting, answers `E_NOT_AVAILABLE` with `engine-busy`; holders run on budgets ended by shutdown (except a local
+inference step already running). `engine.status` reports `sharedMemory` as the last share decision found it, and
+the cautious `unavailable` before the first one. Under F13 every job whose body reads or
+writes private owner or workspace rows answers `job-authority-unbound`, LLM jobs answer `not-implemented`; the
+only installed body is `embedding-drain` with Neo disabled (`skipped/neo_disabled`, as at the pin).
+At its start the process initialises a fresh store base (directory and schema marker 1), as the pinned engine does
+when it is created; the Harness reads the store directory before any memory exists (`backup create`). A base that
+cannot be initialised does not stop the start: the process logs it to stderr and the operations report it. The
+library constructor and every read path write nothing (RE-D175 in `docs/engine-stores.md`).
+
+Embedding and model methods use the existing RE-03 providers. With a store base, `engine.status` is the pin's
+status reporter over real sources (RE-D157): the host journal backlog (50 ms bound), the job ledger health under
+`<base>/_jobs` and the `_schema.json` marker. It reports `ready: true`; model warming or failure degrades as at the
+pin. It reports `ready: false` after close (`closed/engine`), while capture is not served
+(`startup-recovery-incomplete` or `composition-invalid` with `capture`), while the jobs root cannot be bound
+(`composition-invalid/jobs`) and while the base schema marker is one every store open refuses
+(`schema-unsupported/store`, RE-D160). One agent's failed job session start answers
+`startup-recovery-incomplete` for that agent's runs only. A session start is bounded (5 s, or a closed
+connection, or shutdown) and then answers `job-session-busy`; so is the start-marker admission (RE-D164), so a
+`jobs.run` waits at most about 2 × 5 s in total. `job-session-busy` means "not started"; once a body began, an
+unfinished settle answers the registry's own error and the run stays started (recorded as `failed`/`crash` at
+the next session start). `engine.jobs.history` never waits for it. `job-session-busy`, `job-authority-unbound` and
+`startup-recovery-incomplete` are internal reasons: on the wire each appears as `operation-unavailable`, so a
+client cannot tell "busy, retry later" from "refused" (changing that is a contract change, not RX). After
+close, status asks no source. Capture composition takes an inventory only; retained work is recovered behind it,
+one owner at a time (RE-D162). While capture is served but some owner's retained work waits or is being recovered
+(after the composition, maintenance, a transient failure, its own recovery budget) or a retained
+file cannot be attributed, it reports `capture-recovery-deferred/capture` and keeps `ready`. Which degradation
+wins follows the RE-D159 priority in `docs/engine-stores.md`. Without a store base it keeps the frozen
+`{reason: "composition-pending", capability: "recall"}`. Status creates no file. Transport tests inject an
+explicit test-only engine to exercise recall and capture receipts.
 
 ## Identity and lifecycle
 
@@ -52,7 +98,7 @@ limits are not part of this trusted engine process; D123 governs untrusted ACP c
 
 `engine.status` preserves the frozen engine status and adds optional RPC 1.17 process identity, lifecycle state,
 request/auth/connection/capture/accept-error counters and scheduler-loop lag. Process `ready` means the endpoint serves RPC;
-the separate engine `ready` flag remains false while memory composition is pending.
+the separate engine `ready` flag follows the composed status above (false without a store base).
 
 ## Host services and configuration
 
@@ -113,9 +159,10 @@ remain unchanged. The engine's own diagnostics contain fixed categories only.
 `PLUR1BUS_TEST_INTERNALS=flat-embedder` (or `--test-internals flat-embedder`) and `flat-embedder-cold` require
 `PLUR1BUS_ALLOW_TEST_INTERNALS=1`. The cold variant serializes a 350 ms delay for each of its first two query
 embeddings. Passage embeddings and subsequent queries use the existing flat provider directly. These seams do
-not install fake production memory behavior.
+not install fake production memory behavior. Under a seam, a re-embedding target is the pin's flat test provider,
+and `PLUR1BUS_TEST_REEMBEDDING_HOLD=<dir>` holds a target batch while `<dir>/hold` exists (RE-D166).
 
-Acceptance lives in `crates/plur1bus-engine/tests/rpc_server.rs`, `tests/seams.rs`,
+Acceptance lives in `crates/plur1bus-engine/tests/rpc_server.rs`, `tests/rpc_reembedding.rs`, `tests/seams.rs`,
 `tests/host_guard_contract.rs` and the `rpc` unit tests, including `rpc/roundtrip.rs`. Shared listener/peer identity
 tests live in `crates/plur1bus-rpc/tests/server_transport.rs` and `tests/client.rs`. Windows runtime cases remain
 enabled for their native CI platform. Every spawned test child has a kill-and-wait drop guard. Ordinary process fixtures also keep a piped stdin lifeline,
@@ -123,10 +170,83 @@ so loss of the test runner expires their one-second grace. Spawners own process 
 keeps normal foreground Ctrl-C semantics. Signal cases invoke the actual OS signals, and cold/warm checks compare
 relative latency rather than imposing a fast-path ceiling.
 
-Supervisor startup, adoption orchestration and `core run` spawning belong to U2. Token RPC belongs to U3; the
-parity runner and advisory CI to U4/U5; system runs and hop-budget measurement to U6/U7; release payloads to U8.
-No default engine switch or Phase 2 behavior change is included here.
+Supervisor startup and adoption orchestration are the supervisor's `engine` slot (RE-D172); `core run` spawning is
+described under "Owners without a supervisor" below (RE-D173). Token RPC belongs to U3. The parity runner and
+the advisory `engine-parity` CI job are in place (`tests/engine-parity`, RE-D175), the hop budget is measured on
+macOS (RE-D174), and the system suites run locally against the Rust engine with `PLUR1BUS_ENGINE_IMPL=rust`
+(RE-D176; no CI leg yet, required before the default changes). Release payloads remain U8. No default engine switch
+or Phase 2 behavior change is included here.
+
+## The supervisor's `engine` slot
+
+With `engine.implementation: "rust"` the supervisor runs the engine in its own slot, listed right after the core in
+`daemon status` (`kind: "engine"`), with the core's backoff; its exit 3 (`lock-held`) is retried, probing first, until
+it has lasted 660 s × the time scale. With the Node engine selected, every path that starts the core (the
+supervisor's start, scheduled restarts and `daemon start`, import maintenance, requested restarts such as a core-class
+`config set`) first passes one gate on `run/engine.process.lock`:
+
+- No lock file, or a free one: nothing more happens.
+- A lock that cannot be checked (anything but a missing file that fails to open or lock: a symlink, no permission, a
+  Windows sharing violation): the core stays down at once, crashed for good with `engine-lock-held`. The file is never
+  created.
+- A held lock: a serving engine whose identity the adoption probe proves (pid file, handshake, instance) is stopped
+  with the usual deadlines. A hung or foreign server of the engine endpoint is terminated through the pin the probe
+  took on the socket's or pipe's server, a deliberate rule: it is the same policy the supervisor applies to every
+  endpoint of the home's private `run/` at start. Then the lock is awaited for at most the engine's orphan grace
+  (`supervisor.graceMs` × scale) plus 5 s; still held, the core stays down with `engine-lock-held` (fail closed: two
+  writers of one store) until `daemon start` or the next requested restart finds the lock free.
 
 Composition must remain lazy before the single-instance check: `production_model_composition_is_lazy_and_does_not_create_files`
 is an invariant for future store integration. RE-04 store integration is gated on moving lock acquisition before
 any composition that eagerly opens stores.
+
+## Owners without a supervisor: `core run`
+
+With `engine.implementation: "rust"`, `plur1bus core run` owns the engine (RE-D173; controller ruling F2 moved this
+from a planned TypeScript `spawn.ts`/`bin.ts` forwarding into `crates/plur1bus/src/engine_owner.rs`). It builds the
+engine's command with the same specification as the supervisor's slot (`engine_process::configured_spec`: `serve
+--home --lifeline stdin --instance <uuid>`, `PLUR1BUS_ENGINE_BIN` or beside the executable, `--test-internals` only for
+the flat seams and only with `PLUR1BUS_ALLOW_TEST_INTERNALS=1`, no token in argv or environment) and the slot's
+environment policy (`supervisor::child::apply_child_env`: an inherited `PLUR1BUS_RUN_ACL` or
+`PLUR1BUS_IMPORT_MAINTENANCE` is removed, everything else, the test seam and `ORT_DYLIB_PATH`/`PLUR1BUS_TOKENIZER_DIR`
+included, is inherited), and stays as a wrapper instead of exec'ing the core:
+
+- The engine is spawned first and never waited for; the core's readiness does not depend on it. The wrapper holds the
+  engine's stdin (the lifeline), runs it in its own process group, and binds it at the OS level where it can (Linux
+  parent-death signal, Windows kill-on-close job and `CREATE_NO_WINDOW`). The engine's stdout, its ready line included,
+  is drained in fixed 8 KiB chunks to the wrapper's stderr; its stderr is inherited. The core is spawned with inherited
+  stdio in the wrapper's process group, so its ready line is the first line on the wrapper's stdout.
+- SIGTERM and SIGHUP are forwarded to the core; SIGINT is the terminal's to deliver to the core and does not end the
+  wrapper. Each of the three sets a flag in the signal handler itself: a stop signal before the check that precedes
+  the engine's spawn starts neither engine nor core; one between that check and the engine's spawn, or later but
+  before the core's spawn, starts no core, and the engine already started is stopped again. Check and spawn of the
+  core share the forwarder's lock, so a SIGTERM or SIGHUP after the check is forwarded to the new core, and a SIGINT
+  after it is handed on to the core once (the terminal delivered it before the core existed). Windows: the wrapper
+  ignores Ctrl+C after spawning the core, which shares its console.
+- After the core has ended the engine is stopped: `engine.shutdown` with the token in `run/engine.token` to the
+  process whose hello names the spawned pid (connect and call 1 s each), SIGTERM when that was not delivered (Windows:
+  an immediate kill), killed 5 s after the stop began and reaped within 1 s more. The wrapper exits with the core's
+  code; a core ended by a signal gives 130.
+- A missing binary, an unauthorized seam or a failed spawn: one line on stderr, the core starts anyway and reports
+  `engine-unavailable`. An engine that ends while the core runs: one line on stderr (watched from its spawn, not from
+  the end of its stdout, which a child of the engine may keep open), no restart (the supervisor restarts with backoff;
+  `core run` is the developer path). Exit 3 is named as what it is: another engine serves this home (it holds
+  `run/engine.process.lock`), and the core connects to that engine through `run/engine.sock` and `run/engine.token`;
+  `core run` neither stops nor restarts it. The engine lives exactly as long as the core: a changed
+  configuration reaches it at the next `core run`.
+- With the Node engine selected, `core run` still execs the core, after one read of `config.json` (the selector), one
+  UUID and one try-lock on `run/engine.process.lock`; nothing waits. Held by a live process, or not checkable (any open
+  or lock failure but a missing file), it refuses with `E_CORE_UNAVAILABLE`, reason `engine-lock-held`, the message
+  saying which of the two, and kills nothing (the supervisor's B3 gate uses the same check, `engine_process::lock_state`).
+
+Residual risks. macOS has no OS binding: a wrapper ended by SIGKILL leaves the core and the engine running, and the
+engine ends only after its orphan grace (`supervisor.graceMs`) once it sees its stdin close. The engine runs in a
+process group of its own and inherits the terminal as stderr: with `stty tostop` a write to stderr stops it (SIGTTOU,
+a background group), the core then reports it degraded and its stop ends with the kill after 5 s. Windows: the wrapper
+ignores only Ctrl+C; Ctrl+Break or closing the console end it, and the job object then ends the engine without an
+orderly stop. KNOWN-GAP: the engine
+refuses a home reached through a symlink (macOS `/var` → `/private/var`, a symlinked `~/.plur1bus`) with exit 2; it is
+not resolved here, so tests and developers pass a canonical home.
+
+Acceptance: `crates/plur1bus/tests/core_run_engine.rs` (fake engine and fake core; an `#[ignore]` case runs the real
+binary from `PLUR1BUS_ENGINE_BIN` with the flat embedder) and the unit tests in `engine_owner.rs`.

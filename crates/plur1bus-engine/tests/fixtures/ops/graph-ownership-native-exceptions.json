@@ -1,0 +1,17 @@
+{
+  "decision": "RE-D130",
+  "sourceCommit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+  "nodeGoldenSha256": "96291be8c36ec14158fb060940aa5bdefb695c1aea17625cfd4ab25f4ef246b9",
+  "cases": [
+    {
+      "name": "foreign",
+      "nativeAllow": false,
+      "reason": "Actual Node accepts an agent-private source tuple with another ownerUserId when agentId matches. Native destructive cleanup requires every present endpoint tuple to equal the original private user/agent/workspace binding and both actual rows; row/edge authority is never inferred from one matching field."
+    }
+  ],
+  "boundaries": [
+    "Missing all serialized claims retains RE-D129 explicit native top-level and actual-row authorization. Partial/null/unbound/rebuild/duplicate claims do not bypass validation.",
+    "Frozen Node goldens and recall ACL behavior remain unchanged; this helper is specific to destructive private graph cleanup."
+  ],
+  "cost": "Four small tuple comparisons per eligible edge, no extra provider or wire calls."
+}

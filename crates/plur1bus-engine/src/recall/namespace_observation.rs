@@ -15,14 +15,19 @@ pub(crate) struct Observations {
     pub trace: NamespaceTrace,
     limits: Option<TraceLimits>,
     rejected: usize,
+    policy: Option<std::sync::Arc<super::trace::TracePolicy>>,
 }
 
 impl Observations {
-    pub(crate) fn new(limits: Option<TraceLimits>) -> Self {
+    pub(crate) fn new(
+        limits: Option<TraceLimits>,
+        policy: Option<std::sync::Arc<super::trace::TracePolicy>>,
+    ) -> Self {
         Self {
             trace: NamespaceTrace::default(),
             limits,
             rejected: 0,
+            policy,
         }
     }
 
@@ -42,6 +47,7 @@ impl Observations {
             &row.status,
             summary,
             score,
+            self.policy.as_deref(),
         );
         finite(&mut value, "vectorScore", score);
         self.candidate(value);
@@ -51,7 +57,13 @@ impl Observations {
         if self.limits.is_none() {
             return;
         }
-        let id = format!("canonical:{}", preview(&hit.heading, 40));
+        let id = format!(
+            "canonical:{}",
+            self.policy.as_ref().map_or_else(
+                || preview(&hit.heading, 40),
+                |policy| policy.redact(&hit.heading)
+            )
+        );
         self.candidate(candidate(
             &id,
             "canonical",
@@ -59,6 +71,7 @@ impl Observations {
             "active",
             &hit.heading,
             hit.score,
+            self.policy.as_deref(),
         ));
         self.decision(
             &id,
@@ -134,6 +147,7 @@ impl Observations {
             "active",
             &format!("graph-only via {seed}"),
             capped,
+            self.policy.as_deref(),
         );
         finite(&mut value, "vectorScore", raw);
         value["graphDepth"] = json!(depth);
@@ -163,8 +177,7 @@ impl Observations {
         let Some(limits) = self.limits else {
             return;
         };
-        let mut value =
-            json!({"name":name,"passed":passed,"reason":preview(reason, DEFAULT_PREVIEW_CHARS)});
+        let mut value = json!({"name":name,"passed":passed,"reason":source_preview(reason, self.policy.as_deref())});
         if let Some(id) = id {
             value["memoryId"] = json!(id);
         }
@@ -184,7 +197,7 @@ impl Observations {
             return;
         };
         let mut value = json!({"memoryId":id,"action":action,"stage":stage,
-            "reason":preview(reason, DEFAULT_PREVIEW_CHARS)});
+            "reason":source_preview(reason, self.policy.as_deref())});
         if let Some(score) = score {
             finite(&mut value, "finalScore", score);
         }
@@ -208,9 +221,10 @@ fn candidate(
     status: &str,
     text: &str,
     score: f64,
+    policy: Option<&super::trace::TracePolicy>,
 ) -> Value {
     let mut value = json!({"id":id,"source":source,"category":category,"status":status,
-        "preview":preview(text, DEFAULT_PREVIEW_CHARS)});
+        "preview":source_preview(text, policy)});
     finite(&mut value, "score", score);
     value
 }
@@ -227,4 +241,13 @@ fn push(stream: &mut Vec<Value>, value: Value, limit: usize) {
     if excess > 0 {
         stream.drain(..excess);
     }
+}
+
+// Runtime previews remain redacted UTF-8 until the outer lossless UTF-16 serializer.
+// The bounded internal streams are never exposed directly as a diagnostic response.
+fn source_preview(text: &str, policy: Option<&super::trace::TracePolicy>) -> String {
+    policy.map_or_else(
+        || preview(text, DEFAULT_PREVIEW_CHARS),
+        |policy| policy.redact(text),
+    )
 }

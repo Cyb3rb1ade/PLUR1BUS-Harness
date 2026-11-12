@@ -1,0 +1,13 @@
+[
+  {"name":"empty","text":""},
+  {"name":"js-whitespace","text":"\ufeff First ordinary statement. \ufeff"},
+  {"name":"four-prose-sentences-stay-whole","text":"The first service stores events. The second service sends mail. The third service creates reports. The fourth service handles backups."},
+  {"name":"eight-prose-sentences-split","text":"The first service stores events. The second service sends mail. The third service creates reports. The fourth service handles backups. The fifth service manages search. The sixth service handles uploads. The seventh service creates previews. The eighth service checks health."},
+  {"name":"paragraphs","text":"The first paragraph describes the service.\n\nThe second paragraph describes the database.\n\nThe third paragraph describes the queue.\n\nThe fourth paragraph describes the cache."},
+  {"name":"heading-sections","text":"An introductory restriction remains important.\n# First service\nThe first service stores events.\n## Second service\nThe second service creates reports.\n### Third service\nThe third service handles backups.\n#### Fourth service\nThe fourth service checks health."},
+  {"name":"short-parts-are-preserved","text":"- No.\n- The first service stores important events.\n- Yes.\n- The second service sends important mail."},
+  {"name":"decimal-and-version-boundaries","text":"The measured value is 3.5 mmol/l. The current version is 2.8. The backup begins at midnight. The queue uses a replica. The cache has a limit. The frontend uses a proxy. The service checks health. The tests validate results."},
+  {"name":"ascii-digit-backtracking","text":"The first service stores events.  3 replicas exist. The second service sends mail. The third service creates reports. The fourth service handles backups. The fifth service manages search. The sixth service handles uploads. The seventh service creates previews. The eighth service checks health."},
+  {"name":"non-ascii-digits-are-not-js-digits","text":"The measured value is ٣.٥ mmol/l. The current version is ٢.٨. The backup begins at midnight. The queue uses a replica. The cache has a limit. The frontend uses a proxy. The service checks health. The tests validate results."},
+  {"name":"lone-surrogate-survives-structure","text":"- The first service stores events.\n- The second service sends mail.\n- The third service creates reports.\n- The fourth service keeps a final surrogate \ud83d"}
+]

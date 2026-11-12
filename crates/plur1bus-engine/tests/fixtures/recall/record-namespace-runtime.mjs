@@ -388,7 +388,7 @@ async function captureRuntime(engineRoot, pluginRoot, spec, modules) {
   }
 }
 
-export async function recordRuntimeCases(engineRoot, pluginRoot) {
+export async function recordRuntimeCases(engineRoot, pluginRoot, onlyNames) {
   const modules = {
     ...(await load(engineRoot, "engine/store/memory-db.js")),
     ...(await load(engineRoot, "lib/multi-namespace-pool.js")),
@@ -402,6 +402,7 @@ export async function recordRuntimeCases(engineRoot, pluginRoot) {
   };
   const result = {};
   for (const spec of runtimeSpecs()) {
+    if (onlyNames && !onlyNames.includes(spec.name)) continue;
     const recorded = await captureRuntime(engineRoot, pluginRoot, spec, modules);
     recorded.embeddingCallSource = "runtime";
     if (spec.source === "plugin") {

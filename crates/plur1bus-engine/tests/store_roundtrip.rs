@@ -593,3 +593,24 @@ fn the_phase_one_distance_score_matches_the_pins_unmodified_formula() {
     assert!(distance_to_score(Some(f64::NAN)).is_nan());
     assert_eq!(distance_to_score(Some(-1.0)), f64::INFINITY);
 }
+
+#[test]
+fn typed_lance_reads_preserve_adjacent_float64_values_exactly() {
+    let (_temporary, store) = writable();
+    let mut row = store.scan(&RowFilter::default(), 1).unwrap().remove(0);
+    let center = 0.417_332_800_851_630_44_f64.to_bits();
+    for (index, bits) in [center - 1, center, center + 1, 1, 0x0010_0000_0000_0000]
+        .into_iter()
+        .enumerate()
+    {
+        row.id = format!("20000000-0000-4000-8000-{:012}", index + 1);
+        row.emotional_intensity = serde_json::Number::from_f64(f64::from_bits(bits)).unwrap();
+        store.upsert(std::slice::from_ref(&row)).unwrap();
+        let read = store.get(&row.id).unwrap().unwrap();
+        assert_eq!(read.emotional_intensity.as_f64().unwrap().to_bits(), bits);
+        assert_eq!(
+            plur1bus_engine::capture::row_builder::to_node_json(&read).unwrap(),
+            plur1bus_engine::capture::row_builder::to_node_json(&row).unwrap()
+        );
+    }
+}

@@ -1,0 +1,165 @@
+{
+  "nodeGoldenSha256": "096d5142d0a793cb1e7a1b604e8e87da2df5c614ebd3fac02d3571e30bfe3d73",
+  "cases": [
+    {
+      "name": "out-of-order",
+      "reason": "Full rebuild uses timestamp extrema, not first/last line order",
+      "after": [
+        {
+          "count": 1,
+          "oldestTimestamp": 1733184000000,
+          "newestTimestamp": 1733184000000,
+          "sizeBytes": 316,
+          "pendingCount": 0,
+          "lastUpdatedAt": "2025-01-01T00:00:00.000Z"
+        },
+        {
+          "count": 2,
+          "oldestTimestamp": 1733011200000,
+          "newestTimestamp": 1733184000000,
+          "sizeBytes": 632,
+          "pendingCount": 0,
+          "lastUpdatedAt": "2025-01-01T00:00:00.000Z"
+        },
+        {
+          "count": 3,
+          "oldestTimestamp": 1733011200000,
+          "newestTimestamp": 1733184000000,
+          "sizeBytes": 948,
+          "pendingCount": 0,
+          "lastUpdatedAt": "2025-01-01T00:00:00.000Z"
+        }
+      ],
+      "rebuilt": {
+        "count": 3,
+        "oldestTimestamp": 1733011200000,
+        "newestTimestamp": 1733184000000,
+        "sizeBytes": 948,
+        "pendingCount": 0,
+        "lastUpdatedAt": "2025-01-01T00:00:00.000Z"
+      }
+    },
+    {
+      "name": "unicode-bytes",
+      "reason": "Cached size must count UTF-8 bytes, not UTF-16 units",
+      "after": [
+        {
+          "count": 1,
+          "oldestTimestamp": 1733011200000,
+          "newestTimestamp": 1733011200000,
+          "sizeBytes": 307,
+          "pendingCount": 0,
+          "lastUpdatedAt": "2025-01-01T00:00:00.000Z"
+        },
+        {
+          "count": 2,
+          "oldestTimestamp": 1733011200000,
+          "newestTimestamp": 1733011200000,
+          "sizeBytes": 614,
+          "pendingCount": 0,
+          "lastUpdatedAt": "2025-01-01T00:00:00.000Z"
+        }
+      ],
+      "rebuilt": {
+        "count": 2,
+        "oldestTimestamp": 1733011200000,
+        "newestTimestamp": 1733011200000,
+        "sizeBytes": 614,
+        "pendingCount": 0,
+        "lastUpdatedAt": "2025-01-01T00:00:00.000Z"
+      }
+    },
+    {
+      "name": "epoch-zero",
+      "reason": "Unix epoch zero is a valid timestamp",
+      "after": [
+        {
+          "count": 1,
+          "oldestTimestamp": 0,
+          "newestTimestamp": 0,
+          "sizeBytes": 316,
+          "pendingCount": 0,
+          "lastUpdatedAt": "2025-01-01T00:00:00.000Z"
+        },
+        {
+          "count": 2,
+          "oldestTimestamp": 0,
+          "newestTimestamp": 0,
+          "sizeBytes": 607,
+          "pendingCount": 0,
+          "lastUpdatedAt": "2025-01-01T00:00:00.000Z"
+        }
+      ],
+      "rebuilt": {
+        "count": 2,
+        "oldestTimestamp": 0,
+        "newestTimestamp": 0,
+        "sizeBytes": 607,
+        "pendingCount": 0,
+        "lastUpdatedAt": "2025-01-01T00:00:00.000Z"
+      }
+    },
+    {
+      "name": "malformed-existing-line",
+      "reason": "Native refuses malformed authoritative records instead of hiding them",
+      "refuse": true
+    },
+    {
+      "name": "torn-existing-line",
+      "reason": "Native refuses preexisting torn records without repair authority",
+      "refuse": true
+    },
+    {
+      "name": "two-existing-records",
+      "reason": "Bootstrap uses true timestamp extrema",
+      "after": [
+        {
+          "count": 3,
+          "oldestTimestamp": 1733011200000,
+          "newestTimestamp": 1733184000000,
+          "sizeBytes": 948,
+          "pendingCount": 0,
+          "lastUpdatedAt": "2025-01-01T00:00:00.000Z"
+        }
+      ],
+      "rebuilt": {
+        "count": 3,
+        "oldestTimestamp": 1733011200000,
+        "newestTimestamp": 1733184000000,
+        "sizeBytes": 948,
+        "pendingCount": 0,
+        "lastUpdatedAt": "2025-01-01T00:00:00.000Z"
+      }
+    },
+    {
+      "name": "thousand-boundary",
+      "reason": "Complete bounded native ledger counts beyond the Node 1000-line bootstrap",
+      "after": [
+        {
+          "count": 1001,
+          "oldestTimestamp": 1733011200000,
+          "newestTimestamp": 1733270400000,
+          "sizeBytes": 316316,
+          "pendingCount": 0,
+          "lastUpdatedAt": "2025-01-01T00:00:00.000Z"
+        },
+        {
+          "count": 1002,
+          "oldestTimestamp": 1733011200000,
+          "newestTimestamp": 1733356800000,
+          "sizeBytes": 316632,
+          "pendingCount": 0,
+          "lastUpdatedAt": "2025-01-01T00:00:00.000Z"
+        }
+      ],
+      "rebuilt": {
+        "count": 1002,
+        "oldestTimestamp": 1733011200000,
+        "newestTimestamp": 1733356800000,
+        "sizeBytes": 316632,
+        "pendingCount": 0,
+        "lastUpdatedAt": "2025-01-01T00:00:00.000Z"
+      }
+    }
+  ]
+}

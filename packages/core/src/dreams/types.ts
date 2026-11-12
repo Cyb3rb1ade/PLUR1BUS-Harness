@@ -73,7 +73,7 @@ export interface CandidateInput {
   memoryId?: string; createdAt?: number; importance?: number; repetitions?: number; lastRecalledAt?: number | null;
 }
 
-/** Engine 1.17.0 (A1): a receipt is authoritative only for this agent and requested id. */
+/** Engine 1.18.0 (A1): a receipt is authoritative only for this agent and requested id. */
 export interface CandidatePromotionResult {
   agentId: string;
   items: { id: string; outcome: "promoted" | "skipped"; reason: string }[];

@@ -71,6 +71,17 @@ impl EngineProcess {
         seam: Option<(&str, bool)>,
         configure_child: Option<fn(&mut Command)>,
     ) -> Self {
+        Self::spawn_inner(home, instance, stdin_lifeline, seam, configure_child, &[])
+    }
+
+    fn spawn_inner(
+        home: &Path,
+        instance: Option<&str>,
+        stdin_lifeline: bool,
+        seam: Option<(&str, bool)>,
+        configure_child: Option<fn(&mut Command)>,
+        env: &[(&str, &Path)],
+    ) -> Self {
         let logs = tempfile::Builder::new()
             .prefix("pe-log-")
             .tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap())
@@ -107,6 +118,9 @@ impl EngineProcess {
         if let Some(configure) = configure_child {
             configure(&mut command);
         }
+        for (name, value) in env {
+            command.env(name, value);
+        }
         Self {
             child: command.spawn().unwrap(),
             logs,
@@ -142,6 +156,15 @@ impl EngineProcess {
 
     pub fn start_with_seam(home: &Path, variant: &str) -> Self {
         Self::spawn_with_seam(home, variant, true).wait_ready()
+    }
+
+    /// An authorized seam plus extra private test variables for this child only.
+    #[allow(
+        dead_code,
+        reason = "only the re-embedding process tests pass variables"
+    )]
+    pub fn start_with_seam_env(home: &Path, variant: &str, env: &[(&str, &Path)]) -> Self {
+        Self::spawn_inner(home, None, true, Some((variant, true)), None, env).wait_ready()
     }
 
     fn wait_ready(self) -> Self {
@@ -294,6 +317,18 @@ impl RawConnection {
         Self {
             reader: BufReader::new(stream),
         }
+    }
+
+    /// Wait longer for one response than the default call bound, e.g. behind a loaded store.
+    #[allow(
+        dead_code,
+        reason = "only the re-embedding process tests wait for store work"
+    )]
+    pub fn set_read_timeout(&mut self, timeout: Duration) {
+        self.reader
+            .get_mut()
+            .set_read_timeout(Some(timeout))
+            .unwrap();
     }
 
     pub fn send(&mut self, request: Value) {

@@ -1,0 +1,26 @@
+{
+  "schema": "engine-parity.golden/1",
+  "recordedFrom": {
+    "engine": "node",
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "at": "2026-11-11T23:58:12.760Z"
+  },
+  "steps": [
+    {
+      "result": {
+        "error": {
+          "code": "conflict"
+        }
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "applied": false,
+        "from": "1",
+        "to": "1"
+      },
+      "trace": null
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "ruling": "RE-D127",
+  "golden": "golden/shared-routes.json",
+  "goldenSha256": "3890f619e20462e05bf99f135bb217d79ed6f5cce60f9fe530c8ef148c89a73f",
+  "differences": [
+    {
+      "case": "partialReadCount",
+      "node": 0,
+      "native": "reject incomplete provenance on ordinary read; only explicit shared writer may finish migration"
+    },
+    {
+      "case": "taintedRead",
+      "node": null,
+      "native": "return storage failure; do not silently erase a configured source"
+    },
+    {
+      "case": "permissions.cached",
+      "node": true,
+      "native": "revalidate ownership and private root permissions on every writable lease, including cached handles"
+    },
+    {
+      "case": "migrated incomplete origin metadata",
+      "basis": "Pin engine/memory-ops/unimport.js hasLiveSharedCopy matches the source agent exactly; this is source-derived, not a recorded unimport result.",
+      "native": "A live missing origin ID, or matching origin ID with missing source agent, fails the Unimport reference check. Unrelated known origin IDs and deleted copies do not block."
+    }
+  ],
+  "cost": "Additional root metadata/ACL checks and explicit repair/restart after unsafe or replaced roots; held directory handles and soft idle-only cache bound. No cross-process atomic exclusion claimed."
+}

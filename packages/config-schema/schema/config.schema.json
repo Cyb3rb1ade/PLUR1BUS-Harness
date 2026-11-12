@@ -2666,6 +2666,28 @@
       },
       "properties": {
         "implementation": { "description": "Memory engine implementation. Rust is experimental and requires the separately running engine process; unavailable engines leave the Core running and recall reports engine-unavailable.", "type": "string", "enum": ["node", "rust"], "default": "node", "x-restart": "core", "x-tier": "advanced" },
+        "neo": {
+          "description": "Neo append bounds and scheduled retention configuration; retention is never performed during append.",
+          "type": "object", "additionalProperties": true, "x-restart": "core", "x-tier": "advanced",
+          "properties": {
+            "maxRecords": {
+              "description": "Emergency append ceiling; archive before truncation. Native acquisition supports at most 50000 rows.",
+              "type": "integer", "minimum": 500, "maximum": 50000, "default": 40000, "x-restart": "core", "x-tier": "advanced"
+            },
+            "appendDedupeTailRecords": {
+              "description": "Replay-deduplication tail, independent of maxRecords; persistent identity indexes remain authoritative.",
+              "type": "integer", "minimum": 100, "maximum": 50000, "default": 5000, "x-restart": "core", "x-tier": "advanced"
+            },
+            "retention": {
+              "description": "Scheduled maintenance only (RY-A/N2); no retention in the append path.",
+              "type": "object", "additionalProperties": false, "x-restart": "core", "x-tier": "advanced",
+              "properties": {
+                "days": { "description": "Minimum age in days for scheduled retention; append never uses this age to remove records.", "type": "integer", "minimum": 1, "maximum": 36500, "default": 90, "x-restart": "core", "x-tier": "advanced" },
+                "softMaxRecords": { "description": "Scheduled retention considers old, unprotected records only above this live-record count.", "type": "integer", "minimum": 500, "maximum": 50000, "default": 5000, "x-restart": "core", "x-tier": "advanced" }
+              }
+            }
+          }
+        },
         "schicht15": {
           "description": "Curated knowledge promotion settings passed to the Engine.",
           "type": "object", "additionalProperties": true, "x-restart": "core", "x-tier": "advanced",

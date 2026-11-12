@@ -1,0 +1,4424 @@
+{
+  "recordedFrom": {
+    "source": {
+      "engineCommit": "ad85a5b88a1ddba6a0f0141b69582ca39cecc07b",
+      "treeSha256": "6c9bacae42ee99a6f9b61b77d862135c5ff2415feaf95945dba94b87adfb3a1f"
+    },
+    "node": "v24.21.0"
+  },
+  "store": [
+    {
+      "params": {},
+      "result": {
+        "ok": false,
+        "error": "memory text is required and must not be blank",
+        "reason": "invalid_text"
+      }
+    },
+    {
+      "params": {
+        "text": ""
+      },
+      "result": {
+        "ok": false,
+        "error": "memory text is required and must not be blank",
+        "reason": "invalid_text"
+      }
+    },
+    {
+      "params": {
+        "text": " "
+      },
+      "result": {
+        "ok": false,
+        "error": "memory text is required and must not be blank",
+        "reason": "invalid_text"
+      }
+    },
+    {
+      "params": {
+        "text": "﻿ "
+      },
+      "result": {
+        "ok": false,
+        "error": "memory text is required and must not be blank",
+        "reason": "invalid_text"
+      }
+    },
+    {
+      "params": {
+        "text": ""
+      },
+      "result": {
+        "ok": true
+      }
+    },
+    {
+      "params": {
+        "text": "synthetic"
+      },
+      "result": {
+        "ok": true
+      }
+    },
+    {
+      "params": {
+        "text": 0
+      },
+      "result": {
+        "ok": false,
+        "error": "memory text is required and must not be blank",
+        "reason": "invalid_text"
+      }
+    },
+    {
+      "params": {
+        "text": false
+      },
+      "result": {
+        "ok": false,
+        "error": "memory text is required and must not be blank",
+        "reason": "invalid_text"
+      }
+    },
+    {
+      "params": {
+        "text": null
+      },
+      "result": {
+        "ok": false,
+        "error": "memory text is required and must not be blank",
+        "reason": "invalid_text"
+      }
+    },
+    {
+      "params": {
+        "text": []
+      },
+      "result": {
+        "ok": false,
+        "error": "memory text is required and must not be blank",
+        "reason": "invalid_text"
+      }
+    },
+    {
+      "params": {
+        "text": {}
+      },
+      "result": {
+        "ok": false,
+        "error": "memory text is required and must not be blank",
+        "reason": "invalid_text"
+      }
+    },
+    {
+      "params": {
+        "text": "synthetic",
+        "category": "preference"
+      },
+      "result": {
+        "ok": true
+      }
+    },
+    {
+      "params": {
+        "text": "synthetic",
+        "category": "fact"
+      },
+      "result": {
+        "ok": true
+      }
+    },
+    {
+      "params": {
+        "text": "synthetic",
+        "category": "decision"
+      },
+      "result": {
+        "ok": true
+      }
+    },
+    {
+      "params": {
+        "text": "synthetic",
+        "category": "entity"
+      },
+      "result": {
+        "ok": true
+      }
+    },
+    {
+      "params": {
+        "text": "synthetic",
+        "category": "reference"
+      },
+      "result": {
+        "ok": true
+      }
+    },
+    {
+      "params": {
+        "text": "synthetic",
+        "category": "debug"
+      },
+      "result": {
+        "ok": true
+      }
+    },
+    {
+      "params": {
+        "text": "synthetic",
+        "category": "config"
+      },
+      "result": {
+        "ok": true
+      }
+    },
+    {
+      "params": {
+        "text": "synthetic",
+        "category": "conversation"
+      },
+      "result": {
+        "ok": true
+      }
+    },
+    {
+      "params": {
+        "text": "synthetic",
+        "category": "knowledge"
+      },
+      "result": {
+        "ok": true
+      }
+    },
+    {
+      "params": {
+        "text": "synthetic",
+        "category": "curated"
+      },
+      "result": {
+        "ok": true
+      }
+    },
+    {
+      "params": {
+        "text": "synthetic",
+        "category": "other"
+      },
+      "result": {
+        "ok": true
+      }
+    },
+    {
+      "params": {
+        "text": "synthetic",
+        "category": ""
+      },
+      "result": {
+        "ok": true
+      }
+    },
+    {
+      "params": {
+        "text": "synthetic",
+        "category": "FACT"
+      },
+      "result": {
+        "ok": false,
+        "error": "category must be one of: preference, fact, decision, entity, reference, debug, config, conversation, knowledge, curated, other",
+        "reason": "invalid_category"
+      }
+    },
+    {
+      "params": {
+        "text": "synthetic",
+        "category": "unknown"
+      },
+      "result": {
+        "ok": false,
+        "error": "category must be one of: preference, fact, decision, entity, reference, debug, config, conversation, knowledge, curated, other",
+        "reason": "invalid_category"
+      }
+    },
+    {
+      "params": {
+        "text": "synthetic",
+        "category": 0
+      },
+      "result": {
+        "ok": false,
+        "error": "category must be one of: preference, fact, decision, entity, reference, debug, config, conversation, knowledge, curated, other",
+        "reason": "invalid_category"
+      }
+    },
+    {
+      "params": {
+        "text": "synthetic",
+        "category": false
+      },
+      "result": {
+        "ok": false,
+        "error": "category must be one of: preference, fact, decision, entity, reference, debug, config, conversation, knowledge, curated, other",
+        "reason": "invalid_category"
+      }
+    },
+    {
+      "params": {
+        "text": "synthetic",
+        "category": null
+      },
+      "result": {
+        "ok": true
+      }
+    },
+    {
+      "params": {
+        "text": "synthetic",
+        "category": []
+      },
+      "result": {
+        "ok": false,
+        "error": "category must be one of: preference, fact, decision, entity, reference, debug, config, conversation, knowledge, curated, other",
+        "reason": "invalid_category"
+      }
+    },
+    {
+      "params": {
+        "text": "synthetic",
+        "category": {}
+      },
+      "result": {
+        "ok": false,
+        "error": "category must be one of: preference, fact, decision, entity, reference, debug, config, conversation, knowledge, curated, other",
+        "reason": "invalid_category"
+      }
+    },
+    {
+      "repeat": {
+        "unit": "x",
+        "count": 50000
+      },
+      "result": {
+        "ok": true
+      }
+    },
+    {
+      "repeat": {
+        "unit": "x",
+        "count": 50001
+      },
+      "result": {
+        "ok": false,
+        "error": "memory text exceeds maximum length of 50000 characters (received 50001)",
+        "reason": "invalid_text"
+      }
+    },
+    {
+      "repeat": {
+        "unit": "😀",
+        "count": 25000
+      },
+      "result": {
+        "ok": true
+      }
+    },
+    {
+      "repeat": {
+        "unit": "😀",
+        "count": 25001
+      },
+      "result": {
+        "ok": false,
+        "error": "memory text exceeds maximum length of 50000 characters (received 50002)",
+        "reason": "invalid_text"
+      }
+    }
+  ],
+  "ttlMap": {
+    "session": 86400000,
+    "short": 1209600000,
+    "zero": 0,
+    "negative": -1,
+    "string": "12",
+    "bad": "bad"
+  },
+  "ttl": [
+    {
+      "input": "session",
+      "result": 86400000
+    },
+    {
+      "input": "short",
+      "result": 1209600000
+    },
+    {
+      "input": "zero",
+      "result": 0
+    },
+    {
+      "input": "negative",
+      "result": -1
+    },
+    {
+      "input": "string",
+      "result": 12
+    },
+    {
+      "input": "bad",
+      "result": 0
+    },
+    {
+      "input": "constructor",
+      "result": 0
+    },
+    {
+      "input": "toString",
+      "result": 0
+    },
+    {
+      "input": "__proto__",
+      "result": 0
+    },
+    {
+      "input": "unknown",
+      "result": 0
+    },
+    {
+      "input": null,
+      "result": 0
+    },
+    {
+      "input": 0,
+      "result": 0
+    },
+    {
+      "input": {},
+      "result": 0
+    },
+    {
+      "input": [],
+      "result": 0
+    }
+  ],
+  "merge": [
+    {
+      "a": {
+        "tag": "undefined"
+      },
+      "b": {
+        "tag": "undefined"
+      },
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "undefined"
+      },
+      "b": null,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "undefined"
+      },
+      "b": false,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "undefined"
+      },
+      "b": true,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "undefined"
+      },
+      "b": 0,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "undefined"
+      },
+      "b": -1,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "undefined"
+      },
+      "b": 1,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "undefined"
+      },
+      "b": 5000,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "undefined"
+      },
+      "b": 9000,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "undefined"
+      },
+      "b": "0",
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "undefined"
+      },
+      "b": "5000",
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "undefined"
+      },
+      "b": "0x10",
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "undefined"
+      },
+      "b": "bad",
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "undefined"
+      },
+      "b": "",
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "undefined"
+      },
+      "b": [],
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "undefined"
+      },
+      "b": [
+        12
+      ],
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "undefined"
+      },
+      "b": [
+        1,
+        2
+      ],
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "undefined"
+      },
+      "b": {},
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "undefined"
+      },
+      "b": {
+        "tag": "nan"
+      },
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "undefined"
+      },
+      "b": {
+        "tag": "infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "undefined"
+      },
+      "b": {
+        "tag": "negative-infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": null,
+      "b": {
+        "tag": "undefined"
+      },
+      "result": 0
+    },
+    {
+      "a": null,
+      "b": null,
+      "result": 0
+    },
+    {
+      "a": null,
+      "b": false,
+      "result": 0
+    },
+    {
+      "a": null,
+      "b": true,
+      "result": 0
+    },
+    {
+      "a": null,
+      "b": 0,
+      "result": 0
+    },
+    {
+      "a": null,
+      "b": -1,
+      "result": 0
+    },
+    {
+      "a": null,
+      "b": 1,
+      "result": 0
+    },
+    {
+      "a": null,
+      "b": 5000,
+      "result": 0
+    },
+    {
+      "a": null,
+      "b": 9000,
+      "result": 0
+    },
+    {
+      "a": null,
+      "b": "0",
+      "result": 0
+    },
+    {
+      "a": null,
+      "b": "5000",
+      "result": 0
+    },
+    {
+      "a": null,
+      "b": "0x10",
+      "result": 0
+    },
+    {
+      "a": null,
+      "b": "bad",
+      "result": 0
+    },
+    {
+      "a": null,
+      "b": "",
+      "result": 0
+    },
+    {
+      "a": null,
+      "b": [],
+      "result": 0
+    },
+    {
+      "a": null,
+      "b": [
+        12
+      ],
+      "result": 0
+    },
+    {
+      "a": null,
+      "b": [
+        1,
+        2
+      ],
+      "result": 0
+    },
+    {
+      "a": null,
+      "b": {},
+      "result": 0
+    },
+    {
+      "a": null,
+      "b": {
+        "tag": "nan"
+      },
+      "result": 0
+    },
+    {
+      "a": null,
+      "b": {
+        "tag": "infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": null,
+      "b": {
+        "tag": "negative-infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": false,
+      "b": {
+        "tag": "undefined"
+      },
+      "result": 0
+    },
+    {
+      "a": false,
+      "b": null,
+      "result": 0
+    },
+    {
+      "a": false,
+      "b": false,
+      "result": 0
+    },
+    {
+      "a": false,
+      "b": true,
+      "result": 0
+    },
+    {
+      "a": false,
+      "b": 0,
+      "result": 0
+    },
+    {
+      "a": false,
+      "b": -1,
+      "result": 0
+    },
+    {
+      "a": false,
+      "b": 1,
+      "result": 0
+    },
+    {
+      "a": false,
+      "b": 5000,
+      "result": 0
+    },
+    {
+      "a": false,
+      "b": 9000,
+      "result": 0
+    },
+    {
+      "a": false,
+      "b": "0",
+      "result": 0
+    },
+    {
+      "a": false,
+      "b": "5000",
+      "result": 0
+    },
+    {
+      "a": false,
+      "b": "0x10",
+      "result": 0
+    },
+    {
+      "a": false,
+      "b": "bad",
+      "result": 0
+    },
+    {
+      "a": false,
+      "b": "",
+      "result": 0
+    },
+    {
+      "a": false,
+      "b": [],
+      "result": 0
+    },
+    {
+      "a": false,
+      "b": [
+        12
+      ],
+      "result": 0
+    },
+    {
+      "a": false,
+      "b": [
+        1,
+        2
+      ],
+      "result": 0
+    },
+    {
+      "a": false,
+      "b": {},
+      "result": 0
+    },
+    {
+      "a": false,
+      "b": {
+        "tag": "nan"
+      },
+      "result": 0
+    },
+    {
+      "a": false,
+      "b": {
+        "tag": "infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": false,
+      "b": {
+        "tag": "negative-infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": true,
+      "b": {
+        "tag": "undefined"
+      },
+      "result": 0
+    },
+    {
+      "a": true,
+      "b": null,
+      "result": 0
+    },
+    {
+      "a": true,
+      "b": false,
+      "result": 0
+    },
+    {
+      "a": true,
+      "b": true,
+      "result": 1
+    },
+    {
+      "a": true,
+      "b": 0,
+      "result": 0
+    },
+    {
+      "a": true,
+      "b": -1,
+      "result": 0
+    },
+    {
+      "a": true,
+      "b": 1,
+      "result": 1
+    },
+    {
+      "a": true,
+      "b": 5000,
+      "result": 5000
+    },
+    {
+      "a": true,
+      "b": 9000,
+      "result": 9000
+    },
+    {
+      "a": true,
+      "b": "0",
+      "result": 0
+    },
+    {
+      "a": true,
+      "b": "5000",
+      "result": 5000
+    },
+    {
+      "a": true,
+      "b": "0x10",
+      "result": 16
+    },
+    {
+      "a": true,
+      "b": "bad",
+      "result": 0
+    },
+    {
+      "a": true,
+      "b": "",
+      "result": 0
+    },
+    {
+      "a": true,
+      "b": [],
+      "result": 0
+    },
+    {
+      "a": true,
+      "b": [
+        12
+      ],
+      "result": 12
+    },
+    {
+      "a": true,
+      "b": [
+        1,
+        2
+      ],
+      "result": 0
+    },
+    {
+      "a": true,
+      "b": {},
+      "result": 0
+    },
+    {
+      "a": true,
+      "b": {
+        "tag": "nan"
+      },
+      "result": 0
+    },
+    {
+      "a": true,
+      "b": {
+        "tag": "infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": true,
+      "b": {
+        "tag": "negative-infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": 0,
+      "b": {
+        "tag": "undefined"
+      },
+      "result": 0
+    },
+    {
+      "a": 0,
+      "b": null,
+      "result": 0
+    },
+    {
+      "a": 0,
+      "b": false,
+      "result": 0
+    },
+    {
+      "a": 0,
+      "b": true,
+      "result": 0
+    },
+    {
+      "a": 0,
+      "b": 0,
+      "result": 0
+    },
+    {
+      "a": 0,
+      "b": -1,
+      "result": 0
+    },
+    {
+      "a": 0,
+      "b": 1,
+      "result": 0
+    },
+    {
+      "a": 0,
+      "b": 5000,
+      "result": 0
+    },
+    {
+      "a": 0,
+      "b": 9000,
+      "result": 0
+    },
+    {
+      "a": 0,
+      "b": "0",
+      "result": 0
+    },
+    {
+      "a": 0,
+      "b": "5000",
+      "result": 0
+    },
+    {
+      "a": 0,
+      "b": "0x10",
+      "result": 0
+    },
+    {
+      "a": 0,
+      "b": "bad",
+      "result": 0
+    },
+    {
+      "a": 0,
+      "b": "",
+      "result": 0
+    },
+    {
+      "a": 0,
+      "b": [],
+      "result": 0
+    },
+    {
+      "a": 0,
+      "b": [
+        12
+      ],
+      "result": 0
+    },
+    {
+      "a": 0,
+      "b": [
+        1,
+        2
+      ],
+      "result": 0
+    },
+    {
+      "a": 0,
+      "b": {},
+      "result": 0
+    },
+    {
+      "a": 0,
+      "b": {
+        "tag": "nan"
+      },
+      "result": 0
+    },
+    {
+      "a": 0,
+      "b": {
+        "tag": "infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": 0,
+      "b": {
+        "tag": "negative-infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": -1,
+      "b": {
+        "tag": "undefined"
+      },
+      "result": 0
+    },
+    {
+      "a": -1,
+      "b": null,
+      "result": 0
+    },
+    {
+      "a": -1,
+      "b": false,
+      "result": 0
+    },
+    {
+      "a": -1,
+      "b": true,
+      "result": 0
+    },
+    {
+      "a": -1,
+      "b": 0,
+      "result": 0
+    },
+    {
+      "a": -1,
+      "b": -1,
+      "result": 0
+    },
+    {
+      "a": -1,
+      "b": 1,
+      "result": 0
+    },
+    {
+      "a": -1,
+      "b": 5000,
+      "result": 0
+    },
+    {
+      "a": -1,
+      "b": 9000,
+      "result": 0
+    },
+    {
+      "a": -1,
+      "b": "0",
+      "result": 0
+    },
+    {
+      "a": -1,
+      "b": "5000",
+      "result": 0
+    },
+    {
+      "a": -1,
+      "b": "0x10",
+      "result": 0
+    },
+    {
+      "a": -1,
+      "b": "bad",
+      "result": 0
+    },
+    {
+      "a": -1,
+      "b": "",
+      "result": 0
+    },
+    {
+      "a": -1,
+      "b": [],
+      "result": 0
+    },
+    {
+      "a": -1,
+      "b": [
+        12
+      ],
+      "result": 0
+    },
+    {
+      "a": -1,
+      "b": [
+        1,
+        2
+      ],
+      "result": 0
+    },
+    {
+      "a": -1,
+      "b": {},
+      "result": 0
+    },
+    {
+      "a": -1,
+      "b": {
+        "tag": "nan"
+      },
+      "result": 0
+    },
+    {
+      "a": -1,
+      "b": {
+        "tag": "infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": -1,
+      "b": {
+        "tag": "negative-infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": 1,
+      "b": {
+        "tag": "undefined"
+      },
+      "result": 0
+    },
+    {
+      "a": 1,
+      "b": null,
+      "result": 0
+    },
+    {
+      "a": 1,
+      "b": false,
+      "result": 0
+    },
+    {
+      "a": 1,
+      "b": true,
+      "result": 1
+    },
+    {
+      "a": 1,
+      "b": 0,
+      "result": 0
+    },
+    {
+      "a": 1,
+      "b": -1,
+      "result": 0
+    },
+    {
+      "a": 1,
+      "b": 1,
+      "result": 1
+    },
+    {
+      "a": 1,
+      "b": 5000,
+      "result": 5000
+    },
+    {
+      "a": 1,
+      "b": 9000,
+      "result": 9000
+    },
+    {
+      "a": 1,
+      "b": "0",
+      "result": 0
+    },
+    {
+      "a": 1,
+      "b": "5000",
+      "result": 5000
+    },
+    {
+      "a": 1,
+      "b": "0x10",
+      "result": 16
+    },
+    {
+      "a": 1,
+      "b": "bad",
+      "result": 0
+    },
+    {
+      "a": 1,
+      "b": "",
+      "result": 0
+    },
+    {
+      "a": 1,
+      "b": [],
+      "result": 0
+    },
+    {
+      "a": 1,
+      "b": [
+        12
+      ],
+      "result": 12
+    },
+    {
+      "a": 1,
+      "b": [
+        1,
+        2
+      ],
+      "result": 0
+    },
+    {
+      "a": 1,
+      "b": {},
+      "result": 0
+    },
+    {
+      "a": 1,
+      "b": {
+        "tag": "nan"
+      },
+      "result": 0
+    },
+    {
+      "a": 1,
+      "b": {
+        "tag": "infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": 1,
+      "b": {
+        "tag": "negative-infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": 5000,
+      "b": {
+        "tag": "undefined"
+      },
+      "result": 0
+    },
+    {
+      "a": 5000,
+      "b": null,
+      "result": 0
+    },
+    {
+      "a": 5000,
+      "b": false,
+      "result": 0
+    },
+    {
+      "a": 5000,
+      "b": true,
+      "result": 5000
+    },
+    {
+      "a": 5000,
+      "b": 0,
+      "result": 0
+    },
+    {
+      "a": 5000,
+      "b": -1,
+      "result": 0
+    },
+    {
+      "a": 5000,
+      "b": 1,
+      "result": 5000
+    },
+    {
+      "a": 5000,
+      "b": 5000,
+      "result": 5000
+    },
+    {
+      "a": 5000,
+      "b": 9000,
+      "result": 9000
+    },
+    {
+      "a": 5000,
+      "b": "0",
+      "result": 0
+    },
+    {
+      "a": 5000,
+      "b": "5000",
+      "result": 5000
+    },
+    {
+      "a": 5000,
+      "b": "0x10",
+      "result": 5000
+    },
+    {
+      "a": 5000,
+      "b": "bad",
+      "result": 0
+    },
+    {
+      "a": 5000,
+      "b": "",
+      "result": 0
+    },
+    {
+      "a": 5000,
+      "b": [],
+      "result": 0
+    },
+    {
+      "a": 5000,
+      "b": [
+        12
+      ],
+      "result": 5000
+    },
+    {
+      "a": 5000,
+      "b": [
+        1,
+        2
+      ],
+      "result": 0
+    },
+    {
+      "a": 5000,
+      "b": {},
+      "result": 0
+    },
+    {
+      "a": 5000,
+      "b": {
+        "tag": "nan"
+      },
+      "result": 0
+    },
+    {
+      "a": 5000,
+      "b": {
+        "tag": "infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": 5000,
+      "b": {
+        "tag": "negative-infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": 9000,
+      "b": {
+        "tag": "undefined"
+      },
+      "result": 0
+    },
+    {
+      "a": 9000,
+      "b": null,
+      "result": 0
+    },
+    {
+      "a": 9000,
+      "b": false,
+      "result": 0
+    },
+    {
+      "a": 9000,
+      "b": true,
+      "result": 9000
+    },
+    {
+      "a": 9000,
+      "b": 0,
+      "result": 0
+    },
+    {
+      "a": 9000,
+      "b": -1,
+      "result": 0
+    },
+    {
+      "a": 9000,
+      "b": 1,
+      "result": 9000
+    },
+    {
+      "a": 9000,
+      "b": 5000,
+      "result": 9000
+    },
+    {
+      "a": 9000,
+      "b": 9000,
+      "result": 9000
+    },
+    {
+      "a": 9000,
+      "b": "0",
+      "result": 0
+    },
+    {
+      "a": 9000,
+      "b": "5000",
+      "result": 9000
+    },
+    {
+      "a": 9000,
+      "b": "0x10",
+      "result": 9000
+    },
+    {
+      "a": 9000,
+      "b": "bad",
+      "result": 0
+    },
+    {
+      "a": 9000,
+      "b": "",
+      "result": 0
+    },
+    {
+      "a": 9000,
+      "b": [],
+      "result": 0
+    },
+    {
+      "a": 9000,
+      "b": [
+        12
+      ],
+      "result": 9000
+    },
+    {
+      "a": 9000,
+      "b": [
+        1,
+        2
+      ],
+      "result": 0
+    },
+    {
+      "a": 9000,
+      "b": {},
+      "result": 0
+    },
+    {
+      "a": 9000,
+      "b": {
+        "tag": "nan"
+      },
+      "result": 0
+    },
+    {
+      "a": 9000,
+      "b": {
+        "tag": "infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": 9000,
+      "b": {
+        "tag": "negative-infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": "0",
+      "b": {
+        "tag": "undefined"
+      },
+      "result": 0
+    },
+    {
+      "a": "0",
+      "b": null,
+      "result": 0
+    },
+    {
+      "a": "0",
+      "b": false,
+      "result": 0
+    },
+    {
+      "a": "0",
+      "b": true,
+      "result": 0
+    },
+    {
+      "a": "0",
+      "b": 0,
+      "result": 0
+    },
+    {
+      "a": "0",
+      "b": -1,
+      "result": 0
+    },
+    {
+      "a": "0",
+      "b": 1,
+      "result": 0
+    },
+    {
+      "a": "0",
+      "b": 5000,
+      "result": 0
+    },
+    {
+      "a": "0",
+      "b": 9000,
+      "result": 0
+    },
+    {
+      "a": "0",
+      "b": "0",
+      "result": 0
+    },
+    {
+      "a": "0",
+      "b": "5000",
+      "result": 0
+    },
+    {
+      "a": "0",
+      "b": "0x10",
+      "result": 0
+    },
+    {
+      "a": "0",
+      "b": "bad",
+      "result": 0
+    },
+    {
+      "a": "0",
+      "b": "",
+      "result": 0
+    },
+    {
+      "a": "0",
+      "b": [],
+      "result": 0
+    },
+    {
+      "a": "0",
+      "b": [
+        12
+      ],
+      "result": 0
+    },
+    {
+      "a": "0",
+      "b": [
+        1,
+        2
+      ],
+      "result": 0
+    },
+    {
+      "a": "0",
+      "b": {},
+      "result": 0
+    },
+    {
+      "a": "0",
+      "b": {
+        "tag": "nan"
+      },
+      "result": 0
+    },
+    {
+      "a": "0",
+      "b": {
+        "tag": "infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": "0",
+      "b": {
+        "tag": "negative-infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": "5000",
+      "b": {
+        "tag": "undefined"
+      },
+      "result": 0
+    },
+    {
+      "a": "5000",
+      "b": null,
+      "result": 0
+    },
+    {
+      "a": "5000",
+      "b": false,
+      "result": 0
+    },
+    {
+      "a": "5000",
+      "b": true,
+      "result": 5000
+    },
+    {
+      "a": "5000",
+      "b": 0,
+      "result": 0
+    },
+    {
+      "a": "5000",
+      "b": -1,
+      "result": 0
+    },
+    {
+      "a": "5000",
+      "b": 1,
+      "result": 5000
+    },
+    {
+      "a": "5000",
+      "b": 5000,
+      "result": 5000
+    },
+    {
+      "a": "5000",
+      "b": 9000,
+      "result": 9000
+    },
+    {
+      "a": "5000",
+      "b": "0",
+      "result": 0
+    },
+    {
+      "a": "5000",
+      "b": "5000",
+      "result": 5000
+    },
+    {
+      "a": "5000",
+      "b": "0x10",
+      "result": 5000
+    },
+    {
+      "a": "5000",
+      "b": "bad",
+      "result": 0
+    },
+    {
+      "a": "5000",
+      "b": "",
+      "result": 0
+    },
+    {
+      "a": "5000",
+      "b": [],
+      "result": 0
+    },
+    {
+      "a": "5000",
+      "b": [
+        12
+      ],
+      "result": 5000
+    },
+    {
+      "a": "5000",
+      "b": [
+        1,
+        2
+      ],
+      "result": 0
+    },
+    {
+      "a": "5000",
+      "b": {},
+      "result": 0
+    },
+    {
+      "a": "5000",
+      "b": {
+        "tag": "nan"
+      },
+      "result": 0
+    },
+    {
+      "a": "5000",
+      "b": {
+        "tag": "infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": "5000",
+      "b": {
+        "tag": "negative-infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": "0x10",
+      "b": {
+        "tag": "undefined"
+      },
+      "result": 0
+    },
+    {
+      "a": "0x10",
+      "b": null,
+      "result": 0
+    },
+    {
+      "a": "0x10",
+      "b": false,
+      "result": 0
+    },
+    {
+      "a": "0x10",
+      "b": true,
+      "result": 16
+    },
+    {
+      "a": "0x10",
+      "b": 0,
+      "result": 0
+    },
+    {
+      "a": "0x10",
+      "b": -1,
+      "result": 0
+    },
+    {
+      "a": "0x10",
+      "b": 1,
+      "result": 16
+    },
+    {
+      "a": "0x10",
+      "b": 5000,
+      "result": 5000
+    },
+    {
+      "a": "0x10",
+      "b": 9000,
+      "result": 9000
+    },
+    {
+      "a": "0x10",
+      "b": "0",
+      "result": 0
+    },
+    {
+      "a": "0x10",
+      "b": "5000",
+      "result": 5000
+    },
+    {
+      "a": "0x10",
+      "b": "0x10",
+      "result": 16
+    },
+    {
+      "a": "0x10",
+      "b": "bad",
+      "result": 0
+    },
+    {
+      "a": "0x10",
+      "b": "",
+      "result": 0
+    },
+    {
+      "a": "0x10",
+      "b": [],
+      "result": 0
+    },
+    {
+      "a": "0x10",
+      "b": [
+        12
+      ],
+      "result": 16
+    },
+    {
+      "a": "0x10",
+      "b": [
+        1,
+        2
+      ],
+      "result": 0
+    },
+    {
+      "a": "0x10",
+      "b": {},
+      "result": 0
+    },
+    {
+      "a": "0x10",
+      "b": {
+        "tag": "nan"
+      },
+      "result": 0
+    },
+    {
+      "a": "0x10",
+      "b": {
+        "tag": "infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": "0x10",
+      "b": {
+        "tag": "negative-infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": "bad",
+      "b": {
+        "tag": "undefined"
+      },
+      "result": 0
+    },
+    {
+      "a": "bad",
+      "b": null,
+      "result": 0
+    },
+    {
+      "a": "bad",
+      "b": false,
+      "result": 0
+    },
+    {
+      "a": "bad",
+      "b": true,
+      "result": 0
+    },
+    {
+      "a": "bad",
+      "b": 0,
+      "result": 0
+    },
+    {
+      "a": "bad",
+      "b": -1,
+      "result": 0
+    },
+    {
+      "a": "bad",
+      "b": 1,
+      "result": 0
+    },
+    {
+      "a": "bad",
+      "b": 5000,
+      "result": 0
+    },
+    {
+      "a": "bad",
+      "b": 9000,
+      "result": 0
+    },
+    {
+      "a": "bad",
+      "b": "0",
+      "result": 0
+    },
+    {
+      "a": "bad",
+      "b": "5000",
+      "result": 0
+    },
+    {
+      "a": "bad",
+      "b": "0x10",
+      "result": 0
+    },
+    {
+      "a": "bad",
+      "b": "bad",
+      "result": 0
+    },
+    {
+      "a": "bad",
+      "b": "",
+      "result": 0
+    },
+    {
+      "a": "bad",
+      "b": [],
+      "result": 0
+    },
+    {
+      "a": "bad",
+      "b": [
+        12
+      ],
+      "result": 0
+    },
+    {
+      "a": "bad",
+      "b": [
+        1,
+        2
+      ],
+      "result": 0
+    },
+    {
+      "a": "bad",
+      "b": {},
+      "result": 0
+    },
+    {
+      "a": "bad",
+      "b": {
+        "tag": "nan"
+      },
+      "result": 0
+    },
+    {
+      "a": "bad",
+      "b": {
+        "tag": "infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": "bad",
+      "b": {
+        "tag": "negative-infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": "",
+      "b": {
+        "tag": "undefined"
+      },
+      "result": 0
+    },
+    {
+      "a": "",
+      "b": null,
+      "result": 0
+    },
+    {
+      "a": "",
+      "b": false,
+      "result": 0
+    },
+    {
+      "a": "",
+      "b": true,
+      "result": 0
+    },
+    {
+      "a": "",
+      "b": 0,
+      "result": 0
+    },
+    {
+      "a": "",
+      "b": -1,
+      "result": 0
+    },
+    {
+      "a": "",
+      "b": 1,
+      "result": 0
+    },
+    {
+      "a": "",
+      "b": 5000,
+      "result": 0
+    },
+    {
+      "a": "",
+      "b": 9000,
+      "result": 0
+    },
+    {
+      "a": "",
+      "b": "0",
+      "result": 0
+    },
+    {
+      "a": "",
+      "b": "5000",
+      "result": 0
+    },
+    {
+      "a": "",
+      "b": "0x10",
+      "result": 0
+    },
+    {
+      "a": "",
+      "b": "bad",
+      "result": 0
+    },
+    {
+      "a": "",
+      "b": "",
+      "result": 0
+    },
+    {
+      "a": "",
+      "b": [],
+      "result": 0
+    },
+    {
+      "a": "",
+      "b": [
+        12
+      ],
+      "result": 0
+    },
+    {
+      "a": "",
+      "b": [
+        1,
+        2
+      ],
+      "result": 0
+    },
+    {
+      "a": "",
+      "b": {},
+      "result": 0
+    },
+    {
+      "a": "",
+      "b": {
+        "tag": "nan"
+      },
+      "result": 0
+    },
+    {
+      "a": "",
+      "b": {
+        "tag": "infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": "",
+      "b": {
+        "tag": "negative-infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": [],
+      "b": {
+        "tag": "undefined"
+      },
+      "result": 0
+    },
+    {
+      "a": [],
+      "b": null,
+      "result": 0
+    },
+    {
+      "a": [],
+      "b": false,
+      "result": 0
+    },
+    {
+      "a": [],
+      "b": true,
+      "result": 0
+    },
+    {
+      "a": [],
+      "b": 0,
+      "result": 0
+    },
+    {
+      "a": [],
+      "b": -1,
+      "result": 0
+    },
+    {
+      "a": [],
+      "b": 1,
+      "result": 0
+    },
+    {
+      "a": [],
+      "b": 5000,
+      "result": 0
+    },
+    {
+      "a": [],
+      "b": 9000,
+      "result": 0
+    },
+    {
+      "a": [],
+      "b": "0",
+      "result": 0
+    },
+    {
+      "a": [],
+      "b": "5000",
+      "result": 0
+    },
+    {
+      "a": [],
+      "b": "0x10",
+      "result": 0
+    },
+    {
+      "a": [],
+      "b": "bad",
+      "result": 0
+    },
+    {
+      "a": [],
+      "b": "",
+      "result": 0
+    },
+    {
+      "a": [],
+      "b": [],
+      "result": 0
+    },
+    {
+      "a": [],
+      "b": [
+        12
+      ],
+      "result": 0
+    },
+    {
+      "a": [],
+      "b": [
+        1,
+        2
+      ],
+      "result": 0
+    },
+    {
+      "a": [],
+      "b": {},
+      "result": 0
+    },
+    {
+      "a": [],
+      "b": {
+        "tag": "nan"
+      },
+      "result": 0
+    },
+    {
+      "a": [],
+      "b": {
+        "tag": "infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": [],
+      "b": {
+        "tag": "negative-infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": [
+        12
+      ],
+      "b": {
+        "tag": "undefined"
+      },
+      "result": 0
+    },
+    {
+      "a": [
+        12
+      ],
+      "b": null,
+      "result": 0
+    },
+    {
+      "a": [
+        12
+      ],
+      "b": false,
+      "result": 0
+    },
+    {
+      "a": [
+        12
+      ],
+      "b": true,
+      "result": 12
+    },
+    {
+      "a": [
+        12
+      ],
+      "b": 0,
+      "result": 0
+    },
+    {
+      "a": [
+        12
+      ],
+      "b": -1,
+      "result": 0
+    },
+    {
+      "a": [
+        12
+      ],
+      "b": 1,
+      "result": 12
+    },
+    {
+      "a": [
+        12
+      ],
+      "b": 5000,
+      "result": 5000
+    },
+    {
+      "a": [
+        12
+      ],
+      "b": 9000,
+      "result": 9000
+    },
+    {
+      "a": [
+        12
+      ],
+      "b": "0",
+      "result": 0
+    },
+    {
+      "a": [
+        12
+      ],
+      "b": "5000",
+      "result": 5000
+    },
+    {
+      "a": [
+        12
+      ],
+      "b": "0x10",
+      "result": 16
+    },
+    {
+      "a": [
+        12
+      ],
+      "b": "bad",
+      "result": 0
+    },
+    {
+      "a": [
+        12
+      ],
+      "b": "",
+      "result": 0
+    },
+    {
+      "a": [
+        12
+      ],
+      "b": [],
+      "result": 0
+    },
+    {
+      "a": [
+        12
+      ],
+      "b": [
+        12
+      ],
+      "result": 12
+    },
+    {
+      "a": [
+        12
+      ],
+      "b": [
+        1,
+        2
+      ],
+      "result": 0
+    },
+    {
+      "a": [
+        12
+      ],
+      "b": {},
+      "result": 0
+    },
+    {
+      "a": [
+        12
+      ],
+      "b": {
+        "tag": "nan"
+      },
+      "result": 0
+    },
+    {
+      "a": [
+        12
+      ],
+      "b": {
+        "tag": "infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": [
+        12
+      ],
+      "b": {
+        "tag": "negative-infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": [
+        1,
+        2
+      ],
+      "b": {
+        "tag": "undefined"
+      },
+      "result": 0
+    },
+    {
+      "a": [
+        1,
+        2
+      ],
+      "b": null,
+      "result": 0
+    },
+    {
+      "a": [
+        1,
+        2
+      ],
+      "b": false,
+      "result": 0
+    },
+    {
+      "a": [
+        1,
+        2
+      ],
+      "b": true,
+      "result": 0
+    },
+    {
+      "a": [
+        1,
+        2
+      ],
+      "b": 0,
+      "result": 0
+    },
+    {
+      "a": [
+        1,
+        2
+      ],
+      "b": -1,
+      "result": 0
+    },
+    {
+      "a": [
+        1,
+        2
+      ],
+      "b": 1,
+      "result": 0
+    },
+    {
+      "a": [
+        1,
+        2
+      ],
+      "b": 5000,
+      "result": 0
+    },
+    {
+      "a": [
+        1,
+        2
+      ],
+      "b": 9000,
+      "result": 0
+    },
+    {
+      "a": [
+        1,
+        2
+      ],
+      "b": "0",
+      "result": 0
+    },
+    {
+      "a": [
+        1,
+        2
+      ],
+      "b": "5000",
+      "result": 0
+    },
+    {
+      "a": [
+        1,
+        2
+      ],
+      "b": "0x10",
+      "result": 0
+    },
+    {
+      "a": [
+        1,
+        2
+      ],
+      "b": "bad",
+      "result": 0
+    },
+    {
+      "a": [
+        1,
+        2
+      ],
+      "b": "",
+      "result": 0
+    },
+    {
+      "a": [
+        1,
+        2
+      ],
+      "b": [],
+      "result": 0
+    },
+    {
+      "a": [
+        1,
+        2
+      ],
+      "b": [
+        12
+      ],
+      "result": 0
+    },
+    {
+      "a": [
+        1,
+        2
+      ],
+      "b": [
+        1,
+        2
+      ],
+      "result": 0
+    },
+    {
+      "a": [
+        1,
+        2
+      ],
+      "b": {},
+      "result": 0
+    },
+    {
+      "a": [
+        1,
+        2
+      ],
+      "b": {
+        "tag": "nan"
+      },
+      "result": 0
+    },
+    {
+      "a": [
+        1,
+        2
+      ],
+      "b": {
+        "tag": "infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": [
+        1,
+        2
+      ],
+      "b": {
+        "tag": "negative-infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": {},
+      "b": {
+        "tag": "undefined"
+      },
+      "result": 0
+    },
+    {
+      "a": {},
+      "b": null,
+      "result": 0
+    },
+    {
+      "a": {},
+      "b": false,
+      "result": 0
+    },
+    {
+      "a": {},
+      "b": true,
+      "result": 0
+    },
+    {
+      "a": {},
+      "b": 0,
+      "result": 0
+    },
+    {
+      "a": {},
+      "b": -1,
+      "result": 0
+    },
+    {
+      "a": {},
+      "b": 1,
+      "result": 0
+    },
+    {
+      "a": {},
+      "b": 5000,
+      "result": 0
+    },
+    {
+      "a": {},
+      "b": 9000,
+      "result": 0
+    },
+    {
+      "a": {},
+      "b": "0",
+      "result": 0
+    },
+    {
+      "a": {},
+      "b": "5000",
+      "result": 0
+    },
+    {
+      "a": {},
+      "b": "0x10",
+      "result": 0
+    },
+    {
+      "a": {},
+      "b": "bad",
+      "result": 0
+    },
+    {
+      "a": {},
+      "b": "",
+      "result": 0
+    },
+    {
+      "a": {},
+      "b": [],
+      "result": 0
+    },
+    {
+      "a": {},
+      "b": [
+        12
+      ],
+      "result": 0
+    },
+    {
+      "a": {},
+      "b": [
+        1,
+        2
+      ],
+      "result": 0
+    },
+    {
+      "a": {},
+      "b": {},
+      "result": 0
+    },
+    {
+      "a": {},
+      "b": {
+        "tag": "nan"
+      },
+      "result": 0
+    },
+    {
+      "a": {},
+      "b": {
+        "tag": "infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": {},
+      "b": {
+        "tag": "negative-infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "nan"
+      },
+      "b": {
+        "tag": "undefined"
+      },
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "nan"
+      },
+      "b": null,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "nan"
+      },
+      "b": false,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "nan"
+      },
+      "b": true,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "nan"
+      },
+      "b": 0,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "nan"
+      },
+      "b": -1,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "nan"
+      },
+      "b": 1,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "nan"
+      },
+      "b": 5000,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "nan"
+      },
+      "b": 9000,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "nan"
+      },
+      "b": "0",
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "nan"
+      },
+      "b": "5000",
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "nan"
+      },
+      "b": "0x10",
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "nan"
+      },
+      "b": "bad",
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "nan"
+      },
+      "b": "",
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "nan"
+      },
+      "b": [],
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "nan"
+      },
+      "b": [
+        12
+      ],
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "nan"
+      },
+      "b": [
+        1,
+        2
+      ],
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "nan"
+      },
+      "b": {},
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "nan"
+      },
+      "b": {
+        "tag": "nan"
+      },
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "nan"
+      },
+      "b": {
+        "tag": "infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "nan"
+      },
+      "b": {
+        "tag": "negative-infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "infinity"
+      },
+      "b": {
+        "tag": "undefined"
+      },
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "infinity"
+      },
+      "b": null,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "infinity"
+      },
+      "b": false,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "infinity"
+      },
+      "b": true,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "infinity"
+      },
+      "b": 0,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "infinity"
+      },
+      "b": -1,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "infinity"
+      },
+      "b": 1,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "infinity"
+      },
+      "b": 5000,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "infinity"
+      },
+      "b": 9000,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "infinity"
+      },
+      "b": "0",
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "infinity"
+      },
+      "b": "5000",
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "infinity"
+      },
+      "b": "0x10",
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "infinity"
+      },
+      "b": "bad",
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "infinity"
+      },
+      "b": "",
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "infinity"
+      },
+      "b": [],
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "infinity"
+      },
+      "b": [
+        12
+      ],
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "infinity"
+      },
+      "b": [
+        1,
+        2
+      ],
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "infinity"
+      },
+      "b": {},
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "infinity"
+      },
+      "b": {
+        "tag": "nan"
+      },
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "infinity"
+      },
+      "b": {
+        "tag": "infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "infinity"
+      },
+      "b": {
+        "tag": "negative-infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "negative-infinity"
+      },
+      "b": {
+        "tag": "undefined"
+      },
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "negative-infinity"
+      },
+      "b": null,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "negative-infinity"
+      },
+      "b": false,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "negative-infinity"
+      },
+      "b": true,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "negative-infinity"
+      },
+      "b": 0,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "negative-infinity"
+      },
+      "b": -1,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "negative-infinity"
+      },
+      "b": 1,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "negative-infinity"
+      },
+      "b": 5000,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "negative-infinity"
+      },
+      "b": 9000,
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "negative-infinity"
+      },
+      "b": "0",
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "negative-infinity"
+      },
+      "b": "5000",
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "negative-infinity"
+      },
+      "b": "0x10",
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "negative-infinity"
+      },
+      "b": "bad",
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "negative-infinity"
+      },
+      "b": "",
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "negative-infinity"
+      },
+      "b": [],
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "negative-infinity"
+      },
+      "b": [
+        12
+      ],
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "negative-infinity"
+      },
+      "b": [
+        1,
+        2
+      ],
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "negative-infinity"
+      },
+      "b": {},
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "negative-infinity"
+      },
+      "b": {
+        "tag": "nan"
+      },
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "negative-infinity"
+      },
+      "b": {
+        "tag": "infinity"
+      },
+      "result": 0
+    },
+    {
+      "a": {
+        "tag": "negative-infinity"
+      },
+      "b": {
+        "tag": "negative-infinity"
+      },
+      "result": 0
+    }
+  ],
+  "expiry": [
+    {
+      "importance": 0.9,
+      "ttl": 0,
+      "result": {
+        "expiresAt": 0
+      }
+    },
+    {
+      "importance": 0.9,
+      "ttl": 86400000,
+      "result": {
+        "expiresAt": 1800086400000
+      }
+    },
+    {
+      "importance": 0.9,
+      "ttl": 1209600000,
+      "result": {
+        "expiresAt": 1801209600000
+      }
+    },
+    {
+      "importance": 0.9,
+      "ttl": -1,
+      "result": {
+        "expiresAt": 0
+      }
+    },
+    {
+      "importance": 0.949999,
+      "ttl": 0,
+      "result": {
+        "expiresAt": 0
+      }
+    },
+    {
+      "importance": 0.949999,
+      "ttl": 86400000,
+      "result": {
+        "expiresAt": 1800086400000
+      }
+    },
+    {
+      "importance": 0.949999,
+      "ttl": 1209600000,
+      "result": {
+        "expiresAt": 1801209600000
+      }
+    },
+    {
+      "importance": 0.949999,
+      "ttl": -1,
+      "result": {
+        "expiresAt": 0
+      }
+    },
+    {
+      "importance": 0.95,
+      "ttl": 0,
+      "result": {
+        "expiresAt": 0
+      }
+    },
+    {
+      "importance": 0.95,
+      "ttl": 86400000,
+      "result": {
+        "reason": "ttl_conflicts_with_core_importance"
+      }
+    },
+    {
+      "importance": 0.95,
+      "ttl": 1209600000,
+      "result": {
+        "reason": "ttl_conflicts_with_core_importance"
+      }
+    },
+    {
+      "importance": 0.95,
+      "ttl": -1,
+      "result": {
+        "expiresAt": 0
+      }
+    },
+    {
+      "importance": 0.97,
+      "ttl": 0,
+      "result": {
+        "expiresAt": 0
+      }
+    },
+    {
+      "importance": 0.97,
+      "ttl": 86400000,
+      "result": {
+        "reason": "ttl_conflicts_with_core_importance"
+      }
+    },
+    {
+      "importance": 0.97,
+      "ttl": 1209600000,
+      "result": {
+        "reason": "ttl_conflicts_with_core_importance"
+      }
+    },
+    {
+      "importance": 0.97,
+      "ttl": -1,
+      "result": {
+        "expiresAt": 0
+      }
+    },
+    {
+      "importance": 1,
+      "ttl": 0,
+      "result": {
+        "expiresAt": 0
+      }
+    },
+    {
+      "importance": 1,
+      "ttl": 86400000,
+      "result": {
+        "reason": "ttl_conflicts_with_core_importance"
+      }
+    },
+    {
+      "importance": 1,
+      "ttl": 1209600000,
+      "result": {
+        "reason": "ttl_conflicts_with_core_importance"
+      }
+    },
+    {
+      "importance": 1,
+      "ttl": -1,
+      "result": {
+        "expiresAt": 0
+      }
+    }
+  ],
+  "forget": [
+    {
+      "threshold": 0.3,
+      "scores": [],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "No matching memory found."
+          }
+        ]
+      },
+      "decision": "none",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": 0.3,
+      "scores": [
+        0.333
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Found 1 candidate, but it is not similar enough to forget by query alone (similarity 0.33, needs 0.75). If this is the memory to forget, call again with its memoryId:\n11111111-1111-4111-8111-000000000001: Synthetic visible candidate"
+          }
+        ]
+      },
+      "decision": "confirm",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": 0.3,
+      "scores": [
+        0.7499
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Found 1 candidate, but it is not similar enough to forget by query alone (similarity 0.75, needs 0.75). If this is the memory to forget, call again with its memoryId:\n11111111-1111-4111-8111-000000000001: Synthetic visible candidate"
+          }
+        ]
+      },
+      "decision": "confirm",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": 0.3,
+      "scores": [
+        0.75
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Forgotten: \"Synthetic visible candidate\" (tombstoned)."
+          }
+        ]
+      },
+      "decision": "forget",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 1
+      }
+    },
+    {
+      "threshold": 0.3,
+      "scores": [
+        0.9
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Forgotten: \"Synthetic visible candidate\" (tombstoned)."
+          }
+        ]
+      },
+      "decision": "forget",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 1
+      }
+    },
+    {
+      "threshold": 0.3,
+      "scores": [
+        1
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Forgotten: \"Synthetic visible candidate\" (tombstoned)."
+          }
+        ]
+      },
+      "decision": "forget",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 1
+      }
+    },
+    {
+      "threshold": 0.3,
+      "scores": [
+        0.99,
+        0.99
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Found 2 candidates. Specify memoryId:\n11111111-1111-4111-8111-000000000001: Synthetic visible candidate\n11111111-1111-4111-8111-000000000002: Synthetic visible candidate"
+          }
+        ]
+      },
+      "decision": "confirm",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": 0.3,
+      "scores": [
+        {
+          "tag": "nan"
+        }
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Found 1 candidate, but it is not similar enough to forget by query alone (similarity NaN, needs 0.75). If this is the memory to forget, call again with its memoryId:\n11111111-1111-4111-8111-000000000001: Synthetic visible candidate"
+          }
+        ]
+      },
+      "decision": "confirm",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": 0.75,
+      "scores": [],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "No matching memory found."
+          }
+        ]
+      },
+      "decision": "none",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": 0.75,
+      "scores": [
+        0.333
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Found 1 candidate, but it is not similar enough to forget by query alone (similarity 0.33, needs 0.75). If this is the memory to forget, call again with its memoryId:\n11111111-1111-4111-8111-000000000001: Synthetic visible candidate"
+          }
+        ]
+      },
+      "decision": "confirm",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": 0.75,
+      "scores": [
+        0.7499
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Found 1 candidate, but it is not similar enough to forget by query alone (similarity 0.75, needs 0.75). If this is the memory to forget, call again with its memoryId:\n11111111-1111-4111-8111-000000000001: Synthetic visible candidate"
+          }
+        ]
+      },
+      "decision": "confirm",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": 0.75,
+      "scores": [
+        0.75
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Forgotten: \"Synthetic visible candidate\" (tombstoned)."
+          }
+        ]
+      },
+      "decision": "forget",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 1
+      }
+    },
+    {
+      "threshold": 0.75,
+      "scores": [
+        0.9
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Forgotten: \"Synthetic visible candidate\" (tombstoned)."
+          }
+        ]
+      },
+      "decision": "forget",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 1
+      }
+    },
+    {
+      "threshold": 0.75,
+      "scores": [
+        1
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Forgotten: \"Synthetic visible candidate\" (tombstoned)."
+          }
+        ]
+      },
+      "decision": "forget",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 1
+      }
+    },
+    {
+      "threshold": 0.75,
+      "scores": [
+        0.99,
+        0.99
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Found 2 candidates. Specify memoryId:\n11111111-1111-4111-8111-000000000001: Synthetic visible candidate\n11111111-1111-4111-8111-000000000002: Synthetic visible candidate"
+          }
+        ]
+      },
+      "decision": "confirm",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": 0.75,
+      "scores": [
+        {
+          "tag": "nan"
+        }
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Found 1 candidate, but it is not similar enough to forget by query alone (similarity NaN, needs 0.75). If this is the memory to forget, call again with its memoryId:\n11111111-1111-4111-8111-000000000001: Synthetic visible candidate"
+          }
+        ]
+      },
+      "decision": "confirm",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": 0.9,
+      "scores": [],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "No matching memory found."
+          }
+        ]
+      },
+      "decision": "none",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": 0.9,
+      "scores": [
+        0.333
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Found 1 candidate, but it is not similar enough to forget by query alone (similarity 0.33, needs 0.90). If this is the memory to forget, call again with its memoryId:\n11111111-1111-4111-8111-000000000001: Synthetic visible candidate"
+          }
+        ]
+      },
+      "decision": "confirm",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": 0.9,
+      "scores": [
+        0.7499
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Found 1 candidate, but it is not similar enough to forget by query alone (similarity 0.75, needs 0.90). If this is the memory to forget, call again with its memoryId:\n11111111-1111-4111-8111-000000000001: Synthetic visible candidate"
+          }
+        ]
+      },
+      "decision": "confirm",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": 0.9,
+      "scores": [
+        0.75
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Found 1 candidate, but it is not similar enough to forget by query alone (similarity 0.75, needs 0.90). If this is the memory to forget, call again with its memoryId:\n11111111-1111-4111-8111-000000000001: Synthetic visible candidate"
+          }
+        ]
+      },
+      "decision": "confirm",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": 0.9,
+      "scores": [
+        0.9
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Forgotten: \"Synthetic visible candidate\" (tombstoned)."
+          }
+        ]
+      },
+      "decision": "forget",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 1
+      }
+    },
+    {
+      "threshold": 0.9,
+      "scores": [
+        1
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Forgotten: \"Synthetic visible candidate\" (tombstoned)."
+          }
+        ]
+      },
+      "decision": "forget",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 1
+      }
+    },
+    {
+      "threshold": 0.9,
+      "scores": [
+        0.99,
+        0.99
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Found 2 candidates. Specify memoryId:\n11111111-1111-4111-8111-000000000001: Synthetic visible candidate\n11111111-1111-4111-8111-000000000002: Synthetic visible candidate"
+          }
+        ]
+      },
+      "decision": "confirm",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": 0.9,
+      "scores": [
+        {
+          "tag": "nan"
+        }
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Found 1 candidate, but it is not similar enough to forget by query alone (similarity NaN, needs 0.90). If this is the memory to forget, call again with its memoryId:\n11111111-1111-4111-8111-000000000001: Synthetic visible candidate"
+          }
+        ]
+      },
+      "decision": "confirm",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": {
+        "tag": "nan"
+      },
+      "scores": [],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "No matching memory found."
+          }
+        ]
+      },
+      "decision": "none",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": {
+        "tag": "nan"
+      },
+      "scores": [
+        0.333
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Found 1 candidate, but it is not similar enough to forget by query alone (similarity 0.33, needs 0.75). If this is the memory to forget, call again with its memoryId:\n11111111-1111-4111-8111-000000000001: Synthetic visible candidate"
+          }
+        ]
+      },
+      "decision": "confirm",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": {
+        "tag": "nan"
+      },
+      "scores": [
+        0.7499
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Found 1 candidate, but it is not similar enough to forget by query alone (similarity 0.75, needs 0.75). If this is the memory to forget, call again with its memoryId:\n11111111-1111-4111-8111-000000000001: Synthetic visible candidate"
+          }
+        ]
+      },
+      "decision": "confirm",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": {
+        "tag": "nan"
+      },
+      "scores": [
+        0.75
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Forgotten: \"Synthetic visible candidate\" (tombstoned)."
+          }
+        ]
+      },
+      "decision": "forget",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 1
+      }
+    },
+    {
+      "threshold": {
+        "tag": "nan"
+      },
+      "scores": [
+        0.9
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Forgotten: \"Synthetic visible candidate\" (tombstoned)."
+          }
+        ]
+      },
+      "decision": "forget",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 1
+      }
+    },
+    {
+      "threshold": {
+        "tag": "nan"
+      },
+      "scores": [
+        1
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Forgotten: \"Synthetic visible candidate\" (tombstoned)."
+          }
+        ]
+      },
+      "decision": "forget",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 1
+      }
+    },
+    {
+      "threshold": {
+        "tag": "nan"
+      },
+      "scores": [
+        0.99,
+        0.99
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Found 2 candidates. Specify memoryId:\n11111111-1111-4111-8111-000000000001: Synthetic visible candidate\n11111111-1111-4111-8111-000000000002: Synthetic visible candidate"
+          }
+        ]
+      },
+      "decision": "confirm",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": {
+        "tag": "nan"
+      },
+      "scores": [
+        {
+          "tag": "nan"
+        }
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Found 1 candidate, but it is not similar enough to forget by query alone (similarity NaN, needs 0.75). If this is the memory to forget, call again with its memoryId:\n11111111-1111-4111-8111-000000000001: Synthetic visible candidate"
+          }
+        ]
+      },
+      "decision": "confirm",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": {
+        "tag": "infinity"
+      },
+      "scores": [],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "No matching memory found."
+          }
+        ]
+      },
+      "decision": "none",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": {
+        "tag": "infinity"
+      },
+      "scores": [
+        0.333
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Found 1 candidate, but it is not similar enough to forget by query alone (similarity 0.33, needs 0.75). If this is the memory to forget, call again with its memoryId:\n11111111-1111-4111-8111-000000000001: Synthetic visible candidate"
+          }
+        ]
+      },
+      "decision": "confirm",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": {
+        "tag": "infinity"
+      },
+      "scores": [
+        0.7499
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Found 1 candidate, but it is not similar enough to forget by query alone (similarity 0.75, needs 0.75). If this is the memory to forget, call again with its memoryId:\n11111111-1111-4111-8111-000000000001: Synthetic visible candidate"
+          }
+        ]
+      },
+      "decision": "confirm",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": {
+        "tag": "infinity"
+      },
+      "scores": [
+        0.75
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Forgotten: \"Synthetic visible candidate\" (tombstoned)."
+          }
+        ]
+      },
+      "decision": "forget",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 1
+      }
+    },
+    {
+      "threshold": {
+        "tag": "infinity"
+      },
+      "scores": [
+        0.9
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Forgotten: \"Synthetic visible candidate\" (tombstoned)."
+          }
+        ]
+      },
+      "decision": "forget",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 1
+      }
+    },
+    {
+      "threshold": {
+        "tag": "infinity"
+      },
+      "scores": [
+        1
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Forgotten: \"Synthetic visible candidate\" (tombstoned)."
+          }
+        ]
+      },
+      "decision": "forget",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 1
+      }
+    },
+    {
+      "threshold": {
+        "tag": "infinity"
+      },
+      "scores": [
+        0.99,
+        0.99
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Found 2 candidates. Specify memoryId:\n11111111-1111-4111-8111-000000000001: Synthetic visible candidate\n11111111-1111-4111-8111-000000000002: Synthetic visible candidate"
+          }
+        ]
+      },
+      "decision": "confirm",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": {
+        "tag": "infinity"
+      },
+      "scores": [
+        {
+          "tag": "nan"
+        }
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Found 1 candidate, but it is not similar enough to forget by query alone (similarity NaN, needs 0.75). If this is the memory to forget, call again with its memoryId:\n11111111-1111-4111-8111-000000000001: Synthetic visible candidate"
+          }
+        ]
+      },
+      "decision": "confirm",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": "0.9",
+      "scores": [],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "No matching memory found."
+          }
+        ]
+      },
+      "decision": "none",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": "0.9",
+      "scores": [
+        0.333
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Found 1 candidate, but it is not similar enough to forget by query alone (similarity 0.33, needs 0.75). If this is the memory to forget, call again with its memoryId:\n11111111-1111-4111-8111-000000000001: Synthetic visible candidate"
+          }
+        ]
+      },
+      "decision": "confirm",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": "0.9",
+      "scores": [
+        0.7499
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Found 1 candidate, but it is not similar enough to forget by query alone (similarity 0.75, needs 0.75). If this is the memory to forget, call again with its memoryId:\n11111111-1111-4111-8111-000000000001: Synthetic visible candidate"
+          }
+        ]
+      },
+      "decision": "confirm",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": "0.9",
+      "scores": [
+        0.75
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Forgotten: \"Synthetic visible candidate\" (tombstoned)."
+          }
+        ]
+      },
+      "decision": "forget",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 1
+      }
+    },
+    {
+      "threshold": "0.9",
+      "scores": [
+        0.9
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Forgotten: \"Synthetic visible candidate\" (tombstoned)."
+          }
+        ]
+      },
+      "decision": "forget",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 1
+      }
+    },
+    {
+      "threshold": "0.9",
+      "scores": [
+        1
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Forgotten: \"Synthetic visible candidate\" (tombstoned)."
+          }
+        ]
+      },
+      "decision": "forget",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 1
+      }
+    },
+    {
+      "threshold": "0.9",
+      "scores": [
+        0.99,
+        0.99
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Found 2 candidates. Specify memoryId:\n11111111-1111-4111-8111-000000000001: Synthetic visible candidate\n11111111-1111-4111-8111-000000000002: Synthetic visible candidate"
+          }
+        ]
+      },
+      "decision": "confirm",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": "0.9",
+      "scores": [
+        {
+          "tag": "nan"
+        }
+      ],
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Found 1 candidate, but it is not similar enough to forget by query alone (similarity NaN, needs 0.75). If this is the memory to forget, call again with its memoryId:\n11111111-1111-4111-8111-000000000001: Synthetic visible candidate"
+          }
+        ]
+      },
+      "decision": "confirm",
+      "calls": {
+        "open": 1,
+        "embed": 1,
+        "forget": 0
+      }
+    },
+    {
+      "threshold": 0.3,
+      "scores": [
+        1
+      ],
+      "disabled": true,
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "memory_forget is disabled unless security.allowModelDestructiveMemoryOps=true because model-facing tool calls do not carry a user-bound authorization context."
+          }
+        ]
+      },
+      "decision": "blocked",
+      "calls": {
+        "open": 0,
+        "embed": 0,
+        "forget": 0
+      }
+    }
+  ],
+  "storeTool": [
+    {
+      "importance": 0.95,
+      "ttl": "session",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Memory store rejected: ttl \"session\" cannot be combined with importance 0.95; importance 0.95 and above is permanent core memory. Omit ttl, or use importance below 0.95."
+          }
+        ],
+        "details": {
+          "action": "rejected",
+          "reason": "ttl_conflicts_with_core_importance"
+        }
+      },
+      "embedded": 1
+    },
+    {
+      "importance": 0.95,
+      "ttl": "short",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Memory store rejected: ttl \"short\" cannot be combined with importance 0.95; importance 0.95 and above is permanent core memory. Omit ttl, or use importance below 0.95."
+          }
+        ],
+        "details": {
+          "action": "rejected",
+          "reason": "ttl_conflicts_with_core_importance"
+        }
+      },
+      "embedded": 1
+    },
+    {
+      "importance": 0.97,
+      "ttl": "session",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Memory store rejected: ttl \"session\" cannot be combined with importance 0.97; importance 0.95 and above is permanent core memory. Omit ttl, or use importance below 0.95."
+          }
+        ],
+        "details": {
+          "action": "rejected",
+          "reason": "ttl_conflicts_with_core_importance"
+        }
+      },
+      "embedded": 1
+    },
+    {
+      "importance": 0.97,
+      "ttl": "short",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Memory store rejected: ttl \"short\" cannot be combined with importance 0.97; importance 0.95 and above is permanent core memory. Omit ttl, or use importance below 0.95."
+          }
+        ],
+        "details": {
+          "action": "rejected",
+          "reason": "ttl_conflicts_with_core_importance"
+        }
+      },
+      "embedded": 1
+    },
+    {
+      "importance": 1,
+      "ttl": "session",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Memory store rejected: ttl \"session\" cannot be combined with importance 1.00; importance 0.95 and above is permanent core memory. Omit ttl, or use importance below 0.95."
+          }
+        ],
+        "details": {
+          "action": "rejected",
+          "reason": "ttl_conflicts_with_core_importance"
+        }
+      },
+      "embedded": 1
+    },
+    {
+      "importance": 1,
+      "ttl": "short",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Memory store rejected: ttl \"short\" cannot be combined with importance 1.00; importance 0.95 and above is permanent core memory. Omit ttl, or use importance below 0.95."
+          }
+        ],
+        "details": {
+          "action": "rejected",
+          "reason": "ttl_conflicts_with_core_importance"
+        }
+      },
+      "embedded": 1
+    }
+  ]
+}

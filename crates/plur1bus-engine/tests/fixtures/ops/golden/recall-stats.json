@@ -1,0 +1,1588 @@
+{
+  "pin": "9b935ce1f970bd92a931aa99a58c620669c8085f",
+  "node": "v24.21.0",
+  "sourceHashes": [
+    {
+      "path": "package.json",
+      "sha256": "62985e09c9dbbbf89352bbda6da3fc1c1a92e1006d6b92e680dca0d0d89fdaf9"
+    },
+    {
+      "path": "engine/recall/recall-stats.js",
+      "sha256": "20265f0702e74572565b6efb31f4bda57e8c2a717f115a591ac710452a13ea13"
+    },
+    {
+      "path": "lib/input-limits.js",
+      "sha256": "2f0ad85dd65db20180255dabdb88a674882a427f14766704f991db23b7924193"
+    },
+    {
+      "path": "lib/sql-safety.js",
+      "sha256": "a6b949df02d29d3ed0494964c004d861d718eeb90abd271410e22a489de1bc62"
+    },
+    {
+      "path": "lib/log-redact.js",
+      "sha256": "f64f7d2e2fbf13684ad16fe045a1e43a9755c57be00ee7532479286eed0068e3"
+    }
+  ],
+  "boundaries": {
+    "sqlite": "actual A1 record/read and transactions",
+    "key": "synthetic Buffer.alloc(32,7).toString(hex), ASCII HMAC key",
+    "providers": "none",
+    "normalization": "none; explicit clocks and seeded synthetic key"
+  },
+  "cases": [
+    {
+      "scenario": {
+        "name": "empty-read",
+        "actions": [
+          {
+            "op": "read",
+            "ids": null,
+            "agent": "alpha"
+          }
+        ]
+      },
+      "steps": [
+        {
+          "action": {
+            "op": "read",
+            "ids": null,
+            "agent": "alpha"
+          },
+          "result": [],
+          "error": false,
+          "state": {
+            "version": 1,
+            "stats": [],
+            "queries": []
+          }
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "name": "empty-record",
+        "uninitialized": true,
+        "actions": [
+          {
+            "op": "record",
+            "ids": [],
+            "query": "",
+            "now": -1,
+            "agent": "alpha"
+          }
+        ]
+      },
+      "steps": [
+        {
+          "action": {
+            "op": "record",
+            "ids": [],
+            "query": "",
+            "now": -1,
+            "agent": "alpha"
+          },
+          "result": null,
+          "error": false,
+          "state": null
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "name": "duplicate-ids",
+        "actions": [
+          {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001",
+              "00000000-0000-4000-8000-000000000001",
+              "00000000-0000-4000-8000-000000000002"
+            ],
+            "query": "Synthetic exact query",
+            "now": 20,
+            "agent": "alpha"
+          },
+          {
+            "op": "read",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001",
+              "00000000-0000-4000-8000-000000000002",
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "agent": "alpha"
+          }
+        ]
+      },
+      "steps": [
+        {
+          "action": {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001",
+              "00000000-0000-4000-8000-000000000001",
+              "00000000-0000-4000-8000-000000000002"
+            ],
+            "query": "Synthetic exact query",
+            "now": 20,
+            "agent": "alpha"
+          },
+          "result": null,
+          "error": false,
+          "state": {
+            "version": 1,
+            "stats": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "recalls": 1,
+                "lastRecalledAt": 20
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000002",
+                "recalls": 1,
+                "lastRecalledAt": 20
+              }
+            ],
+            "queries": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "457e20ab7b336702d984b303d5982b15f4e1eeb2b641b22543c962858c6ca42f"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000002",
+                "digest": "457e20ab7b336702d984b303d5982b15f4e1eeb2b641b22543c962858c6ca42f"
+              }
+            ]
+          }
+        },
+        {
+          "action": {
+            "op": "read",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001",
+              "00000000-0000-4000-8000-000000000002",
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "agent": "alpha"
+          },
+          "result": [
+            {
+              "id": "00000000-0000-4000-8000-000000000001",
+              "recalls": 1,
+              "distinctQueries": 1,
+              "lastRecalledAt": 20
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000002",
+              "recalls": 1,
+              "distinctQueries": 1,
+              "lastRecalledAt": 20
+            }
+          ],
+          "error": false,
+          "state": {
+            "version": 1,
+            "stats": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "recalls": 1,
+                "lastRecalledAt": 20
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000002",
+                "recalls": 1,
+                "lastRecalledAt": 20
+              }
+            ],
+            "queries": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "457e20ab7b336702d984b303d5982b15f4e1eeb2b641b22543c962858c6ca42f"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000002",
+                "digest": "457e20ab7b336702d984b303d5982b15f4e1eeb2b641b22543c962858c6ca42f"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "name": "same-query-repeats",
+        "actions": [
+          {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "Synthetic exact query",
+            "now": 20,
+            "agent": "alpha"
+          },
+          {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "Synthetic exact query",
+            "now": 30,
+            "agent": "alpha"
+          },
+          {
+            "op": "read",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "agent": "alpha"
+          }
+        ]
+      },
+      "steps": [
+        {
+          "action": {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "Synthetic exact query",
+            "now": 20,
+            "agent": "alpha"
+          },
+          "result": null,
+          "error": false,
+          "state": {
+            "version": 1,
+            "stats": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "recalls": 1,
+                "lastRecalledAt": 20
+              }
+            ],
+            "queries": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "457e20ab7b336702d984b303d5982b15f4e1eeb2b641b22543c962858c6ca42f"
+              }
+            ]
+          }
+        },
+        {
+          "action": {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "Synthetic exact query",
+            "now": 30,
+            "agent": "alpha"
+          },
+          "result": null,
+          "error": false,
+          "state": {
+            "version": 1,
+            "stats": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "recalls": 2,
+                "lastRecalledAt": 30
+              }
+            ],
+            "queries": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "457e20ab7b336702d984b303d5982b15f4e1eeb2b641b22543c962858c6ca42f"
+              }
+            ]
+          }
+        },
+        {
+          "action": {
+            "op": "read",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "agent": "alpha"
+          },
+          "result": [
+            {
+              "id": "00000000-0000-4000-8000-000000000001",
+              "recalls": 2,
+              "distinctQueries": 1,
+              "lastRecalledAt": 30
+            }
+          ],
+          "error": false,
+          "state": {
+            "version": 1,
+            "stats": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "recalls": 2,
+                "lastRecalledAt": 30
+              }
+            ],
+            "queries": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "457e20ab7b336702d984b303d5982b15f4e1eeb2b641b22543c962858c6ca42f"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "name": "exact-query-equality",
+        "actions": [
+          {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "Synthetic query",
+            "now": 20,
+            "agent": "alpha"
+          },
+          {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": " Synthetic query ",
+            "now": 30,
+            "agent": "alpha"
+          },
+          {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "synthetic query",
+            "now": 40,
+            "agent": "alpha"
+          },
+          {
+            "op": "read",
+            "ids": null,
+            "agent": "alpha"
+          }
+        ]
+      },
+      "steps": [
+        {
+          "action": {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "Synthetic query",
+            "now": 20,
+            "agent": "alpha"
+          },
+          "result": null,
+          "error": false,
+          "state": {
+            "version": 1,
+            "stats": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "recalls": 1,
+                "lastRecalledAt": 20
+              }
+            ],
+            "queries": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "6e5533cc81efe21c60ab7fd7082d822e9d77b2ca9fb5b35aa252e31ce27be8cc"
+              }
+            ]
+          }
+        },
+        {
+          "action": {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": " Synthetic query ",
+            "now": 30,
+            "agent": "alpha"
+          },
+          "result": null,
+          "error": false,
+          "state": {
+            "version": 1,
+            "stats": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "recalls": 2,
+                "lastRecalledAt": 30
+              }
+            ],
+            "queries": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "6e5533cc81efe21c60ab7fd7082d822e9d77b2ca9fb5b35aa252e31ce27be8cc"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "d4ee4324fb529aebbf2bcdc07fd2f258154d385f8a8768b1f8b5708250a7b37c"
+              }
+            ]
+          }
+        },
+        {
+          "action": {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "synthetic query",
+            "now": 40,
+            "agent": "alpha"
+          },
+          "result": null,
+          "error": false,
+          "state": {
+            "version": 1,
+            "stats": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "recalls": 3,
+                "lastRecalledAt": 40
+              }
+            ],
+            "queries": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "1f9adb567afc77e71686ebbfa0073eb6ffd90dfc301908580d1531f3b2570512"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "6e5533cc81efe21c60ab7fd7082d822e9d77b2ca9fb5b35aa252e31ce27be8cc"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "d4ee4324fb529aebbf2bcdc07fd2f258154d385f8a8768b1f8b5708250a7b37c"
+              }
+            ]
+          }
+        },
+        {
+          "action": {
+            "op": "read",
+            "ids": null,
+            "agent": "alpha"
+          },
+          "result": [
+            {
+              "id": "00000000-0000-4000-8000-000000000001",
+              "recalls": 3,
+              "distinctQueries": 3,
+              "lastRecalledAt": 40
+            }
+          ],
+          "error": false,
+          "state": {
+            "version": 1,
+            "stats": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "recalls": 3,
+                "lastRecalledAt": 40
+              }
+            ],
+            "queries": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "1f9adb567afc77e71686ebbfa0073eb6ffd90dfc301908580d1531f3b2570512"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "6e5533cc81efe21c60ab7fd7082d822e9d77b2ca9fb5b35aa252e31ce27be8cc"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "d4ee4324fb529aebbf2bcdc07fd2f258154d385f8a8768b1f8b5708250a7b37c"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "name": "unicode-is-not-normalized",
+        "actions": [
+          {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "Café 🚀",
+            "now": 20,
+            "agent": "alpha"
+          },
+          {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "Café 🚀",
+            "now": 30,
+            "agent": "alpha"
+          },
+          {
+            "op": "read",
+            "ids": null,
+            "agent": "alpha"
+          }
+        ]
+      },
+      "steps": [
+        {
+          "action": {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "Café 🚀",
+            "now": 20,
+            "agent": "alpha"
+          },
+          "result": null,
+          "error": false,
+          "state": {
+            "version": 1,
+            "stats": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "recalls": 1,
+                "lastRecalledAt": 20
+              }
+            ],
+            "queries": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "0315b1d9056cb5343aa81fd14260e0287ccdd12ac4c914c561699a0064d8c004"
+              }
+            ]
+          }
+        },
+        {
+          "action": {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "Café 🚀",
+            "now": 30,
+            "agent": "alpha"
+          },
+          "result": null,
+          "error": false,
+          "state": {
+            "version": 1,
+            "stats": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "recalls": 2,
+                "lastRecalledAt": 30
+              }
+            ],
+            "queries": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "0315b1d9056cb5343aa81fd14260e0287ccdd12ac4c914c561699a0064d8c004"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "2b1a0d3412addc3cbd334ae525f8214e049940f531b80044a27a439be9dfbf53"
+              }
+            ]
+          }
+        },
+        {
+          "action": {
+            "op": "read",
+            "ids": null,
+            "agent": "alpha"
+          },
+          "result": [
+            {
+              "id": "00000000-0000-4000-8000-000000000001",
+              "recalls": 2,
+              "distinctQueries": 2,
+              "lastRecalledAt": 30
+            }
+          ],
+          "error": false,
+          "state": {
+            "version": 1,
+            "stats": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "recalls": 2,
+                "lastRecalledAt": 30
+              }
+            ],
+            "queries": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "0315b1d9056cb5343aa81fd14260e0287ccdd12ac4c914c561699a0064d8c004"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "2b1a0d3412addc3cbd334ae525f8214e049940f531b80044a27a439be9dfbf53"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "name": "id-case-preserved",
+        "actions": [
+          {
+            "op": "record",
+            "ids": [
+              "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA",
+              "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+            ],
+            "query": "Synthetic query",
+            "now": 20,
+            "agent": "alpha"
+          },
+          {
+            "op": "read",
+            "ids": null,
+            "agent": "alpha"
+          }
+        ]
+      },
+      "steps": [
+        {
+          "action": {
+            "op": "record",
+            "ids": [
+              "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA",
+              "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+            ],
+            "query": "Synthetic query",
+            "now": 20,
+            "agent": "alpha"
+          },
+          "result": null,
+          "error": false,
+          "state": {
+            "version": 1,
+            "stats": [
+              {
+                "id": "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA",
+                "recalls": 1,
+                "lastRecalledAt": 20
+              },
+              {
+                "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                "recalls": 1,
+                "lastRecalledAt": 20
+              }
+            ],
+            "queries": [
+              {
+                "id": "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA",
+                "digest": "6e5533cc81efe21c60ab7fd7082d822e9d77b2ca9fb5b35aa252e31ce27be8cc"
+              },
+              {
+                "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                "digest": "6e5533cc81efe21c60ab7fd7082d822e9d77b2ca9fb5b35aa252e31ce27be8cc"
+              }
+            ]
+          }
+        },
+        {
+          "action": {
+            "op": "read",
+            "ids": null,
+            "agent": "alpha"
+          },
+          "result": [
+            {
+              "id": "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA",
+              "recalls": 1,
+              "distinctQueries": 1,
+              "lastRecalledAt": 20
+            },
+            {
+              "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+              "recalls": 1,
+              "distinctQueries": 1,
+              "lastRecalledAt": 20
+            }
+          ],
+          "error": false,
+          "state": {
+            "version": 1,
+            "stats": [
+              {
+                "id": "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA",
+                "recalls": 1,
+                "lastRecalledAt": 20
+              },
+              {
+                "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                "recalls": 1,
+                "lastRecalledAt": 20
+              }
+            ],
+            "queries": [
+              {
+                "id": "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA",
+                "digest": "6e5533cc81efe21c60ab7fd7082d822e9d77b2ca9fb5b35aa252e31ce27be8cc"
+              },
+              {
+                "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                "digest": "6e5533cc81efe21c60ab7fd7082d822e9d77b2ca9fb5b35aa252e31ce27be8cc"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "name": "agent-isolation",
+        "actions": [
+          {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "Synthetic query",
+            "now": 20,
+            "agent": "alpha"
+          },
+          {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "Synthetic query",
+            "now": 30,
+            "agent": "beta"
+          },
+          {
+            "op": "read",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "agent": "alpha"
+          },
+          {
+            "op": "read",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "agent": "beta"
+          }
+        ]
+      },
+      "steps": [
+        {
+          "action": {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "Synthetic query",
+            "now": 20,
+            "agent": "alpha"
+          },
+          "result": null,
+          "error": false,
+          "state": {
+            "version": 1,
+            "stats": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "recalls": 1,
+                "lastRecalledAt": 20
+              }
+            ],
+            "queries": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "6e5533cc81efe21c60ab7fd7082d822e9d77b2ca9fb5b35aa252e31ce27be8cc"
+              }
+            ]
+          }
+        },
+        {
+          "action": {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "Synthetic query",
+            "now": 30,
+            "agent": "beta"
+          },
+          "result": null,
+          "error": false,
+          "state": {
+            "version": 1,
+            "stats": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "recalls": 1,
+                "lastRecalledAt": 30
+              }
+            ],
+            "queries": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "6e5533cc81efe21c60ab7fd7082d822e9d77b2ca9fb5b35aa252e31ce27be8cc"
+              }
+            ]
+          }
+        },
+        {
+          "action": {
+            "op": "read",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "agent": "alpha"
+          },
+          "result": [
+            {
+              "id": "00000000-0000-4000-8000-000000000001",
+              "recalls": 1,
+              "distinctQueries": 1,
+              "lastRecalledAt": 20
+            }
+          ],
+          "error": false,
+          "state": {
+            "version": 1,
+            "stats": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "recalls": 1,
+                "lastRecalledAt": 20
+              }
+            ],
+            "queries": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "6e5533cc81efe21c60ab7fd7082d822e9d77b2ca9fb5b35aa252e31ce27be8cc"
+              }
+            ]
+          }
+        },
+        {
+          "action": {
+            "op": "read",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "agent": "beta"
+          },
+          "result": [
+            {
+              "id": "00000000-0000-4000-8000-000000000001",
+              "recalls": 1,
+              "distinctQueries": 1,
+              "lastRecalledAt": 30
+            }
+          ],
+          "error": false,
+          "state": {
+            "version": 1,
+            "stats": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "recalls": 1,
+                "lastRecalledAt": 30
+              }
+            ],
+            "queries": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "6e5533cc81efe21c60ab7fd7082d822e9d77b2ca9fb5b35aa252e31ce27be8cc"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "name": "timestamp-is-monotonic",
+        "actions": [
+          {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "One query",
+            "now": 30,
+            "agent": "alpha"
+          },
+          {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "Two query",
+            "now": 20,
+            "agent": "alpha"
+          },
+          {
+            "op": "read",
+            "ids": null,
+            "agent": "alpha"
+          }
+        ]
+      },
+      "steps": [
+        {
+          "action": {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "One query",
+            "now": 30,
+            "agent": "alpha"
+          },
+          "result": null,
+          "error": false,
+          "state": {
+            "version": 1,
+            "stats": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "recalls": 1,
+                "lastRecalledAt": 30
+              }
+            ],
+            "queries": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "8b4abdb85bbe6c1ca161b1fb3cca6b3b297650cb84ceb6ea21bd0012012241b0"
+              }
+            ]
+          }
+        },
+        {
+          "action": {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "Two query",
+            "now": 20,
+            "agent": "alpha"
+          },
+          "result": null,
+          "error": false,
+          "state": {
+            "version": 1,
+            "stats": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "recalls": 2,
+                "lastRecalledAt": 30
+              }
+            ],
+            "queries": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "8b4abdb85bbe6c1ca161b1fb3cca6b3b297650cb84ceb6ea21bd0012012241b0"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "f236826f1b7c7353b0c7491f81f602fca6aefa0e48dae1f72a2c2d3d7f6ffb50"
+              }
+            ]
+          }
+        },
+        {
+          "action": {
+            "op": "read",
+            "ids": null,
+            "agent": "alpha"
+          },
+          "result": [
+            {
+              "id": "00000000-0000-4000-8000-000000000001",
+              "recalls": 2,
+              "distinctQueries": 2,
+              "lastRecalledAt": 30
+            }
+          ],
+          "error": false,
+          "state": {
+            "version": 1,
+            "stats": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "recalls": 2,
+                "lastRecalledAt": 30
+              }
+            ],
+            "queries": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "8b4abdb85bbe6c1ca161b1fb3cca6b3b297650cb84ceb6ea21bd0012012241b0"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "f236826f1b7c7353b0c7491f81f602fca6aefa0e48dae1f72a2c2d3d7f6ffb50"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "name": "missing-explicit-zero",
+        "actions": [
+          {
+            "op": "read",
+            "ids": [
+              "00000000-0000-4000-8000-000000000002",
+              "00000000-0000-4000-8000-000000000001",
+              "00000000-0000-4000-8000-000000000002"
+            ],
+            "agent": "alpha"
+          }
+        ]
+      },
+      "steps": [
+        {
+          "action": {
+            "op": "read",
+            "ids": [
+              "00000000-0000-4000-8000-000000000002",
+              "00000000-0000-4000-8000-000000000001",
+              "00000000-0000-4000-8000-000000000002"
+            ],
+            "agent": "alpha"
+          },
+          "result": [
+            {
+              "id": "00000000-0000-4000-8000-000000000002",
+              "recalls": 0,
+              "distinctQueries": 0,
+              "lastRecalledAt": null
+            },
+            {
+              "id": "00000000-0000-4000-8000-000000000001",
+              "recalls": 0,
+              "distinctQueries": 0,
+              "lastRecalledAt": null
+            }
+          ],
+          "error": false,
+          "state": {
+            "version": 1,
+            "stats": [],
+            "queries": []
+          }
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "name": "legacy-counter",
+        "legacy": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "recalls": 8,
+          "lastRecalledAt": 100
+        },
+        "actions": [
+          {
+            "op": "read",
+            "ids": null,
+            "agent": "alpha"
+          },
+          {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "New synthetic query",
+            "now": 120,
+            "agent": "alpha"
+          },
+          {
+            "op": "read",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "agent": "alpha"
+          }
+        ]
+      },
+      "steps": [
+        {
+          "action": {
+            "op": "read",
+            "ids": null,
+            "agent": "alpha"
+          },
+          "result": [
+            {
+              "id": "00000000-0000-4000-8000-000000000001",
+              "recalls": 8,
+              "distinctQueries": 0,
+              "lastRecalledAt": 100
+            }
+          ],
+          "error": false,
+          "state": {
+            "version": 1,
+            "stats": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "recalls": 8,
+                "lastRecalledAt": 100
+              }
+            ],
+            "queries": []
+          }
+        },
+        {
+          "action": {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "New synthetic query",
+            "now": 120,
+            "agent": "alpha"
+          },
+          "result": null,
+          "error": false,
+          "state": {
+            "version": 1,
+            "stats": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "recalls": 9,
+                "lastRecalledAt": 120
+              }
+            ],
+            "queries": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "25e096294a7b9152f251befdaa5701196217f9dafb85c6534fc1bcf1ee483c7a"
+              }
+            ]
+          }
+        },
+        {
+          "action": {
+            "op": "read",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "agent": "alpha"
+          },
+          "result": [
+            {
+              "id": "00000000-0000-4000-8000-000000000001",
+              "recalls": 9,
+              "distinctQueries": 1,
+              "lastRecalledAt": 120
+            }
+          ],
+          "error": false,
+          "state": {
+            "version": 1,
+            "stats": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "recalls": 9,
+                "lastRecalledAt": 120
+              }
+            ],
+            "queries": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "25e096294a7b9152f251befdaa5701196217f9dafb85c6534fc1bcf1ee483c7a"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "name": "legacy-null-time",
+        "legacy": {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "recalls": 8,
+          "lastRecalledAt": null
+        },
+        "actions": [
+          {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "New synthetic query",
+            "now": 120,
+            "agent": "alpha"
+          },
+          {
+            "op": "read",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "agent": "alpha"
+          }
+        ]
+      },
+      "steps": [
+        {
+          "action": {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "New synthetic query",
+            "now": 120,
+            "agent": "alpha"
+          },
+          "result": null,
+          "error": false,
+          "state": {
+            "version": 1,
+            "stats": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "recalls": 9,
+                "lastRecalledAt": null
+              }
+            ],
+            "queries": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "25e096294a7b9152f251befdaa5701196217f9dafb85c6534fc1bcf1ee483c7a"
+              }
+            ]
+          }
+        },
+        {
+          "action": {
+            "op": "read",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "agent": "alpha"
+          },
+          "result": [
+            {
+              "id": "00000000-0000-4000-8000-000000000001",
+              "recalls": 9,
+              "distinctQueries": 1,
+              "lastRecalledAt": null
+            }
+          ],
+          "error": false,
+          "state": {
+            "version": 1,
+            "stats": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "recalls": 9,
+                "lastRecalledAt": null
+              }
+            ],
+            "queries": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "25e096294a7b9152f251befdaa5701196217f9dafb85c6534fc1bcf1ee483c7a"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "name": "future-schema-refused",
+        "version": 2,
+        "actions": [
+          {
+            "op": "read",
+            "ids": null,
+            "agent": "alpha"
+          },
+          {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "Synthetic query",
+            "now": 20,
+            "agent": "alpha"
+          }
+        ]
+      },
+      "steps": [
+        {
+          "action": {
+            "op": "read",
+            "ids": null,
+            "agent": "alpha"
+          },
+          "result": null,
+          "error": true,
+          "state": {
+            "version": 2,
+            "stats": [],
+            "queries": []
+          }
+        },
+        {
+          "action": {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "Synthetic query",
+            "now": 20,
+            "agent": "alpha"
+          },
+          "result": null,
+          "error": true,
+          "state": {
+            "version": 2,
+            "stats": [],
+            "queries": []
+          }
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "name": "invalid-values",
+        "actions": [
+          {
+            "op": "record",
+            "ids": [
+              "bad"
+            ],
+            "query": "Synthetic query",
+            "now": 20,
+            "agent": "alpha"
+          },
+          {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "",
+            "now": 20,
+            "agent": "alpha"
+          },
+          {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "   ",
+            "now": 20,
+            "agent": "alpha"
+          },
+          {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "Synthetic query",
+            "now": -1,
+            "agent": "alpha"
+          },
+          {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "Synthetic query",
+            "now": 0.5,
+            "agent": "alpha"
+          },
+          {
+            "op": "read",
+            "ids": [
+              "bad"
+            ],
+            "agent": "alpha"
+          }
+        ]
+      },
+      "steps": [
+        {
+          "action": {
+            "op": "record",
+            "ids": [
+              "bad"
+            ],
+            "query": "Synthetic query",
+            "now": 20,
+            "agent": "alpha"
+          },
+          "result": null,
+          "error": true,
+          "state": {
+            "version": 1,
+            "stats": [],
+            "queries": []
+          }
+        },
+        {
+          "action": {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "",
+            "now": 20,
+            "agent": "alpha"
+          },
+          "result": null,
+          "error": true,
+          "state": {
+            "version": 1,
+            "stats": [],
+            "queries": []
+          }
+        },
+        {
+          "action": {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "   ",
+            "now": 20,
+            "agent": "alpha"
+          },
+          "result": null,
+          "error": false,
+          "state": {
+            "version": 1,
+            "stats": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "recalls": 1,
+                "lastRecalledAt": 20
+              }
+            ],
+            "queries": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "2067fe5ba800212bbc6797a9a6e33e46b6c53b3a62b7c2d48e4578a693fa294f"
+              }
+            ]
+          }
+        },
+        {
+          "action": {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "Synthetic query",
+            "now": -1,
+            "agent": "alpha"
+          },
+          "result": null,
+          "error": true,
+          "state": {
+            "version": 1,
+            "stats": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "recalls": 1,
+                "lastRecalledAt": 20
+              }
+            ],
+            "queries": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "2067fe5ba800212bbc6797a9a6e33e46b6c53b3a62b7c2d48e4578a693fa294f"
+              }
+            ]
+          }
+        },
+        {
+          "action": {
+            "op": "record",
+            "ids": [
+              "00000000-0000-4000-8000-000000000001"
+            ],
+            "query": "Synthetic query",
+            "now": 0.5,
+            "agent": "alpha"
+          },
+          "result": null,
+          "error": true,
+          "state": {
+            "version": 1,
+            "stats": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "recalls": 1,
+                "lastRecalledAt": 20
+              }
+            ],
+            "queries": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "2067fe5ba800212bbc6797a9a6e33e46b6c53b3a62b7c2d48e4578a693fa294f"
+              }
+            ]
+          }
+        },
+        {
+          "action": {
+            "op": "read",
+            "ids": [
+              "bad"
+            ],
+            "agent": "alpha"
+          },
+          "result": null,
+          "error": true,
+          "state": {
+            "version": 1,
+            "stats": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "recalls": 1,
+                "lastRecalledAt": 20
+              }
+            ],
+            "queries": [
+              {
+                "id": "00000000-0000-4000-8000-000000000001",
+                "digest": "2067fe5ba800212bbc6797a9a6e33e46b6c53b3a62b7c2d48e4578a693fa294f"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

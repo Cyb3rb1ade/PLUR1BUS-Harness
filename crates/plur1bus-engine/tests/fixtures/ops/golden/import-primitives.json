@@ -1,0 +1,840 @@
+{
+  "recordedFrom": {
+    "source": {
+      "commit": "1f0daec472b72755d851712968157a89ca3a7687",
+      "sha256": {
+        "engine/memory-ops/import-id.js": "37f587155c8637f0ed392980628df783eb4e60977ba573ed87b2d931030d997e",
+        "engine/memory-ops/import-digest.js": "9539985949844db9968333cf6027fd7f393296d541cdffc95ae847abb2c5e00e",
+        "engine/memory-ops/import-ledger.js": "577b01f06b5dfc1a8cb880a707542adc4b5b4e75b7473b777987b864031d8c78"
+      }
+    },
+    "node": "v24.21.0"
+  },
+  "ids": [
+    {
+      "agent": "agent",
+      "key": "key",
+      "id": "b23b2c4e-31af-5c5b-a816-4dd172ee79ec"
+    },
+    {
+      "agent": "Agent",
+      "key": "key",
+      "id": "97250073-fce7-5ed1-98d5-e0b04bfba0f2"
+    },
+    {
+      "agent": "_a",
+      "key": "key",
+      "id": "710099c1-c48a-5978-ad9d-31207a4fc32b"
+    },
+    {
+      "agent": "agent",
+      "key": " k ",
+      "id": "b249d003-9237-5858-a04d-54d0fbcce9ba"
+    },
+    {
+      "agent": "Agent",
+      "key": " k ",
+      "id": "d4ec062c-6426-5142-8d49-f7b751bd9743"
+    },
+    {
+      "agent": "_a",
+      "key": " k ",
+      "id": "b4ef98af-e470-5a27-a418-d9f0dd85e07d"
+    },
+    {
+      "agent": "agent",
+      "key": "é",
+      "id": "d3db3f19-96a2-5bff-983e-66b0981fc942"
+    },
+    {
+      "agent": "Agent",
+      "key": "é",
+      "id": "8ace01a9-10fc-51c8-8f6d-2885c9d3a2e5"
+    },
+    {
+      "agent": "_a",
+      "key": "é",
+      "id": "c6f183f6-a916-5b81-9881-61cb53d8ec8f"
+    },
+    {
+      "agent": "agent",
+      "key": "😀",
+      "id": "527ef64c-e3b0-59e2-86e5-335061b032e8"
+    },
+    {
+      "agent": "Agent",
+      "key": "😀",
+      "id": "c416dc55-3274-5a2a-b583-ba4f55f3a098"
+    },
+    {
+      "agent": "_a",
+      "key": "😀",
+      "id": "3ff8af22-180d-52b3-964f-37243f64f96e"
+    },
+    {
+      "agent": "agent",
+      "key": "é",
+      "id": "5a65655e-2cc1-5192-be15-def64a486c96"
+    },
+    {
+      "agent": "Agent",
+      "key": "é",
+      "id": "f8f5d86a-5fb5-55a8-980b-a5daef07d898"
+    },
+    {
+      "agent": "_a",
+      "key": "é",
+      "id": "c25c5617-c95a-597e-b64f-ada2a10acedc"
+    },
+    {
+      "agent": "agent",
+      "key": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "id": "eed55322-f6ff-519a-85ca-7a31ebc24d52"
+    },
+    {
+      "agent": "Agent",
+      "key": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "id": "ff14288d-bf35-5ba7-9821-7fd6d4ab4b3b"
+    },
+    {
+      "agent": "_a",
+      "key": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "id": "99843aec-7f55-5187-8888-86cc42a1179e"
+    },
+    {
+      "agent": "agent",
+      "key": "a\u0000b",
+      "id": "c0ccb049-28a4-57ec-ab2f-0d89c8c24e9d"
+    },
+    {
+      "agent": "Agent",
+      "key": "a\u0000b",
+      "id": "af1aadd6-22bd-51b3-bc5c-abb1127ca54d"
+    },
+    {
+      "agent": "_a",
+      "key": "a\u0000b",
+      "id": "30758c76-2132-5f8d-88fa-567ccfe4b3cb"
+    }
+  ],
+  "digests": [
+    {
+      "rowJson": "{}",
+      "digest": {
+        "content": "5aadd409036df056",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "ca851c8b40351710"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"synthetic\",\"summary\":\"summary\",\"scope\":\"agent-private\",\"agentId\":\"agent\"}",
+      "digest": {
+        "content": "7d1b33b2815b5761",
+        "binding": "7dcba751ea8181c8",
+        "meta": "ca851c8b40351710"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"numbers\",\"importance\":0,\"updatedAt\":0,\"validUntil\":0,\"neverForget\":0}",
+      "digest": {
+        "content": "3d2ae2f8554c1183",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "ca851c8b40351710"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"numbers\",\"importance\":0,\"updatedAt\":0,\"validUntil\":0,\"neverForget\":0}",
+      "digest": {
+        "content": "3d2ae2f8554c1183",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "ca851c8b40351710"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"numbers\",\"importance\":0.699999988079071,\"updatedAt\":0.699999988079071,\"validUntil\":0.699999988079071,\"neverForget\":0.699999988079071}",
+      "digest": {
+        "content": "3d2ae2f8554c1183",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "8152a858d6d61f49"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"numbers\",\"importance\":0.7000000001,\"updatedAt\":0.7000000001,\"validUntil\":0.7000000001,\"neverForget\":0.7000000001}",
+      "digest": {
+        "content": "3d2ae2f8554c1183",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "8152a858d6d61f49"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"numbers\",\"importance\":5e-7,\"updatedAt\":5e-7,\"validUntil\":5e-7,\"neverForget\":5e-7}",
+      "digest": {
+        "content": "3d2ae2f8554c1183",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "6a6d8fec3deef299"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"numbers\",\"importance\":-5e-7,\"updatedAt\":-5e-7,\"validUntil\":-5e-7,\"neverForget\":-5e-7}",
+      "digest": {
+        "content": "3d2ae2f8554c1183",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "ca851c8b40351710"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"numbers\",\"importance\":1e-7,\"updatedAt\":1e-7,\"validUntil\":1e-7,\"neverForget\":1e-7}",
+      "digest": {
+        "content": "3d2ae2f8554c1183",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "ca851c8b40351710"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"numbers\",\"importance\":1e+21,\"updatedAt\":1e+21,\"validUntil\":1e+21,\"neverForget\":1e+21}",
+      "digest": {
+        "content": "3d2ae2f8554c1183",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "f54b37de7c3db709"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"numbers\",\"importance\":1e+22,\"updatedAt\":1e+22,\"validUntil\":1e+22,\"neverForget\":1e+22}",
+      "digest": {
+        "content": "3d2ae2f8554c1183",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "1b4b234185932b29"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"numbers\",\"importance\":9007199254740991,\"updatedAt\":9007199254740991,\"validUntil\":9007199254740991,\"neverForget\":9007199254740991}",
+      "digest": {
+        "content": "3d2ae2f8554c1183",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "2ba90be242844d6e"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"numbers\",\"importance\":\"0x10\",\"updatedAt\":\"0x10\",\"validUntil\":\"0x10\",\"neverForget\":\"0x10\"}",
+      "digest": {
+        "content": "3d2ae2f8554c1183",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "b1f700195c497b83"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"numbers\",\"importance\":\"0o10\",\"updatedAt\":\"0o10\",\"validUntil\":\"0o10\",\"neverForget\":\"0o10\"}",
+      "digest": {
+        "content": "3d2ae2f8554c1183",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "971c540c68b0829c"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"numbers\",\"importance\":\"0b10\",\"updatedAt\":\"0b10\",\"validUntil\":\"0b10\",\"neverForget\":\"0b10\"}",
+      "digest": {
+        "content": "3d2ae2f8554c1183",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "7649132f44b3ea87"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"numbers\",\"importance\":\"-0x10\",\"updatedAt\":\"-0x10\",\"validUntil\":\"-0x10\",\"neverForget\":\"-0x10\"}",
+      "digest": {
+        "content": "3d2ae2f8554c1183",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "ca851c8b40351710"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"numbers\",\"importance\":\" 0.7 \",\"updatedAt\":\" 0.7 \",\"validUntil\":\" 0.7 \",\"neverForget\":\" 0.7 \"}",
+      "digest": {
+        "content": "3d2ae2f8554c1183",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "8152a858d6d61f49"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"numbers\",\"importance\":\"﻿0.7﻿\",\"updatedAt\":\"﻿0.7﻿\",\"validUntil\":\"﻿0.7﻿\",\"neverForget\":\"﻿0.7﻿\"}",
+      "digest": {
+        "content": "3d2ae2f8554c1183",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "8152a858d6d61f49"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"numbers\",\"importance\":null,\"updatedAt\":null,\"validUntil\":null,\"neverForget\":null}",
+      "digest": {
+        "content": "3d2ae2f8554c1183",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "ca851c8b40351710"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"numbers\",\"importance\":true,\"updatedAt\":true,\"validUntil\":true,\"neverForget\":true}",
+      "digest": {
+        "content": "3d2ae2f8554c1183",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "ba4369ce94e959d7"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"numbers\",\"importance\":\"Infinity\",\"updatedAt\":\"Infinity\",\"validUntil\":\"Infinity\",\"neverForget\":\"Infinity\"}",
+      "digest": {
+        "content": "3d2ae2f8554c1183",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "ca851c8b40351710"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"numbers\",\"importance\":-1.0000005,\"updatedAt\":-1.0000005,\"validUntil\":-1.0000005,\"neverForget\":-1.0000005}",
+      "digest": {
+        "content": "3d2ae2f8554c1183",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "1512727a66c84fe6"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"numbers\",\"importance\":4503599627370495.5,\"updatedAt\":4503599627370495.5,\"validUntil\":4503599627370495.5,\"neverForget\":4503599627370495.5}",
+      "digest": {
+        "content": "3d2ae2f8554c1183",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "bb60f0ca2ea7b9e5"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"numbers\",\"importance\":[],\"updatedAt\":[],\"validUntil\":[],\"neverForget\":[]}",
+      "digest": {
+        "content": "3d2ae2f8554c1183",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "ca851c8b40351710"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"numbers\",\"importance\":[1],\"updatedAt\":[1],\"validUntil\":[1],\"neverForget\":[1]}",
+      "digest": {
+        "content": "3d2ae2f8554c1183",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "37877a0a25f3b47a"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"numbers\",\"importance\":[null],\"updatedAt\":[null],\"validUntil\":[null],\"neverForget\":[null]}",
+      "digest": {
+        "content": "3d2ae2f8554c1183",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "ca851c8b40351710"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"numbers\",\"importance\":[1,2],\"updatedAt\":[1,2],\"validUntil\":[1,2],\"neverForget\":[1,2]}",
+      "digest": {
+        "content": "3d2ae2f8554c1183",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "ca851c8b40351710"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"numbers\",\"importance\":{},\"updatedAt\":{},\"validUntil\":{},\"neverForget\":{}}",
+      "digest": {
+        "content": "3d2ae2f8554c1183",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "ca851c8b40351710"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"boolean\",\"neverForget\":true}",
+      "digest": {
+        "content": "df9466fbb7241901",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "546c9e4c788783a3"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"boolean\",\"neverForget\":1}",
+      "digest": {
+        "content": "df9466fbb7241901",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "546c9e4c788783a3"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"boolean\",\"neverForget\":\"true\"}",
+      "digest": {
+        "content": "df9466fbb7241901",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "546c9e4c788783a3"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"boolean\",\"neverForget\":false}",
+      "digest": {
+        "content": "df9466fbb7241901",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "ca851c8b40351710"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"boolean\",\"neverForget\":0}",
+      "digest": {
+        "content": "df9466fbb7241901",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "ca851c8b40351710"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"boolean\",\"neverForget\":\"1\"}",
+      "digest": {
+        "content": "df9466fbb7241901",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "ca851c8b40351710"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"boolean\",\"neverForget\":\"false\"}",
+      "digest": {
+        "content": "df9466fbb7241901",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "ca851c8b40351710"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"boolean\",\"neverForget\":null}",
+      "digest": {
+        "content": "df9466fbb7241901",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "ca851c8b40351710"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"é😀\\nquote\\\"\",\"summary\":\"escape\\t\",\"category\":\"other\",\"vector\":[9,8],\"retrievalCount\":800,\"lastRetrievedAt\":900}",
+      "digest": {
+        "content": "8c27afc9bff32639",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "2e09d7642486bac2"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"é😀\\nquote\\\"\",\"summary\":\"escape\\t\",\"category\":\"other\",\"vector\":[0,1],\"retrievalCount\":0,\"lastRetrievedAt\":0}",
+      "digest": {
+        "content": "8c27afc9bff32639",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "2e09d7642486bac2"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"legacy\\ud800\",\"summary\":\"\\udfff\"}",
+      "digest": {
+        "content": "4cda1762a67762b8",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "ca851c8b40351710"
+      }
+    },
+    {
+      "rowJson": "{\"text\":1e+21,\"summary\":[null,\"a\",null,1e-7],\"category\":{}}",
+      "digest": {
+        "content": "6c2a1af139725c80",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "e4cba211477e3dcd"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"same\",\"importance\":0.699999988079071}",
+      "digest": {
+        "content": "bbe88a338b95104c",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "92b5bf4c82cc7318"
+      }
+    },
+    {
+      "rowJson": "{\"text\":\"same\",\"importance\":0.7}",
+      "digest": {
+        "content": "bbe88a338b95104c",
+        "binding": "5c9fdd96b6263cab",
+        "meta": "92b5bf4c82cc7318"
+      }
+    }
+  ],
+  "ledgers": [
+    {
+      "name": "empty",
+      "initial": "",
+      "append": [],
+      "lines": [],
+      "index": {
+        "byKey": {},
+        "byCardId": {},
+        "unimportedByCardId": {}
+      }
+    },
+    {
+      "name": "torn-append",
+      "initial": "{torn",
+      "append": [
+        {
+          "v": 1,
+          "idempotencyKey": "a",
+          "cardId": "card-a",
+          "importedAt": 1,
+          "sourceRef": "fixture-a;run=run-1",
+          "opaque": "retained"
+        }
+      ],
+      "lines": [
+        {
+          "v": 1,
+          "idempotencyKey": "a",
+          "cardId": "card-a",
+          "importedAt": 1,
+          "sourceRef": "fixture-a;run=run-1"
+        }
+      ],
+      "index": {
+        "byKey": {
+          "a": {
+            "v": 1,
+            "idempotencyKey": "a",
+            "cardId": "card-a",
+            "importedAt": 1,
+            "sourceRef": "fixture-a;run=run-1"
+          }
+        },
+        "byCardId": {
+          "card-a": {
+            "v": 1,
+            "idempotencyKey": "a",
+            "cardId": "card-a",
+            "importedAt": 1,
+            "sourceRef": "fixture-a;run=run-1"
+          }
+        },
+        "unimportedByCardId": {}
+      }
+    },
+    {
+      "name": "foreign-malformed",
+      "initial": "{bad\n{\"v\":2,\"idempotencyKey\":\"a\",\"cardId\":\"card-a\",\"importedAt\":1,\"sourceRef\":\"fixture-a;run=run-1\",\"opaque\":\"retained\"}\n{\"v\":1,\"idempotencyKey\":7,\"cardId\":\"card-a\",\"importedAt\":1,\"sourceRef\":\"fixture-a;run=run-1\",\"opaque\":\"retained\"}\n{\"v\":1,\"idempotencyKey\":\"a\",\"cardId\":\"card-a\",\"importedAt\":1,\"sourceRef\":\"fixture-a;run=run-1\",\"opaque\":\"retained\"}",
+      "append": [],
+      "lines": [
+        {
+          "v": 1,
+          "idempotencyKey": "a",
+          "cardId": "card-a",
+          "importedAt": 1,
+          "sourceRef": "fixture-a;run=run-1",
+          "opaque": "retained"
+        }
+      ],
+      "index": {
+        "byKey": {
+          "a": {
+            "v": 1,
+            "idempotencyKey": "a",
+            "cardId": "card-a",
+            "importedAt": 1,
+            "sourceRef": "fixture-a;run=run-1",
+            "opaque": "retained"
+          }
+        },
+        "byCardId": {
+          "card-a": {
+            "v": 1,
+            "idempotencyKey": "a",
+            "cardId": "card-a",
+            "importedAt": 1,
+            "sourceRef": "fixture-a;run=run-1",
+            "opaque": "retained"
+          }
+        },
+        "unimportedByCardId": {}
+      }
+    },
+    {
+      "name": "unimport-frees-key",
+      "initial": "{\"v\":1,\"idempotencyKey\":\"a\",\"cardId\":\"card-a\",\"importedAt\":1,\"sourceRef\":\"fixture-a;run=run-1\",\"opaque\":\"retained\"}\n{\"v\":1,\"idempotencyKey\":\"b\",\"cardId\":\"card-b\",\"importedAt\":2,\"sourceRef\":\"fixture-b\"}",
+      "append": [
+        {
+          "kind": "unimported",
+          "idempotencyKey": "a",
+          "cardId": "card-a",
+          "importRunId": "run-1",
+          "at": 3
+        }
+      ],
+      "lines": [
+        {
+          "v": 1,
+          "idempotencyKey": "a",
+          "cardId": "card-a",
+          "importedAt": 1,
+          "sourceRef": "fixture-a;run=run-1",
+          "opaque": "retained"
+        },
+        {
+          "v": 1,
+          "idempotencyKey": "b",
+          "cardId": "card-b",
+          "importedAt": 2,
+          "sourceRef": "fixture-b"
+        },
+        {
+          "v": 1,
+          "kind": "unimported",
+          "idempotencyKey": "a",
+          "cardId": "card-a",
+          "importRunId": "run-1",
+          "at": 3
+        }
+      ],
+      "index": {
+        "byKey": {
+          "b": {
+            "v": 1,
+            "idempotencyKey": "b",
+            "cardId": "card-b",
+            "importedAt": 2,
+            "sourceRef": "fixture-b"
+          }
+        },
+        "byCardId": {
+          "card-b": {
+            "v": 1,
+            "idempotencyKey": "b",
+            "cardId": "card-b",
+            "importedAt": 2,
+            "sourceRef": "fixture-b"
+          }
+        },
+        "unimportedByCardId": {
+          "card-a": {
+            "v": 1,
+            "kind": "unimported",
+            "idempotencyKey": "a",
+            "cardId": "card-a",
+            "importRunId": "run-1",
+            "at": 3
+          }
+        }
+      }
+    },
+    {
+      "name": "reimport-reclaims-key",
+      "initial": "{\"v\":1,\"idempotencyKey\":\"a\",\"cardId\":\"card-a\",\"importedAt\":1,\"sourceRef\":\"fixture-a;run=run-1\",\"opaque\":\"retained\"}",
+      "append": [
+        {
+          "kind": "unimported",
+          "idempotencyKey": "a",
+          "cardId": "card-a",
+          "importRunId": "run-1",
+          "at": 3
+        },
+        {
+          "v": 1,
+          "idempotencyKey": "a",
+          "cardId": "card-a",
+          "importedAt": 4,
+          "sourceRef": "fixture-a;run=run-1",
+          "opaque": "retained",
+          "importRunId": "run-2",
+          "backfilled": true,
+          "digest": {
+            "content": "0123456789abcdef",
+            "binding": "fedcba9876543210",
+            "meta": "0000000000000000"
+          }
+        }
+      ],
+      "lines": [
+        {
+          "v": 1,
+          "idempotencyKey": "a",
+          "cardId": "card-a",
+          "importedAt": 1,
+          "sourceRef": "fixture-a;run=run-1",
+          "opaque": "retained"
+        },
+        {
+          "v": 1,
+          "kind": "unimported",
+          "idempotencyKey": "a",
+          "cardId": "card-a",
+          "importRunId": "run-1",
+          "at": 3
+        },
+        {
+          "v": 1,
+          "idempotencyKey": "a",
+          "cardId": "card-a",
+          "importedAt": 4,
+          "sourceRef": "fixture-a;run=run-1",
+          "importRunId": "run-2",
+          "backfilled": true,
+          "digest": {
+            "content": "0123456789abcdef",
+            "binding": "fedcba9876543210",
+            "meta": "0000000000000000"
+          }
+        }
+      ],
+      "index": {
+        "byKey": {
+          "a": {
+            "v": 1,
+            "idempotencyKey": "a",
+            "cardId": "card-a",
+            "importedAt": 4,
+            "sourceRef": "fixture-a;run=run-1",
+            "importRunId": "run-2",
+            "backfilled": true,
+            "digest": {
+              "content": "0123456789abcdef",
+              "binding": "fedcba9876543210",
+              "meta": "0000000000000000"
+            }
+          }
+        },
+        "byCardId": {
+          "card-a": {
+            "v": 1,
+            "idempotencyKey": "a",
+            "cardId": "card-a",
+            "importedAt": 4,
+            "sourceRef": "fixture-a;run=run-1",
+            "importRunId": "run-2",
+            "backfilled": true,
+            "digest": {
+              "content": "0123456789abcdef",
+              "binding": "fedcba9876543210",
+              "meta": "0000000000000000"
+            }
+          }
+        },
+        "unimportedByCardId": {}
+      }
+    },
+    {
+      "name": "unknown-future-kind",
+      "initial": "{\"v\":1,\"idempotencyKey\":\"a\",\"cardId\":\"card-a\",\"importedAt\":1,\"sourceRef\":\"fixture-a;run=run-1\",\"opaque\":\"retained\"}",
+      "append": [],
+      "extraLines": [
+        {
+          "v": 1,
+          "idempotencyKey": "b",
+          "cardId": "card-b",
+          "importedAt": 2,
+          "sourceRef": "fixture-b",
+          "kind": "future"
+        }
+      ],
+      "lines": [
+        {
+          "v": 1,
+          "idempotencyKey": "a",
+          "cardId": "card-a",
+          "importedAt": 1,
+          "sourceRef": "fixture-a;run=run-1",
+          "opaque": "retained"
+        },
+        {
+          "v": 1,
+          "idempotencyKey": "b",
+          "cardId": "card-b",
+          "importedAt": 2,
+          "sourceRef": "fixture-b",
+          "kind": "future"
+        }
+      ],
+      "index": {
+        "byKey": {
+          "a": {
+            "v": 1,
+            "idempotencyKey": "a",
+            "cardId": "card-a",
+            "importedAt": 1,
+            "sourceRef": "fixture-a;run=run-1",
+            "opaque": "retained"
+          }
+        },
+        "byCardId": {
+          "card-a": {
+            "v": 1,
+            "idempotencyKey": "a",
+            "cardId": "card-a",
+            "importedAt": 1,
+            "sourceRef": "fixture-a;run=run-1",
+            "opaque": "retained"
+          }
+        },
+        "unimportedByCardId": {}
+      }
+    },
+    {
+      "name": "same-key-other-card",
+      "initial": "{\"v\":1,\"idempotencyKey\":\"a\",\"cardId\":\"card-a\",\"importedAt\":1,\"sourceRef\":\"fixture-a;run=run-1\",\"opaque\":\"retained\"}\n{\"v\":1,\"idempotencyKey\":\"a\",\"cardId\":\"card-b\",\"importedAt\":2,\"sourceRef\":\"fixture-b\"}",
+      "append": [
+        {
+          "kind": "unimported",
+          "idempotencyKey": "a",
+          "cardId": "card-a",
+          "importRunId": "run-1",
+          "at": 3
+        }
+      ],
+      "lines": [
+        {
+          "v": 1,
+          "idempotencyKey": "a",
+          "cardId": "card-a",
+          "importedAt": 1,
+          "sourceRef": "fixture-a;run=run-1",
+          "opaque": "retained"
+        },
+        {
+          "v": 1,
+          "idempotencyKey": "a",
+          "cardId": "card-b",
+          "importedAt": 2,
+          "sourceRef": "fixture-b"
+        },
+        {
+          "v": 1,
+          "kind": "unimported",
+          "idempotencyKey": "a",
+          "cardId": "card-a",
+          "importRunId": "run-1",
+          "at": 3
+        }
+      ],
+      "index": {
+        "byKey": {
+          "a": {
+            "v": 1,
+            "idempotencyKey": "a",
+            "cardId": "card-b",
+            "importedAt": 2,
+            "sourceRef": "fixture-b"
+          }
+        },
+        "byCardId": {
+          "card-b": {
+            "v": 1,
+            "idempotencyKey": "a",
+            "cardId": "card-b",
+            "importedAt": 2,
+            "sourceRef": "fixture-b"
+          }
+        },
+        "unimportedByCardId": {
+          "card-a": {
+            "v": 1,
+            "kind": "unimported",
+            "idempotencyKey": "a",
+            "cardId": "card-a",
+            "importRunId": "run-1",
+            "at": 3
+          }
+        }
+      }
+    }
+  ]
+}

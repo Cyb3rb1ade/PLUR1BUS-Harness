@@ -9,9 +9,26 @@ use futures::TryStreamExt;
 use lancedb::query::{ExecutableQuery, QueryBase};
 use std::future::Future;
 use std::path::{Path, PathBuf};
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc};
 use std::thread::JoinHandle;
 use std::time::Duration;
+
+/// Bounded read-only vector inspection for copied legacy tables.
+#[path = "adopt_probe.rs"]
+pub mod adopt_probe;
+
+#[path = "migration_table.rs"]
+pub(crate) mod migration_table;
+
+#[path = "capture_compare.rs"]
+mod capture_compare;
+/// Bounded fragment statistics and compaction (RE-D161).
+#[path = "fragment_optimize.rs"]
+pub mod fragment_optimize;
+#[path = "memory_read.rs"]
+mod memory_read;
+#[path = "shared_store.rs"]
+mod shared_store;
 
 /// Whether an opened handle permits mutations.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -107,6 +124,7 @@ pub struct Store {
     mode: OpenMode,
     executor: Executor,
     directory: super::directory::TrustedDirectory,
+    pinned_roots: Vec<Arc<super::directory::TrustedDirectory>>,
 }
 impl Store {
     /// Open an existing physical store without migrating its schema.
@@ -115,13 +133,18 @@ impl Store {
         mode: OpenMode,
         expected: Option<&VectorSpaceIdentity>,
     ) -> Result<Self, StoreError> {
-        Self::open_with_executor(path, mode, expected, Executor::new()?)
+        Self::open_with_executor(path, mode, expected, Executor::new()?, false)
+    }
+    /// Explicit shared writer recovery; reads never admit a partially migrated provenance schema.
+    pub fn open_shared_write(path: &Path) -> Result<Self, StoreError> {
+        Self::open_with_executor(path, OpenMode::ReadWrite, None, Executor::new()?, true)
     }
     fn open_with_executor(
         path: &Path,
         mode: OpenMode,
         expected: Option<&VectorSpaceIdentity>,
         executor: Executor,
+        partial_sharing: bool,
     ) -> Result<Self, StoreError> {
         paths::assert_trusted_path(path)?;
         paths::assert_trusted_path(&path.join("memories.lance"))?;
@@ -216,7 +239,7 @@ impl Store {
             arrow_schema::DataType::FixedSizeList(_, dim) => *dim as usize,
             _ => return Err(StoreError::Corrupt),
         };
-        row::validate_schema(&schema, dim)?;
+        row::validate_shared_schema(&schema, dim, partial_sharing)?;
         if let Some(identity) = &identity {
             if identity.dimension.as_u64() != Some(dim as u64) {
                 return Err(StoreError::Corrupt);
@@ -233,6 +256,7 @@ impl Store {
             mode,
             executor,
             directory,
+            pinned_roots: Vec::new(),
         })
     }
 
@@ -280,15 +304,15 @@ impl Store {
                 .execute()
                 .await
                 .map_err(backend_error)?;
-            let schema = std::sync::Arc::new(arrow_schema::Schema::new(vec![
+            let schema = Arc::new(arrow_schema::Schema::new(vec![
                 arrow_schema::Field::new("identity", arrow_schema::DataType::Utf8, true),
                 arrow_schema::Field::new("identityId", arrow_schema::DataType::Utf8, true),
             ]));
             let batch = arrow_array::RecordBatch::try_new(
                 schema.clone(),
                 vec![
-                    std::sync::Arc::new(arrow_array::StringArray::from(vec![json])),
-                    std::sync::Arc::new(arrow_array::StringArray::from(vec![id])),
+                    Arc::new(arrow_array::StringArray::from(vec![json])),
+                    Arc::new(arrow_array::StringArray::from(vec![id])),
                 ],
             )
             .map_err(|_| StoreError::Corrupt)?;
@@ -302,7 +326,15 @@ impl Store {
                 .map_err(backend_error)?;
             Ok(())
         })?;
-        Self::open_with_executor(path, OpenMode::ReadWrite, Some(&identity), executor)
+        Self::open_with_executor(path, OpenMode::ReadWrite, Some(&identity), executor, false)
+    }
+    /// Internal physical route binding for durable original-caller receipts.
+    pub(crate) fn physical_binding(&self) -> Result<(PathBuf, (u64, u64)), StoreError> {
+        self.trusted()?;
+        Ok((
+            self.directory.path().to_owned(),
+            self.directory.identity_parts(),
+        ))
     }
     /// The recorded identity, when present.
     pub fn identity(&self) -> Option<&VectorSpaceIdentity> {
@@ -341,12 +373,27 @@ impl Store {
     }
     /// Read committed rows up to the requested limit.
     pub fn scan(&self, filter: &RowFilter, limit: usize) -> Result<Vec<MemoryRow>, StoreError> {
+        self.scan_where(filter.to_sql(), limit)
+    }
+
+    /// Pinned reminder-key lookup. Caller-bound capture code authenticates returned row ownership.
+    pub(crate) fn capture_reminders(
+        &self,
+        agent: &str,
+        workspace: &str,
+        key: &str,
+    ) -> Result<Vec<MemoryRow>, StoreError> {
+        use super::filter::sql_string;
+        self.scan_where(format!("memoryKind = 'reminder' AND storedBy = {} AND workspaceKey = {} AND reminderKey = {}",
+            sql_string(agent), sql_string(workspace), sql_string(key)), 20)
+    }
+
+    fn scan_where(&self, filter: String, limit: usize) -> Result<Vec<MemoryRow>, StoreError> {
         self.trusted()?;
         if limit == 0 {
             return Ok(Vec::new());
         }
         let table = self.table.clone();
-        let filter = filter.to_sql();
         self.executor.run(async move {
             let batches = table
                 .query()
@@ -393,7 +440,23 @@ impl Store {
             .to_owned();
         std::borrow::Cow::Owned(context)
     }
+    pub(crate) fn bind_pool_roots(
+        &mut self,
+        roots: Vec<Arc<super::directory::TrustedDirectory>>,
+    ) -> Result<(), StoreError> {
+        for root in &roots {
+            root.assert_unchanged()?;
+            if !self.path.starts_with(root.path()) {
+                return Err(StoreError::UntrustedPath);
+            }
+        }
+        self.pinned_roots = roots;
+        self.trusted()
+    }
     fn trusted(&self) -> Result<(), StoreError> {
+        for root in &self.pinned_roots {
+            root.assert_unchanged()?;
+        }
         self.directory.assert_unchanged()?;
         paths::assert_trusted_path(&self.path)?;
         paths::assert_trusted_path(&self.path.join("memories.lance"))
@@ -413,6 +476,26 @@ impl Store {
         limit: usize,
         filter: &RowFilter,
     ) -> Result<Vec<Scored<MemoryRow>>, StoreError> {
+        self.search_where(vector, limit, filter.to_sql())
+    }
+    /// Capture's exact duplicate acquisition. Ordinary search/filter semantics are unchanged.
+    pub fn search_capture_duplicates(
+        &self,
+        vector: &[f32],
+        limit: usize,
+    ) -> Result<Vec<Scored<MemoryRow>>, StoreError> {
+        self.search_where(
+            vector,
+            limit,
+            super::filter::CAPTURE_DUPLICATE_FILTER.to_owned(),
+        )
+    }
+    fn search_where(
+        &self,
+        vector: &[f32],
+        limit: usize,
+        filter: String,
+    ) -> Result<Vec<Scored<MemoryRow>>, StoreError> {
         if limit == 0 {
             return Ok(Vec::new());
         }
@@ -420,7 +503,6 @@ impl Store {
         self.validate_vector(vector)?;
         let table = self.table.clone();
         let vector = vector.to_vec();
-        let filter = filter.to_sql();
         self.executor.run(async move {
             let batches = table
                 .vector_search(vector)
@@ -564,6 +646,34 @@ impl Store {
         })
     }
 
+    /// Remove only a still-private row of the capture turn named by its durable plan.
+    /// The ownership predicates are evaluated by Lance at the deletion commit too.
+    pub(crate) fn delete_capture_replay_row(
+        &self,
+        id: &str,
+        agent: &str,
+        run: &str,
+    ) -> Result<(), StoreError> {
+        self.writable()?;
+        if !super::filter::uuid(id) || agent.is_empty() || run.is_empty() {
+            return Err(StoreError::InvalidInput);
+        }
+        let quote = super::filter::sql_string;
+        let filter = format!(
+            "id = {} AND storedBy = {} AND sourceTurnId = {} AND scope = 'agent-private' AND ownerUserId = '' AND agentId = '' AND workspaceId = '' AND workspaceKey = ''",
+            quote(id), quote(agent), quote(run),
+        );
+        let table = self.table.clone();
+        self.executor.run(async move {
+            table.delete(&filter).await.map_err(backend_error)?;
+            Ok(())
+        })?;
+        if self.get(id)?.is_some() {
+            return Err(StoreError::Corrupt);
+        }
+        Ok(())
+    }
+
     /// Remove expired non-core rows that are not marked never-forget, as Node does.
     pub fn purge_expired(&self, now: i64) -> Result<usize, StoreError> {
         self.writable()?;
@@ -603,29 +713,6 @@ impl Store {
         }
         self.purge_expired(now)
     }
-    /// Compact fragments and retain at least the Node policy's default 24 hours of versions.
-    pub fn optimize(&self) -> Result<(), StoreError> {
-        self.writable()?;
-        let table = self.table.clone();
-        self.executor.run(async move {
-            table
-                .optimize(lancedb::table::OptimizeAction::Compact {
-                    options: Default::default(),
-                    remap_options: None,
-                })
-                .await
-                .map_err(backend_error)?;
-            table
-                .optimize(lancedb::table::OptimizeAction::Prune {
-                    older_than: Some(chrono::Duration::hours(24)),
-                    delete_unverified: Some(false),
-                    error_if_tagged_old_versions: None,
-                })
-                .await
-                .map_err(backend_error)?;
-            Ok(())
-        })
-    }
 }
 fn backend_error(_: lancedb::Error) -> StoreError {
     StoreError::Unavailable
@@ -649,3 +736,6 @@ fn update_literal(value: &serde_json::Value) -> Result<String, StoreError> {
         _ => Err(StoreError::InvalidInput),
     }
 }
+
+#[path = "normal_candidates.rs"]
+mod normal_candidates;

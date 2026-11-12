@@ -2797,7 +2797,6 @@ version = "1.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "337d46834ee672ab3e48caca2cb0c78cc174fb12b3a68d0d88f99a0519a5e36e"
 dependencies = [
- "generic-array 0.14.7",
  "rustversion",
  "typenum",
 ]
@@ -5600,6 +5599,7 @@ dependencies = [
  "regex",
  "reqwest",
  "roxmltree",
+ "rusqlite",
  "ruzstd",
  "semver",
  "serde",
@@ -5702,14 +5702,18 @@ name = "plur1bus-engine"
 version = "0.1.0"
 dependencies = [
  "arrow-array",
+ "arrow-cast",
  "arrow-json",
  "arrow-schema",
+ "base64 0.22.1",
  "chrono",
  "chrono-tz",
  "clap",
  "fancy-regex 0.17.0",
+ "flate2",
  "futures",
  "getrandom 0.3.4",
+ "hmac 0.12.1",
  "icu_collator",
  "icu_locale_core",
  "icu_normalizer",
@@ -5728,11 +5732,14 @@ dependencies = [
  "regex",
  "regress 0.10.5",
  "rusqlite",
+ "ryu-js",
  "schemars 0.8.22",
  "serde",
  "serde_json",
+ "sha1",
  "sha2 0.10.9",
  "socket2",
+ "subtle",
  "syn 2.0.119",
  "tempfile",
  "tokenizers",
@@ -6778,9 +6785,9 @@ dependencies = [
 
 [[package]]
 name = "russh"
-version = "0.64.1"
+version = "0.65.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba61e87b9ec9a39a59a6bbed4c0b8ff7fb07073405b24a767a1f2c8560ac8f58"
+checksum = "94be3d86c71b9ed220a675c405e35c7a02565a009bf8da2e9cc13a700320a5c5"
 dependencies = [
  "aes",
  "bitflags 2.13.2",
@@ -7046,6 +7053,12 @@ name = "ryu"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
+
+[[package]]
+name = "ryu-js"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6518fc26bced4d53678a22d6e423e9d8716377def84545fe328236e3af070e7f"
 
 [[package]]
 name = "salsa20"

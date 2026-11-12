@@ -1,0 +1,415 @@
+{
+  "recordedFrom": {
+    "engine": "node",
+    "source": {
+      "engineCommit": "ad85a5b88a1ddba6a0f0141b69582ca39cecc07b",
+      "treeSha256": "6c9bacae42ee99a6f9b61b77d862135c5ff2415feaf95945dba94b87adfb3a1f"
+    },
+    "node": "v24.21.0"
+  },
+  "cases": [
+    {
+      "name": "valid",
+      "rawManifest": "{\"schema\":\"plur1bus.snapshot/1\",\"id\":\"ignored-manifest-id\",\"createdAt\":\"2026-11-08T00:00:00.000Z\",\"label\":null,\"pluginVersion\":null,\"baseDbPath\":\"/synthetic/store\",\"contents\":[\"store\"],\"bytes\":26,\"fileCount\":1,\"files\":[{\"path\":\"store/data.bin\",\"bytes\":26,\"sha256\":\"0b763187012e1e2bf24f866724f449978314e68f6d7981b77edb36b683495980\"}]}",
+      "payloads": {
+        "store/data.bin": "Synthetic snapshot payload"
+      },
+      "result": {
+        "value": {
+          "id": "snapshot",
+          "files": 1,
+          "bytes": 26
+        }
+      }
+    },
+    {
+      "name": "empty",
+      "empty": true,
+      "rawManifest": "{\"schema\":\"plur1bus.snapshot/1\",\"id\":\"ignored-manifest-id\",\"createdAt\":\"2026-11-08T00:00:00.000Z\",\"label\":null,\"pluginVersion\":null,\"baseDbPath\":\"/synthetic/store\",\"contents\":[\"store\"],\"bytes\":0,\"fileCount\":0,\"files\":[]}",
+      "payloads": {},
+      "result": {
+        "value": {
+          "id": "snapshot",
+          "files": 0,
+          "bytes": 0
+        }
+      }
+    },
+    {
+      "name": "extra-metadata",
+      "metadata": {
+        "future": {
+          "opaque": "retained"
+        },
+        "fileCount": 999
+      },
+      "rawManifest": "{\"schema\":\"plur1bus.snapshot/1\",\"id\":\"ignored-manifest-id\",\"createdAt\":\"2026-11-08T00:00:00.000Z\",\"label\":null,\"pluginVersion\":null,\"baseDbPath\":\"/synthetic/store\",\"contents\":[\"store\"],\"bytes\":26,\"fileCount\":999,\"files\":[{\"path\":\"store/data.bin\",\"bytes\":26,\"sha256\":\"0b763187012e1e2bf24f866724f449978314e68f6d7981b77edb36b683495980\"}],\"future\":{\"opaque\":\"retained\"}}",
+      "payloads": {
+        "store/data.bin": "Synthetic snapshot payload"
+      },
+      "result": {
+        "value": {
+          "id": "snapshot",
+          "files": 1,
+          "bytes": 26
+        }
+      }
+    },
+    {
+      "name": "metadata-byte-coercion",
+      "metadata": {
+        "bytes": "0x10"
+      },
+      "rawManifest": "{\"schema\":\"plur1bus.snapshot/1\",\"id\":\"ignored-manifest-id\",\"createdAt\":\"2026-11-08T00:00:00.000Z\",\"label\":null,\"pluginVersion\":null,\"baseDbPath\":\"/synthetic/store\",\"contents\":[\"store\"],\"bytes\":\"0x10\",\"fileCount\":1,\"files\":[{\"path\":\"store/data.bin\",\"bytes\":26,\"sha256\":\"0b763187012e1e2bf24f866724f449978314e68f6d7981b77edb36b683495980\"}]}",
+      "payloads": {
+        "store/data.bin": "Synthetic snapshot payload"
+      },
+      "result": {
+        "value": {
+          "id": "snapshot",
+          "files": 1,
+          "bytes": 16
+        }
+      }
+    },
+    {
+      "name": "metadata-nan-is-zero",
+      "metadata": {
+        "bytes": "not-a-number"
+      },
+      "rawManifest": "{\"schema\":\"plur1bus.snapshot/1\",\"id\":\"ignored-manifest-id\",\"createdAt\":\"2026-11-08T00:00:00.000Z\",\"label\":null,\"pluginVersion\":null,\"baseDbPath\":\"/synthetic/store\",\"contents\":[\"store\"],\"bytes\":\"not-a-number\",\"fileCount\":1,\"files\":[{\"path\":\"store/data.bin\",\"bytes\":26,\"sha256\":\"0b763187012e1e2bf24f866724f449978314e68f6d7981b77edb36b683495980\"}]}",
+      "payloads": {
+        "store/data.bin": "Synthetic snapshot payload"
+      },
+      "result": {
+        "value": {
+          "id": "snapshot",
+          "files": 1,
+          "bytes": 0
+        }
+      }
+    },
+    {
+      "name": "metadata-negative",
+      "metadata": {
+        "bytes": -7
+      },
+      "rawManifest": "{\"schema\":\"plur1bus.snapshot/1\",\"id\":\"ignored-manifest-id\",\"createdAt\":\"2026-11-08T00:00:00.000Z\",\"label\":null,\"pluginVersion\":null,\"baseDbPath\":\"/synthetic/store\",\"contents\":[\"store\"],\"bytes\":-7,\"fileCount\":1,\"files\":[{\"path\":\"store/data.bin\",\"bytes\":26,\"sha256\":\"0b763187012e1e2bf24f866724f449978314e68f6d7981b77edb36b683495980\"}]}",
+      "payloads": {
+        "store/data.bin": "Synthetic snapshot payload"
+      },
+      "result": {
+        "value": {
+          "id": "snapshot",
+          "files": 1,
+          "bytes": -7
+        }
+      }
+    },
+    {
+      "name": "metadata-inf",
+      "metadata": {
+        "bytes": "inf"
+      },
+      "rawManifest": "{\"schema\":\"plur1bus.snapshot/1\",\"id\":\"ignored-manifest-id\",\"createdAt\":\"2026-11-08T00:00:00.000Z\",\"label\":null,\"pluginVersion\":null,\"baseDbPath\":\"/synthetic/store\",\"contents\":[\"store\"],\"bytes\":\"inf\",\"fileCount\":1,\"files\":[{\"path\":\"store/data.bin\",\"bytes\":26,\"sha256\":\"0b763187012e1e2bf24f866724f449978314e68f6d7981b77edb36b683495980\"}]}",
+      "payloads": {
+        "store/data.bin": "Synthetic snapshot payload"
+      },
+      "result": {
+        "value": {
+          "id": "snapshot",
+          "files": 1,
+          "bytes": 0
+        }
+      }
+    },
+    {
+      "name": "metadata--inf",
+      "metadata": {
+        "bytes": "-inf"
+      },
+      "rawManifest": "{\"schema\":\"plur1bus.snapshot/1\",\"id\":\"ignored-manifest-id\",\"createdAt\":\"2026-11-08T00:00:00.000Z\",\"label\":null,\"pluginVersion\":null,\"baseDbPath\":\"/synthetic/store\",\"contents\":[\"store\"],\"bytes\":\"-inf\",\"fileCount\":1,\"files\":[{\"path\":\"store/data.bin\",\"bytes\":26,\"sha256\":\"0b763187012e1e2bf24f866724f449978314e68f6d7981b77edb36b683495980\"}]}",
+      "payloads": {
+        "store/data.bin": "Synthetic snapshot payload"
+      },
+      "result": {
+        "value": {
+          "id": "snapshot",
+          "files": 1,
+          "bytes": 0
+        }
+      }
+    },
+    {
+      "name": "metadata-INF",
+      "metadata": {
+        "bytes": "INF"
+      },
+      "rawManifest": "{\"schema\":\"plur1bus.snapshot/1\",\"id\":\"ignored-manifest-id\",\"createdAt\":\"2026-11-08T00:00:00.000Z\",\"label\":null,\"pluginVersion\":null,\"baseDbPath\":\"/synthetic/store\",\"contents\":[\"store\"],\"bytes\":\"INF\",\"fileCount\":1,\"files\":[{\"path\":\"store/data.bin\",\"bytes\":26,\"sha256\":\"0b763187012e1e2bf24f866724f449978314e68f6d7981b77edb36b683495980\"}]}",
+      "payloads": {
+        "store/data.bin": "Synthetic snapshot payload"
+      },
+      "result": {
+        "value": {
+          "id": "snapshot",
+          "files": 1,
+          "bytes": 0
+        }
+      }
+    },
+    {
+      "name": "metadata-Infinity",
+      "metadata": {
+        "bytes": "Infinity"
+      },
+      "rawManifest": "{\"schema\":\"plur1bus.snapshot/1\",\"id\":\"ignored-manifest-id\",\"createdAt\":\"2026-11-08T00:00:00.000Z\",\"label\":null,\"pluginVersion\":null,\"baseDbPath\":\"/synthetic/store\",\"contents\":[\"store\"],\"bytes\":\"Infinity\",\"fileCount\":1,\"files\":[{\"path\":\"store/data.bin\",\"bytes\":26,\"sha256\":\"0b763187012e1e2bf24f866724f449978314e68f6d7981b77edb36b683495980\"}]}",
+      "payloads": {
+        "store/data.bin": "Synthetic snapshot payload"
+      },
+      "result": {
+        "value": {
+          "id": "snapshot",
+          "files": 1,
+          "bytes": null
+        }
+      }
+    },
+    {
+      "name": "metadata-+Infinity",
+      "metadata": {
+        "bytes": "+Infinity"
+      },
+      "rawManifest": "{\"schema\":\"plur1bus.snapshot/1\",\"id\":\"ignored-manifest-id\",\"createdAt\":\"2026-11-08T00:00:00.000Z\",\"label\":null,\"pluginVersion\":null,\"baseDbPath\":\"/synthetic/store\",\"contents\":[\"store\"],\"bytes\":\"+Infinity\",\"fileCount\":1,\"files\":[{\"path\":\"store/data.bin\",\"bytes\":26,\"sha256\":\"0b763187012e1e2bf24f866724f449978314e68f6d7981b77edb36b683495980\"}]}",
+      "payloads": {
+        "store/data.bin": "Synthetic snapshot payload"
+      },
+      "result": {
+        "value": {
+          "id": "snapshot",
+          "files": 1,
+          "bytes": null
+        }
+      }
+    },
+    {
+      "name": "metadata--Infinity",
+      "metadata": {
+        "bytes": "-Infinity"
+      },
+      "rawManifest": "{\"schema\":\"plur1bus.snapshot/1\",\"id\":\"ignored-manifest-id\",\"createdAt\":\"2026-11-08T00:00:00.000Z\",\"label\":null,\"pluginVersion\":null,\"baseDbPath\":\"/synthetic/store\",\"contents\":[\"store\"],\"bytes\":\"-Infinity\",\"fileCount\":1,\"files\":[{\"path\":\"store/data.bin\",\"bytes\":26,\"sha256\":\"0b763187012e1e2bf24f866724f449978314e68f6d7981b77edb36b683495980\"}]}",
+      "payloads": {
+        "store/data.bin": "Synthetic snapshot payload"
+      },
+      "result": {
+        "value": {
+          "id": "snapshot",
+          "files": 1,
+          "bytes": null
+        }
+      }
+    },
+    {
+      "name": "metadata-infinity",
+      "metadata": {
+        "bytes": "infinity"
+      },
+      "rawManifest": "{\"schema\":\"plur1bus.snapshot/1\",\"id\":\"ignored-manifest-id\",\"createdAt\":\"2026-11-08T00:00:00.000Z\",\"label\":null,\"pluginVersion\":null,\"baseDbPath\":\"/synthetic/store\",\"contents\":[\"store\"],\"bytes\":\"infinity\",\"fileCount\":1,\"files\":[{\"path\":\"store/data.bin\",\"bytes\":26,\"sha256\":\"0b763187012e1e2bf24f866724f449978314e68f6d7981b77edb36b683495980\"}]}",
+      "payloads": {
+        "store/data.bin": "Synthetic snapshot payload"
+      },
+      "result": {
+        "value": {
+          "id": "snapshot",
+          "files": 1,
+          "bytes": 0
+        }
+      }
+    },
+    {
+      "name": "wrong-schema",
+      "metadata": {
+        "schema": "plur1bus.snapshot/2"
+      },
+      "rawManifest": "{\"schema\":\"plur1bus.snapshot/2\",\"id\":\"ignored-manifest-id\",\"createdAt\":\"2026-11-08T00:00:00.000Z\",\"label\":null,\"pluginVersion\":null,\"baseDbPath\":\"/synthetic/store\",\"contents\":[\"store\"],\"bytes\":26,\"fileCount\":1,\"files\":[{\"path\":\"store/data.bin\",\"bytes\":26,\"sha256\":\"0b763187012e1e2bf24f866724f449978314e68f6d7981b77edb36b683495980\"}]}",
+      "payloads": {
+        "store/data.bin": "Synthetic snapshot payload"
+      },
+      "result": {
+        "error": "digest-mismatch"
+      }
+    },
+    {
+      "name": "invalid-json",
+      "raw": "{\"private-fixture\":",
+      "rawManifest": "{\"private-fixture\":",
+      "payloads": {
+        "store/data.bin": "Synthetic snapshot payload"
+      },
+      "result": {
+        "error": "digest-mismatch"
+      }
+    },
+    {
+      "name": "duplicate-json-last-schema-wins",
+      "duplicateSchema": true,
+      "rawManifest": "{\"schema\":\"old\",\"schema\":\"plur1bus.snapshot/1\",\"id\":\"ignored-manifest-id\",\"createdAt\":\"2026-11-08T00:00:00.000Z\",\"label\":null,\"pluginVersion\":null,\"baseDbPath\":\"/synthetic/store\",\"contents\":[\"store\"],\"bytes\":26,\"fileCount\":1,\"files\":[{\"path\":\"store/data.bin\",\"bytes\":26,\"sha256\":\"0b763187012e1e2bf24f866724f449978314e68f6d7981b77edb36b683495980\"}]}",
+      "payloads": {
+        "store/data.bin": "Synthetic snapshot payload"
+      },
+      "result": {
+        "value": {
+          "id": "snapshot",
+          "files": 1,
+          "bytes": 26
+        }
+      }
+    },
+    {
+      "name": "missing-manifest",
+      "missingManifest": true,
+      "rawManifest": null,
+      "payloads": {
+        "store/data.bin": "Synthetic snapshot payload"
+      },
+      "result": {
+        "error": "not-found"
+      }
+    },
+    {
+      "name": "missing-payload",
+      "missingPayload": true,
+      "rawManifest": "{\"schema\":\"plur1bus.snapshot/1\",\"id\":\"ignored-manifest-id\",\"createdAt\":\"2026-11-08T00:00:00.000Z\",\"label\":null,\"pluginVersion\":null,\"baseDbPath\":\"/synthetic/store\",\"contents\":[\"store\"],\"bytes\":26,\"fileCount\":1,\"files\":[{\"path\":\"store/data.bin\",\"bytes\":26,\"sha256\":\"0b763187012e1e2bf24f866724f449978314e68f6d7981b77edb36b683495980\"}]}",
+      "payloads": {},
+      "result": {
+        "error": "digest-mismatch"
+      }
+    },
+    {
+      "name": "unlisted-payload",
+      "extraPayload": true,
+      "rawManifest": "{\"schema\":\"plur1bus.snapshot/1\",\"id\":\"ignored-manifest-id\",\"createdAt\":\"2026-11-08T00:00:00.000Z\",\"label\":null,\"pluginVersion\":null,\"baseDbPath\":\"/synthetic/store\",\"contents\":[\"store\"],\"bytes\":26,\"fileCount\":1,\"files\":[{\"path\":\"store/data.bin\",\"bytes\":26,\"sha256\":\"0b763187012e1e2bf24f866724f449978314e68f6d7981b77edb36b683495980\"}]}",
+      "payloads": {
+        "store/data.bin": "Synthetic snapshot payload",
+        "store/unlisted": "extra"
+      },
+      "result": {
+        "error": "digest-mismatch"
+      }
+    },
+    {
+      "name": "changed-payload",
+      "changed": true,
+      "rawManifest": "{\"schema\":\"plur1bus.snapshot/1\",\"id\":\"ignored-manifest-id\",\"createdAt\":\"2026-11-08T00:00:00.000Z\",\"label\":null,\"pluginVersion\":null,\"baseDbPath\":\"/synthetic/store\",\"contents\":[\"store\"],\"bytes\":26,\"fileCount\":1,\"files\":[{\"path\":\"store/data.bin\",\"bytes\":26,\"sha256\":\"0b763187012e1e2bf24f866724f449978314e68f6d7981b77edb36b683495980\"}]}",
+      "payloads": {
+        "store/data.bin": "Synthetic snapshot payload changed"
+      },
+      "result": {
+        "error": "digest-mismatch"
+      }
+    },
+    {
+      "name": "uppercase-digest",
+      "upperDigest": true,
+      "rawManifest": "{\"schema\":\"plur1bus.snapshot/1\",\"id\":\"ignored-manifest-id\",\"createdAt\":\"2026-11-08T00:00:00.000Z\",\"label\":null,\"pluginVersion\":null,\"baseDbPath\":\"/synthetic/store\",\"contents\":[\"store\"],\"bytes\":26,\"fileCount\":1,\"files\":[{\"path\":\"store/data.bin\",\"bytes\":26,\"sha256\":\"0B763187012E1E2BF24F866724F449978314E68F6D7981B77EDB36B683495980\"}]}",
+      "payloads": {
+        "store/data.bin": "Synthetic snapshot payload"
+      },
+      "result": {
+        "error": "digest-mismatch"
+      }
+    },
+    {
+      "name": "string-entry-size",
+      "stringSize": true,
+      "rawManifest": "{\"schema\":\"plur1bus.snapshot/1\",\"id\":\"ignored-manifest-id\",\"createdAt\":\"2026-11-08T00:00:00.000Z\",\"label\":null,\"pluginVersion\":null,\"baseDbPath\":\"/synthetic/store\",\"contents\":[\"store\"],\"bytes\":26,\"fileCount\":1,\"files\":[{\"path\":\"store/data.bin\",\"bytes\":\"26\",\"sha256\":\"0b763187012e1e2bf24f866724f449978314e68f6d7981b77edb36b683495980\"}]}",
+      "payloads": {
+        "store/data.bin": "Synthetic snapshot payload"
+      },
+      "result": {
+        "error": "digest-mismatch"
+      }
+    },
+    {
+      "name": "wrong-entry-size",
+      "wrongSize": true,
+      "rawManifest": "{\"schema\":\"plur1bus.snapshot/1\",\"id\":\"ignored-manifest-id\",\"createdAt\":\"2026-11-08T00:00:00.000Z\",\"label\":null,\"pluginVersion\":null,\"baseDbPath\":\"/synthetic/store\",\"contents\":[\"store\"],\"bytes\":26,\"fileCount\":1,\"files\":[{\"path\":\"store/data.bin\",\"bytes\":27,\"sha256\":\"0b763187012e1e2bf24f866724f449978314e68f6d7981b77edb36b683495980\"}]}",
+      "payloads": {
+        "store/data.bin": "Synthetic snapshot payload"
+      },
+      "result": {
+        "error": "digest-mismatch"
+      }
+    },
+    {
+      "name": "duplicate-path-last-good",
+      "duplicate": "good",
+      "rawManifest": "{\"schema\":\"plur1bus.snapshot/1\",\"id\":\"ignored-manifest-id\",\"createdAt\":\"2026-11-08T00:00:00.000Z\",\"label\":null,\"pluginVersion\":null,\"baseDbPath\":\"/synthetic/store\",\"contents\":[\"store\"],\"bytes\":26,\"fileCount\":1,\"files\":[{\"path\":\"store/data.bin\",\"bytes\":26,\"sha256\":\"0000000000000000000000000000000000000000000000000000000000000000\"},{\"path\":\"store/data.bin\",\"bytes\":26,\"sha256\":\"0b763187012e1e2bf24f866724f449978314e68f6d7981b77edb36b683495980\"}]}",
+      "payloads": {
+        "store/data.bin": "Synthetic snapshot payload"
+      },
+      "result": {
+        "value": {
+          "id": "snapshot",
+          "files": 2,
+          "bytes": 26
+        }
+      }
+    },
+    {
+      "name": "duplicate-path-last-bad",
+      "duplicate": "bad",
+      "rawManifest": "{\"schema\":\"plur1bus.snapshot/1\",\"id\":\"ignored-manifest-id\",\"createdAt\":\"2026-11-08T00:00:00.000Z\",\"label\":null,\"pluginVersion\":null,\"baseDbPath\":\"/synthetic/store\",\"contents\":[\"store\"],\"bytes\":26,\"fileCount\":1,\"files\":[{\"path\":\"store/data.bin\",\"bytes\":26,\"sha256\":\"0b763187012e1e2bf24f866724f449978314e68f6d7981b77edb36b683495980\"},{\"path\":\"store/data.bin\",\"bytes\":26,\"sha256\":\"0000000000000000000000000000000000000000000000000000000000000000\"}]}",
+      "payloads": {
+        "store/data.bin": "Synthetic snapshot payload"
+      },
+      "result": {
+        "error": "digest-mismatch"
+      }
+    },
+    {
+      "name": "nonpath-entries-counted-but-ignored",
+      "ignored": true,
+      "rawManifest": "{\"schema\":\"plur1bus.snapshot/1\",\"id\":\"ignored-manifest-id\",\"createdAt\":\"2026-11-08T00:00:00.000Z\",\"label\":null,\"pluginVersion\":null,\"baseDbPath\":\"/synthetic/store\",\"contents\":[\"store\"],\"bytes\":26,\"fileCount\":1,\"files\":[{\"path\":\"store/data.bin\",\"bytes\":26,\"sha256\":\"0b763187012e1e2bf24f866724f449978314e68f6d7981b77edb36b683495980\"},null,{},{\"path\":3},\"ignored\"]}",
+      "payloads": {
+        "store/data.bin": "Synthetic snapshot payload"
+      },
+      "result": {
+        "value": {
+          "id": "snapshot",
+          "files": 5,
+          "bytes": 26
+        }
+      }
+    },
+    {
+      "name": "parent-traversal",
+      "traversal": true,
+      "rustReason": "unsafe-path",
+      "rawManifest": "{\"schema\":\"plur1bus.snapshot/1\",\"id\":\"ignored-manifest-id\",\"createdAt\":\"2026-11-08T00:00:00.000Z\",\"label\":null,\"pluginVersion\":null,\"baseDbPath\":\"/synthetic/store\",\"contents\":[\"store\"],\"bytes\":26,\"fileCount\":1,\"files\":[{\"path\":\"../outside\",\"bytes\":26,\"sha256\":\"0b763187012e1e2bf24f866724f449978314e68f6d7981b77edb36b683495980\"}]}",
+      "payloads": {},
+      "result": {
+        "value": {
+          "id": "snapshot",
+          "files": 1,
+          "bytes": 26
+        }
+      }
+    },
+    {
+      "name": "nonportable-colon",
+      "colon": true,
+      "rustReason": "unsafe-path",
+      "rawManifest": "{\"schema\":\"plur1bus.snapshot/1\",\"id\":\"ignored-manifest-id\",\"createdAt\":\"2026-11-08T00:00:00.000Z\",\"label\":null,\"pluginVersion\":null,\"baseDbPath\":\"/synthetic/store\",\"contents\":[\"store\"],\"bytes\":26,\"fileCount\":1,\"files\":[{\"path\":\"store/a:b\",\"bytes\":26,\"sha256\":\"0b763187012e1e2bf24f866724f449978314e68f6d7981b77edb36b683495980\"}]}",
+      "payloads": {
+        "store/a:b": "Synthetic snapshot payload"
+      },
+      "result": {
+        "value": {
+          "id": "snapshot",
+          "files": 1,
+          "bytes": 26
+        }
+      }
+    }
+  ]
+}

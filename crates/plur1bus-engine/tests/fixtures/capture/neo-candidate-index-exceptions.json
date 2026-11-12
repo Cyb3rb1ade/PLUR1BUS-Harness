@@ -1,0 +1,22 @@
+{
+  "decision": "RE-D61 / Controller Ruling 5 / D130",
+  "nodeGoldenSha256": "0325d6308b08e108fc950c43e527063853524591b76409ad361cae40bff1caac",
+  "reason": "Retain every field used by Neo ACL consistency checks in the derived index, including root scope/workspace aliases/aclBindings and canonical origin owner/agent/workspace fields. Dropping contradictory fields must never turn an invisible source into a visible index record. Malformed origin objects are rejected before indexing. No existing Node golden is changed.",
+  "retainedBindings": [
+    "origin-owner-conflict",
+    "origin-agent-conflict",
+    "origin-workspace-conflict",
+    "origin-workspace-key-conflict",
+    "origin-workspace-id-conflict",
+    "root-scope-conflict",
+    "root-workspace-conflict",
+    "root-workspace-id-conflict",
+    "acl-binding-conflict",
+    "acl-binding-malformed",
+    "consistent-extra-authority"
+  ],
+  "rejectedOrigins": [
+    "origin-array",
+    "origin-boolean"
+  ]
+}

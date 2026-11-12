@@ -76,7 +76,7 @@ import { CURATION_METHODS } from "./memory-curation.ts";
 import { MEMORY_OP_METHODS, requireAgent } from "./memory-ops.ts";
 import { coreAddress, layout, resolveHome, type Layout } from "./paths.ts";
 import { createPlatformCapabilities } from "./platform.ts";
-import type { A1MemoryOperations } from "./dreams/producer.ts";
+import { a1CandidateMemory, type A1MemoryOperations } from "./dreams/producer.ts";
 import { AGENT_CONTEXT_CLI, callerToPrincipal } from "./principal.ts";
 import { startJournalReplay, type JournalReplay } from "./replay.ts";
 import { RpcError } from "./rpc/errors.ts";
@@ -1354,7 +1354,7 @@ export function createCore(o: CoreOptions): Core {
         const logger = backgroundLogger;
         // M1b-3: a dreams store that cannot open must not take the memory service down; `dreams.*` then answers not-available.
         try {
-          // A1 is optional until the Controller pins Engine contract 1.17.0.
+          // A1 is optional until the Controller pins Engine contract 1.18.0; each surface opens only behind its flag (RE-D167).
           // These are public host operations under the agent's existing principal,
           // never calls made by a model or a background AgentContext.
           const dreamMemory = eng.memory as typeof eng.memory & A1MemoryOperations;
@@ -1369,19 +1369,12 @@ export function createCore(o: CoreOptions): Core {
             // Agent-private public cards plus A1's persistent recall counters when
             // available. Missing A1 keeps promotion closed, never maintenance. A
             // truncated corpus fails closed after the independent jobs ran.
-            candidateMemory: {
-              async list(agentId) {
-                const ws = executionRegistry.workspaceOf(agentId);
-                if (!ws) return [];
-                return readCandidateMemory(query => dreamMemory.list(query, dreamPrincipal(agentId), dreamContext));
-              },
-              ...(typeof dreamMemory.stats === "function" ? {
-                stats: (agentId: string, ids: readonly string[]) => dreamMemory.stats!(ids, dreamPrincipal(agentId), dreamContext),
-              } : {}),
-              ...(typeof dreamMemory.promote === "function" ? {
-                promote: (agentId: string, ids: readonly string[]) => dreamMemory.promote!({ ids }, dreamPrincipal(agentId), dreamContext),
-              } : {}),
-            },
+            // Stats and promotion read the engine's flags per run (RE-D167), never once at Core start.
+            candidateMemory: a1CandidateMemory(eng, dreamMemory, agentId => ({ principal: dreamPrincipal(agentId), context: dreamContext }), async agentId => {
+              const ws = executionRegistry.workspaceOf(agentId);
+              if (!ws) return [];
+              return readCandidateMemory(query => dreamMemory.list(query, dreamPrincipal(agentId), dreamContext));
+            }),
             scheduler: { ...(turnComposition?.learn ? { learn: turnComposition.learn } : {}), ...(o.dreams?.defaultTimezone ? { defaultTimezone: o.dreams.defaultTimezone } : {}), onEvent: event => { if (event.name === 'run.finished') void delivery?.notify('dreams', event.phase ?? 'unknown', event.agentId, String(event.outcome)).catch(err => log.warn("delivery notify failed", { err })); } },
           });
           if (turnComposition?.learn) { const scheduler = dreams.scheduler; turnComposition.learn.setAdmission(work => scheduler.runJob(work)); }

@@ -178,7 +178,20 @@ test("CI verifies pinned tokenizer caches before every workspace Cargo test with
     .replace(/\r\n/g, "\n");
   const jobs = Object.fromEntries(yaml.slice(yaml.indexOf("\njobs:\n")).split(/(?=^  [a-z][\w-]*:\n)/m).slice(1)
     .map((block) => [/^  ([\w-]+):/.exec(block)[1], block]));
-  assert.equal((yaml.match(/node scripts\/tokens\/setup-tokenizers\.mjs/g) ?? []).length, 2);
+  // unit, unit-os and engine-parity (the parity job builds the engine and runs it against the pinned Node engine).
+  assert.equal((yaml.match(/node scripts\/tokens\/setup-tokenizers\.mjs/g) ?? []).length, 3);
+  {
+    const steps = jobs["engine-parity"].split(/(?=^      - )/m);
+    const setup = steps.find((step) => /node scripts\/tokens\/setup-tokenizers\.mjs/.test(step));
+    assert.ok(setup, "engine-parity: explicit verified setup required");
+    assert.match(setup, /^          PLUR1BUS_TOKENIZER_DIR: \$\{\{ runner.temp \}\}\/plur1bus-tokenizers$/m, "engine-parity: setup writes the cache directory");
+    const cache = steps.find((step) => /path: \$\{\{ runner.temp \}\}\/plur1bus-tokenizers/.test(step));
+    assert.ok(cache, "engine-parity: cache tokenizer files outside the workspace");
+    assert.match(cache, /actions\/cache@[a-f0-9]{40}/, "engine-parity");
+    assert.match(cache, /hashFiles\('crates\/plur1bus-tokens\/src\/artifacts.json'/, "engine-parity");
+    const build = steps.findIndex((step) => /cargo build --locked -p plur1bus-engine/.test(step));
+    assert.ok(build > steps.indexOf(setup), "engine-parity: the tokenizer files are verified before the engine is built");
+  }
   for (const name of ["unit", "unit-os"]) {
     const job = jobs[name];
     assert.match(job, /^      PLUR1BUS_TOKENIZER_FILES_REQUIRED: "1"$/m, name);

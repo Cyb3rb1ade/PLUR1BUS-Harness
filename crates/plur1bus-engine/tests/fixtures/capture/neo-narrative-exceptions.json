@@ -1,0 +1,82 @@
+{
+  "nodeGoldenSha256": "840a2da4beac886c926254d3f1be34ca0fa12aab703f6064bbec6d9925ba4d93",
+  "cases": [
+    {
+      "name": "unicode-cuts",
+      "result": {
+        "id": "episode",
+        "agentId": "alpha",
+        "title": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "summary": "sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+        "topics": [
+          "original"
+        ],
+        "participants": [
+          "Ada",
+          "Alpha"
+        ],
+        "emotionalDominant": "trust",
+        "emotionalIntensity": 0.4,
+        "emotionalTone": {
+          "joy": 0.2,
+          "trust": 0.4
+        },
+        "opaque": {
+          "preserve": true
+        },
+        "narrativeArc": "exploration",
+        "turningPoint": "ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt",
+        "mentioned": []
+      },
+      "reason": "F3 / RE-D17 safe display cuts"
+    },
+    {
+      "name": "prompt-surrogate-cut",
+      "calls": [
+        {
+          "messages": [
+            {
+              "role": "user",
+              "content": "Analysiere das folgende Gespräch zwischen Ada (Mensch) und Alpha (Agent) und beschreibe es als Geschichte.\n\nGespräch:\n[Ada] xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n[Alpha] Ein Besuch bei Ada könnte helfen.\n\nAntworte NUR mit diesem JSON-Format (keine Code-Zäune, kein Text davor oder danach):\n{\n  \"title\": \"Kurzer, konkreter Titel (max 60 Zeichen, nennt das Thema)\",\n  \"summary\": \"2-3 Sätze Zusammenfassung: worum ging es, was kam heraus\",\n  \"narrativeArc\": \"setup-conflict-resolution|exploration|decision|emotional\",\n  \"turningPoint\": \"Der Wendepunkt oder leer\",\n  \"topics\": [\"3-5 Themen als deutsche Nomen oder kurze Nominalphrasen, z. B. Schulterschmerzen, Milchsuppe, Gateway-Neustart\"],\n  \"people\": [\"Personen, ÜBER die gesprochen wurde (abwesend) — ohne Ada und Alpha; sonst leer\"],\n  \"emotion\": \"Grundstimmung, wie sie im Gespräch spürbar ist — auch bei sachlichem Thema, wenn es jemanden berührt: joy|trust|anticipation|sadness|anger|fear|surprise|disgust; neutral nur, wenn keine Gefühlsregung erkennbar ist\",\n  \"emotionIntensity\": \"niedrig = klingt an, mittel = prägt Teile des Gesprächs, hoch = bestimmt das Gespräch\"\n}\n\nWenn kein klarer Wendepunkt existiert, setze narrativeArc auf \"exploration\" und turningPoint auf \"\"."
+            }
+          ],
+          "sha256": "8d4b542d750c2a978da6b17a26e4e5141a0d0c795d705d2ec1e7e6b867ea97a3",
+          "maxTokens": 500,
+          "temperature": 0
+        }
+      ],
+      "reason": "F3 / RE-D17 removes only the half-pair introduced by the prompt budget"
+    },
+    {
+      "name": "source-surrogate",
+      "refuse": true,
+      "reason": "Original malformed source cannot cross frozen UTF-8 LlmPort"
+    },
+    {
+      "name": "invalid-model-surrogate",
+      "result": {
+        "id": "episode",
+        "agentId": "alpha",
+        "title": "Original",
+        "summary": "Original summary",
+        "topics": [
+          "original"
+        ],
+        "participants": [
+          "Nutzer",
+          "alpha"
+        ],
+        "emotionalDominant": "trust",
+        "emotionalIntensity": 0.4,
+        "emotionalTone": {
+          "joy": 0.2,
+          "trust": 0.4
+        },
+        "opaque": {
+          "preserve": true
+        }
+      },
+      "reason": "RE-D74 refuses malformed model display text before projection"
+    }
+  ]
+}

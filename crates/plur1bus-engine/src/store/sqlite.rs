@@ -527,6 +527,22 @@ impl SpeakerMappings {
         Ok(())
     }
 
+    /// Atomically insert a new contextual proposal, retaining every existing pending/manual mapping.
+    pub(crate) fn insert_proposal(&self, mapping: &SpeakerMapping) -> Result<bool, StoreError> {
+        if mapping.confirmed != 0
+            || mapping.confirmed_at.is_some()
+            || mapping.attribution_source != "contextual_proposal"
+        {
+            return Err(StoreError::InvalidInput);
+        }
+        Ok(connection(&self.db)?.prepare_cached("INSERT INTO speaker_mappings (agentId, speakerLabel,
+            speakerDisplayName, attributionSource, confidence, confirmed, proposedAt, confirmedAt, contextHint)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(agentId, speakerLabel) DO NOTHING").map_err(sqlite_error)?
+            .execute(params![mapping.agent_id, mapping.speaker_label, mapping.speaker_display_name,
+                mapping.attribution_source, mapping.confidence, mapping.confirmed, mapping.proposed_at,
+                mapping.confirmed_at, mapping.context_hint]).map_err(sqlite_error)? > 0)
+    }
+
     /// Confirm an unconfirmed proposal; absent or already confirmed mappings return false.
     pub fn confirm(&self, agent: &str, label: &str, now: i64) -> Result<bool, StoreError> {
         Ok(connection(&self.db)?

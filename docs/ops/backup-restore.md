@@ -115,6 +115,18 @@ Restore ersetzt oder entfernt die im Plan aufgeführten Einheiten. Der Core und 
 gestoppt sein. `restore` prüft das Archiv vor dem Anwenden und bewahrt ersetzte Daten unter
 `<home>/backups/pre-restore-<id>/` auf. Bei einem Fehler wird der vorherige Zustand zurückgesetzt.
 
+Während Entpacken, Austausch und einem möglichen Rollback hält Restore die vorhandenen Writer-Sperren:
+`state/core.lock` für Core und Import sowie `run/supervisor.lock` und `run/engine.process.lock` für die Rust-Prozesse.
+Dadurch kann auch nach der ersten Prüfung kein solcher Writer dazwischen starten. Eine belegte Sperre führt zu
+`E_LOCKED` mit `reason=core-running`; Holder-Zeilen, Engine-Nonces und PID-Dateien bleiben unverändert.
+In einem frischen Home entstehen drei leere Lock-Dateien. Sie bleiben nach dem Vorgang bestehen, damit jeder
+spätere Prozess dieselbe Datei sperrt. Ein Prozessabbruch gibt die gehaltenen Betriebssystem-Sperren frei.
+
+Der abgeleitete LLM-Ergebnis-Cache unter `store/llm-result-cache-v1` ist kein Bestandteil neuer Archive.
+Bei älteren Archiven werden seine Dateien weiterhin auf Größe und Prüfsumme geprüft, aber nicht wiederhergestellt.
+Gleichnamige Dateien in Agenten-Workspaces sind davon nicht betroffen. Ein Dry-run oder abgelehnter Restore leert
+den aktuellen Cache nicht; nach erfolgreichem Austausch liegt der bisherige Cache nur noch im Pre-Restore-Verzeichnis.
+
 1. Supervisor und Core stoppen:
 
    ```sh
@@ -137,11 +149,11 @@ gestoppt sein. `restore` prüft das Archiv vor dem Anwenden und bewahrt ersetzte
 3. Den Plan prüfen und Restore ausführen:
 
    ```sh
-   plur1bus backup restore "/pfad/zum/backup.tar.gz"
+   plur1bus backup restore "/pfad/zum/backup.tar.gz" --confirm
    ```
 
-   Auf einem Terminal fragt der Befehl vor dem Anwenden nach Bestätigung. Für Skripte oder mit `--json` ist die
-   Bestätigung explizit erforderlich:
+   Ohne `--confirm` zeigt der Befehl nur den Plan und ändert nichts, auch auf einem Terminal. `--yes` bleibt als
+   Alias für die ausdrückliche Bestätigung erhalten:
 
    ```sh
    plur1bus backup restore "/pfad/zum/backup.tar.gz" --yes
@@ -152,6 +164,10 @@ gestoppt sein. `restore` prüft das Archiv vor dem Anwenden und bewahrt ersetzte
    ```powershell
    plur1bus backup restore "D:\Backups\backup.tar.gz" --yes
    ```
+
+   `--force` ersetzt keine Bestätigung. Mit `--confirm --force` werden unter einer ausdrücklichen Warnung lediglich
+   die Endpoint-Prüfungen übersprungen; belegte Writer-Sperren führen weiterhin zur Ablehnung. `--dry-run` hat auch
+   zusammen mit `--confirm` Vorrang und wendet nichts an.
 
 4. Nach erfolgreichem Restore den Dienst wieder starten und den Zustand kontrollieren:
 
@@ -184,6 +200,63 @@ lib/tombstone-reapply.js yet` (`packages/core/test/restore-reapply.test.ts`) wir
 Absatz und den Test zu entfernen. Bis dahin lässt sich das Einspielen bei gestopptem Core von Hand ausführen:
 `node scripts/reapply-tombstones.mjs --apply --base-db-path <home>/state/lancedb` aus dem Engine-Paket
 (`@cyb3rb1ade/plur1bus-memory`); endet es ohne Fehler, kann der Marker gelöscht werden.
+
+### Pre-Restore-Kopien begrenzen (`--keep N`)
+
+Ohne Zusatz bleibt jede Pre-Restore-Kopie `<home>/backups/pre-restore-<UTC>-<8 Hex>/` dauerhaft liegen. Mit
+`plur1bus backup restore <FILE> --confirm --keep N` (N ≥ 1, sonst Aufruffehler vor jeder Änderung) bleiben nach einem
+vollständig gelungenen Austausch nur die N neuesten Kopien; die eben erzeugte zählt mit und wird nie entfernt.
+Sortiert wird nach dem Zeitstempel im Namen, dann nach dem Namen. Kandidaten sind ausschließlich echte Verzeichnisse
+direkt unter `backups/` mit genau diesem Namensmuster; Symlinks, Dateien, Archive (`plur1bus-backup-*.tar.gz`) und alle
+anderen Namen werden nie angefasst. Ist `<home>/backups` selbst ein Symlink (zum Beispiel auf eine andere Platte, die
+sich mehrere Homes teilen), löscht `--keep` dort nichts und warnt auf stderr. Ersetzt ein Restore nichts (leeres Home),
+entsteht keine eigene Kopie; dann bleiben die N neuesten vorhandenen.
+
+* Nichts wird gelöscht bei `--dry-run`, nach einem Fehler oder Rollback und **solange ein früherer Restore noch nicht
+  durch den Core-Start abgeschlossen ist**: Existierte `state/.restore-reapply-tombstones` schon vor diesem Restore, bleiben
+  alle älteren Kopien liegen und auf stderr steht eine Warnung.
+* Ein Fehler beim Löschen ist eine Warnung auf stderr. Exit-Code und Erfolg des Restores bleiben.
+* Die JSON-Ausgabe `backup.restore/1` ist mit und ohne `--keep` identisch; Meldungen erscheinen nur auf stderr.
+
+### Abgebrochener Restore (ohne Journal)
+
+Die Rust-CLI führt **kein Restore-Journal**. Wird der Restore-Prozess hart beendet (SIGKILL; getestet), gilt unten
+Folgendes. Für einen Stromausfall oder Absturz des Rechners ist das **nicht getestet und nicht zugesagt**: Dateiinhalte
+werden synchronisiert, Verzeichnis-Renames und das Anlegen des Markers aber nicht per `fsync` auf das Verzeichnis;
+Reihenfolge und Dauerhaftigkeit hängen vom Dateisystem ab.
+
+* **Kein Datenverlust:** Jede Einheit liegt vollständig am Live-Ort (alt oder neu) oder vollständig unter
+  `backups/pre-restore-<id>/<Ziel>`; noch nicht platzierte Einheiten liegen vollständig im Staging `<home>/.restore-<id>`.
+* **Marker:** `state/.restore-reapply-tombstones` wird nach dem Entpacken und vor dem ersten Austausch angelegt. Ein Kill
+  beim Entpacken lässt keinen Marker zurück (und noch nichts Ersetztes); jeder spätere Schnitt hinterlässt ihn.
+* **Sperren:** Betriebssystem-Sperren gehen mit dem Prozess unter; ein neuer Lauf wird nicht blockiert.
+* **Konvergenz:** Dasselbe `backup restore --confirm` mit demselben Archiv wiederholen. Es endet im selben Dateizustand
+  wie ein ungestörter Lauf; der Marker bleibt bestehen. Ein `--keep` im Wiederholungslauf löscht dann nichts (der Marker
+  existierte schon) und warnt.
+
+**KNOWN GAP:** Ein unterbrochener Restore wird beim nächsten Start nicht erkannt und nicht automatisch zurückgeführt;
+das Staging `.restore-<id>` des getöteten Laufs bleibt liegen. Abhilfe ist die Wiederholung des Restores (danach kann das
+alte Staging von Hand entfernt werden). Die Tests `crash::a_sigkill_at_every_cut_…` in `crates/plur1bus/tests/backup.rs`
+schreiben das für zwölf Schnitte fest.
+
+### Abdeckung der zehn gp5-Restore-Fälle
+
+Quelle: Analysefälle `gp5-restore-gates` (Commit `e396469baa`). Die Fälle beschreiben teils das Node-CLI; die Rust-CLI
+hat ein anderes Modell (kein Journal, `--force` umgeht nur Endpoint-Prüfungen, nie die Kernel-Writer-Sperren).
+Test-Pfade beziehen sich auf `crates/plur1bus/`.
+
+| # | Fall (Kurzfassung) | Abdeckung | Status |
+|---|---|---|---|
+| 1 | aktiver Writer verweigert Restore vor jeder Datei-/Staging-Änderung | `tests/backup.rs`: `restore_refuses_while_a_supervisor_answers_for_the_home`, `refused_admission_leaves_no_staging_no_pre_restore_and_the_current_cache` (kein `.restore-*`, kein `pre-restore-*`, kein Byte geändert); `src/backup/writer_guard_tests.rs` | abgedeckt |
+| 2 | Writer-Start zwischen Prüfung und Austausch umgeht die Sperre nicht | `writer_guard_tests.rs`: `held_restore_fence_excludes_later_core_supervisor_and_engine_start` | abgedeckt |
+| 3 | Standard ist ein Dry-run; Änderung nur mit ausdrücklicher Bestätigung | `tests/backup.rs`: `restore_defaults_to_a_read_only_plan_and_force_never_confirms_it`, `a_dry_run_reports_the_plan_and_changes_nothing` | abgedeckt (Rust-CLI) |
+| 4 | `--force` warnt und ersetzt nie die Bestätigung | `tests/backup.rs`: `restore_refuses_while_a_supervisor_answers_for_the_home` (Warnung), `restore_defaults_to_a_read_only_plan_and_force_never_confirms_it` | abgedeckt |
+| 5 | neue Snapshots enthalten keine LLM-Cache-Datenbank samt WAL/SHM | Archiv-Seite: `src/backup/manifest.rs` `is_derived_cache`, `derived_cache_tests.rs`; Engine-Create: T7a | verwiesen (Engine-Fassade, T7a) |
+| 6 | Legacy-Snapshot mit Cache ist verifizierbar, stellt aber einen leeren Cache her | `derived_cache_tests.rs`: `legacy_archive_is_verified_but_restored_store_has_no_derived_cache`, `discarded_legacy_cache_payload_still_must_pass_its_digest` | abgedeckt |
+| 7 | verweigerte/fehlgeschlagene Admission leert den Cache nicht und ändert keine Lease-Metadaten | `derived_cache_tests.rs`: `dry_run_and_failed_restore_preserve_current_cache`; `tests/backup.rs`: `refused_admission_leaves_no_staging_no_pre_restore_and_the_current_cache` (Cache und Lock-Bytes unverändert); `writer_guard_tests.rs` | abgedeckt |
+| 8 | jeder Crash-Schnitt erhält Journal-Recovery und Tombstone-Reapply | `tests/backup.rs`: `crash::a_sigkill_at_every_cut_loses_no_data_keeps_the_marker_and_a_repeat_converges` (extract, marker, swap:0–3, swap-after:0–3, absent:0, done). **Ohne Journal:** kein Datenverlust, Marker, Konvergenz bei Wiederholung | abgedeckt in der Form ohne Journal (siehe KNOWN GAP) |
+| 9 | Workspace-Quellen und Opt-in-Retention kompatibel; ausstehendes Journal verhindert Purge | Retention: `tests/backup.rs` `keep_*`, `a_marker_from_an_unfinished_restore_blocks_the_purge_and_warns`, `src/backup/retention.rs`; „pending" entspricht hier dem vorhandenen Marker. Workspace-Quellen: Engine-Fassade (T7a) | Retention abgedeckt, Workspace-Quellen verwiesen (T7a) |
+| 10 | erfolgreicher Restore startet einen frischen Cache, ohne alte Ausgaben oder weitere Rechte | `derived_cache_tests.rs`, `tests/backup.rs` `restored_files_and_directories_are_private`; „frischer Cache beim Start" liegt außerhalb der CLI | teilweise, Rest verwiesen (Core/Engine) |
 
 ## Audit-Beweise gesondert aufbewahren
 

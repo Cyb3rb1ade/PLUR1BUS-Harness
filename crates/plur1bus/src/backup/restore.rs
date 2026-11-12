@@ -14,7 +14,9 @@
 //! (`packages/core/src/restore-reapply.ts`).
 use super::archive::{verify, visit};
 use super::create::{ensure_backups_dir, Cleanup};
-use super::manifest::{is_sqlite_name, redacted_config_keys, Kind, Manifest, SQLITE_SIDECARS};
+use super::manifest::{
+    is_derived_cache, is_sqlite_name, redacted_config_keys, Kind, Manifest, SQLITE_SIDECARS,
+};
 use super::{now_ms, short_id, utc_stamp, BackupError};
 use crate::paths::Layout;
 use serde::Serialize;
@@ -30,9 +32,17 @@ const REAPPLY_MARKER_SCHEMA: &str = "plur1bus.restore-reapply-tombstones/1";
 
 pub struct RestoreOpts {
     pub dry_run: bool,
+    /// Explicit operator override for endpoint probes only. Kernel writer fences are mandatory.
+    pub force: bool,
     /// Test seam (`PLUR1BUS_TEST_BACKUP_FAIL_AT`, honoured only with `PLUR1BUS_ALLOW_TEST_INTERNALS=1`):
     /// `extract`, `swap:<i>` (after unit i's live tree was moved aside) or `swap-after:<i>` (after unit i was placed).
+    /// `hold:<name>` parks the process there instead (writes the file named by `PLUR1BUS_TEST_BACKUP_HOLD_FILE`, then
+    /// waits to be killed): the names above plus `marker` (marker written, nothing swapped), `absent:<j>` (absent unit
+    /// j moved aside) and `done` (everything swapped).
     pub fail_at: Option<String>,
+    /// `--keep N`: after a restore that swapped completely, keep only the N newest `pre-restore-*` copies (the one just
+    /// made counts). `None`: keep them all. Never applied while an earlier restore's re-apply marker is still there.
+    pub keep: Option<usize>,
 }
 
 #[derive(Serialize, Debug, Clone, PartialEq)]
@@ -61,6 +71,12 @@ pub struct RestoreReport {
     /// Guidance for CLI stderr only; the JSON result shape remains unchanged (owner SH2 ruling).
     #[serde(skip)]
     pub redacted_config_keys: Vec<String>,
+    /// `--keep` notes for CLI stderr only (retention skipped, or a copy that could not be removed); never in the JSON.
+    #[serde(skip)]
+    pub retention_warnings: Vec<String>,
+    /// The `--keep` of this run, for the human text only.
+    #[serde(skip)]
+    pub keep: Option<usize>,
 }
 
 fn live(home: &Path, target: &str) -> PathBuf {
@@ -143,7 +159,36 @@ fn hold_legacy_lock(
     }
 }
 
+/// Test seam: `hold:<at>` in `fail_at` writes the checkpoint file (atomically) and parks until the process is killed.
+/// Inert unless `PLUR1BUS_ALLOW_TEST_INTERNALS=1` and `PLUR1BUS_TEST_BACKUP_HOLD_FILE` are both set.
+fn hold_point(opts: &RestoreOpts, at: &str) {
+    let Some(want) = opts
+        .fail_at
+        .as_deref()
+        .and_then(|s| s.strip_prefix("hold:"))
+    else {
+        return;
+    };
+    if want != at || std::env::var("PLUR1BUS_ALLOW_TEST_INTERNALS").as_deref() != Ok("1") {
+        return;
+    }
+    let Some(file) = std::env::var_os("PLUR1BUS_TEST_BACKUP_HOLD_FILE").map(PathBuf::from) else {
+        return;
+    };
+    let tmp = file.with_extension("tmp");
+    if fs::write(&tmp, at)
+        .and_then(|()| fs::rename(&tmp, &file))
+        .is_err()
+    {
+        return;
+    }
+    loop {
+        std::thread::park();
+    }
+}
+
 fn fail_point(opts: &RestoreOpts, at: &str) -> Result<(), BackupError> {
+    hold_point(opts, at);
     if opts.fail_at.as_deref() == Some(at) {
         return Err(BackupError::new(
             "restore-failed",
@@ -168,6 +213,11 @@ fn set_mode(_: &Path, _: Option<u32>) -> io::Result<()> {
 fn extract(archive: &Path, staging: &Path, opts: &RestoreOpts) -> Result<Manifest, BackupError> {
     let mut written = 0usize;
     let manifest = visit(archive, &mut |f, r| {
+        if is_derived_cache(&f.path) {
+            // visit drains and hashes even an omitted payload. A damaged legacy cache must
+            // still fail verification, but its database and sidecars never become live state.
+            return Ok(());
+        }
         let dest = live(staging, &f.path);
         if let Some(parent) = dest.parent() {
             fs::create_dir_all(parent)?;
@@ -187,7 +237,9 @@ fn extract(archive: &Path, staging: &Path, opts: &RestoreOpts) -> Result<Manifes
         fs::create_dir_all(live(staging, &u.archive))?;
     }
     for d in &manifest.dirs {
-        fs::create_dir_all(live(staging, d))?;
+        if !is_derived_cache(d) {
+            fs::create_dir_all(live(staging, d))?;
+        }
     }
     private_dirs(staging)?;
     Ok(manifest)
@@ -307,7 +359,7 @@ fn swap(
         done[unit_idx].placed = true;
         fail_point(opts, &format!("swap-after:{i}"))?;
     }
-    for a in &manifest.absent {
+    for (j, a) in manifest.absent.iter().enumerate() {
         let moved_to = move_aside(home, pre, a)?;
         if moved_to.is_some() {
             done.push(Done {
@@ -316,6 +368,7 @@ fn swap(
                 placed: false,
             });
         }
+        hold_point(opts, &format!("absent:{j}"));
     }
     Ok(())
 }
@@ -365,11 +418,21 @@ pub fn restore(
         current_harness: env!("CARGO_PKG_VERSION").to_string(),
         store_schema: manifest.engine.store_schema.clone(),
         redacted_config_keys: redacted_config_keys(&manifest.secrets.note)?,
+        retention_warnings: Vec::new(),
+        keep: opts.keep,
     };
     if opts.dry_run {
         return Ok(report);
     }
-    ensure_quiescent(layout)?;
+    if !opts.force {
+        ensure_quiescent(layout)?;
+    }
+    // Keep all writer fences through extraction, swapping and any rollback. A one-time
+    // socket probe cannot exclude a core/import/engine starting immediately afterwards.
+    let _writers = super::writer_guard::WriterGuard::acquire(layout)?;
+    if !opts.force {
+        ensure_quiescent(layout)?;
+    }
     // Held until the restore returns: no legacy core that outlived its front door writes the units being swapped.
     let _legacy = hold_legacy_lock(layout)?;
 
@@ -387,6 +450,7 @@ pub fn restore(
     // Before the first swap: a restore that dies half-way must not leave swapped rows without the marker. Nothing in the
     // home has changed yet, so a failure here is a plain refusal (the marker is the only thing it may have created).
     let marker_created = write_reapply_marker(home)?;
+    hold_point(opts, "marker");
     let mut done = Vec::new();
     if let Err(e) = swap(home, &staging, &pre, &manifest, opts, &mut done) {
         return match roll_back(done, &staging.join(".rejected")) {
@@ -416,8 +480,24 @@ pub fn restore(
             }
         };
     }
+    hold_point(opts, "done");
     report.applied = true;
     report.pre_restore = pre.exists().then(|| pre.display().to_string());
+    if let Some(keep) = opts.keep {
+        // Only after a swap that went through, under the fences. "A re-apply is still owed" is the marker existing before
+        // this restore wrote it: an earlier restore's copies are the only way back until the core has re-applied.
+        if marker_created {
+            let current = format!("pre-restore-{id}");
+            let backups = super::create::backups_dir(layout);
+            report.retention_warnings =
+                super::retention::purge_pre_restore(&backups, keep, &current);
+        } else {
+            report.retention_warnings.push(
+                "--keep: no pre-restore copy was deleted: an earlier restore is not finished (state/.restore-reapply-tombstones is still there: the tombstone re-apply is still owed); the older copies stay"
+                    .to_string(),
+            );
+        }
+    }
     Ok(report)
 }
 
@@ -495,8 +575,10 @@ mod tests {
             &destination,
             &archive,
             &RestoreOpts {
+                force: false,
                 dry_run: true,
                 fail_at: None,
+                keep: None,
             },
         )
         .unwrap();
@@ -675,8 +757,10 @@ mod tests {
             &dst,
             &out,
             &RestoreOpts {
+                force: false,
                 dry_run: false,
                 fail_at: None,
+                keep: None,
             },
         )
         .unwrap();
@@ -708,8 +792,10 @@ mod tests {
                 &dst,
                 &out,
                 &RestoreOpts {
+                    force: false,
                     dry_run: false,
                     fail_at: Some(at.into()),
+                    keep: None,
                 },
             )
             .unwrap_err();
@@ -745,8 +831,10 @@ mod tests {
             dst,
             out,
             &RestoreOpts {
+                force: false,
                 dry_run: false,
                 fail_at: fail_at.map(String::from),
+                keep: None,
             },
         )
     }
@@ -781,8 +869,10 @@ mod tests {
             &dst,
             &out,
             &RestoreOpts {
+                force: false,
                 dry_run: true,
                 fail_at: None,
+                keep: None,
             },
         )
         .unwrap();
@@ -844,8 +934,10 @@ mod tests {
             &dst,
             &out,
             &RestoreOpts {
+                force: false,
                 dry_run: false,
                 fail_at: None,
+                keep: None,
             },
         )
         .unwrap();
@@ -880,8 +972,10 @@ mod tests {
     #[test]
     fn fail_points_fire_only_where_named() {
         let o = RestoreOpts {
+            force: false,
             dry_run: false,
             fail_at: Some("swap:1".into()),
+            keep: None,
         };
         assert!(fail_point(&o, "swap:0").is_ok());
         assert_eq!(

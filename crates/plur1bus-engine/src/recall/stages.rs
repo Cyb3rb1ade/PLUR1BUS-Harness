@@ -2,9 +2,10 @@
 //!
 //! Budget, Jaccard dedupe and rerank run afterwards in [`super::finalise`]. With
 //! `defer_final_cap` the pinned pipeline skips the budget and replaces dedupe with a
-//! hard-limit slice. Query
-//! refinement is present and stays off: the pinned engine emits no skip trace when
-//! `queryRefinerEnabled` is false.
+//! hard-limit slice. Query refinement (RE-D151) runs the pin's deterministic refiner
+//! when no hit reaches the minimum score: a second search, merged by id (higher score
+//! wins), with a `query-refinement` trace guard. The pinned engine emits no skip trace
+//! when `queryRefinerEnabled` is false.
 //!
 //! `clocks.now_ms` is the pipeline `now` (lifecycle and expiry). `clocks.temporal_now_ms`
 //! is `Date.now()`, which `parseTemporal` reads instead of that argument. The stage
@@ -87,6 +88,10 @@ pub struct StageInput<'a> {
     pub workspace_dir: Option<&'a Path>,
     /// In-memory edges. The golden graph is unbound.
     pub edges: &'a [GraphEdge],
+    /// Authorized Neo source read after providers, immediately before traversal.
+    pub bound_graph: Option<&'a super::graph_source::BoundGraphSource>,
+    /// Committed-deletion mask applied after the ACL to every row source (RE-D153).
+    pub tombstones: Option<&'a super::tombstone_mask::TombstoneMask>,
     /// Numeric limits.
     pub limits: StageLimits,
     /// Stage switches.
@@ -160,8 +165,6 @@ pub enum StageError {
     Store(StoreError),
     /// The query embedding failed. Section failures are caught and do not use this variant.
     Embed(EmbedError),
-    /// `queryRefinerEnabled` is true and the hits would be refined. The expander is not ported.
-    RefinementUnavailable,
 }
 
 impl std::fmt::Display for StageError {
@@ -169,9 +172,6 @@ impl std::fmt::Display for StageError {
         match self {
             Self::Store(error) => write!(formatter, "{error}"),
             Self::Embed(error) => write!(formatter, "{error}"),
-            Self::RefinementUnavailable => {
-                formatter.write_str("query refinement is not part of stages 1-7")
-            }
         }
     }
 }
@@ -206,44 +206,208 @@ pub fn run_observed_stage_7(
     trace: Option<TraceLimits>,
     emotion: Option<&dyn score::EmotionalRecallState>,
 ) -> Result<StageSnapshot, StageError> {
-    let mut rejections = Vec::new();
-    let mut observations = Observations::new(trace);
-    let query_vector = embed_query(input)?;
-    let mut hits = search_hits(input, &query_vector, sink, &mut rejections)?;
-    observations.rejections(&rejections);
-    let candidate_ids = hits.iter().map(|hit| hit.id.clone()).collect();
-    observe_vectors(&mut observations, &hits);
-    if input.flags.query_refiner && should_refine_query(&hits, input.limits.recall_min_score) {
-        return Err(StageError::RefinementUnavailable);
+    run_controlled_stage_7(
+        input,
+        sink,
+        trace,
+        emotion,
+        &mut super::control::RecallControl::unbounded(),
+    )
+}
+
+/// Run the production stages with a request budget, keeping only authorized partial rows.
+/// The control's stop classification distinguishes a soft fast path from timeout/abort.
+pub fn run_controlled_stage_7(
+    input: &StageInput<'_>,
+    sink: &dyn DenialSink,
+    trace: Option<TraceLimits>,
+    emotion: Option<&dyn score::EmotionalRecallState>,
+    control: &mut super::control::RecallControl,
+) -> Result<StageSnapshot, StageError> {
+    let cancel = control.cancel.clone();
+    let embedder = super::control::BoundEmbedder {
+        provider: input.embedder,
+        cancel: &cancel,
+    };
+    let bounded = StageInput {
+        embedder: &embedder,
+        limits: input.limits.clone(),
+        flags: input.flags.clone(),
+        clocks: input.clocks.clone(),
+        ..*input
+    };
+    run_stages(&bounded, sink, trace, emotion, control)
+}
+
+#[derive(Default)]
+struct Progress {
+    hits: Vec<Hit>,
+    vector: Vec<f32>,
+    candidates: Vec<String>,
+    canonical: Vec<CanonicalHit>,
+    rejections: Vec<Rejection>,
+    scored: bool,
+}
+
+fn run_stages(
+    input: &StageInput<'_>,
+    sink: &dyn DenialSink,
+    trace: Option<TraceLimits>,
+    emotion: Option<&dyn score::EmotionalRecallState>,
+    control: &mut super::control::RecallControl,
+) -> Result<StageSnapshot, StageError> {
+    let mut state = Progress::default();
+    let mut observations = Observations::new(trace, control.trace_policy.clone());
+    macro_rules! phase {
+        ($name:literal, $soft:literal, $body:expr) => {{
+            if !control.checkpoint($soft) {
+                return Ok(finish_progress(input, sink, state, observations, control));
+            }
+            control.timer.start($name);
+            let result = stage_result(|| $body);
+            control.timer.end($name);
+            if let Err(error) = result {
+                control.timer.fail($name);
+                // Only cancellation becomes partial success. Store/identity failures still fail closed.
+                if matches!(error, StageError::Embed(EmbedError::Cancelled(_)))
+                    && !control.checkpoint(false) {
+                    return Ok(finish_progress(input, sink, state, observations, control));
+                }
+                return Err(error);
+            }
+        }};
     }
-    hits = apply_temporal(input, &mut hits, &mut rejections)?;
-    observations.rejections(&rejections);
-    let canonical = canonical_hits(input, &query_vector);
-    for hit in &canonical {
-        observations.canonical(hit);
+    phase!("embedding", false, {
+        state.vector = embed_query(input)?;
+        Ok(())
+    });
+    phase!("vector_search", false, {
+        state.hits = search_hits(
+            input,
+            &state.vector,
+            "initial-acl",
+            sink,
+            &mut state.rejections,
+        )?;
+        observations.rejections(&state.rejections);
+        state.candidates = state.hits.iter().map(|hit| hit.id.clone()).collect();
+        observe_vectors(&mut observations, &state.hits);
+        Ok(())
+    });
+    phase!("query_refinement", true, {
+        if input.flags.query_refiner
+            && should_refine_query(&state.hits, input.limits.recall_min_score)
+        {
+            if let Some(merged) = refine_hits(input, &state.hits, sink, &mut state.rejections)? {
+                state.hits = merged;
+                observations.rejections(&state.rejections);
+                observations.guard(
+                    "query-refinement",
+                    true,
+                    &format!(
+                        "refinement triggered; merged {} unique results",
+                        state.hits.len()
+                    ),
+                    None,
+                );
+            }
+        }
+        Ok(())
+    });
+    phase!("temporal", true, {
+        state.hits = apply_temporal(input, &mut state.hits, &mut state.rejections)?;
+        observations.rejections(&state.rejections);
+        Ok(())
+    });
+    phase!("canonical", true, {
+        state.canonical = canonical_hits(input, &state.vector, &control.cancel);
+        for hit in &state.canonical {
+            observations.canonical(hit);
+        }
+        Ok(())
+    });
+    phase!("scoring", true, {
+        state.hits = score_hits(std::mem::take(&mut state.hits), emotion);
+        state.scored = true;
+        observations.scoring(
+            state
+                .hits
+                .iter()
+                .filter_map(|hit| hit.row.as_ref().map(|row| (row, hit.score))),
+            emotion.is_some(),
+        );
+        reject_inactive(input, &mut state.hits, &mut state.rejections);
+        observations.rejections(&state.rejections);
+        Ok(())
+    });
+    phase!("graph", true, {
+        state.hits = spread_graph(
+            input,
+            std::mem::take(&mut state.hits),
+            sink,
+            &mut state.rejections,
+            &mut observations,
+            &control.cancel,
+        )?;
+        Ok(())
+    });
+    phase!("graph_hydration", true, {
+        state.hits = hydrate(
+            input,
+            std::mem::take(&mut state.hits),
+            &state.vector,
+            sink,
+            &mut state.rejections,
+        )?;
+        observations.rejections(&state.rejections);
+        Ok(())
+    });
+    control.checkpoint(true);
+    Ok(finish_progress(input, sink, state, observations, control))
+}
+
+// Capture `?` inside the phase so timing is closed before propagating its failure.
+fn stage_result(run: impl FnOnce() -> Result<(), StageError>) -> Result<(), StageError> {
+    run()
+}
+
+fn finish_progress(
+    input: &StageInput<'_>,
+    sink: &dyn DenialSink,
+    mut state: Progress,
+    mut observations: Observations,
+    control: &super::control::RecallControl,
+) -> StageSnapshot {
+    if control.stopped().is_some() && !state.scored {
+        // The pinned early exit applies strength once, without later emotion/epistemic stages.
+        for hit in &mut state.hits {
+            if let Some(row) = &hit.row {
+                hit.score += score::strength_adjustment(lifecycle::number(&row.memory_strength));
+            }
+        }
+        state
+            .hits
+            .sort_by(|left, right| right.score.total_cmp(&left.score));
     }
-    hits = score_hits(hits, emotion);
-    observations.scoring(
-        hits.iter()
-            .filter_map(|hit| hit.row.as_ref().map(|row| (row, hit.score))),
-        emotion.is_some(),
-    );
-    reject_inactive(input, &mut hits, &mut rejections);
-    observations.rejections(&rejections);
-    hits = spread_graph(input, hits, sink, &mut rejections, &mut observations)?;
-    hits = hydrate(input, hits, &query_vector, sink, &mut rejections)?;
-    observations.rejections(&rejections);
-    hits.truncate(slice_limit(input));
-    hits.retain(|hit| acl_allows(input, hit, "acl", sink, &mut rejections));
-    observations.rejections(&rejections);
-    Ok(snapshot(
-        hits,
-        query_vector,
-        candidate_ids,
-        canonical,
-        rejections,
+    state
+        .hits
+        .retain(|hit| acl_allows(input, hit, "acl", sink, &mut state.rejections));
+    state.hits.truncate(slice_limit(input));
+    observations.rejections(&state.rejections);
+    if control.stopped() == Some(super::control::Stop::SoftBudget) {
+        observations.guard("soft-budget", false, "soft_budget_fallback", None);
+        if let Some(guard) = observations.trace.guards.last_mut() {
+            guard["phaseSummary"] = control.timer.summary();
+        }
+    }
+    snapshot(
+        state.hits,
+        state.vector,
+        state.candidates,
+        state.canonical,
+        state.rejections,
         observations.trace,
-    ))
+    )
 }
 
 fn snapshot(
@@ -300,6 +464,19 @@ fn shorten(query: &str) -> String {
 fn search_hits(
     input: &StageInput<'_>,
     query_vector: &[f32],
+    acl_stage: &str,
+    sink: &dyn DenialSink,
+    rejections: &mut Vec<Rejection>,
+) -> Result<Vec<Hit>, StageError> {
+    let hits = read_hits(input, query_vector, acl_stage, sink, rejections)?;
+    retain_unmasked(input, hits, rejections)
+}
+
+/// Vector read, score filter, lifecycle and ACL; the tombstone mask is applied separately.
+fn read_hits(
+    input: &StageInput<'_>,
+    query_vector: &[f32],
+    acl_stage: &str,
     sink: &dyn DenialSink,
     rejections: &mut Vec<Rejection>,
 ) -> Result<Vec<Hit>, StageError> {
@@ -326,8 +503,97 @@ fn search_hits(
         });
     }
     reject_inactive(input, &mut hits, rejections);
-    hits.retain(|hit| acl_allows(input, hit, "initial-acl", sink, rejections));
+    hits.retain(|hit| acl_allows(input, hit, acl_stage, sink, rejections));
     Ok(hits)
+}
+
+/// RE-D153: drop rows whose owner committed their deletion. Only the id and a fixed
+/// reason are recorded. An unreadable registry fails the stage; it never reads unmasked.
+fn retain_unmasked(
+    input: &StageInput<'_>,
+    hits: Vec<Hit>,
+    rejections: &mut Vec<Rejection>,
+) -> Result<Vec<Hit>, StageError> {
+    let mut kept = Vec::with_capacity(hits.len());
+    for hit in hits {
+        if masked(input, &hit, rejections)? {
+            continue;
+        }
+        kept.push(hit);
+    }
+    Ok(kept)
+}
+
+fn masked(
+    input: &StageInput<'_>,
+    hit: &Hit,
+    rejections: &mut Vec<Rejection>,
+) -> Result<bool, StageError> {
+    let (Some(mask), Some(row)) = (input.tombstones, hit.row.as_ref()) else {
+        return Ok(false);
+    };
+    if !mask.masks(row).map_err(StageError::Store)? {
+        return Ok(false);
+    }
+    rejections.push(Rejection {
+        memory_id: hit.id.clone(),
+        stage: "tombstone".to_owned(),
+        reason: "tombstoned".to_owned(),
+    });
+    Ok(true)
+}
+
+/// The pin's refined second search. Cancellation escapes; any other embedding or read
+/// failure keeps the original hits, as the pin's `catch` does. The tombstone mask has no
+/// pin counterpart: an unreadable registry fails the stage, as in every other source.
+fn refine_hits(
+    input: &StageInput<'_>,
+    hits: &[Hit],
+    sink: &dyn DenialSink,
+    rejections: &mut Vec<Rejection>,
+) -> Result<Option<Vec<Hit>>, StageError> {
+    let top = hits.first().map(|hit| super::query_refiner::RefinementTop {
+        score: Some(hit.score),
+        entry: hit
+            .row
+            .as_ref()
+            .map(|row| (row.summary.as_str(), row.text.as_str())),
+    });
+    let refined = super::query_refiner::refine_query(input.query, top);
+    let vector = match input
+        .embedder
+        .embed(&[refined], EmbedKind::Query, &Cancel::never())
+    {
+        Ok(vectors) => match vectors.into_iter().next() {
+            Some(vector) => vector,
+            None => return Ok(None),
+        },
+        Err(error @ EmbedError::Cancelled(_)) => return Err(StageError::Embed(error)),
+        Err(_) => return Ok(None),
+    };
+    let mut found = Vec::new();
+    let refined = match read_hits(input, &vector, "refined-acl", sink, &mut found) {
+        Ok(refined) => refined,
+        Err(_) => return Ok(None),
+    };
+    // RE-D153 review N1: a mask failure is not a read failure and is never swallowed.
+    let refined = retain_unmasked(input, refined, &mut found)?;
+    rejections.extend(found);
+    let mut combined = hits.to_vec();
+    for hit in refined {
+        match combined.iter_mut().find(|existing| existing.id == hit.id) {
+            Some(existing) if hit.score > existing.score => *existing = hit,
+            Some(_) => {}
+            None => combined.push(hit),
+        }
+    }
+    combined.sort_by(|left, right| {
+        right
+            .score
+            .partial_cmp(&left.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    Ok(Some(combined))
 }
 
 fn fetch_limit(input: &StageInput<'_>) -> usize {
@@ -407,20 +673,25 @@ fn resolve_anchor(
     Ok(range_from_anchor(epoch(&row.row.created_at)))
 }
 
-fn canonical_hits(input: &StageInput<'_>, query_vector: &[f32]) -> Vec<CanonicalHit> {
+fn canonical_hits(
+    input: &StageInput<'_>,
+    query_vector: &[f32],
+    cancel: &Cancel,
+) -> Vec<CanonicalHit> {
     if !input.flags.canonical {
         return Vec::new();
     }
     let Some(workspace) = input.workspace_dir else {
         return Vec::new();
     };
-    knowledge::search_canonical(
+    knowledge::search_canonical_with_cancel(
         workspace,
         query_vector,
         input.embedder,
         input.limits.canonical_min_score,
         input.limits.canonical_max_items,
         input.flags.persist_knowledge,
+        cancel,
     )
 }
 
@@ -446,19 +717,33 @@ fn spread_graph(
     sink: &dyn DenialSink,
     rejections: &mut Vec<Rejection>,
     observations: &mut Observations,
+    cancel: &Cancel,
 ) -> Result<Vec<Hit>, StageError> {
-    if !input.flags.associative || input.edges.is_empty() || hits.is_empty() {
+    if !input.flags.associative || hits.is_empty() {
         return Ok(hits);
     }
+    let bound_edges = input
+        .bound_graph
+        .map(|source| {
+            source.read_for(
+                input.store,
+                input.context,
+                input.clocks.now_ms,
+                input.clocks.valid_at,
+                cancel,
+            )
+        })
+        .transpose()?;
+    let available = bound_edges.as_deref().unwrap_or(input.edges);
     let seeds: Vec<(String, f64)> = hits
         .iter()
         .take(super::graph::SEED_COUNT)
         .map(|hit| (hit.id.clone(), hit.score))
         .collect();
     let seed_ids: Vec<String> = seeds.iter().map(|(id, _)| id.clone()).collect();
-    let endpoints = reachable_endpoint_ids(input.edges, &seed_ids);
+    let endpoints = reachable_endpoint_ids(available, &seed_ids);
     let allowed = allowed_endpoints(input, &endpoints, sink, rejections)?;
-    let edges = edges_between(input.edges, &allowed);
+    let edges = edges_between(available, &allowed);
     observations.rejections(rejections);
     let traversal = traverse_observed(&seeds, &edges);
     observations.guard(
@@ -534,6 +819,7 @@ fn hydrate(
         } else if hit.row.as_ref().is_some_and(|row| {
             lifecycle::is_recall_entry_live(row, input.clocks.now_ms, input.clocks.valid_at)
         }) && acl_allows(input, &hit, "graph-hydration-acl", sink, rejections)
+            && !masked(input, &hit, rejections)?
         {
             hydrated.push(hit);
         }
@@ -571,30 +857,48 @@ fn hydrate_one(
         score: hit.score,
         source: "graph",
     };
-    if !acl_allows(input, &kept, "graph-hydration-acl", sink, rejections) {
+    if !acl_allows(input, &kept, "graph-hydration-acl", sink, rejections)
+        || masked(input, &kept, rejections)?
+    {
         return Ok(None);
     }
+    Ok(graph_relevance_allows(input.embedder, query_vector, &kept, rejections).then_some(kept))
+}
+
+fn graph_relevance_allows(
+    embedder: &dyn EmbeddingProvider,
+    query_vector: &[f32],
+    kept: &Hit,
+    rejections: &mut Vec<Rejection>,
+) -> bool {
     if !query_vector.is_empty() {
         let vector = kept
             .row
             .as_ref()
             .map(|row| row.vector.as_slice())
             .unwrap_or_default();
-        let relevance = hydration_relevance(input, vector, query_vector, &kept)?;
+        let Ok(relevance) = hydration_relevance(embedder, vector, query_vector, kept) else {
+            rejections.push(Rejection {
+                memory_id: kept.id.clone(),
+                stage: "graph-hydration".to_owned(),
+                reason: "relevance check failed".to_owned(),
+            });
+            return false;
+        };
         if relevance_below_threshold(relevance, HYDRATION_RELEVANCE_THRESHOLD) {
             rejections.push(Rejection {
-                memory_id: kept.id,
+                memory_id: kept.id.clone(),
                 stage: "graph-hydration".to_owned(),
                 reason: relevance_reason(relevance, HYDRATION_RELEVANCE_THRESHOLD),
             });
-            return Ok(None);
+            return false;
         }
     }
-    Ok(Some(kept))
+    true
 }
 
 fn hydration_relevance(
-    input: &StageInput<'_>,
+    embedder: &dyn EmbeddingProvider,
     stored: &[f32],
     query_vector: &[f32],
     hit: &Hit,
@@ -614,8 +918,7 @@ fn hydration_relevance(
             }
         })
         .unwrap_or_default();
-    let embedded = input
-        .embedder
+    let embedded = embedder
         .embed(&[text], EmbedKind::Passage, &Cancel::never())
         .map_err(StageError::Embed)?;
     Ok(embedded
@@ -751,11 +1054,82 @@ fn allowed_endpoints(
                     score: 0.0,
                     source: "graph",
                 };
-                if acl_allows(input, &shell, "graph-endpoint-acl", sink, rejections) {
+                // A forgotten card is neither an association target nor a bridge (RE-D153).
+                if acl_allows(input, &shell, "graph-endpoint-acl", sink, rejections)
+                    && !masked(input, &shell, rejections)?
+                {
                     allowed.push(endpoint.clone());
                 }
             }
         }
     }
     Ok(allowed)
+}
+
+#[cfg(test)]
+mod hydration_tests {
+    use super::*;
+    use crate::contract::VectorSpaceIdentity;
+    use crate::recall::hash_embed::HashEmbedder;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    struct FailOnce {
+        inner: HashEmbedder,
+        failed: AtomicBool,
+    }
+    impl EmbeddingProvider for FailOnce {
+        fn identity(&self) -> &VectorSpaceIdentity {
+            self.inner.identity()
+        }
+        fn embed(
+            &self,
+            _: &[String],
+            _: EmbedKind,
+            _: &Cancel,
+        ) -> Result<Vec<Vec<f32>>, EmbedError> {
+            if !self.failed.swap(true, Ordering::SeqCst) {
+                Err(EmbedError::ProviderFailed { status: None })
+            } else {
+                Ok(vec![vec![1.0, 0.0]])
+            }
+        }
+    }
+
+    #[test]
+    fn failed_graph_relevance_drops_only_that_candidate_with_a_content_free_trace() {
+        let embedder = FailOnce {
+            inner: HashEmbedder::new(),
+            failed: AtomicBool::new(false),
+        };
+        let mut rejected = Vec::new();
+        // A missing vector follows the real re-embedding path, unlike the pinned
+        // Arrow vector path whose NaN behavior belongs to the existing oracle.
+        let first = Hit {
+            depth: Some(1),
+            id: "first".into(),
+            row: None,
+            score: 0.8,
+            source: "graph",
+        };
+        assert!(!graph_relevance_allows(
+            &embedder,
+            &[1.0, 0.0],
+            &first,
+            &mut rejected
+        ));
+        let second = Hit {
+            id: "second".into(),
+            ..first
+        };
+        assert!(graph_relevance_allows(
+            &embedder,
+            &[1.0, 0.0],
+            &second,
+            &mut rejected
+        ));
+        assert_eq!(rejected.len(), 1);
+        assert_eq!(rejected[0].memory_id, "first");
+        assert_eq!(rejected[0].stage, "graph-hydration");
+        assert_eq!(rejected[0].reason, "relevance check failed");
+    }
 }

@@ -1,0 +1,878 @@
+{
+  "provenance": {
+    "commit": "b097045b6f115275baa8b15016321c3ba080c812",
+    "node": "v24.21.0",
+    "sourceHashes": {
+      "lib/neo-arch.js": "8c6b87d7669d9ae041b4c661bb7d9d24465a75e3ff22333af0c653e6e17e4950",
+      "lib/emotion.js": "4fad4d37803bbee8bf95a8d3db11b5e2fdc3b195d617055a8af63a0d52780c27",
+      "lib/emotion-engine.js": "b8d4e60b785c9d19809b7f2bfe67e6d2871dfb1b4699bd96b6ee666391372557",
+      "lib/emotion-score.js": "4f5aff9b4bb80e9673c2d1d0a748bd69f12979e11241f946e0b43e48a0df3573",
+      "lib/tier1-lexicon.js": "b4f0e03d727355e52806cda8761f4b38c3af3dc064a051f804ed99981b3d09f8",
+      "lib/tier2-transformer.js": "f928294f31e1cf5c69ffff8b3a8c98b42af8ccc4205877036895d35acc13a120",
+      "lib/tier3-llm.js": "7749de629deee9a0cc8cd01dc51cb7bbcc6e5a99256b5eb794abf0fd41ab0dc6",
+      "lib/host-network.js": "360b692df2f2c3dc9761cfe73ca5165da4b5416f8b7778b5ec79b1dd253aaf69",
+      "lib/emotion-blends.js": "653021f8048772dc6a2c1da0e60bfef08250bcd61aacf45ba1a9bf379fa7ca29",
+      "lib/abort.js": "435016008fa477f7ed7d3215505324bb3e7159e123ea553b35fb8a14d5a4055d",
+      "lib/relevant-memory-context.js": "021cb6e3e568915dbd12602f77ba924ac8c6f1cbc43fcb93cd8697156dca4c66",
+      "lib/memory-context-sanitize.js": "476528aa230fcda996245aa22efee376153ea4bc9a6287ce77da62c1a54e2377",
+      "lib/pattern-surface.js": "e65b2ec958b0564f44ae374579ee59f52f2c9b5be50e3a95e9bb33527b276b8b",
+      "lib/continuity-gate.js": "74b57c98d4631c9d6d34ecc2c744b02f2f430584e270671f60b3ecadc2de84b6",
+      "lib/recall-decision-trace.js": "cee6208fa0a91654adae11ccd17c3b44e86c84fdf9b30c1addfa1d299c96711d",
+      "lib/temporal-provenance.js": "b15da5a91b134fddd99a8ff2448999b9b9e8da3f069b05dd73a2c1ae3a89cc60",
+      "lib/prompt-memory-fields.js": "f20716b535734930677a4657ee62c01247679aa2ba2f0f6a3d7a6de62396bbda",
+      "lib/epistemic-status.js": "552a71f9616c8caa2151b54feadd3e6ab19a470218022027425b11ccaf967fec",
+      "lib/inject-budget.js": "5897fe0a629543e60997e4749f4692c841a8f21a66526c618d7ff3fc1f52d945",
+      "lib/safe-logging.js": "4a634fa3c4cce35d5c7cb29c7c2eb72378666ef400e79dc7869a4c50d2e2c0ac",
+      "lib/log-redact.js": "f64f7d2e2fbf13684ad16fe045a1e43a9755c57be00ee7532479286eed0068e3",
+      "lib/registry-lock.js": "718791a188344b396e72db33c908fb2ef3d71a67dc1ac29a3b2b882c7b76a4e9"
+    }
+  },
+  "cases": [
+    {
+      "workspace": "workspace-dir:v1:/fixture/workspace",
+      "now": "2026-11-08T12:00:00.000Z",
+      "event": {
+        "sessionKey": "stable-session",
+        "runId": "run-one",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Architecture decision chosen"
+          },
+          {
+            "role": "assistant",
+            "content": "I will plan the implementation"
+          },
+          {
+            "role": "user",
+            "content": "yes exactly"
+          },
+          {
+            "role": "assistant",
+            "content": "maybe we could use a queue"
+          },
+          {
+            "role": "user",
+            "content": "never leak workspace data"
+          }
+        ]
+      },
+      "output": {
+        "turns": [
+          {
+            "id": "turn_87e91cca9848b5563e1f",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "agentId": "alpha",
+            "sessionId": "stable-session",
+            "turnIndex": 0,
+            "role": "user",
+            "content": "Architecture decision chosen",
+            "categories": [
+              "architecture_decision"
+            ],
+            "origin": {
+              "kind": "user_explicit",
+              "role": "user",
+              "sourceTurnIds": [
+                "turn_87e91cca9848b5563e1f"
+              ],
+              "sourceMemoryIds": [],
+              "sourceToolCallIds": [],
+              "capturedBy": "agent_end_capture",
+              "trustLevel": "user_asserted",
+              "confidence": 0.75,
+              "scope": "workspace_shared",
+              "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+              "agentId": "alpha",
+              "sessionId": "stable-session"
+            },
+            "visibility": {
+              "scope": "workspace_shared",
+              "recallable": true,
+              "promptInjectable": false,
+              "dreamEligible": true
+            },
+            "attribution": {
+              "repliesToTurnIds": [],
+              "usedMemoryIds": [],
+              "usedBehaviorCardIds": [],
+              "usedDreamIds": [],
+              "usedToolIds": []
+            },
+            "quality": {
+              "confidence": 0.75,
+              "userConfirmed": false,
+              "contradicted": false,
+              "stale": false,
+              "promoted": false,
+              "demoted": false,
+              "pruned": false,
+              "promptInjectionSuspected": false
+            },
+            "emotionalValence": "",
+            "emotionalIntensity": 0,
+            "emotionalDominant": "neutral",
+            "createdAt": "2026-11-08T12:00:00.000Z"
+          },
+          {
+            "id": "turn_fd33f42f3828e860a926",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "agentId": "alpha",
+            "sessionId": "stable-session",
+            "turnIndex": 1,
+            "role": "assistant",
+            "content": "I will plan the implementation",
+            "categories": [
+              "assistant_plan"
+            ],
+            "origin": {
+              "kind": "assistant_plan",
+              "role": "assistant",
+              "sourceTurnIds": [
+                "turn_fd33f42f3828e860a926"
+              ],
+              "sourceMemoryIds": [],
+              "sourceToolCallIds": [],
+              "capturedBy": "agent_end_capture",
+              "trustLevel": "assistant_asserted",
+              "confidence": 0.75,
+              "scope": "agent_private",
+              "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+              "agentId": "alpha",
+              "sessionId": "stable-session"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "recallable": true,
+              "promptInjectable": false,
+              "dreamEligible": false
+            },
+            "attribution": {
+              "repliesToTurnIds": [],
+              "usedMemoryIds": [],
+              "usedBehaviorCardIds": [],
+              "usedDreamIds": [],
+              "usedToolIds": []
+            },
+            "quality": {
+              "confidence": 0.75,
+              "userConfirmed": false,
+              "contradicted": false,
+              "stale": false,
+              "promoted": false,
+              "demoted": false,
+              "pruned": false,
+              "promptInjectionSuspected": false
+            },
+            "emotionalValence": "",
+            "emotionalIntensity": 0,
+            "emotionalDominant": "neutral",
+            "createdAt": "2026-11-08T12:00:00.000Z"
+          },
+          {
+            "id": "turn_1a6d3f0f7aeb2f07f012",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "agentId": "alpha",
+            "sessionId": "stable-session",
+            "turnIndex": 2,
+            "role": "user",
+            "content": "yes exactly",
+            "categories": [
+              "project_fact"
+            ],
+            "origin": {
+              "kind": "user_confirmation",
+              "role": "user",
+              "sourceTurnIds": [
+                "turn_1a6d3f0f7aeb2f07f012"
+              ],
+              "sourceMemoryIds": [],
+              "sourceToolCallIds": [],
+              "capturedBy": "agent_end_capture",
+              "trustLevel": "user_asserted",
+              "confidence": 0.75,
+              "scope": "workspace_shared",
+              "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+              "agentId": "alpha",
+              "sessionId": "stable-session"
+            },
+            "visibility": {
+              "scope": "workspace_shared",
+              "recallable": true,
+              "promptInjectable": false,
+              "dreamEligible": true
+            },
+            "attribution": {
+              "repliesToTurnIds": [
+                "turn_fd33f42f3828e860a926"
+              ],
+              "usedMemoryIds": [],
+              "usedBehaviorCardIds": [],
+              "usedDreamIds": [],
+              "usedToolIds": []
+            },
+            "quality": {
+              "confidence": 0.75,
+              "userConfirmed": false,
+              "contradicted": false,
+              "stale": false,
+              "promoted": false,
+              "demoted": false,
+              "pruned": false,
+              "promptInjectionSuspected": false
+            },
+            "emotionalValence": "",
+            "emotionalIntensity": 0,
+            "emotionalDominant": "neutral",
+            "createdAt": "2026-11-08T12:00:00.000Z"
+          },
+          {
+            "id": "turn_69e4239d2159288e08bb",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "agentId": "alpha",
+            "sessionId": "stable-session",
+            "turnIndex": 3,
+            "role": "assistant",
+            "content": "maybe we could use a queue",
+            "categories": [
+              "assistant_suggestion"
+            ],
+            "origin": {
+              "kind": "assistant_suggestion",
+              "role": "assistant",
+              "sourceTurnIds": [
+                "turn_69e4239d2159288e08bb"
+              ],
+              "sourceMemoryIds": [],
+              "sourceToolCallIds": [],
+              "capturedBy": "agent_end_capture",
+              "trustLevel": "assistant_asserted",
+              "confidence": 0.75,
+              "scope": "agent_private",
+              "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+              "agentId": "alpha",
+              "sessionId": "stable-session"
+            },
+            "visibility": {
+              "scope": "agent_private",
+              "recallable": true,
+              "promptInjectable": false,
+              "dreamEligible": false
+            },
+            "attribution": {
+              "repliesToTurnIds": [],
+              "usedMemoryIds": [],
+              "usedBehaviorCardIds": [],
+              "usedDreamIds": [],
+              "usedToolIds": []
+            },
+            "quality": {
+              "confidence": 0.75,
+              "userConfirmed": false,
+              "contradicted": false,
+              "stale": false,
+              "promoted": false,
+              "demoted": false,
+              "pruned": false,
+              "promptInjectionSuspected": false
+            },
+            "emotionalValence": "",
+            "emotionalIntensity": 0,
+            "emotionalDominant": "neutral",
+            "createdAt": "2026-11-08T12:00:00.000Z"
+          },
+          {
+            "id": "turn_c58191c9a523e3ebd524",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "agentId": "alpha",
+            "sessionId": "stable-session",
+            "turnIndex": 4,
+            "role": "user",
+            "content": "never leak workspace data",
+            "categories": [
+              "technical_constraint"
+            ],
+            "origin": {
+              "kind": "user_explicit",
+              "role": "user",
+              "sourceTurnIds": [
+                "turn_c58191c9a523e3ebd524"
+              ],
+              "sourceMemoryIds": [],
+              "sourceToolCallIds": [],
+              "capturedBy": "agent_end_capture",
+              "trustLevel": "user_asserted",
+              "confidence": 0.75,
+              "scope": "workspace_shared",
+              "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+              "agentId": "alpha",
+              "sessionId": "stable-session"
+            },
+            "visibility": {
+              "scope": "workspace_shared",
+              "recallable": true,
+              "promptInjectable": false,
+              "dreamEligible": true
+            },
+            "attribution": {
+              "repliesToTurnIds": [
+                "turn_69e4239d2159288e08bb"
+              ],
+              "usedMemoryIds": [],
+              "usedBehaviorCardIds": [],
+              "usedDreamIds": [],
+              "usedToolIds": []
+            },
+            "quality": {
+              "confidence": 0.75,
+              "userConfirmed": false,
+              "contradicted": false,
+              "stale": false,
+              "promoted": false,
+              "demoted": false,
+              "pruned": false,
+              "promptInjectionSuspected": false
+            },
+            "emotionalValence": "",
+            "emotionalIntensity": 0,
+            "emotionalDominant": "neutral",
+            "createdAt": "2026-11-08T12:00:00.000Z"
+          }
+        ],
+        "candidates": [
+          {
+            "id": "mem_58d77b22da4b79dfa7ca",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "statement": "Architecture decision chosen",
+            "normalizedStatement": "Architecture decision chosen",
+            "category": "architecture_decision",
+            "origin": {
+              "kind": "user_explicit",
+              "role": "user",
+              "sourceTurnIds": [
+                "turn_87e91cca9848b5563e1f"
+              ],
+              "sourceMemoryIds": [],
+              "sourceToolCallIds": [],
+              "capturedBy": "agent_end_capture",
+              "trustLevel": "user_asserted",
+              "confidence": 0.75,
+              "scope": "workspace_shared",
+              "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+              "agentId": "alpha",
+              "sessionId": "stable-session"
+            },
+            "sourceTurnIds": [
+              "turn_87e91cca9848b5563e1f"
+            ],
+            "status": "active",
+            "confidence": 0.75,
+            "salience": 0.8,
+            "recency": 1,
+            "embeddingStatus": "pending",
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "emotionalValence": "",
+            "emotionalIntensity": 0,
+            "emotionalDominant": "neutral"
+          },
+          {
+            "id": "mem_684a52999dc4a19a54df",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "agentId": "alpha",
+            "statement": "I will plan the implementation",
+            "normalizedStatement": "I will plan the implementation",
+            "category": "assistant_plan",
+            "origin": {
+              "kind": "assistant_plan",
+              "role": "assistant",
+              "sourceTurnIds": [
+                "turn_fd33f42f3828e860a926"
+              ],
+              "sourceMemoryIds": [],
+              "sourceToolCallIds": [],
+              "capturedBy": "agent_end_capture",
+              "trustLevel": "assistant_asserted",
+              "confidence": 0.75,
+              "scope": "agent_private",
+              "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+              "agentId": "alpha",
+              "sessionId": "stable-session"
+            },
+            "sourceTurnIds": [
+              "turn_fd33f42f3828e860a926"
+            ],
+            "status": "candidate",
+            "confidence": 0.45,
+            "salience": 0.35,
+            "recency": 1,
+            "embeddingStatus": "pending",
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "emotionalValence": "",
+            "emotionalIntensity": 0,
+            "emotionalDominant": "neutral"
+          },
+          {
+            "id": "mem_d3ec39da19ee75dc6557",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "statement": "yes exactly",
+            "normalizedStatement": "yes exactly",
+            "category": "project_fact",
+            "origin": {
+              "kind": "user_confirmation",
+              "role": "user",
+              "sourceTurnIds": [
+                "turn_1a6d3f0f7aeb2f07f012"
+              ],
+              "sourceMemoryIds": [],
+              "sourceToolCallIds": [],
+              "capturedBy": "agent_end_capture",
+              "trustLevel": "user_asserted",
+              "confidence": 0.75,
+              "scope": "workspace_shared",
+              "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+              "agentId": "alpha",
+              "sessionId": "stable-session"
+            },
+            "sourceTurnIds": [
+              "turn_1a6d3f0f7aeb2f07f012"
+            ],
+            "status": "active",
+            "confidence": 0.75,
+            "salience": 0.55,
+            "recency": 1,
+            "embeddingStatus": "pending",
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "emotionalValence": "",
+            "emotionalIntensity": 0,
+            "emotionalDominant": "neutral"
+          },
+          {
+            "id": "mem_60da2758534d5eec3769",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "agentId": "alpha",
+            "statement": "maybe we could use a queue",
+            "normalizedStatement": "maybe we could use a queue",
+            "category": "assistant_suggestion",
+            "origin": {
+              "kind": "assistant_suggestion",
+              "role": "assistant",
+              "sourceTurnIds": [
+                "turn_69e4239d2159288e08bb"
+              ],
+              "sourceMemoryIds": [],
+              "sourceToolCallIds": [],
+              "capturedBy": "agent_end_capture",
+              "trustLevel": "assistant_asserted",
+              "confidence": 0.75,
+              "scope": "agent_private",
+              "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+              "agentId": "alpha",
+              "sessionId": "stable-session"
+            },
+            "sourceTurnIds": [
+              "turn_69e4239d2159288e08bb"
+            ],
+            "status": "candidate",
+            "confidence": 0.45,
+            "salience": 0.35,
+            "recency": 1,
+            "embeddingStatus": "pending",
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "emotionalValence": "",
+            "emotionalIntensity": 0,
+            "emotionalDominant": "neutral"
+          },
+          {
+            "id": "mem_e20b5ea0a31562ad66dc",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "statement": "never leak workspace data",
+            "normalizedStatement": "never leak workspace data",
+            "category": "technical_constraint",
+            "origin": {
+              "kind": "user_explicit",
+              "role": "user",
+              "sourceTurnIds": [
+                "turn_c58191c9a523e3ebd524"
+              ],
+              "sourceMemoryIds": [],
+              "sourceToolCallIds": [],
+              "capturedBy": "agent_end_capture",
+              "trustLevel": "user_asserted",
+              "confidence": 0.75,
+              "scope": "workspace_shared",
+              "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+              "agentId": "alpha",
+              "sessionId": "stable-session"
+            },
+            "sourceTurnIds": [
+              "turn_c58191c9a523e3ebd524"
+            ],
+            "status": "active",
+            "confidence": 0.75,
+            "salience": 0.8,
+            "recency": 1,
+            "embeddingStatus": "pending",
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "emotionalValence": "",
+            "emotionalIntensity": 0,
+            "emotionalDominant": "neutral"
+          }
+        ],
+        "reactions": [
+          {
+            "id": "react_c6dfccea4fce0a9545be",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "agentId": "alpha",
+            "sessionId": "stable-session",
+            "turnId": "turn_1a6d3f0f7aeb2f07f012",
+            "targetType": "architecture_decision",
+            "targetIds": [
+              "turn_fd33f42f3828e860a926"
+            ],
+            "polarity": 1,
+            "intensity": 0.65,
+            "confidence": 0.75,
+            "explicitness": "explicit_praise",
+            "evidence": "yes exactly",
+            "extractedAt": "2026-11-08T12:00:00.000Z"
+          },
+          {
+            "id": "react_492afc51bcc42a8e05d4",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "agentId": "alpha",
+            "sessionId": "stable-session",
+            "turnId": "turn_c58191c9a523e3ebd524",
+            "targetType": "behavior",
+            "targetIds": [
+              "turn_69e4239d2159288e08bb"
+            ],
+            "polarity": 1,
+            "intensity": 0.85,
+            "confidence": 0.8,
+            "explicitness": "explicit_instruction",
+            "evidence": "never leak workspace data",
+            "extractedAt": "2026-11-08T12:00:00.000Z"
+          }
+        ],
+        "behavior": [
+          {
+            "id": "behavior_81554916fbd846afb209",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "agentId": "alpha",
+            "category": "workflow_preference",
+            "statement": "yes exactly",
+            "status": "candidate",
+            "confidence": 0.75,
+            "salience": 0.65,
+            "sourceSignals": [
+              "react_c6dfccea4fce0a9545be"
+            ],
+            "lastConfirmedAt": "2026-11-08T12:00:00.000Z",
+            "embeddingStatus": "pending",
+            "createdAt": "2026-11-08T12:00:00.000Z"
+          },
+          {
+            "id": "behavior_d94ddcb60006bedc6c2e",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "agentId": "alpha",
+            "category": "memory_policy",
+            "statement": "never leak workspace data",
+            "status": "active",
+            "confidence": 0.8,
+            "salience": 0.85,
+            "sourceSignals": [
+              "react_492afc51bcc42a8e05d4"
+            ],
+            "lastConfirmedAt": "2026-11-08T12:00:00.000Z",
+            "embeddingStatus": "pending",
+            "createdAt": "2026-11-08T12:00:00.000Z"
+          }
+        ],
+        "embeddings": [
+          {
+            "id": "embq_f0a1e8be8c906a15deb2",
+            "targetId": "turn_87e91cca9848b5563e1f",
+            "targetType": "turn",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "agentId": "alpha",
+            "impact": "low",
+            "status": "pending",
+            "queuedAt": "2026-11-08T12:00:00.000Z"
+          },
+          {
+            "id": "embq_274a80f333b7c823a12b",
+            "targetId": "turn_fd33f42f3828e860a926",
+            "targetType": "turn",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "agentId": "alpha",
+            "impact": "low",
+            "status": "pending",
+            "queuedAt": "2026-11-08T12:00:00.000Z"
+          },
+          {
+            "id": "embq_6b934ae9781e3977f152",
+            "targetId": "turn_1a6d3f0f7aeb2f07f012",
+            "targetType": "turn",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "agentId": "alpha",
+            "impact": "low",
+            "status": "pending",
+            "queuedAt": "2026-11-08T12:00:00.000Z"
+          },
+          {
+            "id": "embq_0788584bc8b1774dd247",
+            "targetId": "turn_69e4239d2159288e08bb",
+            "targetType": "turn",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "agentId": "alpha",
+            "impact": "low",
+            "status": "pending",
+            "queuedAt": "2026-11-08T12:00:00.000Z"
+          },
+          {
+            "id": "embq_b5bb8923cdee82e3537a",
+            "targetId": "turn_c58191c9a523e3ebd524",
+            "targetType": "turn",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "agentId": "alpha",
+            "impact": "low",
+            "status": "pending",
+            "queuedAt": "2026-11-08T12:00:00.000Z"
+          },
+          {
+            "id": "embq_eb5d8b3a33e94c3607e8",
+            "targetId": "mem_58d77b22da4b79dfa7ca",
+            "targetType": "memory",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "impact": "low",
+            "status": "pending",
+            "queuedAt": "2026-11-08T12:00:00.000Z"
+          },
+          {
+            "id": "embq_8db35c509aa98600a540",
+            "targetId": "mem_684a52999dc4a19a54df",
+            "targetType": "memory",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "agentId": "alpha",
+            "impact": "low",
+            "status": "pending",
+            "queuedAt": "2026-11-08T12:00:00.000Z"
+          },
+          {
+            "id": "embq_2b98ffc747319ee2b479",
+            "targetId": "mem_d3ec39da19ee75dc6557",
+            "targetType": "memory",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "impact": "low",
+            "status": "pending",
+            "queuedAt": "2026-11-08T12:00:00.000Z"
+          },
+          {
+            "id": "embq_efa360028819bec83972",
+            "targetId": "mem_60da2758534d5eec3769",
+            "targetType": "memory",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "agentId": "alpha",
+            "impact": "low",
+            "status": "pending",
+            "queuedAt": "2026-11-08T12:00:00.000Z"
+          },
+          {
+            "id": "embq_f078e4cda67f8cb7a7da",
+            "targetId": "mem_e20b5ea0a31562ad66dc",
+            "targetType": "memory",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "impact": "low",
+            "status": "pending",
+            "queuedAt": "2026-11-08T12:00:00.000Z"
+          },
+          {
+            "id": "embq_8079492c62b2af72734c",
+            "targetId": "behavior_81554916fbd846afb209",
+            "targetType": "behavior",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "agentId": "alpha",
+            "impact": "low",
+            "status": "pending",
+            "queuedAt": "2026-11-08T12:00:00.000Z"
+          },
+          {
+            "id": "embq_eac6a75b0033dd262948",
+            "targetId": "behavior_d94ddcb60006bedc6c2e",
+            "targetType": "behavior",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "agentId": "alpha",
+            "impact": "low",
+            "status": "pending",
+            "queuedAt": "2026-11-08T12:00:00.000Z"
+          }
+        ],
+        "candidateIndex": [
+          {
+            "id": "mem_58d77b22da4b79dfa7ca",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "statement": "Architecture decision chosen",
+            "category": "architecture_decision",
+            "status": "active",
+            "confidence": 0.75,
+            "salience": 0.8,
+            "recency": 1,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "sourceTurnIds": [
+              "turn_87e91cca9848b5563e1f"
+            ],
+            "emotionalDominant": "neutral",
+            "origin": {
+              "kind": "user_explicit",
+              "role": "user",
+              "trustLevel": "user_asserted",
+              "scope": "workspace_shared"
+            }
+          },
+          {
+            "id": "mem_684a52999dc4a19a54df",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "agentId": "alpha",
+            "statement": "I will plan the implementation",
+            "category": "assistant_plan",
+            "status": "candidate",
+            "confidence": 0.45,
+            "salience": 0.35,
+            "recency": 1,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "sourceTurnIds": [
+              "turn_fd33f42f3828e860a926"
+            ],
+            "emotionalDominant": "neutral",
+            "origin": {
+              "kind": "assistant_plan",
+              "role": "assistant",
+              "trustLevel": "assistant_asserted",
+              "scope": "agent_private"
+            }
+          },
+          {
+            "id": "mem_d3ec39da19ee75dc6557",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "statement": "yes exactly",
+            "category": "project_fact",
+            "status": "active",
+            "confidence": 0.75,
+            "salience": 0.55,
+            "recency": 1,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "sourceTurnIds": [
+              "turn_1a6d3f0f7aeb2f07f012"
+            ],
+            "emotionalDominant": "neutral",
+            "origin": {
+              "kind": "user_confirmation",
+              "role": "user",
+              "trustLevel": "user_asserted",
+              "scope": "workspace_shared"
+            }
+          },
+          {
+            "id": "mem_60da2758534d5eec3769",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "agentId": "alpha",
+            "statement": "maybe we could use a queue",
+            "category": "assistant_suggestion",
+            "status": "candidate",
+            "confidence": 0.45,
+            "salience": 0.35,
+            "recency": 1,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "sourceTurnIds": [
+              "turn_69e4239d2159288e08bb"
+            ],
+            "emotionalDominant": "neutral",
+            "origin": {
+              "kind": "assistant_suggestion",
+              "role": "assistant",
+              "trustLevel": "assistant_asserted",
+              "scope": "agent_private"
+            }
+          },
+          {
+            "id": "mem_e20b5ea0a31562ad66dc",
+            "workspaceKey": "workspace-dir:v1:/fixture/workspace",
+            "statement": "never leak workspace data",
+            "category": "technical_constraint",
+            "status": "active",
+            "confidence": 0.75,
+            "salience": 0.8,
+            "recency": 1,
+            "createdAt": "2026-11-08T12:00:00.000Z",
+            "sourceTurnIds": [
+              "turn_c58191c9a523e3ebd524"
+            ],
+            "emotionalDominant": "neutral",
+            "origin": {
+              "kind": "user_explicit",
+              "role": "user",
+              "trustLevel": "user_asserted",
+              "scope": "workspace_shared"
+            }
+          }
+        ]
+      },
+      "recordIndex": {
+        "version": 1,
+        "ids": {
+          "turns": [
+            "turn_87e91cca9848b5563e1f",
+            "turn_fd33f42f3828e860a926",
+            "turn_1a6d3f0f7aeb2f07f012",
+            "turn_69e4239d2159288e08bb",
+            "turn_c58191c9a523e3ebd524"
+          ],
+          "candidates": [],
+          "candidateContent": [
+            "content:00de4de2fa5db4e61435",
+            "content:a9e4f87070352f51f7be",
+            "content:71f25b76690111b2f350",
+            "content:9b24cb4fa94d69839c32",
+            "content:378d1243847de3776ebc"
+          ],
+          "reactions": [
+            "react_c6dfccea4fce0a9545be",
+            "react_492afc51bcc42a8e05d4"
+          ],
+          "behavior": [
+            "behavior_81554916fbd846afb209",
+            "behavior_d94ddcb60006bedc6c2e"
+          ]
+        },
+        "embeddingQueue": {
+          "statuses": {
+            "embq_f0a1e8be8c906a15deb2": "pending",
+            "embq_274a80f333b7c823a12b": "pending",
+            "embq_6b934ae9781e3977f152": "pending",
+            "embq_0788584bc8b1774dd247": "pending",
+            "embq_b5bb8923cdee82e3537a": "pending",
+            "embq_eb5d8b3a33e94c3607e8": "pending",
+            "embq_8db35c509aa98600a540": "pending",
+            "embq_2b98ffc747319ee2b479": "pending",
+            "embq_efa360028819bec83972": "pending",
+            "embq_f078e4cda67f8cb7a7da": "pending",
+            "embq_8079492c62b2af72734c": "pending",
+            "embq_eac6a75b0033dd262948": "pending"
+          }
+        }
+      },
+      "appended": {
+        "turns": 5,
+        "candidates": 5,
+        "reactions": 2,
+        "behaviorCards": 2
+      },
+      "replay": {
+        "turns": 0,
+        "candidates": 0,
+        "reactions": 0,
+        "behaviorCards": 0
+      }
+    }
+  ]
+}

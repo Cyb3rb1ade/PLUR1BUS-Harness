@@ -1,0 +1,443 @@
+{
+  "recordedFrom": {
+    "engine": "node",
+    "source": {
+      "commit": "088ba31e441c170b47dfa41d97bd78c5265e6f69",
+      "treeSha256": "83172f93354fc16837375db5f3e405815bf3ae5ce7b63c8c5d321a7d988561ff",
+      "paths": [
+        "engine/**/*.js",
+        "lib/**/*.js"
+      ],
+      "purpose": "C2 reembedding hardening from engine PR 266; validate facade and empty-agent acceptance additionally use pin 9f34008c"
+    },
+    "node": "v24.21.0"
+  },
+  "hashes": [
+    {
+      "name": "base",
+      "row": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "text": "synthetic preserved passage",
+        "status": "archived",
+        "vector": [
+          0.125,
+          0.25,
+          0.5
+        ],
+        "createdAt": 100,
+        "validFrom": 50,
+        "validUntil": 80,
+        "opaque": {
+          "label": "unknown column",
+          "flags": [
+            true,
+            false
+          ]
+        }
+      },
+      "hash": "dee397d3a3e081c6858145764cd984443b12bd8e267a81ae28f57e5f0ea9c068"
+    },
+    {
+      "name": "vector-and-query-excluded",
+      "row": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "text": "synthetic preserved passage",
+        "status": "archived",
+        "vector": [
+          9,
+          8
+        ],
+        "createdAt": 100,
+        "validFrom": 50,
+        "validUntil": 80,
+        "opaque": {
+          "label": "unknown column",
+          "flags": [
+            true,
+            false
+          ]
+        },
+        "embeddingFingerprint": "synthetic-derived",
+        "_distance": 0.4,
+        "_queryOnly": true
+      },
+      "hash": "dee397d3a3e081c6858145764cd984443b12bd8e267a81ae28f57e5f0ea9c068"
+    },
+    {
+      "name": "metadata-differs",
+      "row": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "text": "synthetic preserved passage",
+        "status": "active",
+        "vector": [
+          0.125,
+          0.25,
+          0.5
+        ],
+        "createdAt": 100,
+        "validFrom": 50,
+        "validUntil": 80,
+        "opaque": {
+          "label": "unknown column",
+          "flags": [
+            true,
+            false
+          ]
+        }
+      },
+      "hash": "884abf25bbc3d873c649e5a1944df77c8909c9e2840a79de75c730ca5a0fd6d1"
+    },
+    {
+      "name": "nested-order",
+      "row": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "text": "synthetic preserved passage",
+        "status": "archived",
+        "vector": [
+          0.125,
+          0.25,
+          0.5
+        ],
+        "createdAt": 100,
+        "validFrom": 50,
+        "validUntil": 80,
+        "opaque": {
+          "flags": [
+            true,
+            false
+          ],
+          "label": "unknown column"
+        }
+      },
+      "hash": "dee397d3a3e081c6858145764cd984443b12bd8e267a81ae28f57e5f0ea9c068"
+    },
+    {
+      "name": "numeric-keys",
+      "row": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "text": "synthetic preserved passage",
+        "status": "archived",
+        "vector": [
+          0.125,
+          0.25,
+          0.5
+        ],
+        "createdAt": 100,
+        "validFrom": 50,
+        "validUntil": 80,
+        "opaque": {
+          "2": "two",
+          "10": "ten",
+          "a": 1
+        }
+      },
+      "hash": "118334109c7d9a87bf449d34d9d404b8409588d03cb4c503f9caa8f34ee835c9"
+    },
+    {
+      "name": "utf16",
+      "row": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "text": "\ud800",
+        "status": "archived",
+        "vector": [
+          0.125,
+          0.25,
+          0.5
+        ],
+        "createdAt": 100,
+        "validFrom": 50,
+        "validUntil": 80,
+        "opaque": {
+          "𐀀": 1,
+          "": 2
+        }
+      },
+      "hash": "67d761e4a58e0a1a2dbcb7eacfd483c7cde40bd513c396fb6b07277a13f4bb44"
+    },
+    {
+      "name": "numbers",
+      "row": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "text": "synthetic preserved passage",
+        "status": "archived",
+        "vector": [
+          0.125,
+          0.25,
+          0.5
+        ],
+        "createdAt": 1e+21,
+        "validFrom": 0,
+        "validUntil": 1e-7,
+        "opaque": {
+          "label": "unknown column",
+          "flags": [
+            true,
+            false
+          ]
+        }
+      },
+      "hash": "a4c5980d6e9643e5a8d6f3a0a2487d8fc87d0f1df1208869fc59c37fbb86dacb"
+    },
+    {
+      "name": "null",
+      "row": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "text": "synthetic preserved passage",
+        "status": "archived",
+        "vector": [
+          0.125,
+          0.25,
+          0.5
+        ],
+        "createdAt": 100,
+        "validFrom": 50,
+        "validUntil": 80,
+        "opaque": null
+      },
+      "hash": "47f6095cfe84773f3625392aa38b1ed6ea877565a32b3139be14e3ce4d6aa983"
+    },
+    {
+      "name": "array-order",
+      "row": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "text": "synthetic preserved passage",
+        "status": "archived",
+        "vector": [
+          0.125,
+          0.25,
+          0.5
+        ],
+        "createdAt": 100,
+        "validFrom": 50,
+        "validUntil": 80,
+        "opaque": [
+          {
+            "b": 2,
+            "a": 1
+          },
+          null,
+          3
+        ]
+      },
+      "hash": "b50689df3653d080e61119dae97f4a8474590f07aed537652a4fe3f3eff39664"
+    },
+    {
+      "name": "nested-underscore-preserved",
+      "row": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "text": "synthetic preserved passage",
+        "status": "archived",
+        "vector": [
+          0.125,
+          0.25,
+          0.5
+        ],
+        "createdAt": 100,
+        "validFrom": 50,
+        "validUntil": 80,
+        "opaque": {
+          "_internal": "kept"
+        }
+      },
+      "hash": "d1267121acbd1adb45b832247e0a4d0293974c262ee3fde2b96aee55d2aca30a"
+    }
+  ],
+  "backend": [
+    {
+      "name": "exact-replay",
+      "vector": [
+        0.25,
+        0.5
+      ],
+      "interruptManifest": false,
+      "first": {
+        "added": 1,
+        "existing": 0
+      },
+      "replay": {
+        "value": {
+          "added": 0,
+          "existing": 1
+        }
+      },
+      "sourceRows": [
+        {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "text": "synthetic preserved passage",
+          "status": "archived",
+          "vector": [
+            0.125,
+            0.25,
+            0.5
+          ],
+          "createdAt": 100,
+          "validFrom": 50,
+          "validUntil": 80,
+          "opaque": "opaque column"
+        }
+      ],
+      "readback": [
+        {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "text": "synthetic preserved passage",
+          "status": "archived",
+          "vector": [
+            0.25,
+            0.5
+          ],
+          "createdAt": 100,
+          "validFrom": 50,
+          "validUntil": 80,
+          "opaque": "opaque column"
+        }
+      ],
+      "validation": {
+        "tables": 1,
+        "rows": 1,
+        "dimensions": 2
+      },
+      "writtenRows": 1,
+      "metadataPreserved": true
+    },
+    {
+      "name": "float32-replay",
+      "vector": [
+        0.1,
+        0.2
+      ],
+      "interruptManifest": false,
+      "first": {
+        "added": 1,
+        "existing": 0
+      },
+      "replay": {
+        "error": "target row conflict: 11111111-1111-4111-8111-111111111111"
+      },
+      "sourceRows": [
+        {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "text": "synthetic preserved passage",
+          "status": "archived",
+          "vector": [
+            0.125,
+            0.25,
+            0.5
+          ],
+          "createdAt": 100,
+          "validFrom": 50,
+          "validUntil": 80,
+          "opaque": "opaque column"
+        }
+      ],
+      "readback": [
+        {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "text": "synthetic preserved passage",
+          "status": "archived",
+          "vector": [
+            0.10000000149011612,
+            0.20000000298023224
+          ],
+          "createdAt": 100,
+          "validFrom": 50,
+          "validUntil": 80,
+          "opaque": "opaque column"
+        }
+      ],
+      "validation": {
+        "tables": 1,
+        "rows": 1,
+        "dimensions": 2
+      },
+      "writtenRows": 1,
+      "metadataPreserved": true,
+      "rustException": "float32-replay"
+    },
+    {
+      "name": "interrupted-manifest",
+      "vector": [
+        0.25,
+        0.5
+      ],
+      "interruptManifest": true,
+      "first": {
+        "added": 1,
+        "existing": 0
+      },
+      "replay": {
+        "value": {
+          "added": 0,
+          "existing": 1
+        }
+      },
+      "sourceRows": [
+        {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "text": "synthetic preserved passage",
+          "status": "archived",
+          "vector": [
+            0.125,
+            0.25,
+            0.5
+          ],
+          "createdAt": 100,
+          "validFrom": 50,
+          "validUntil": 80,
+          "opaque": "opaque column"
+        }
+      ],
+      "readback": [
+        {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "text": "synthetic preserved passage",
+          "status": "archived",
+          "vector": [
+            0.25,
+            0.5
+          ],
+          "createdAt": 100,
+          "validFrom": 50,
+          "validUntil": 80,
+          "opaque": "opaque column"
+        }
+      ],
+      "validation": {
+        "tables": 1,
+        "rows": 1,
+        "dimensions": 2
+      },
+      "writtenRows": 0,
+      "metadataPreserved": true,
+      "rustException": "manifest-repair"
+    },
+    {
+      "name": "nested-arrow-metadata",
+      "sourceInput": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "text": "synthetic preserved passage",
+        "status": "archived",
+        "vector": [
+          0.125,
+          0.25,
+          0.5
+        ],
+        "createdAt": 100,
+        "validFrom": 50,
+        "validUntil": 80,
+        "opaque": {
+          "label": "unknown column",
+          "flags": [
+            true,
+            false
+          ]
+        }
+      },
+      "vector": [
+        0.25,
+        0.5
+      ],
+      "firstError": "Found field not in schema: opaque.flags.isValid at row 0",
+      "rustException": "nested-arrow-metadata"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "exception": "RE-D138",
+  "sourceCommit": "1878af0b6b7eeaeba657f9d98f01a7bae5da26d8",
+  "golden": "ops/golden/reconcile.json",
+  "goldenSha256": "ea2eb61bb0368b4c7d468b83c4a17c8104db5812d3ca3a944c679b7fb5b6734a",
+  "native": [
+    "The configured active writer alone supplies row status; existing recall and legacy sources cannot change recovery decisions.",
+    "Missing stores remain absent, including direct status lookups. No table mutator is called.",
+    "A replaced held root is a storage error even when the agent path is absent, not a successful missing-row observation."
+  ],
+  "coverage": "All existing Node recovery cases run against synthetic real namespace tables with conflicting legacy status; Node goldens are unchanged. No restore grant or ProcessEngine startup activation.",
+  "sourceManifest": "ops/s5-sources.json"
+}

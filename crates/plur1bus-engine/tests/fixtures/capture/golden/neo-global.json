@@ -1,0 +1,2402 @@
+{
+  "provenance": {
+    "commit": "b097045b6f115275baa8b15016321c3ba080c812",
+    "node": "v24.21.0",
+    "sourceHashes": {
+      "lib/neo-arch.js": "8c6b87d7669d9ae041b4c661bb7d9d24465a75e3ff22333af0c653e6e17e4950",
+      "lib/emotion.js": "4fad4d37803bbee8bf95a8d3db11b5e2fdc3b195d617055a8af63a0d52780c27",
+      "lib/emotion-engine.js": "b8d4e60b785c9d19809b7f2bfe67e6d2871dfb1b4699bd96b6ee666391372557",
+      "lib/emotion-score.js": "4f5aff9b4bb80e9673c2d1d0a748bd69f12979e11241f946e0b43e48a0df3573",
+      "lib/tier1-lexicon.js": "b4f0e03d727355e52806cda8761f4b38c3af3dc064a051f804ed99981b3d09f8",
+      "lib/tier2-transformer.js": "f928294f31e1cf5c69ffff8b3a8c98b42af8ccc4205877036895d35acc13a120",
+      "lib/tier3-llm.js": "7749de629deee9a0cc8cd01dc51cb7bbcc6e5a99256b5eb794abf0fd41ab0dc6",
+      "lib/host-network.js": "360b692df2f2c3dc9761cfe73ca5165da4b5416f8b7778b5ec79b1dd253aaf69",
+      "lib/emotion-blends.js": "653021f8048772dc6a2c1da0e60bfef08250bcd61aacf45ba1a9bf379fa7ca29",
+      "lib/abort.js": "435016008fa477f7ed7d3215505324bb3e7159e123ea553b35fb8a14d5a4055d",
+      "lib/relevant-memory-context.js": "021cb6e3e568915dbd12602f77ba924ac8c6f1cbc43fcb93cd8697156dca4c66",
+      "lib/memory-context-sanitize.js": "476528aa230fcda996245aa22efee376153ea4bc9a6287ce77da62c1a54e2377",
+      "lib/pattern-surface.js": "e65b2ec958b0564f44ae374579ee59f52f2c9b5be50e3a95e9bb33527b276b8b",
+      "lib/continuity-gate.js": "74b57c98d4631c9d6d34ecc2c744b02f2f430584e270671f60b3ecadc2de84b6",
+      "lib/recall-decision-trace.js": "cee6208fa0a91654adae11ccd17c3b44e86c84fdf9b30c1addfa1d299c96711d",
+      "lib/temporal-provenance.js": "b15da5a91b134fddd99a8ff2448999b9b9e8da3f069b05dd73a2c1ae3a89cc60",
+      "lib/prompt-memory-fields.js": "f20716b535734930677a4657ee62c01247679aa2ba2f0f6a3d7a6de62396bbda",
+      "lib/epistemic-status.js": "552a71f9616c8caa2151b54feadd3e6ab19a470218022027425b11ccaf967fec",
+      "lib/inject-budget.js": "5897fe0a629543e60997e4749f4692c841a8f21a66526c618d7ff3fc1f52d945",
+      "lib/safe-logging.js": "4a634fa3c4cce35d5c7cb29c7c2eb72378666ef400e79dc7869a4c50d2e2c0ac",
+      "lib/log-redact.js": "f64f7d2e2fbf13684ad16fe045a1e43a9755c57be00ee7532479286eed0068e3",
+      "lib/registry-lock.js": "718791a188344b396e72db33c908fb2ef3d71a67dc1ac29a3b2b882c7b76a4e9"
+    }
+  },
+  "cases": [
+    {
+      "name": "index-basic",
+      "files": [
+        {
+          "name": "candidate-index.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic a\",\"status\":\"candidate\",\"createdAt\":1700000000000}\n{\"id\":\"b\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic b\",\"status\":\"candidate\",\"createdAt\":1700000000000}\n{\"id\":\"c\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic c\",\"status\":\"candidate\",\"createdAt\":1700000000000}\n"
+        },
+        {
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.3.f32\",\"entries\":{\"a\":{\"offset\":0,\"length\":8,\"dims\":2},\"b\":{\"offset\":8,\"length\":8,\"dims\":2},\"c\":{\"offset\":16,\"length\":8,\"dims\":2}}}"
+        },
+        {
+          "name": "vectors.3.f32",
+          "bytes": [
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            128,
+            63,
+            205,
+            204,
+            76,
+            63,
+            154,
+            153,
+            25,
+            63
+          ]
+        }
+      ],
+      "options": {
+        "queryVector": [
+          1,
+          0
+        ],
+        "topK": 30,
+        "minSimilarity": 0.35,
+        "halfLifeDays": 30,
+        "maxCandidates": 20000,
+        "excludeIds": [],
+        "now": 1700000000000
+      },
+      "output": {
+        "hits": [
+          {
+            "item": {
+              "id": "a",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic a",
+              "status": "candidate",
+              "createdAt": 1700000000000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 1,
+            "ageDays": 0
+          },
+          {
+            "item": {
+              "id": "c",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic c",
+              "status": "candidate",
+              "createdAt": 1700000000000,
+              "embedding": [
+                0.800000011920929,
+                0.6000000238418579
+              ]
+            },
+            "similarity": 0.7999999928474427,
+            "score": 0.7999999928474427,
+            "ageDays": 0
+          }
+        ],
+        "scanned": 3,
+        "unique": 3,
+        "eligible": 3,
+        "withVector": 3,
+        "index": "full"
+      },
+      "authorizedOutput": {
+        "hits": [
+          {
+            "item": {
+              "id": "a",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic a",
+              "status": "candidate",
+              "createdAt": 1700000000000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 1,
+            "ageDays": 0
+          },
+          {
+            "item": {
+              "id": "c",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic c",
+              "status": "candidate",
+              "createdAt": 1700000000000,
+              "embedding": [
+                0.800000011920929,
+                0.6000000238418579
+              ]
+            },
+            "similarity": 0.7999999928474427,
+            "score": 0.7999999928474427,
+            "ageDays": 0
+          }
+        ],
+        "scanned": 3,
+        "unique": 3,
+        "eligible": 3,
+        "withVector": 3,
+        "index": "full"
+      }
+    },
+    {
+      "name": "fallback-inline",
+      "files": [
+        {
+          "name": "memory-candidates.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic a\",\"status\":\"candidate\",\"createdAt\":1700000000000,\"embedding\":[1,0]}\n{\"id\":\"b\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic b\",\"status\":\"candidate\",\"createdAt\":1700000000000,\"embedding\":[0.8,0.6]}\n"
+        }
+      ],
+      "options": {
+        "queryVector": [
+          1,
+          0
+        ],
+        "topK": 30,
+        "minSimilarity": 0.35,
+        "halfLifeDays": 30,
+        "maxCandidates": 20000,
+        "excludeIds": [],
+        "now": 1700000000000
+      },
+      "output": {
+        "hits": [
+          {
+            "item": {
+              "id": "a",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic a",
+              "status": "candidate",
+              "createdAt": 1700000000000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 1,
+            "ageDays": 0
+          },
+          {
+            "item": {
+              "id": "b",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic b",
+              "status": "candidate",
+              "createdAt": 1700000000000,
+              "embedding": [
+                0.8,
+                0.6
+              ]
+            },
+            "similarity": 0.8,
+            "score": 0.8,
+            "ageDays": 0
+          }
+        ],
+        "scanned": 2,
+        "unique": 2,
+        "eligible": 2,
+        "withVector": 2,
+        "index": "missing"
+      },
+      "authorizedOutput": {
+        "hits": [
+          {
+            "item": {
+              "id": "a",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic a",
+              "status": "candidate",
+              "createdAt": 1700000000000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 1,
+            "ageDays": 0
+          },
+          {
+            "item": {
+              "id": "b",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic b",
+              "status": "candidate",
+              "createdAt": 1700000000000,
+              "embedding": [
+                0.8,
+                0.6
+              ]
+            },
+            "similarity": 0.8,
+            "score": 0.8,
+            "ageDays": 0
+          }
+        ],
+        "scanned": 2,
+        "unique": 2,
+        "eligible": 2,
+        "withVector": 2,
+        "index": "missing"
+      }
+    },
+    {
+      "name": "fallback-sidecar",
+      "files": [
+        {
+          "name": "memory-candidates.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic a\",\"status\":\"candidate\",\"createdAt\":1700000000000}\n{\"id\":\"b\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic b\",\"status\":\"candidate\",\"createdAt\":1700000000000}\n"
+        },
+        {
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.3.f32\",\"entries\":{\"a\":{\"offset\":0,\"length\":8,\"dims\":2},\"b\":{\"offset\":8,\"length\":8,\"dims\":2}}}"
+        },
+        {
+          "name": "vectors.3.f32",
+          "bytes": [
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0,
+            205,
+            204,
+            76,
+            63,
+            154,
+            153,
+            25,
+            63
+          ]
+        }
+      ],
+      "options": {
+        "queryVector": [
+          1,
+          0
+        ],
+        "topK": 30,
+        "minSimilarity": 0.35,
+        "halfLifeDays": 30,
+        "maxCandidates": 20000,
+        "excludeIds": [],
+        "now": 1700000000000
+      },
+      "output": {
+        "hits": [
+          {
+            "item": {
+              "id": "a",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic a",
+              "status": "candidate",
+              "createdAt": 1700000000000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 1,
+            "ageDays": 0
+          },
+          {
+            "item": {
+              "id": "b",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic b",
+              "status": "candidate",
+              "createdAt": 1700000000000,
+              "embedding": [
+                0.800000011920929,
+                0.6000000238418579
+              ]
+            },
+            "similarity": 0.7999999928474427,
+            "score": 0.7999999928474427,
+            "ageDays": 0
+          }
+        ],
+        "scanned": 2,
+        "unique": 2,
+        "eligible": 2,
+        "withVector": 2,
+        "index": "missing"
+      },
+      "authorizedOutput": {
+        "hits": [
+          {
+            "item": {
+              "id": "a",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic a",
+              "status": "candidate",
+              "createdAt": 1700000000000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 1,
+            "ageDays": 0
+          },
+          {
+            "item": {
+              "id": "b",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic b",
+              "status": "candidate",
+              "createdAt": 1700000000000,
+              "embedding": [
+                0.800000011920929,
+                0.6000000238418579
+              ]
+            },
+            "similarity": 0.7999999928474427,
+            "score": 0.7999999928474427,
+            "ageDays": 0
+          }
+        ],
+        "scanned": 2,
+        "unique": 2,
+        "eligible": 2,
+        "withVector": 2,
+        "index": "missing"
+      }
+    },
+    {
+      "name": "missing-index-empty",
+      "files": [
+        {
+          "name": "memory-candidates.jsonl",
+          "text": ""
+        }
+      ],
+      "options": {
+        "queryVector": [
+          1,
+          0
+        ],
+        "topK": 30,
+        "minSimilarity": 0.35,
+        "halfLifeDays": 30,
+        "maxCandidates": 20000,
+        "excludeIds": [],
+        "now": 1700000000000
+      },
+      "output": {
+        "hits": [],
+        "scanned": 0,
+        "unique": 0,
+        "eligible": 0,
+        "withVector": 0,
+        "index": "missing"
+      },
+      "authorizedOutput": {
+        "hits": [],
+        "scanned": 0,
+        "unique": 0,
+        "eligible": 0,
+        "withVector": 0,
+        "index": "missing"
+      }
+    },
+    {
+      "name": "empty-index",
+      "files": [
+        {
+          "name": "candidate-index.jsonl",
+          "text": ""
+        }
+      ],
+      "options": {
+        "queryVector": [
+          1,
+          0
+        ],
+        "topK": 30,
+        "minSimilarity": 0.35,
+        "halfLifeDays": 30,
+        "maxCandidates": 20000,
+        "excludeIds": [],
+        "now": 1700000000000
+      },
+      "output": {
+        "hits": [],
+        "scanned": 0,
+        "unique": 0,
+        "eligible": 0,
+        "withVector": 0,
+        "index": "full"
+      },
+      "authorizedOutput": {
+        "hits": [],
+        "scanned": 0,
+        "unique": 0,
+        "eligible": 0,
+        "withVector": 0,
+        "index": "full"
+      }
+    },
+    {
+      "name": "foreign",
+      "files": [
+        {
+          "name": "candidate-index.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic a\",\"status\":\"candidate\",\"createdAt\":1700000000000}\n{\"id\":\"foreign\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign\",\"status\":\"candidate\",\"createdAt\":1700000000000}\n"
+        },
+        {
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.3.f32\",\"entries\":{\"a\":{\"offset\":0,\"length\":8,\"dims\":2},\"foreign\":{\"offset\":8,\"length\":8,\"dims\":2}}}"
+        },
+        {
+          "name": "vectors.3.f32",
+          "bytes": [
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "options": {
+        "queryVector": [
+          1,
+          0
+        ],
+        "topK": 30,
+        "minSimilarity": 0.35,
+        "halfLifeDays": 30,
+        "maxCandidates": 20000,
+        "excludeIds": [],
+        "now": 1700000000000
+      },
+      "output": {
+        "hits": [
+          {
+            "item": {
+              "id": "a",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic a",
+              "status": "candidate",
+              "createdAt": 1700000000000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 1,
+            "ageDays": 0
+          }
+        ],
+        "scanned": 2,
+        "unique": 1,
+        "eligible": 1,
+        "withVector": 1,
+        "index": "full"
+      },
+      "authorizedOutput": {
+        "hits": [
+          {
+            "item": {
+              "id": "a",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic a",
+              "status": "candidate",
+              "createdAt": 1700000000000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 1,
+            "ageDays": 0
+          }
+        ],
+        "scanned": 1,
+        "unique": 1,
+        "eligible": 1,
+        "withVector": 1,
+        "index": "full"
+      }
+    },
+    {
+      "name": "latest-revoked",
+      "files": [
+        {
+          "name": "candidate-index.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic a\",\"status\":\"candidate\",\"createdAt\":1700000000000}\n{\"id\":\"a\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic a\",\"status\":\"candidate\",\"createdAt\":1700000000000,\"updatedAt\":1700000000001}\n"
+        },
+        {
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.3.f32\",\"entries\":{\"a\":{\"offset\":0,\"length\":8,\"dims\":2}}}"
+        },
+        {
+          "name": "vectors.3.f32",
+          "bytes": [
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "options": {
+        "queryVector": [
+          1,
+          0
+        ],
+        "topK": 30,
+        "minSimilarity": 0.35,
+        "halfLifeDays": 30,
+        "maxCandidates": 20000,
+        "excludeIds": [],
+        "now": 1700000000000
+      },
+      "output": {
+        "hits": [],
+        "scanned": 1,
+        "unique": 0,
+        "eligible": 0,
+        "withVector": 0,
+        "index": "full"
+      },
+      "authorizedOutput": {
+        "hits": [],
+        "scanned": 0,
+        "unique": 0,
+        "eligible": 0,
+        "withVector": 0,
+        "index": "full"
+      }
+    },
+    {
+      "name": "latest-status",
+      "files": [
+        {
+          "name": "candidate-index.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic a\",\"status\":\"candidate\",\"createdAt\":1700000000000}\n{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic a\",\"status\":\"pruned\",\"createdAt\":1700000000000,\"updatedAt\":1700000000001}\n"
+        },
+        {
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.3.f32\",\"entries\":{\"a\":{\"offset\":0,\"length\":8,\"dims\":2}}}"
+        },
+        {
+          "name": "vectors.3.f32",
+          "bytes": [
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "options": {
+        "queryVector": [
+          1,
+          0
+        ],
+        "topK": 30,
+        "minSimilarity": 0.35,
+        "halfLifeDays": 30,
+        "maxCandidates": 20000,
+        "excludeIds": [],
+        "now": 1700000000000
+      },
+      "output": {
+        "hits": [],
+        "scanned": 1,
+        "unique": 1,
+        "eligible": 0,
+        "withVector": 0,
+        "index": "full"
+      },
+      "authorizedOutput": {
+        "hits": [],
+        "scanned": 1,
+        "unique": 1,
+        "eligible": 0,
+        "withVector": 0,
+        "index": "full"
+      }
+    },
+    {
+      "name": "statuses",
+      "files": [
+        {
+          "name": "candidate-index.jsonl",
+          "text": "{\"id\":\"s0\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic s0\",\"status\":\"candidate\",\"createdAt\":1700000000000}\n{\"id\":\"s1\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic s1\",\"status\":\"active\",\"createdAt\":1700000000000}\n{\"id\":\"s2\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic s2\",\"status\":\"promoted\",\"createdAt\":1700000000000}\n{\"id\":\"s3\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic s3\",\"status\":\"demoted\",\"createdAt\":1700000000000}\n{\"id\":\"s4\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic s4\",\"status\":\"pruned\",\"createdAt\":1700000000000}\n{\"id\":\"s5\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic s5\",\"status\":\"tombstoned\",\"createdAt\":1700000000000}\n{\"id\":\"s6\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic s6\",\"status\":\"conflict\",\"createdAt\":1700000000000}\n"
+        },
+        {
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.3.f32\",\"entries\":{\"s0\":{\"offset\":0,\"length\":8,\"dims\":2},\"s1\":{\"offset\":8,\"length\":8,\"dims\":2},\"s2\":{\"offset\":16,\"length\":8,\"dims\":2},\"s3\":{\"offset\":24,\"length\":8,\"dims\":2},\"s4\":{\"offset\":32,\"length\":8,\"dims\":2},\"s5\":{\"offset\":40,\"length\":8,\"dims\":2},\"s6\":{\"offset\":48,\"length\":8,\"dims\":2}}}"
+        },
+        {
+          "name": "vectors.3.f32",
+          "bytes": [
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "options": {
+        "queryVector": [
+          1,
+          0
+        ],
+        "topK": 30,
+        "minSimilarity": 0.35,
+        "halfLifeDays": 30,
+        "maxCandidates": 20000,
+        "excludeIds": [],
+        "now": 1700000000000
+      },
+      "output": {
+        "hits": [
+          {
+            "item": {
+              "id": "s0",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic s0",
+              "status": "candidate",
+              "createdAt": 1700000000000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 1,
+            "ageDays": 0
+          },
+          {
+            "item": {
+              "id": "s1",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic s1",
+              "status": "active",
+              "createdAt": 1700000000000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 1,
+            "ageDays": 0
+          },
+          {
+            "item": {
+              "id": "s2",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic s2",
+              "status": "promoted",
+              "createdAt": 1700000000000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 1,
+            "ageDays": 0
+          }
+        ],
+        "scanned": 7,
+        "unique": 7,
+        "eligible": 3,
+        "withVector": 3,
+        "index": "full"
+      },
+      "authorizedOutput": {
+        "hits": [
+          {
+            "item": {
+              "id": "s0",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic s0",
+              "status": "candidate",
+              "createdAt": 1700000000000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 1,
+            "ageDays": 0
+          },
+          {
+            "item": {
+              "id": "s1",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic s1",
+              "status": "active",
+              "createdAt": 1700000000000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 1,
+            "ageDays": 0
+          },
+          {
+            "item": {
+              "id": "s2",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic s2",
+              "status": "promoted",
+              "createdAt": 1700000000000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 1,
+            "ageDays": 0
+          }
+        ],
+        "scanned": 7,
+        "unique": 7,
+        "eligible": 3,
+        "withVector": 3,
+        "index": "full"
+      }
+    },
+    {
+      "name": "stale-deleted",
+      "files": [
+        {
+          "name": "candidate-index.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic a\",\"status\":\"candidate\",\"createdAt\":1700000000000,\"stale\":true}\n{\"id\":\"b\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic b\",\"status\":\"candidate\",\"createdAt\":1700000000000,\"hardDeleted\":true}\n{\"id\":\"c\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic c\",\"status\":\"candidate\",\"createdAt\":1700000000000}\n"
+        },
+        {
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.3.f32\",\"entries\":{\"a\":{\"offset\":0,\"length\":8,\"dims\":2},\"b\":{\"offset\":8,\"length\":8,\"dims\":2},\"c\":{\"offset\":16,\"length\":8,\"dims\":2}}}"
+        },
+        {
+          "name": "vectors.3.f32",
+          "bytes": [
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "options": {
+        "queryVector": [
+          1,
+          0
+        ],
+        "topK": 30,
+        "minSimilarity": 0.35,
+        "halfLifeDays": 30,
+        "maxCandidates": 20000,
+        "excludeIds": [],
+        "now": 1700000000000
+      },
+      "output": {
+        "hits": [
+          {
+            "item": {
+              "id": "c",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic c",
+              "status": "candidate",
+              "createdAt": 1700000000000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 1,
+            "ageDays": 0
+          }
+        ],
+        "scanned": 3,
+        "unique": 3,
+        "eligible": 1,
+        "withVector": 1,
+        "index": "full"
+      },
+      "authorizedOutput": {
+        "hits": [
+          {
+            "item": {
+              "id": "c",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic c",
+              "status": "candidate",
+              "createdAt": 1700000000000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 1,
+            "ageDays": 0
+          }
+        ],
+        "scanned": 3,
+        "unique": 3,
+        "eligible": 1,
+        "withVector": 1,
+        "index": "full"
+      }
+    },
+    {
+      "name": "exclude",
+      "files": [
+        {
+          "name": "candidate-index.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic a\",\"status\":\"candidate\",\"createdAt\":1700000000000}\n{\"id\":\"b\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic b\",\"status\":\"candidate\",\"createdAt\":1700000000000}\n"
+        },
+        {
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.3.f32\",\"entries\":{\"a\":{\"offset\":0,\"length\":8,\"dims\":2},\"b\":{\"offset\":8,\"length\":8,\"dims\":2}}}"
+        },
+        {
+          "name": "vectors.3.f32",
+          "bytes": [
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "options": {
+        "queryVector": [
+          1,
+          0
+        ],
+        "topK": 30,
+        "minSimilarity": 0.35,
+        "halfLifeDays": 30,
+        "maxCandidates": 20000,
+        "excludeIds": [
+          "a"
+        ],
+        "now": 1700000000000
+      },
+      "output": {
+        "hits": [
+          {
+            "item": {
+              "id": "b",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic b",
+              "status": "candidate",
+              "createdAt": 1700000000000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 1,
+            "ageDays": 0
+          }
+        ],
+        "scanned": 2,
+        "unique": 2,
+        "eligible": 1,
+        "withVector": 1,
+        "index": "full"
+      },
+      "authorizedOutput": {
+        "hits": [
+          {
+            "item": {
+              "id": "b",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic b",
+              "status": "candidate",
+              "createdAt": 1700000000000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 1,
+            "ageDays": 0
+          }
+        ],
+        "scanned": 2,
+        "unique": 2,
+        "eligible": 1,
+        "withVector": 1,
+        "index": "full"
+      }
+    },
+    {
+      "name": "recency",
+      "files": [
+        {
+          "name": "candidate-index.jsonl",
+          "text": "{\"id\":\"old\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic old\",\"status\":\"candidate\",\"createdAt\":1697408000000}\n{\"id\":\"new\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic new\",\"status\":\"candidate\",\"createdAt\":1700000000000}\n{\"id\":\"unknown\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic unknown\",\"status\":\"candidate\",\"createdAt\":\"invalid\"}\n"
+        },
+        {
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.3.f32\",\"entries\":{\"old\":{\"offset\":0,\"length\":8,\"dims\":2},\"new\":{\"offset\":8,\"length\":8,\"dims\":2},\"unknown\":{\"offset\":16,\"length\":8,\"dims\":2}}}"
+        },
+        {
+          "name": "vectors.3.f32",
+          "bytes": [
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "options": {
+        "queryVector": [
+          1,
+          0
+        ],
+        "topK": 30,
+        "minSimilarity": 0.35,
+        "halfLifeDays": 30,
+        "maxCandidates": 20000,
+        "excludeIds": [],
+        "now": 1700000000000
+      },
+      "output": {
+        "hits": [
+          {
+            "item": {
+              "id": "new",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic new",
+              "status": "candidate",
+              "createdAt": 1700000000000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 1,
+            "ageDays": 0
+          },
+          {
+            "item": {
+              "id": "old",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic old",
+              "status": "candidate",
+              "createdAt": 1697408000000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 0.9249999999999999,
+            "ageDays": 30
+          },
+          {
+            "item": {
+              "id": "unknown",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic unknown",
+              "status": "candidate",
+              "createdAt": "invalid",
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 0.859375,
+            "ageDays": 120
+          }
+        ],
+        "scanned": 3,
+        "unique": 3,
+        "eligible": 3,
+        "withVector": 3,
+        "index": "full"
+      },
+      "authorizedOutput": {
+        "hits": [
+          {
+            "item": {
+              "id": "new",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic new",
+              "status": "candidate",
+              "createdAt": 1700000000000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 1,
+            "ageDays": 0
+          },
+          {
+            "item": {
+              "id": "old",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic old",
+              "status": "candidate",
+              "createdAt": 1697408000000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 0.9249999999999999,
+            "ageDays": 30
+          },
+          {
+            "item": {
+              "id": "unknown",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic unknown",
+              "status": "candidate",
+              "createdAt": "invalid",
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 0.859375,
+            "ageDays": 120
+          }
+        ],
+        "scanned": 3,
+        "unique": 3,
+        "eligible": 3,
+        "withVector": 3,
+        "index": "full"
+      }
+    },
+    {
+      "name": "start-time",
+      "files": [
+        {
+          "name": "candidate-index.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic a\",\"status\":\"candidate\",\"createdAt\":1700000000000,\"startTime\":1699913600000}\n{\"id\":\"b\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic b\",\"status\":\"candidate\",\"createdAt\":\"2023-11-14T22:13:20.000Z\"}\n"
+        },
+        {
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.3.f32\",\"entries\":{\"a\":{\"offset\":0,\"length\":8,\"dims\":2},\"b\":{\"offset\":8,\"length\":8,\"dims\":2}}}"
+        },
+        {
+          "name": "vectors.3.f32",
+          "bytes": [
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "options": {
+        "queryVector": [
+          1,
+          0
+        ],
+        "topK": 30,
+        "minSimilarity": 0.35,
+        "halfLifeDays": 30,
+        "maxCandidates": 20000,
+        "excludeIds": [],
+        "now": 1700000000000
+      },
+      "output": {
+        "hits": [
+          {
+            "item": {
+              "id": "b",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic b",
+              "status": "candidate",
+              "createdAt": "2023-11-14T22:13:20.000Z",
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 1,
+            "ageDays": 0
+          },
+          {
+            "item": {
+              "id": "a",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic a",
+              "status": "candidate",
+              "createdAt": 1700000000000,
+              "startTime": 1699913600000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 0.9965739952651369,
+            "ageDays": 1
+          }
+        ],
+        "scanned": 2,
+        "unique": 2,
+        "eligible": 2,
+        "withVector": 2,
+        "index": "full"
+      },
+      "authorizedOutput": {
+        "hits": [
+          {
+            "item": {
+              "id": "b",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic b",
+              "status": "candidate",
+              "createdAt": "2023-11-14T22:13:20.000Z",
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 1,
+            "ageDays": 0
+          },
+          {
+            "item": {
+              "id": "a",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic a",
+              "status": "candidate",
+              "createdAt": 1700000000000,
+              "startTime": 1699913600000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 0.9965739952651369,
+            "ageDays": 1
+          }
+        ],
+        "scanned": 2,
+        "unique": 2,
+        "eligible": 2,
+        "withVector": 2,
+        "index": "full"
+      }
+    },
+    {
+      "name": "future",
+      "files": [
+        {
+          "name": "candidate-index.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic a\",\"status\":\"candidate\",\"createdAt\":1700086400000}\n"
+        },
+        {
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.3.f32\",\"entries\":{\"a\":{\"offset\":0,\"length\":8,\"dims\":2}}}"
+        },
+        {
+          "name": "vectors.3.f32",
+          "bytes": [
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "options": {
+        "queryVector": [
+          1,
+          0
+        ],
+        "topK": 30,
+        "minSimilarity": 0.35,
+        "halfLifeDays": 30,
+        "maxCandidates": 20000,
+        "excludeIds": [],
+        "now": 1700000000000
+      },
+      "output": {
+        "hits": [
+          {
+            "item": {
+              "id": "a",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic a",
+              "status": "candidate",
+              "createdAt": 1700086400000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 1,
+            "ageDays": 0
+          }
+        ],
+        "scanned": 1,
+        "unique": 1,
+        "eligible": 1,
+        "withVector": 1,
+        "index": "full"
+      },
+      "authorizedOutput": {
+        "hits": [
+          {
+            "item": {
+              "id": "a",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic a",
+              "status": "candidate",
+              "createdAt": 1700086400000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 1,
+            "ageDays": 0
+          }
+        ],
+        "scanned": 1,
+        "unique": 1,
+        "eligible": 1,
+        "withVector": 1,
+        "index": "full"
+      }
+    },
+    {
+      "name": "no-vector",
+      "files": [
+        {
+          "name": "candidate-index.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic a\",\"status\":\"candidate\",\"createdAt\":1700000000000}\n"
+        }
+      ],
+      "options": {
+        "queryVector": [
+          1,
+          0
+        ],
+        "topK": 30,
+        "minSimilarity": 0.35,
+        "halfLifeDays": 30,
+        "maxCandidates": 20000,
+        "excludeIds": [],
+        "now": 1700000000000
+      },
+      "output": {
+        "hits": [],
+        "scanned": 1,
+        "unique": 1,
+        "eligible": 1,
+        "withVector": 0,
+        "index": "full"
+      },
+      "authorizedOutput": {
+        "hits": [],
+        "scanned": 1,
+        "unique": 1,
+        "eligible": 1,
+        "withVector": 0,
+        "index": "full"
+      }
+    },
+    {
+      "name": "zero-vector",
+      "files": [
+        {
+          "name": "candidate-index.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic a\",\"status\":\"candidate\",\"createdAt\":1700000000000}\n"
+        },
+        {
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.3.f32\",\"entries\":{\"a\":{\"offset\":0,\"length\":8,\"dims\":2}}}"
+        },
+        {
+          "name": "vectors.3.f32",
+          "bytes": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "options": {
+        "queryVector": [
+          1,
+          0
+        ],
+        "topK": 30,
+        "minSimilarity": 0.35,
+        "halfLifeDays": 30,
+        "maxCandidates": 20000,
+        "excludeIds": [],
+        "now": 1700000000000
+      },
+      "output": {
+        "hits": [],
+        "scanned": 1,
+        "unique": 1,
+        "eligible": 1,
+        "withVector": 1,
+        "index": "full"
+      },
+      "authorizedOutput": {
+        "hits": [],
+        "scanned": 1,
+        "unique": 1,
+        "eligible": 1,
+        "withVector": 1,
+        "index": "full"
+      }
+    },
+    {
+      "name": "wrong-dimensions",
+      "files": [
+        {
+          "name": "candidate-index.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic a\",\"status\":\"candidate\",\"createdAt\":1700000000000}\n"
+        },
+        {
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.3.f32\",\"entries\":{\"a\":{\"offset\":0,\"length\":4,\"dims\":1}}}"
+        },
+        {
+          "name": "vectors.3.f32",
+          "bytes": [
+            0,
+            0,
+            128,
+            63
+          ]
+        }
+      ],
+      "options": {
+        "queryVector": [
+          1,
+          0
+        ],
+        "topK": 30,
+        "minSimilarity": 0.35,
+        "halfLifeDays": 30,
+        "maxCandidates": 20000,
+        "excludeIds": [],
+        "now": 1700000000000
+      },
+      "output": {
+        "hits": [],
+        "scanned": 1,
+        "unique": 1,
+        "eligible": 1,
+        "withVector": 1,
+        "index": "full"
+      },
+      "authorizedOutput": {
+        "hits": [],
+        "scanned": 1,
+        "unique": 1,
+        "eligible": 1,
+        "withVector": 1,
+        "index": "full"
+      }
+    },
+    {
+      "name": "zero-query",
+      "files": [
+        {
+          "name": "candidate-index.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic a\",\"status\":\"candidate\",\"createdAt\":1700000000000}\n"
+        },
+        {
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.3.f32\",\"entries\":{\"a\":{\"offset\":0,\"length\":8,\"dims\":2}}}"
+        },
+        {
+          "name": "vectors.3.f32",
+          "bytes": [
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "options": {
+        "queryVector": [
+          0,
+          0
+        ],
+        "topK": 30,
+        "minSimilarity": 0.35,
+        "halfLifeDays": 30,
+        "maxCandidates": 20000,
+        "excludeIds": [],
+        "now": 1700000000000
+      },
+      "output": {
+        "hits": [],
+        "scanned": 1,
+        "unique": 1,
+        "eligible": 1,
+        "withVector": 1,
+        "index": "full"
+      },
+      "authorizedOutput": {
+        "hits": [],
+        "scanned": 1,
+        "unique": 1,
+        "eligible": 1,
+        "withVector": 1,
+        "index": "full"
+      }
+    },
+    {
+      "name": "empty-query",
+      "files": [
+        {
+          "name": "candidate-index.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic a\",\"status\":\"candidate\",\"createdAt\":1700000000000}\n"
+        },
+        {
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.3.f32\",\"entries\":{\"a\":{\"offset\":0,\"length\":8,\"dims\":2}}}"
+        },
+        {
+          "name": "vectors.3.f32",
+          "bytes": [
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "options": {
+        "queryVector": [],
+        "topK": 30,
+        "minSimilarity": 0.35,
+        "halfLifeDays": 30,
+        "maxCandidates": 20000,
+        "excludeIds": [],
+        "now": 1700000000000
+      },
+      "output": {
+        "hits": [],
+        "scanned": 0,
+        "unique": 0,
+        "eligible": 0,
+        "withVector": 0,
+        "index": "missing"
+      },
+      "authorizedOutput": {
+        "hits": [],
+        "scanned": 0,
+        "unique": 0,
+        "eligible": 0,
+        "withVector": 0,
+        "index": "missing"
+      }
+    },
+    {
+      "name": "similarity-equal",
+      "files": [
+        {
+          "name": "candidate-index.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic a\",\"status\":\"candidate\",\"createdAt\":1700000000000}\n"
+        },
+        {
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.3.f32\",\"entries\":{\"a\":{\"offset\":0,\"length\":8,\"dims\":2}}}"
+        },
+        {
+          "name": "vectors.3.f32",
+          "bytes": [
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "options": {
+        "queryVector": [
+          1,
+          0
+        ],
+        "topK": 30,
+        "minSimilarity": 1,
+        "halfLifeDays": 30,
+        "maxCandidates": 20000,
+        "excludeIds": [],
+        "now": 1700000000000
+      },
+      "output": {
+        "hits": [
+          {
+            "item": {
+              "id": "a",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic a",
+              "status": "candidate",
+              "createdAt": 1700000000000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 1,
+            "ageDays": 0
+          }
+        ],
+        "scanned": 1,
+        "unique": 1,
+        "eligible": 1,
+        "withVector": 1,
+        "index": "full"
+      },
+      "authorizedOutput": {
+        "hits": [
+          {
+            "item": {
+              "id": "a",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic a",
+              "status": "candidate",
+              "createdAt": 1700000000000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 1,
+            "ageDays": 0
+          }
+        ],
+        "scanned": 1,
+        "unique": 1,
+        "eligible": 1,
+        "withVector": 1,
+        "index": "full"
+      }
+    },
+    {
+      "name": "top-k",
+      "files": [
+        {
+          "name": "candidate-index.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic a\",\"status\":\"candidate\",\"createdAt\":1700000000000}\n{\"id\":\"b\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic b\",\"status\":\"candidate\",\"createdAt\":1700000000000}\n{\"id\":\"c\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic c\",\"status\":\"candidate\",\"createdAt\":1700000000000}\n"
+        },
+        {
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.3.f32\",\"entries\":{\"a\":{\"offset\":0,\"length\":8,\"dims\":2},\"b\":{\"offset\":8,\"length\":8,\"dims\":2},\"c\":{\"offset\":16,\"length\":8,\"dims\":2}}}"
+        },
+        {
+          "name": "vectors.3.f32",
+          "bytes": [
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "options": {
+        "queryVector": [
+          1,
+          0
+        ],
+        "topK": 1,
+        "minSimilarity": 0.35,
+        "halfLifeDays": 30,
+        "maxCandidates": 20000,
+        "excludeIds": [],
+        "now": 1700000000000
+      },
+      "output": {
+        "hits": [
+          {
+            "item": {
+              "id": "a",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic a",
+              "status": "candidate",
+              "createdAt": 1700000000000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 1,
+            "ageDays": 0
+          }
+        ],
+        "scanned": 3,
+        "unique": 3,
+        "eligible": 3,
+        "withVector": 3,
+        "index": "full"
+      },
+      "authorizedOutput": {
+        "hits": [
+          {
+            "item": {
+              "id": "a",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic a",
+              "status": "candidate",
+              "createdAt": 1700000000000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 1,
+            "ageDays": 0
+          }
+        ],
+        "scanned": 3,
+        "unique": 3,
+        "eligible": 3,
+        "withVector": 3,
+        "index": "full"
+      }
+    },
+    {
+      "name": "partial-and-malformed",
+      "files": [
+        {
+          "name": "candidate-index.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic a\",\"status\":\"candidate\",\"createdAt\":1700000000000}\n{broken\n{\"id\":\"unfinished\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic unfinished\",\"status\":\"candidate\",\"createdAt\":1700000000000}"
+        },
+        {
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.3.f32\",\"entries\":{\"a\":{\"offset\":0,\"length\":8,\"dims\":2},\"unfinished\":{\"offset\":8,\"length\":8,\"dims\":2}}}"
+        },
+        {
+          "name": "vectors.3.f32",
+          "bytes": [
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "options": {
+        "queryVector": [
+          1,
+          0
+        ],
+        "topK": 30,
+        "minSimilarity": 0.35,
+        "halfLifeDays": 30,
+        "maxCandidates": 20000,
+        "excludeIds": [],
+        "now": 1700000000000
+      },
+      "output": {
+        "hits": [
+          {
+            "item": {
+              "id": "a",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic a",
+              "status": "candidate",
+              "createdAt": 1700000000000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 1,
+            "ageDays": 0
+          }
+        ],
+        "scanned": 1,
+        "unique": 1,
+        "eligible": 1,
+        "withVector": 1,
+        "index": "full"
+      },
+      "authorizedOutput": {
+        "hits": [
+          {
+            "item": {
+              "id": "a",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic a",
+              "status": "candidate",
+              "createdAt": 1700000000000,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 1,
+            "ageDays": 0
+          }
+        ],
+        "scanned": 1,
+        "unique": 1,
+        "eligible": 1,
+        "withVector": 1,
+        "index": "full"
+      }
+    },
+    {
+      "name": "foreign-cap-starvation",
+      "files": [
+        {
+          "name": "candidate-index.jsonl",
+          "text": "{\"id\":\"a\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic a\",\"status\":\"candidate\",\"createdAt\":1}\n{\"id\":\"b\",\"agentId\":\"alpha\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"alpha\"},\"statement\":\"synthetic b\",\"status\":\"candidate\",\"createdAt\":2}\n{\"id\":\"foreign-0\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-0\",\"status\":\"candidate\",\"createdAt\":1700000000000}\n{\"id\":\"foreign-1\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-1\",\"status\":\"candidate\",\"createdAt\":1700000000001}\n{\"id\":\"foreign-2\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-2\",\"status\":\"candidate\",\"createdAt\":1700000000002}\n{\"id\":\"foreign-3\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-3\",\"status\":\"candidate\",\"createdAt\":1700000000003}\n{\"id\":\"foreign-4\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-4\",\"status\":\"candidate\",\"createdAt\":1700000000004}\n{\"id\":\"foreign-5\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-5\",\"status\":\"candidate\",\"createdAt\":1700000000005}\n{\"id\":\"foreign-6\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-6\",\"status\":\"candidate\",\"createdAt\":1700000000006}\n{\"id\":\"foreign-7\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-7\",\"status\":\"candidate\",\"createdAt\":1700000000007}\n{\"id\":\"foreign-8\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-8\",\"status\":\"candidate\",\"createdAt\":1700000000008}\n{\"id\":\"foreign-9\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-9\",\"status\":\"candidate\",\"createdAt\":1700000000009}\n{\"id\":\"foreign-10\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-10\",\"status\":\"candidate\",\"createdAt\":1700000000010}\n{\"id\":\"foreign-11\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-11\",\"status\":\"candidate\",\"createdAt\":1700000000011}\n{\"id\":\"foreign-12\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-12\",\"status\":\"candidate\",\"createdAt\":1700000000012}\n{\"id\":\"foreign-13\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-13\",\"status\":\"candidate\",\"createdAt\":1700000000013}\n{\"id\":\"foreign-14\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-14\",\"status\":\"candidate\",\"createdAt\":1700000000014}\n{\"id\":\"foreign-15\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-15\",\"status\":\"candidate\",\"createdAt\":1700000000015}\n{\"id\":\"foreign-16\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-16\",\"status\":\"candidate\",\"createdAt\":1700000000016}\n{\"id\":\"foreign-17\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-17\",\"status\":\"candidate\",\"createdAt\":1700000000017}\n{\"id\":\"foreign-18\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-18\",\"status\":\"candidate\",\"createdAt\":1700000000018}\n{\"id\":\"foreign-19\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-19\",\"status\":\"candidate\",\"createdAt\":1700000000019}\n{\"id\":\"foreign-20\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-20\",\"status\":\"candidate\",\"createdAt\":1700000000020}\n{\"id\":\"foreign-21\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-21\",\"status\":\"candidate\",\"createdAt\":1700000000021}\n{\"id\":\"foreign-22\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-22\",\"status\":\"candidate\",\"createdAt\":1700000000022}\n{\"id\":\"foreign-23\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-23\",\"status\":\"candidate\",\"createdAt\":1700000000023}\n{\"id\":\"foreign-24\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-24\",\"status\":\"candidate\",\"createdAt\":1700000000024}\n{\"id\":\"foreign-25\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-25\",\"status\":\"candidate\",\"createdAt\":1700000000025}\n{\"id\":\"foreign-26\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-26\",\"status\":\"candidate\",\"createdAt\":1700000000026}\n{\"id\":\"foreign-27\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-27\",\"status\":\"candidate\",\"createdAt\":1700000000027}\n{\"id\":\"foreign-28\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-28\",\"status\":\"candidate\",\"createdAt\":1700000000028}\n{\"id\":\"foreign-29\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-29\",\"status\":\"candidate\",\"createdAt\":1700000000029}\n{\"id\":\"foreign-30\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-30\",\"status\":\"candidate\",\"createdAt\":1700000000030}\n{\"id\":\"foreign-31\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-31\",\"status\":\"candidate\",\"createdAt\":1700000000031}\n{\"id\":\"foreign-32\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-32\",\"status\":\"candidate\",\"createdAt\":1700000000032}\n{\"id\":\"foreign-33\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-33\",\"status\":\"candidate\",\"createdAt\":1700000000033}\n{\"id\":\"foreign-34\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-34\",\"status\":\"candidate\",\"createdAt\":1700000000034}\n{\"id\":\"foreign-35\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-35\",\"status\":\"candidate\",\"createdAt\":1700000000035}\n{\"id\":\"foreign-36\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-36\",\"status\":\"candidate\",\"createdAt\":1700000000036}\n{\"id\":\"foreign-37\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-37\",\"status\":\"candidate\",\"createdAt\":1700000000037}\n{\"id\":\"foreign-38\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-38\",\"status\":\"candidate\",\"createdAt\":1700000000038}\n{\"id\":\"foreign-39\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-39\",\"status\":\"candidate\",\"createdAt\":1700000000039}\n{\"id\":\"foreign-40\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-40\",\"status\":\"candidate\",\"createdAt\":1700000000040}\n{\"id\":\"foreign-41\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-41\",\"status\":\"candidate\",\"createdAt\":1700000000041}\n{\"id\":\"foreign-42\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-42\",\"status\":\"candidate\",\"createdAt\":1700000000042}\n{\"id\":\"foreign-43\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-43\",\"status\":\"candidate\",\"createdAt\":1700000000043}\n{\"id\":\"foreign-44\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-44\",\"status\":\"candidate\",\"createdAt\":1700000000044}\n{\"id\":\"foreign-45\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-45\",\"status\":\"candidate\",\"createdAt\":1700000000045}\n{\"id\":\"foreign-46\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-46\",\"status\":\"candidate\",\"createdAt\":1700000000046}\n{\"id\":\"foreign-47\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-47\",\"status\":\"candidate\",\"createdAt\":1700000000047}\n{\"id\":\"foreign-48\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-48\",\"status\":\"candidate\",\"createdAt\":1700000000048}\n{\"id\":\"foreign-49\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-49\",\"status\":\"candidate\",\"createdAt\":1700000000049}\n{\"id\":\"foreign-50\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-50\",\"status\":\"candidate\",\"createdAt\":1700000000050}\n{\"id\":\"foreign-51\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-51\",\"status\":\"candidate\",\"createdAt\":1700000000051}\n{\"id\":\"foreign-52\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-52\",\"status\":\"candidate\",\"createdAt\":1700000000052}\n{\"id\":\"foreign-53\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-53\",\"status\":\"candidate\",\"createdAt\":1700000000053}\n{\"id\":\"foreign-54\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-54\",\"status\":\"candidate\",\"createdAt\":1700000000054}\n{\"id\":\"foreign-55\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-55\",\"status\":\"candidate\",\"createdAt\":1700000000055}\n{\"id\":\"foreign-56\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-56\",\"status\":\"candidate\",\"createdAt\":1700000000056}\n{\"id\":\"foreign-57\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-57\",\"status\":\"candidate\",\"createdAt\":1700000000057}\n{\"id\":\"foreign-58\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-58\",\"status\":\"candidate\",\"createdAt\":1700000000058}\n{\"id\":\"foreign-59\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-59\",\"status\":\"candidate\",\"createdAt\":1700000000059}\n{\"id\":\"foreign-60\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-60\",\"status\":\"candidate\",\"createdAt\":1700000000060}\n{\"id\":\"foreign-61\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-61\",\"status\":\"candidate\",\"createdAt\":1700000000061}\n{\"id\":\"foreign-62\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-62\",\"status\":\"candidate\",\"createdAt\":1700000000062}\n{\"id\":\"foreign-63\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-63\",\"status\":\"candidate\",\"createdAt\":1700000000063}\n{\"id\":\"foreign-64\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-64\",\"status\":\"candidate\",\"createdAt\":1700000000064}\n{\"id\":\"foreign-65\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-65\",\"status\":\"candidate\",\"createdAt\":1700000000065}\n{\"id\":\"foreign-66\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-66\",\"status\":\"candidate\",\"createdAt\":1700000000066}\n{\"id\":\"foreign-67\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-67\",\"status\":\"candidate\",\"createdAt\":1700000000067}\n{\"id\":\"foreign-68\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-68\",\"status\":\"candidate\",\"createdAt\":1700000000068}\n{\"id\":\"foreign-69\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-69\",\"status\":\"candidate\",\"createdAt\":1700000000069}\n{\"id\":\"foreign-70\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-70\",\"status\":\"candidate\",\"createdAt\":1700000000070}\n{\"id\":\"foreign-71\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-71\",\"status\":\"candidate\",\"createdAt\":1700000000071}\n{\"id\":\"foreign-72\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-72\",\"status\":\"candidate\",\"createdAt\":1700000000072}\n{\"id\":\"foreign-73\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-73\",\"status\":\"candidate\",\"createdAt\":1700000000073}\n{\"id\":\"foreign-74\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-74\",\"status\":\"candidate\",\"createdAt\":1700000000074}\n{\"id\":\"foreign-75\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-75\",\"status\":\"candidate\",\"createdAt\":1700000000075}\n{\"id\":\"foreign-76\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-76\",\"status\":\"candidate\",\"createdAt\":1700000000076}\n{\"id\":\"foreign-77\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-77\",\"status\":\"candidate\",\"createdAt\":1700000000077}\n{\"id\":\"foreign-78\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-78\",\"status\":\"candidate\",\"createdAt\":1700000000078}\n{\"id\":\"foreign-79\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-79\",\"status\":\"candidate\",\"createdAt\":1700000000079}\n{\"id\":\"foreign-80\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-80\",\"status\":\"candidate\",\"createdAt\":1700000000080}\n{\"id\":\"foreign-81\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-81\",\"status\":\"candidate\",\"createdAt\":1700000000081}\n{\"id\":\"foreign-82\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-82\",\"status\":\"candidate\",\"createdAt\":1700000000082}\n{\"id\":\"foreign-83\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-83\",\"status\":\"candidate\",\"createdAt\":1700000000083}\n{\"id\":\"foreign-84\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-84\",\"status\":\"candidate\",\"createdAt\":1700000000084}\n{\"id\":\"foreign-85\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-85\",\"status\":\"candidate\",\"createdAt\":1700000000085}\n{\"id\":\"foreign-86\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-86\",\"status\":\"candidate\",\"createdAt\":1700000000086}\n{\"id\":\"foreign-87\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-87\",\"status\":\"candidate\",\"createdAt\":1700000000087}\n{\"id\":\"foreign-88\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-88\",\"status\":\"candidate\",\"createdAt\":1700000000088}\n{\"id\":\"foreign-89\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-89\",\"status\":\"candidate\",\"createdAt\":1700000000089}\n{\"id\":\"foreign-90\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-90\",\"status\":\"candidate\",\"createdAt\":1700000000090}\n{\"id\":\"foreign-91\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-91\",\"status\":\"candidate\",\"createdAt\":1700000000091}\n{\"id\":\"foreign-92\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-92\",\"status\":\"candidate\",\"createdAt\":1700000000092}\n{\"id\":\"foreign-93\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-93\",\"status\":\"candidate\",\"createdAt\":1700000000093}\n{\"id\":\"foreign-94\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-94\",\"status\":\"candidate\",\"createdAt\":1700000000094}\n{\"id\":\"foreign-95\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-95\",\"status\":\"candidate\",\"createdAt\":1700000000095}\n{\"id\":\"foreign-96\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-96\",\"status\":\"candidate\",\"createdAt\":1700000000096}\n{\"id\":\"foreign-97\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-97\",\"status\":\"candidate\",\"createdAt\":1700000000097}\n{\"id\":\"foreign-98\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-98\",\"status\":\"candidate\",\"createdAt\":1700000000098}\n{\"id\":\"foreign-99\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-99\",\"status\":\"candidate\",\"createdAt\":1700000000099}\n{\"id\":\"foreign-100\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-100\",\"status\":\"candidate\",\"createdAt\":1700000000100}\n{\"id\":\"foreign-101\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-101\",\"status\":\"candidate\",\"createdAt\":1700000000101}\n{\"id\":\"foreign-102\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-102\",\"status\":\"candidate\",\"createdAt\":1700000000102}\n{\"id\":\"foreign-103\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-103\",\"status\":\"candidate\",\"createdAt\":1700000000103}\n{\"id\":\"foreign-104\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-104\",\"status\":\"candidate\",\"createdAt\":1700000000104}\n{\"id\":\"foreign-105\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-105\",\"status\":\"candidate\",\"createdAt\":1700000000105}\n{\"id\":\"foreign-106\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-106\",\"status\":\"candidate\",\"createdAt\":1700000000106}\n{\"id\":\"foreign-107\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-107\",\"status\":\"candidate\",\"createdAt\":1700000000107}\n{\"id\":\"foreign-108\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-108\",\"status\":\"candidate\",\"createdAt\":1700000000108}\n{\"id\":\"foreign-109\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-109\",\"status\":\"candidate\",\"createdAt\":1700000000109}\n{\"id\":\"foreign-110\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-110\",\"status\":\"candidate\",\"createdAt\":1700000000110}\n{\"id\":\"foreign-111\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-111\",\"status\":\"candidate\",\"createdAt\":1700000000111}\n{\"id\":\"foreign-112\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-112\",\"status\":\"candidate\",\"createdAt\":1700000000112}\n{\"id\":\"foreign-113\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-113\",\"status\":\"candidate\",\"createdAt\":1700000000113}\n{\"id\":\"foreign-114\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-114\",\"status\":\"candidate\",\"createdAt\":1700000000114}\n{\"id\":\"foreign-115\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-115\",\"status\":\"candidate\",\"createdAt\":1700000000115}\n{\"id\":\"foreign-116\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-116\",\"status\":\"candidate\",\"createdAt\":1700000000116}\n{\"id\":\"foreign-117\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-117\",\"status\":\"candidate\",\"createdAt\":1700000000117}\n{\"id\":\"foreign-118\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-118\",\"status\":\"candidate\",\"createdAt\":1700000000118}\n{\"id\":\"foreign-119\",\"agentId\":\"beta\",\"origin\":{\"scope\":\"agent_private\"},\"visibility\":{\"scope\":\"agent_private\",\"agentId\":\"beta\"},\"statement\":\"synthetic foreign-119\",\"status\":\"candidate\",\"createdAt\":1700000000119}\n"
+        },
+        {
+          "name": "vector-index.json",
+          "text": "{\"version\":1,\"endian\":\"LE\",\"file\":\"vectors.3.f32\",\"entries\":{\"a\":{\"offset\":0,\"length\":8,\"dims\":2},\"b\":{\"offset\":8,\"length\":8,\"dims\":2}}}"
+        },
+        {
+          "name": "vectors.3.f32",
+          "bytes": [
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            128,
+            63,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "options": {
+        "queryVector": [
+          1,
+          0
+        ],
+        "topK": 30,
+        "minSimilarity": 0.35,
+        "halfLifeDays": 30,
+        "maxCandidates": 100,
+        "excludeIds": [],
+        "now": 1700000000000
+      },
+      "output": {
+        "hits": [],
+        "scanned": 122,
+        "unique": 0,
+        "eligible": 0,
+        "withVector": 0,
+        "index": "full"
+      },
+      "authorizedOutput": {
+        "hits": [
+          {
+            "item": {
+              "id": "a",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic a",
+              "status": "candidate",
+              "createdAt": 1,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 0.85,
+            "ageDays": 19675.92592591435
+          },
+          {
+            "item": {
+              "id": "b",
+              "agentId": "alpha",
+              "origin": {
+                "scope": "agent_private"
+              },
+              "visibility": {
+                "scope": "agent_private",
+                "agentId": "alpha"
+              },
+              "statement": "synthetic b",
+              "status": "candidate",
+              "createdAt": 2,
+              "embedding": [
+                1,
+                0
+              ]
+            },
+            "similarity": 1,
+            "score": 0.85,
+            "ageDays": 19675.92592590278
+          }
+        ],
+        "scanned": 2,
+        "unique": 2,
+        "eligible": 2,
+        "withVector": 2,
+        "index": "full"
+      }
+    }
+  ]
+}

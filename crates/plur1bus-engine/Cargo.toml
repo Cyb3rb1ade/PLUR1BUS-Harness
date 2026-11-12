@@ -62,7 +62,8 @@ icu_collator = "2.3"
 icu_locale_core = "2.3"
 url = "2"
 chrono-tz.workspace = true
-regress.workspace = true
+# Preserve the Node classifier's legacy UCS-2 regex boundaries without new dependencies.
+regress = { workspace = true, features = ["utf16"] }
 tokenizers = { version = "=0.23.2", default-features = false, features = ["fancy-regex"] }
 # RE-03/T0: rc.14 (2026-10-12) is the newest release outside the two-week window.
 # Dynamic loading only: no build-time runtime downloads, static linkage, or second HTTP/TLS stack.
@@ -71,6 +72,17 @@ ort = { version = "=2.0.0-rc.14", default-features = false, features = ["load-dy
 # Sensitive header flags still protect the remaining Debug request diagnostics.
 log = { version = "0.4", features = ["max_level_debug"] }
 sha2 = "0.10"
+# A1 private query equality: reuse locked RustCrypto HMAC-SHA256, MIT OR Apache-2.0.
+hmac = "=0.12.1"
+# RX5 confirmation protocol: reuse locked URL-safe encoding and constant-time equality.
+base64 = "=0.22.1"
+# N1 emergency archives: reuse the locked MIT/Apache-2.0 gzip implementation.
+flate2 = { version = "=1.1.10", default-features = false, features = ["rust_backend"] }
+subtle = { version = "=2.6.1", default-features = false }
+# Node import UUID v5 uses SHA-1; this version is already in the locked Lance closure.
+sha1 = "0.11"
+# Exact ECMAScript number spelling for persisted import digest compatibility.
+ryu-js = "=0.2.2"
 # One HTTP client policy in the workspace: the same version and features as crates/plur1bus (rustls, no native-tls).
 ureq = { version = "3", default-features = false, features = ["rustls", "platform-verifier"] }
 # Reuse the locked socket API for cancellation of ureq connections; this adds no HTTP/TLS stack.
@@ -82,6 +94,8 @@ image = { version = "=0.25.10", default-features = false, features = ["jpeg", "p
 arrow-array = "=57.3.1"
 arrow-schema = "=57.3.1"
 arrow-json = "=57.3.1"
+# Reuse Lance's locked Arrow cast for exact fixed-list schemas after JSON decoding.
+arrow-cast = "=57.3.1"
 futures = "=0.3.34"
 chrono = "0.4"
 uuid = { version = "1", features = ["v4"] }
@@ -96,7 +110,7 @@ tokio = { version = "=1.53.3", features = ["rt-multi-thread"] }
 libc = "0.2"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_Console"] }
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Security", "Win32_Security_Authorization", "Win32_Storage_FileSystem", "Win32_System_Console"] }
 
 [dev-dependencies]
 tempfile.workspace = true

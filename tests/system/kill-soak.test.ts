@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync, readlinkSync, realpathSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import {
-  REAL, cli, coreChild, coreLegacyPid, corePid, daemonStatus, home, homePids, killPid, reapHome, restartSupervisor, sleep, startDaemon, stopDaemon, supervisorPid, waitFor,
+  ENGINE_IMPL, REAL, cli, coreChild, coreLegacyPid, corePid, daemonStatus, home, homePids, killPid, reapHome, restartSupervisor, sleep, startDaemon, stopDaemon, supervisorPid, waitFor,
 } from "./helpers.ts";
 
 /** S16: 200 turns in the PR system job, 1 000 in the nightly (same file). */
@@ -142,7 +142,7 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
     const t0 = performance.now();
     const addMs: number[] = [];
     const recallMs: number[] = [];
-    const counts = { adoptions: 0, respawns: 0, stored: 0, journaled: 0, replayedTwice: 0, coreKills: 0, throttledKills: 0, unavailableRecalls: 0, engineDegradedRecalls: 0 };
+    const counts = { adoptions: 0, respawns: 0, stored: 0, journaled: 0, replayedTwice: 0, coreKills: 0, throttledKills: 0, unavailableRecalls: 0, engineDegradedRecalls: 0, engineStartingAdds: 0, engineStartingRecalls: 0 };
     /** Fact index → how its add was answered. */
     const kept = new Map<number, "stored" | "journaled">();
     let outageObserved = false;
@@ -220,9 +220,20 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
         restartAt = performance.now() + afterMs;
         phase = { core: ready.pid, tools: tools.pid, adopt };
       };
+      // KNOWN-GAP (RE-D176 → RY, required before the default changes): the Rust engine is a process of its own, so the
+      // core can answer while the engine is still starting. A call in that window is refused as E_NOT_AVAILABLE with
+      // reason engine-unavailable (exit 2): the add is not journaled, the recall is not degraded. The caller is told,
+      // nothing is lost silently; such turns are counted and reported, with the Rust engine only.
+      const engineStarting = (out: any, what: string): boolean => {
+        if (typeof out.exit !== "number") return false;
+        assert.equal(ENGINE_IMPL, "rust", `${what}: ${JSON.stringify(out)}`);
+        assert.equal(out.exit, 2, `${what}: ${JSON.stringify(out)}`);
+        assert.equal(JSON.parse(out.stdout).reason, "engine-unavailable", `${what}: ${out.stdout}`);
+        return true;
+      };
       const timed = (args: string[], into: number[], budgetMs: number): any => {
         const s = performance.now();
-        const out = cli(h, args);
+        const out = cli(h, args, { allowFail: ENGINE_IMPL === "rust" });
         const ms = performance.now() - s;
         into.push(ms);
         assert.ok(ms < budgetMs, `${args.join(" ")} took ${ms.toFixed(0)} ms (budget ${budgetMs} ms)`);
@@ -266,7 +277,9 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
 
         const agent = agentOf(i);
         const add = timed(["memory", "add", "--agent", agent, "--session", "soak", factText(i)], addMs, ADD_BUDGET_MS);
-        if (add.journaled === true) {
+        if (engineStarting(add, `turn ${i} add`)) {
+          counts.engineStartingAdds++; // neither stored nor journaled: the fact must not exist afterwards (`unknown` below)
+        } else if (add.journaled === true) {
           assert.equal(add.degraded?.reason, "core-unavailable", JSON.stringify(add));
           assert.ok(add.degraded.detail, `a journaled add names why: ${JSON.stringify(add)}`);
           kept.set(i, "journaled");
@@ -277,7 +290,9 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
           counts.stored++;
         }
         const recall = timed(["memory", "recall", "--agent", agent, `soak fact ${i}`], recallMs, RECALL_BUDGET_MS);
-        if (recall.degraded?.reason === "core-unavailable") {
+        if (engineStarting(recall, `turn ${i} recall`)) {
+          counts.engineStartingRecalls++;
+        } else if (recall.degraded?.reason === "core-unavailable") {
           counts.unavailableRecalls++;
           assert.ok(recall.degraded.detail, `a degraded recall names why: ${JSON.stringify(recall.degraded)}`);
         } else if (recall.degraded !== null) {
@@ -357,8 +372,11 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
       const others = status.children.filter((c: any) => c.role !== "core");
       assert.equal(cores.length, 1, JSON.stringify(status));
       assert.equal(others.filter((c: any) => c.role === "tools").length, 1, "exactly one tools service remains");
-      assert.ok(others.length <= 2 && new Set(others.map((c: any) => c.role)).size === others.length &&
-        others.every((c: any) => ["tools", "api"].includes(c.role) && c.process?.state === "ready"),
+      // With the Rust engine the supervisor also runs the `engine` slot (RE-D172): exactly one, healthy.
+      const engines = others.filter((c: any) => c.role === "engine");
+      assert.equal(engines.length, ENGINE_IMPL === "rust" ? 1 : 0, `engine children: ${JSON.stringify(status)}`);
+      assert.ok(others.length <= 2 + engines.length && new Set(others.map((c: any) => c.role)).size === others.length &&
+        others.every((c: any) => ["tools", "api", "engine"].includes(c.role) && c.process?.state === "ready"),
         `only healthy fixed companions may run next to Core: ${JSON.stringify(status)}`);
       // P4-10, rust leg: the core is the front door and the one TypeScript core behind it (run/core-legacy.pid).
       const legacy = coreLegacyPid(h);
@@ -372,7 +390,9 @@ describe("M1b-2a-H3 acceptance 2 — kill soak", { skip: (process.platform === "
         }));
         // Exactly the process that owns the stores (P4-10 task review L6): the TypeScript core on the ts leg, the legacy core
         // behind the front door on the rust leg. The front door itself never opens LanceDB (no Rust store opens early, F4).
-        const storeOwner = legacy ?? ready.pid;
+        // With the Rust engine the stores belong to the engine process (RE-D176; this branch first runs when a Linux
+        // system leg with the Rust engine exists).
+        const storeOwner = engines[0]?.pid ?? legacy ?? ready.pid;
         assert.ok(owners.every((pid) => pid === storeOwner), `LanceDB fds held by ${owners.join(", ")}; the store owner is ${storeOwner}`);
       }
 

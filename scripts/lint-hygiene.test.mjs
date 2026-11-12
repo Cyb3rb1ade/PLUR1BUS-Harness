@@ -54,6 +54,26 @@ const RULE_FIXTURES = [
   ["HYG-017", "packages/core/src/external-agents/discovery.ts"],
 ];
 
+test("pinned capture oracle exceptions cover only its verified stub import and provenance paths", () => {
+  const recorder = "crates/plur1bus-engine/tests/fixtures/capture/record-accept.mjs";
+  const golden = "crates/plur1bus-engine/tests/fixtures/capture/golden/accept.json";
+  const stub = ["host", "services.js"].join("-");
+  const runtime = ["control-ui", "plugin", "runtime.js"].join("-");
+  const line = `  load("engine/create-engine.js"), load("lib/${stub}"), load("tests/helpers/hash-embedder.js"),\n`;
+  const valid = lintTree({ [recorder]: line, [golden]: `        "lib/${stub}"\n        "lib/setup/${runtime}"\n` });
+  assert.equal(valid.status, 0, valid.stderr);
+  for (const files of [
+    { "packages/core/src/not-an-oracle.ts": line },
+    { [recorder]: `load("lib/setup/${runtime}");\n` },
+    { [golden]: `import "lib/${stub}";\n` },
+    { [golden]: `"lib/setup/unapproved-${["plugin", "runtime.js"].join("-")}"\n` },
+  ]) {
+    const invalid = lintTree(files);
+    assert.equal(invalid.status, 1, invalid.stdout + invalid.stderr);
+    assert.match(invalid.stderr, /HYG-004/);
+  }
+});
+
 for (const [id, rejectPath, allowPath = rejectPath] of RULE_FIXTURES) {
   test(`${id} detects its forbidden fixture and accepts its clean fixture`, () => {
     const reject = lintTree({ [rejectPath]: fixture(id, "reject") });
@@ -318,5 +338,50 @@ test('HYG-003 permits Rust test container mounts without per-file exceptions and
     const denied = lintTree({ 'crates/example/tests/container.rs': text });
     assert.equal(denied.status, 1, text);
     assert.match(denied.stderr, /HYG-003/);
+  }
+});
+
+
+test("RX5 historical probe error exemption is restricted to its exact fixture and line", () => {
+  const fixturePath = "crates/plur1bus-engine/tests/fixtures/ops/golden/reembedding-runtime-probe.json";
+  const recorded = JSON.parse(readFileSync(new URL("../crates/plur1bus-engine/tests/fixtures/ops/golden/reembedding-runtime-probe.json", import.meta.url), "utf8"));
+  const original = recorded.cases.find((c) => c.name === "selection-drift").error;
+  const allow = lintTree({ [fixturePath]: JSON.stringify({ error: original }, null, 2) });
+  assert.equal(allow.status, 0, allow.stdout + allow.stderr);
+  for (const [path, text] of [
+    [fixturePath, JSON.stringify({ error: original + " extra" }, null, 2)],
+    ["crates/plur1bus-engine/tests/fixtures/ops/golden/unrelated.json", JSON.stringify({ error: original }, null, 2)],
+    ["crates/plur1bus-engine/src/unrelated.rs", original],
+  ]) {
+    const reject = lintTree({ [path]: text });
+    assert.equal(reject.status, 1, reject.stdout + reject.stderr);
+    assert.match(reject.stderr, /\[HYG-001\]/);
+  }
+});
+
+
+test("RX6 row/classifier oracle exemptions stay limited to exact imports and metadata lines", () => {
+  const base = "crates/plur1bus-engine/tests/fixtures/capture/";
+  const host = ["host", "services.js"].join("-");
+  const line = `  load("engine/create-engine.js"), load("engine/internals.js"), load("lib/${host}"),\n`;
+  const metadata = `    "lib/${host}"\n`;
+  for (const name of ["chunk-decider", "chunk-expansions", "chunk-plans", "dedupe", "rows", "schema-seed", "classifier"]) {
+    const result = lintTree({[`${base}golden/${name}.json`]: metadata});
+    assert.equal(result.status, 0, result.stderr);
+  }
+  for (const name of ["record-rows", "record-pipeline-boundaries", "record-classifier"]) {
+    assert.equal(lintTree({[`${base}${name}.mjs`]: line}).status, 0);
+  }
+  for (const files of [
+    {[`${base}record-rows.mjs`]: line.trimEnd() + " unexpected();\n"},
+    {[`${base}record-classifier.mjs`]: line.trimEnd() + " unexpected();\n"},
+    {[`${base}golden/classifier.json`]: `import "lib/${host}";\n`},
+    {[`${base}golden/rows.json`]: `import "lib/${host}";\n`},
+    {[`${base}golden/not-approved.json`]: metadata},
+    {"packages/core/src/not-an-oracle.ts": line},
+  ]) {
+    const result = lintTree(files);
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stderr, /HYG-004/);
   }
 });

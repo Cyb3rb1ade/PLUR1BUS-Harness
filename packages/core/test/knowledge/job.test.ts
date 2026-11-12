@@ -5,7 +5,7 @@ const load=()=>import("../../src/knowledge/job.ts" as string);
 test("knowledge.update dispatches the A1 job per registered agent through a closed argument surface",async()=>{
   const {createKnowledgeUpdateJob}=await load();
   const calls:any[]=[];
-  const engine={jobs:{list:()=>[{name:"knowledge-update"}],run:async(...args:any[])=>{calls.push(args);return{runId:"r",job:"knowledge-update",outcome:"completed"};}}};
+  const engine={capabilities:{knowledgePromotion:true},jobs:{list:()=>[{name:"knowledge-update"}],run:async(...args:any[])=>{calls.push(args);return{runId:"r",job:"knowledge-update",outcome:"completed"};}}};
   const handler=createKnowledgeUpdateJob({engine,agents:()=>["alpha","beta"],now:()=>100});
   assert.equal(handler.spec.needsLlm,false);
   assert.equal(handler.spec.singleton,true);
@@ -25,7 +25,12 @@ test("missing contract stays explicitly unavailable and a cancelled run dispatch
   const handler=createKnowledgeUpdateJob({engine:{jobs:{list:()=>[],run:async()=>{calls++;throw new Error("must not dispatch");}}},agents:()=>["alpha"],now:()=>0});
   const signal=new AbortController();
   const context={signal:signal.signal,runId:"s",trigger:"harness"};
-  assert.equal((await handler.run({},context)).reason,"engine-contract-unavailable");
+  assert.deepEqual(await handler.run({},context),{outcome:"skipped",reason:"engine-contract-unavailable",detail:{requiredContract:"1.18.0",requiredCapability:"knowledgePromotion"}});
+  // RE-D167: an advertised job alone does not open it; the engine must also set knowledgePromotion.
+  for (const capabilities of [undefined,{knowledgePromotion:false},{knowledgePromotion:"true"}]) {
+    const gated=createKnowledgeUpdateJob({engine:{...(capabilities?{capabilities}:{}),jobs:{list:()=>[{name:"knowledge-update"}],run:async()=>{calls++;throw new Error("must not dispatch");}}},agents:()=>["alpha"],now:()=>0});
+    assert.equal((await gated.run({},context)).reason,"engine-contract-unavailable");
+  }
   signal.abort();
   assert.equal((await handler.run({},context)).outcome,"abandoned");
   assert.equal(calls,0);
@@ -36,7 +41,7 @@ test("all-agent sweep stops between agents when shutting down, and overlapping r
   const latch=new Promise<void>(resolve=>{release=resolve;});
   const calls:string[]=[];
   const shutdown=new AbortController();
-  const handler=createKnowledgeUpdateJob({engine:{jobs:{list:()=>[{name:"knowledge-update"}],run:async(_job:string,agent:string)=>{calls.push(agent);await latch;return{outcome:"completed"};}}},agents:()=>["alpha","beta"],now:()=>0});
+  const handler=createKnowledgeUpdateJob({engine:{capabilities:{knowledgePromotion:true},jobs:{list:()=>[{name:"knowledge-update"}],run:async(_job:string,agent:string)=>{calls.push(agent);await latch;return{outcome:"completed"};}}},agents:()=>["alpha","beta"],now:()=>0});
   const context={signal:shutdown.signal,runId:"s",trigger:"cron"};
   const first=handler.run({},context);
   assert.equal((await handler.run({},context)).reason,"already-running");
@@ -77,7 +82,7 @@ test("registry failure before handler startup uses a bounded retry delay instead
 
 test("unknown Engine outcomes cannot be recorded as completed maintenance",async()=>{
   const {createKnowledgeUpdateJob}=await load();
-  const handler=createKnowledgeUpdateJob({engine:{jobs:{list:()=>[{name:"knowledge-update"}],run:async()=>({outcome:"unexpected"})}},agents:()=>["alpha"],now:()=>0});
+  const handler=createKnowledgeUpdateJob({engine:{capabilities:{knowledgePromotion:true},jobs:{list:()=>[{name:"knowledge-update"}],run:async()=>({outcome:"unexpected"})}},agents:()=>["alpha"],now:()=>0});
   const result=await handler.run({}, {signal:new AbortController().signal,runId:"sys",trigger:"manual"});
   assert.equal(result.outcome,"failed");
   assert.equal(result.reason,"engine-job-invalid-result");
@@ -85,7 +90,7 @@ test("unknown Engine outcomes cannot be recorded as completed maintenance",async
 test("an agent whose Engine run throws is recorded as failed and the sweep goes on with the next agent",async()=>{
   const {createKnowledgeUpdateJob}=await load();
   const calls:string[]=[];
-  const engine={jobs:{list:()=>[{name:"knowledge-update"}],run:async(_job:string,agent:string)=>{calls.push(agent);if(agent==="alpha")throw new Error("agent paused");return{runId:"r-"+agent,outcome:"completed"};}}};
+  const engine={capabilities:{knowledgePromotion:true},jobs:{list:()=>[{name:"knowledge-update"}],run:async(_job:string,agent:string)=>{calls.push(agent);if(agent==="alpha")throw new Error("agent paused");return{runId:"r-"+agent,outcome:"completed"};}}};
   const handler=createKnowledgeUpdateJob({engine,agents:()=>["alpha","beta"],now:()=>0});
   const result=await handler.run({},{signal:new AbortController().signal,runId:"s",trigger:"cron"});
   assert.deepEqual(calls,["alpha","beta"]);
@@ -106,7 +111,7 @@ test("a fresh Core preserves the recorded knowledge schedule instead of appendin
   const ledgerPath = join(directory, "ledger.jsonl");
   const clock = new FakeClock(1000);
   let calls = 0;
-  const engine = { jobs: {
+  const engine = { capabilities: { knowledgePromotion: true }, jobs: {
     list: () => [{ name: "knowledge-update" }],
     run: async () => { calls++; return { outcome: "completed" }; },
   } };

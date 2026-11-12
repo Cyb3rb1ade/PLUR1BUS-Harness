@@ -1,0 +1,543 @@
+{
+  "recordedFrom": {
+    "engine": "node",
+    "source": {
+      "commit": "088ba31e441c170b47dfa41d97bd78c5265e6f69",
+      "treeSha256": "83172f93354fc16837375db5f3e405815bf3ae5ce7b63c8c5d321a7d988561ff",
+      "paths": [
+        "engine/**/*.js",
+        "lib/**/*.js"
+      ],
+      "purpose": "C2 reembedding hardening from engine PR 266; validate facade and empty-agent acceptance additionally use pin 9f34008c"
+    },
+    "node": "v24.21.0"
+  },
+  "creation": [
+    {
+      "name": "seed-0",
+      "seed": 0,
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expiry": 1000,
+      "result": {
+        "proofSha256": "ac04cffe3eebb81ce9218caeeeb926a4b567a35300fed13457a009439471f7fd",
+        "persisted": {
+          "schemaVersion": 1,
+          "tokenHash": "fff8cadda09c6d79ec1deaeb3793303600eab82e3755d0f06db8fa7bf5adc22e",
+          "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expiresAt": 1000
+        }
+      }
+    },
+    {
+      "name": "seed-1",
+      "seed": 1,
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expiry": 1000,
+      "result": {
+        "proofSha256": "2aaf633cb21c87411742c7cbcc1193ebc86b1fe26bc38a740db593eaea0d8b10",
+        "persisted": {
+          "schemaVersion": 1,
+          "tokenHash": "a4ddd63d74fce0d86e33305bc277c08d1fe176f5172425b5a047fd87905909fe",
+          "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expiresAt": 1000
+        }
+      }
+    },
+    {
+      "name": "seed-9",
+      "seed": 9,
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expiry": 1000,
+      "result": {
+        "proofSha256": "7bb720513d284aa13d2eaae6bc6a233e90619d8147760f9ba4172a0c345c4d04",
+        "persisted": {
+          "schemaVersion": 1,
+          "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+          "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expiresAt": 1000
+        }
+      }
+    },
+    {
+      "name": "seed-127",
+      "seed": 127,
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expiry": 1000,
+      "result": {
+        "proofSha256": "89503eee3f140dfaedeb99f5b32142dd07d54eb374214205dbc769f33acd41b8",
+        "persisted": {
+          "schemaVersion": 1,
+          "tokenHash": "10f407f3f3aac832194c6ebf6cb3e7918f370e6ec96cdca9ec206b14f5c05ec9",
+          "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expiresAt": 1000
+        }
+      }
+    },
+    {
+      "name": "seed-128",
+      "seed": 128,
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expiry": 1000,
+      "result": {
+        "proofSha256": "82730e4d6a90d17f2476a4529748278ac88c6cc5e81589856c93d06cab325657",
+        "persisted": {
+          "schemaVersion": 1,
+          "tokenHash": "85fc82d0c58d8c3d2516f1156b7a06ed2df649142ad0ce3668f3a2490a1fe067",
+          "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expiresAt": 1000
+        }
+      }
+    },
+    {
+      "name": "seed-255",
+      "seed": 255,
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expiry": 1000,
+      "result": {
+        "proofSha256": "0d66de2aa7661f3ed6245788c196485bbd497682981387517fae324bc7fd9bad",
+        "persisted": {
+          "schemaVersion": 1,
+          "tokenHash": "739634c56f115ecee9e54ee3509510061ce6c7ee29051620c7250c4458e89187",
+          "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expiresAt": 1000
+        }
+      }
+    },
+    {
+      "seed": 13,
+      "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "expiry": 9007199254740991,
+      "name": "maximum-expiry",
+      "result": {
+        "proofSha256": "b62cee4dc98400b30a0cc99f27048692e2893aff70381638d0ed73728970469d",
+        "persisted": {
+          "schemaVersion": 1,
+          "tokenHash": "df05d13fbec79f18beab1ee10fb3a32c84af3ffbca7c911fd4f4940832ff1409",
+          "planDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "expiresAt": 9007199254740991
+        }
+      }
+    },
+    {
+      "seed": 13,
+      "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "expiry": 0,
+      "name": "zero-expiry",
+      "error": "invalid reembedding confirmation expiry"
+    },
+    {
+      "seed": 13,
+      "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "expiry": 9007199254740992,
+      "name": "unsafe-expiry",
+      "error": "invalid reembedding confirmation expiry"
+    },
+    {
+      "seed": 13,
+      "digest": "not-a-digest",
+      "expiry": 1000,
+      "name": "invalid-digest",
+      "error": "invalid reembedding plan digest"
+    },
+    {
+      "seed": 13,
+      "digest": "sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "expiry": 1000,
+      "name": "uppercase-digest",
+      "error": "invalid reembedding plan digest"
+    },
+    {
+      "seed": 13,
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expiry": 1000,
+      "name": "short-digest",
+      "error": "invalid reembedding plan digest"
+    }
+  ],
+  "verification": [
+    {
+      "name": "valid",
+      "clock": 0,
+      "persisted": {
+        "schemaVersion": 1,
+        "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expiresAt": 1000
+      },
+      "binding": true,
+      "valid": true
+    },
+    {
+      "name": "last-valid-millisecond",
+      "clock": 999,
+      "persisted": {
+        "schemaVersion": 1,
+        "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expiresAt": 1000
+      },
+      "binding": true,
+      "valid": true
+    },
+    {
+      "name": "expired",
+      "clock": 1000,
+      "persisted": {
+        "schemaVersion": 1,
+        "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expiresAt": 1000
+      },
+      "binding": true,
+      "valid": false
+    },
+    {
+      "name": "after-expiry",
+      "clock": 1001,
+      "persisted": {
+        "schemaVersion": 1,
+        "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expiresAt": 1000
+      },
+      "binding": true,
+      "valid": false
+    },
+    {
+      "name": "negative-clock",
+      "clock": -1,
+      "persisted": {
+        "schemaVersion": 1,
+        "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expiresAt": 1000
+      },
+      "binding": true,
+      "valid": true
+    },
+    {
+      "name": "fractional-clock",
+      "clock": 0.5,
+      "persisted": {
+        "schemaVersion": 1,
+        "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expiresAt": 1000
+      },
+      "binding": true,
+      "valid": false
+    },
+    {
+      "name": "unsafe-clock",
+      "clock": 9007199254740992,
+      "persisted": {
+        "schemaVersion": 1,
+        "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expiresAt": 1000
+      },
+      "binding": true,
+      "valid": false
+    },
+    {
+      "name": "nan-clock",
+      "clock": "NaN",
+      "persisted": {
+        "schemaVersion": 1,
+        "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expiresAt": 1000
+      },
+      "binding": true,
+      "valid": false
+    },
+    {
+      "name": "infinite-clock",
+      "clock": "Infinity",
+      "persisted": {
+        "schemaVersion": 1,
+        "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expiresAt": 1000
+      },
+      "binding": true,
+      "valid": false
+    },
+    {
+      "name": "metadata-extra",
+      "change": "extra",
+      "clock": 1,
+      "persisted": {
+        "schemaVersion": 1,
+        "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expiresAt": 1000,
+        "extra": true
+      },
+      "binding": false,
+      "valid": false
+    },
+    {
+      "name": "metadata-missing-hash",
+      "change": "missing-hash",
+      "clock": 1,
+      "persisted": {
+        "schemaVersion": 1,
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expiresAt": 1000
+      },
+      "binding": false,
+      "valid": false
+    },
+    {
+      "name": "metadata-schema",
+      "change": "schema",
+      "clock": 1,
+      "persisted": {
+        "schemaVersion": 2,
+        "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expiresAt": 1000
+      },
+      "binding": false,
+      "valid": false
+    },
+    {
+      "name": "metadata-schema-string",
+      "change": "schema-string",
+      "clock": 1,
+      "persisted": {
+        "schemaVersion": "1",
+        "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expiresAt": 1000
+      },
+      "binding": false,
+      "valid": false
+    },
+    {
+      "name": "metadata-expiry-zero",
+      "change": "expiry-zero",
+      "clock": 1,
+      "persisted": {
+        "schemaVersion": 1,
+        "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expiresAt": 0
+      },
+      "binding": false,
+      "valid": false
+    },
+    {
+      "name": "metadata-expiry-negative",
+      "change": "expiry-negative",
+      "clock": 1,
+      "persisted": {
+        "schemaVersion": 1,
+        "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expiresAt": -1
+      },
+      "binding": false,
+      "valid": false
+    },
+    {
+      "name": "metadata-expiry-fraction",
+      "change": "expiry-fraction",
+      "clock": 1,
+      "persisted": {
+        "schemaVersion": 1,
+        "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expiresAt": 1.5
+      },
+      "binding": false,
+      "valid": false
+    },
+    {
+      "name": "metadata-expiry-string",
+      "change": "expiry-string",
+      "clock": 1,
+      "persisted": {
+        "schemaVersion": 1,
+        "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expiresAt": "1000"
+      },
+      "binding": false,
+      "valid": false
+    },
+    {
+      "name": "metadata-expiry-unsafe",
+      "change": "expiry-unsafe",
+      "clock": 1,
+      "persisted": {
+        "schemaVersion": 1,
+        "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expiresAt": 9007199254740992
+      },
+      "binding": false,
+      "valid": false
+    },
+    {
+      "name": "metadata-digest-other",
+      "change": "digest-other",
+      "clock": 1,
+      "persisted": {
+        "schemaVersion": 1,
+        "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+        "planDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "expiresAt": 1000
+      },
+      "binding": false,
+      "valid": false
+    },
+    {
+      "name": "metadata-digest-upper",
+      "change": "digest-upper",
+      "clock": 1,
+      "persisted": {
+        "schemaVersion": 1,
+        "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+        "planDigest": "SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "expiresAt": 1000
+      },
+      "binding": false,
+      "valid": false
+    },
+    {
+      "name": "metadata-digest-invalid",
+      "change": "digest-invalid",
+      "clock": 1,
+      "persisted": {
+        "schemaVersion": 1,
+        "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+        "planDigest": "invalid",
+        "expiresAt": 1000
+      },
+      "binding": false,
+      "valid": false
+    },
+    {
+      "name": "metadata-hash-other",
+      "change": "hash-other",
+      "clock": 1,
+      "persisted": {
+        "schemaVersion": 1,
+        "tokenHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expiresAt": 1000
+      },
+      "binding": false,
+      "valid": false
+    },
+    {
+      "name": "metadata-hash-upper",
+      "change": "hash-upper",
+      "clock": 1,
+      "persisted": {
+        "schemaVersion": 1,
+        "tokenHash": "FEAE7ECE3EDDC48F7D81C1D590DF469A54D57BCB078181F9A51087BC088679DF",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expiresAt": 1000
+      },
+      "binding": false,
+      "valid": false
+    },
+    {
+      "name": "metadata-hash-empty",
+      "change": "hash-empty",
+      "clock": 1,
+      "persisted": {
+        "schemaVersion": 1,
+        "tokenHash": "",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expiresAt": 1000
+      },
+      "binding": false,
+      "valid": false
+    },
+    {
+      "name": "metadata-null",
+      "change": "null",
+      "clock": 1,
+      "persisted": null,
+      "binding": false,
+      "valid": false
+    },
+    {
+      "name": "metadata-array",
+      "change": "array",
+      "clock": 1,
+      "persisted": [],
+      "binding": false,
+      "valid": false
+    },
+    {
+      "name": "proof-different-seed",
+      "proof": "different-seed",
+      "clock": 1,
+      "persisted": {
+        "schemaVersion": 1,
+        "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expiresAt": 1000
+      },
+      "binding": false,
+      "valid": false
+    },
+    {
+      "name": "proof-prefix",
+      "proof": "prefix",
+      "clock": 1,
+      "persisted": {
+        "schemaVersion": 1,
+        "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expiresAt": 1000
+      },
+      "binding": false,
+      "valid": false
+    },
+    {
+      "name": "proof-short",
+      "proof": "short",
+      "clock": 1,
+      "persisted": {
+        "schemaVersion": 1,
+        "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expiresAt": 1000
+      },
+      "binding": false,
+      "valid": false
+    },
+    {
+      "name": "proof-long",
+      "proof": "long",
+      "clock": 1,
+      "persisted": {
+        "schemaVersion": 1,
+        "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expiresAt": 1000
+      },
+      "binding": false,
+      "valid": false
+    },
+    {
+      "name": "proof-invalid-char",
+      "proof": "invalid-char",
+      "clock": 1,
+      "persisted": {
+        "schemaVersion": 1,
+        "tokenHash": "feae7ece3eddc48f7d81c1d590df469a54d57bcb078181f9a51087bc088679df",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "expiresAt": 1000
+      },
+      "binding": false,
+      "valid": false
+    }
+  ]
+}

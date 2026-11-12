@@ -1,0 +1,352 @@
+{
+  "recordedFrom": {
+    "source": {
+      "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+      "treeSha256": "7def6824293d4cfb5f405ecbde1e5ac4e8ab83c9358e9f4d68bb7d428445781d"
+    },
+    "node": "v24.21.0"
+  },
+  "context": {
+    "agentId": "agent",
+    "workspaceIdentity": "workspace:v1:fixture",
+    "userPrincipal": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+    "workspaceAliases": {
+      "paths": [],
+      "aliases": []
+    }
+  },
+  "cases": [
+    {
+      "name": "valid",
+      "input": {
+        "source": "first",
+        "target": "second",
+        "strength": 0.8,
+        "type": "related",
+        "directed": false,
+        "ownershipStatus": "bound",
+        "sourceOwnership": {
+          "schemaVersion": 1,
+          "scope": "agent-private",
+          "agentId": "agent",
+          "workspaceIdentity": "workspace:v1:fixture",
+          "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d"
+        },
+        "targetOwnership": {
+          "schemaVersion": 1,
+          "scope": "agent-private",
+          "agentId": "agent",
+          "workspaceIdentity": "workspace:v1:fixture",
+          "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d"
+        },
+        "ownership": {
+          "source": {
+            "schemaVersion": 1,
+            "scope": "agent-private",
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d"
+          },
+          "target": {
+            "schemaVersion": 1,
+            "scope": "agent-private",
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d"
+          }
+        }
+      },
+      "bound": true,
+      "filtered": [
+        {
+          "source": "first",
+          "target": "second",
+          "strength": 0.8,
+          "type": "related",
+          "directed": false,
+          "ownershipStatus": "bound",
+          "sourceOwnership": {
+            "schemaVersion": 1,
+            "scope": "agent-private",
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d"
+          },
+          "targetOwnership": {
+            "schemaVersion": 1,
+            "scope": "agent-private",
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d"
+          },
+          "ownership": {
+            "source": {
+              "schemaVersion": 1,
+              "scope": "agent-private",
+              "agentId": "agent",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d"
+            },
+            "target": {
+              "schemaVersion": 1,
+              "scope": "agent-private",
+              "agentId": "agent",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d"
+            }
+          },
+          "needsRebuild": false
+        }
+      ]
+    },
+    {
+      "name": "foreign",
+      "input": {
+        "source": "first",
+        "target": "second",
+        "strength": 0.8,
+        "type": "related",
+        "directed": false,
+        "ownershipStatus": "bound",
+        "sourceOwnership": {
+          "schemaVersion": 1,
+          "scope": "agent-private",
+          "agentId": "agent",
+          "workspaceIdentity": "workspace:v1:fixture",
+          "ownerUserId": "user:v2:2e87b2cba1d3661c42ac597691caa776f7283fe6ccab5278f0e07e0ecba809b6"
+        },
+        "targetOwnership": {
+          "schemaVersion": 1,
+          "scope": "agent-private",
+          "agentId": "agent",
+          "workspaceIdentity": "workspace:v1:fixture",
+          "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d"
+        },
+        "ownership": {
+          "source": {
+            "schemaVersion": 1,
+            "scope": "agent-private",
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "ownerUserId": "user:v2:2e87b2cba1d3661c42ac597691caa776f7283fe6ccab5278f0e07e0ecba809b6"
+          },
+          "target": {
+            "schemaVersion": 1,
+            "scope": "agent-private",
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d"
+          }
+        }
+      },
+      "bound": true,
+      "filtered": [
+        {
+          "source": "first",
+          "target": "second",
+          "strength": 0.8,
+          "type": "related",
+          "directed": false,
+          "ownershipStatus": "bound",
+          "sourceOwnership": {
+            "schemaVersion": 1,
+            "scope": "agent-private",
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "ownerUserId": "user:v2:2e87b2cba1d3661c42ac597691caa776f7283fe6ccab5278f0e07e0ecba809b6"
+          },
+          "targetOwnership": {
+            "schemaVersion": 1,
+            "scope": "agent-private",
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d"
+          },
+          "ownership": {
+            "source": {
+              "schemaVersion": 1,
+              "scope": "agent-private",
+              "agentId": "agent",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": "user:v2:2e87b2cba1d3661c42ac597691caa776f7283fe6ccab5278f0e07e0ecba809b6"
+            },
+            "target": {
+              "schemaVersion": 1,
+              "scope": "agent-private",
+              "agentId": "agent",
+              "workspaceIdentity": "workspace:v1:fixture",
+              "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d"
+            }
+          },
+          "needsRebuild": false
+        }
+      ]
+    },
+    {
+      "name": "nested-mismatch",
+      "input": {
+        "source": "first",
+        "target": "second",
+        "strength": 0.8,
+        "type": "related",
+        "directed": false,
+        "ownershipStatus": "bound",
+        "sourceOwnership": {
+          "schemaVersion": 1,
+          "scope": "agent-private",
+          "agentId": "agent",
+          "workspaceIdentity": "workspace:v1:fixture",
+          "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d"
+        },
+        "targetOwnership": {
+          "schemaVersion": 1,
+          "scope": "agent-private",
+          "agentId": "agent",
+          "workspaceIdentity": "workspace:v1:fixture",
+          "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d"
+        },
+        "ownership": {
+          "source": {
+            "schemaVersion": 1,
+            "scope": "agent-private",
+            "agentId": "other-agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d"
+          },
+          "target": {
+            "schemaVersion": 1,
+            "scope": "agent-private",
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d"
+          }
+        }
+      },
+      "bound": false,
+      "filtered": []
+    },
+    {
+      "name": "unbound",
+      "input": {
+        "source": "first",
+        "target": "second",
+        "strength": 0.8,
+        "type": "related",
+        "directed": false,
+        "ownershipStatus": "unbound",
+        "sourceOwnership": {
+          "schemaVersion": 1,
+          "scope": "agent-private",
+          "agentId": "agent",
+          "workspaceIdentity": "workspace:v1:fixture",
+          "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d"
+        },
+        "targetOwnership": {
+          "schemaVersion": 1,
+          "scope": "agent-private",
+          "agentId": "agent",
+          "workspaceIdentity": "workspace:v1:fixture",
+          "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d"
+        },
+        "ownership": {
+          "source": {
+            "schemaVersion": 1,
+            "scope": "agent-private",
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d"
+          },
+          "target": {
+            "schemaVersion": 1,
+            "scope": "agent-private",
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d"
+          }
+        }
+      },
+      "bound": false,
+      "filtered": []
+    },
+    {
+      "name": "needs-rebuild",
+      "input": {
+        "source": "first",
+        "target": "second",
+        "strength": 0.8,
+        "type": "related",
+        "directed": false,
+        "ownershipStatus": "bound",
+        "sourceOwnership": {
+          "schemaVersion": 1,
+          "scope": "agent-private",
+          "agentId": "agent",
+          "workspaceIdentity": "workspace:v1:fixture",
+          "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d"
+        },
+        "targetOwnership": {
+          "schemaVersion": 1,
+          "scope": "agent-private",
+          "agentId": "agent",
+          "workspaceIdentity": "workspace:v1:fixture",
+          "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d"
+        },
+        "ownership": {
+          "source": {
+            "schemaVersion": 1,
+            "scope": "agent-private",
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d"
+          },
+          "target": {
+            "schemaVersion": 1,
+            "scope": "agent-private",
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d"
+          }
+        },
+        "needsRebuild": true
+      },
+      "bound": false,
+      "filtered": []
+    },
+    {
+      "name": "partial",
+      "input": {
+        "source": "first",
+        "target": "second",
+        "strength": 0.8,
+        "type": "related",
+        "directed": false,
+        "ownershipStatus": "bound",
+        "sourceOwnership": {
+          "schemaVersion": 1,
+          "scope": "agent-private",
+          "agentId": "agent",
+          "workspaceIdentity": "workspace:v1:fixture",
+          "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d"
+        },
+        "ownership": {
+          "source": {
+            "schemaVersion": 1,
+            "scope": "agent-private",
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d"
+          },
+          "target": {
+            "schemaVersion": 1,
+            "scope": "agent-private",
+            "agentId": "agent",
+            "workspaceIdentity": "workspace:v1:fixture",
+            "ownerUserId": "user:v2:f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d"
+          }
+        }
+      },
+      "bound": false,
+      "filtered": []
+    }
+  ]
+}

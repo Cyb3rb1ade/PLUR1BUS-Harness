@@ -1,0 +1,490 @@
+{
+  "recordedFrom": {
+    "source": {
+      "engineCommit": "1f0daec472b72755d851712968157a89ca3a7687",
+      "treeSha256": "cdfdf8bb4881773d2d492969cd5a5ade44ccb62bd0db019abfedce45202e96ed"
+    },
+    "node": "v24.21.0"
+  },
+  "id": "11111111-1111-4111-8111-111111111111",
+  "second": "22222222-2222-4222-8222-222222222222",
+  "from": "user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43",
+  "to": "user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf",
+  "now": 1800000000000,
+  "cases": [
+    {
+      "name": "read-missing",
+      "ops": [],
+      "results": [],
+      "loadedJson": "{\"header\":null,\"cards\":[],\"reversed\":false}",
+      "appliedJson": "[]",
+      "claim": {
+        "value": null
+      },
+      "disk": {},
+      "rootExists": false
+    },
+    {
+      "name": "header-card-reverse",
+      "ops": [
+        {
+          "op": "claim"
+        },
+        {
+          "op": "header",
+          "id": "11111111-1111-4111-8111-111111111111",
+          "agent": "agent"
+        },
+        {
+          "op": "card",
+          "id": "11111111-1111-4111-8111-111111111111",
+          "card": "33333333-3333-4333-8333-333333333333",
+          "updated": 10
+        },
+        {
+          "op": "card",
+          "id": "11111111-1111-4111-8111-111111111111",
+          "card": "33333333-3333-4333-8333-333333333333",
+          "updated": 10
+        },
+        {
+          "op": "reverse",
+          "id": "11111111-1111-4111-8111-111111111111"
+        },
+        {
+          "op": "release"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        }
+      ],
+      "loadedJson": "{\"header\":{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000},\"cards\":[{\"v\":1,\"kind\":\"card\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"cardId\":\"33333333-3333-4333-8333-333333333333\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"fromUpdatedAt\":10}],\"reversed\":true}",
+      "appliedJson": "[]",
+      "claim": {
+        "value": null
+      },
+      "disk": {
+        "11111111-1111-4111-8111-111111111111.jsonl": "{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000}\n{\"v\":1,\"kind\":\"card\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"cardId\":\"33333333-3333-4333-8333-333333333333\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"fromUpdatedAt\":10}\n{\"v\":1,\"kind\":\"card\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"cardId\":\"33333333-3333-4333-8333-333333333333\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"fromUpdatedAt\":10}\n{\"v\":1,\"kind\":\"reversed\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"reversedAt\":1800000000000}\n"
+      },
+      "rootExists": true
+    },
+    {
+      "name": "claim-same-target",
+      "ops": [
+        {
+          "op": "claim"
+        },
+        {
+          "op": "claim"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        }
+      ],
+      "loadedJson": "{\"header\":null,\"cards\":[],\"reversed\":false}",
+      "appliedJson": "[]",
+      "claim": {
+        "value": {
+          "v": 1,
+          "fromOwner": "user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43",
+          "toOwner": "user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf",
+          "createdAt": 1800000000000
+        }
+      },
+      "disk": {
+        "by-identity/4e8ec9b466230de6aeeaaff1b508d796a1159e339ac287ff07a8f1631eb2e8e6.json": "{\"v\":1,\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"createdAt\":1800000000000}\n"
+      },
+      "rootExists": true
+    },
+    {
+      "name": "claim-other-target",
+      "ops": [
+        {
+          "op": "claim"
+        },
+        {
+          "op": "claim",
+          "to": "user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "error": "identity-already-bound"
+        }
+      ],
+      "loadedJson": "{\"header\":null,\"cards\":[],\"reversed\":false}",
+      "appliedJson": "[]",
+      "claim": {
+        "value": {
+          "v": 1,
+          "fromOwner": "user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43",
+          "toOwner": "user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf",
+          "createdAt": 1800000000000
+        }
+      },
+      "disk": {
+        "by-identity/4e8ec9b466230de6aeeaaff1b508d796a1159e339ac287ff07a8f1631eb2e8e6.json": "{\"v\":1,\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"createdAt\":1800000000000}\n"
+      },
+      "rootExists": true
+    },
+    {
+      "name": "header-conflict",
+      "ops": [
+        {
+          "op": "header",
+          "id": "11111111-1111-4111-8111-111111111111",
+          "agent": "agent"
+        },
+        {
+          "op": "header",
+          "id": "11111111-1111-4111-8111-111111111111",
+          "agent": "agent"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "error": "conflict"
+        }
+      ],
+      "loadedJson": "{\"header\":{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000},\"cards\":[],\"reversed\":false}",
+      "appliedJson": "[{\"id\":\"11111111-1111-4111-8111-111111111111\",\"header\":{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000},\"cards\":[],\"reversed\":false}]",
+      "claim": {
+        "value": null
+      },
+      "disk": {
+        "11111111-1111-4111-8111-111111111111.jsonl": "{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000}\n"
+      },
+      "rootExists": true
+    },
+    {
+      "name": "first-card-wins",
+      "initial": "{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000}\n{\"v\":1,\"kind\":\"card\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"cardId\":\"33333333-3333-4333-8333-333333333333\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"fromUpdatedAt\":10}\n{\"v\":1,\"kind\":\"card\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"cardId\":\"33333333-3333-4333-8333-333333333333\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"fromUpdatedAt\":999,\"opaque\":\"legacy\\ud800\"}\n",
+      "ops": [],
+      "results": [],
+      "loadedJson": "{\"header\":{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000},\"cards\":[{\"v\":1,\"kind\":\"card\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"cardId\":\"33333333-3333-4333-8333-333333333333\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"fromUpdatedAt\":10}],\"reversed\":false}",
+      "appliedJson": "[{\"id\":\"11111111-1111-4111-8111-111111111111\",\"header\":{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000},\"cards\":[{\"v\":1,\"kind\":\"card\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"cardId\":\"33333333-3333-4333-8333-333333333333\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"fromUpdatedAt\":10}],\"reversed\":false}]",
+      "claim": {
+        "value": null
+      },
+      "disk": {
+        "11111111-1111-4111-8111-111111111111.jsonl": "{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000}\n{\"v\":1,\"kind\":\"card\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"cardId\":\"33333333-3333-4333-8333-333333333333\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"fromUpdatedAt\":10}\n{\"v\":1,\"kind\":\"card\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"cardId\":\"33333333-3333-4333-8333-333333333333\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"fromUpdatedAt\":999,\"opaque\":\"legacy\\ud800\"}\n"
+      },
+      "rootExists": true
+    },
+    {
+      "name": "last-header-resets-reversed",
+      "initial": "{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000}\n{\"v\":1,\"kind\":\"reversed\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"reversedAt\":1800000000000}\n{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000,\"opaque\":\"legacy\\ud800\"}\n",
+      "ops": [],
+      "results": [],
+      "loadedJson": "{\"header\":{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000,\"opaque\":\"legacy\\ud800\"},\"cards\":[],\"reversed\":false}",
+      "appliedJson": "[{\"id\":\"11111111-1111-4111-8111-111111111111\",\"header\":{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000,\"opaque\":\"legacy\\ud800\"},\"cards\":[],\"reversed\":false}]",
+      "claim": {
+        "value": null
+      },
+      "disk": {
+        "11111111-1111-4111-8111-111111111111.jsonl": "{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000}\n{\"v\":1,\"kind\":\"reversed\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"reversedAt\":1800000000000}\n{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000,\"opaque\":\"legacy\\ud800\"}\n"
+      },
+      "rootExists": true
+    },
+    {
+      "name": "reversed-header",
+      "initial": "{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"reversed\",\"createdAt\":1800000000000}\n",
+      "ops": [],
+      "results": [],
+      "loadedJson": "{\"header\":{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"reversed\",\"createdAt\":1800000000000},\"cards\":[],\"reversed\":true}",
+      "appliedJson": "[]",
+      "claim": {
+        "value": null
+      },
+      "disk": {
+        "11111111-1111-4111-8111-111111111111.jsonl": "{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"reversed\",\"createdAt\":1800000000000}\n"
+      },
+      "rootExists": true
+    },
+    {
+      "name": "foreign-malformed-lines",
+      "initial": "{bad\n{\"v\":2,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000}\n{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000}\n{\"v\":1,\"kind\":\"card\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"cardId\":7,\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"fromUpdatedAt\":10}\n{\"v\":1,\"kind\":\"card\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"cardId\":\"33333333-3333-4333-8333-333333333333\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"fromUpdatedAt\":10}\n",
+      "ops": [],
+      "results": [],
+      "loadedJson": "{\"header\":{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000},\"cards\":[{\"v\":1,\"kind\":\"card\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"cardId\":\"33333333-3333-4333-8333-333333333333\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"fromUpdatedAt\":10}],\"reversed\":false}",
+      "appliedJson": "[{\"id\":\"11111111-1111-4111-8111-111111111111\",\"header\":{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000},\"cards\":[{\"v\":1,\"kind\":\"card\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"cardId\":\"33333333-3333-4333-8333-333333333333\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"fromUpdatedAt\":10}],\"reversed\":false}]",
+      "claim": {
+        "value": null
+      },
+      "disk": {
+        "11111111-1111-4111-8111-111111111111.jsonl": "{bad\n{\"v\":2,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000}\n{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000}\n{\"v\":1,\"kind\":\"card\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"cardId\":7,\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"fromUpdatedAt\":10}\n{\"v\":1,\"kind\":\"card\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"cardId\":\"33333333-3333-4333-8333-333333333333\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"fromUpdatedAt\":10}\n"
+      },
+      "rootExists": true
+    },
+    {
+      "name": "torn-tail-repaired",
+      "initial": "{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000}\n{\"v\":1,\"kind\":\"card\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"cardId\":",
+      "ops": [
+        {
+          "op": "card",
+          "id": "11111111-1111-4111-8111-111111111111",
+          "card": "33333333-3333-4333-8333-333333333333",
+          "updated": 10
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        }
+      ],
+      "loadedJson": "{\"header\":{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000},\"cards\":[{\"v\":1,\"kind\":\"card\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"cardId\":\"33333333-3333-4333-8333-333333333333\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"fromUpdatedAt\":10}],\"reversed\":false}",
+      "appliedJson": "[{\"id\":\"11111111-1111-4111-8111-111111111111\",\"header\":{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000},\"cards\":[{\"v\":1,\"kind\":\"card\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"cardId\":\"33333333-3333-4333-8333-333333333333\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"fromUpdatedAt\":10}],\"reversed\":false}]",
+      "claim": {
+        "value": null
+      },
+      "disk": {
+        "11111111-1111-4111-8111-111111111111.jsonl": "{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000}\n{\"v\":1,\"kind\":\"card\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"cardId\":\"33333333-3333-4333-8333-333333333333\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"fromUpdatedAt\":10}\n"
+      },
+      "rootExists": true
+    },
+    {
+      "name": "valid-tail-without-newline-is-dropped-on-append",
+      "initial": "{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000}\n{\"v\":1,\"kind\":\"card\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"cardId\":\"33333333-3333-4333-8333-333333333333\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"fromUpdatedAt\":10}",
+      "ops": [
+        {
+          "op": "reverse",
+          "id": "11111111-1111-4111-8111-111111111111"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        }
+      ],
+      "loadedJson": "{\"header\":{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000},\"cards\":[],\"reversed\":true}",
+      "appliedJson": "[]",
+      "claim": {
+        "value": null
+      },
+      "disk": {
+        "11111111-1111-4111-8111-111111111111.jsonl": "{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000}\n{\"v\":1,\"kind\":\"reversed\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"reversedAt\":1800000000000}\n"
+      },
+      "rootExists": true
+    },
+    {
+      "name": "no-complete-line-quarantined",
+      "initial": "{torn",
+      "ops": [
+        {
+          "op": "card",
+          "id": "11111111-1111-4111-8111-111111111111",
+          "card": "33333333-3333-4333-8333-333333333333",
+          "updated": 10
+        }
+      ],
+      "results": [
+        {
+          "error": "ledger-corrupt"
+        }
+      ],
+      "loadedJson": "{\"header\":null,\"cards\":[],\"reversed\":false}",
+      "appliedJson": "[]",
+      "claim": {
+        "value": null
+      },
+      "disk": {
+        "11111111-1111-4111-8111-111111111111.jsonl.corrupt-1800000000000": "{torn"
+      },
+      "rootExists": true
+    },
+    {
+      "name": "valid-no-newline-quarantined",
+      "initial": "{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000}",
+      "ops": [
+        {
+          "op": "card",
+          "id": "11111111-1111-4111-8111-111111111111",
+          "card": "33333333-3333-4333-8333-333333333333",
+          "updated": 10
+        }
+      ],
+      "results": [
+        {
+          "error": "ledger-corrupt"
+        }
+      ],
+      "loadedJson": "{\"header\":null,\"cards\":[],\"reversed\":false}",
+      "appliedJson": "[]",
+      "claim": {
+        "value": null
+      },
+      "disk": {
+        "11111111-1111-4111-8111-111111111111.jsonl.corrupt-1800000000000": "{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000}"
+      },
+      "rootExists": true
+    },
+    {
+      "name": "global-claim-retained-by-other-agent",
+      "ops": [
+        {
+          "op": "claim"
+        },
+        {
+          "op": "header",
+          "id": "11111111-1111-4111-8111-111111111111",
+          "agent": "agent"
+        },
+        {
+          "op": "header",
+          "id": "22222222-2222-4222-8222-222222222222",
+          "agent": "other"
+        },
+        {
+          "op": "reverse",
+          "id": "11111111-1111-4111-8111-111111111111"
+        },
+        {
+          "op": "release"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        }
+      ],
+      "loadedJson": "{\"header\":{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000},\"cards\":[],\"reversed\":true}",
+      "appliedJson": "[{\"id\":\"22222222-2222-4222-8222-222222222222\",\"header\":{\"v\":1,\"kind\":\"header\",\"rebindId\":\"22222222-2222-4222-8222-222222222222\",\"agentId\":\"other\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000},\"cards\":[],\"reversed\":false}]",
+      "claim": {
+        "value": {
+          "v": 1,
+          "fromOwner": "user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43",
+          "toOwner": "user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf",
+          "createdAt": 1800000000000
+        }
+      },
+      "disk": {
+        "11111111-1111-4111-8111-111111111111.jsonl": "{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000}\n{\"v\":1,\"kind\":\"reversed\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"reversedAt\":1800000000000}\n",
+        "22222222-2222-4222-8222-222222222222.jsonl": "{\"v\":1,\"kind\":\"header\",\"rebindId\":\"22222222-2222-4222-8222-222222222222\",\"agentId\":\"other\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000}\n",
+        "by-identity/4e8ec9b466230de6aeeaaff1b508d796a1159e339ac287ff07a8f1631eb2e8e6.json": "{\"v\":1,\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"createdAt\":1800000000000}\n"
+      },
+      "rootExists": true
+    },
+    {
+      "name": "last-agent-releases-claim",
+      "ops": [
+        {
+          "op": "claim"
+        },
+        {
+          "op": "header",
+          "id": "11111111-1111-4111-8111-111111111111",
+          "agent": "agent"
+        },
+        {
+          "op": "header",
+          "id": "22222222-2222-4222-8222-222222222222",
+          "agent": "other"
+        },
+        {
+          "op": "reverse",
+          "id": "11111111-1111-4111-8111-111111111111"
+        },
+        {
+          "op": "reverse",
+          "id": "22222222-2222-4222-8222-222222222222"
+        },
+        {
+          "op": "release"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        }
+      ],
+      "loadedJson": "{\"header\":{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000},\"cards\":[],\"reversed\":true}",
+      "appliedJson": "[]",
+      "claim": {
+        "value": null
+      },
+      "disk": {
+        "11111111-1111-4111-8111-111111111111.jsonl": "{\"v\":1,\"kind\":\"header\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"agentId\":\"agent\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000}\n{\"v\":1,\"kind\":\"reversed\",\"rebindId\":\"11111111-1111-4111-8111-111111111111\",\"reversedAt\":1800000000000}\n",
+        "22222222-2222-4222-8222-222222222222.jsonl": "{\"v\":1,\"kind\":\"header\",\"rebindId\":\"22222222-2222-4222-8222-222222222222\",\"agentId\":\"other\",\"fromOwner\":\"user:v1:41426b5d0951e4c9f248e28fdf0502e7b319b7618a1a3dd5ae643272fd18aa43\",\"toOwner\":\"user:v2:957a8505725fe6b1c0a76c910230f086eaac4e27e95af833ec28d9e3d019c9bf\",\"status\":\"applied\",\"createdAt\":1800000000000}\n{\"v\":1,\"kind\":\"reversed\",\"rebindId\":\"22222222-2222-4222-8222-222222222222\",\"reversedAt\":1800000000000}\n"
+      },
+      "rootExists": true
+    },
+    {
+      "name": "invalid-claim-json",
+      "initialClaim": "{bad",
+      "ops": [
+        {
+          "op": "claim"
+        }
+      ],
+      "results": [
+        {
+          "error": "storage"
+        }
+      ],
+      "loadedJson": "{\"header\":null,\"cards\":[],\"reversed\":false}",
+      "appliedJson": "[]",
+      "claim": {
+        "error": "storage"
+      },
+      "disk": {
+        "by-identity/4e8ec9b466230de6aeeaaff1b508d796a1159e339ac287ff07a8f1631eb2e8e6.json": "{bad"
+      },
+      "rootExists": true
+    }
+  ]
+}

@@ -1,0 +1,488 @@
+{
+  "pin": "9b935ce1f970bd92a931aa99a58c620669c8085f",
+  "node": "v24.21.0",
+  "sourceHashes": [
+    {
+      "path": "package.json",
+      "sha256": "62985e09c9dbbbf89352bbda6da3fc1c1a92e1006d6b92e680dca0d0d89fdaf9"
+    },
+    {
+      "path": "lib/job-rate-limit.js",
+      "sha256": "c25429607397c3af1b5a861ee2839a9bf469ad2be2731cb7de718ecdf314e0b9"
+    },
+    {
+      "path": "lib/atomic-json.js",
+      "sha256": "a5ca9ee69184779b6150c391622c3fea564b68e65c044afe0dabbb93a41ab78b"
+    }
+  ],
+  "now": 10000,
+  "interval": 1000,
+  "boundaries": {
+    "implementation": "actual rate limiter and atomic JSON file updates",
+    "normalization": "none",
+    "files": "isolated temporary directories",
+    "providers": "none"
+  },
+  "cases": [
+    {
+      "name": "absent",
+      "agent": "agent",
+      "workspace": "workspace",
+      "initialJson": null,
+      "snapshots": [
+        {
+          "checkJson": "{\"allowed\":true,\"lastRunAt\":0}",
+          "file": null
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":1}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":2}}}"
+        }
+      ]
+    },
+    {
+      "name": "last-9500",
+      "agent": "agent",
+      "workspace": "workspace",
+      "initialJson": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":9500,\"runCount\":2}}}",
+      "snapshots": [
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":500,\"lastRunAt\":9500}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":9500,\"runCount\":2}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":3}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":4}}}"
+        }
+      ]
+    },
+    {
+      "name": "last-9000",
+      "agent": "agent",
+      "workspace": "workspace",
+      "initialJson": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":9000,\"runCount\":2}}}",
+      "snapshots": [
+        {
+          "checkJson": "{\"allowed\":true,\"lastRunAt\":9000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":9000,\"runCount\":2}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":3}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":4}}}"
+        }
+      ]
+    },
+    {
+      "name": "last-11000",
+      "agent": "agent",
+      "workspace": "workspace",
+      "initialJson": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":11000,\"runCount\":2}}}",
+      "snapshots": [
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":2000,\"lastRunAt\":11000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":11000,\"runCount\":2}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":3}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":4}}}"
+        }
+      ]
+    },
+    {
+      "name": "last-0",
+      "agent": "agent",
+      "workspace": "workspace",
+      "initialJson": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":0,\"runCount\":2}}}",
+      "snapshots": [
+        {
+          "checkJson": "{\"allowed\":true,\"lastRunAt\":0}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":0,\"runCount\":2}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":3}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":4}}}"
+        }
+      ]
+    },
+    {
+      "name": "last-null",
+      "agent": "agent",
+      "workspace": "workspace",
+      "initialJson": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":null,\"runCount\":2}}}",
+      "snapshots": [
+        {
+          "checkJson": "{\"allowed\":true,\"lastRunAt\":0}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":null,\"runCount\":2}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":3}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":4}}}"
+        }
+      ]
+    },
+    {
+      "name": "last-\"9500\"",
+      "agent": "agent",
+      "workspace": "workspace",
+      "initialJson": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":\"9500\",\"runCount\":2}}}",
+      "snapshots": [
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":500,\"lastRunAt\":\"9500\"}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":\"9500\",\"runCount\":2}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":3}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":4}}}"
+        }
+      ]
+    },
+    {
+      "name": "last-true",
+      "agent": "agent",
+      "workspace": "workspace",
+      "initialJson": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":true,\"runCount\":2}}}",
+      "snapshots": [
+        {
+          "checkJson": "{\"allowed\":true,\"lastRunAt\":true}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":true,\"runCount\":2}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":3}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":4}}}"
+        }
+      ]
+    },
+    {
+      "name": "last-\"bad\"",
+      "agent": "agent",
+      "workspace": "workspace",
+      "initialJson": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":\"bad\",\"runCount\":2}}}",
+      "snapshots": [
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":null,\"lastRunAt\":\"bad\"}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":\"bad\",\"runCount\":2}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":3}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":4}}}"
+        }
+      ]
+    },
+    {
+      "name": "last-[9500]",
+      "agent": "agent",
+      "workspace": "workspace",
+      "initialJson": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":[9500],\"runCount\":2}}}",
+      "snapshots": [
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":500,\"lastRunAt\":[9500]}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":[9500],\"runCount\":2}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":3}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":4}}}"
+        }
+      ]
+    },
+    {
+      "name": "count-2",
+      "agent": "agent",
+      "workspace": "workspace",
+      "initialJson": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":0,\"runCount\":2}}}",
+      "snapshots": [
+        {
+          "checkJson": "{\"allowed\":true,\"lastRunAt\":0}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":0,\"runCount\":2}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":3}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":4}}}"
+        }
+      ]
+    },
+    {
+      "name": "count-\"2\"",
+      "agent": "agent",
+      "workspace": "workspace",
+      "initialJson": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":0,\"runCount\":\"2\"}}}",
+      "snapshots": [
+        {
+          "checkJson": "{\"allowed\":true,\"lastRunAt\":0}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":0,\"runCount\":\"2\"}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":\"21\"}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":\"211\"}}}"
+        }
+      ]
+    },
+    {
+      "name": "count-[2]",
+      "agent": "agent",
+      "workspace": "workspace",
+      "initialJson": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":0,\"runCount\":[2]}}}",
+      "snapshots": [
+        {
+          "checkJson": "{\"allowed\":true,\"lastRunAt\":0}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":0,\"runCount\":[2]}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":\"21\"}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":\"211\"}}}"
+        }
+      ]
+    },
+    {
+      "name": "count-[]",
+      "agent": "agent",
+      "workspace": "workspace",
+      "initialJson": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":0,\"runCount\":[]}}}",
+      "snapshots": [
+        {
+          "checkJson": "{\"allowed\":true,\"lastRunAt\":0}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":0,\"runCount\":[]}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":\"1\"}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":\"11\"}}}"
+        }
+      ]
+    },
+    {
+      "name": "count-{}",
+      "agent": "agent",
+      "workspace": "workspace",
+      "initialJson": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":0,\"runCount\":{}}}}",
+      "snapshots": [
+        {
+          "checkJson": "{\"allowed\":true,\"lastRunAt\":0}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":0,\"runCount\":{}}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":\"[object Object]1\"}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":\"[object Object]11\"}}}"
+        }
+      ]
+    },
+    {
+      "name": "count-false",
+      "agent": "agent",
+      "workspace": "workspace",
+      "initialJson": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":0,\"runCount\":false}}}",
+      "snapshots": [
+        {
+          "checkJson": "{\"allowed\":true,\"lastRunAt\":0}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":0,\"runCount\":false}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":1}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":2}}}"
+        }
+      ]
+    },
+    {
+      "name": "count--3",
+      "agent": "agent",
+      "workspace": "workspace",
+      "initialJson": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":0,\"runCount\":-3}}}",
+      "snapshots": [
+        {
+          "checkJson": "{\"allowed\":true,\"lastRunAt\":0}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":0,\"runCount\":-3}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":-2}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":-1}}}"
+        }
+      ]
+    },
+    {
+      "name": "count-9007199254740992",
+      "agent": "agent",
+      "workspace": "workspace",
+      "initialJson": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":0,\"runCount\":9007199254740992}}}",
+      "snapshots": [
+        {
+          "checkJson": "{\"allowed\":true,\"lastRunAt\":0}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":0,\"runCount\":9007199254740992}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":9007199254740992}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"untouched\":{\"text\":\"opaque-\\ud800\"},\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":9007199254740992}}}"
+        }
+      ]
+    },
+    {
+      "name": "fallback-components",
+      "agent": "",
+      "workspace": null,
+      "initialJson": "{\"jobRateLimits\":{}}",
+      "snapshots": [
+        {
+          "checkJson": "{\"allowed\":true,\"lastRunAt\":0}",
+          "file": "{\"jobRateLimits\":{}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"jobRateLimits\":{\"gc-run:all:all\":{\"lastRunAt\":10000,\"runCount\":1}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"jobRateLimits\":{\"gc-run:all:all\":{\"lastRunAt\":10000,\"runCount\":2}}}"
+        }
+      ]
+    },
+    {
+      "name": "colon-key",
+      "agent": "agent:a",
+      "workspace": "b",
+      "initialJson": "{\"jobRateLimits\":{\"gc-run:agent:a:b\":{\"lastRunAt\":9500,\"runCount\":4}}}",
+      "snapshots": [
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":500,\"lastRunAt\":9500}",
+          "file": "{\"jobRateLimits\":{\"gc-run:agent:a:b\":{\"lastRunAt\":9500,\"runCount\":4}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"jobRateLimits\":{\"gc-run:agent:a:b\":{\"lastRunAt\":10000,\"runCount\":5}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"jobRateLimits\":{\"gc-run:agent:a:b\":{\"lastRunAt\":10000,\"runCount\":6}}}"
+        }
+      ]
+    },
+    {
+      "name": "false-map",
+      "agent": "agent",
+      "workspace": "workspace",
+      "initialJson": "{\"other\":[1,2],\"jobRateLimits\":false}",
+      "snapshots": [
+        {
+          "checkJson": "{\"allowed\":true,\"lastRunAt\":0}",
+          "file": "{\"other\":[1,2],\"jobRateLimits\":false}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"other\":[1,2],\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":1}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"other\":[1,2],\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":2}}}"
+        }
+      ]
+    },
+    {
+      "name": "null-map",
+      "agent": "agent",
+      "workspace": "workspace",
+      "initialJson": "{\"jobRateLimits\":null}",
+      "snapshots": [
+        {
+          "checkJson": "{\"allowed\":true,\"lastRunAt\":0}",
+          "file": "{\"jobRateLimits\":null}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":1}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":2}}}"
+        }
+      ]
+    },
+    {
+      "name": "index-order",
+      "agent": "agent",
+      "workspace": "workspace",
+      "initialJson": "{\"2\":\"two\",\"10\":\"ten\",\"jobRateLimits\":{}}",
+      "snapshots": [
+        {
+          "checkJson": "{\"allowed\":true,\"lastRunAt\":0}",
+          "file": "{\"2\":\"two\",\"10\":\"ten\",\"jobRateLimits\":{}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"2\":\"two\",\"10\":\"ten\",\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":1}}}"
+        },
+        {
+          "checkJson": "{\"allowed\":false,\"remainingMs\":1000,\"lastRunAt\":10000}",
+          "file": "{\"2\":\"two\",\"10\":\"ten\",\"jobRateLimits\":{\"gc-run:agent:workspace\":{\"lastRunAt\":10000,\"runCount\":2}}}"
+        }
+      ]
+    }
+  ]
+}

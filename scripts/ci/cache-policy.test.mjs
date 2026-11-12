@@ -87,7 +87,7 @@ test("existing cache actions cannot opt into failed saves or expanded credential
       const path = /^          path: (.+)$/m.exec(step.body)?.[1];
       assert.ok(["~/.cache/ms-playwright", "${{ github.workspace }}/.models-cache"].includes(path) ||
         (step.file === "ci.yml" && step.job === "web-browser-macos" && path === "~/Library/Caches/ms-playwright") ||
-        (step.file === "ci.yml" && ["unit", "unit-os"].includes(step.job) &&
+        (step.file === "ci.yml" && ["unit", "unit-os", "engine-parity"].includes(step.job) &&
           path === "${{ runner.temp }}/plur1bus-tokenizers"), `${step.file}/${step.job}: unreviewed cache path ${path}`);
       assert.doesNotMatch(step.body, /^          (?:path|key):.*secrets\./m);
     }

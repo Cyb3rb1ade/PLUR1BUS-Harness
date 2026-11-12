@@ -4,6 +4,7 @@ use super::blocks::RenderEffects;
 use super::memory_context::PromptItem;
 use super::render::{RenderError, RenderRequest};
 use super::render_value::{number, text, truthy};
+use crate::capture::continuity::{ContinuityGate, SessionState, SurfaceOptions};
 use crate::text::js::JsString;
 use serde_json::{json, Value};
 
@@ -22,29 +23,35 @@ pub(super) fn continuity(
     let threshold = config["associativeRecall"]["assocThreshold"]
         .as_f64()
         .unwrap_or(0.75);
-    let mut surfaced = 0.0;
+    let gate = ContinuityGate {
+        assoc_threshold: threshold,
+        max_associations: maximum,
+        ..ContinuityGate::default()
+    };
+    let mut state = SessionState::default();
     items
         .into_iter()
         .filter(|item| {
             if item.fields["graphSource"] != "graph" {
                 return true;
             }
-            let score = item.fields["relevanceScore"].as_f64().unwrap_or(0.0);
-            let reason = if surfaced >= maximum {
-                "rate_limit"
-            } else if score <= threshold {
-                "score_below_threshold"
-            } else if item.fields["depth"].as_f64().is_some_and(|n| n > 2.0) {
-                "depth_too_deep"
-            } else {
-                "ok"
+            let score = ["relevanceScore", "associatedScore", "associationStrength"]
+                .iter()
+                .find_map(|key| item.fields.get(*key).filter(|value| !value.is_null()))
+                .map_or(0.0, number);
+            let options = SurfaceOptions {
+                depth: item.fields.get("depth").map(number),
+                id: item.fields["id"].as_str().map(JsString::from),
+                ..SurfaceOptions::default()
             };
-            let allowed = reason == "ok";
+            let decision = gate.filter_decision("associative", score, &state, &options);
+            let reason = decision.reason;
+            let allowed = decision.allow;
             if request.trace_enabled {
                 super::memory_trace::graph_decision(trace, item, reason, allowed);
             }
             if allowed {
-                surfaced += 1.0;
+                state.record("associative", options.id.as_ref());
             }
             allowed
         })
@@ -80,11 +87,26 @@ pub(super) fn pattern(request: &RenderRequest) -> Option<Value> {
                     .filter(|v| !v.is_null())
             })
             .map_or(1.0, number);
-        if maximum <= 0.0
-            || super::patterns::emotional_mismatch(
-                &text(&pattern["pattern"]["emotionalTrajectory"]),
-                &text(&request.mood["dominant"]),
+        let gate = ContinuityGate {
+            pattern_threshold: 0.0,
+            max_patterns: maximum,
+            ..ContinuityGate::default()
+        };
+        let options = SurfaceOptions {
+            emotional_trajectory: Some(JsString::from(text(
+                &pattern["pattern"]["emotionalTrajectory"],
+            ))),
+            current_register: Some(JsString::from(text(&request.mood["dominant"]))),
+            ..SurfaceOptions::default()
+        };
+        if !gate
+            .filter_decision(
+                "pattern",
+                pattern["score"].as_f64().unwrap_or(1.0),
+                &SessionState::default(),
+                &options,
             )
+            .allow
         {
             return None;
         }

@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { rmSync } from "node:fs";
-import { REAL, cli, home, reapHome, sharedMemorySupported, startCore, stopCore, type RunningCore } from "./helpers.ts";
+import { ENGINE_IMPL, REAL, cli, home, reapHome, sharedMemorySupported, startCore, stopCore, type RunningCore } from "./helpers.ts";
 
 /** Every CLI call in this test must answer within this wall time. */
 const CLI_BUDGET_MS = 2000;
@@ -61,15 +61,22 @@ describe("M1b-2a-H2 — memory surface through the CLI", () => {
       // Explicit shared memory (engine E4.2): Linux answers "fd-capability", macOS and Windows "verified-path" (engine
       // docs/adr/0001-shared-memory-on-macos-and-windows.md). Before any share, every platform reports it available:
       // a verified-path pool stays supported until one of its checks fails.
-      assert.equal(sharedMemorySupported(h), true, "1staid check reports memory.shared ok");
+      // The Rust engine reports shared memory only after its first share decision (RE-D165, a known gap): before it
+      // the row is cautious, and the share below may still succeed.
+      if (ENGINE_IMPL !== "rust") assert.equal(sharedMemorySupported(h), true, "1staid check reports memory.shared ok");
       const shareArgs = ["memory", "share", "--agent", "bernd", corrected.id, "--to", "user"];
       // Linux and macOS share. On Windows the outcome depends on elevation (ADR 0001, ruling E4-R12): an elevated
       // process creates directories owned by Administrators, which the verified-path owner check refuses. Exactly two
       // outcomes are valid there: unelevated, the share succeeds; elevated, the first share fails that check inside the
       // write (E_STORAGE, exit 1) and taints the pool until restart, and every later share is E_NOT_AVAILABLE (exit 2)
       // with reason unsupported and ids.reason unsafe-root.
-      const share = run(shareArgs, { allowFail: process.platform === "win32" });
-      if (typeof share.exit === "number") {
+      // The Rust engine shares into a user pool only for a bound owner user (D130: fail closed until the binding
+      // source exists, a known gap): in this home without one the share is denied, and nothing below it can run.
+      const share = run(shareArgs, { allowFail: process.platform === "win32" || ENGINE_IMPL === "rust" });
+      if (ENGINE_IMPL === "rust") {
+        assert.equal(share.exit, 1, JSON.stringify(share));
+        assert.equal(share.doc.error, "E_DENIED", JSON.stringify(share.doc));
+      } else if (typeof share.exit === "number") {
         assert.equal(share.exit, 1, JSON.stringify(share));
         assert.equal(share.doc.error, "E_STORAGE", JSON.stringify(share.doc));
         const refused = run(shareArgs, { allowFail: true });

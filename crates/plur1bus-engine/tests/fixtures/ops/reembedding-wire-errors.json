@@ -1,0 +1,64 @@
+{
+  "schema": "reembedding-wire-errors/1",
+  "description": "RE-D166/R1: the fixed re-embedding error texts the process sends on the wire. Each text is the pin's own constant (9f34008c) that the Core's migration driver classifies by text; nothing else passes. Read by rpc/methods.rs (allowlist), tests/rpc_reembedding.rs and packages/core/test/embedding-migrate/rust-wire-errors.test.ts.",
+  "pin": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+  "driver": "packages/core/src/embedding-migrate/driver.ts",
+  "errors": [
+    {
+      "text": "reembedding source generation drift",
+      "error": "E_CONFLICT",
+      "reason": "conflict",
+      "pinSource": "lib/reembedding/coordinator.js:120",
+      "driverSource": "driver.ts:114",
+      "outcome": "source-drift"
+    },
+    {
+      "text": "reembedding source config revision drift",
+      "error": "E_CONFLICT",
+      "reason": "conflict",
+      "pinSource": "lib/reembedding/coordinator.js:123",
+      "driverSource": "driver.ts:114",
+      "outcome": "source-drift"
+    },
+    {
+      "text": "reembedding source version drift",
+      "error": "E_CONFLICT",
+      "reason": "conflict",
+      "pinSource": "lib/reembedding/coordinator.js:128 (without the `: <tableId>` suffix)",
+      "driverSource": "driver.ts:114",
+      "outcome": "source-drift"
+    },
+    {
+      "text": "reembedding workspace policy changed; explicit resume required",
+      "error": "E_CONFLICT",
+      "reason": "conflict",
+      "pinSource": "lib/reembedding/coordinator.js:133",
+      "driverSource": "driver.ts:114",
+      "outcome": "source-drift"
+    },
+    {
+      "text": "invalid or expired reembedding confirmation",
+      "error": "E_INVALID_PARAMS",
+      "reason": "invalid-input",
+      "pinSource": "lib/reembedding/coordinator.js:220,303,321",
+      "driverSource": "driver.ts:115",
+      "outcome": "confirmation-invalid"
+    },
+    {
+      "text": "reembedding plan does not change the embedding fingerprint",
+      "error": "E_INVALID_PARAMS",
+      "reason": "invalid-input",
+      "pinSource": "lib/reembedding/planner.js:115",
+      "driverSource": "driver.ts:183",
+      "outcome": "compatible"
+    },
+    {
+      "text": "another reembedding migration is active",
+      "error": "E_CONFLICT",
+      "reason": "conflict",
+      "pinSource": "lib/reembedding/state-store.js:247",
+      "driverSource": "driver.ts:187",
+      "outcome": "migration-active"
+    }
+  ]
+}

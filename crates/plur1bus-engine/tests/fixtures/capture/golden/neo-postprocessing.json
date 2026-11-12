@@ -1,0 +1,8339 @@
+{
+  "provenance": {
+    "commit": "b5f8e285a16f1e9e7ae0e44313538d8c353d7eaa",
+    "node": "v24.21.0",
+    "sourceHashes": {
+      "lib/episode-watermark.js": "9dd7985da749f0f906541c30a8c702dcfac4b95a0ac7bae87a86abc9a4249da2"
+    }
+  },
+  "retry": [
+    {
+      "results": [],
+      "failures": "0",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "0",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "0",
+      "maxRetries": "5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "0",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "0",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "0",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "0",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "0",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "0",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "1",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "1",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "1",
+      "maxRetries": "5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "1",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "1",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "1",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "1",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "1",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "1",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "4",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "4",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "4",
+      "maxRetries": "5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "4",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "4",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "4",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "4",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "4",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "4",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "5",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "5",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "5",
+      "maxRetries": "5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "5",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "5",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "5",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "5",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "5",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "5",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "-1",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "-1",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "-1",
+      "maxRetries": "5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "-1",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "-1",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "-1",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "-1",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "-1",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "-1",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "0.2",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "0.2",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "0.2",
+      "maxRetries": "5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "0.2",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "0.2",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "0.2",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "0.2",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "0.2",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "0.2",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "1.9",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "1.9",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "1.9",
+      "maxRetries": "5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "1.9",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "1.9",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "1.9",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "1.9",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "1.9",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "1.9",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "NaN",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "NaN",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "NaN",
+      "maxRetries": "5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "NaN",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "NaN",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "NaN",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "NaN",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "NaN",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "NaN",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "Infinity",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "Infinity",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "Infinity",
+      "maxRetries": "5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "Infinity",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "Infinity",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "Infinity",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "Infinity",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "Infinity",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "Infinity",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "9007199254740991",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "9007199254740991",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "9007199254740991",
+      "maxRetries": "5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "9007199254740991",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "9007199254740991",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "9007199254740991",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "9007199254740991",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "9007199254740991",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [],
+      "failures": "9007199254740991",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "0",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "0",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "0",
+      "maxRetries": "5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "0",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "0",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "0",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "0",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "0",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "0",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "1",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "1",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "1",
+      "maxRetries": "5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "1",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "1",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "1",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "1",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "1",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "1",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "4",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "4",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "4",
+      "maxRetries": "5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "4",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "4",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "4",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "4",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "4",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "4",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "5",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "5",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "5",
+      "maxRetries": "5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "5",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "5",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "5",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "5",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "5",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "5",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "-1",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "-1",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "-1",
+      "maxRetries": "5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "-1",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "-1",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "-1",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "-1",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "-1",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "-1",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "0.2",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "0.2",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "0.2",
+      "maxRetries": "5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "0.2",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "0.2",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "0.2",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "0.2",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "0.2",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "0.2",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "1.9",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "1.9",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "1.9",
+      "maxRetries": "5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "1.9",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "1.9",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "1.9",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "1.9",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "1.9",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "1.9",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "NaN",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "NaN",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "NaN",
+      "maxRetries": "5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "NaN",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "NaN",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "NaN",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "NaN",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "NaN",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "NaN",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "Infinity",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "Infinity",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "Infinity",
+      "maxRetries": "5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "Infinity",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "Infinity",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "Infinity",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "Infinity",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "Infinity",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "Infinity",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "0",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "0",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "0",
+      "maxRetries": "5",
+      "output": {
+        "advance": false,
+        "nextFailures": 1,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "0",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "0",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "0",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "0",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "0",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "0",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": false,
+        "nextFailures": 1,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "1",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "1",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "1",
+      "maxRetries": "5",
+      "output": {
+        "advance": false,
+        "nextFailures": 2,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "1",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "1",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "1",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "1",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "1",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "1",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": false,
+        "nextFailures": 2,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "4",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "4",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "4",
+      "maxRetries": "5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "4",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "4",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "4",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "4",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "4",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "4",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": false,
+        "nextFailures": 5,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "5",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "5",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "5",
+      "maxRetries": "5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "5",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "5",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "5",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "5",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "5",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "5",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": false,
+        "nextFailures": 6,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "-1",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "-1",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "-1",
+      "maxRetries": "5",
+      "output": {
+        "advance": false,
+        "nextFailures": 1,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "-1",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "-1",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "-1",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "-1",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "-1",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "-1",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": false,
+        "nextFailures": 1,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "0.2",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "0.2",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "0.2",
+      "maxRetries": "5",
+      "output": {
+        "advance": false,
+        "nextFailures": 1,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "0.2",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "0.2",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "0.2",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "0.2",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "0.2",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "0.2",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": false,
+        "nextFailures": 1,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "1.9",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "1.9",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "1.9",
+      "maxRetries": "5",
+      "output": {
+        "advance": false,
+        "nextFailures": 2,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "1.9",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "1.9",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "1.9",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "1.9",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "1.9",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "1.9",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": false,
+        "nextFailures": 2,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "NaN",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "NaN",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "NaN",
+      "maxRetries": "5",
+      "output": {
+        "advance": false,
+        "nextFailures": 1,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "NaN",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "NaN",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "NaN",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "NaN",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "NaN",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "NaN",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": false,
+        "nextFailures": 1,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "Infinity",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "Infinity",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "Infinity",
+      "maxRetries": "5",
+      "output": {
+        "advance": false,
+        "nextFailures": 1,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "Infinity",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "Infinity",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "Infinity",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "Infinity",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "Infinity",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "Infinity",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": false,
+        "nextFailures": 1,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "0",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "0",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "0",
+      "maxRetries": "5",
+      "output": {
+        "advance": false,
+        "nextFailures": 1,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "0",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "0",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "0",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "0",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "0",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "0",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": false,
+        "nextFailures": 1,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "1",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "1",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "1",
+      "maxRetries": "5",
+      "output": {
+        "advance": false,
+        "nextFailures": 2,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "1",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "1",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "1",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "1",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "1",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "1",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": false,
+        "nextFailures": 2,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "4",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "4",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "4",
+      "maxRetries": "5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "4",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "4",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "4",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "4",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "4",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "4",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": false,
+        "nextFailures": 5,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "5",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "5",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "5",
+      "maxRetries": "5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "5",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "5",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "5",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "5",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "5",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "5",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": false,
+        "nextFailures": 6,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "-1",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "-1",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "-1",
+      "maxRetries": "5",
+      "output": {
+        "advance": false,
+        "nextFailures": 1,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "-1",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "-1",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "-1",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "-1",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "-1",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "-1",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": false,
+        "nextFailures": 1,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "0.2",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "0.2",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "0.2",
+      "maxRetries": "5",
+      "output": {
+        "advance": false,
+        "nextFailures": 1,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "0.2",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "0.2",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "0.2",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "0.2",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "0.2",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "0.2",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": false,
+        "nextFailures": 1,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "1.9",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "1.9",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "1.9",
+      "maxRetries": "5",
+      "output": {
+        "advance": false,
+        "nextFailures": 2,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "1.9",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "1.9",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "1.9",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "1.9",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "1.9",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "1.9",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": false,
+        "nextFailures": 2,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "NaN",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "NaN",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "NaN",
+      "maxRetries": "5",
+      "output": {
+        "advance": false,
+        "nextFailures": 1,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "NaN",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "NaN",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "NaN",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "NaN",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "NaN",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "NaN",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": false,
+        "nextFailures": 1,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "Infinity",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "Infinity",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "Infinity",
+      "maxRetries": "5",
+      "output": {
+        "advance": false,
+        "nextFailures": 1,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "Infinity",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "Infinity",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "Infinity",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "Infinity",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "Infinity",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "Infinity",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": false,
+        "nextFailures": 1,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        true,
+        false
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "0",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "0",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "0",
+      "maxRetries": "5",
+      "output": {
+        "advance": false,
+        "nextFailures": 1,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "0",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "0",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "0",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "0",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "0",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "0",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": false,
+        "nextFailures": 1,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "1",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "1",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "1",
+      "maxRetries": "5",
+      "output": {
+        "advance": false,
+        "nextFailures": 2,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "1",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "1",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "1",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "1",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "1",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "1",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": false,
+        "nextFailures": 2,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "4",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "4",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "4",
+      "maxRetries": "5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "4",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "4",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "4",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "4",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "4",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "4",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": false,
+        "nextFailures": 5,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "5",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "5",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "5",
+      "maxRetries": "5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "5",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "5",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "5",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "5",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "5",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "5",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": false,
+        "nextFailures": 6,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "-1",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "-1",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "-1",
+      "maxRetries": "5",
+      "output": {
+        "advance": false,
+        "nextFailures": 1,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "-1",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "-1",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "-1",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "-1",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "-1",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "-1",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": false,
+        "nextFailures": 1,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "0.2",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "0.2",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "0.2",
+      "maxRetries": "5",
+      "output": {
+        "advance": false,
+        "nextFailures": 1,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "0.2",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "0.2",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "0.2",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "0.2",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "0.2",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "0.2",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": false,
+        "nextFailures": 1,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "1.9",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "1.9",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "1.9",
+      "maxRetries": "5",
+      "output": {
+        "advance": false,
+        "nextFailures": 2,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "1.9",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "1.9",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "1.9",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "1.9",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "1.9",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "1.9",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": false,
+        "nextFailures": 2,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "NaN",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "NaN",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "NaN",
+      "maxRetries": "5",
+      "output": {
+        "advance": false,
+        "nextFailures": 1,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "NaN",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "NaN",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "NaN",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "NaN",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "NaN",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "NaN",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": false,
+        "nextFailures": 1,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "Infinity",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "Infinity",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "Infinity",
+      "maxRetries": "5",
+      "output": {
+        "advance": false,
+        "nextFailures": 1,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "Infinity",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "Infinity",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "Infinity",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "Infinity",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "Infinity",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "Infinity",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": false,
+        "nextFailures": 1,
+        "gaveUp": false
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "0",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "-1",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "0.5",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "1.9",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "NaN",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "Infinity",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    },
+    {
+      "results": [
+        false,
+        false
+      ],
+      "failures": "9007199254740991",
+      "maxRetries": "9007199254740991",
+      "output": {
+        "advance": true,
+        "nextFailures": 0,
+        "gaveUp": true
+      }
+    }
+  ],
+  "episodes": [
+    {
+      "previous": [],
+      "episodes": [],
+      "limit": "0",
+      "filtered": {
+        "fresh": [],
+        "skipped": 0
+      },
+      "merged": []
+    },
+    {
+      "previous": [],
+      "episodes": [],
+      "limit": "0.5",
+      "filtered": {
+        "fresh": [],
+        "skipped": 0
+      },
+      "merged": []
+    },
+    {
+      "previous": [],
+      "episodes": [],
+      "limit": "1",
+      "filtered": {
+        "fresh": [],
+        "skipped": 0
+      },
+      "merged": []
+    },
+    {
+      "previous": [],
+      "episodes": [],
+      "limit": "2",
+      "filtered": {
+        "fresh": [],
+        "skipped": 0
+      },
+      "merged": []
+    },
+    {
+      "previous": [],
+      "episodes": [],
+      "limit": "3",
+      "filtered": {
+        "fresh": [],
+        "skipped": 0
+      },
+      "merged": []
+    },
+    {
+      "previous": [],
+      "episodes": [],
+      "limit": "2000",
+      "filtered": {
+        "fresh": [],
+        "skipped": 0
+      },
+      "merged": []
+    },
+    {
+      "previous": [],
+      "episodes": [],
+      "limit": "NaN",
+      "filtered": {
+        "fresh": [],
+        "skipped": 0
+      },
+      "merged": []
+    },
+    {
+      "previous": [],
+      "episodes": [],
+      "limit": "Infinity",
+      "filtered": {
+        "fresh": [],
+        "skipped": 0
+      },
+      "merged": []
+    },
+    {
+      "previous": [],
+      "episodes": [],
+      "limit": "-1",
+      "filtered": {
+        "fresh": [],
+        "skipped": 0
+      },
+      "merged": []
+    },
+    {
+      "previous": [],
+      "episodes": [],
+      "limit": "1.9",
+      "filtered": {
+        "fresh": [],
+        "skipped": 0
+      },
+      "merged": []
+    },
+    {
+      "previous": [],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": []
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "a"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "a",
+            "b"
+          ]
+        }
+      ],
+      "limit": "0",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-0",
+            "memoryIds": []
+          },
+          {
+            "id": "ep-1",
+            "memoryIds": [
+              "a"
+            ]
+          },
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "a",
+              "b"
+            ]
+          }
+        ],
+        "skipped": 0
+      },
+      "merged": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "previous": [],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": []
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "a"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "a",
+            "b"
+          ]
+        }
+      ],
+      "limit": "0.5",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-0",
+            "memoryIds": []
+          },
+          {
+            "id": "ep-1",
+            "memoryIds": [
+              "a"
+            ]
+          },
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "a",
+              "b"
+            ]
+          }
+        ],
+        "skipped": 0
+      },
+      "merged": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "previous": [],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": []
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "a"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "a",
+            "b"
+          ]
+        }
+      ],
+      "limit": "1",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-0",
+            "memoryIds": []
+          },
+          {
+            "id": "ep-1",
+            "memoryIds": [
+              "a"
+            ]
+          },
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "a",
+              "b"
+            ]
+          }
+        ],
+        "skipped": 0
+      },
+      "merged": [
+        "b"
+      ]
+    },
+    {
+      "previous": [],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": []
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "a"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "a",
+            "b"
+          ]
+        }
+      ],
+      "limit": "2",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-0",
+            "memoryIds": []
+          },
+          {
+            "id": "ep-1",
+            "memoryIds": [
+              "a"
+            ]
+          },
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "a",
+              "b"
+            ]
+          }
+        ],
+        "skipped": 0
+      },
+      "merged": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "previous": [],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": []
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "a"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "a",
+            "b"
+          ]
+        }
+      ],
+      "limit": "3",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-0",
+            "memoryIds": []
+          },
+          {
+            "id": "ep-1",
+            "memoryIds": [
+              "a"
+            ]
+          },
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "a",
+              "b"
+            ]
+          }
+        ],
+        "skipped": 0
+      },
+      "merged": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "previous": [],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": []
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "a"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "a",
+            "b"
+          ]
+        }
+      ],
+      "limit": "2000",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-0",
+            "memoryIds": []
+          },
+          {
+            "id": "ep-1",
+            "memoryIds": [
+              "a"
+            ]
+          },
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "a",
+              "b"
+            ]
+          }
+        ],
+        "skipped": 0
+      },
+      "merged": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "previous": [],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": []
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "a"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "a",
+            "b"
+          ]
+        }
+      ],
+      "limit": "NaN",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-0",
+            "memoryIds": []
+          },
+          {
+            "id": "ep-1",
+            "memoryIds": [
+              "a"
+            ]
+          },
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "a",
+              "b"
+            ]
+          }
+        ],
+        "skipped": 0
+      },
+      "merged": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "previous": [],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": []
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "a"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "a",
+            "b"
+          ]
+        }
+      ],
+      "limit": "Infinity",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-0",
+            "memoryIds": []
+          },
+          {
+            "id": "ep-1",
+            "memoryIds": [
+              "a"
+            ]
+          },
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "a",
+              "b"
+            ]
+          }
+        ],
+        "skipped": 0
+      },
+      "merged": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "previous": [],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": []
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "a"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "a",
+            "b"
+          ]
+        }
+      ],
+      "limit": "-1",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-0",
+            "memoryIds": []
+          },
+          {
+            "id": "ep-1",
+            "memoryIds": [
+              "a"
+            ]
+          },
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "a",
+              "b"
+            ]
+          }
+        ],
+        "skipped": 0
+      },
+      "merged": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "previous": [],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": []
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "a"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "a",
+            "b"
+          ]
+        }
+      ],
+      "limit": "1.9",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-0",
+            "memoryIds": []
+          },
+          {
+            "id": "ep-1",
+            "memoryIds": [
+              "a"
+            ]
+          },
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "a",
+              "b"
+            ]
+          }
+        ],
+        "skipped": 0
+      },
+      "merged": [
+        "b"
+      ]
+    },
+    {
+      "previous": [
+        "a"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": []
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "a"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "id": "ep-3",
+          "memoryIds": [
+            "b"
+          ]
+        }
+      ],
+      "limit": "0",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-0",
+            "memoryIds": []
+          },
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "a",
+              "b"
+            ]
+          },
+          {
+            "id": "ep-3",
+            "memoryIds": [
+              "b"
+            ]
+          }
+        ],
+        "skipped": 1
+      },
+      "merged": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "previous": [
+        "a"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": []
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "a"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "id": "ep-3",
+          "memoryIds": [
+            "b"
+          ]
+        }
+      ],
+      "limit": "0.5",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-0",
+            "memoryIds": []
+          },
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "a",
+              "b"
+            ]
+          },
+          {
+            "id": "ep-3",
+            "memoryIds": [
+              "b"
+            ]
+          }
+        ],
+        "skipped": 1
+      },
+      "merged": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "previous": [
+        "a"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": []
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "a"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "id": "ep-3",
+          "memoryIds": [
+            "b"
+          ]
+        }
+      ],
+      "limit": "1",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-0",
+            "memoryIds": []
+          },
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "a",
+              "b"
+            ]
+          },
+          {
+            "id": "ep-3",
+            "memoryIds": [
+              "b"
+            ]
+          }
+        ],
+        "skipped": 1
+      },
+      "merged": [
+        "b"
+      ]
+    },
+    {
+      "previous": [
+        "a"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": []
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "a"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "id": "ep-3",
+          "memoryIds": [
+            "b"
+          ]
+        }
+      ],
+      "limit": "2",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-0",
+            "memoryIds": []
+          },
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "a",
+              "b"
+            ]
+          },
+          {
+            "id": "ep-3",
+            "memoryIds": [
+              "b"
+            ]
+          }
+        ],
+        "skipped": 1
+      },
+      "merged": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "previous": [
+        "a"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": []
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "a"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "id": "ep-3",
+          "memoryIds": [
+            "b"
+          ]
+        }
+      ],
+      "limit": "3",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-0",
+            "memoryIds": []
+          },
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "a",
+              "b"
+            ]
+          },
+          {
+            "id": "ep-3",
+            "memoryIds": [
+              "b"
+            ]
+          }
+        ],
+        "skipped": 1
+      },
+      "merged": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "previous": [
+        "a"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": []
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "a"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "id": "ep-3",
+          "memoryIds": [
+            "b"
+          ]
+        }
+      ],
+      "limit": "2000",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-0",
+            "memoryIds": []
+          },
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "a",
+              "b"
+            ]
+          },
+          {
+            "id": "ep-3",
+            "memoryIds": [
+              "b"
+            ]
+          }
+        ],
+        "skipped": 1
+      },
+      "merged": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "previous": [
+        "a"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": []
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "a"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "id": "ep-3",
+          "memoryIds": [
+            "b"
+          ]
+        }
+      ],
+      "limit": "NaN",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-0",
+            "memoryIds": []
+          },
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "a",
+              "b"
+            ]
+          },
+          {
+            "id": "ep-3",
+            "memoryIds": [
+              "b"
+            ]
+          }
+        ],
+        "skipped": 1
+      },
+      "merged": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "previous": [
+        "a"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": []
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "a"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "id": "ep-3",
+          "memoryIds": [
+            "b"
+          ]
+        }
+      ],
+      "limit": "Infinity",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-0",
+            "memoryIds": []
+          },
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "a",
+              "b"
+            ]
+          },
+          {
+            "id": "ep-3",
+            "memoryIds": [
+              "b"
+            ]
+          }
+        ],
+        "skipped": 1
+      },
+      "merged": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "previous": [
+        "a"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": []
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "a"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "id": "ep-3",
+          "memoryIds": [
+            "b"
+          ]
+        }
+      ],
+      "limit": "-1",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-0",
+            "memoryIds": []
+          },
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "a",
+              "b"
+            ]
+          },
+          {
+            "id": "ep-3",
+            "memoryIds": [
+              "b"
+            ]
+          }
+        ],
+        "skipped": 1
+      },
+      "merged": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "previous": [
+        "a"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": []
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "a"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "id": "ep-3",
+          "memoryIds": [
+            "b"
+          ]
+        }
+      ],
+      "limit": "1.9",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-0",
+            "memoryIds": []
+          },
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "a",
+              "b"
+            ]
+          },
+          {
+            "id": "ep-3",
+            "memoryIds": [
+              "b"
+            ]
+          }
+        ],
+        "skipped": 1
+      },
+      "merged": [
+        "b"
+      ]
+    },
+    {
+      "previous": [
+        "a",
+        "b"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "b",
+            "a"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "b",
+            "c"
+          ]
+        }
+      ],
+      "limit": "0",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "b",
+              "c"
+            ]
+          }
+        ],
+        "skipped": 2
+      },
+      "merged": [
+        "a",
+        "b",
+        "c"
+      ]
+    },
+    {
+      "previous": [
+        "a",
+        "b"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "b",
+            "a"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "b",
+            "c"
+          ]
+        }
+      ],
+      "limit": "0.5",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "b",
+              "c"
+            ]
+          }
+        ],
+        "skipped": 2
+      },
+      "merged": [
+        "a",
+        "b",
+        "c"
+      ]
+    },
+    {
+      "previous": [
+        "a",
+        "b"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "b",
+            "a"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "b",
+            "c"
+          ]
+        }
+      ],
+      "limit": "1",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "b",
+              "c"
+            ]
+          }
+        ],
+        "skipped": 2
+      },
+      "merged": [
+        "c"
+      ]
+    },
+    {
+      "previous": [
+        "a",
+        "b"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "b",
+            "a"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "b",
+            "c"
+          ]
+        }
+      ],
+      "limit": "2",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "b",
+              "c"
+            ]
+          }
+        ],
+        "skipped": 2
+      },
+      "merged": [
+        "b",
+        "c"
+      ]
+    },
+    {
+      "previous": [
+        "a",
+        "b"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "b",
+            "a"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "b",
+            "c"
+          ]
+        }
+      ],
+      "limit": "3",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "b",
+              "c"
+            ]
+          }
+        ],
+        "skipped": 2
+      },
+      "merged": [
+        "a",
+        "b",
+        "c"
+      ]
+    },
+    {
+      "previous": [
+        "a",
+        "b"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "b",
+            "a"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "b",
+            "c"
+          ]
+        }
+      ],
+      "limit": "2000",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "b",
+              "c"
+            ]
+          }
+        ],
+        "skipped": 2
+      },
+      "merged": [
+        "a",
+        "b",
+        "c"
+      ]
+    },
+    {
+      "previous": [
+        "a",
+        "b"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "b",
+            "a"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "b",
+            "c"
+          ]
+        }
+      ],
+      "limit": "NaN",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "b",
+              "c"
+            ]
+          }
+        ],
+        "skipped": 2
+      },
+      "merged": [
+        "a",
+        "b",
+        "c"
+      ]
+    },
+    {
+      "previous": [
+        "a",
+        "b"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "b",
+            "a"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "b",
+            "c"
+          ]
+        }
+      ],
+      "limit": "Infinity",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "b",
+              "c"
+            ]
+          }
+        ],
+        "skipped": 2
+      },
+      "merged": [
+        "a",
+        "b",
+        "c"
+      ]
+    },
+    {
+      "previous": [
+        "a",
+        "b"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "b",
+            "a"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "b",
+            "c"
+          ]
+        }
+      ],
+      "limit": "-1",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "b",
+              "c"
+            ]
+          }
+        ],
+        "skipped": 2
+      },
+      "merged": [
+        "a",
+        "b",
+        "c"
+      ]
+    },
+    {
+      "previous": [
+        "a",
+        "b"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "b",
+            "a"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "b",
+            "c"
+          ]
+        }
+      ],
+      "limit": "1.9",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "b",
+              "c"
+            ]
+          }
+        ],
+        "skipped": 2
+      },
+      "merged": [
+        "c"
+      ]
+    },
+    {
+      "previous": [
+        "a",
+        "a",
+        "b"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            "a",
+            "c"
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "a",
+            "a"
+          ]
+        }
+      ],
+      "limit": "0",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-0",
+            "memoryIds": [
+              "a",
+              "c"
+            ]
+          }
+        ],
+        "skipped": 1
+      },
+      "merged": [
+        "a",
+        "b",
+        "c"
+      ]
+    },
+    {
+      "previous": [
+        "a",
+        "a",
+        "b"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            "a",
+            "c"
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "a",
+            "a"
+          ]
+        }
+      ],
+      "limit": "0.5",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-0",
+            "memoryIds": [
+              "a",
+              "c"
+            ]
+          }
+        ],
+        "skipped": 1
+      },
+      "merged": [
+        "a",
+        "b",
+        "c"
+      ]
+    },
+    {
+      "previous": [
+        "a",
+        "a",
+        "b"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            "a",
+            "c"
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "a",
+            "a"
+          ]
+        }
+      ],
+      "limit": "1",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-0",
+            "memoryIds": [
+              "a",
+              "c"
+            ]
+          }
+        ],
+        "skipped": 1
+      },
+      "merged": [
+        "c"
+      ]
+    },
+    {
+      "previous": [
+        "a",
+        "a",
+        "b"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            "a",
+            "c"
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "a",
+            "a"
+          ]
+        }
+      ],
+      "limit": "2",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-0",
+            "memoryIds": [
+              "a",
+              "c"
+            ]
+          }
+        ],
+        "skipped": 1
+      },
+      "merged": [
+        "b",
+        "c"
+      ]
+    },
+    {
+      "previous": [
+        "a",
+        "a",
+        "b"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            "a",
+            "c"
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "a",
+            "a"
+          ]
+        }
+      ],
+      "limit": "3",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-0",
+            "memoryIds": [
+              "a",
+              "c"
+            ]
+          }
+        ],
+        "skipped": 1
+      },
+      "merged": [
+        "a",
+        "b",
+        "c"
+      ]
+    },
+    {
+      "previous": [
+        "a",
+        "a",
+        "b"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            "a",
+            "c"
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "a",
+            "a"
+          ]
+        }
+      ],
+      "limit": "2000",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-0",
+            "memoryIds": [
+              "a",
+              "c"
+            ]
+          }
+        ],
+        "skipped": 1
+      },
+      "merged": [
+        "a",
+        "b",
+        "c"
+      ]
+    },
+    {
+      "previous": [
+        "a",
+        "a",
+        "b"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            "a",
+            "c"
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "a",
+            "a"
+          ]
+        }
+      ],
+      "limit": "NaN",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-0",
+            "memoryIds": [
+              "a",
+              "c"
+            ]
+          }
+        ],
+        "skipped": 1
+      },
+      "merged": [
+        "a",
+        "b",
+        "c"
+      ]
+    },
+    {
+      "previous": [
+        "a",
+        "a",
+        "b"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            "a",
+            "c"
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "a",
+            "a"
+          ]
+        }
+      ],
+      "limit": "Infinity",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-0",
+            "memoryIds": [
+              "a",
+              "c"
+            ]
+          }
+        ],
+        "skipped": 1
+      },
+      "merged": [
+        "a",
+        "b",
+        "c"
+      ]
+    },
+    {
+      "previous": [
+        "a",
+        "a",
+        "b"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            "a",
+            "c"
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "a",
+            "a"
+          ]
+        }
+      ],
+      "limit": "-1",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-0",
+            "memoryIds": [
+              "a",
+              "c"
+            ]
+          }
+        ],
+        "skipped": 1
+      },
+      "merged": [
+        "a",
+        "b",
+        "c"
+      ]
+    },
+    {
+      "previous": [
+        "a",
+        "a",
+        "b"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            "a",
+            "c"
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "a",
+            "a"
+          ]
+        }
+      ],
+      "limit": "1.9",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-0",
+            "memoryIds": [
+              "a",
+              "c"
+            ]
+          }
+        ],
+        "skipped": 1
+      },
+      "merged": [
+        "c"
+      ]
+    },
+    {
+      "previous": [
+        "\ud800"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            "\ud800"
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "�"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "\udc00"
+          ]
+        }
+      ],
+      "limit": "0",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-1",
+            "memoryIds": [
+              "�"
+            ]
+          },
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "\udc00"
+            ]
+          }
+        ],
+        "skipped": 1
+      },
+      "merged": [
+        "\ud800",
+        "�",
+        "\udc00"
+      ]
+    },
+    {
+      "previous": [
+        "\ud800"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            "\ud800"
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "�"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "\udc00"
+          ]
+        }
+      ],
+      "limit": "0.5",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-1",
+            "memoryIds": [
+              "�"
+            ]
+          },
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "\udc00"
+            ]
+          }
+        ],
+        "skipped": 1
+      },
+      "merged": [
+        "\ud800",
+        "�",
+        "\udc00"
+      ]
+    },
+    {
+      "previous": [
+        "\ud800"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            "\ud800"
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "�"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "\udc00"
+          ]
+        }
+      ],
+      "limit": "1",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-1",
+            "memoryIds": [
+              "�"
+            ]
+          },
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "\udc00"
+            ]
+          }
+        ],
+        "skipped": 1
+      },
+      "merged": [
+        "\udc00"
+      ]
+    },
+    {
+      "previous": [
+        "\ud800"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            "\ud800"
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "�"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "\udc00"
+          ]
+        }
+      ],
+      "limit": "2",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-1",
+            "memoryIds": [
+              "�"
+            ]
+          },
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "\udc00"
+            ]
+          }
+        ],
+        "skipped": 1
+      },
+      "merged": [
+        "�",
+        "\udc00"
+      ]
+    },
+    {
+      "previous": [
+        "\ud800"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            "\ud800"
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "�"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "\udc00"
+          ]
+        }
+      ],
+      "limit": "3",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-1",
+            "memoryIds": [
+              "�"
+            ]
+          },
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "\udc00"
+            ]
+          }
+        ],
+        "skipped": 1
+      },
+      "merged": [
+        "\ud800",
+        "�",
+        "\udc00"
+      ]
+    },
+    {
+      "previous": [
+        "\ud800"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            "\ud800"
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "�"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "\udc00"
+          ]
+        }
+      ],
+      "limit": "2000",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-1",
+            "memoryIds": [
+              "�"
+            ]
+          },
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "\udc00"
+            ]
+          }
+        ],
+        "skipped": 1
+      },
+      "merged": [
+        "\ud800",
+        "�",
+        "\udc00"
+      ]
+    },
+    {
+      "previous": [
+        "\ud800"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            "\ud800"
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "�"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "\udc00"
+          ]
+        }
+      ],
+      "limit": "NaN",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-1",
+            "memoryIds": [
+              "�"
+            ]
+          },
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "\udc00"
+            ]
+          }
+        ],
+        "skipped": 1
+      },
+      "merged": [
+        "\ud800",
+        "�",
+        "\udc00"
+      ]
+    },
+    {
+      "previous": [
+        "\ud800"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            "\ud800"
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "�"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "\udc00"
+          ]
+        }
+      ],
+      "limit": "Infinity",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-1",
+            "memoryIds": [
+              "�"
+            ]
+          },
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "\udc00"
+            ]
+          }
+        ],
+        "skipped": 1
+      },
+      "merged": [
+        "\ud800",
+        "�",
+        "\udc00"
+      ]
+    },
+    {
+      "previous": [
+        "\ud800"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            "\ud800"
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "�"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "\udc00"
+          ]
+        }
+      ],
+      "limit": "-1",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-1",
+            "memoryIds": [
+              "�"
+            ]
+          },
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "\udc00"
+            ]
+          }
+        ],
+        "skipped": 1
+      },
+      "merged": [
+        "\ud800",
+        "�",
+        "\udc00"
+      ]
+    },
+    {
+      "previous": [
+        "\ud800"
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            "\ud800"
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "�"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "\udc00"
+          ]
+        }
+      ],
+      "limit": "1.9",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-1",
+            "memoryIds": [
+              "�"
+            ]
+          },
+          {
+            "id": "ep-2",
+            "memoryIds": [
+              "\udc00"
+            ]
+          }
+        ],
+        "skipped": 1
+      },
+      "merged": [
+        "\udc00"
+      ]
+    },
+    {
+      "previous": [
+        "__proto__",
+        ""
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            ""
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "constructor"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "__proto__"
+          ]
+        }
+      ],
+      "limit": "0",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-1",
+            "memoryIds": [
+              "constructor"
+            ]
+          }
+        ],
+        "skipped": 2
+      },
+      "merged": [
+        "__proto__",
+        "",
+        "constructor"
+      ]
+    },
+    {
+      "previous": [
+        "__proto__",
+        ""
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            ""
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "constructor"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "__proto__"
+          ]
+        }
+      ],
+      "limit": "0.5",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-1",
+            "memoryIds": [
+              "constructor"
+            ]
+          }
+        ],
+        "skipped": 2
+      },
+      "merged": [
+        "__proto__",
+        "",
+        "constructor"
+      ]
+    },
+    {
+      "previous": [
+        "__proto__",
+        ""
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            ""
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "constructor"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "__proto__"
+          ]
+        }
+      ],
+      "limit": "1",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-1",
+            "memoryIds": [
+              "constructor"
+            ]
+          }
+        ],
+        "skipped": 2
+      },
+      "merged": [
+        "constructor"
+      ]
+    },
+    {
+      "previous": [
+        "__proto__",
+        ""
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            ""
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "constructor"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "__proto__"
+          ]
+        }
+      ],
+      "limit": "2",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-1",
+            "memoryIds": [
+              "constructor"
+            ]
+          }
+        ],
+        "skipped": 2
+      },
+      "merged": [
+        "",
+        "constructor"
+      ]
+    },
+    {
+      "previous": [
+        "__proto__",
+        ""
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            ""
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "constructor"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "__proto__"
+          ]
+        }
+      ],
+      "limit": "3",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-1",
+            "memoryIds": [
+              "constructor"
+            ]
+          }
+        ],
+        "skipped": 2
+      },
+      "merged": [
+        "__proto__",
+        "",
+        "constructor"
+      ]
+    },
+    {
+      "previous": [
+        "__proto__",
+        ""
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            ""
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "constructor"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "__proto__"
+          ]
+        }
+      ],
+      "limit": "2000",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-1",
+            "memoryIds": [
+              "constructor"
+            ]
+          }
+        ],
+        "skipped": 2
+      },
+      "merged": [
+        "__proto__",
+        "",
+        "constructor"
+      ]
+    },
+    {
+      "previous": [
+        "__proto__",
+        ""
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            ""
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "constructor"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "__proto__"
+          ]
+        }
+      ],
+      "limit": "NaN",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-1",
+            "memoryIds": [
+              "constructor"
+            ]
+          }
+        ],
+        "skipped": 2
+      },
+      "merged": [
+        "__proto__",
+        "",
+        "constructor"
+      ]
+    },
+    {
+      "previous": [
+        "__proto__",
+        ""
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            ""
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "constructor"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "__proto__"
+          ]
+        }
+      ],
+      "limit": "Infinity",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-1",
+            "memoryIds": [
+              "constructor"
+            ]
+          }
+        ],
+        "skipped": 2
+      },
+      "merged": [
+        "__proto__",
+        "",
+        "constructor"
+      ]
+    },
+    {
+      "previous": [
+        "__proto__",
+        ""
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            ""
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "constructor"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "__proto__"
+          ]
+        }
+      ],
+      "limit": "-1",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-1",
+            "memoryIds": [
+              "constructor"
+            ]
+          }
+        ],
+        "skipped": 2
+      },
+      "merged": [
+        "__proto__",
+        "",
+        "constructor"
+      ]
+    },
+    {
+      "previous": [
+        "__proto__",
+        ""
+      ],
+      "episodes": [
+        {
+          "id": "ep-0",
+          "memoryIds": [
+            ""
+          ]
+        },
+        {
+          "id": "ep-1",
+          "memoryIds": [
+            "constructor"
+          ]
+        },
+        {
+          "id": "ep-2",
+          "memoryIds": [
+            "__proto__"
+          ]
+        }
+      ],
+      "limit": "1.9",
+      "filtered": {
+        "fresh": [
+          {
+            "id": "ep-1",
+            "memoryIds": [
+              "constructor"
+            ]
+          }
+        ],
+        "skipped": 2
+      },
+      "merged": [
+        "constructor"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "provenance": {
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "node": "v24.21.0",
+    "sourceHashes": {
+      "lib/critical-push-classifier.js": "1157abede407e07ac235bc045c13a8919675bc6d199b14be9f8322d196a6389a",
+      "lib/critical-review.js": "5799feabf5897a6f6514eaf1a995905c1cf3592acf966de63a3c6ac905187fb4",
+      "lib/i18n.js": "f9846591fc0bb8ec21b66c6ec178c1d9be4ef6619d8d7e6fb09ed9923e81e148",
+      "lib/i18n-dictionary.js": "830eaa06fa58847cc0ed813fe4b1797c481c7a68b4dbd9ffbde26f89e7e7fed5",
+      "lib/sql-safety.js": "a6b949df02d29d3ed0494964c004d861d718eeb90abd271410e22a489de1bc62",
+      "lib/log-redact.js": "f64f7d2e2fbf13684ad16fe045a1e43a9755c57be00ee7532479286eed0068e3"
+    }
+  },
+  "promptPrefix": "Du klassifizierst eine NEUE Memory-Karte in genau EINEN Typ. Gib NUR den Typ\nals Antwort, ohne Erklärung, ohne Code-Blocks. Wenn nichts passt: \"fakt\".\n\nMögliche Typen:\n- person:           neue Person mit Identitätsinfo (Name, Rolle)\n- beziehung:        zwischenmenschliche Verbindung (Familie, Partner, Freund)\n- geburtstag:       Geburtstag oder Jahrestag einer Person\n- geld_konto:       Bankkonto, Karte, IBAN, Zahlungsmittel\n- gesundheit:       Diagnose, Medikament, Allergie, Termin\n- zugang_passwort:  enthaelt einen TATSAECHLICH vorhandenen Geheimniswert:\n                    Passwort, API-Key, Token, Zugangscode, Wiederherstellungs-\n                    schluessel. NICHT bei blosser Erwaehnung von Login, Zugriff,\n                    Konten, Profil-, Werkzeug- oder Dienstnamen ohne konkretes\n                    Geheimnis — auch nicht bei der Aufforderung, Zugangsdaten\n                    NICHT zu nennen.\n- fakt:             alles andere (Default)\n\nMemory-Inhalt:\n\"\"\"\n",
+  "promptSuffix": "\n\"\"\"\n\nAntwort (nur ein Typ):"
+}

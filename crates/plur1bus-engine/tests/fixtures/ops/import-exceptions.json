@@ -1,0 +1,50 @@
+{
+  "ruling": "RX ruling 4 / D130 / RE-D33: do not claim or backfill a foreign or forgotten existing card",
+  "nodeGoldenSha256": "aca8b7b57640171e58ab77c61ba41f19952bad6440fc549fe0481109e1c0de69",
+  "cases": [
+    {
+      "name": "foreign-user-existing",
+      "results": [
+        {
+          "value": {
+            "agentId": "agent",
+            "dryRun": false,
+            "created": 0,
+            "matchedExisting": 0,
+            "rejected": 1,
+            "cards": [
+              {
+                "idempotencyKey": "key",
+                "outcome": "rejected",
+                "reason": "principal-unresolved"
+              }
+            ]
+          }
+        }
+      ],
+      "linesJson": "[]"
+    },
+    {
+      "name": "forgotten-live-restored",
+      "results": [
+        {
+          "value": {
+            "agentId": "agent",
+            "dryRun": false,
+            "created": 0,
+            "matchedExisting": 0,
+            "rejected": 1,
+            "cards": [
+              {
+                "idempotencyKey": "key",
+                "outcome": "rejected",
+                "reason": "previously-imported-deleted"
+              }
+            ]
+          }
+        }
+      ],
+      "linesJson": "[]"
+    }
+  ]
+}

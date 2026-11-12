@@ -1,0 +1,1295 @@
+{
+  "provenance": {
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "node": "v24.21.0",
+    "sourceHashes": {
+      "lib/encoding-llm.js": "0f90b70e2edfacb9589540ff6a1444fea77e48983cc67171773d811e15ddcd3d",
+      "lib/memory-fact-quality.js": "05b171bd3ff801f86c6702b65b174b32f45ed4441fe19166f0a30bad9c39e80c",
+      "lib/importance-status.js": "8b7ccd7f9dccdc02d7f157c4ba67e16545ac2953614e1a755cbe17a153082cdc",
+      "lib/memory-dynamics.js": "95c310c6446a168a48333a40d3ad6fcbdd6ce9a54b769a1f1eda04bc3d8495d5",
+      "lib/emotion.js": "4fad4d37803bbee8bf95a8d3db11b5e2fdc3b195d617055a8af63a0d52780c27",
+      "lib/emotion-engine.js": "b8d4e60b785c9d19809b7f2bfe67e6d2871dfb1b4699bd96b6ee666391372557",
+      "lib/emotion-score.js": "4f5aff9b4bb80e9673c2d1d0a748bd69f12979e11241f946e0b43e48a0df3573",
+      "lib/tier1-lexicon.js": "b4f0e03d727355e52806cda8761f4b38c3af3dc064a051f804ed99981b3d09f8",
+      "lib/tier2-transformer.js": "f928294f31e1cf5c69ffff8b3a8c98b42af8ccc4205877036895d35acc13a120",
+      "lib/tier3-llm.js": "7749de629deee9a0cc8cd01dc51cb7bbcc6e5a99256b5eb794abf0fd41ab0dc6",
+      "lib/host-network.js": "360b692df2f2c3dc9761cfe73ca5165da4b5416f8b7778b5ec79b1dd253aaf69",
+      "lib/emotion-blends.js": "653021f8048772dc6a2c1da0e60bfef08250bcd61aacf45ba1a9bf379fa7ca29",
+      "lib/abort.js": "435016008fa477f7ed7d3215505324bb3e7159e123ea553b35fb8a14d5a4055d"
+    }
+  },
+  "parsing": [
+    {
+      "input": "{\"importance\":null,\"intensity\":0.9,\"dominant\":\"FEAR\",\"emotions\":{\"trust\":0.4,\"anger\":0.2},\"reason\":\"public fixture judgment\"}",
+      "line": "{\"ok\":false}"
+    },
+    {
+      "input": "{\"importance\":\"\",\"intensity\":0.9,\"dominant\":\"FEAR\",\"emotions\":{\"trust\":0.4,\"anger\":0.2},\"reason\":\"public fixture judgment\"}",
+      "line": "{\"ok\":false}"
+    },
+    {
+      "input": "{\"importance\":true,\"intensity\":0.9,\"dominant\":\"FEAR\",\"emotions\":{\"trust\":0.4,\"anger\":0.2},\"reason\":\"public fixture judgment\"}",
+      "line": "{\"ok\":false}"
+    },
+    {
+      "input": "{\"importance\":[],\"intensity\":0.9,\"dominant\":\"FEAR\",\"emotions\":{\"trust\":0.4,\"anger\":0.2},\"reason\":\"public fixture judgment\"}",
+      "line": "{\"ok\":false}"
+    },
+    {
+      "input": "{\"importance\":\"0.8\",\"intensity\":0.9,\"dominant\":\"FEAR\",\"emotions\":{\"trust\":0.4,\"anger\":0.2},\"reason\":\"public fixture judgment\"}",
+      "line": "{\"ok\":false}"
+    },
+    {
+      "input": "{\"importance\":0,\"intensity\":0.9,\"dominant\":\"FEAR\",\"emotions\":{\"trust\":0.4,\"anger\":0.2},\"reason\":\"public fixture judgment\"}",
+      "line": "{\"ok\":true,\"importance\":0,\"emotion\":{\"emotionalDominant\":\"fear\",\"emotionalIntensity\":0.9,\"joy\":0,\"trust\":0.4,\"anticipation\":0,\"sadness\":0,\"disgust\":0,\"anger\":0.2,\"fear\":0.9,\"surprise\":0},\"reason\":\"public fixture judgment\"}"
+    },
+    {
+      "input": "{\"importance\":-1,\"intensity\":0.9,\"dominant\":\"FEAR\",\"emotions\":{\"trust\":0.4,\"anger\":0.2},\"reason\":\"public fixture judgment\"}",
+      "line": "{\"ok\":true,\"importance\":0,\"emotion\":{\"emotionalDominant\":\"fear\",\"emotionalIntensity\":0.9,\"joy\":0,\"trust\":0.4,\"anticipation\":0,\"sadness\":0,\"disgust\":0,\"anger\":0.2,\"fear\":0.9,\"surprise\":0},\"reason\":\"public fixture judgment\"}"
+    },
+    {
+      "input": "{\"importance\":0.39999999999999997,\"intensity\":0.9,\"dominant\":\"FEAR\",\"emotions\":{\"trust\":0.4,\"anger\":0.2},\"reason\":\"public fixture judgment\"}",
+      "line": "{\"ok\":true,\"importance\":0.39999999999999997,\"emotion\":{\"emotionalDominant\":\"fear\",\"emotionalIntensity\":0.9,\"joy\":0,\"trust\":0.4,\"anticipation\":0,\"sadness\":0,\"disgust\":0,\"anger\":0.2,\"fear\":0.9,\"surprise\":0},\"reason\":\"public fixture judgment\"}"
+    },
+    {
+      "input": "{\"importance\":0.4,\"intensity\":0.9,\"dominant\":\"FEAR\",\"emotions\":{\"trust\":0.4,\"anger\":0.2},\"reason\":\"public fixture judgment\"}",
+      "line": "{\"ok\":true,\"importance\":0.4,\"emotion\":{\"emotionalDominant\":\"fear\",\"emotionalIntensity\":0.9,\"joy\":0,\"trust\":0.4,\"anticipation\":0,\"sadness\":0,\"disgust\":0,\"anger\":0.2,\"fear\":0.9,\"surprise\":0},\"reason\":\"public fixture judgment\"}"
+    },
+    {
+      "input": "{\"importance\":0.7,\"intensity\":0.9,\"dominant\":\"FEAR\",\"emotions\":{\"trust\":0.4,\"anger\":0.2},\"reason\":\"public fixture judgment\"}",
+      "line": "{\"ok\":true,\"importance\":0.7,\"emotion\":{\"emotionalDominant\":\"fear\",\"emotionalIntensity\":0.9,\"joy\":0,\"trust\":0.4,\"anticipation\":0,\"sadness\":0,\"disgust\":0,\"anger\":0.2,\"fear\":0.9,\"surprise\":0},\"reason\":\"public fixture judgment\"}"
+    },
+    {
+      "input": "{\"importance\":0.94,\"intensity\":0.9,\"dominant\":\"FEAR\",\"emotions\":{\"trust\":0.4,\"anger\":0.2},\"reason\":\"public fixture judgment\"}",
+      "line": "{\"ok\":true,\"importance\":0.94,\"emotion\":{\"emotionalDominant\":\"fear\",\"emotionalIntensity\":0.9,\"joy\":0,\"trust\":0.4,\"anticipation\":0,\"sadness\":0,\"disgust\":0,\"anger\":0.2,\"fear\":0.9,\"surprise\":0},\"reason\":\"public fixture judgment\"}"
+    },
+    {
+      "input": "{\"importance\":0.95,\"intensity\":0.9,\"dominant\":\"FEAR\",\"emotions\":{\"trust\":0.4,\"anger\":0.2},\"reason\":\"public fixture judgment\"}",
+      "line": "{\"ok\":true,\"importance\":0.94,\"emotion\":{\"emotionalDominant\":\"fear\",\"emotionalIntensity\":0.9,\"joy\":0,\"trust\":0.4,\"anticipation\":0,\"sadness\":0,\"disgust\":0,\"anger\":0.2,\"fear\":0.9,\"surprise\":0},\"reason\":\"public fixture judgment\"}"
+    },
+    {
+      "input": "{\"importance\":1,\"intensity\":0.9,\"dominant\":\"FEAR\",\"emotions\":{\"trust\":0.4,\"anger\":0.2},\"reason\":\"public fixture judgment\"}",
+      "line": "{\"ok\":true,\"importance\":0.94,\"emotion\":{\"emotionalDominant\":\"fear\",\"emotionalIntensity\":0.9,\"joy\":0,\"trust\":0.4,\"anticipation\":0,\"sadness\":0,\"disgust\":0,\"anger\":0.2,\"fear\":0.9,\"surprise\":0},\"reason\":\"public fixture judgment\"}"
+    },
+    {
+      "input": "{\"importance\":1e999}",
+      "line": "{\"ok\":false}"
+    },
+    {
+      "input": "{\"importance\":0.8,\"intensity\":1e999}",
+      "line": "{\"ok\":true,\"importance\":0.8,\"emotion\":{\"emotionalDominant\":\"neutral\",\"emotionalIntensity\":0,\"joy\":0,\"trust\":0,\"anticipation\":0,\"sadness\":0,\"disgust\":0,\"anger\":0,\"fear\":0,\"surprise\":0},\"reason\":\"\"}"
+    },
+    {
+      "input": "{\"importance\":0.8,\"intensity\":\"1\",\"dominant\":[\"joy\"],\"emotions\":{\"joy\":true,\"anger\":\"0.9\",\"trust\":0.5}}",
+      "line": "{\"ok\":true,\"importance\":0.8,\"emotion\":{\"emotionalDominant\":\"joy\",\"emotionalIntensity\":0,\"joy\":0,\"trust\":0.5,\"anticipation\":0,\"sadness\":0,\"disgust\":0,\"anger\":0,\"fear\":0,\"surprise\":0},\"reason\":\"\"}"
+    },
+    {
+      "input": "{\"importance\":0.8,\"intensity\":0.9,\"dominant\":\"joy\",\"reason\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx😀\"}",
+      "line": "{\"ok\":true,\"importance\":0.8,\"emotion\":{\"emotionalDominant\":\"joy\",\"emotionalIntensity\":0.9,\"joy\":0.9,\"trust\":0,\"anticipation\":0,\"sadness\":0,\"disgust\":0,\"anger\":0,\"fear\":0,\"surprise\":0},\"reason\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\ud83d\"}"
+    },
+    {
+      "input": "prefix {\"importance\":0.2} suffix",
+      "line": "{\"ok\":true,\"importance\":0.2,\"emotion\":{\"emotionalDominant\":\"neutral\",\"emotionalIntensity\":0,\"joy\":0,\"trust\":0,\"anticipation\":0,\"sadness\":0,\"disgust\":0,\"anger\":0,\"fear\":0,\"surprise\":0},\"reason\":\"\"}"
+    },
+    {
+      "input": "{\"importance\":0.2} {\"importance\":0.3}",
+      "line": "{\"ok\":false}"
+    }
+  ],
+  "refinement": [
+    {
+      "row": {},
+      "encoding": {
+        "ok": true,
+        "importance": 0.2,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": false
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\",\"importance\":0.2,\"halfLifeDays\":30,\"coreMemoryReason\":\"fixture explanation\"}"
+    },
+    {
+      "row": {},
+      "encoding": {
+        "ok": true,
+        "importance": 0.2,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": true
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\",\"importance\":0.2,\"halfLifeDays\":30,\"coreMemoryReason\":\"fixture explanation\"}"
+    },
+    {
+      "row": {},
+      "encoding": {
+        "ok": true,
+        "importance": 0.5,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": false
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\",\"importance\":0.5,\"halfLifeDays\":180,\"coreMemoryReason\":\"fixture explanation\"}"
+    },
+    {
+      "row": {},
+      "encoding": {
+        "ok": true,
+        "importance": 0.5,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": true
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\",\"importance\":0.5,\"halfLifeDays\":180,\"coreMemoryReason\":\"fixture explanation\"}"
+    },
+    {
+      "row": {},
+      "encoding": {
+        "ok": true,
+        "importance": 0.8,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": false
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\",\"importance\":0.8,\"halfLifeDays\":600,\"coreMemoryReason\":\"fixture explanation\"}"
+    },
+    {
+      "row": {},
+      "encoding": {
+        "ok": true,
+        "importance": 0.8,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": true
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\",\"importance\":0.8,\"halfLifeDays\":3650,\"coreMemoryReason\":\"fixture explanation\",\"memoryStrength\":0.95,\"lastStrengthenedAt\":1710000000000,\"lastDynamicsAt\":1710000000000,\"memoryClass\":\"flashbulb\"}"
+    },
+    {
+      "row": {},
+      "encoding": {
+        "ok": true,
+        "importance": 0.94,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": false
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\",\"importance\":0.94,\"halfLifeDays\":600,\"coreMemoryReason\":\"fixture explanation\"}"
+    },
+    {
+      "row": {},
+      "encoding": {
+        "ok": true,
+        "importance": 0.94,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": true
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\",\"importance\":0.94,\"halfLifeDays\":3650,\"coreMemoryReason\":\"fixture explanation\",\"memoryStrength\":0.95,\"lastStrengthenedAt\":1710000000000,\"lastDynamicsAt\":1710000000000,\"memoryClass\":\"flashbulb\"}"
+    },
+    {
+      "row": {
+        "importance": 0.94,
+        "memoryStrength": 0.8
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.2,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": false
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\",\"importance\":0.2,\"halfLifeDays\":30,\"coreMemoryReason\":\"fixture explanation\"}"
+    },
+    {
+      "row": {
+        "importance": 0.94,
+        "memoryStrength": 0.8
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.2,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": true
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\",\"importance\":0.2,\"halfLifeDays\":30,\"coreMemoryReason\":\"fixture explanation\"}"
+    },
+    {
+      "row": {
+        "importance": 0.94,
+        "memoryStrength": 0.8
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.5,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": false
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\",\"importance\":0.5,\"halfLifeDays\":180,\"coreMemoryReason\":\"fixture explanation\"}"
+    },
+    {
+      "row": {
+        "importance": 0.94,
+        "memoryStrength": 0.8
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.5,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": true
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\",\"importance\":0.5,\"halfLifeDays\":180,\"coreMemoryReason\":\"fixture explanation\"}"
+    },
+    {
+      "row": {
+        "importance": 0.94,
+        "memoryStrength": 0.8
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.8,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": false
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\",\"importance\":0.8,\"halfLifeDays\":600,\"coreMemoryReason\":\"fixture explanation\"}"
+    },
+    {
+      "row": {
+        "importance": 0.94,
+        "memoryStrength": 0.8
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.8,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": true
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\",\"importance\":0.8,\"halfLifeDays\":3650,\"coreMemoryReason\":\"fixture explanation\",\"memoryStrength\":0.95,\"lastStrengthenedAt\":1710000000000,\"lastDynamicsAt\":1710000000000,\"memoryClass\":\"flashbulb\"}"
+    },
+    {
+      "row": {
+        "importance": 0.94,
+        "memoryStrength": 0.8
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.94,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": false
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\",\"importance\":0.94,\"halfLifeDays\":600,\"coreMemoryReason\":\"fixture explanation\"}"
+    },
+    {
+      "row": {
+        "importance": 0.94,
+        "memoryStrength": 0.8
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.94,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": true
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\",\"importance\":0.94,\"halfLifeDays\":3650,\"coreMemoryReason\":\"fixture explanation\",\"memoryStrength\":0.95,\"lastStrengthenedAt\":1710000000000,\"lastDynamicsAt\":1710000000000,\"memoryClass\":\"flashbulb\"}"
+    },
+    {
+      "row": {
+        "importance": 0.95,
+        "memoryStrength": 0.2,
+        "updateSource": "keep",
+        "updateEvidence": "keep",
+        "coreMemoryReason": "manual marker"
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.2,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": false
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\"}"
+    },
+    {
+      "row": {
+        "importance": 0.95,
+        "memoryStrength": 0.2,
+        "updateSource": "keep",
+        "updateEvidence": "keep",
+        "coreMemoryReason": "manual marker"
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.2,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": true
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\"}"
+    },
+    {
+      "row": {
+        "importance": 0.95,
+        "memoryStrength": 0.2,
+        "updateSource": "keep",
+        "updateEvidence": "keep",
+        "coreMemoryReason": "manual marker"
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.5,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": false
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\"}"
+    },
+    {
+      "row": {
+        "importance": 0.95,
+        "memoryStrength": 0.2,
+        "updateSource": "keep",
+        "updateEvidence": "keep",
+        "coreMemoryReason": "manual marker"
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.5,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": true
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\"}"
+    },
+    {
+      "row": {
+        "importance": 0.95,
+        "memoryStrength": 0.2,
+        "updateSource": "keep",
+        "updateEvidence": "keep",
+        "coreMemoryReason": "manual marker"
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.8,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": false
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\"}"
+    },
+    {
+      "row": {
+        "importance": 0.95,
+        "memoryStrength": 0.2,
+        "updateSource": "keep",
+        "updateEvidence": "keep",
+        "coreMemoryReason": "manual marker"
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.8,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": true
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\"}"
+    },
+    {
+      "row": {
+        "importance": 0.95,
+        "memoryStrength": 0.2,
+        "updateSource": "keep",
+        "updateEvidence": "keep",
+        "coreMemoryReason": "manual marker"
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.94,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": false
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\"}"
+    },
+    {
+      "row": {
+        "importance": 0.95,
+        "memoryStrength": 0.2,
+        "updateSource": "keep",
+        "updateEvidence": "keep",
+        "coreMemoryReason": "manual marker"
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.94,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": true
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\"}"
+    },
+    {
+      "row": {
+        "importance": "0x1",
+        "memoryStrength": 0.99
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.2,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": false
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\"}"
+    },
+    {
+      "row": {
+        "importance": "0x1",
+        "memoryStrength": 0.99
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.2,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": true
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\"}"
+    },
+    {
+      "row": {
+        "importance": "0x1",
+        "memoryStrength": 0.99
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.5,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": false
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\"}"
+    },
+    {
+      "row": {
+        "importance": "0x1",
+        "memoryStrength": 0.99
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.5,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": true
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\"}"
+    },
+    {
+      "row": {
+        "importance": "0x1",
+        "memoryStrength": 0.99
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.8,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": false
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\"}"
+    },
+    {
+      "row": {
+        "importance": "0x1",
+        "memoryStrength": 0.99
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.8,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": true
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\"}"
+    },
+    {
+      "row": {
+        "importance": "0x1",
+        "memoryStrength": 0.99
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.94,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": false
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\"}"
+    },
+    {
+      "row": {
+        "importance": "0x1",
+        "memoryStrength": 0.99
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.94,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": true
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\"}"
+    },
+    {
+      "row": {
+        "importance": 0.2,
+        "memoryStrength": 0.99,
+        "lastDynamicsAt": 123
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.2,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": false
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\",\"importance\":0.2,\"halfLifeDays\":30,\"coreMemoryReason\":\"fixture explanation\"}"
+    },
+    {
+      "row": {
+        "importance": 0.2,
+        "memoryStrength": 0.99,
+        "lastDynamicsAt": 123
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.2,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": true
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\",\"importance\":0.2,\"halfLifeDays\":30,\"coreMemoryReason\":\"fixture explanation\"}"
+    },
+    {
+      "row": {
+        "importance": 0.2,
+        "memoryStrength": 0.99,
+        "lastDynamicsAt": 123
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.5,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": false
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\",\"importance\":0.5,\"halfLifeDays\":180,\"coreMemoryReason\":\"fixture explanation\"}"
+    },
+    {
+      "row": {
+        "importance": 0.2,
+        "memoryStrength": 0.99,
+        "lastDynamicsAt": 123
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.5,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": true
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\",\"importance\":0.5,\"halfLifeDays\":180,\"coreMemoryReason\":\"fixture explanation\"}"
+    },
+    {
+      "row": {
+        "importance": 0.2,
+        "memoryStrength": 0.99,
+        "lastDynamicsAt": 123
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.8,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": false
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\",\"importance\":0.8,\"halfLifeDays\":600,\"coreMemoryReason\":\"fixture explanation\"}"
+    },
+    {
+      "row": {
+        "importance": 0.2,
+        "memoryStrength": 0.99,
+        "lastDynamicsAt": 123
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.8,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": true
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\",\"importance\":0.8,\"halfLifeDays\":3650,\"coreMemoryReason\":\"fixture explanation\",\"memoryStrength\":0.99,\"lastStrengthenedAt\":1710000000000,\"lastDynamicsAt\":1710000000000,\"memoryClass\":\"flashbulb\"}"
+    },
+    {
+      "row": {
+        "importance": 0.2,
+        "memoryStrength": 0.99,
+        "lastDynamicsAt": 123
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.94,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": false
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\",\"importance\":0.94,\"halfLifeDays\":600,\"coreMemoryReason\":\"fixture explanation\"}"
+    },
+    {
+      "row": {
+        "importance": 0.2,
+        "memoryStrength": 0.99,
+        "lastDynamicsAt": 123
+      },
+      "encoding": {
+        "ok": true,
+        "importance": 0.94,
+        "emotion": {
+          "emotionalDominant": "fear",
+          "emotionalIntensity": 0.95,
+          "joy": 0,
+          "trust": 0.4,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0.95,
+          "surprise": 0
+        },
+        "reason": "fixture explanation"
+      },
+      "options": {
+        "flashbulbEncodingEnabled": true
+      },
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"trust:0.40,fear:0.95\",\"emotionalIntensity\":0.95,\"emotionalDominant\":\"fear\",\"importance\":0.94,\"halfLifeDays\":3650,\"coreMemoryReason\":\"fixture explanation\",\"memoryStrength\":0.99,\"lastStrengthenedAt\":1710000000000,\"lastDynamicsAt\":1710000000000,\"memoryClass\":\"flashbulb\"}"
+    },
+    {
+      "row": {},
+      "encoding": {
+        "ok": true,
+        "importance": 0.8,
+        "emotion": {
+          "emotionalDominant": "joy",
+          "emotionalIntensity": 0.9,
+          "joy": 0.9,
+          "trust": 0,
+          "anticipation": 0,
+          "sadness": 0,
+          "disgust": 0,
+          "anger": 0,
+          "fear": 0,
+          "surprise": 0
+        },
+        "reason": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\ud83d"
+      },
+      "options": {},
+      "line": "{\"importanceStatus\":\"final\",\"emotionStatus\":\"final\",\"emotionalValence\":\"joy:0.90\",\"emotionalIntensity\":0.9,\"emotionalDominant\":\"joy\",\"importance\":0.8,\"halfLifeDays\":600,\"coreMemoryReason\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\ud83d\"}",
+      "unicodeBoundary": true
+    }
+  ],
+  "calls": [
+    {
+      "mode": "missing",
+      "messages": null,
+      "promptHash": null,
+      "line": "{\"ok\":false,\"callFailed\":true}"
+    },
+    {
+      "mode": "throw",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Du bewertest Erinnerungen eines persönlichen Assistenten. Antworte ausschließlich mit JSON."
+        },
+        {
+          "role": "user",
+          "content": "Du bewertest eine einzelne Erinnerung eines persönlichen Assistenten.\nAntworte ausschließlich mit JSON, ohne Rahmen und ohne Erklärung davor oder danach.\n\nFelder:\n  importance: 0.0 bis 0.94 — wie bedeutsam diese Erinnerung für den Nutzer langfristig ist.\n    0.1 beiläufiges Gespräch, 0.5 nützlich, 0.8 wichtige Tatsache über Person oder Vorhaben.\n  intensity: 0.0 bis 1.0 — wie stark die Erinnerung emotional aufgeladen ist.\n  dominant: eine von joy, trust, anticipation, sadness, disgust, anger, fear, surprise oder neutral.\n  emotions: Objekt mit NUR den Dimensionen, die tatsächlich mitschwingen, je mit einem Wert 0.0 bis 1.0 (mögliche Dimensionen: joy, trust, anticipation, sadness, disgust, anger, fear, surprise). Nicht mitschwingende Dimensionen weglassen, nicht mit 0 auffüllen; bei einer neutralen Erinnerung ein leeres Objekt {}.\n  reason: ein kurzer Satz, warum.\n\nErinnerung:\nA public fixture memory."
+        }
+      ],
+      "promptHash": "fcadb4b1c4c7d1963da0b15e941721200d3fea9111b438e6e6a1848d997eb9b8",
+      "line": "{\"ok\":false,\"callFailed\":true}"
+    },
+    {
+      "mode": "empty",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Du bewertest Erinnerungen eines persönlichen Assistenten. Antworte ausschließlich mit JSON."
+        },
+        {
+          "role": "user",
+          "content": "Du bewertest eine einzelne Erinnerung eines persönlichen Assistenten.\nAntworte ausschließlich mit JSON, ohne Rahmen und ohne Erklärung davor oder danach.\n\nFelder:\n  importance: 0.0 bis 0.94 — wie bedeutsam diese Erinnerung für den Nutzer langfristig ist.\n    0.1 beiläufiges Gespräch, 0.5 nützlich, 0.8 wichtige Tatsache über Person oder Vorhaben.\n  intensity: 0.0 bis 1.0 — wie stark die Erinnerung emotional aufgeladen ist.\n  dominant: eine von joy, trust, anticipation, sadness, disgust, anger, fear, surprise oder neutral.\n  emotions: Objekt mit NUR den Dimensionen, die tatsächlich mitschwingen, je mit einem Wert 0.0 bis 1.0 (mögliche Dimensionen: joy, trust, anticipation, sadness, disgust, anger, fear, surprise). Nicht mitschwingende Dimensionen weglassen, nicht mit 0 auffüllen; bei einer neutralen Erinnerung ein leeres Objekt {}.\n  reason: ein kurzer Satz, warum.\n\nErinnerung:\nA public fixture memory."
+        }
+      ],
+      "promptHash": "fcadb4b1c4c7d1963da0b15e941721200d3fea9111b438e6e6a1848d997eb9b8",
+      "line": "{\"ok\":false,\"callFailed\":true}"
+    },
+    {
+      "mode": "invalid",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Du bewertest Erinnerungen eines persönlichen Assistenten. Antworte ausschließlich mit JSON."
+        },
+        {
+          "role": "user",
+          "content": "Du bewertest eine einzelne Erinnerung eines persönlichen Assistenten.\nAntworte ausschließlich mit JSON, ohne Rahmen und ohne Erklärung davor oder danach.\n\nFelder:\n  importance: 0.0 bis 0.94 — wie bedeutsam diese Erinnerung für den Nutzer langfristig ist.\n    0.1 beiläufiges Gespräch, 0.5 nützlich, 0.8 wichtige Tatsache über Person oder Vorhaben.\n  intensity: 0.0 bis 1.0 — wie stark die Erinnerung emotional aufgeladen ist.\n  dominant: eine von joy, trust, anticipation, sadness, disgust, anger, fear, surprise oder neutral.\n  emotions: Objekt mit NUR den Dimensionen, die tatsächlich mitschwingen, je mit einem Wert 0.0 bis 1.0 (mögliche Dimensionen: joy, trust, anticipation, sadness, disgust, anger, fear, surprise). Nicht mitschwingende Dimensionen weglassen, nicht mit 0 auffüllen; bei einer neutralen Erinnerung ein leeres Objekt {}.\n  reason: ein kurzer Satz, warum.\n\nErinnerung:\nA public fixture memory."
+        }
+      ],
+      "promptHash": "fcadb4b1c4c7d1963da0b15e941721200d3fea9111b438e6e6a1848d997eb9b8",
+      "line": "{\"ok\":false}"
+    },
+    {
+      "mode": "refused",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Du bewertest Erinnerungen eines persönlichen Assistenten. Antworte ausschließlich mit JSON."
+        },
+        {
+          "role": "user",
+          "content": "Du bewertest eine einzelne Erinnerung eines persönlichen Assistenten.\nAntworte ausschließlich mit JSON, ohne Rahmen und ohne Erklärung davor oder danach.\n\nFelder:\n  importance: 0.0 bis 0.94 — wie bedeutsam diese Erinnerung für den Nutzer langfristig ist.\n    0.1 beiläufiges Gespräch, 0.5 nützlich, 0.8 wichtige Tatsache über Person oder Vorhaben.\n  intensity: 0.0 bis 1.0 — wie stark die Erinnerung emotional aufgeladen ist.\n  dominant: eine von joy, trust, anticipation, sadness, disgust, anger, fear, surprise oder neutral.\n  emotions: Objekt mit NUR den Dimensionen, die tatsächlich mitschwingen, je mit einem Wert 0.0 bis 1.0 (mögliche Dimensionen: joy, trust, anticipation, sadness, disgust, anger, fear, surprise). Nicht mitschwingende Dimensionen weglassen, nicht mit 0 auffüllen; bei einer neutralen Erinnerung ein leeres Objekt {}.\n  reason: ein kurzer Satz, warum.\n\nErinnerung:\nA public fixture memory."
+        }
+      ],
+      "promptHash": "fcadb4b1c4c7d1963da0b15e941721200d3fea9111b438e6e6a1848d997eb9b8",
+      "line": "{\"ok\":false}"
+    },
+    {
+      "mode": "valid",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Du bewertest Erinnerungen eines persönlichen Assistenten. Antworte ausschließlich mit JSON."
+        },
+        {
+          "role": "user",
+          "content": "Du bewertest eine einzelne Erinnerung eines persönlichen Assistenten.\nAntworte ausschließlich mit JSON, ohne Rahmen und ohne Erklärung davor oder danach.\n\nFelder:\n  importance: 0.0 bis 0.94 — wie bedeutsam diese Erinnerung für den Nutzer langfristig ist.\n    0.1 beiläufiges Gespräch, 0.5 nützlich, 0.8 wichtige Tatsache über Person oder Vorhaben.\n  intensity: 0.0 bis 1.0 — wie stark die Erinnerung emotional aufgeladen ist.\n  dominant: eine von joy, trust, anticipation, sadness, disgust, anger, fear, surprise oder neutral.\n  emotions: Objekt mit NUR den Dimensionen, die tatsächlich mitschwingen, je mit einem Wert 0.0 bis 1.0 (mögliche Dimensionen: joy, trust, anticipation, sadness, disgust, anger, fear, surprise). Nicht mitschwingende Dimensionen weglassen, nicht mit 0 auffüllen; bei einer neutralen Erinnerung ein leeres Objekt {}.\n  reason: ein kurzer Satz, warum.\n\nErinnerung:\nA public fixture memory."
+        }
+      ],
+      "promptHash": "fcadb4b1c4c7d1963da0b15e941721200d3fea9111b438e6e6a1848d997eb9b8",
+      "line": "{\"ok\":true,\"importance\":0.8,\"emotion\":{\"emotionalDominant\":\"trust\",\"emotionalIntensity\":0.7,\"joy\":0,\"trust\":0.7,\"anticipation\":0,\"sadness\":0,\"disgust\":0,\"anger\":0,\"fear\":0,\"surprise\":0},\"reason\":\"\"}"
+    }
+  ]
+}

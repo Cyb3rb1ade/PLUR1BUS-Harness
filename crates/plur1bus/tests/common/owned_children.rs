@@ -44,7 +44,7 @@ fn peers(home: &std::path::Path) -> Vec<(u32, plur1bus_rpc::process::Incarnation
         let Some(role) = name.strip_suffix(".pid") else {
             continue;
         };
-        if !["core", "tools", "api"].contains(&role) && !role.starts_with("module-") {
+        if !["core", "tools", "api", "engine"].contains(&role) && !role.starts_with("module-") {
             continue;
         }
         let Some(pid) = recorded(&entry.path()) else {

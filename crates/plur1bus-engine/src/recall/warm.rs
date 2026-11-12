@@ -87,7 +87,7 @@ fn result(attempt: Result<(), RenderError>) -> Result<RenderedRecall, RenderErro
         Err(RenderError::Unavailable(detail)) => Some(RenderDegraded {
             reason: "warm-failed".into(),
             capability: "recall".into(),
-            detail: JsString::from(detail).utf16_slice(0, 200),
+            detail: super::output_unicode::well_formed(JsString::from(detail).utf16_slice(0, 200)),
         }),
         Err(
             error @ (RenderError::InvalidTimestamp

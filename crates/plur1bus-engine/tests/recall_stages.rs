@@ -92,6 +92,32 @@ fn knowledge_section_failed_not_cached_matches_the_node_stage_golden() {
 }
 
 #[test]
+fn partial_knowledge_failure_serves_successes_and_retries_before_caching() {
+    use plur1bus_engine::recall::knowledge::search_canonical;
+    let root = support::canonical_tempdir();
+    fs::create_dir(root.path().join("memory")).unwrap();
+    fs::write(root.path().join("memory/KNOWLEDGE.md"),
+        "# First section\nThe first synthetic section must be retried after failure.\n# Second section\nThe second synthetic section can be served immediately.\n").unwrap();
+    let embedder = ScriptedEmbedder::new(
+        &json!({"queryVector":{"op":"hash","text":"fixture"},"knowledge":{"failEmbeds":1}}),
+    );
+    let query = to_f32(&hash_unit("fixture"));
+    let first = search_canonical(root.path(), &query, &embedder, -1.0, 5, true);
+    assert_eq!(first.len(), 1);
+    assert_eq!(first[0].heading, "Second section");
+    assert_eq!(cached_chunk_count(root.path()), None);
+    let retried = search_canonical(root.path(), &query, &embedder, -1.0, 5, true);
+    assert_eq!(retried.len(), 2);
+    assert_eq!(cached_chunk_count(root.path()), Some(2));
+    embedder.passage_failures.store(10, Ordering::SeqCst);
+    assert_eq!(
+        search_canonical(root.path(), &query, &embedder, -1.0, 5, true),
+        retried
+    );
+    assert_eq!(embedder.passage_failures.load(Ordering::SeqCst), 10);
+}
+
+#[test]
 fn graph_spread_adds_neighbours_matches_the_node_stage_golden() {
     assert_scenario("graph-spread-adds-neighbours");
 }
@@ -187,6 +213,8 @@ fn assert_scenario(name: &str) {
                 context: &context,
                 workspace_dir: workspace.as_deref(),
                 edges: &edges,
+                bound_graph: None,
+                tombstones: None,
                 limits: limits_of(&scenario),
                 flags: flags_of(&scenario),
                 clocks: clocks_of(&scenario),

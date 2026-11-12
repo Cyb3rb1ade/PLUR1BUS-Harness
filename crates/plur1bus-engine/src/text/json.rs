@@ -6,6 +6,9 @@
 //! byte-identically.
 
 use std::fmt;
+#[path = "json_exact.rs"]
+mod exact;
+pub use exact::parse_exact;
 
 use crate::text::js::JsString;
 

@@ -1,0 +1,10 @@
+{
+  "decision": "RE-D59 / RX Ruling 4 / D130",
+  "nodeGoldenSha256": "9dc448ffb1f4052f7e6574b50c4e93681be8975e9999e0e0d1033dd247919432",
+  "reason": "Global index selection and diagnostics consider only authenticated latest revisions; foreign records must neither contribute counts nor consume the candidate cap. Expected corrected observations were separately executed on the actual Node function with the authorized source set, not handwritten.",
+  "authorizedSourceCases": [
+    "foreign",
+    "latest-revoked",
+    "foreign-cap-starvation"
+  ]
+}

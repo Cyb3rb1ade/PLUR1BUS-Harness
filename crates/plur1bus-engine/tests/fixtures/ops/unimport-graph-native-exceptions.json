@@ -1,0 +1,28 @@
+{
+  "decision": "RE-D129",
+  "nodeGoldenSha256": "3e060b36afc57d06ac983f47dc970acd5936a4ba650374a1e7a155ad2a4e9afb",
+  "sourceCommit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+  "nativeExceptions": [
+    {
+      "name": "original-caller-authority",
+      "reason": "Actual Node removes every matching source/target without per-record owner binding. Native requires the original caller, pinned workspace/base, private owner-bound deleted card and private owner-bound edge/peers. A request principal does not replace the original operator. Blocked matching edges remain byte-identical and contribute one cleanup error.",
+      "cost": "Directory/policy checks and bounded source reads, repeated Lance row fingerprints before publication."
+    },
+    {
+      "name": "opaque-byte-preservation",
+      "reason": "Actual Node drops blank lines and completes a partial tail when rewriting. Native preserves every retained byte, including malformed, incomplete and duplicate-key records; only complete unambiguous string-ID records are eligible. No numeric-ID coercion.",
+      "cost": "64 MiB/50000 physical-line limit; no append retention/cap during shrinking cleanup."
+    },
+    {
+      "name": "source-and-lease-fencing",
+      "reason": "Native retains the original file descriptor, source identity/digest and exact bytes; rechecks caller, config, policy, import lease and row fingerprints before private synced replacement. Failures after card rollback are reported for retry, without undoing the completed rollback.",
+      "cost": "Private staging and extra I/O; no atomic CAS against a noncooperating writer after the final check."
+    }
+  ],
+  "boundaries": [
+    "Canonical graph only, as in Node; legacy aliases are not modified.",
+    "Vault mirror authority remains F14, no migration of ownerless approvals.",
+    "Three recorded Node vectors are exercised with explicit native ownership stamping; remaining recorded anomalies are retained as reference and covered by separate native refusal/preservation tests.",
+    "Frozen agent-private import rows lack user/workspace evidence. Their graph cleanup reports failure and preserves edges; edge stamping cannot invent row authority. No import binding change is implied."
+  ]
+}

@@ -347,6 +347,11 @@ pub fn run(out: &Out, layout: &Layout) -> ! {
     }
     cmd.envs(core_env(layout, imp));
     let node = program;
+    // RE-D173: with the Rust engine selected `core run` stays as the engine's owner; otherwise the start below is
+    // unchanged (after one config read, one UUID and one try-lock on run/engine.process.lock; nothing waits).
+    if let Some(engine) = crate::engine_owner::prepare(out, layout) {
+        crate::engine_owner::run(out, layout, engine, cmd, &node);
+    }
     #[cfg(unix)]
     {
         use std::os::unix::process::CommandExt;

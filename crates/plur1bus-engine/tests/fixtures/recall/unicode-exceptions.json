@@ -1,0 +1,209 @@
+{
+  "ruling": "RE-D17/F3/F5",
+  "authority": "Controller 2026-11-08 04:55 / 05:45",
+  "reason": "Visible UTF-16 budget cuts and unhashed canonical diagnostic IDs stop before a split pair; actual hashes and persisted identities retain Node semantics.",
+  "traceGoldenSha256": "7730f08b42e25464c3d9548ec21fbfceacfb0038c9249463a44acc798f42522e",
+  "canonicalIdGoldenSha256": "5ebe4602c900178a18ea96f8f4cbb8e06318475fc30ac314fa0122aeab6e29bd",
+  "cases": [
+    {
+      "golden": "render-plain",
+      "variant": "canonical-heading-surrogate",
+      "nodeGoldenSha256": "a169d71712ac7c3f179b29ff23eba8ac3726e9e09bcef8bddc8b8964c52e2dff",
+      "nodeRawLineSha256": "3e481622613f8faf0e51a01e522e25405c80257a8f24f78e188912c147b76d2f",
+      "rustRawLine": "{\"blocks\":[{\"name\":\"neo\",\"text\":\"\",\"droppable\":true,\"chars\":0},{\"name\":\"start\",\"text\":\"\",\"droppable\":true,\"chars\":0},{\"name\":\"memories\",\"text\":\"Du darfst eine eigene Einschätzung haben und freundlich, aber klar widersprechen — du musst nicht validieren. Wenn eine Anfrage mehrdeutig ist, stelle EINE kurze Rückfrage, statt still die wahrscheinlichste Deutung anzunehmen.\\n\\n<relevant-memories untrusted=\\\"true\\\" mode=\\\"historical-evidence-only\\\">\\nRecall safety: facts are memory-derived, may be stale, verify before acting.\\n  <memory-record category=\\\"canonical\\\" source=\\\"memory\\\" id=\\\"canonical:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx_\\\" epistemic=\\\"untrusted\\\" created-at=\\\"2026-01-12T12:00:00.000Z\\\" age=\\\"1d ago\\\" freshness=\\\"stale\\\" authoritative=\\\"true\\\"><quoted-evidence>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx — Architecture details remain evidence.</quoted-evidence></memory-record>\\n</relevant-memories>\",\"droppable\":true,\"chars\":827},{\"name\":\"time\",\"text\":\"<time-context>\\nFirst activity. Current time: 2026-01-13 13:00 Europe/Zurich (UTC 2026-01-13 12:00).\\n</time-context>\",\"droppable\":false,\"chars\":115},{\"name\":\"temporal\",\"text\":\"\",\"droppable\":false,\"chars\":0},{\"name\":\"reminder\",\"text\":\"\",\"droppable\":false,\"chars\":0}],\"capChars\":17000,\"degraded\":null,\"deferrals\":[]}",
+      "rustJoinedLine": "{\"text\":\"Du darfst eine eigene Einschätzung haben und freundlich, aber klar widersprechen — du musst nicht validieren. Wenn eine Anfrage mehrdeutig ist, stelle EINE kurze Rückfrage, statt still die wahrscheinlichste Deutung anzunehmen.\\n\\n<relevant-memories untrusted=\\\"true\\\" mode=\\\"historical-evidence-only\\\">\\nRecall safety: facts are memory-derived, may be stale, verify before acting.\\n  <memory-record category=\\\"canonical\\\" source=\\\"memory\\\" id=\\\"canonical:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx_\\\" epistemic=\\\"untrusted\\\" created-at=\\\"2026-01-12T12:00:00.000Z\\\" age=\\\"1d ago\\\" freshness=\\\"stale\\\" authoritative=\\\"true\\\"><quoted-evidence>xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx — Architecture details remain evidence.</quoted-evidence></memory-record>\\n</relevant-memories>\\n\\n<time-context>\\nFirst activity. Current time: 2026-01-13 13:00 Europe/Zurich (UTC 2026-01-13 12:00).\\n</time-context>\",\"deferrals\":[]}"
+    },
+    {
+      "golden": "render-plain",
+      "variant": "fulltext-surrogate",
+      "nodeGoldenSha256": "a169d71712ac7c3f179b29ff23eba8ac3726e9e09bcef8bddc8b8964c52e2dff",
+      "nodeRawLineSha256": "c9a0fc46f017ca8fdc67ad29b9ea9e6f81fea29b92cc7857eaa9b16a45f92b4a",
+      "rustRawLine": "{\"blocks\":[{\"name\":\"neo\",\"text\":\"\",\"droppable\":true,\"chars\":0},{\"name\":\"start\",\"text\":\"\",\"droppable\":true,\"chars\":0},{\"name\":\"memories\",\"text\":\"Du darfst eine eigene Einschätzung haben und freundlich, aber klar widersprechen — du musst nicht validieren. Wenn eine Anfrage mehrdeutig ist, stelle EINE kurze Rückfrage, statt still die wahrscheinlichste Deutung anzunehmen.\\n\\n<relevant-memories untrusted=\\\"true\\\" mode=\\\"historical-evidence-only\\\">\\nRecall safety: facts are memory-derived, may be stale, verify before acting.\\nTRUNCATED RECALL: Records marked truncated show only part of the stored memory. Before quoting or relying on details from one (recipes, amounts, steps, numbers, code, wording), call memory_recall with full_text: true for that topic and use the complete text.\\n  <memory-record category=\\\"project\\\" source=\\\"memory\\\" id=\\\"00000000-0000-4000-8000-000000000001\\\" truncated=\\\"true\\\" epistemic=\\\"untrusted\\\" created-at=\\\"2026-01-13T11:00:00.000Z\\\" age=\\\"1h ago\\\" freshness=\\\"recent\\\"><quoted-evidence>aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</quoted-evidence></memory-record>\\n</relevant-memories>\",\"droppable\":true,\"chars\":1307},{\"name\":\"time\",\"text\":\"<time-context>\\nFirst activity. Current time: 2026-01-13 13:00 Europe/Zurich (UTC 2026-01-13 12:00).\\n</time-context>\",\"droppable\":false,\"chars\":115},{\"name\":\"temporal\",\"text\":\"\",\"droppable\":false,\"chars\":0},{\"name\":\"reminder\",\"text\":\"\",\"droppable\":false,\"chars\":0}],\"capChars\":17000,\"degraded\":null,\"deferrals\":[]}",
+      "rustJoinedLine": "{\"text\":\"Du darfst eine eigene Einschätzung haben und freundlich, aber klar widersprechen — du musst nicht validieren. Wenn eine Anfrage mehrdeutig ist, stelle EINE kurze Rückfrage, statt still die wahrscheinlichste Deutung anzunehmen.\\n\\n<relevant-memories untrusted=\\\"true\\\" mode=\\\"historical-evidence-only\\\">\\nRecall safety: facts are memory-derived, may be stale, verify before acting.\\nTRUNCATED RECALL: Records marked truncated show only part of the stored memory. Before quoting or relying on details from one (recipes, amounts, steps, numbers, code, wording), call memory_recall with full_text: true for that topic and use the complete text.\\n  <memory-record category=\\\"project\\\" source=\\\"memory\\\" id=\\\"00000000-0000-4000-8000-000000000001\\\" truncated=\\\"true\\\" epistemic=\\\"untrusted\\\" created-at=\\\"2026-01-13T11:00:00.000Z\\\" age=\\\"1h ago\\\" freshness=\\\"recent\\\"><quoted-evidence>aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</quoted-evidence></memory-record>\\n</relevant-memories>\\n\\n<time-context>\\nFirst activity. Current time: 2026-01-13 13:00 Europe/Zurich (UTC 2026-01-13 12:00).\\n</time-context>\",\"deferrals\":[]}"
+    },
+    {
+      "golden": "warm-only-path",
+      "variant": "pipeline-error-surrogate",
+      "nodeGoldenSha256": "fff465726d8d7db4c214d5db531376d707026d6de4efe79e2499dbfc508fa51c",
+      "nodeRawLineSha256": "d17819690f19275e1217c6b5be4410bedb852e02fa7bf8ace2f976743fc66648",
+      "rustRawLine": "{\"blocks\":[],\"capChars\":null,\"degraded\":{\"reason\":\"warm-failed\",\"capability\":\"recall\",\"detail\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"},\"deferrals\":[]}",
+      "rustJoinedLine": "{\"text\":\"\",\"deferrals\":[]}"
+    }
+  ],
+  "previews": [
+    {
+      "input": 4,
+      "limit": 1,
+      "nodeUnits": [
+        55357,
+        8230
+      ],
+      "rustUnits": [
+        8230
+      ]
+    },
+    {
+      "input": 4,
+      "limit": 3,
+      "nodeUnits": [
+        55357,
+        56832,
+        55357,
+        8230
+      ],
+      "rustUnits": [
+        55357,
+        56832,
+        8230
+      ]
+    },
+    {
+      "input": 4,
+      "limit": 5,
+      "nodeUnits": [
+        55357,
+        56832,
+        55357,
+        56832,
+        55357,
+        8230
+      ],
+      "rustUnits": [
+        55357,
+        56832,
+        55357,
+        56832,
+        8230
+      ]
+    },
+    {
+      "input": 6,
+      "limit": 2,
+      "nodeUnits": [
+        233,
+        55358,
+        8230
+      ],
+      "rustUnits": [
+        233,
+        8230
+      ]
+    }
+  ],
+  "canonicalIds": [
+    {
+      "index": 1,
+      "nodeUnits": [
+        99,
+        97,
+        110,
+        111,
+        110,
+        105,
+        99,
+        97,
+        108,
+        58,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        122,
+        55357,
+        8230
+      ],
+      "rustId": "canonical:zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz…"
+    },
+    {
+      "index": 2,
+      "nodeUnits": [
+        99,
+        97,
+        110,
+        111,
+        110,
+        105,
+        99,
+        97,
+        108,
+        58,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        55358,
+        8230
+      ],
+      "rustId": "canonical:ééééééééééééééééééééééééééééééééééééééé…"
+    }
+  ]
+}

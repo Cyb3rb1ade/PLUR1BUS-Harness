@@ -610,9 +610,9 @@ fn duplicate_entries_a_manifest_that_is_not_first_and_a_wrong_size_are_refused()
 }
 
 #[test]
-fn restore_into_a_home_with_content_asks_first_and_keeps_what_it_replaces() {
+fn restore_into_a_home_with_content_plans_first_and_keeps_what_it_replaces() {
     // Documented behaviour: a restore replaces the units, after a plan and a confirmation, and keeps the displaced tree in
-    // <home>/backups/pre-restore-<id>. Without --yes in a script it is refused before anything changes.
+    // <home>/backups/pre-restore-<id>. Without --confirm/--yes it only reports a read-only plan.
     let d = tempfile::tempdir().unwrap();
     let a = archive_path(d.path());
     let f = files();
@@ -625,10 +625,9 @@ fn restore_into_a_home_with_content_asks_first_and_keeps_what_it_replaces() {
         .arg(&a)
         .output()
         .unwrap();
-    assert!(
-        !out.status.success(),
-        "a script restore without --yes must not proceed"
-    );
+    assert!(out.status.success());
+    assert_eq!(doc(&out)["dryRun"], true);
+    assert_eq!(doc(&out)["applied"], false);
     assert_eq!(tree(&home), before);
     let out = cli(&home)
         .args(["backup", "restore", "--yes"])

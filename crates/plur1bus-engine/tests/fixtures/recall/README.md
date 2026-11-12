@@ -121,3 +121,70 @@ pair remains intact; all twenty-five previous recordings are byte-identical afte
 Source integrity is checked before the exact recording Node-version guard. The negative source
 regression therefore rejects an untrusted file for the correct reason on other installed Node
 versions too, before importing reference code; successful recording still requires Node24.21.0.
+
+## RX1: C1 source exception
+
+RX1 re-records `knowledge-section-failed-not-cached` and the seven fused-rerank
+namespace cases selected by `record-c1.mjs` from engine #257, immutable commit
+`432313664242fc6c29c0b9bf3bcea8b9e5ad93c0`. This is the controller-authorized C1
+source exception; all other goldens retain their existing sources. The C1 files
+carry their own provenance and `c1-sources.json` hashes. Reproduction of the
+complete fixture set runs the original recorder first, then this C1 recorder.
+
+```sh
+PLUR1BUS_ENGINE_SRC=/path/to/engine-at-4323136642 \
+  node crates/plur1bus-engine/tests/fixtures/recall/record-c1.mjs
+```
+
+Use Linux and Node 24.21.0: the unmodified Node named-namespace pool requires
+Linux directory capabilities and deliberately refuses macOS. The RX1 capture
+used `@lancedb/lancedb` 0.26.2, `apache-arrow` 18.1.0 and `openai` 6.42.0, matching
+the installed oracle dependencies. No optional transformer dependency is needed.
+An isolated Linux container installs these dependencies separately, mounts the
+oracle and dependencies read-only, and runs the recorder with networking disabled.
+It checks the source hashes before imports and compares two real executions.
+
+Each stage capture starts with a fresh workspace; its retry passes deliberately
+share that workspace. This prevents a completed first capture from leaving a
+knowledge cache in the second capture. C1's first failed embed therefore records
+no cache, while its successful retry records a complete cache. Namespace results
+now retain the fused reranker score and order through the final budget and ledger.
+
+## RX2: runtime budget and trace oracles
+
+`record-runtime-budget.mjs` calls the pinned `resolveRuntimeRecallBudget` export 3,120 times and
+compares two captures. `record-trace.mjs` records 64 `textPreview` cases as UTF-16 units (including
+split surrogate pairs), plus the actual capped candidate/decision/guard/store streams and their
+recomputed counters. Trace IDs and clock stamps are the only normalized fields in the trace comparison.
+It imports the harness system-redaction markers and encodings from their owning fixture.
+
+Both recorders verify immutable source hashes before imports, require Node 24.21.0 and write new
+`golden/runtime-item-budget.json` and `golden/runtime-trace.json`; existing T2–T5 goldens are unchanged.
+Use `PLUR1BUS_ENGINE_SRC` at `9f34008c143c5da87b2194b5a28442b407ff8ba7`. The budget export's
+imports require the Linux oracle environment described above. The trace helper is pure and runs
+locally with `node --experimental-strip-types .../record-trace.mjs`.
+
+Secret normalization is an intentional security layer over Node's preview helper: registered values
+and their standard encodings are removed before cuts, credential patterns use the shared schema, and
+nested textual metadata follows the configured preview cap. The trace itself stays separate from
+memory text. Lossless internal JSON tests expose the frozen generated `String` result mismatch; they
+do not claim process/CLI acceptance before controller ruling F3 and RE-08 wiring.
+
+## Query refiner (RE-D151)
+
+`record-query-refiner.mjs --source <lib/query-refiner.js at 9f34008c> --out <file>` checks the
+source SHA-256 before importing a temporary copy with one appended export of the two tables.
+`query-refiner.json` holds the tables and 49 inputs with `removeStopwords`, `expandQuery` and
+`refineQuery` under nine top-result shapes. Two recordings were byte-identical.
+
+`record-query-refiner-exceptions.mjs` (same arguments) records the RE-D151 native exception in
+`query-refiner-native-exceptions.json`: for four `constructor` inputs, Node's output (inherited
+`Object.prototype` lookup) next to the native expectation, computed from the same pinned code
+with only that lookup restricted to own keys. Two recordings were byte-identical.
+
+## Recall locale (RE-D152)
+
+`record-locale.mjs --source <directory holding lib/i18n.js and lib/i18n-dictionary.js at 9f34008c>
+--out <file>` checks both source hashes before importing a temporary copy with one appended
+export of `GERMAN_WORDS`. `locale.json` holds the word list, 34 `detectLanguage` and ten
+`resolveLocale` cases. Two recordings were byte-identical.

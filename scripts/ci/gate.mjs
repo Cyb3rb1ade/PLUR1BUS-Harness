@@ -30,7 +30,7 @@ export function selections(o) {
 // `core-unit-shard-windows` and `core-unit-windows` are the Windows half of `unit-os`'s Core split, ungated like it.
 export const UNGATED = ['unit-os', 'core-unit-shard-windows', 'core-unit-windows', 'system', 'service', 'python-host',
   'web-browser-build', 'web-browser-shard', 'web-browser-macos', 'release-scripts', 'sandbox', 'perf-startup',
-  'perf-budgets', 'documents-golden', 'host-tool-eval', 'core-parity'];
+  'perf-budgets', 'documents-golden', 'host-tool-eval', 'engine-parity', 'core-parity'];
 
 export function evaluateGate(needs) {
   if (needs?.changes?.result !== 'success') return ['changes must succeed'];

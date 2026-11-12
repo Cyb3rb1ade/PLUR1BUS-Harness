@@ -1,0 +1,35 @@
+{
+  "nodeGoldenSha256": "43f1ad49e627c623e4f511548fde479ace8f18c631567da967ed26e1b15a98ff",
+  "cases": [
+    {
+      "name": "duplicates",
+      "stage": "plan",
+      "reason": "Duplicate target IDs make a later source revision receipt ambiguous"
+    },
+    {
+      "name": "empty-vector",
+      "stage": "search",
+      "reason": "A real source requires a nonempty finite bounded vector"
+    },
+    {
+      "name": "invalid-threshold",
+      "stage": "search",
+      "reason": "Native similarity threshold must lie in [0, 1]"
+    },
+    {
+      "name": "amplifying-multiplier",
+      "stage": "search",
+      "reason": "Weakening cannot amplify strength; multiplier must lie in [0, 1]"
+    },
+    {
+      "name": "over-limit",
+      "stage": "search",
+      "reason": "Native transaction plan is capped at 64 changed rows"
+    },
+    {
+      "name": "oversized-candidates",
+      "stage": "plan",
+      "reason": "Native adapter results are capped at 65 candidate snapshots"
+    }
+  ]
+}

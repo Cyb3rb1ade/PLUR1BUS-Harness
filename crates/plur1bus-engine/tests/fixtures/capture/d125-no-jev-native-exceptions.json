@@ -1,0 +1,15 @@
+{
+  "decision": "RE-D131 / D125",
+  "sourceCommit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+  "nodeRowsSha256": "643e70cf346471c65c55d0e3af6d8d5b5908177d06033c8b568f82a11a0d59e7",
+  "nodeDeciderSha256": "affd8088c2ed3369a4e135d291b6b540eb80a79771c1756956e19473879cd509",
+  "nativeNoModelReference": "chunking-both",
+  "nativePolicy": "Remove the built-in Jev secret/HTTP transport. Automatic capture without an explicitly composed decision model uses whole-plus-parts (beides), even when a Jev credential is available.",
+  "reason": "Owner/controller D125 prohibits conversation content going to Jev for memory decisions. Config references and credentials do not authorize this built-in route.",
+  "testBinding": "The additional actual CaptureRuntime-to-Lance case uses unchanged chunking-both expected rows/outcomes with automatic mode and an available synthetic SecretPort. All 21 fixture executions assert zero secret reads and zero egress attempts; explicit local WholeDecision retains its existing vector.",
+  "boundaries": [
+    "Frozen config keys and all Node goldens remain unchanged.",
+    "Pure historical request/answer codec vectors remain testable; no production Jev transport or constructor remains.",
+    "No new model, TS path or ProcessEngine capability is activated."
+  ]
+}

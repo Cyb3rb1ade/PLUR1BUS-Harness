@@ -1,7 +1,5 @@
-//! The pin's single rerank after multi-identity rank fusion, with CP-5.5's opt-in.
+//! Single rerank after multi-identity fusion, including C1 scores and CP-5.5's opt-in.
 //! A declared valid empty response is a successful selection, including after fusion.
-
-use std::collections::HashSet;
 
 use serde_json::json;
 
@@ -29,7 +27,7 @@ pub(crate) fn apply(
     let ranking = reranker
         .rerank(query, &docs, docs.len(), cancel)
         .and_then(|ranking| {
-            reordered_indices(&ranking, docs.len(), reranker.empty_result_is_valid())
+            validated_ranking(&ranking, docs.len(), reranker.empty_result_is_valid())
         });
     match ranking {
         Ok(order) => {
@@ -51,20 +49,12 @@ pub(crate) fn apply(
     }
 }
 
-fn reordered_indices(
+fn validated_ranking(
     ranking: &[crate::contract::RerankHit],
     len: usize,
     empty_valid: bool,
-) -> Result<Vec<usize>, RerankError> {
-    let mut used = HashSet::new();
-    let indices = ranking
-        .iter()
-        .filter_map(|item| {
-            let index = serde_json::to_value(item).ok()?["index"].as_u64()?;
-            let index = usize::try_from(index).ok()?;
-            (index < len && used.insert(index)).then_some(index)
-        })
-        .collect::<Vec<_>>();
+) -> Result<Vec<(usize, f64)>, RerankError> {
+    let indices = super::finalise::valid_hits(ranking, len);
     if indices.is_empty() && !empty_valid {
         Err(RerankError::InvalidResponse)
     } else {
@@ -72,7 +62,7 @@ fn reordered_indices(
     }
 }
 
-fn reorder(result: &mut NamespaceResult, order: Vec<usize>) {
+fn reorder(result: &mut NamespaceResult, order: Vec<(usize, f64)>) {
     if order.is_empty() {
         result.memories.clear();
         return;
@@ -81,9 +71,81 @@ fn reorder(result: &mut NamespaceResult, order: Vec<usize>) {
         .into_iter()
         .map(Some)
         .collect::<Vec<_>>();
+    let mut ceiling = f64::INFINITY;
     result.memories = order
         .into_iter()
-        .filter_map(|index| original[index].take())
+        .filter_map(|(index, score)| {
+            ceiling = ceiling.min(score);
+            let mut item = original[index].take()?;
+            item["rerankScore"] = json!(ceiling);
+            Some(item)
+        })
         .collect();
     result.memories.extend(original.into_iter().flatten());
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+    use super::*;
+    use crate::contract::RerankHit;
+    use crate::recall::namespace_budget::{self, MergedBudget};
+
+    struct OutOfOrder;
+    impl Reranker for OutOfOrder {
+        fn rerank(
+            &self,
+            _: &str,
+            _: &[String],
+            _: usize,
+            _: &Cancel,
+        ) -> Result<Vec<RerankHit>, RerankError> {
+            Ok(serde_json::from_value(json!([
+                {"index":2.0,"score":0.3}, {"index":1,"score":0.9},
+                {"index":2,"score":0.1}, {"index":10,"score":1.0}
+            ]))
+            .unwrap())
+        }
+        fn empty_result_is_valid(&self) -> bool {
+            false
+        }
+    }
+
+    #[test]
+    fn fused_verdict_survives_bad_scores_duplicate_indices_and_budgeting() {
+        let mut result = NamespaceResult {
+            memories: (0..4).map(|index| json!({
+                "entry":{"id":index.to_string(),"text":"synthetic evidence","category":"general"},
+                "score":(4-index) as f64,"source":"vector"
+            })).collect(),
+            ..NamespaceResult::default()
+        };
+        apply(&mut result, "fixture", &OutOfOrder, &Cancel::never(), false).unwrap();
+        assert_eq!(
+            result
+                .memories
+                .iter()
+                .map(|item| item["entry"]["id"].as_str().unwrap())
+                .collect::<Vec<_>>(),
+            ["2", "1", "0", "3"]
+        );
+        assert_eq!(result.memories[0]["rerankScore"], json!(0.3));
+        assert_eq!(result.memories[1]["rerankScore"], json!(0.3));
+        assert!(result.memories[2].get("rerankScore").is_none());
+        namespace_budget::apply(
+            &mut result,
+            MergedBudget {
+                enabled: true,
+                limit: 2.0,
+            },
+        );
+        assert_eq!(
+            result
+                .memories
+                .iter()
+                .map(|item| item["entry"]["id"].as_str().unwrap())
+                .collect::<Vec<_>>(),
+            ["2", "1"]
+        );
+    }
 }

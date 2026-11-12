@@ -1,0 +1,1095 @@
+{
+  "provenance": {
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "node": "v24.21.0",
+    "sourceHashes": {
+      "lib/speaker-segment-schema.js": "5dd35fa1bab75b5a342f28a50113a2b7c7e5a9f2a7c9c5ea61ae1af99577e922",
+      "lib/speaker-proposer.js": "9963499d1fd46e3591862117ace22fc355b033219c5084b46f5cbf3a1776a980",
+      "lib/speaker-mapping-store.js": "bdc582a464b2653929d054542b75657d87d49a70d2c17937a1c98a22f477f93b",
+      "lib/host-paths.js": "627795a00f58aeaeb25e16ed30d6a26a54742427394e6eb74ce0eb46a2e8542e"
+    }
+  },
+  "normalized": [
+    {
+      "input": null,
+      "line": "{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"unknown\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}",
+      "formattedLine": "\"[unknown]: \"",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"unknown\",\"speakerDisplayName\":\"Unknown Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "input": {},
+      "line": "{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"unknown\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}",
+      "formattedLine": "\"[unknown]: \"",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"unknown\",\"speakerDisplayName\":\"Unknown Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "input": [],
+      "line": "{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"unknown\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}",
+      "formattedLine": "\"[unknown]: \"",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"unknown\",\"speakerDisplayName\":\"Unknown Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "input": true,
+      "line": "{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"unknown\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}",
+      "formattedLine": "\"[unknown]: \"",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"unknown\",\"speakerDisplayName\":\"Unknown Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "input": "plain",
+      "line": "{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"unknown\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}",
+      "formattedLine": "\"[unknown]: \"",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"unknown\",\"speakerDisplayName\":\"Unknown Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "input": {
+        "speakerLabel": "speaker_0",
+        "text": "Hello fixture"
+      },
+      "line": "{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hello fixture\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}",
+      "formattedLine": "\"[speaker_0]: Hello fixture\"",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hello fixture\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "input": {
+        "source": "discord_voice",
+        "text": "Public fixture",
+        "speakerLabel": "speaker_0"
+      },
+      "line": "{\"source\":\"discord_voice\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Public fixture\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}",
+      "formattedLine": "\"[speaker_0]: Public fixture\"",
+      "mappedLine": "[{\"source\":\"discord_voice\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Public fixture\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "input": {
+        "source": "telegram_voice",
+        "text": "Public fixture",
+        "speakerLabel": "speaker_0"
+      },
+      "line": "{\"source\":\"telegram_voice\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Public fixture\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}",
+      "formattedLine": "\"[speaker_0]: Public fixture\"",
+      "mappedLine": "[{\"source\":\"telegram_voice\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Public fixture\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "input": {
+        "source": "youtube",
+        "text": "Public fixture",
+        "speakerLabel": "speaker_0"
+      },
+      "line": "{\"source\":\"youtube\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Public fixture\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}",
+      "formattedLine": "\"[speaker_0]: Public fixture\"",
+      "mappedLine": "[{\"source\":\"youtube\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Public fixture\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "input": {
+        "source": "upload",
+        "text": "Public fixture",
+        "speakerLabel": "speaker_0"
+      },
+      "line": "{\"source\":\"upload\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Public fixture\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}",
+      "formattedLine": "\"[speaker_0]: Public fixture\"",
+      "mappedLine": "[{\"source\":\"upload\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Public fixture\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "input": {
+        "source": "podcast",
+        "text": "Public fixture",
+        "speakerLabel": "speaker_0"
+      },
+      "line": "{\"source\":\"podcast\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Public fixture\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}",
+      "formattedLine": "\"[speaker_0]: Public fixture\"",
+      "mappedLine": "[{\"source\":\"podcast\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Public fixture\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "input": {
+        "source": "meeting",
+        "text": "Public fixture",
+        "speakerLabel": "speaker_0"
+      },
+      "line": "{\"source\":\"meeting\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Public fixture\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}",
+      "formattedLine": "\"[speaker_0]: Public fixture\"",
+      "mappedLine": "[{\"source\":\"meeting\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Public fixture\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "input": {
+        "source": "unknown",
+        "text": "Public fixture",
+        "speakerLabel": "speaker_0"
+      },
+      "line": "{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Public fixture\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}",
+      "formattedLine": "\"[speaker_0]: Public fixture\"",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Public fixture\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "input": {
+        "source": "other",
+        "text": "Public fixture",
+        "speakerLabel": "speaker_0"
+      },
+      "line": "{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Public fixture\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}",
+      "formattedLine": "\"[speaker_0]: Public fixture\"",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Public fixture\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "input": {
+        "source": null,
+        "text": "Public fixture",
+        "speakerLabel": "speaker_0"
+      },
+      "line": "{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Public fixture\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}",
+      "formattedLine": "\"[speaker_0]: Public fixture\"",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Public fixture\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "input": {
+        "attributionSource": "discord_user_stream"
+      },
+      "line": "{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"unknown\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"\",\"words\":null,\"attributionSource\":\"discord_user_stream\",\"diarizationModel\":null,\"asrModel\":null}",
+      "formattedLine": "\"[unknown]: \"",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"unknown\",\"speakerDisplayName\":\"Unknown Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"\",\"words\":null,\"attributionSource\":\"discord_user_stream\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "input": {
+        "attributionSource": "asr_diarize"
+      },
+      "line": "{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"unknown\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"\",\"words\":null,\"attributionSource\":\"asr_diarize\",\"diarizationModel\":null,\"asrModel\":null}",
+      "formattedLine": "\"[unknown]: \"",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"unknown\",\"speakerDisplayName\":\"Unknown Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"\",\"words\":null,\"attributionSource\":\"asr_diarize\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "input": {
+        "attributionSource": "sortformer"
+      },
+      "line": "{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"unknown\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"\",\"words\":null,\"attributionSource\":\"sortformer\",\"diarizationModel\":null,\"asrModel\":null}",
+      "formattedLine": "\"[unknown]: \"",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"unknown\",\"speakerDisplayName\":\"Unknown Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"\",\"words\":null,\"attributionSource\":\"sortformer\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "input": {
+        "attributionSource": "manual"
+      },
+      "line": "{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"unknown\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"\",\"words\":null,\"attributionSource\":\"manual\",\"diarizationModel\":null,\"asrModel\":null}",
+      "formattedLine": "\"[unknown]: \"",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"unknown\",\"speakerDisplayName\":\"Unknown Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"\",\"words\":null,\"attributionSource\":\"manual\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "input": {
+        "attributionSource": "contextual_proposal"
+      },
+      "line": "{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"unknown\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"\",\"words\":null,\"attributionSource\":\"contextual_proposal\",\"diarizationModel\":null,\"asrModel\":null}",
+      "formattedLine": "\"[unknown]: \"",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"unknown\",\"speakerDisplayName\":\"Unknown Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"\",\"words\":null,\"attributionSource\":\"contextual_proposal\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "input": {
+        "attributionSource": "enrollment"
+      },
+      "line": "{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"unknown\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"\",\"words\":null,\"attributionSource\":\"enrollment\",\"diarizationModel\":null,\"asrModel\":null}",
+      "formattedLine": "\"[unknown]: \"",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"unknown\",\"speakerDisplayName\":\"Unknown Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"\",\"words\":null,\"attributionSource\":\"enrollment\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "input": {
+        "attributionSource": "unknown"
+      },
+      "line": "{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"unknown\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}",
+      "formattedLine": "\"[unknown]: \"",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"unknown\",\"speakerDisplayName\":\"Unknown Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "input": {
+        "attributionSource": "invalid"
+      },
+      "line": "{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"unknown\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}",
+      "formattedLine": "\"[unknown]: \"",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"unknown\",\"speakerDisplayName\":\"Unknown Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "input": {
+        "sourceId": 0,
+        "speakerDisplayName": true,
+        "startMs": null,
+        "endMs": "0x10",
+        "speakerConfidence": "0.7",
+        "words": [
+          null,
+          {
+            "startMs": null,
+            "endMs": -5,
+            "word": 123,
+            "confidence": "Infinity"
+          }
+        ]
+      },
+      "line": "{\"source\":\"unknown\",\"sourceId\":\"0\",\"speakerLabel\":\"unknown\",\"speakerDisplayName\":\"true\",\"speakerConfidence\":0.7,\"startMs\":0,\"endMs\":16,\"text\":\"\",\"words\":[{\"startMs\":0,\"endMs\":0,\"word\":\"\",\"confidence\":null},{\"startMs\":0,\"endMs\":-5,\"word\":\"\",\"confidence\":null}],\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}",
+      "formattedLine": "\"[true]: \"",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":\"0\",\"speakerLabel\":\"unknown\",\"speakerDisplayName\":\"Unknown Fixture\",\"speakerConfidence\":0.7,\"startMs\":0,\"endMs\":16,\"text\":\"\",\"words\":[{\"startMs\":0,\"endMs\":0,\"word\":\"\",\"confidence\":null},{\"startMs\":0,\"endMs\":-5,\"word\":\"\",\"confidence\":null}],\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "input": {
+        "sourceId": [
+          1,
+          null,
+          2
+        ],
+        "speakerDisplayName": {
+          "name": "fixture"
+        },
+        "startMs": 10,
+        "endMs": -5,
+        "words": [],
+        "diarizationModel": 23,
+        "asrModel": false
+      },
+      "line": "{\"source\":\"unknown\",\"sourceId\":\"1,,2\",\"speakerLabel\":\"unknown\",\"speakerDisplayName\":\"[object Object]\",\"speakerConfidence\":null,\"startMs\":10,\"endMs\":10,\"text\":\"\",\"words\":[],\"attributionSource\":\"unknown\",\"diarizationModel\":\"23\",\"asrModel\":\"false\"}",
+      "formattedLine": "\"[[object Object]]: \"",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":\"1,,2\",\"speakerLabel\":\"unknown\",\"speakerDisplayName\":\"Unknown Fixture\",\"speakerConfidence\":null,\"startMs\":10,\"endMs\":10,\"text\":\"\",\"words\":[],\"attributionSource\":\"unknown\",\"diarizationModel\":\"23\",\"asrModel\":\"false\"}]"
+    },
+    {
+      "input": {
+        "speakerLabel": "",
+        "text": 2,
+        "speakerConfidence": 4,
+        "startMs": "Infinity",
+        "endMs": "NaN",
+        "words": "invalid"
+      },
+      "line": "{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"unknown\",\"speakerDisplayName\":null,\"speakerConfidence\":1,\"startMs\":0,\"endMs\":0,\"text\":\"\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}",
+      "formattedLine": "\"[unknown]: \"",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"unknown\",\"speakerDisplayName\":\"Unknown Fixture\",\"speakerConfidence\":1,\"startMs\":0,\"endMs\":0,\"text\":\"\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "input": {
+        "speakerLabel": "s\ud83d",
+        "text": "x\ud83d",
+        "speakerDisplayName": "n\ud83d"
+      },
+      "line": "{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"s\\ud83d\",\"speakerDisplayName\":\"n\\ud83d\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"x\\ud83d\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}",
+      "formattedLine": "\"[n\\ud83d]: x\\ud83d\"",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"s\\ud83d\",\"speakerDisplayName\":\"n\\ud83d\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"x\\ud83d\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    }
+  ],
+  "media": [
+    {
+      "input": "<!-- media-output-id: abcd-1234 -->\nHallo Alex",
+      "strippedLine": "\"Hallo Alex\"",
+      "ids": [
+        "abcd-1234"
+      ]
+    },
+    {
+      "input": "prefix <!-- media-output-id: ABCD-1234 --> suffix",
+      "strippedLine": "\"prefix <!-- media-output-id: ABCD-1234 --> suffix\"",
+      "ids": [
+        "ABCD-1234"
+      ]
+    },
+    {
+      "input": "<!-- media-output-id: abc -->\n<!-- media-output-id: def -->\nText",
+      "strippedLine": "\"<!-- media-output-id: def -->\\nText\"",
+      "ids": [
+        "abc",
+        "def"
+      ]
+    },
+    {
+      "input": "<!-- media-output-id: invalid -->\nText",
+      "strippedLine": "\"<!-- media-output-id: invalid -->\\nText\"",
+      "ids": []
+    },
+    {
+      "input": "Public fixture",
+      "strippedLine": "\"Public fixture\"",
+      "ids": []
+    }
+  ],
+  "proposals": [
+    {
+      "text": "Hallo Alex!",
+      "confirmed": false,
+      "segments": [
+        {
+          "speakerLabel": "speaker_0",
+          "text": "Hallo Alex!"
+        },
+        {
+          "speakerLabel": "speaker_1",
+          "text": "Hi Robin!"
+        }
+      ],
+      "line": "[{\"speakerLabel\":\"speaker_0\",\"displayName\":\"Alex\",\"confidence\":0.7,\"contextHint\":\"Hallo Alex\"},{\"speakerLabel\":\"speaker_1\",\"displayName\":\"Robin\",\"confidence\":0.7,\"contextHint\":\"Hi Robin\"}]",
+      "first": {
+        "stored": 2,
+        "skipped": 0
+      },
+      "second": {
+        "stored": 0,
+        "skipped": 2
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Alex\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hallo Alex\"},{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":\"Robin\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi Robin\"}]",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hallo Alex!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null},{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi Robin!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "text": "HalloAlex!",
+      "confirmed": false,
+      "segments": [
+        {
+          "speakerLabel": "speaker_0",
+          "text": "HalloAlex!"
+        },
+        {
+          "speakerLabel": "speaker_1",
+          "text": "Hi Robin!"
+        }
+      ],
+      "line": "[{\"speakerLabel\":\"speaker_0\",\"displayName\":\"Alex\",\"confidence\":0.7,\"contextHint\":\"HalloAlex\"},{\"speakerLabel\":\"speaker_1\",\"displayName\":\"Robin\",\"confidence\":0.7,\"contextHint\":\"Hi Robin\"}]",
+      "first": {
+        "stored": 2,
+        "skipped": 0
+      },
+      "second": {
+        "stored": 0,
+        "skipped": 2
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Alex\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"HalloAlex\"},{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":\"Robin\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi Robin\"}]",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"HalloAlex!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null},{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi Robin!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "text": "Hi, Jordan.",
+      "confirmed": false,
+      "segments": [
+        {
+          "speakerLabel": "speaker_0",
+          "text": "Hi, Jordan."
+        },
+        {
+          "speakerLabel": "speaker_1",
+          "text": "Hi Robin!"
+        }
+      ],
+      "line": "[{\"speakerLabel\":\"speaker_0\",\"displayName\":\"Jordan\",\"confidence\":0.7,\"contextHint\":\"Hi, Jordan\"},{\"speakerLabel\":\"speaker_1\",\"displayName\":\"Robin\",\"confidence\":0.7,\"contextHint\":\"Hi Robin\"}]",
+      "first": {
+        "stored": 2,
+        "skipped": 0
+      },
+      "second": {
+        "stored": 0,
+        "skipped": 2
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Jordan\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi, Jordan\"},{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":\"Robin\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi Robin\"}]",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi, Jordan.\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null},{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi Robin!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "text": "Hey Kim! Hallo Alex!",
+      "confirmed": false,
+      "segments": [
+        {
+          "speakerLabel": "speaker_0",
+          "text": "Hey Kim! Hallo Alex!"
+        },
+        {
+          "speakerLabel": "speaker_1",
+          "text": "Hi Robin!"
+        }
+      ],
+      "line": "[{\"speakerLabel\":\"speaker_0\",\"displayName\":\"Kim\",\"confidence\":0.7,\"contextHint\":\"Hey Kim\"},{\"speakerLabel\":\"speaker_0\",\"displayName\":\"Alex\",\"confidence\":0.7,\"contextHint\":\"Hallo Alex\"},{\"speakerLabel\":\"speaker_1\",\"displayName\":\"Robin\",\"confidence\":0.7,\"contextHint\":\"Hi Robin\"}]",
+      "first": {
+        "stored": 2,
+        "skipped": 1
+      },
+      "second": {
+        "stored": 0,
+        "skipped": 3
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Kim\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hey Kim\"},{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":\"Robin\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi Robin\"}]",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hey Kim! Hallo Alex!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null},{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi Robin!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "text": "Danke schön Alex!",
+      "confirmed": false,
+      "segments": [
+        {
+          "speakerLabel": "speaker_0",
+          "text": "Danke schön Alex!"
+        },
+        {
+          "speakerLabel": "speaker_1",
+          "text": "Hi Robin!"
+        }
+      ],
+      "line": "[{\"speakerLabel\":\"speaker_0\",\"displayName\":\"schön\",\"confidence\":0.7,\"contextHint\":\"Danke schön\"},{\"speakerLabel\":\"speaker_1\",\"displayName\":\"Robin\",\"confidence\":0.7,\"contextHint\":\"Hi Robin\"}]",
+      "first": {
+        "stored": 2,
+        "skipped": 0
+      },
+      "second": {
+        "stored": 0,
+        "skipped": 2
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"schön\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Danke schön\"},{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":\"Robin\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi Robin\"}]",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Danke schön Alex!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null},{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi Robin!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "text": "Vielen Dank Alex!",
+      "confirmed": false,
+      "segments": [
+        {
+          "speakerLabel": "speaker_0",
+          "text": "Vielen Dank Alex!"
+        },
+        {
+          "speakerLabel": "speaker_1",
+          "text": "Hi Robin!"
+        }
+      ],
+      "line": "[{\"speakerLabel\":\"speaker_0\",\"displayName\":\"Alex\",\"confidence\":0.7,\"contextHint\":\"Vielen Dank Alex\"},{\"speakerLabel\":\"speaker_1\",\"displayName\":\"Robin\",\"confidence\":0.7,\"contextHint\":\"Hi Robin\"}]",
+      "first": {
+        "stored": 2,
+        "skipped": 0
+      },
+      "second": {
+        "stored": 0,
+        "skipped": 2
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Alex\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Vielen Dank Alex\"},{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":\"Robin\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi Robin\"}]",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Vielen Dank Alex!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null},{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi Robin!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "text": "Excuse me, Morgan!",
+      "confirmed": false,
+      "segments": [
+        {
+          "speakerLabel": "speaker_0",
+          "text": "Excuse me, Morgan!"
+        },
+        {
+          "speakerLabel": "speaker_1",
+          "text": "Hi Robin!"
+        }
+      ],
+      "line": "[{\"speakerLabel\":\"speaker_0\",\"displayName\":\"Morgan\",\"confidence\":0.7,\"contextHint\":\"Excuse me, Morgan\"},{\"speakerLabel\":\"speaker_1\",\"displayName\":\"Robin\",\"confidence\":0.7,\"contextHint\":\"Hi Robin\"}]",
+      "first": {
+        "stored": 2,
+        "skipped": 0
+      },
+      "second": {
+        "stored": 0,
+        "skipped": 2
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Morgan\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Excuse me, Morgan\"},{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":\"Robin\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi Robin\"}]",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Excuse me, Morgan!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null},{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi Robin!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "text": "Hallo Ömer!",
+      "confirmed": false,
+      "segments": [
+        {
+          "speakerLabel": "speaker_0",
+          "text": "Hallo Ömer!"
+        },
+        {
+          "speakerLabel": "speaker_1",
+          "text": "Hi Robin!"
+        }
+      ],
+      "line": "[{\"speakerLabel\":\"speaker_1\",\"displayName\":\"Robin\",\"confidence\":0.7,\"contextHint\":\"Hi Robin\"}]",
+      "first": {
+        "stored": 1,
+        "skipped": 0
+      },
+      "second": {
+        "stored": 0,
+        "skipped": 1
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":\"Robin\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi Robin\"}]",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hallo Ömer!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null},{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi Robin!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "text": "Hallo x!",
+      "confirmed": false,
+      "segments": [
+        {
+          "speakerLabel": "speaker_0",
+          "text": "Hallo x!"
+        },
+        {
+          "speakerLabel": "speaker_1",
+          "text": "Hi Robin!"
+        }
+      ],
+      "line": "[{\"speakerLabel\":\"speaker_1\",\"displayName\":\"Robin\",\"confidence\":0.7,\"contextHint\":\"Hi Robin\"}]",
+      "first": {
+        "stored": 1,
+        "skipped": 0
+      },
+      "second": {
+        "stored": 0,
+        "skipped": 1
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":\"Robin\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi Robin\"}]",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hallo x!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null},{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi Robin!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "text": "hi alice",
+      "confirmed": false,
+      "segments": [
+        {
+          "speakerLabel": "speaker_0",
+          "text": "hi alice"
+        },
+        {
+          "speakerLabel": "speaker_1",
+          "text": "Hi Robin!"
+        }
+      ],
+      "line": "[{\"speakerLabel\":\"speaker_0\",\"displayName\":\"alice\",\"confidence\":0.7,\"contextHint\":\"hi alice\"},{\"speakerLabel\":\"speaker_1\",\"displayName\":\"Robin\",\"confidence\":0.7,\"contextHint\":\"Hi Robin\"}]",
+      "first": {
+        "stored": 2,
+        "skipped": 0
+      },
+      "second": {
+        "stored": 0,
+        "skipped": 2
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"alice\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"hi alice\"},{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":\"Robin\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi Robin\"}]",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"hi alice\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null},{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi Robin!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "text": "Hallo Alex! Hallo Alex!",
+      "confirmed": false,
+      "segments": [
+        {
+          "speakerLabel": "speaker_0",
+          "text": "Hallo Alex! Hallo Alex!"
+        },
+        {
+          "speakerLabel": "speaker_1",
+          "text": "Hi Robin!"
+        }
+      ],
+      "line": "[{\"speakerLabel\":\"speaker_0\",\"displayName\":\"Alex\",\"confidence\":0.7,\"contextHint\":\"Hallo Alex\"},{\"speakerLabel\":\"speaker_1\",\"displayName\":\"Robin\",\"confidence\":0.7,\"contextHint\":\"Hi Robin\"}]",
+      "first": {
+        "stored": 2,
+        "skipped": 0
+      },
+      "second": {
+        "stored": 0,
+        "skipped": 2
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Alex\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hallo Alex\"},{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":\"Robin\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi Robin\"}]",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hallo Alex! Hallo Alex!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null},{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi Robin!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "text": "Guten Morgen Taylor!",
+      "confirmed": false,
+      "segments": [
+        {
+          "speakerLabel": "speaker_0",
+          "text": "Guten Morgen Taylor!"
+        },
+        {
+          "speakerLabel": "speaker_1",
+          "text": "Hi Robin!"
+        }
+      ],
+      "line": "[{\"speakerLabel\":\"speaker_0\",\"displayName\":\"Taylor\",\"confidence\":0.7,\"contextHint\":\"Guten Morgen Taylor\"},{\"speakerLabel\":\"speaker_1\",\"displayName\":\"Robin\",\"confidence\":0.7,\"contextHint\":\"Hi Robin\"}]",
+      "first": {
+        "stored": 2,
+        "skipped": 0
+      },
+      "second": {
+        "stored": 0,
+        "skipped": 2
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Taylor\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Guten Morgen Taylor\"},{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":\"Robin\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi Robin\"}]",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Guten Morgen Taylor!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null},{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi Robin!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "text": "ordinary text",
+      "confirmed": false,
+      "segments": [
+        {
+          "speakerLabel": "speaker_0",
+          "text": "ordinary text"
+        },
+        {
+          "speakerLabel": "speaker_1",
+          "text": "Hi Robin!"
+        }
+      ],
+      "line": "[{\"speakerLabel\":\"speaker_1\",\"displayName\":\"Robin\",\"confidence\":0.7,\"contextHint\":\"Hi Robin\"}]",
+      "first": {
+        "stored": 1,
+        "skipped": 0
+      },
+      "second": {
+        "stored": 0,
+        "skipped": 1
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":\"Robin\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi Robin\"}]",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"ordinary text\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null},{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi Robin!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "text": "Sorry,Alice.",
+      "confirmed": false,
+      "segments": [
+        {
+          "speakerLabel": "speaker_0",
+          "text": "Sorry,Alice."
+        },
+        {
+          "speakerLabel": "speaker_1",
+          "text": "Hi Robin!"
+        }
+      ],
+      "line": "[{\"speakerLabel\":\"speaker_0\",\"displayName\":\"Alice\",\"confidence\":0.7,\"contextHint\":\"Sorry,Alice\"},{\"speakerLabel\":\"speaker_1\",\"displayName\":\"Robin\",\"confidence\":0.7,\"contextHint\":\"Hi Robin\"}]",
+      "first": {
+        "stored": 2,
+        "skipped": 0
+      },
+      "second": {
+        "stored": 0,
+        "skipped": 2
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Alice\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Sorry,Alice\"},{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":\"Robin\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi Robin\"}]",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Sorry,Alice.\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null},{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi Robin!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "text": "Moin﻿Alex!",
+      "confirmed": false,
+      "segments": [
+        {
+          "speakerLabel": "speaker_0",
+          "text": "Moin﻿Alex!"
+        },
+        {
+          "speakerLabel": "speaker_1",
+          "text": "Hi Robin!"
+        }
+      ],
+      "line": "[{\"speakerLabel\":\"speaker_0\",\"displayName\":\"Alex\",\"confidence\":0.7,\"contextHint\":\"Moin﻿Alex\"},{\"speakerLabel\":\"speaker_1\",\"displayName\":\"Robin\",\"confidence\":0.7,\"contextHint\":\"Hi Robin\"}]",
+      "first": {
+        "stored": 2,
+        "skipped": 0
+      },
+      "second": {
+        "stored": 0,
+        "skipped": 2
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Alex\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Moin﻿Alex\"},{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":\"Robin\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi Robin\"}]",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Moin﻿Alex!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null},{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi Robin!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "text": "Hallo Alex!",
+      "confirmed": true,
+      "segments": [
+        {
+          "speakerLabel": "speaker_0",
+          "text": "Hallo Alex!"
+        },
+        {
+          "speakerLabel": "speaker_1",
+          "text": "Hi Robin!"
+        }
+      ],
+      "line": "[{\"speakerLabel\":\"speaker_1\",\"displayName\":\"Robin\",\"confidence\":0.7,\"contextHint\":\"Hi Robin\"}]",
+      "first": {
+        "stored": 1,
+        "skipped": 0
+      },
+      "second": {
+        "stored": 0,
+        "skipped": 1
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"attributionSource\":\"manual\",\"confidence\":1,\"confirmed\":1,\"proposedAt\":1710000000000,\"confirmedAt\":1710000000000,\"contextHint\":null},{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":\"Robin\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi Robin\"}]",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hallo Alex!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null},{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi Robin!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "text": "HalloAlex!",
+      "confirmed": true,
+      "segments": [
+        {
+          "speakerLabel": "speaker_0",
+          "text": "HalloAlex!"
+        },
+        {
+          "speakerLabel": "speaker_1",
+          "text": "Hi Robin!"
+        }
+      ],
+      "line": "[{\"speakerLabel\":\"speaker_1\",\"displayName\":\"Robin\",\"confidence\":0.7,\"contextHint\":\"Hi Robin\"}]",
+      "first": {
+        "stored": 1,
+        "skipped": 0
+      },
+      "second": {
+        "stored": 0,
+        "skipped": 1
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"attributionSource\":\"manual\",\"confidence\":1,\"confirmed\":1,\"proposedAt\":1710000000000,\"confirmedAt\":1710000000000,\"contextHint\":null},{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":\"Robin\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi Robin\"}]",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"HalloAlex!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null},{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi Robin!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "text": "Hi, Jordan.",
+      "confirmed": true,
+      "segments": [
+        {
+          "speakerLabel": "speaker_0",
+          "text": "Hi, Jordan."
+        },
+        {
+          "speakerLabel": "speaker_1",
+          "text": "Hi Robin!"
+        }
+      ],
+      "line": "[{\"speakerLabel\":\"speaker_1\",\"displayName\":\"Robin\",\"confidence\":0.7,\"contextHint\":\"Hi Robin\"}]",
+      "first": {
+        "stored": 1,
+        "skipped": 0
+      },
+      "second": {
+        "stored": 0,
+        "skipped": 1
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"attributionSource\":\"manual\",\"confidence\":1,\"confirmed\":1,\"proposedAt\":1710000000000,\"confirmedAt\":1710000000000,\"contextHint\":null},{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":\"Robin\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi Robin\"}]",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi, Jordan.\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null},{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi Robin!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "text": "Hey Kim! Hallo Alex!",
+      "confirmed": true,
+      "segments": [
+        {
+          "speakerLabel": "speaker_0",
+          "text": "Hey Kim! Hallo Alex!"
+        },
+        {
+          "speakerLabel": "speaker_1",
+          "text": "Hi Robin!"
+        }
+      ],
+      "line": "[{\"speakerLabel\":\"speaker_1\",\"displayName\":\"Robin\",\"confidence\":0.7,\"contextHint\":\"Hi Robin\"}]",
+      "first": {
+        "stored": 1,
+        "skipped": 0
+      },
+      "second": {
+        "stored": 0,
+        "skipped": 1
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"attributionSource\":\"manual\",\"confidence\":1,\"confirmed\":1,\"proposedAt\":1710000000000,\"confirmedAt\":1710000000000,\"contextHint\":null},{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":\"Robin\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi Robin\"}]",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hey Kim! Hallo Alex!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null},{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi Robin!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "text": "Danke schön Alex!",
+      "confirmed": true,
+      "segments": [
+        {
+          "speakerLabel": "speaker_0",
+          "text": "Danke schön Alex!"
+        },
+        {
+          "speakerLabel": "speaker_1",
+          "text": "Hi Robin!"
+        }
+      ],
+      "line": "[{\"speakerLabel\":\"speaker_1\",\"displayName\":\"Robin\",\"confidence\":0.7,\"contextHint\":\"Hi Robin\"}]",
+      "first": {
+        "stored": 1,
+        "skipped": 0
+      },
+      "second": {
+        "stored": 0,
+        "skipped": 1
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"attributionSource\":\"manual\",\"confidence\":1,\"confirmed\":1,\"proposedAt\":1710000000000,\"confirmedAt\":1710000000000,\"contextHint\":null},{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":\"Robin\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi Robin\"}]",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Danke schön Alex!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null},{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi Robin!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "text": "Vielen Dank Alex!",
+      "confirmed": true,
+      "segments": [
+        {
+          "speakerLabel": "speaker_0",
+          "text": "Vielen Dank Alex!"
+        },
+        {
+          "speakerLabel": "speaker_1",
+          "text": "Hi Robin!"
+        }
+      ],
+      "line": "[{\"speakerLabel\":\"speaker_1\",\"displayName\":\"Robin\",\"confidence\":0.7,\"contextHint\":\"Hi Robin\"}]",
+      "first": {
+        "stored": 1,
+        "skipped": 0
+      },
+      "second": {
+        "stored": 0,
+        "skipped": 1
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"attributionSource\":\"manual\",\"confidence\":1,\"confirmed\":1,\"proposedAt\":1710000000000,\"confirmedAt\":1710000000000,\"contextHint\":null},{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":\"Robin\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi Robin\"}]",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Vielen Dank Alex!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null},{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi Robin!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "text": "Excuse me, Morgan!",
+      "confirmed": true,
+      "segments": [
+        {
+          "speakerLabel": "speaker_0",
+          "text": "Excuse me, Morgan!"
+        },
+        {
+          "speakerLabel": "speaker_1",
+          "text": "Hi Robin!"
+        }
+      ],
+      "line": "[{\"speakerLabel\":\"speaker_1\",\"displayName\":\"Robin\",\"confidence\":0.7,\"contextHint\":\"Hi Robin\"}]",
+      "first": {
+        "stored": 1,
+        "skipped": 0
+      },
+      "second": {
+        "stored": 0,
+        "skipped": 1
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"attributionSource\":\"manual\",\"confidence\":1,\"confirmed\":1,\"proposedAt\":1710000000000,\"confirmedAt\":1710000000000,\"contextHint\":null},{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":\"Robin\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi Robin\"}]",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Excuse me, Morgan!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null},{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi Robin!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "text": "Hallo Ömer!",
+      "confirmed": true,
+      "segments": [
+        {
+          "speakerLabel": "speaker_0",
+          "text": "Hallo Ömer!"
+        },
+        {
+          "speakerLabel": "speaker_1",
+          "text": "Hi Robin!"
+        }
+      ],
+      "line": "[{\"speakerLabel\":\"speaker_1\",\"displayName\":\"Robin\",\"confidence\":0.7,\"contextHint\":\"Hi Robin\"}]",
+      "first": {
+        "stored": 1,
+        "skipped": 0
+      },
+      "second": {
+        "stored": 0,
+        "skipped": 1
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"attributionSource\":\"manual\",\"confidence\":1,\"confirmed\":1,\"proposedAt\":1710000000000,\"confirmedAt\":1710000000000,\"contextHint\":null},{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":\"Robin\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi Robin\"}]",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hallo Ömer!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null},{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi Robin!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "text": "Hallo x!",
+      "confirmed": true,
+      "segments": [
+        {
+          "speakerLabel": "speaker_0",
+          "text": "Hallo x!"
+        },
+        {
+          "speakerLabel": "speaker_1",
+          "text": "Hi Robin!"
+        }
+      ],
+      "line": "[{\"speakerLabel\":\"speaker_1\",\"displayName\":\"Robin\",\"confidence\":0.7,\"contextHint\":\"Hi Robin\"}]",
+      "first": {
+        "stored": 1,
+        "skipped": 0
+      },
+      "second": {
+        "stored": 0,
+        "skipped": 1
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"attributionSource\":\"manual\",\"confidence\":1,\"confirmed\":1,\"proposedAt\":1710000000000,\"confirmedAt\":1710000000000,\"contextHint\":null},{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":\"Robin\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi Robin\"}]",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hallo x!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null},{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi Robin!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "text": "hi alice",
+      "confirmed": true,
+      "segments": [
+        {
+          "speakerLabel": "speaker_0",
+          "text": "hi alice"
+        },
+        {
+          "speakerLabel": "speaker_1",
+          "text": "Hi Robin!"
+        }
+      ],
+      "line": "[{\"speakerLabel\":\"speaker_1\",\"displayName\":\"Robin\",\"confidence\":0.7,\"contextHint\":\"Hi Robin\"}]",
+      "first": {
+        "stored": 1,
+        "skipped": 0
+      },
+      "second": {
+        "stored": 0,
+        "skipped": 1
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"attributionSource\":\"manual\",\"confidence\":1,\"confirmed\":1,\"proposedAt\":1710000000000,\"confirmedAt\":1710000000000,\"contextHint\":null},{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":\"Robin\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi Robin\"}]",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"hi alice\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null},{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi Robin!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "text": "Hallo Alex! Hallo Alex!",
+      "confirmed": true,
+      "segments": [
+        {
+          "speakerLabel": "speaker_0",
+          "text": "Hallo Alex! Hallo Alex!"
+        },
+        {
+          "speakerLabel": "speaker_1",
+          "text": "Hi Robin!"
+        }
+      ],
+      "line": "[{\"speakerLabel\":\"speaker_1\",\"displayName\":\"Robin\",\"confidence\":0.7,\"contextHint\":\"Hi Robin\"}]",
+      "first": {
+        "stored": 1,
+        "skipped": 0
+      },
+      "second": {
+        "stored": 0,
+        "skipped": 1
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"attributionSource\":\"manual\",\"confidence\":1,\"confirmed\":1,\"proposedAt\":1710000000000,\"confirmedAt\":1710000000000,\"contextHint\":null},{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":\"Robin\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi Robin\"}]",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hallo Alex! Hallo Alex!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null},{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi Robin!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "text": "Guten Morgen Taylor!",
+      "confirmed": true,
+      "segments": [
+        {
+          "speakerLabel": "speaker_0",
+          "text": "Guten Morgen Taylor!"
+        },
+        {
+          "speakerLabel": "speaker_1",
+          "text": "Hi Robin!"
+        }
+      ],
+      "line": "[{\"speakerLabel\":\"speaker_1\",\"displayName\":\"Robin\",\"confidence\":0.7,\"contextHint\":\"Hi Robin\"}]",
+      "first": {
+        "stored": 1,
+        "skipped": 0
+      },
+      "second": {
+        "stored": 0,
+        "skipped": 1
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"attributionSource\":\"manual\",\"confidence\":1,\"confirmed\":1,\"proposedAt\":1710000000000,\"confirmedAt\":1710000000000,\"contextHint\":null},{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":\"Robin\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi Robin\"}]",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Guten Morgen Taylor!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null},{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi Robin!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "text": "ordinary text",
+      "confirmed": true,
+      "segments": [
+        {
+          "speakerLabel": "speaker_0",
+          "text": "ordinary text"
+        },
+        {
+          "speakerLabel": "speaker_1",
+          "text": "Hi Robin!"
+        }
+      ],
+      "line": "[{\"speakerLabel\":\"speaker_1\",\"displayName\":\"Robin\",\"confidence\":0.7,\"contextHint\":\"Hi Robin\"}]",
+      "first": {
+        "stored": 1,
+        "skipped": 0
+      },
+      "second": {
+        "stored": 0,
+        "skipped": 1
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"attributionSource\":\"manual\",\"confidence\":1,\"confirmed\":1,\"proposedAt\":1710000000000,\"confirmedAt\":1710000000000,\"contextHint\":null},{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":\"Robin\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi Robin\"}]",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"ordinary text\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null},{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi Robin!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "text": "Sorry,Alice.",
+      "confirmed": true,
+      "segments": [
+        {
+          "speakerLabel": "speaker_0",
+          "text": "Sorry,Alice."
+        },
+        {
+          "speakerLabel": "speaker_1",
+          "text": "Hi Robin!"
+        }
+      ],
+      "line": "[{\"speakerLabel\":\"speaker_1\",\"displayName\":\"Robin\",\"confidence\":0.7,\"contextHint\":\"Hi Robin\"}]",
+      "first": {
+        "stored": 1,
+        "skipped": 0
+      },
+      "second": {
+        "stored": 0,
+        "skipped": 1
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"attributionSource\":\"manual\",\"confidence\":1,\"confirmed\":1,\"proposedAt\":1710000000000,\"confirmedAt\":1710000000000,\"contextHint\":null},{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":\"Robin\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi Robin\"}]",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Sorry,Alice.\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null},{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi Robin!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    },
+    {
+      "text": "Moin﻿Alex!",
+      "confirmed": true,
+      "segments": [
+        {
+          "speakerLabel": "speaker_0",
+          "text": "Moin﻿Alex!"
+        },
+        {
+          "speakerLabel": "speaker_1",
+          "text": "Hi Robin!"
+        }
+      ],
+      "line": "[{\"speakerLabel\":\"speaker_1\",\"displayName\":\"Robin\",\"confidence\":0.7,\"contextHint\":\"Hi Robin\"}]",
+      "first": {
+        "stored": 1,
+        "skipped": 0
+      },
+      "second": {
+        "stored": 0,
+        "skipped": 1
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"attributionSource\":\"manual\",\"confidence\":1,\"confirmed\":1,\"proposedAt\":1710000000000,\"confirmedAt\":1710000000000,\"contextHint\":null},{\"agentId\":\"alpha\",\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":\"Robin\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hi Robin\"}]",
+      "mappedLine": "[{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_0\",\"speakerDisplayName\":\"Confirmed Fixture\",\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Moin﻿Alex!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null},{\"source\":\"unknown\",\"sourceId\":null,\"speakerLabel\":\"speaker_1\",\"speakerDisplayName\":null,\"speakerConfidence\":null,\"startMs\":0,\"endMs\":0,\"text\":\"Hi Robin!\",\"words\":null,\"attributionSource\":\"unknown\",\"diarizationModel\":null,\"asrModel\":null}]"
+    }
+  ],
+  "identityAliases": [
+    {
+      "segments": [
+        {
+          "speakerLabel": "s\ud83d",
+          "text": "Hallo Alex!"
+        },
+        {
+          "speakerLabel": "s�",
+          "text": "Hi Jordan!"
+        }
+      ],
+      "proposalsLine": "[{\"speakerLabel\":\"s\\ud83d\",\"displayName\":\"Alex\",\"confidence\":0.7,\"contextHint\":\"Hallo Alex\"},{\"speakerLabel\":\"s�\",\"displayName\":\"Jordan\",\"confidence\":0.7,\"contextHint\":\"Hi Jordan\"}]",
+      "counts": {
+        "stored": 1,
+        "skipped": 1
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"s�\",\"speakerDisplayName\":\"Alex\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hallo Alex\"}]"
+    },
+    {
+      "segments": [
+        {
+          "speakerLabel": "s\udc00",
+          "text": "Hallo Alex!"
+        },
+        {
+          "speakerLabel": "s�",
+          "text": "Hi Jordan!"
+        }
+      ],
+      "proposalsLine": "[{\"speakerLabel\":\"s\\udc00\",\"displayName\":\"Alex\",\"confidence\":0.7,\"contextHint\":\"Hallo Alex\"},{\"speakerLabel\":\"s�\",\"displayName\":\"Jordan\",\"confidence\":0.7,\"contextHint\":\"Hi Jordan\"}]",
+      "counts": {
+        "stored": 1,
+        "skipped": 1
+      },
+      "rowsLine": "[{\"agentId\":\"alpha\",\"speakerLabel\":\"s�\",\"speakerDisplayName\":\"Alex\",\"attributionSource\":\"contextual_proposal\",\"confidence\":0.7,\"confirmed\":0,\"proposedAt\":1710000000000,\"confirmedAt\":null,\"contextHint\":\"Hallo Alex\"}]"
+    }
+  ]
+}

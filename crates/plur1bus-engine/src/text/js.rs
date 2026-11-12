@@ -318,6 +318,29 @@ impl JsRegex {
         }
         Ok(out)
     }
+
+    /// Find non-overlapping matches with their numbered capture groups; group zero is the full match.
+    /// An unmatched optional group is `None`. Offsets refer to the original UTF-8 input.
+    ///
+    /// # Errors
+    /// Returns [`JsRegexError::Fancy`] if backtracking exceeds runtime limits.
+    pub fn captures_all(&self, text: &str) -> Result<Vec<Vec<Option<JsRegexMatch>>>, JsRegexError> {
+        self.inner
+            .captures_iter(text)
+            .map(|result| {
+                let captures = result.map_err(JsRegexError::Fancy)?;
+                Ok((0..captures.len())
+                    .map(|index| {
+                        captures.get(index).map(|m| JsRegexMatch {
+                            matched: m.as_str().to_owned(),
+                            byte_start: m.start(),
+                            byte_end: m.end(),
+                        })
+                    })
+                    .collect())
+            })
+            .collect()
+    }
 }
 
 /// Translates a JavaScript regex pattern and flags (`g`, `i`, `m`, `s`, `u`) into a pattern for

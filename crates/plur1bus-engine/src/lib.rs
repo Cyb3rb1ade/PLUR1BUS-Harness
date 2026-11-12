@@ -11,11 +11,15 @@
 // P4-03: the token counter and the cache-profile table live in `plur1bus-tokens` (shared with the Rust core); these two
 // re-exports keep `crate::tokens::…`, `plur1bus_engine::tokens::…` and `plur1bus_engine::cache_profiles::…` working.
 pub use plur1bus_tokens::cache_profiles;
+pub mod capture;
 pub mod config;
 pub mod context;
 pub mod contract;
 pub mod embedding;
+pub mod jobs;
 pub mod media;
+pub mod neo;
+pub mod ops;
 pub mod recall;
 pub mod rpc;
 pub mod store;

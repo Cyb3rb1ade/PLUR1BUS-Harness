@@ -16,6 +16,7 @@ use crate::store::ledger_types::RetrievalLedgerLine;
 use crate::store::{Store, StoreRoutes};
 use crate::text::js::JsString;
 
+pub(crate) use super::namespace_routes::writer_layout;
 pub use super::namespace_routes::NamespaceStores;
 
 // Node caps the deferred per-child and per-identity candidate set at 100.
@@ -155,7 +156,10 @@ pub fn recall(request: &NamespaceRequest<'_>) -> Result<NamespaceOutput, Namespa
     })
 }
 
-fn retrieval_line(request: &NamespaceRequest<'_>, result: &NamespaceResult) -> RetrievalLedgerLine {
+pub(crate) fn retrieval_line(
+    request: &NamespaceRequest<'_>,
+    result: &NamespaceResult,
+) -> RetrievalLedgerLine {
     let nullable = |value: &str| (!value.is_empty()).then(|| JsString::from(value));
     let hash = (!request.query.is_empty()).then(|| {
         JsString::from(format!("{:x}", Sha256::digest(request.query.as_bytes())).as_str())

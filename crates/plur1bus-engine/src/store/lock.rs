@@ -1,7 +1,7 @@
 //! Node-compatible nonce-owned registry locks and their job-lock wrapper (RE-02/T6).
 //!
-//! The mtime is the acquisition time. There is deliberately no heartbeat: updating mtime
-//! would change the pinned Node reader's stale-lock decision. Release and stale takeover
+//! The default mtime is the acquisition time; import and reembedding owners explicitly
+//! heartbeat their long-running mutations. Release and stale takeover
 //! rename a lock aside, verify ownership, and restore a different owner's file.
 
 use std::{
@@ -512,6 +512,48 @@ impl LockGuard {
     /// The lock path, for its owner to inspect or pass to a cooperating process.
     pub fn path(&self) -> &Path {
         self.neo.as_ref().map_or(&self.path, |neo| neo.path())
+    }
+
+    /// Recheck nonce ownership before a registry/import mutation. Directory Neo locks
+    /// use their own protocol and cannot be fenced through this file-lock method.
+    #[must_use]
+    pub fn is_owned(&self) -> bool {
+        !self.released
+            && self.neo.is_none()
+            && assert_trusted_path(&self.path).is_ok()
+            && snapshot(&self.path)
+                .is_ok_and(|row| Ownership::Nonce(self.nonce.clone()).matches(&row))
+    }
+
+    /// Recheck a Neo directory lease before a mutation: the retained directory identity and
+    /// the exact owner record written by this guard must still match. This does not renew
+    /// the Node protocol's stale ceiling; callers still bound their critical section.
+    #[must_use]
+    pub fn is_neo_owned(&self) -> bool {
+        !self.released && self.neo.as_ref().is_some_and(|neo| neo.is_owned())
+    }
+
+    /// Explicit long-running owner heartbeat on the opened, nonce-checked inode only.
+    /// A replaced pathname never causes the replacement owner's inode to be touched.
+    pub fn heartbeat(&self) -> Result<bool, StoreError> {
+        if self.released || self.neo.is_some() {
+            return Ok(false);
+        }
+        assert_trusted_path(&self.path)?;
+        let mut file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&self.path)
+            .map_err(io_error)?;
+        let mut text = String::new();
+        file.read_to_string(&mut text).map_err(io_error)?;
+        if !holds(&text, &self.nonce) {
+            return Ok(false);
+        }
+        let now = SystemTime::now();
+        file.set_times(fs::FileTimes::new().set_accessed(now).set_modified(now))
+            .map_err(io_error)?;
+        Ok(self.is_owned())
     }
 
     /// Release idempotently; failures never replace an error from the protected operation.

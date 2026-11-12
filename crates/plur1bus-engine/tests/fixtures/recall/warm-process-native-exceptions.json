@@ -1,0 +1,11 @@
+{
+  "exception": "RE-D148",
+  "sourceCommit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+  "source": "engine/recall/warm-recall-path.js",
+  "sourceSha256": "9fc9202dcacbc2d11b4cbd31b9a865f4263549fe63492fa1d8be7af86a5484eb",
+  "native": [
+    "No S5 writes in speculative recall: a committed or unresolved attempted deletion blocks documents from the reranker. The registry is read without torn-tail repair.",
+    "Warm vector search is limited to the process's configured embedding identity. Canonical and graph warming, retained providers, and scheduler priority are pending.",
+    "Warm errors use bounded engine-owned details. The Node recording is unchanged."
+  ]
+}

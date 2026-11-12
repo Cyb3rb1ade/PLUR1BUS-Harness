@@ -11,12 +11,17 @@ pub mod create;
 pub mod manifest;
 pub mod redact;
 pub mod restore;
+mod retention;
 mod store_guard;
+mod writer_guard;
 
 #[cfg(test)]
 mod hardening;
 #[cfg(test)]
 mod module_policy_tests;
+
+#[cfg(test)]
+mod derived_cache_tests;
 
 use std::fmt;
 

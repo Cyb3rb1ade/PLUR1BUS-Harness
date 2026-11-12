@@ -1,0 +1,144 @@
+{
+  "schema": "engine-parity.golden/1",
+  "recordedFrom": {
+    "engine": "node",
+    "commit": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+    "at": "2026-11-09T16:34:06.109Z"
+  },
+  "steps": [
+    {
+      "result": {
+        "agentId": "a1",
+        "items": [
+          {
+            "epistemicStatus": "observed",
+            "id": "00000000-0000-4000-8000-000000000003",
+            "origin": "dm",
+            "scope": "agent-private",
+            "summary": "I have decided that project fixture item 1 uses the durable archive policy number 1.",
+            "text": "I have decided that project fixture item 1 uses the durable archive policy number 1."
+          },
+          {
+            "epistemicStatus": "observed",
+            "id": "00000000-0000-4000-8000-000000000009",
+            "origin": "dm",
+            "scope": "agent-private",
+            "summary": "I have decided that project fixture item 2 uses the durable archive policy number 2.",
+            "text": "I have decided that project fixture item 2 uses the durable archive policy number 2."
+          },
+          {
+            "epistemicStatus": "observed",
+            "id": "00000000-0000-4000-8000-000000000013",
+            "origin": "dm",
+            "scope": "agent-private",
+            "summary": "I have decided that project fixture item 3 uses the durable archive policy number 3.",
+            "text": "I have decided that project fixture item 3 uses the durable archive policy number 3."
+          },
+          {
+            "epistemicStatus": "observed",
+            "id": "00000000-0000-4000-8000-000000000017",
+            "origin": "dm",
+            "scope": "agent-private",
+            "summary": "I have decided that project fixture item 4 uses the durable archive policy number 4.",
+            "text": "I have decided that project fixture item 4 uses the durable archive policy number 4."
+          },
+          {
+            "epistemicStatus": "observed",
+            "id": "00000000-0000-4000-8000-000000000021",
+            "origin": "dm",
+            "scope": "agent-private",
+            "summary": "I have decided that project fixture item 5 uses the durable archive policy number 5.",
+            "text": "I have decided that project fixture item 5 uses the durable archive policy number 5."
+          },
+          {
+            "epistemicStatus": "observed",
+            "id": "00000000-0000-4000-8000-000000000025",
+            "origin": "dm",
+            "scope": "agent-private",
+            "summary": "I have decided that project fixture item 6 uses the durable archive policy number 6.",
+            "text": "I have decided that project fixture item 6 uses the durable archive policy number 6."
+          }
+        ],
+        "truncated": false
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "epistemicStatus": "observed",
+        "id": "00000000-0000-4000-8000-000000000003",
+        "origin": "dm",
+        "scope": "agent-private",
+        "summary": "I have decided that project fixture item 1 uses the durable archive policy number 1.",
+        "text": "I have decided that project fixture item 1 uses the durable archive policy number 1."
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "alreadyForgotten": false,
+        "archived": true,
+        "id": "00000000-0000-4000-8000-000000000003",
+        "tombstoneId": "e1000000-0000-4000-8000-000000000002"
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "error": {
+          "code": "not-found"
+        }
+      },
+      "trace": null
+    },
+    {
+      "result": {
+        "agentId": "a1",
+        "items": [
+          {
+            "epistemicStatus": "observed",
+            "id": "00000000-0000-4000-8000-000000000009",
+            "origin": "dm",
+            "scope": "agent-private",
+            "summary": "I have decided that project fixture item 2 uses the durable archive policy number 2.",
+            "text": "I have decided that project fixture item 2 uses the durable archive policy number 2."
+          },
+          {
+            "epistemicStatus": "observed",
+            "id": "00000000-0000-4000-8000-000000000013",
+            "origin": "dm",
+            "scope": "agent-private",
+            "summary": "I have decided that project fixture item 3 uses the durable archive policy number 3.",
+            "text": "I have decided that project fixture item 3 uses the durable archive policy number 3."
+          },
+          {
+            "epistemicStatus": "observed",
+            "id": "00000000-0000-4000-8000-000000000017",
+            "origin": "dm",
+            "scope": "agent-private",
+            "summary": "I have decided that project fixture item 4 uses the durable archive policy number 4.",
+            "text": "I have decided that project fixture item 4 uses the durable archive policy number 4."
+          },
+          {
+            "epistemicStatus": "observed",
+            "id": "00000000-0000-4000-8000-000000000021",
+            "origin": "dm",
+            "scope": "agent-private",
+            "summary": "I have decided that project fixture item 5 uses the durable archive policy number 5.",
+            "text": "I have decided that project fixture item 5 uses the durable archive policy number 5."
+          },
+          {
+            "epistemicStatus": "observed",
+            "id": "00000000-0000-4000-8000-000000000025",
+            "origin": "dm",
+            "scope": "agent-private",
+            "summary": "I have decided that project fixture item 6 uses the durable archive policy number 6.",
+            "text": "I have decided that project fixture item 6 uses the durable archive policy number 6."
+          }
+        ],
+        "truncated": false
+      },
+      "trace": null
+    }
+  ]
+}

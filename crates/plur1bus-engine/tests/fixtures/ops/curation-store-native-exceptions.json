@@ -1,0 +1,10 @@
+{
+  "nodeGoldenSha256": "b9b57da8554691f2263d9b604df7adadd3d4042e7ec636d0d4e970f7925b138e",
+  "cases": [
+    {
+      "index": 10,
+      "reason": "D130 rejects private foreign owner; actual Node rerun on authorized empty sources",
+      "outputJson": "{\"agentId\":\"alpha\",\"items\":[],\"truncated\":false}"
+    }
+  ]
+}

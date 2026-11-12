@@ -14,13 +14,15 @@ use std::time::{Duration, Instant, UNIX_EPOCH};
 const INSTANCE: &str = "00000000-0000-4000-8000-000000000081";
 
 fn assert_process_status(status: &Value) {
-    assert_eq!(status["ready"], false, "{status}");
+    // The host store base is configured: recall, capture, journal, jobs and the schema marker
+    // are composed (RE-D157), so the engine is ready; model warming degrades as at the pin.
+    assert_eq!(status["ready"], true, "{status}");
     assert!(
-        status["degraded"]["reason"]
-            .as_str()
-            .is_some_and(|reason| matches!(reason, "models-warming" | "composition-pending")),
+        status["degraded"].is_null() || status["degraded"]["reason"] == "models-warming",
         "{status}"
     );
+    assert_eq!(status["jobs"]["ledger"], "ok", "{status}");
+    assert_eq!(status["storeSchema"]["expected"], "1", "{status}");
 }
 
 #[test]
@@ -607,13 +609,8 @@ fn signal_closes_the_engine_and_removes_its_run_files(signal: libc::c_int) {
     .unwrap();
     let mut params = fixture["params"].clone();
     params["query"]["query"] = json!(private_marker);
-    assert_eq!(
-        client
-            .call("engine.recall", params)
-            .unwrap_err()
-            .code_name(),
-        "E_NOT_AVAILABLE"
-    );
+    // Recall is served (RE-D150); the call only carries a private marker into the process.
+    assert!(client.call("engine.recall", params.clone()).is_ok());
     // SAFETY: this positive PID names the live child held and reaped by EngineProcess.
     assert_eq!(
         unsafe { libc::kill(engine.pid().try_into().unwrap(), signal) },
@@ -621,6 +618,8 @@ fn signal_closes_the_engine_and_removes_its_run_files(signal: libc::c_int) {
     );
     assert!(engine.wait_for_exit().success(), "{}", engine.diagnostics());
     engine.assert_run_files_removed();
+    // Nothing is served after the signal: the open connection answers no further call.
+    assert!(client.call("engine.recall", params).is_err());
     let stderr = engine.stderr();
     let records: Vec<Value> = stderr
         .lines()
@@ -795,4 +794,419 @@ fn the_allowed_cold_cli_seam_delays_only_the_first_two_query_calls_over_rpc() {
     client.call("engine.shutdown", json!({})).unwrap();
     assert!(engine.wait_for_exit().success(), "{}", engine.diagnostics());
     engine.assert_run_files_removed();
+}
+
+/// Pin `engine/create-engine.js` (`baseDbPathIsFreshStore`): a missing or empty `baseDbPath` starts at schema 1 at
+/// engine creation, so `admin.migrate {0 -> 1}` answers `conflict` and `{1 -> 1}` is `applied: false`. Rust answers
+/// the same without writing anything to the store base (a store is initialised when it is first created).
+#[test]
+fn migration_on_a_fresh_store_base_conflicts_like_the_pin_and_writes_nothing() {
+    for empty_dir in [false, true] {
+        let _serial = process_test();
+        let home = home();
+        let base = home.path().join("state/lancedb");
+        if empty_dir {
+            fs::create_dir_all(&base).unwrap();
+        }
+        let mut engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
+        let mut peer = RawConnection::connect(engine.address());
+        peer.call(
+            1,
+            "engine.auth",
+            json!({"token":engine.token(),"clientId":"core-fixture"}),
+        );
+        let pid_file = home.path().join("run/core.pid");
+        fs::write(&pid_file, format!("{} {INSTANCE}\n", std::process::id())).unwrap();
+        plur1bus_engine::store::paths::secure_file(&pid_file).unwrap();
+        let before = listing(&base);
+        let migrate = |peer: &mut RawConnection, id, from: &str, to: &str| {
+            peer.call(id, "engine.admin.migrate", json!({"from":from,"to":to}))
+        };
+        let conflict = migrate(&mut peer, 2, "0", "1");
+        assert_eq!(
+            conflict["error"]["data"]["reason"], "conflict",
+            "{conflict}"
+        );
+        let same = migrate(&mut peer, 3, "1", "1");
+        assert_eq!(
+            same["result"],
+            json!({"from":"1","to":"1","applied":false}),
+            "{same}"
+        );
+        assert_eq!(listing(&base), before, "empty_dir: {empty_dir}");
+        // The process start initialised the fresh base like the pin's engine creation (RE-D175, revised);
+        // the migration itself added nothing to it.
+        assert!(
+            base.join("_schema.json").is_file(),
+            "empty_dir: {empty_dir}"
+        );
+        drop(peer);
+        engine.close_stdin();
+        assert!(engine.wait_for_exit().success());
+    }
+}
+
+#[test]
+fn schema_migration_requires_the_live_core_peer_and_audits_the_actual_change() {
+    let _serial = process_test();
+    let home = home();
+    let base = home.path().join("state/lancedb");
+    let marker = base.join("_schema.json");
+    fs::create_dir_all(&base).unwrap();
+    fs::write(&marker, b"{\"schemaVersion\":\"0\"}").unwrap();
+    let mut engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
+    let mut peer = RawConnection::connect(engine.address());
+    let hello = peer.call(
+        1,
+        "engine.auth",
+        json!({"token":engine.token(),"clientId":"core-fixture"}),
+    );
+    assert_eq!(hello["result"]["pid"], engine.pid());
+
+    let migrate = |peer: &mut RawConnection, id, from: &str, to: &str| {
+        peer.call(id, "engine.admin.migrate", json!({"from":from,"to":to}))
+    };
+    let audit_path = home.path().join("state/engine-maintenance.jsonl");
+    let no_core = migrate(&mut peer, 2, "0", "1");
+    assert_unauthorized(&no_core);
+    assert_eq!(no_core["error"]["data"]["reason"], "core-link-required");
+
+    let pid_file = home.path().join("run/core.pid");
+    let publish = |pid| {
+        fs::write(&pid_file, format!("{pid} {INSTANCE}\n")).unwrap();
+        plur1bus_engine::store::paths::secure_file(&pid_file).unwrap();
+    };
+    publish(engine.pid());
+    let wrong_peer = migrate(&mut peer, 3, "0", "1");
+    assert_unauthorized(&wrong_peer);
+    assert!(!audit_path.exists());
+    assert_eq!(
+        fs::read_to_string(&marker).unwrap(),
+        "{\"schemaVersion\":\"0\"}"
+    );
+
+    // The Core can establish the EngineClient before publishing its own run files.
+    // The first authorized maintenance call uses the same authenticated socket.
+    publish(std::process::id());
+    let result = migrate(&mut peer, 4, "0", "1");
+    assert_eq!(
+        result["result"],
+        json!({"from":"0","to":"1","applied":true}),
+        "{result}"
+    );
+    assert_eq!(
+        serde_json::from_slice::<Value>(&fs::read(&marker).unwrap()).unwrap()["schemaVersion"],
+        "1"
+    );
+    let conflict = migrate(&mut peer, 5, "0", "1");
+    assert_eq!(conflict["error"]["data"]["reason"], "conflict");
+    let empty_status = peer.call(6, "engine.admin.reembedding.status", json!({}));
+    assert_eq!(
+        empty_status["error"]["data"]["reason"],
+        "operation-unavailable"
+    );
+    let targeted_status = peer.call(
+        7,
+        "engine.admin.reembedding.status",
+        json!({"id":"fixture"}),
+    );
+    // Re-embedding is served over the same grant (RE-D166): an unknown migration has no record.
+    assert_eq!(targeted_status["result"], Value::Null, "{targeted_status}");
+    fs::remove_file(&pid_file).unwrap();
+    assert_unauthorized(&migrate(&mut peer, 8, "1", "1"));
+    let entries: Vec<Value> = fs::read_to_string(&audit_path)
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert_eq!(entries.len(), 3);
+    // The targeted status is audited like every served maintenance call; the empty one was
+    // refused at the wire before reaching the grant.
+    assert_eq!(entries[2]["method"], "engine.admin.reembedding.status");
+    assert_eq!(entries[2]["target"], json!({"id":"fixture"}));
+    assert_eq!(entries[2]["actor"], "core-maintenance");
+    for entry in entries.into_iter().take(2) {
+        assert_eq!(entry["method"], "engine.admin.migrate");
+        assert_eq!(entry["actor"], "core-maintenance");
+        assert!(entry["coreLink"].as_str().unwrap().starts_with(INSTANCE));
+        assert_eq!(entry["target"], json!({"from":"0","to":"1"}));
+        assert!(entry.get("token").is_none());
+        assert!(entry.get("principal").is_none());
+    }
+    drop(peer);
+    engine.close_stdin();
+    assert!(engine.wait_for_exit().success());
+}
+
+/// An authenticated Core peer with a live core pid file (the maintenance grant of the pin).
+fn core_peer(engine: &EngineProcess, home: &std::path::Path) -> RawConnection {
+    let mut peer = RawConnection::connect(engine.address());
+    let hello = peer.call(
+        1,
+        "engine.auth",
+        json!({"token":engine.token(),"clientId":"core-fixture"}),
+    );
+    assert!(hello["result"].is_object(), "{hello}");
+    let pid_file = home.join("run/core.pid");
+    fs::write(&pid_file, format!("{} {INSTANCE}\n", std::process::id())).unwrap();
+    plur1bus_engine::store::paths::secure_file(&pid_file).unwrap();
+    peer
+}
+
+/// Like `RawConnection::call`, but skips server notifications (a capture reports its completion that way).
+fn call_skipping_events(peer: &mut RawConnection, id: u64, method: &str, params: &Value) -> Value {
+    peer.send(json!({"jsonrpc":"2.0","id":id,"method":method,"params":params}));
+    loop {
+        let response = peer.response().unwrap().expect("RPC response before EOF");
+        if response["id"] == id {
+            return response;
+        }
+    }
+}
+
+/// Every entry below `dir`, recursively and sorted; empty when `dir` does not exist.
+fn listing(dir: &std::path::Path) -> Vec<String> {
+    fn walk(dir: &std::path::Path, prefix: &str, out: &mut Vec<String>) {
+        let Ok(entries) = fs::read_dir(dir) else {
+            return;
+        };
+        for entry in entries {
+            let entry = entry.unwrap();
+            let name = format!("{prefix}/{}", entry.file_name().to_string_lossy());
+            out.push(name.clone());
+            if entry.path().is_dir() {
+                walk(&entry.path(), &name, out);
+            }
+        }
+    }
+    let mut out = vec![];
+    walk(dir, "", &mut out);
+    out.sort();
+    out
+}
+
+fn status_schema(peer: &mut RawConnection, id: u64) -> Value {
+    let status = call_skipping_events(peer, id, "engine.status", &json!({}));
+    status["result"]["storeSchema"].clone()
+}
+
+/// RE-D175 (fix2): the pin reports `storeMigrator.current()` (`status-reporter.js:159`), the marker written at
+/// engine creation for a fresh base, so status and `admin.migrate` never disagree. A base with content but no
+/// marker is a legacy store: schema 0 in both, and the migration applies.
+#[test]
+fn status_and_migrate_read_a_fresh_store_base_alike() {
+    for empty_dir in [false, true] {
+        let _serial = process_test();
+        let home = home();
+        let base = home.path().join("state/lancedb");
+        if empty_dir {
+            fs::create_dir_all(&base).unwrap();
+        }
+        let mut engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
+        let mut peer = core_peer(&engine, home.path());
+        // The process start wrote the marker of the fresh base (RE-D175, revised); status and the migration
+        // only read it.
+        assert!(
+            base.join("_schema.json").is_file(),
+            "empty_dir: {empty_dir}"
+        );
+        let before = listing(&base);
+        assert_eq!(
+            status_schema(&mut peer, 2),
+            json!({"current":"1","expected":"1"}),
+            "empty_dir: {empty_dir}"
+        );
+        let conflict = peer.call(3, "engine.admin.migrate", json!({"from":"0","to":"1"}));
+        assert_eq!(
+            conflict["error"]["data"]["reason"], "conflict",
+            "{conflict}"
+        );
+        assert_eq!(listing(&base), before, "status and migrate wrote nothing");
+        drop(peer);
+        engine.close_stdin();
+        assert!(engine.wait_for_exit().success());
+    }
+}
+
+#[test]
+fn status_and_migrate_read_a_legacy_store_base_without_a_marker_as_schema_zero() {
+    let _serial = process_test();
+    let home = home();
+    let base = home.path().join("state/lancedb");
+    fs::create_dir_all(base.join("a1")).unwrap();
+    let mut engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
+    let mut peer = core_peer(&engine, home.path());
+    assert_eq!(
+        status_schema(&mut peer, 2),
+        json!({"current":"0","expected":"1"})
+    );
+    let applied = peer.call(3, "engine.admin.migrate", json!({"from":"0","to":"1"}));
+    assert_eq!(
+        applied["result"],
+        json!({"from":"0","to":"1","applied":true}),
+        "{applied}"
+    );
+    assert_eq!(
+        status_schema(&mut peer, 4),
+        json!({"current":"1","expected":"1"})
+    );
+    drop(peer);
+    engine.close_stdin();
+    assert!(engine.wait_for_exit().success());
+}
+
+/// RE-D175 (fix2, finding 2): a real job run on a home without any store creates `_jobs` inside the base. The
+/// pin writes the marker at engine start, before any such access, so a new installation always carries it.
+#[test]
+fn a_job_run_before_the_first_store_leaves_the_base_at_the_current_schema() {
+    let _serial = process_test();
+    let home = home();
+    let base = home.path().join("state/lancedb");
+    // The native embedding drain is installed only while the neo engine is off (F13).
+    let config_path = home.path().join("config.json");
+    let mut config: Value = serde_json::from_slice(&fs::read(&config_path).unwrap()).unwrap();
+    config["engine"]["neo"] = json!({"enabled": false});
+    fs::write(&config_path, serde_json::to_vec(&config).unwrap()).unwrap();
+    let mut engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
+    let mut peer = core_peer(&engine, home.path());
+    let run = peer.call(
+        2,
+        "engine.jobs.run",
+        json!({"job":"embedding-drain","agentId":"a1","trigger":"manual","dryRun":false}),
+    );
+    assert!(run["result"].is_object(), "{run}");
+    assert!(
+        base.join("_jobs").is_dir(),
+        "the run created its ledger root"
+    );
+    assert!(base.join("_schema.json").is_file(), "{run}");
+    assert_eq!(
+        status_schema(&mut peer, 3),
+        json!({"current":"1","expected":"1"}),
+        "{run}"
+    );
+    drop(peer);
+    engine.close_stdin();
+    assert!(engine.wait_for_exit().success());
+}
+
+fn principal() -> Value {
+    json!({"agentId":"a1","workspace":"workspace:v1:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","channel":"telegram","accountId":"fixture","chat":{"id":"parity-direct","kind":"direct"},"trust":"inferred"})
+}
+
+/// Every wire method that can be the first thing to write into a new store base, with the entry it leaves there.
+fn first_writes() -> Vec<(&'static str, &'static str, Value, &'static str)> {
+    vec![
+        (
+            "jobs.run",
+            "engine.jobs.run",
+            json!({"job":"embedding-drain","agentId":"a1","trigger":"manual","dryRun":false}),
+            "_jobs",
+        ),
+        (
+            "capture",
+            "engine.capture",
+            json!({"turn":{"agentId":"a1","principal":principal(),"agent":{"origin":"user","background":false},"sessionKey":"agent:a1:main","runId":"first-write","incognito":false,"messages":[{"role":"user","content":"Please remember that the archive test project always uses blue labels."},{"role":"assistant","content":"Recorded."}]}}),
+            ".capture-leases",
+        ),
+    ]
+}
+
+fn first_write_home(legacy: bool) -> tempfile::TempDir {
+    let home = home();
+    // The native embedding drain is installed only while the neo engine is off (F13).
+    let config_path = home.path().join("config.json");
+    let mut config: Value = serde_json::from_slice(&fs::read(&config_path).unwrap()).unwrap();
+    config["engine"]["neo"] = json!({"enabled": false});
+    fs::write(&config_path, serde_json::to_vec(&config).unwrap()).unwrap();
+    if legacy {
+        fs::create_dir_all(home.path().join("state/lancedb/a1")).unwrap();
+    }
+    home
+}
+
+/// RE-D175: the process initialises a fresh base at its start, so the marker is there before the first write; this
+/// test shows that the first writes of the wire methods keep it and that status and `admin.migrate` agree with the
+/// pin afterwards. That a first entry brings the marker without the start initialisation is shown in-process
+/// (`the_first_run_in_a_fresh_base_brings_the_marker_in_the_library_composition`, `store_fresh_base_marker`).
+#[test]
+fn every_first_write_into_a_fresh_store_base_leaves_the_current_marker() {
+    for (name, method, params, entry) in first_writes() {
+        let _serial = process_test();
+        let home = first_write_home(false);
+        let base = home.path().join("state/lancedb");
+        let mut engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
+        let mut peer = core_peer(&engine, home.path());
+        let reply = peer.call(2, method, params);
+        // A capture is accepted at once and written asynchronously.
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let listing = loop {
+            let listing: Vec<String> = fs::read_dir(&base)
+                .map(|d| {
+                    d.map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+                        .collect()
+                })
+                .unwrap_or_default();
+            if listing.iter().any(|n| n.starts_with(entry)) || Instant::now() > deadline {
+                break listing;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        };
+        assert!(
+            listing.iter().any(|n| n.starts_with(entry)),
+            "{name}: expected {entry} in {listing:?}; {reply}"
+        );
+        assert!(base.join("_schema.json").is_file(), "{name}: {listing:?}");
+        assert_eq!(
+            status_schema(&mut peer, 3),
+            json!({"current":"1","expected":"1"}),
+            "{name}"
+        );
+        let conflict = call_skipping_events(
+            &mut peer,
+            4,
+            "engine.admin.migrate",
+            &json!({"from":"0","to":"1"}),
+        );
+        assert_eq!(
+            conflict["error"]["data"]["reason"], "conflict",
+            "{name}: {conflict}"
+        );
+        drop(peer);
+        engine.close_stdin();
+        assert!(engine.wait_for_exit().success());
+    }
+}
+
+/// The counter case: a legacy store (content, no marker) is never silently raised to 1 by the same calls.
+#[test]
+fn the_same_first_writes_leave_a_legacy_store_base_at_schema_zero() {
+    for (name, method, params, _) in first_writes() {
+        let _serial = process_test();
+        let home = first_write_home(true);
+        let base = home.path().join("state/lancedb");
+        let mut engine = EngineProcess::start_with_seam(home.path(), "flat-embedder");
+        let mut peer = core_peer(&engine, home.path());
+        let _ = peer.call(2, method, params);
+        assert!(!base.join("_schema.json").exists(), "{name}");
+        assert_eq!(
+            status_schema(&mut peer, 3),
+            json!({"current":"0","expected":"1"}),
+            "{name}"
+        );
+        let applied = call_skipping_events(
+            &mut peer,
+            4,
+            "engine.admin.migrate",
+            &json!({"from":"0","to":"1"}),
+        );
+        assert_eq!(
+            applied["result"],
+            json!({"from":"0","to":"1","applied":true}),
+            "{name}: {applied}"
+        );
+        drop(peer);
+        engine.close_stdin();
+        assert!(engine.wait_for_exit().success());
+    }
 }

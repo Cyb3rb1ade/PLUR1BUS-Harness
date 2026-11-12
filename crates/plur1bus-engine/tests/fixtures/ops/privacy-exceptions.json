@@ -1,0 +1,83 @@
+{
+  "ruling": "RE-D31/F4",
+  "authority": "Controller 2026-11-08 04:55",
+  "state": {
+    "nodeGoldenSha256": "eacbeb6dd2150f1c2cad7fde9b7d9f148ecbf6593c44b0d4ddd6546fef1481a1",
+    "nodeExpected": {
+      "agentId": "agent",
+      "cards": {
+        "agentPrivate": 5,
+        "workspace": null,
+        "user": null
+      },
+      "tombstones": 0,
+      "archiveDir": "<state>/memory/_archive"
+    },
+    "rustExpected": {
+      "agentId": "agent",
+      "cards": {
+        "agentPrivate": 4,
+        "workspace": null,
+        "user": null
+      },
+      "tombstones": 0,
+      "archiveDir": "<state>/memory/_archive"
+    }
+  },
+  "pagination": "Acquire further candidates when ACL, liveness or tombstones exhaust a bounded prefix; hidden rows must not hide later authorized cards.",
+  "topic": {
+    "nodeExpected": {
+      "agentId": "agent",
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "scope": "agent-private",
+          "text": "Synthetic read card 1",
+          "summary": "Summary 1",
+          "createdAt": 1799999999900,
+          "origin": "note",
+          "epistemicStatus": "observed",
+          "score": 0.5
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000002",
+          "scope": "agent-private",
+          "text": "Synthetic read card 2",
+          "summary": "Summary 2",
+          "createdAt": 1799999999800,
+          "origin": "note",
+          "epistemicStatus": "observed",
+          "score": 0.2
+        }
+      ],
+      "truncated": false
+    },
+    "rustExpected": {
+      "agentId": "agent",
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "scope": "agent-private",
+          "text": "Synthetic read card 1",
+          "summary": "Summary 1",
+          "createdAt": 1799999999900,
+          "origin": "note",
+          "epistemicStatus": "observed",
+          "score": 0.5
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000002",
+          "scope": "agent-private",
+          "text": "Synthetic read card 2",
+          "summary": "Summary 2",
+          "createdAt": 1799999999800,
+          "origin": "note",
+          "epistemicStatus": "observed",
+          "score": 0.2
+        }
+      ],
+      "truncated": true
+    },
+    "reason": "Additional live authorized candidates exist beyond the first invalidated row; report truncation truthfully."
+  }
+}

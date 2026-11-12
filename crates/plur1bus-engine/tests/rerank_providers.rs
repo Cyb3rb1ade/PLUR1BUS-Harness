@@ -57,6 +57,34 @@ fn identity() -> VectorSpaceIdentity {
 }
 
 #[test]
+fn every_remote_provider_refuses_credentials_to_a_plaintext_foreign_origin() {
+    let stub = Stub::new(200, "", "{}", Duration::ZERO);
+    let secrets = Secrets(Mutex::new(vec![]));
+    let config = json!({"model":"text-embedding-3-small","dimensions":2,"apiKeyRef":"fixture/explicit","baseUrl":stub.url("/v1")});
+    let embedding =
+        OpenAiEmbeddingProvider::new(&config, identity(), client(), Some(&secrets)).unwrap();
+    assert_eq!(
+        embedding
+            .embed_remote(&["fixture".into()], &Cancel::never())
+            .unwrap_err()
+            .kind,
+        ProviderErrorKind::Network
+    );
+    for provider in ["cohere", "jina", "voyage", "remote"] {
+        let config =
+            json!({"provider":provider,"apiKeyRef":"fixture/explicit","baseUrl":stub.url("/v1")});
+        let reranker = RemoteReranker::new(&config, client(), Some(&secrets)).unwrap();
+        assert!(
+            reranker
+                .rerank("fixture", &["document".into()], 1, &Cancel::never())
+                .is_err(),
+            "{provider}"
+        );
+    }
+    assert!(stub.requests.lock().unwrap().is_empty());
+}
+
+#[test]
 fn openai_batches_float_requests_and_validates_dimensions() {
     let fixture: Value =
         serde_json::from_str(include_str!("fixtures/http/openai-embeddings/batch.json")).unwrap();
@@ -67,7 +95,7 @@ fn openai_batches_float_requests_and_validates_dimensions() {
         Duration::ZERO,
     );
     let secrets = Secrets(Mutex::new(vec![]));
-    let config = json!({"model":"text-embedding-3-small","dimensions":2,"apiKeyRef":"embedding/key","baseUrl":stub.url("/v1")});
+    let config = json!({"model":"text-embedding-3-small","dimensions":2,"apiKeyRef":"embedding/key","baseUrl":stub.loopback_url("/v1")});
     let provider =
         OpenAiEmbeddingProvider::new(&config, identity(), client(), Some(&secrets)).unwrap();
     assert_eq!(
@@ -94,7 +122,7 @@ fn openai_preserves_status_taxonomy_without_provider_bodies() {
         Duration::ZERO,
     );
     let secrets = Secrets(Mutex::new(vec![]));
-    let config = json!({"model":"text-embedding-3-small","dimensions":2,"apiKeyRef":"embedding/key","baseUrl":stub.url("/v1"),"requestTimeoutMs":1000});
+    let config = json!({"model":"text-embedding-3-small","dimensions":2,"apiKeyRef":"embedding/key","baseUrl":stub.loopback_url("/v1"),"requestTimeoutMs":1000});
     let provider =
         OpenAiEmbeddingProvider::new(&config, identity(), client(), Some(&secrets)).unwrap();
     let error = provider
@@ -124,7 +152,7 @@ fn rerank_protocol_requests_match_recorded_node_shapes() {
     ] {
         let fixture: Value = serde_json::from_str(fixture).unwrap();
         let stub = Stub::new(200, "", &fixture["response"].to_string(), Duration::ZERO);
-        let config = json!({"provider":"remote","model":"fixture-model","protocol":protocol,"baseUrl":stub.url("/v1")});
+        let config = json!({"provider":"remote","model":"fixture-model","protocol":protocol,"baseUrl":stub.loopback_url("/v1")});
         let provider = RemoteReranker::new(&config, client(), None).unwrap();
         let hits = provider
             .rerank(
@@ -159,7 +187,7 @@ fn every_remote_preset_maps_auth_rate_limit_timeout_and_invalid_response() {
                 Duration::ZERO,
             );
             let secrets = Secrets(Mutex::new(vec![]));
-            let config = json!({"provider":provider_name,"apiKeyRef":"reranker/key","baseUrl":stub.url("/v2")});
+            let config = json!({"provider":provider_name,"apiKeyRef":"reranker/key","baseUrl":stub.loopback_url("/v2")});
             let provider = RemoteReranker::new(&config, client(), Some(&secrets)).unwrap();
             let error = provider
                 .rerank("query", &["doc".into()], 1, &Cancel::never())
@@ -179,7 +207,7 @@ fn malformed_rerank_indices_and_duplicate_results_are_rejected() {
     ] {
         let stub = Stub::new(200, "", response, Duration::ZERO);
         let provider = RemoteReranker::new(
-            &json!({"baseUrl":stub.url("/"),"provider":"remote"}),
+            &json!({"baseUrl":stub.loopback_url("/"),"provider":"remote"}),
             client(),
             None,
         )
@@ -203,13 +231,13 @@ fn a_chained_reranker_uses_fallback_after_a_primary_timeout() {
         Duration::ZERO,
     );
     let primary = RemoteReranker::new(
-        &json!({"provider":"remote","baseUrl":slow.url("/"),"timeoutMs":10}),
+        &json!({"provider":"remote","baseUrl":slow.loopback_url("/"),"timeoutMs":10}),
         client(),
         None,
     )
     .unwrap();
     let fallback = RemoteReranker::new(
-        &json!({"provider":"remote","baseUrl":fast.url("/")}),
+        &json!({"provider":"remote","baseUrl":fast.loopback_url("/")}),
         client(),
         None,
     )
@@ -231,13 +259,13 @@ fn a_chained_reranker_does_not_restart_an_expired_caller_deadline() {
         Duration::ZERO,
     );
     let primary = RemoteReranker::new(
-        &json!({"provider":"remote","baseUrl":slow.url("/")}),
+        &json!({"provider":"remote","baseUrl":slow.loopback_url("/")}),
         client(),
         None,
     )
     .unwrap();
     let fallback = RemoteReranker::new(
-        &json!({"provider":"remote","baseUrl":fast.url("/")}),
+        &json!({"provider":"remote","baseUrl":fast.loopback_url("/")}),
         client(),
         None,
     )
@@ -264,7 +292,7 @@ fn cohere_constructor_applies_the_cohere_preset() {
     );
     let secrets = Secrets(Mutex::new(vec![]));
     let provider = CohereReranker::new(
-        &json!({"baseUrl":stub.url("/v2"),"apiKeyRef":"rerank/key"}),
+        &json!({"baseUrl":stub.loopback_url("/v2"),"apiKeyRef":"rerank/key"}),
         client(),
         Some(&secrets),
     )
@@ -292,7 +320,7 @@ fn a_rejected_secret_is_resolved_again_then_cached_after_success() {
     });
     let secrets = Secrets(Mutex::new(vec![]));
     let provider = RemoteReranker::new(
-        &json!({"provider":"remote","baseUrl":stub.url("/"),"apiKeyRef":"rerank/key"}),
+        &json!({"provider":"remote","baseUrl":stub.loopback_url("/"),"apiKeyRef":"rerank/key"}),
         client(),
         Some(&secrets),
     )
@@ -329,7 +357,7 @@ fn openai_retries_batches_then_falls_back_to_individual_inputs() {
     });
     let secrets = Secrets(Mutex::new(vec![]));
     let provider = OpenAiEmbeddingProvider::new(
-        &json!({"baseUrl":stub.url("/v1"),"apiKeyRef":"embedding/key"}),
+        &json!({"baseUrl":stub.loopback_url("/v1"),"apiKeyRef":"embedding/key"}),
         identity(),
         client(),
         Some(&secrets),
@@ -360,7 +388,7 @@ fn openai_checks_dimensions_after_all_batch_and_single_attempts() {
     let stub = Stub::new(200, "", r#"{"data":[{"embedding":[0.1]}]}"#, Duration::ZERO);
     let secrets = Secrets(Mutex::new(vec![]));
     let provider = OpenAiEmbeddingProvider::new(
-        &json!({"baseUrl":stub.url("/v1"),"apiKeyRef":"embedding/key"}),
+        &json!({"baseUrl":stub.loopback_url("/v1"),"apiKeyRef":"embedding/key"}),
         identity(),
         client(),
         Some(&secrets),
@@ -387,7 +415,7 @@ fn openai_maps_rate_limit_timeout_and_protocol_errors() {
         let stub = Stub::new(status, "", "{}", Duration::ZERO);
         let secrets = Secrets(Mutex::new(vec![]));
         let provider = OpenAiEmbeddingProvider::new(
-            &json!({"baseUrl":stub.url("/v1"),"apiKeyRef":"embedding/key"}),
+            &json!({"baseUrl":stub.loopback_url("/v1"),"apiKeyRef":"embedding/key"}),
             identity(),
             client(),
             Some(&secrets),
@@ -420,7 +448,7 @@ fn openai_retries_a_server_timeout_while_the_shared_deadline_is_open() {
     });
     let secrets = Secrets(Mutex::new(vec![]));
     let provider = OpenAiEmbeddingProvider::new(
-        &json!({"baseUrl":stub.url("/v1"),"apiKeyRef":"embedding/key"}),
+        &json!({"baseUrl":stub.loopback_url("/v1"),"apiKeyRef":"embedding/key"}),
         identity(),
         client(),
         Some(&secrets),
@@ -453,7 +481,7 @@ fn an_oversized_auth_error_still_invalidates_the_rejected_secret() {
     });
     let secrets = Secrets(Mutex::new(vec![]));
     let provider = RemoteReranker::new(
-        &json!({"provider":"remote","baseUrl":stub.url("/"),"apiKeyRef":"rerank/key","maxResponseBytes":256}),
+        &json!({"provider":"remote","baseUrl":stub.loopback_url("/"),"apiKeyRef":"rerank/key","maxResponseBytes":256}),
         client(),
         Some(&secrets),
     )
@@ -476,7 +504,7 @@ fn an_oversized_auth_error_still_invalidates_the_rejected_secret() {
 fn a_disabled_chain_fallback_does_not_mean_no_relevant_documents() {
     let stub = Stub::new(401, "", "{}", Duration::ZERO);
     let provider = RemoteReranker::new(
-        &json!({"provider":"remote","baseUrl":stub.url("/")}),
+        &json!({"provider":"remote","baseUrl":stub.loopback_url("/")}),
         client(),
         None,
     )
@@ -510,7 +538,7 @@ fn remote_error_kinds_follow_the_shared_provider_classification_order() {
     ] {
         let stub = Stub::new(status, "", &payload.to_string(), Duration::ZERO);
         let provider = RemoteReranker::new(
-            &json!({"provider":"remote","baseUrl":stub.url("/")}),
+            &json!({"provider":"remote","baseUrl":stub.loopback_url("/")}),
             client(),
             None,
         )
@@ -533,7 +561,7 @@ fn reranker_limits_accept_integer_valued_json_floats() {
         r#"{"results":[{"index":0,"score":0.7}]}"#,
         Duration::ZERO,
     );
-    let provider=RemoteReranker::new(&json!({"provider":"remote","baseUrl":stub.url("/"),"maxDocuments":1000.0,"maxRequestBytes":4096.0,"maxResponseBytes":1024.0}),client(),None).unwrap();
+    let provider=RemoteReranker::new(&json!({"provider":"remote","baseUrl":stub.loopback_url("/"),"maxDocuments":1000.0,"maxRequestBytes":4096.0,"maxResponseBytes":1024.0}),client(),None).unwrap();
     assert_eq!(
         provider
             .rerank("q", &["doc".into()], 1, &Cancel::never())
@@ -579,7 +607,7 @@ fn an_owned_secret_port_cannot_hold_the_caller_or_cache_a_late_secret() {
     });
     let provider = Arc::new(
         OpenAiEmbeddingProvider::new_owned(
-            &json!({"baseUrl":stub.url("/v1"),"apiKeyRef":"embedding/key"}),
+            &json!({"baseUrl":stub.loopback_url("/v1"),"apiKeyRef":"embedding/key"}),
             identity(),
             client(),
             Some(secrets),
@@ -634,7 +662,7 @@ fn a_coalesced_secret_wait_uses_its_own_deadline() {
     let (release, wait) = mpsc::channel();
     let provider = Arc::new(
         OpenAiEmbeddingProvider::new_owned(
-            &json!({"baseUrl":stub.url("/v1"),"apiKeyRef":"embedding/key"}),
+            &json!({"baseUrl":stub.loopback_url("/v1"),"apiKeyRef":"embedding/key"}),
             identity(),
             client(),
             Some(Arc::new(BlockingSecrets {
@@ -678,7 +706,7 @@ fn oversized_error_diagnostics_do_not_override_the_status_kind() {
         json!({"error":{"code":"rate_limit_exceeded","message":"x".repeat(70*1024)}}).to_string();
     let stub = Stub::new(503, "", &body, Duration::ZERO);
     let provider = RemoteReranker::new(
-        &json!({"provider":"remote","baseUrl":stub.url("/")}),
+        &json!({"provider":"remote","baseUrl":stub.loopback_url("/")}),
         client(),
         None,
     )
@@ -725,7 +753,7 @@ fn an_auth_header_with_a_truncated_body_still_rotates_reranker_credentials() {
         });
         let secrets = Secrets(Mutex::new(vec![]));
         let provider = RemoteReranker::new(
-            &json!({"provider":"remote","baseUrl":stub.url("/"),"apiKeyRef":"rerank/key"}),
+            &json!({"provider":"remote","baseUrl":stub.loopback_url("/"),"apiKeyRef":"rerank/key"}),
             client(),
             Some(&secrets),
         )
@@ -770,7 +798,7 @@ fn an_auth_header_with_a_truncated_body_still_rotates_embedding_credentials() {
     });
     let secrets = Secrets(Mutex::new(vec![]));
     let provider = OpenAiEmbeddingProvider::new(
-        &json!({"baseUrl":stub.url("/v1"),"apiKeyRef":"embedding/key"}),
+        &json!({"baseUrl":stub.loopback_url("/v1"),"apiKeyRef":"embedding/key"}),
         identity(),
         client(),
         Some(&secrets),
@@ -823,7 +851,7 @@ fn an_embedding_provider_forwards_egress_invalidation() {
     let client = Arc::new(GuardedClient::new_owned(gate.clone(), Box::new(Local)));
     let secrets = Secrets(Mutex::new(vec![]));
     let provider = OpenAiEmbeddingProvider::new(
-        &json!({"baseUrl":stub.url("/v1"),"apiKeyRef":"embedding/key"}),
+        &json!({"baseUrl":stub.loopback_url("/v1"),"apiKeyRef":"embedding/key"}),
         identity(),
         client,
         Some(&secrets),
@@ -857,7 +885,7 @@ fn a_chain_invalidates_the_egress_cache_of_every_member() {
     let gate = Arc::new(MutableGate(std::sync::atomic::AtomicBool::new(true)));
     let make = |stub: &Stub| {
         RemoteReranker::new(
-            &json!({"provider":"remote","baseUrl":stub.url("/")}),
+            &json!({"provider":"remote","baseUrl":stub.loopback_url("/")}),
             Arc::new(GuardedClient::new_owned(gate.clone(), Box::new(Local))),
             None,
         )
@@ -903,7 +931,7 @@ fn an_auth_header_rotates_the_secret_even_when_its_body_exceeds_the_deadline() {
     });
     let secrets = Secrets(Mutex::new(vec![]));
     let provider = OpenAiEmbeddingProvider::new(
-        &json!({"baseUrl":stub.url("/v1"),"apiKeyRef":"embedding/key"}),
+        &json!({"baseUrl":stub.loopback_url("/v1"),"apiKeyRef":"embedding/key"}),
         identity(),
         client(),
         Some(&secrets),
@@ -959,7 +987,7 @@ fn an_owned_embedding_call_observes_caller_cancel_during_headers_and_body() {
             Stub::dynamic(handler)
         };
         let provider = OpenAiEmbeddingProvider::new_owned(
-            &json!({"baseUrl":stub.url("/v1"),"apiKeyRef":"embedding/key"}),
+            &json!({"baseUrl":stub.loopback_url("/v1"),"apiKeyRef":"embedding/key"}),
             identity(),
             client(),
             Some(Arc::new(Secrets(Mutex::new(vec![])))),
@@ -1005,7 +1033,7 @@ fn an_owned_rerank_call_observes_caller_cancel_during_headers_and_body() {
             Stub::dynamic(handler)
         };
         let provider = RemoteReranker::new_owned(
-            &json!({"provider":"remote","baseUrl":stub.url("/")}),
+            &json!({"provider":"remote","baseUrl":stub.loopback_url("/")}),
             client(),
             None,
         )
@@ -1069,7 +1097,7 @@ fn a_cancelled_owned_secret_lookup_discards_its_late_credential() {
     let calls = Arc::new(AtomicUsize::new(0));
     let provider = Arc::new(
         OpenAiEmbeddingProvider::new_owned(
-            &json!({"baseUrl":stub.url("/v1"),"apiKeyRef":"embedding/key"}),
+            &json!({"baseUrl":stub.loopback_url("/v1"),"apiKeyRef":"embedding/key"}),
             identity(),
             client(),
             Some(Arc::new(BlockingSecrets {
@@ -1136,7 +1164,7 @@ fn a_coalesced_secret_wait_observes_its_own_caller_cancel() {
     let (release, wait) = mpsc::channel();
     let provider = Arc::new(
         OpenAiEmbeddingProvider::new_owned(
-            &json!({"baseUrl":stub.url("/v1"),"apiKeyRef":"embedding/key"}),
+            &json!({"baseUrl":stub.loopback_url("/v1"),"apiKeyRef":"embedding/key"}),
             identity(),
             client(),
             Some(Arc::new(BlockingSecrets {

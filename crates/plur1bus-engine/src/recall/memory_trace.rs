@@ -26,7 +26,14 @@ pub(super) fn append(trace: &mut Value, field: &str, event: Value) {
 }
 
 pub(super) fn summary(trace: &Value) -> String {
-    let decisions = trace["decisions"].as_array().map_or(&[][..], Vec::as_slice);
+    // A forgotten card is not even counted in the prompt (RE-D153 review N4); the internal
+    // trace keeps its id with the fixed `tombstoned` reason.
+    let decisions = trace["decisions"]
+        .as_array()
+        .map_or(&[][..], Vec::as_slice)
+        .iter()
+        .filter(|decision| decision["stage"] != "tombstone")
+        .collect::<Vec<_>>();
     let guards = trace["guards"].as_array().map_or(&[][..], Vec::as_slice);
     let candidates = trace["candidates"].as_array().map_or(0, Vec::len);
     let mut values = vec![("totalCandidates", candidates)];

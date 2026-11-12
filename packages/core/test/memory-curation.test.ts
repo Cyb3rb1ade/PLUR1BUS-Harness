@@ -11,7 +11,7 @@ function fixture() {
   let who: Principal | null = { userId: "alice", role: "member", kind: "person", agentRights: { anna: "manage" } };
   const calls: unknown[][] = [];
   const workspace = tempDir("curation-bridge-");
-  const engine = { memory: { curation: {
+  const engine = { capabilities: { memoryLink: false, memoryCuration: true }, memory: { curation: {
     async list(...args: unknown[]) { calls.push(args); return { agentId: "anna", items: [{ id: "mem_0123456789abcdefabcd", status: "conflict", text: "quoted evidence", category: null, hidden: "never on wire" }], truncated: false, hidden: "never on wire" }; },
     async resolve(...args: unknown[]) { calls.push(args); return { id: args[0], ok: true, status: args[1] === "keep" ? "promoted" : "demoted", hidden: true }; },
   } } };
@@ -35,7 +35,7 @@ test("curation uses authenticated self identity and exact manage grant; agent pr
   assert.equal(f.calls.length, 1);
 });
 
-test("curation keep/drop project successful receipts; missing Engine contract 1.17.0 is explicit unavailable", async () => {
+test("curation keep/drop project successful receipts; missing Engine contract 1.18.0 is explicit unavailable", async () => {
   const f = fixture();
   f.who({ userId: "owner", role: "owner", kind: "person" });
   for (const action of ["keep", "drop"]) {
@@ -43,6 +43,12 @@ test("curation keep/drop project successful receipts; missing Engine contract 1.
     assert.ok(validateResult("memory.curation.resolve", result).ok);
     assert.equal((result as any).status, action === "keep" ? "promoted" : "demoted");
   }
+  // RE-D167: the methods alone do not open curation; the engine must advertise memoryCuration.
+  const served = f.calls.length;
+  f.engine.capabilities.memoryCuration = false;
+  for (const method of ["memory.curation.list", "memory.curation.resolve"]) await assert.rejects(f.call(method, { agentId: "anna", id: "mem_0123456789abcdefabcd", action: "keep" }), (e: any) => e.error === "E_NOT_AVAILABLE" && e.reason === "engine-contract-unavailable");
+  assert.equal(f.calls.length, served);
+  f.engine.capabilities.memoryCuration = true;
   delete (f.engine.memory as any).curation;
   await assert.rejects(f.call("memory.curation.list", { agentId: "anna" }), (e: any) => e.error === "E_NOT_AVAILABLE" && e.reason === "engine-contract-unavailable");
 });

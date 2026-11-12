@@ -9,8 +9,12 @@
 pub mod acl;
 /// Tier budget and `resolveRecallBudget`.
 pub mod budget;
+/// Production namespace workers sharing one request deadline.
+pub mod budgeted_pipeline;
 /// One hydrated recall row shared by budget, dedupe and finalisation.
 pub mod candidate;
+/// Request cancellation and soft-budget fast paths.
+pub mod control;
 /// Jaccard dedupe and chunk-group caps.
 pub mod dedupe;
 /// Optional pre-rerank document filter.
@@ -25,6 +29,8 @@ pub mod hash_embed;
 pub mod knowledge;
 /// Live-row and valid-time checks.
 pub mod lifecycle;
+/// The pin's deterministic recall locale resolution (RE-D152).
+pub mod locale;
 /// Global namespace dedupe, caps and rerank-preserving order.
 pub mod merge;
 /// The post-merge tier budget used before retrieval-ledger persistence.
@@ -45,12 +51,21 @@ mod namespace_routes;
 pub mod namespace_trace;
 /// Configured physical routes, settle-all fan-out and the global retrieval ledger.
 pub mod namespaces;
+/// The pin's deterministic query refinement (RE-D151).
+pub mod query_refiner;
 /// Distance and epistemic score terms.
 pub mod score;
 /// Stages 1–7.
 pub mod stages;
 /// CreatedAt parser and the safe temporal filter.
 pub mod temporal;
+/// Monotonic request and per-namespace phase timing.
+pub mod timing;
+/// Committed-deletion mask for recall candidate sources (RE-D153).
+pub mod tombstone_mask;
+/// Bounded, redacted, lossless recall decision traces.
+pub mod trace;
+mod trace_redaction;
 
 /// Lossless prompt blocks and serialized results.
 pub mod blocks;
@@ -64,7 +79,7 @@ pub mod injected_conflicts;
 pub mod lens;
 /// Minimal presentation and authorized two-field counter maintenance.
 pub mod maintenance;
-mod memory_constants;
+pub(crate) mod memory_constants;
 /// Relevant-memory formatting.
 pub mod memory_context;
 mod memory_record;
@@ -73,6 +88,7 @@ pub mod memory_sanitize;
 mod memory_trace;
 /// CA5 prelude interface, without a Neo implementation.
 pub mod neo_prelude;
+mod output_unicode;
 /// Pattern scoring, taste and formatting.
 pub mod patterns;
 /// Observation-time provenance and operational guards.
@@ -88,9 +104,11 @@ pub mod render;
 mod render_access;
 mod render_boosters;
 mod render_compression;
-mod render_date;
+pub(crate) mod render_date;
 mod render_projection;
 mod render_value;
+/// Request-level time budgets, diagnostics and lossless result envelope.
+pub mod runtime;
 /// Pure mood style text.
 pub mod style;
 mod style_constants;
@@ -101,3 +119,13 @@ mod temporal_constants;
 pub mod time_context;
 /// Read-only warm orchestration.
 pub mod warm;
+
+/// A1 statistics from complete final rendered records.
+pub mod stats;
+
+/// Request-bound graph source with actual per-table endpoint verification.
+pub mod graph_source;
+
+/// Request-bound pattern metadata for foreground rendering.
+pub mod pattern_source;
+mod source_record;

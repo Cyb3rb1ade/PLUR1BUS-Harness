@@ -13,6 +13,22 @@ use crate::contract::StoreError;
 
 use super::paths::assert_trusted_path;
 
+#[path = "directory_append.rs"]
+mod append;
+#[path = "directory_replace.rs"]
+mod replace;
+pub(crate) use append::identity as regular_file_identity;
+
+#[cfg(test)]
+#[path = "directory_append_tests.rs"]
+mod append_tests;
+
+#[cfg(test)]
+thread_local! {
+    /// Directory syncs this thread requested (cost tests).
+    pub(crate) static ENTRY_SYNCS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct DirectoryId(u64, u64);
 
@@ -97,6 +113,79 @@ impl TrustedDirectory {
         &self.physical
     }
 
+    /// Persist directory-entry changes on Unix; Windows relies on synced private child files.
+    pub(crate) fn sync_entries(&self) -> Result<(), StoreError> {
+        self.assert_unchanged()?;
+        #[cfg(test)]
+        ENTRY_SYNCS.with(|syncs| syncs.set(syncs.get() + 1));
+        #[cfg(unix)]
+        self.anchor.sync_all().map_err(io_error)?;
+        self.assert_unchanged()
+    }
+
+    /// Remove one ordinary single-link child under the caller's cooperating writer lease.
+    /// The directory handle prevents Unix ancestor substitution from redirecting deletion.
+    pub(crate) fn remove_file(&self, name: &str) -> Result<(), StoreError> {
+        self.remove_file_unsynced(name)?;
+        self.sync_entries()
+    }
+
+    /// Remove what interrupted atomic writes left in this directory more than an hour ago
+    /// (`atomic_write::stale_temporaries`), with one directory sync. No lease is needed:
+    /// after an hour no writer is between writing and renaming. Returns the number removed.
+    pub(crate) fn remove_stale_temporaries(&self, now_ms: i64) -> Result<usize, StoreError> {
+        let mut removed = 0;
+        for name in super::atomic_write::stale_temporaries(self.path(), now_ms).map_err(io_error)? {
+            if self.remove_file_unsynced(&name).is_ok() {
+                removed += 1;
+            }
+        }
+        if removed > 0 {
+            self.sync_entries()?;
+        }
+        Ok(removed)
+    }
+
+    /// [`Self::remove_file`] without the directory sync. A caller that removes many
+    /// children persists them with one [`Self::sync_entries`] at the end.
+    pub(crate) fn remove_file_unsynced(&self, name: &str) -> Result<(), StoreError> {
+        valid_child(name)?;
+        let file = self.open_file(name)?;
+        regular_file_identity(&file)?;
+        self.unlink(name)
+    }
+
+    /// Remove one non-directory entry by name without opening it: a link is removed, never
+    /// followed, and another link to the same file stays. For an entry that cannot be
+    /// trusted as a regular file.
+    pub(crate) fn remove_entry(&self, name: &str) -> Result<(), StoreError> {
+        valid_child(name)?;
+        self.unlink(name)?;
+        self.sync_entries()
+    }
+
+    fn unlink(&self, name: &str) -> Result<(), StoreError> {
+        self.assert_unchanged()?;
+        #[cfg(unix)]
+        {
+            use std::os::fd::AsRawFd;
+            let name = std::ffi::CString::new(name).map_err(|_| StoreError::InvalidInput)?;
+            // SAFETY: both held directory and NUL-terminated single child name are live.
+            if unsafe { libc::unlinkat(self.anchor.as_raw_fd(), name.as_ptr(), 0) } != 0 {
+                return Err(io_error(std::io::Error::last_os_error()));
+            }
+        }
+        #[cfg(windows)]
+        fs::remove_file(self.physical.join(name)).map_err(io_error)?;
+        Ok(())
+    }
+
+    /// Opaque device/volume and inode/file-index identity for a native ownership envelope.
+    /// This supplements the physical pathname; callers must still retain and revalidate the handle.
+    pub(crate) fn identity_parts(&self) -> (u64, u64) {
+        (self.identity.0, self.identity.1)
+    }
+
     /// The verified descriptor alias, or the identity-checked physical fallback path.
     #[must_use]
     pub fn lance_path(&self) -> &Path {
@@ -122,6 +211,21 @@ impl TrustedDirectory {
         Ok(())
     }
 
+    /// Restrict this explicitly selected state directory through its held handle on Unix.
+    /// Windows retains the already verified directory DACL; this does not repair ancestors.
+    pub(crate) fn restrict_private(&self) -> Result<(), StoreError> {
+        self.assert_unchanged()?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            self.anchor
+                .set_permissions(std::fs::Permissions::from_mode(0o700))
+                .map_err(io_error)?;
+            self.anchor.sync_all().map_err(io_error)?;
+        }
+        self.assert_unchanged()
+    }
+
     /// Open one directory segment relative to this capability; names cannot escape the parent.
     pub fn open_child(&self, name: &str) -> Result<Self, StoreError> {
         valid_child(name)?;
@@ -134,6 +238,120 @@ impl TrustedDirectory {
         self.assert_unchanged()?;
         child.assert_unchanged()?;
         Ok(child)
+    }
+
+    /// Create or open one private directory segment without following a leaf link.
+    pub(crate) fn create_child(&self, name: &str) -> Result<Self, StoreError> {
+        valid_child(name)?;
+        self.assert_unchanged()?;
+        super::schema_version::before_create(&self.physical.join(name))?;
+        #[cfg(unix)]
+        {
+            use std::os::fd::AsRawFd;
+            let child = std::ffi::CString::new(name).map_err(|_| StoreError::InvalidInput)?;
+            // SAFETY: the parent fd is held and the child name is NUL-terminated.
+            let status = unsafe { libc::mkdirat(self.anchor.as_raw_fd(), child.as_ptr(), 0o700) };
+            if status != 0 {
+                let error = std::io::Error::last_os_error();
+                if error.kind() != std::io::ErrorKind::AlreadyExists {
+                    return Err(io_error(error));
+                }
+            }
+        }
+        #[cfg(windows)]
+        if let Err(error) = fs::create_dir(self.physical.join(name)) {
+            if error.kind() != std::io::ErrorKind::AlreadyExists {
+                return Err(io_error(error));
+            }
+        }
+        self.open_child(name)
+    }
+
+    /// Create a new private ordinary file relative to this held directory. Existing
+    /// files, symlinks and special files all fail; this never truncates a target.
+    pub(crate) fn create_file(&self, name: &str) -> Result<File, StoreError> {
+        valid_child(name)?;
+        self.assert_unchanged()?;
+        #[cfg(unix)]
+        let file = {
+            use std::os::fd::{AsRawFd, FromRawFd};
+            let child = std::ffi::CString::new(name).map_err(|_| StoreError::InvalidInput)?;
+            // SAFETY: the directory and name are live; EXCL refuses any existing leaf.
+            let fd = unsafe {
+                libc::openat(
+                    self.anchor.as_raw_fd(),
+                    child.as_ptr(),
+                    libc::O_WRONLY
+                        | libc::O_CREAT
+                        | libc::O_EXCL
+                        | libc::O_NOFOLLOW
+                        | libc::O_CLOEXEC,
+                    0o600,
+                )
+            };
+            if fd < 0 {
+                return Err(directory_open_error(std::io::Error::last_os_error()));
+            }
+            // SAFETY: openat returned a newly owned descriptor.
+            unsafe { File::from_raw_fd(fd) }
+        };
+        #[cfg(windows)]
+        let file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(self.physical.join(name))
+            .map_err(io_error)?;
+        self.assert_unchanged()?;
+        Ok(file)
+    }
+
+    /// Open one ordinary readonly file relative to the held directory, never following
+    /// a leaf link. The caller retains this directory and checks it after consuming bytes.
+    pub(crate) fn open_file(&self, name: &str) -> Result<File, StoreError> {
+        valid_child(name)?;
+        self.assert_unchanged()?;
+        #[cfg(unix)]
+        let file = {
+            use std::os::fd::{AsRawFd, FromRawFd};
+            let name = std::ffi::CString::new(name).map_err(|_| StoreError::InvalidInput)?;
+            // SAFETY: the directory descriptor is held, name is NUL-terminated and flags
+            // open only this child. NONBLOCK prevents a substituted FIFO from hanging.
+            let fd = unsafe {
+                libc::openat(
+                    self.anchor.as_raw_fd(),
+                    name.as_ptr(),
+                    libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_CLOEXEC | libc::O_NONBLOCK,
+                )
+            };
+            if fd < 0 {
+                return Err(directory_open_error(std::io::Error::last_os_error()));
+            }
+            // SAFETY: openat returned one newly owned descriptor.
+            unsafe { File::from_raw_fd(fd) }
+        };
+        #[cfg(windows)]
+        let file = {
+            use std::os::windows::fs::{MetadataExt, OpenOptionsExt};
+            use windows_sys::Win32::Storage::FileSystem::{
+                FILE_ATTRIBUTE_REPARSE_POINT, FILE_FLAG_OPEN_REPARSE_POINT,
+            };
+            let file = OpenOptions::new()
+                .read(true)
+                .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
+                .open(self.physical.join(name))
+                .map_err(io_error)?;
+            if file.metadata().map_err(io_error)?.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT
+                != 0
+            {
+                return Err(StoreError::UntrustedPath);
+            }
+            file
+        };
+        if !file.metadata().map_err(io_error)?.is_file() {
+            return Err(StoreError::UntrustedPath);
+        }
+        self.assert_unchanged()?;
+        Ok(file)
     }
 }
 
@@ -177,6 +395,13 @@ fn unix_child(parent: &File, name: &std::ffi::OsStr) -> Result<File, StoreError>
     let file = unsafe { File::from_raw_fd(fd) };
     unix_policy(&file)?;
     Ok(file)
+}
+
+/// Windows has no error number for a symlink in the path: its callers open with `FILE_FLAG_OPEN_REPARSE_POINT` and
+/// refuse a reparse point by its attributes afterwards.
+#[cfg(windows)]
+fn directory_open_error(error: std::io::Error) -> StoreError {
+    io_error(error)
 }
 
 #[cfg(unix)]

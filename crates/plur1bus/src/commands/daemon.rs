@@ -93,13 +93,14 @@ pub(crate) fn supervisor_answers(layout: &Layout) -> bool {
     )
 }
 
-/// The core child of a `daemon.status` result, if any: the first child that is not a module (`kind: "module"`,
-/// 1.3.0). A supervisor before 1.3.0 reports no `kind` and only the core.
+/// The core child of a `daemon.status` result, if any: the child of `kind: "core"` (1.3.0), wherever it is listed
+/// (the engine, the tools and the API are children too, RE-D172). A supervisor before 1.3.0 reports no `kind` and
+/// only the core.
 pub(crate) fn core_child(status: &Value) -> Option<&Value> {
     status["children"]
         .as_array()?
         .iter()
-        .find(|c| c["kind"] != "module")
+        .find(|c| c["kind"] == "core" || c.get("kind").is_none())
 }
 
 /// The core child's `process.state` in a `daemon.status` result, if there is one.
@@ -714,6 +715,19 @@ mod tests {
         assert_eq!(core_child(&old).unwrap()["role"], "core");
         let only_modules = json!({ "children": [{ "role": "fixture", "kind": "module", "process": { "state": "ready" } }] });
         assert!(core_child(&only_modules).is_none());
+        // RE-D172 (B1): the engine, the tools and the API are not the core, wherever they are listed.
+        let engine_first = json!({ "children": [
+            { "role": "engine", "kind": "engine", "process": { "state": "crashed", "reason": "lock-held" } },
+            { "role": "core", "kind": "core", "process": { "state": "starting" } },
+        ] });
+        assert_eq!(core_child(&engine_first).unwrap()["role"], "core");
+        assert!(!start_starts_the_core(&engine_first));
+        assert_eq!(describe_core(&engine_first), "core starting");
+        let no_core = json!({ "children": [
+            { "role": "engine", "kind": "engine", "process": { "state": "ready" } },
+            { "role": "tools", "kind": "tools", "process": { "state": "ready" } },
+        ] });
+        assert!(core_child(&no_core).is_none());
     }
 
     #[test]

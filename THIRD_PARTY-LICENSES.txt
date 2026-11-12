@@ -36135,6 +36135,7 @@ cargo:quinn@0.11.12/LICENSE-APACHE
 cargo:russh-sftp@2.1.1/LICENSE
 cargo:russh-sftp@3.0.1/LICENSE
 cargo:rustls-platform-verifier@0.7.1/LICENSE-APACHE
+cargo:ryu-js@0.2.2/LICENSE-APACHE
 cargo:serialize-to-javascript-impl@0.1.2/LICENSE-APACHE
 cargo:serialize-to-javascript@0.1.2/LICENSE-APACHE
 cargo:spm_precompiled@0.1.4/LICENSE
@@ -36573,6 +36574,7 @@ DEALINGS IN THE SOFTWARE.
 ============================================================
 
 SHA256 c9bff75738922193e67fa726fa225535870d2aa1059f91452c411736284ad566
+cargo:ryu-js@0.2.2/LICENSE-BOOST
 cargo:ryu@1.0.23/LICENSE-BOOST
 cargo:whoami@1.6.1/LICENSE_BOOST
 cargo:xxhash-rust@0.8.19/LICENSE

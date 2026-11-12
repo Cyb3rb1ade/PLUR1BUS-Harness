@@ -26,16 +26,31 @@ impl StoreRoute {
             .map(|lease| lease.map(|lease| lease.store))
     }
 
+    /// Lease an existing table in this route's original mode, never creating an active table.
+    /// Only proven absence is None; corruption, identity mismatch and rebound roots are errors.
+    pub fn lease_existing(&self, agent_id: &str) -> Result<Option<Arc<Store>>, StoreError> {
+        self.lease_identified_with_creation(agent_id, false)
+            .map(|lease| lease.map(|lease| lease.store))
+    }
+
     pub(crate) fn lease_identified(
         &self,
         agent_id: &str,
+    ) -> Result<Option<IdentifiedStore>, StoreError> {
+        self.lease_identified_with_creation(agent_id, true)
+    }
+
+    fn lease_identified_with_creation(
+        &self,
+        agent_id: &str,
+        create_missing: bool,
     ) -> Result<Option<IdentifiedStore>, StoreError> {
         self.check_pins()?;
         let expected = self
             .identity_resolver
             .expected_identity(self.namespace.as_deref(), agent_id)?;
         let (expected, _, expected_id) = canonical_identity(&expected)?;
-        if self.skip_missing {
+        if self.skip_missing || !create_missing {
             let table = self.pool.agent_path(agent_id)?.join("memories.lance");
             match fs::symlink_metadata(table) {
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -44,7 +59,12 @@ impl StoreRoute {
                 Ok(_) => {}
             }
         }
-        let store = self.pool.get_with_expected(agent_id, Some(&expected))?;
+        let store = if create_missing {
+            self.pool.get_with_expected(agent_id, Some(&expected))?
+        } else {
+            self.pool
+                .get_existing_with_expected(agent_id, Some(&expected))?
+        };
         if store
             .identity()
             .map(identity_id)
@@ -64,7 +84,7 @@ impl StoreRoute {
         for pin in &self.pins {
             pin.assert_unchanged()?;
         }
-        Ok(())
+        self.pool.check_roots()
     }
 }
 

@@ -107,9 +107,34 @@ pub fn arrow_schema(dim: usize) -> Result<SchemaRef, StoreError> {
 // Node explicitly accepts UTF-8 columns promoted by Lance to 64-bit offsets.
 // Preserve that existing physical type while keeping the recorded bootstrap schema exact.
 pub(super) fn validate_schema(schema: &Schema, dim: usize) -> Result<(), StoreError> {
+    validate_shared_schema(schema, dim, false)
+}
+
+pub(super) fn validate_shared_schema(
+    schema: &Schema,
+    dim: usize,
+    partial: bool,
+) -> Result<(), StoreError> {
     let expected = arrow_schema(dim)?;
-    if schema.fields().len() != expected.fields().len() {
+    let extra = schema
+        .fields()
+        .len()
+        .checked_sub(expected.fields().len())
+        .ok_or(StoreError::Corrupt)?;
+    if extra > super::shared_row::COLUMNS.len()
+        || (!partial && extra != 0 && extra != super::shared_row::COLUMNS.len())
+    {
         return Err(StoreError::Corrupt);
+    }
+    let mut seen = std::collections::HashSet::new();
+    for field in schema.fields().iter().skip(expected.fields().len()) {
+        if !super::shared_row::COLUMNS.contains(&field.name().as_str())
+            || !seen.insert(field.name())
+            || field.is_nullable()
+            || !matches!(field.data_type(), DataType::Utf8 | DataType::LargeUtf8)
+        {
+            return Err(StoreError::Corrupt);
+        }
     }
     for (actual, expected) in schema.fields().iter().zip(expected.fields()) {
         let compatible = actual.data_type() == expected.data_type()
@@ -147,15 +172,23 @@ pub fn schema_text(schema: &Schema) -> String {
 }
 
 pub(super) fn to_batch(rows: &[MemoryRow], schema: SchemaRef) -> Result<RecordBatch, StoreError> {
-    use arrow_array::{
-        ArrayRef, BooleanArray, FixedSizeListArray, Float32Array, Float64Array, LargeStringArray,
-        StringArray,
-    };
     let values = rows
         .iter()
         .map(serde_json::to_value)
         .collect::<Result<Vec<_>, _>>()
         .map_err(|_| StoreError::Corrupt)?;
+    values_to_batch(rows, &values, schema)
+}
+
+pub(super) fn values_to_batch(
+    rows: &[MemoryRow],
+    values: &[serde_json::Value],
+    schema: SchemaRef,
+) -> Result<RecordBatch, StoreError> {
+    use arrow_array::{
+        ArrayRef, BooleanArray, FixedSizeListArray, Float32Array, Float64Array, LargeStringArray,
+        StringArray,
+    };
     let columns = schema
         .fields()
         .iter()
@@ -208,7 +241,15 @@ pub(super) fn json_rows(batch: &RecordBatch) -> Result<Vec<serde_json::Value>, S
     let mut writer = arrow_json::ArrayWriter::new(Vec::new());
     writer.write(batch).map_err(|_| StoreError::Corrupt)?;
     writer.finish().map_err(|_| StoreError::Corrupt)?;
-    serde_json::from_slice(&writer.into_inner()).map_err(|_| StoreError::Corrupt)
+    let bytes = writer.into_inner();
+    let value = crate::text::json::parse_exact(
+        std::str::from_utf8(&bytes).map_err(|_| StoreError::Corrupt)?,
+    )
+    .map_err(|_| StoreError::Corrupt)?;
+    let serde_json::Value::Array(rows) = value else {
+        return Err(StoreError::Corrupt);
+    };
+    Ok(rows)
 }
 
 pub(super) fn from_batches(batches: &[RecordBatch]) -> Result<Vec<MemoryRow>, StoreError> {
@@ -218,6 +259,16 @@ pub(super) fn from_batches(batches: &[RecordBatch]) -> Result<Vec<MemoryRow>, St
         }
         Ok(rows)
     })
+}
+
+/// Freeze the exact declared-row representation that Lance's Arrow roundtrip will return.
+/// In particular Float64 columns read as floating JSON numbers, even for integral timestamps.
+pub(crate) fn persisted_projection(row: &MemoryRow) -> Result<MemoryRow, StoreError> {
+    let batch = to_batch(std::slice::from_ref(row), arrow_schema(row.vector.len())?)?;
+    from_batches(&[batch])?
+        .into_iter()
+        .next()
+        .ok_or(StoreError::Corrupt)
 }
 
 /// Decode one Lance row. Every column is nullable, Node's readers treat NULL as the column's
@@ -231,6 +282,11 @@ pub(super) fn decode_row(mut value: serde_json::Value) -> Result<MemoryRow, Stor
             let default = null_default(column, kind).ok_or(StoreError::Corrupt)?;
             row.insert((*column).to_owned(), default);
         }
+    }
+    // The frozen MemoryRow contract excludes share provenance. Its owning store
+    // exposes those four known persisted columns through MemoryRecord instead.
+    for column in super::shared_row::COLUMNS {
+        row.remove(column);
     }
     serde_json::from_value(value).map_err(|_| StoreError::Corrupt)
 }
