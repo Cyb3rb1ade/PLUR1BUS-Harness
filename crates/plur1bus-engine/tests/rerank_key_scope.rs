@@ -274,7 +274,7 @@ fn the_preset_default_secret_name_is_used_only_when_the_provider_is_a_preset() {
 
 #[test]
 fn an_unknown_reranker_provider_is_refused_by_the_typed_config_like_the_pin_schema() {
-    // Pin `openclaw.plugin.json` (reranker.provider enum: cohere, jina, voyage, remote, local-transformers,
+    // The pin's plugin manifest (reranker.provider enum: cohere, jina, voyage, remote, local-transformers,
     // disabled) refuses every other value, including the empty string and case variants, before any provider is
     // built. Below that schema, `normalizeRerankerConfig` would map an unknown name to `disabled`; Rust's
     // `reranker_configuration` does the same with `Ok(None)` (`src/embedding/mod.rs:334-337`), but that branch is not
