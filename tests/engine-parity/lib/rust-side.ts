@@ -8,6 +8,7 @@ import { coreAddress, createLogger, createRpcServer, engineRunFiles, readRunToke
 import { EngineClient } from "../../../packages/core/src/engine/client.ts";
 import { createHostMethods, type HostMethodDependencies } from "../../../packages/core/src/engine/host-methods.ts";
 import { isEngineContext } from "../../../packages/core/src/engine/engine-principal.ts";
+import { CORE_CONTRACT } from "../../../packages/core/src/engine.ts";
 import { createPlatformCapabilities } from "../../../packages/core/src/platform.ts";
 import { createMemoryAuditSink } from "../../../packages/core/src/secrets/audit.ts";
 import { createMemoryBackend } from "../../../packages/core/src/secrets/memory-backend.ts";
@@ -87,7 +88,7 @@ export async function runRust(scenario: Scenario) {
         try { return readRunToken(paths.home, engineRunFiles(paths.home).token); }
         catch { return undefined; }
       },
-      hello: () => ({ contract: "1.17.0", rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities: buildCapabilities([]) }),
+      hello: () => ({ contract: CORE_CONTRACT, rpc: RPC_VERSION, instanceId, pid: process.pid, capabilities: buildCapabilities([]) }),
       methods: {
         ...createHostMethods({
           host: { workspaceDir: offline.workspaceDir, events: { emit: offline.event } }, secrets,

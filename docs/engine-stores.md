@@ -3272,3 +3272,31 @@ out of the Node engine; it lives only in Rust. It is a sibling of the pin
 
 The process (RE-D166) therefore follows the pin's wire and state contract with
 the C2 semantics above. No code change.
+
+### Reranker credential scope, two pin alignments and named parity exceptions (RE-D175)
+
+Reranker credentials (`tests/rerank_key_scope.rs`, pin `9f34008c`). Rust selects the secret name as the pin does:
+`apiKeyRef`, then `apiKeyEnv` (a host secret name, never an environment read), then the preset default
+(`COHERE_API_KEY`, `JINA_API_KEY`, `VOYAGE_API_KEY`); `remote` runs keyless and a preset without any credential is
+disabled. The matrix (provider x source x origin) proves that the bearer reaches only the configured origin, that a
+cross-origin redirect drops it, that two rerankers never share one and that a plaintext non-loopback origin is
+refused. An unknown provider is refused by the typed configuration, as by the pin's plugin schema. The preset default
+name follows an overridden `baseUrl`, exactly as at the pin, and is reachable only through the typed configuration
+with a literal `apiKey` (a placeholder, never used as the bearer): the RPC configuration loader refuses `apiKey`
+and requires `apiKeyRef` or `apiKeyEnv` for presets. This is recorded as a test and accepted as pin-equal.
+
+Two alignments with the pin:
+
+- `jobs.run` without a `trigger` is a `harness` run (pin `engine/create-engine.js`, `trigger: opts?.trigger ?? "harness"`),
+  for dry and real runs. The trigger is only a recorded ledger field, not a key. Test
+  `a_run_without_a_trigger_is_a_harness_run_like_the_pin`; scenario `jobs/run-default-trigger`.
+- `admin.migrate` on a missing or empty store base reads schema 1 (pin `baseDbPathIsFreshStore` writes the marker when
+  the engine is created), so `0 -> 1` conflicts and `1 -> 1` is not applied. Rust writes nothing at this point
+  (no directory, no marker); the base is initialised when its first store is created. The bare `SchemaMigrator`
+  keeps its marker-only meaning; the process composition opts in with `with_fresh_base_current`. Test
+  `migration_on_a_fresh_store_base_conflicts_like_the_pin_and_writes_nothing`; scenario `ops/admin-migrate-empty`.
+  A base with other content and no marker stays schema 0, and `from` must equal the current version.
+
+Named parity exceptions (no scenario, see `tests/engine-parity/README.md`): `jobs.run` for an agent without a store
+(Node `failed`/`error:Error`, Rust `skipped`/`neo_disabled`; Rust is more precise), jobs other than `embedding-drain`
+(F13, KNOWN-GAP), fresh card IDs after a capture, and `memory.state` (F4/RE-D31).

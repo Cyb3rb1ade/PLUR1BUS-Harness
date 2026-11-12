@@ -43,11 +43,19 @@ missing card and a blank `sourceRef`; these write operations need the `system` a
 the only job Rust composes without an owner binding (the other 19 answer `E_NOT_AVAILABLE`/`operation-unavailable`),
 with explicit triggers and with and without `dryRun`; the neo-disabled skip is identical on both sides.
 
+RX9 also commits `jobs/run-default-trigger` (a run without `trigger` is a `harness` run, as at the pin) and
+`ops/admin-migrate-empty` (`admin.migrate` on a home without a store conflicts and writes nothing).
+
 An inline `expect` is one exact expectation for both engines and for the recording, so it cannot express an engine
-specific exception. Scenarios that differ between Node and Rust (a fresh ID after a capture, the default trigger of
-`jobs.run`, an unknown agent, `admin.migrate 0 -> 1` on a home without any store, and `memory.state`, whose
-`archiveDir` is a fresh temporary path on every run and whose card count is ACL-filtered in Rust) are therefore not
-in this directory until the divergence is ruled or the runner can normalise it.
+specific exception. These differences are named exceptions and have no scenario:
+
+- `jobs.run` for an agent without a store: Node `failed` with reason `error:Error`, Rust `skipped` with `neo_disabled`
+  (Rust is more precise; no caller depends on the difference).
+- Jobs other than `embedding-drain` answer `operation-unavailable` in Rust (F13, KNOWN-GAP).
+- A capture returns fresh card IDs (Node's fixed UUID sequence, a random v4 ID in Rust), so a list after a capture
+  cannot be compared by ID.
+- `memory.state` (F4/RE-D31): Rust counts only ACL-visible cards, and `archiveDir` is a fresh temporary path per run,
+  which also prevents a recording; it needs a runner change.
 
 ## Record
 
