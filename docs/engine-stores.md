@@ -3288,7 +3288,9 @@ and requires `apiKeyRef` or `apiKeyEnv` for presets. This is recorded as a test 
 Two alignments with the pin:
 
 - `jobs.run` without a `trigger` is a `harness` run (pin `engine/create-engine.js`, `trigger: opts?.trigger ?? "harness"`),
-  for dry and real runs. The trigger is only a recorded ledger field, not a key. Test
+  for dry and real runs. The default is applied in the process facade (`rpc/engine_jobs.rs`); the registry library
+  keeps the Node registry's own default `manual`, as its recorded Node scenarios do. The trigger is only a recorded
+  ledger field, not a key. Test
   `a_run_without_a_trigger_is_a_harness_run_like_the_pin`; scenario `jobs/run-default-trigger`.
 - `admin.migrate` on a missing or empty store base reads schema 1 (pin `baseDbPathIsFreshStore` writes the marker when
   the engine is created), so `0 -> 1` conflicts and `1 -> 1` is not applied. `admin.migrate` itself writes nothing

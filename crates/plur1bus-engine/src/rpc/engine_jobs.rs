@@ -409,6 +409,10 @@ impl JobRegistry for ProcessJobs {
         if !self.installed(job) {
             return Err(unavailable(authority::refusal(job)));
         }
+        // Pin `engine/create-engine.js`: a run without a trigger is a `harness` run. The default belongs to this
+        // facade; the registry keeps the Node registry's own default (`manual`), as its recorded scenarios do.
+        let mut opts = opts;
+        opts.trigger.get_or_insert(JobTrigger::Harness);
         // A dry run creates nothing: no root, no session, no ledger entry.
         if opts.dry_run == Some(true) {
             if let Some(registry) = self.registry(false)? {

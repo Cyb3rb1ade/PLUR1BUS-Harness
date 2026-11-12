@@ -338,7 +338,7 @@ impl Registry {
             .ok_or_else(|| EngineError::NotAvailable {
                 reason: "not-implemented".into(),
             })?;
-        let trigger = opts.trigger.unwrap_or(JobTrigger::Harness);
+        let trigger = opts.trigger.unwrap_or(JobTrigger::Manual);
         let started = (self.clock)();
         let id = (self.ids)();
         if opts.dry_run == Some(true) {
