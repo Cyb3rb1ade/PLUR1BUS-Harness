@@ -16,7 +16,6 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeMap,
-    io::Write,
     path::PathBuf,
     sync::Arc,
     time::{Duration, Instant},
@@ -220,7 +219,15 @@ impl JobBody for SemanticDiscovery {
             {
                 return Err(StoreError::Unavailable.into());
             }
-            replace(&dir, before.as_deref(), &bytes, cancel, &check)?;
+            super::ledger::io::replace(
+                &dir,
+                FILE,
+                before.as_deref(),
+                &bytes,
+                MAX_INDEX_BYTES,
+                cancel,
+                &check,
+            )?;
         }
         context.note_count("processed", processed)?;
         context.note_count("unchanged", unchanged)?;
@@ -247,32 +254,4 @@ fn content_hash(row: &MemoryRow) -> String {
     hash.update([0]);
     hash.update(row.summary.as_bytes());
     format!("sha256:{:x}", hash.finalize())
-}
-
-fn replace(
-    dir: &TrustedDirectory,
-    before: Option<&[u8]>,
-    bytes: &[u8],
-    cancel: &Cancel,
-    check: &dyn Fn() -> Result<(), EngineError>,
-) -> Result<(), EngineError> {
-    let name = format!(".semantic-{}.tmp", uuid::Uuid::new_v4());
-    let mut file = dir.create_file(&name)?;
-    let identity = crate::store::directory::regular_file_identity(&file)?;
-    let old_identity = super::ledger::io::identity(dir, FILE)?;
-    let result = (|| {
-        file.write_all(bytes).map_err(StoreError::from)?;
-        file.sync_all().map_err(StoreError::from)?;
-        drop(file);
-        check()?;
-        if super::ledger::io::read(dir, FILE, MAX_INDEX_BYTES, cancel)?.as_deref() != before {
-            return Err(StoreError::Unavailable.into());
-        }
-        dir.replace_staged(&name, FILE, identity, old_identity)?;
-        Ok(())
-    })();
-    if result.is_err() && super::ledger::io::identity(dir, &name).ok().flatten() == Some(identity) {
-        let _ = dir.remove_file(&name);
-    }
-    result
 }

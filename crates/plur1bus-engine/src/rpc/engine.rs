@@ -320,6 +320,12 @@ impl ProcessEngine {
                 }),
             ];
             if neo_enabled {
+                bodies.push(Arc::new(crate::jobs::proactive_check::ProactiveCheck {
+                    scope: scope.clone(),
+                    base: base.clone(),
+                    root: engine_warm::neo_root(&raw["neo"], base),
+                    provider: embedding.pipeline_embedder(),
+                }));
                 bodies.push(Arc::new(crate::jobs::light_dream::LightDream {
                     root: engine_warm::neo_root(&raw["neo"], base),
                     scope: scope.clone(),

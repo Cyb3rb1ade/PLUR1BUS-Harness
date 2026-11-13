@@ -1942,7 +1942,7 @@ fn an_allowed_job_runs_and_its_run_is_in_the_ledger_history_and_status() {
     );
     refused(
         engine.jobs().run(
-            JobName::RemDream,
+            JobName::Afterthought,
             &alpha(),
             options("manual"),
             &Cancel::never(),
@@ -2790,4 +2790,99 @@ fn skill_miner_retries_transport_and_memoizes_only_a_terminal_scoped_decision() 
     expected["benefit"] = "Avoids signing mistakes.".into();
     assert_eq!(updated, expected);
     assert_eq!(calls.load(Ordering::SeqCst), 4);
+}
+
+#[test]
+fn proactive_check_clusters_owned_turns_and_records_one_nudge_per_cooldown() {
+    use crate::{
+        context::{harness_user_principal, RouteVocabulary},
+        jobs::authority::JobAuthority,
+        neo::merged::Layout,
+        recall::knowledge::private_key,
+    };
+    let temp = scratch();
+    let base = temp.path().join("db");
+    let (host, engine) = engine(temp.path(), true);
+    host.set_workspace(&alpha(), temp.path().to_owned());
+    host.set_now_ms(NOW);
+    let workspace = format!("workspace-dir:v1:{}", temp.path().display());
+    let owner = harness_user_principal("proactive-owner");
+    let other = harness_user_principal("proactive-other");
+    let principal = serde_json::from_value::<Principal>(json!({
+        "agentId":"alpha","workspace":workspace,"user":owner,"channel":"telegram","accountId":"fixture",
+        "chat":{"id":"fixture","kind":"direct"},"trust":"proved"
+    })).unwrap();
+    let grant = || {
+        JobAuthority::from_host(
+            host.as_ref(),
+            JobName::ProactiveCheck,
+            &alpha(),
+            principal.clone(),
+            serde_json::from_value(json!({"origin":"cron","background":true})).unwrap(),
+            RouteVocabulary::shared(),
+        )
+        .unwrap()
+    };
+    let partition = base
+        .join("_neo/workspaces")
+        .join(Layout::for_key(&workspace).canonical);
+    crate::store::paths::secure_dir(&partition).unwrap();
+    let turn = |id: String, who: &str, role, text, time| {
+        json!({
+            "id":id,"ownerUserId":who,"agentId":"alpha","workspaceKey":workspace,
+            "scope":"agent_private","sessionId":"session","role":role,"content":text,"createdAt":time,
+        })
+    };
+    let mut turns: Vec<_> = (0..12)
+        .map(|i| {
+            turn(
+                format!("own-{i}"),
+                &owner,
+                "user",
+                "Release signing and checksums",
+                NOW - i * 5 * 3_600_000,
+            )
+        })
+        .collect();
+    turns.extend([
+        turn("foreign".into(), &other, "user", "Foreign turn", NOW),
+        turn(
+            "assistant".into(),
+            &owner,
+            "assistant",
+            "Assistant turn",
+            NOW,
+        ),
+        turn("ownerless".into(), "", "user", "Ownerless turn", NOW),
+    ]);
+    fs::write(
+        partition.join("turn-journal.jsonl"),
+        turns
+            .iter()
+            .map(|turn| format!("{turn}\n"))
+            .collect::<String>(),
+    )
+    .unwrap();
+    let run = || {
+        engine
+            .run_authorized_job(grant(), options("harness"), &Cancel::never())
+            .unwrap()
+    };
+    let first = run();
+    assert_eq!(first.outcome, JobOutcome::Completed, "{first:?}");
+    assert_eq!(first.counts["patternsFound"].as_u64(), Some(1));
+    assert_eq!(first.counts["nudgesGenerated"].as_u64(), Some(1));
+    assert_eq!(run().counts["nudgesGenerated"].as_u64(), Some(0));
+    let path = base
+        .join("_proactive")
+        .join(private_key(grant().request()).unwrap())
+        .join("proactive.json");
+    let state = fs::read_to_string(path).unwrap();
+    for excluded in ["Foreign", "Assistant", "Ownerless"] {
+        assert!(!state.contains(excluded));
+    }
+    let state: Value = serde_json::from_str(&state).unwrap();
+    assert_eq!(state["nudges"].as_array().unwrap().len(), 1);
+    assert_eq!(state["patterns"][0]["occurrences"], 12);
+    assert_eq!(state["cooldowns"].as_object().unwrap().len(), 1);
 }

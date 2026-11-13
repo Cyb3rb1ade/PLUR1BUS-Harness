@@ -18,6 +18,7 @@ pub mod metadata;
 pub mod migration;
 pub mod outcome;
 pub mod persona_locale;
+pub(crate) mod proactive_check;
 pub mod prompts;
 pub mod rate_limit;
 pub mod registry;

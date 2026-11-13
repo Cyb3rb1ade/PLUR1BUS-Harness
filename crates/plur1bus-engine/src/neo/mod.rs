@@ -32,6 +32,7 @@ pub mod global;
 mod graph_ownership;
 pub(crate) mod graph_prune;
 mod index;
+pub(crate) mod job_turns;
 mod journal_index;
 mod journal_io;
 pub mod merged;

@@ -327,7 +327,7 @@ fn select(
     }))
 }
 
-fn private(row: &Json, ctx: &RequestContext) -> bool {
+pub(super) fn private(row: &Json, ctx: &RequestContext) -> bool {
     journal_io::owned(row, ctx)
         && field(row, "scope") == Some(&text("agent_private"))
         && acl::bindings(row, ctx).is_ok_and(|binding| binding.scope == "agent_private")

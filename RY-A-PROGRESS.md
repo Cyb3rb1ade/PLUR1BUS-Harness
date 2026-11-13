@@ -187,7 +187,23 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   Append a revision that only changes benefit metadata. Unbound legacy
   workshop ledgers stay ineligible.
 
+- RE-D200: Proactive Check uses the pinned embedding threshold, centroid
+  representative, diversity score and daily cap. Select at most 500
+  exact-owner user turns from the last 30 days and revalidate their source
+  revisions under the capture lease. Native cluster IDs hash the first
+  20 UTF-16 units of the representative so cooldowns survive the next run.
+  Keep current patterns, the bounded nudge history and cooldowns in one
+  atomically replaced private state file. This job prepares nudges for
+  its bound owner and does not invoke a messaging transport.
+
 ## Tasks
+
+- T4 Proactive Check: `cargo test --locked -p plur1bus-engine --lib
+  rpc::engine::jobs_tests::` 35 passed, 0 failed, 0 ignored. Covers native
+  clustering, owner/role isolation and a second run inside the cooldown.
+  The ledger test now verifies unavailable status with a job that lacks
+  a body, since disabled Neo has an explicit REM skip. Workspace Clippy
+  passed.
 
 - T3 Skill Benefit Backfill: `cargo test --locked -p plur1bus-engine --lib
   skill_` 5 passed, 0 failed, 0 ignored. The production composition test

@@ -3,7 +3,7 @@ use crate::{
     contract::{Cancel, EngineError, StoreError},
     store::directory::{regular_file_identity, TrustedDirectory},
 };
-use std::io::Read;
+use std::io::{Read, Write};
 pub(super) fn child(
     dir: &TrustedDirectory,
     name: &str,
@@ -110,4 +110,35 @@ pub(crate) fn identity(
         }) => Ok(None),
         Err(e) => Err(e.into()),
     }
+}
+
+pub(crate) fn replace(
+    dir: &TrustedDirectory,
+    target: &str,
+    before: Option<&[u8]>,
+    bytes: &[u8],
+    max: usize,
+    cancel: &Cancel,
+    check: &dyn Fn() -> Result<(), EngineError>,
+) -> Result<(), EngineError> {
+    let name = format!(".job-{}.tmp", uuid::Uuid::new_v4());
+    let mut file = dir.create_file(&name)?;
+    let staged_identity = regular_file_identity(&file)?;
+    let result = (|| {
+        file.write_all(bytes).map_err(StoreError::from)?;
+        file.sync_all().map_err(StoreError::from)?;
+        drop(file);
+        check()?;
+        let old_identity = identity(dir, target)?;
+        if read(dir, target, max, cancel)?.as_deref() != before {
+            return Err(StoreError::Unavailable.into());
+        }
+        check()?;
+        dir.replace_staged(&name, target, staged_identity, old_identity)?;
+        Ok(())
+    })();
+    if result.is_err() && identity(dir, &name).ok().flatten() == Some(staged_identity) {
+        let _ = dir.remove_file(&name);
+    }
+    result
 }
