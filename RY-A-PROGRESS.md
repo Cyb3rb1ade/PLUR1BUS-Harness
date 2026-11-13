@@ -395,7 +395,14 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   Both invocations record twice and agree on SHA-256
   `abbded05883786c6d02f7194ac956ae12622b290c54fff8097fe338f3a2f2aaa`.
   `cargo test --locked -p plur1bus-engine --lib workspace_budget_`: 2 passed,
-  0 failed, 0 ignored. `/tmp/ry-a-budget-golden.log`.
+  0 failed, 0 ignored. Workspace Clippy exited 0. `/tmp/ry-a-budget-golden.log`.
+
+- RE-D223: Keep the existing Rust import preflight refusal until the native
+  cutover can attest exclusive write access across the Core and Engine. A0
+  reproduces the refusal and the Core test suite needs a new integration
+  contract for the native writer. Keep the full system gate as required by
+  the addendum. The ready PR and push stay pending while this gate or a
+  milestone deliverable is open.
 
 ## Tasks
 
@@ -666,6 +673,12 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
 
 ## Current restart point
 
+- The Ready gate is red on the latest local release build. RY-A remains
+  local in this dedicated worktree. The eventual PR base is `main` after #908.
+  Merge intervening `main` changes before resuming implementation. Review the
+  actual native writer-quiescence contract needed for the Import acceptance
+  failures before changing the Core guard. No job should gain authority through
+  a test skip or a weaker capability check.
 - A1, F12 and F13 are committed. The native process has a body for every
   catalog spec, including the Neo-disabled outcomes. The background-read
   inventory is in `docs/engine-stores.md`.
@@ -692,6 +705,13 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
   cover individual Node deltas. A full authorized per-job delta matrix remains
   open. The original RY plan requires the full Rust system gate before Ready.
 
+Native Windows and Linux, CI runtime budgets, and real-model acceptance were
+not checked. The local system runs use the flat embedding fixture and the
+local release builds omit `PLUR1BUS_ATTEST_SHA256`. Wall time from the first A1
+commit through the third full release-system run was about 5 h 48 min. The
+plan estimates 32 agent-days for the complete milestone. This checkpoint
+contains open work and does not measure completed milestone throughput.
+
 ### Latest system comparison
 
 Use Node 24.21.0, Rust 1.95, `TZ=UTC`, and the verified RX tokenizer cache.
@@ -702,13 +722,15 @@ Both the CLI and Rust-engine binaries are local. Counts are pass / fail / skip.
 | `PLUR1BUS_ENGINE_IMPL=rust PLUR1BUS_EXT_FIXTURES=<local CI-style fixtures> PLUR1BUS_CI_RECALL_HARD_MS=3000 node --experimental-strip-types --test --test-concurrency=2 --test-timeout=600000 tests/system/*.test.ts` | 64 / 16 / 3 at `81f98b7a61`, debug binaries. Extension and empty-home backup tests pass. `/tmp/ry-a-system-head.log`. |
 | Same command with `PLUR1BUS_BIN=target/release/plur1bus` and `PLUR1BUS_ENGINE_BIN=target/release/plur1bus-engine` | 70 / 10 / 3 at `a0bfb4a294`. Admin, backup, kill-soak, memory, Dreams, Model Discovery and two-session Recall passed. `/tmp/ry-a-release-system.log`. |
 | Same full release command at `3d603352c0` | 70 / 10 / 3. Same ten failing tests. `/tmp/ry-a-final-release-system.log`. |
+| Same full release command at `676c3fe806`, including C6 promotion | 70 / 10 / 3. Seven Import cases, one export inventory and two Setup downloads failed again. `cb9701cf92` adds only C6 test code and a recording after this build. `/tmp/ry-a-budget-release-system.log`. |
 | `PLUR1BUS_ENGINE_IMPL=rust PLUR1BUS_CI_RECALL_HARD_MS=3000 node --experimental-strip-types --test --test-concurrency=2 --test-timeout=180000 tests/system/{admin,backup,import,kill-soak,memory-ops,redaction-everywhere}.test.ts` against archived A0 `f19a358ff4` | 6 / 13 / 0. Both SSH cases lacked their example in that baseline binary directory. The other 11 fail at A0 as well, including admin startup, backup roundtrip, five import preflights, kill-soak, memory startup and the redaction inventory. `/tmp/ry-a-a0-system-confirmed.log`. |
 | `PLUR1BUS_ENGINE_IMPL=rust node --experimental-strip-types --test --test-concurrency=2 --test-timeout=120000 tests/system/{dreams,model-discovery}.test.ts` | 2 / 0 / 0. Both also pass in the full system run. |
 | `PLUR1BUS_ENGINE_IMPL=rust node --experimental-strip-types --test --test-name-pattern='release supervisor HTTP SSH' --test-concurrency=1 --test-timeout=180000 tests/system/import.test.ts` against A0 with the example binary | 0 / 2 / 0. Both fail at the same preflight assertion as the RY-A system run. `/tmp/ry-a-a0-system-ssh.log`. |
 | `PLUR1BUS_ALLOW_TEST_INTERNALS=1 PLUR1BUS_ENGINE_BIN=target/release/plur1bus-engine pnpm parity --check tests/engine-parity/scenarios --report /tmp/ry-a-final-parity.md` | 15 / 0 / 0 for both engines at `3d603352c0`. |
+| Same RE-09 command with `--report /tmp/ry-a-budget-parity.md` | 15 / 0 / 0 for both engines at `676c3fe806`. |
 | `cargo test --workspace --locked --no-fail-fast` | 5,574 / 0 / 11 across 206 suites at the `d61c8efdda` checkpoint with a local Rust engine binary. `/tmp/ry-a-final-workspace.log`. |
 | `cargo test --workspace --locked --no-fail-fast` at `81f98b7a61` | 5,575 / 1 / 11 across 206 suites. The sole failure is the existing macOS `sandbox_limits` RSS sampling race. The isolated recheck of the earlier identical failure passed 1 / 0 / 0. `/tmp/ry-a-head-workspace.log`, `/tmp/ry-a-sandbox-recheck.log`. |
-| `pnpm docs:check` | Exit 0, 14 / 0 / 0 across two fixture groups and all generated docs current. `/tmp/ry-a-latest-docs-check.log`. |
+| `pnpm docs:gen && pnpm docs:check` | Exit 0, 14 / 0 / 0 across two fixture groups and all generated docs current. `/tmp/ry-a-delivery-docs.log`. |
 
 The two empty-home backup tests pass after the A1 startup-order follow-up
 (RE-D213). The isolated debug two-session Recall test passes after RE-D218.
@@ -750,7 +772,8 @@ and 1 failed in the suite. The individual retry passed (1 passed, 0 failed,
 | `cargo test --locked -p plur1bus-rpc --test fixtures` | 10 passed, 0 failed, 0 ignored. The Rust fixture dispatcher covers `host.jobs.authority`. |
 | `pnpm --filter @plur1bus/rpc-schema test` | 120 passed, 0 failed, 0 skipped. |
 | `cargo deny --locked check bans licenses sources` | Exit 0, all three checks passed. |
-| `node scripts/audit-deps.mjs --only cargo --offline` | 821 packages allowed, 0 violations. |
+| `cargo deny --locked check` | 3 checks passed, 1 failed. The sole finding was the documented RX Ruling 7 `paste` advisory, RUSTSEC-2024-0436. `/tmp/ry-a-delivery-deny.log`. |
+| `node scripts/audit-deps.mjs --only cargo` | 821 packages allowed, 0 violations. `/tmp/ry-a-delivery-audit.log`. |
 | `node scripts/release/audit-policy.mjs` | 0 blockers, 0 collection/policy errors. Approved paste exception recorded. |
 | `pnpm --filter @plur1bus/core test` | 12,399 passed, 0 failed, 22 skipped, 16 existing TODOs at the native F12/T3 checkpoint. |
 
