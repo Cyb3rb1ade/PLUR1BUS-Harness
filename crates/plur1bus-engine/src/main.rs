@@ -74,7 +74,13 @@ fn run(command: Command) -> Result<(), (u8, String)> {
             .with_platform(platform::capabilities())
             .with_fixture_clock(fixture_clock),
     );
-    let engine = ProcessEngine::new(host.clone(), seam).map_err(|e| (2, e.to_string()))?;
+    let completions = host.clone();
+    let engine = ProcessEngine::with_job_completion(
+        host.clone(),
+        seam,
+        Arc::new(move |agent, params, cancel| completions.complete_for(agent, params, cancel)),
+    )
+    .map_err(|e| (2, e.to_string()))?;
     let engine = Arc::new(if fixture_clock.is_some() {
         engine.with_fixture_tombstone_ids()
     } else {

@@ -3,9 +3,46 @@
 //! The host owns provider selection and policy. A job supplies the limits for the
 //! selected prompt. A configured secret reference is authoritative for direct routes.
 use crate::{
-    contract::{HostError, LlmParams, Message, MessageRole, SecretPort, SecretValue},
+    contract::{
+        AgentId, Cancel, HostError, LlmParams, LlmPort, LlmResult, Message, MessageRole,
+        SecretPort, SecretValue,
+    },
     text::js::JsString,
 };
+use serde_json::Value;
+
+/// Native composition callback. The host retains its authentication and provider policy.
+pub type CompleteFor =
+    dyn Fn(&AgentId, &LlmParams, &Cancel) -> Result<LlmResult, HostError> + Send + Sync;
+
+/// A completion scoped to the owner-bound agent of a single admitted job.
+pub(crate) struct JobCompletion<'a> {
+    pub(crate) authority: &'a super::authority::JobAuthority,
+    pub(crate) complete: &'a CompleteFor,
+    pub(crate) model: Option<String>,
+}
+
+impl LlmPort for JobCompletion<'_> {
+    fn complete(&self, mut params: LlmParams, cancel: &Cancel) -> Result<LlmResult, HostError> {
+        cancel.check()?;
+        if params.model.is_none() {
+            params.model.clone_from(&self.model);
+        }
+        (self.complete)(&self.authority.request().agent_id, &params, cancel)
+    }
+}
+
+/// The model selection for a feature which uses only the host's routed transport.
+pub(crate) fn host_model(config: &Value, agent: &AgentId, feature: &str) -> Option<String> {
+    let router = &config["llmRouter"];
+    let choices = &router["agentModels"][agent.as_str()];
+    [&choices[feature], &choices["*"], &router["defaultModel"]]
+        .into_iter()
+        .filter_map(Value::as_str)
+        .map(str::trim)
+        .find(|value| !value.is_empty())
+        .map(str::to_owned)
+}
 
 /// Fixed job request purposes with CP-1 ceilings.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -133,6 +170,35 @@ mod tests {
         assert!(feature_credential(None, Some("feature/key"), Some("literal")).is_err());
         let resolved = feature_credential(Some(store), Some(""), Some("literal"));
         assert!(matches!(resolved, Ok(Some(value)) if value.expose() == "literal"));
+    }
+
+    #[test]
+    fn the_host_model_uses_feature_then_agent_then_router_defaults() {
+        let config = serde_json::json!({
+            "llmRouter":{
+                "defaultModel":"provider/default",
+                "agentModels":{
+                    "alpha":{"*":"provider/alpha","episode-extraction":"provider/episode"},
+                    "beta":{"episode-extraction":" "}
+                }
+            }
+        });
+        let alpha: AgentId = serde_json::from_value(serde_json::json!("alpha"))
+            .unwrap_or_else(|error| panic!("{error}"));
+        let beta: AgentId = serde_json::from_value(serde_json::json!("beta"))
+            .unwrap_or_else(|error| panic!("{error}"));
+        assert_eq!(
+            host_model(&config, &alpha, "episode-extraction").as_deref(),
+            Some("provider/episode")
+        );
+        assert_eq!(
+            host_model(&config, &alpha, "conversation-insights").as_deref(),
+            Some("provider/alpha")
+        );
+        assert_eq!(
+            host_model(&config, &beta, "episode-extraction").as_deref(),
+            Some("provider/default")
+        );
     }
 
     #[test]

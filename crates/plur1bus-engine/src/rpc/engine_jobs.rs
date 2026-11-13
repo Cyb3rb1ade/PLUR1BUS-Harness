@@ -14,6 +14,7 @@ use crate::{
     },
     jobs::{
         authority::{self, JobAuthority},
+        llm::{host_model, CompleteFor, JobCompletion},
         registry::{
             dry_run_report, health_at, HealthCache, JobBody, JobContext, JobReport, Registry,
         },
@@ -133,6 +134,7 @@ pub(super) struct NeoRebuild {
     pub(super) policy: Arc<dyn crate::capture::shared_scope::CapturePolicy>,
     pub(super) mood: Arc<crate::capture::emotion_pool::EmotionalPool>,
     pub(super) host: Arc<dyn HostServices>,
+    pub(super) completion: Option<Arc<CompleteFor>>,
 }
 
 impl JobBody for NeoRebuild {
@@ -157,7 +159,20 @@ impl JobBody for NeoRebuild {
             }
             Err(error) => return Err(error.into()),
         };
-        let rebuilt = episodes.rebuild_for_job(authority, context.now_ms, cancel)?;
+        let config = serde_json::to_value(self.host.config()).map_err(|_| StoreError::Corrupt)?;
+        let completion = self
+            .completion
+            .as_deref()
+            .filter(|_| config["merging"]["enabled"] != false)
+            .map(|complete| JobCompletion {
+                authority,
+                complete,
+                model: host_model(&config, &context.agent, "episode-extraction"),
+            });
+        let narrative = completion
+            .as_ref()
+            .map(|port| port as &dyn crate::contract::LlmPort);
+        let rebuilt = episodes.rebuild_for_job(authority, context.now_ms, narrative, cancel)?;
         context.note_count("rebuilt", rebuilt)?;
         Ok(JobReport::completed())
     }

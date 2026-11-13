@@ -11,7 +11,7 @@ use super::super::{
 use crate::{
     capture::dynamics::json_number,
     context::RequestContext,
-    contract::{Cancel, EngineError, JobName, StoreError},
+    contract::{Cancel, EngineError, JobName, LlmPort, StoreError},
     jobs::authority::JobAuthority,
     store::directory::TrustedDirectory,
     text::{
@@ -35,6 +35,7 @@ impl super::EpisodeStore {
         &self,
         authority: &JobAuthority,
         now: i64,
+        narrative: Option<&dyn LlmPort>,
         cancel: &Cancel,
     ) -> Result<usize, EngineError> {
         if authority.job() != JobName::EpisodesRebuild {
@@ -83,6 +84,13 @@ impl super::EpisodeStore {
                 let now_iso = chrono::DateTime::from_timestamp_millis(now)
                     .ok_or(StoreError::InvalidInput)?
                     .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+                let rebuild = Rebuild {
+                    names: &names,
+                    now_iso: &now_iso,
+                    now,
+                    ctx,
+                    narrative,
+                };
                 let mut next = before.clone();
                 let mut count = 0;
                 for old in current.into_iter().take(EPISODE_LIMIT) {
@@ -91,8 +99,8 @@ impl super::EpisodeStore {
                         continue;
                     }
                     let sources = episode_turns(old, &selected, &by_id);
-                    let Some(row) = rebuild(old, sources, &names, &now_iso, now, ctx, cancel)?
-                    else {
+                    check()?;
+                    let Some(row) = rebuild.row(old, sources, cancel)? else {
                         continue;
                     };
                     let encoded = write_json(&row);
@@ -220,63 +228,87 @@ fn episode_turns<'a>(
     rows
 }
 
-fn rebuild(
-    old: &Json,
-    sources: Vec<&Json>,
-    names: &participant_names::ParticipantNames,
-    now_iso: &str,
+struct Rebuild<'a> {
+    names: &'a participant_names::ParticipantNames,
+    now_iso: &'a str,
     now: i64,
-    ctx: &RequestContext,
-    cancel: &Cancel,
-) -> Result<Option<Json>, EngineError> {
-    if sources.is_empty() {
-        return Ok(None);
-    }
-    let sources: Vec<_> = sources.into_iter().cloned().collect();
-    let fingerprint = episode_plan::fingerprint(&Json::Array(vec![
-        text("episode-rebuild-v1"),
-        Json::String(names.user.clone()),
-        Json::String(names.assistant.clone()),
-        Json::Array(sources.iter().map(episode_plan::fingerprint).collect()),
-    ]));
-    if field(old, "nativeRebuildSourceHash") == Some(&fingerprint) {
-        return Ok(None);
-    }
-    let mut row = episodes::create(
-        &sources,
-        &episodes::BuildOptions {
-            id: &journal_io::id(old)?,
-            now: &now_iso.into(),
-            workspace_key: &ctx.workspace_key.as_str().into(),
-            agent_id: &ctx.agent_id.as_str().into(),
-            session_key: &JsString::default(),
-            participant_names: Some((&names.user, &names.assistant)),
-            mood: None,
-        },
-        cancel,
-    )?
-    .ok_or(StoreError::InvalidInput)?;
-    for key in [
-        "createdAt",
-        "location",
-        "importance",
-        "replayCount",
-        "lastReplayed",
-        "visibility",
-    ] {
-        if let Some(value) = field(old, key) {
-            set(&mut row, key, value.clone())?;
+    ctx: &'a RequestContext,
+    narrative: Option<&'a dyn LlmPort>,
+}
+
+impl Rebuild<'_> {
+    fn row(
+        &self,
+        old: &Json,
+        sources: Vec<&Json>,
+        cancel: &Cancel,
+    ) -> Result<Option<Json>, EngineError> {
+        let Self {
+            names,
+            now_iso,
+            now,
+            ctx,
+            narrative,
+        } = *self;
+        if sources.is_empty() {
+            return Ok(None);
         }
+        let sources: Vec<_> = sources.into_iter().cloned().collect();
+        let fingerprint = episode_plan::fingerprint(&Json::Array(vec![
+            text("episode-rebuild-v1"),
+            Json::Bool(narrative.is_some()),
+            Json::String(names.user.clone()),
+            Json::String(names.assistant.clone()),
+            Json::Array(sources.iter().map(episode_plan::fingerprint).collect()),
+        ]));
+        if field(old, "nativeRebuildSourceHash") == Some(&fingerprint) {
+            return Ok(None);
+        }
+        let mut row = episodes::create(
+            &sources,
+            &episodes::BuildOptions {
+                id: &journal_io::id(old)?,
+                now: &now_iso.into(),
+                workspace_key: &ctx.workspace_key.as_str().into(),
+                agent_id: &ctx.agent_id.as_str().into(),
+                session_key: &JsString::default(),
+                participant_names: Some((&names.user, &names.assistant)),
+                mood: None,
+            },
+            cancel,
+        )?
+        .ok_or(StoreError::InvalidInput)?;
+        for key in [
+            "createdAt",
+            "location",
+            "importance",
+            "replayCount",
+            "lastReplayed",
+            "visibility",
+        ] {
+            if let Some(value) = field(old, key) {
+                set(&mut row, key, value.clone())?;
+            }
+        }
+        let revision = episode_io::revision(old)?
+            .checked_add(1)
+            .filter(|revision| *revision <= 9_007_199_254_740_991)
+            .ok_or(StoreError::Corrupt)?;
+        set(&mut row, "revision", Json::Number(revision.to_string()))?;
+        set(&mut row, "rebuilt", Json::Bool(true))?;
+        set(&mut row, "nativeRebuildSourceHash", fingerprint)?;
+        if narrative.is_some() && sources.len() >= 2 {
+            row = super::super::narrative::enrich(
+                &row,
+                &sources,
+                Some((&names.user, &names.assistant)),
+                narrative,
+                cancel,
+            )?;
+        }
+        let vividness = episodes::vividness(&row, now)?;
+        set(&mut row, "vividness", json_number(vividness))?;
+        capture_plan::stamp(&mut row, ctx)?;
+        Ok(Some(row))
     }
-    let revision = episode_io::revision(old)?
-        .checked_add(1)
-        .filter(|revision| *revision <= 9_007_199_254_740_991)
-        .ok_or(StoreError::Corrupt)?;
-    set(&mut row, "revision", Json::Number(revision.to_string()))?;
-    set(&mut row, "rebuilt", Json::Bool(true))?;
-    set(&mut row, "nativeRebuildSourceHash", fingerprint)?;
-    let vividness = episodes::vividness(&row, now)?;
-    set(&mut row, "vividness", json_number(vividness))?;
-    capture_plan::stamp(&mut row, ctx)?;
-    Ok(Some(row))
 }

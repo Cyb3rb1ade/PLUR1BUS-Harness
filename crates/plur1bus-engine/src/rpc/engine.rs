@@ -128,6 +128,23 @@ impl ProcessEngine {
     /// Compose the real RE-03 providers or an explicitly selected embedding seam.
     /// Construction is lazy: it neither loads models nor opens memory stores.
     pub fn new(host: Arc<dyn HostServices>, seam: Option<Seam>) -> Result<Self, EngineError> {
+        Self::compose(host, seam, None)
+    }
+
+    /// Compose the production reverse completion callback with an explicit agent attribution.
+    pub fn with_job_completion(
+        host: Arc<dyn HostServices>,
+        seam: Option<Seam>,
+        completion: Arc<crate::jobs::llm::CompleteFor>,
+    ) -> Result<Self, EngineError> {
+        Self::compose(host, seam, Some(completion))
+    }
+
+    fn compose(
+        host: Arc<dyn HostServices>,
+        seam: Option<Seam>,
+        completion: Option<Arc<crate::jobs::llm::CompleteFor>>,
+    ) -> Result<Self, EngineError> {
         let config = host.config();
         let raw = serde_json::to_value(&config).map_err(|_| composition_invalid())?;
         let normalized = host_normalized_embedding(&raw, host.as_ref())?;
@@ -267,6 +284,7 @@ impl ProcessEngine {
                     policy: engine_capture::workspace_capture_policy(base),
                     mood: mood.pool(),
                     host: host.clone(),
+                    completion: completion.clone(),
                 }));
             }
             bodies

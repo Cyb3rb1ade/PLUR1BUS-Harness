@@ -70,8 +70,9 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   assistant turns. New revisions are published together by atomic replacement
   under the capture lease. A source/version fingerprint deduplicates a retry.
   Capture reads a newer rebuild revision before continuing the open episode.
-  Optional narrative completion still needs T2 routing. Vault writes belong
-  to RE-07. The existing process dry-run outcome stays `dry_run_unsupported`.
+  The optional narrative uses the authenticated Core router and pinned
+  500-token episode prompt when merging is enabled. Vault writes belong to
+  RE-07. The existing process dry-run outcome stays `dry_run_unsupported`.
 
 ## Tasks
 
@@ -129,10 +130,17 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
 - [ ] RE-06 T2 prompt layer and LLM routing, S8. First increment adds four
   versioned renderers and offline hash vectors, CP-1 limits, route credential
   precedence and a UTF-16-compatible cache key. Still open: other prompt call
-  sites and the real completion/cache adapters.
+  sites, direct feature transport and result-cache integration. Native
+  process composition now supplies the authenticated agent-attributed
+  completion callback. Its first consumer is the episode narrative. Feature
+  model, agent default, router default and Core fallback are tried in order.
+  The host and RE-01 contract have the same wire surface.
   `cargo test --locked -p plur1bus-engine --test jobs job_prompts::`: 3 passed,
   0 failed, 0 ignored. `cargo test --locked -p plur1bus-engine --lib jobs::llm::`:
-  3 passed, 0 failed, 0 ignored.
+  4 passed, 0 failed, 0 ignored after adding model precedence.
+  `cargo test --locked -p plur1bus-engine --features testkit --test host_guard_contract`:
+  22 passed, 0 failed, 0 ignored, including the authorized child process
+  requesting a narrative through the attributed Core completion port.
 - [ ] RE-06 T3 maintenance and C5. The five C5 job names now share the existing
   same-agent overlap guard. The public singleton flag still controls scheduler
   planning. `cargo test --locked -p plur1bus-engine --features testkit --test jobs`:
@@ -157,8 +165,8 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
   Native deterministic `episodes-rebuild` is installed. Node field deltas,
   foreign-owner isolation, retry deduplication and ordinary Capture continuation
   are covered by `cargo test --locked -p plur1bus-engine --lib rpc::engine::jobs_tests::`
-  (25 passed, 0 failed, 0 ignored). The optional narrative route is open. A
-  follow-up applies Clippy’s equivalent `is_none_or` predicate. Workspace
+  (25 passed, 0 failed, 0 ignored). The optional narrative route is wired
+  through the production Core RPC path. A follow-up applies Clippy’s equivalent `is_none_or` predicate. Workspace
   Clippy then exited 0. Body-owned numeric outcomes for rebuild, GC and
   critical expiry use the frozen `JobRun.counts` field. Counts for Lance
   mutations come from the conditional write result. Process job tests:

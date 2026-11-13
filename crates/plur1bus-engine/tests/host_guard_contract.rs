@@ -305,6 +305,113 @@ fn process_job_requires_a_core_peer_and_a_live_reverse_authority() {
 }
 
 #[test]
+fn authorized_episode_rebuild_completes_through_the_attributed_core_port() {
+    use plur1bus_engine::{context::harness_user_principal, neo::merged::Layout};
+
+    let _serial = rpc_process_support::process_test();
+    let home = rpc_process_support::home();
+    let root = home.path();
+    let workspace = root.join("workspace");
+    std::fs::create_dir(&workspace).unwrap();
+    let workspace_key = format!("workspace-dir:v1:{}", workspace.display());
+    let owner = harness_user_principal("episode-owner");
+    let directory = workspace.clone();
+    let principal = json!({
+        "agentId":"alpha","workspace":workspace_key,"user":owner,"channel":"telegram",
+        "accountId":"fixture","chat":{"id":"episode","kind":"direct"},"trust":"proved"
+    });
+    let core = FakeCore::start(root, CORE_TOKEN, move |method, params| match method {
+        "host.jobs.authority" => {
+            assert_eq!(params["job"], "episodes-rebuild");
+            assert_eq!(params["agentId"], "alpha");
+            Ok(principal.clone())
+        }
+        "host.workspaceDir" => Ok(json!({"path":directory})),
+        "host.llm.complete" => {
+            assert_eq!(params["agentId"], "alpha");
+            assert_eq!(params["params"]["maxTokens"], 500);
+            assert_eq!(params["params"]["temperature"], 0);
+            let message = &params["params"]["messages"][0];
+            assert_eq!(message["role"], "user");
+            assert!(message["content"]
+                .as_str()
+                .unwrap()
+                .contains("Release notes are ready."));
+            Ok(
+                json!({"text":"{\"title\":\"Release notes\",\"summary\":\"Release notes are ready.\"}"}),
+            )
+        }
+        "host.event" => Ok(json!({})),
+        _ => Err("E_NOT_AVAILABLE"),
+    });
+    let mut engine = rpc_process_support::EngineProcess::start_with_seam_env(
+        root,
+        "flat-embedder",
+        &[("PLUR1BUS_TEST_CLOCK_MS", Path::new("1768305600000"))],
+    );
+    let partition = root
+        .join("state/lancedb/_neo/workspaces")
+        .join(Layout::for_key(&workspace_key).canonical);
+    plur1bus_engine::store::paths::secure_dir(&partition).unwrap();
+    let stamp = |mut row: Value| {
+        row["agentId"] = json!("alpha");
+        row["workspaceKey"] = json!(workspace_key);
+        row["ownerUserId"] = json!(owner);
+        row["scope"] = json!("agent_private");
+        row
+    };
+    let at = "2026-01-13T11:50:00.000Z";
+    let end = "2026-01-13T11:51:00.000Z";
+    let turns = [
+        stamp(
+            json!({"id":"question","role":"user","createdAt":at,"content":"Please check the release notes."}),
+        ),
+        stamp(
+            json!({"id":"answer","role":"assistant","createdAt":end,"content":"Release notes are ready."}),
+        ),
+    ];
+    let lines = turns
+        .iter()
+        .map(|row| format!("{row}\n"))
+        .collect::<String>();
+    std::fs::write(partition.join("turn-journal.jsonl"), lines).unwrap();
+    let episode = stamp(json!({
+        "id":"ep-1","createdAt":at,"startTime":at,"endTime":end,
+        "memoryIds":["question","answer"],"revision":0
+    }));
+    let journal = partition.join("episodes.jsonl");
+    std::fs::write(&journal, format!("{episode}\n")).unwrap();
+    std::fs::write(
+        root.join("run/core.pid"),
+        format!("{} {}\n", std::process::id(), uuid::Uuid::from_u128(1)),
+    )
+    .unwrap();
+    let mut peer = rpc_process_support::RawConnection::connect(engine.address());
+    peer.set_read_timeout(Duration::from_secs(30));
+    let authenticated = peer.call(
+        1,
+        "engine.auth",
+        json!({"token":engine.token(),"clientId":"core-fixture"}),
+    );
+    assert!(authenticated["result"].is_object());
+    let run = peer.call(
+        2,
+        "engine.jobs.run",
+        json!({"job":"episodes-rebuild","agentId":"alpha"}),
+    );
+    assert_eq!(run["result"]["outcome"], "completed", "{run}");
+    assert_eq!(run["result"]["counts"]["rebuilt"], 1, "{run}");
+    assert_eq!(core.count("host.llm.complete"), 1);
+    let rebuilt = std::fs::read_to_string(&journal).unwrap();
+    let row: Value = serde_json::from_str(rebuilt.lines().last().unwrap()).unwrap();
+    assert_eq!(row["title"], "Release notes");
+    assert_eq!(row["revision"], 1);
+    drop(peer);
+    engine.close_stdin();
+    assert!(engine.wait_for_exit().success());
+}
+
+#[test]
 fn capture_metadata_requires_the_core_peer_and_persists_visible_source_events() {
     use plur1bus_engine::{context::harness_user_principal, neo::merged::Layout};
 
