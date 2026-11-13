@@ -286,6 +286,7 @@ impl ProcessEngine {
                 }),
                 Arc::new(crate::jobs::classify_recent::ClassifyRecent {
                     scope: scope.clone(),
+                    base: base.clone(),
                     completion: completion.cloned(),
                 }),
                 Arc::new(crate::jobs::emotion_refine::EmotionRefine {

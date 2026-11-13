@@ -330,6 +330,14 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   Focused dream cases 2 passed, 0 failed, 0 ignored. The unchanged Node ACL
   suite passed 8, failed 0, ignored 0.
 
+- RE-D216: Classify Recent uses the process deletion mask before selecting
+  prompt sources, again immediately before the provider, and under the
+  mutation gate before classification is published. Covered chunks are
+  masked before their conditional update. The test retains a physical row
+  with a committed tombstone and verifies that its text never reaches the
+  completion and its type stays unchanged. Focused test 1 passed, 0 failed,
+  0 ignored. Workspace Clippy exited 0.
+
 ## Tasks
 
 - T2 S8 credential objects: `cargo test --locked -p plur1bus-engine

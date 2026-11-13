@@ -7,11 +7,12 @@ use super::{
 use crate::{
     capture::critical,
     contract::{Cancel, EngineError, JobName, JobOutcome, MemoryRow, StoreError},
-    recall::{acl, lifecycle::is_recall_entry_live},
+    recall::{acl, lifecycle::is_recall_entry_live, tombstone_mask::TombstoneMask},
     text::{js::js_to_lower_case, json::parse_json},
 };
 use std::{
     collections::{HashMap, HashSet},
+    path::PathBuf,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -19,6 +20,7 @@ use std::{
 const DEFAULT_WINDOW_MINUTES: f64 = 1440.;
 pub(crate) struct ClassifyRecent {
     pub scope: Arc<LanceScope>,
+    pub base: PathBuf,
     pub completion: Option<Arc<CompleteFor>>,
 }
 
@@ -66,16 +68,19 @@ impl JobBody for ClassifyRecent {
             .filter(|value| value.is_finite() && *value > 0.)
             .unwrap_or(DEFAULT_WINDOW_MINUTES);
         filter.since = Some((context.now_ms as f64 - minutes * 60_000.).ceil() as i64);
-        let rows: Vec<_> = store
-            .recent_unclassified(&filter)?
-            .into_iter()
-            .filter(|row| {
-                row.stored_by == context.agent.as_str()
-                    && row.workspace_key == request.workspace_key
-                    && acl::allowed(row, request).is_ok()
-                    && is_recall_entry_live(row, context.now_ms, None)
-            })
-            .collect();
+        let tombstones = TombstoneMask::new(&self.base);
+        let mut rows = Vec::new();
+        for row in store.recent_unclassified(&filter)? {
+            cancel.check()?;
+            if row.stored_by == context.agent.as_str()
+                && row.workspace_key == request.workspace_key
+                && acl::allowed(&row, request).is_ok()
+                && is_recall_entry_live(&row, context.now_ms, None)
+                && !tombstones.masks(&row)?
+            {
+                rows.push(row);
+            }
+        }
         let covered = covered_chunks(&rows, &cancel)?;
         let mut classified = 0;
         let mut chunks = 0;
@@ -89,6 +94,9 @@ impl JobBody for ClassifyRecent {
         {
             if let Some(skip) = self.scope.check(authority, &cancel)? {
                 return Ok(skip);
+            }
+            if tombstones.refreshed().masks(row)? {
+                continue;
             }
             let kind =
                 match critical::classify_with_limit(content(row), &completion, Some(16), &cancel) {
@@ -118,6 +126,9 @@ impl JobBody for ClassifyRecent {
             if let Some(skip) = self.scope.check(authority, &cancel)? {
                 return Ok(skip);
             }
+            if tombstones.refreshed().masks(row)? {
+                continue;
+            }
             let written = store.classify_critical_row(&filter, row, kind)?;
             classified += written;
             if written > 0 && row.chunk_group_id.is_empty() && !row.source_turn_id.is_empty() {
@@ -133,7 +144,9 @@ impl JobBody for ClassifyRecent {
             if let Some(skip) = self.scope.check(authority, &cancel)? {
                 return Ok(skip);
             }
-            chunks += store.classify_critical_row(&filter, row, "fakt")?;
+            if !tombstones.refreshed().masks(row)? {
+                chunks += store.classify_critical_row(&filter, row, "fakt")?;
+            }
         }
         context.note_count("classified", classified)?;
         context.note_count("skippedChunks", chunks)?;

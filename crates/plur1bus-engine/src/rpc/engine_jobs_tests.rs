@@ -1555,6 +1555,8 @@ fn classify_recent_checks_source_scope_and_leaves_provider_failures_retryable() 
         context::{harness_user_principal, RouteVocabulary},
         jobs::authority::JobAuthority,
         ops::write::MutationStores,
+        store::tombstone::{content_fingerprint, TombstoneRegistry},
+        text::json::parse_json,
     };
     let temp = scratch();
     let host = Arc::new(FakeHost::new(
@@ -1583,6 +1585,7 @@ fn classify_recent_checks_source_scope_and_leaves_provider_failures_retryable() 
         let input = &params.messages[0].content;
         assert!(!input.contains("Foreign evidence") && !input.contains("Dream evidence"));
         assert!(!input.contains("Part-only evidence"));
+        assert!(!input.contains("Forgotten evidence"));
         if input.contains("Retry later") && !model_ready.load(Ordering::Acquire) {
             return Err(HostError::Unavailable);
         }
@@ -1652,6 +1655,14 @@ fn classify_recent_checks_source_scope_and_leaves_provider_failures_retryable() 
     dream.origin = "dream".into();
     let rows = [whole, part, other_part, assistant, retry, foreign, dream];
     store.upsert(&rows).unwrap();
+    let forgotten = row(8, "Forgotten evidence", "user");
+    store.upsert(std::slice::from_ref(&forgotten)).unwrap();
+    let tombstone = json!({"schemaVersion":1,"memoryId":forgotten.id,"agentId":"alpha",
+        "scope":"agent-private","status":"committed","contentFingerprint":content_fingerprint(&forgotten.text)});
+    TombstoneRegistry::new(&temp.path().join("db"), "alpha")
+        .unwrap()
+        .append(&parse_json(&tombstone.to_string()).unwrap())
+        .unwrap();
     let run = || {
         engine
             .run_authorized_job(grant(), options("harness"), &Cancel::never())
@@ -1677,6 +1688,7 @@ fn classify_recent_checks_source_scope_and_leaves_provider_failures_retryable() 
     assert_eq!(second.outcome, JobOutcome::Completed, "{second:?}");
     assert_eq!(second.counts["classified"].as_u64(), Some(1));
     assert_eq!(calls.load(Ordering::Relaxed), 4);
+    assert_eq!(store.get(&forgotten.id).unwrap().unwrap().type_, "memory");
     assert_eq!(
         actual(),
         ["person", "fakt", "fakt", "note", "person", "memory", "memory"]
