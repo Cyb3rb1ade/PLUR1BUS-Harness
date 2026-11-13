@@ -123,7 +123,23 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   anchors, foreign rows, and incomplete bytes are preserved. The endpoint
   snapshots and original graph bytes are rechecked before atomic publication.
 
+- RE-D193: The native reminder queue is the Lance row's scoped `pending`
+  state. The legacy workspace JSON queue has no human binding. Native recall
+  surfaces due or pending rows only in the exact person's proved direct chat
+  and applies the tombstone mask. Webhook dispatch reserves an attempt before
+  I/O and uses the row ID as `Idempotency-Key`. A confirmed HTTP failure
+  retries after five minutes through attempt five. An ambiguous transport
+  outcome or failed post-delivery status write leaves the row pending for
+  local recall. HTTP 2xx headers suffice to acknowledge delivery. The frozen
+  host has no reminder delivery callback, so that configured mode skips.
+
 ## Tasks
+
+- T4 C5 reminder dispatch: `cargo test --locked -p plur1bus-engine --lib
+  rpc::engine::jobs_tests::reminder_dispatch` 1 passed, 0 failed, 0 ignored.
+  The test exercises guarded HTTP, the capped retry and owned pending recall.
+  Workspace Clippy passed with `-D warnings`. The Node job delta and
+  independent rate-state parity remain open.
 
 - T2/T6 narrative prompts: the S7 German Light and REM prompt layout,
   fenced evidence, mood and length limits match the S7 source. Run

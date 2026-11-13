@@ -675,6 +675,204 @@ fn emotion_refinement_stages_importance_before_committing_and_preserves_foreign_
 }
 
 #[test]
+#[allow(clippy::panic, reason = "report an unexpected loopback fixture error")]
+fn reminder_dispatch_reserves_once_and_caps_http_retries_for_the_bound_owner() {
+    use crate::{
+        capture::row_defaults::schema_defaults,
+        context::{harness_user_principal, RouteVocabulary},
+        contract::{AddressRules, Decision},
+        jobs::{authority::JobAuthority, reminder_dispatch},
+        ops::write::MutationStores,
+        recall::tombstone_mask::TombstoneMask,
+    };
+    use std::{
+        io::{BufRead, BufReader, Read, Write},
+        net::TcpListener,
+    };
+    let temp = scratch();
+    let base = temp.path().join("db");
+    let (host, engine) = engine(temp.path(), false);
+    host.set_workspace(&alpha(), temp.path().to_owned());
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let url = format!("http://{}/remind", listener.local_addr().unwrap());
+    let settings = |mode: &str| {
+        serde_json::from_value(json!({
+            "baseDbPath":base,"neo":{"enabled":false},
+            "reminders":{"deliveryMode":mode,"webhookUrl":url},
+        }))
+        .unwrap()
+    };
+    host.set_config(settings("webhook"));
+    host.set_egress(Decision::Allow {
+        address_rules: AddressRules {
+            allow_loopback: true,
+            ..Default::default()
+        },
+    });
+    let owner = harness_user_principal("reminder-owner");
+    let workspace = format!("workspace-dir:v1:{}", temp.path().display());
+    let principal = |user: &str| {
+        serde_json::from_value::<Principal>(json!({
+        "agentId":"alpha","workspace":workspace,"user":user,"channel":"telegram","accountId":"fixture",
+        "chat":{"id":"fixture","kind":"direct"},"trust":"proved"
+    })).unwrap()
+    };
+    let grant = || {
+        JobAuthority::from_host(
+            host.as_ref(),
+            JobName::ReminderDispatch,
+            &alpha(),
+            principal(&owner),
+            serde_json::from_value(json!({"origin":"cron","background":true})).unwrap(),
+            RouteVocabulary::shared(),
+        )
+        .unwrap()
+    };
+    let _opened = engine.open(&alpha()).unwrap();
+    let store = engine
+        .live_stores
+        .existing_private(grant().request())
+        .unwrap()
+        .unwrap();
+    let row = |id, user: &str, text: &str, at: i64| {
+        let mut row = schema_defaults(vec![0.; 384]);
+        row.id = uuid::Uuid::from_u128(id).to_string();
+        row.agent_id = "alpha".into();
+        row.stored_by = row.agent_id.clone();
+        row.workspace_id = workspace.clone();
+        row.workspace_key = workspace.clone();
+        row.owner_user_id = user.into();
+        row.text = text.into();
+        row.memory_kind = "reminder".into();
+        row.reminder_status = "scheduled".into();
+        row.remind_at = at.into();
+        row
+    };
+    let success = row(1, &owner, "Deliver once", NOW - 1);
+    let mut failed = row(2, &owner, "Fail twice", NOW - 1);
+    failed.dispatch_count = 3.into();
+    let foreign_user = harness_user_principal("foreign-reminder-owner");
+    let foreign = row(3, &foreign_user, "Foreign reminder", NOW - 1);
+    let future = row(4, &owner, "Local pending", NOW + 600_001);
+    store
+        .upsert(&[
+            success.clone(),
+            failed.clone(),
+            foreign.clone(),
+            future.clone(),
+        ])
+        .unwrap();
+    let expected: BTreeMap<_, _> = [
+        (success.id.clone(), (1, "Deliver once")),
+        (failed.id.clone(), (2, "Fail twice")),
+    ]
+    .into_iter()
+    .collect();
+    let server = std::thread::spawn(move || {
+        listener.set_nonblocking(true).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(20);
+        let mut observed = BTreeMap::new();
+        let mut sockets = vec![];
+        while sockets.len() < 3 {
+            let socket = match listener.accept() {
+                Ok((socket, _)) => socket,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    assert!(Instant::now() < deadline);
+                    std::thread::sleep(Duration::from_millis(5));
+                    continue;
+                }
+                Err(error) => panic!("{error}"),
+            };
+            socket.set_nonblocking(false).unwrap();
+            socket
+                .set_read_timeout(Some(Duration::from_secs(3)))
+                .unwrap();
+            let mut socket = BufReader::new(socket);
+            let mut line = String::new();
+            socket.read_line(&mut line).unwrap();
+            assert_eq!(line, "POST /remind HTTP/1.1\r\n");
+            let mut headers = BTreeMap::new();
+            loop {
+                line.clear();
+                assert!(socket.read_line(&mut line).unwrap() > 0);
+                if line == "\r\n" {
+                    break;
+                }
+                let (key, value) = line.trim_end().split_once(':').unwrap();
+                headers.insert(key.to_ascii_lowercase(), value.trim().to_owned());
+            }
+            let mut body = vec![0; headers["content-length"].parse().unwrap()];
+            socket.read_exact(&mut body).unwrap();
+            let body: Value = serde_json::from_slice(&body).unwrap();
+            let key = &headers["idempotency-key"];
+            assert_eq!(body["reminder"]["id"], key.as_str());
+            assert_eq!(body["reminder"]["text"], expected[key].1);
+            let status = if expected[key].0 == 1 {
+                "200 OK"
+            } else {
+                "503 Unavailable"
+            };
+            // An accepted delivery must complete without waiting for this body.
+            write!(
+                socket.get_mut(),
+                "HTTP/1.1 {status}\r\nContent-Length: 500\r\n\r\n"
+            )
+            .unwrap();
+            sockets.push(socket);
+            *observed.entry(key.clone()).or_insert(0) += 1;
+        }
+        assert_eq!(
+            observed,
+            expected
+                .into_iter()
+                .map(|(key, (count, _))| (key, count))
+                .collect()
+        );
+    });
+    let run = || {
+        engine
+            .run_authorized_job(grant(), options("harness"), &Cancel::never())
+            .unwrap()
+    };
+    let first = run();
+    assert_eq!(first.outcome, JobOutcome::Completed, "{first:?}");
+    assert_eq!(first.counts["delivered"].as_u64(), Some(1));
+    assert_eq!(first.counts["failed"].as_u64(), Some(1));
+    assert_eq!(run().counts["dispatched"].as_u64(), Some(0));
+    host.set_now_ms(NOW + 300_000);
+    assert_eq!(run().counts["failed"].as_u64(), Some(1));
+    host.set_now_ms(NOW + 600_000);
+    assert_eq!(run().counts["dispatched"].as_u64(), Some(0));
+    server.join().unwrap();
+    let done = store.get(&success.id).unwrap().unwrap();
+    assert_eq!(done.reminder_status, "dispatched");
+    assert_eq!(done.dispatch_count.as_f64(), Some(1.));
+    let parked = store.get(&failed.id).unwrap().unwrap();
+    assert_eq!(parked.reminder_status, "failed");
+    assert_eq!(parked.dispatch_count.as_f64(), Some(5.));
+    assert_eq!(parked.next_dispatch_attempt_at.as_f64(), Some(0.));
+    assert_eq!(
+        store.get(&foreign.id).unwrap().unwrap().reminder_status,
+        "scheduled"
+    );
+    host.set_config(settings("pending_only"));
+    host.set_now_ms(NOW + 600_001);
+    assert_eq!(run().counts["dispatched"].as_u64(), Some(1));
+    let grant = grant();
+    let (due, pending) = reminder_dispatch::recall_rows(
+        engine.live_stores.as_ref(),
+        grant.request(),
+        &TombstoneMask::new(&base),
+        NOW + 600_001,
+        &Cancel::never(),
+    )
+    .unwrap();
+    assert!(due.is_empty());
+    assert_eq!(pending.len(), 1);
+    assert_eq!(pending[0]["id"], future.id);
+}
+
+#[test]
 fn classify_recent_checks_source_scope_and_leaves_provider_failures_retryable() {
     use crate::{
         capture::row_defaults::schema_defaults,

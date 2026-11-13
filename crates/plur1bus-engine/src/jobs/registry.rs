@@ -455,6 +455,7 @@ impl Registry {
                     | JobName::PersonaEvolve
                     | JobName::AutoAcceptStale
                     | JobName::EmotionRefine
+                    | JobName::ReminderDispatch
             );
             let mut pre_skip = if exclusive && state.active.contains_key(&job) {
                 Some("already_running")

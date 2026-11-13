@@ -276,6 +276,19 @@ fn serve(
     );
     render.timezone = host_timezone();
     render.has_workspace = workspace.is_some();
+    match crate::jobs::reminder_dispatch::recall_rows(
+        engine.live_stores.as_ref(),
+        context,
+        &tombstones,
+        now,
+        &control.cancel,
+    ) {
+        Ok((due, pending)) => {
+            render.due_reminders = due;
+            render.pending_reminders = pending;
+        }
+        Err(_) => log::debug!("recall: scoped reminders unavailable"),
+    }
     render.temporal_enabled = raw["temporalContext"]["enabled"] != false;
     render.trace_enabled = trace;
     render.trace_in_prompt = trace && recall["decisionTrace"]["includeInPrompt"] == true;

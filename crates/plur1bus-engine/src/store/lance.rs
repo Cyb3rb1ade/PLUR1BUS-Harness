@@ -388,6 +388,57 @@ impl Store {
             sql_string(agent), sql_string(workspace), sql_string(key)), 20)
     }
 
+    pub(crate) fn reminders_for_dispatch(
+        &self,
+        scope: &RowFilter,
+        now: i64,
+    ) -> Result<Vec<MemoryRow>, StoreError> {
+        self.scan_where(format!("{} AND {}", scope.to_sql(), reminder_due(now)), 50)
+    }
+
+    pub(crate) fn reminders_for_recall(
+        &self,
+        scope: &RowFilter,
+        now: i64,
+    ) -> Result<Vec<MemoryRow>, StoreError> {
+        self.scan_where(
+            format!(
+                "{} AND ({} OR (reminderStatus = 'pending' AND remindAt > 0 AND remindAt <= {now}))",
+                scope.to_sql(), reminder_due(now)
+            ),
+            50,
+        )
+    }
+
+    pub(crate) fn dispatch_reminder(
+        &self,
+        scope: &RowFilter,
+        row: &MemoryRow,
+        patch: &RowPatch,
+        due_at: Option<i64>,
+    ) -> Result<usize, StoreError> {
+        use super::filter::{sql_string, uuid};
+        self.writable()?;
+        if !uuid(&row.id) {
+            return Err(StoreError::InvalidInput);
+        }
+        let binding = [
+            ("id", row.id.as_str()),
+            ("storedBy", row.stored_by.as_str()),
+            ("workspaceKey", row.workspace_key.as_str()),
+            ("text", row.text.as_str()),
+            ("reminderStatus", row.reminder_status.as_str()),
+        ]
+        .map(|(column, value)| format!("{column} = {}", sql_string(value)))
+        .join(" AND ");
+        let due = due_at.map_or_else(|| "true".into(), reminder_due);
+        let predicate = format!(
+            "{} AND {due} AND {binding} AND remindAt = {} AND COALESCE(dispatchCount, 0) = {} AND versionNumber = {} AND updatedAt = {}",
+            scope.to_sql(), row.remind_at, row.dispatch_count, row.version_number, row.updated_at,
+        );
+        self.patch_where(predicate, patch)
+    }
+
     /// Read the pinned bounded page of unconfirmed criticals for an exact background owner.
     pub(crate) fn stale_criticals(
         &self,
@@ -945,6 +996,14 @@ fn gc_predicate(scope: &RowFilter) -> String {
 }
 
 const REFINE_PENDING: &str = "(emotionStatus = 'pending_t3' OR importanceStatus = 'pending')";
+
+fn reminder_due(now: i64) -> String {
+    format!(
+        "remindAt > 0 AND remindAt <= {now} AND
+        (reminderStatus IN ('scheduled', 'due') OR
+          (reminderStatus = 'failed' AND nextDispatchAttemptAt > 0 AND nextDispatchAttemptAt <= {now}))"
+    )
+}
 
 fn unclassified_predicate(scope: &RowFilter) -> String {
     format!(

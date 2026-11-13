@@ -1,12 +1,9 @@
 //! Guarded OpenAI-compatible feature route. Credentials are resolved per call.
 use super::{disable_reasoning, feature_credential};
 use crate::{
-    contract::{
-        Cancel, Decision, EgressGate, HostError, HostServices, LlmParams, LlmPort, LlmResult,
-        LlmResultUsage, Target,
-    },
+    contract::{Cancel, HostError, HostServices, LlmParams, LlmPort, LlmResult, LlmResultUsage},
     text::js::js_trim,
-    transport::{guarded::bounded, GuardedClient, HttpRequest, SystemResolver, TransportError},
+    transport::{guarded::bounded, GuardedClient, HttpRequest, TransportError},
 };
 use serde_json::{json, Value};
 use std::{
@@ -46,13 +43,6 @@ impl<'a> DirectCompletion<'a> {
             endpoint: endpoint.into(),
             model,
         })
-    }
-}
-
-struct HostGate(Arc<dyn HostServices>);
-impl EgressGate for HostGate {
-    fn decide(&self, target: &Target) -> Decision {
-        self.0.egress().decide(target)
     }
 }
 
@@ -127,12 +117,9 @@ impl LlmPort for DirectCompletion<'_> {
             max_error_response_bytes: 64 * 1024,
             auth_rejection_counter: None,
         };
-        let response = GuardedClient::new_owned(
-            Arc::new(HostGate(self.host.clone())),
-            Box::new(SystemResolver),
-        )
-        .request_at_endpoint(request, deadline, cancel)
-        .map_err(host_error)?;
+        let response = GuardedClient::for_host(self.host.clone())
+            .request_at_endpoint(request, deadline, cancel)
+            .map_err(host_error)?;
         if !(200..300).contains(&response.status) {
             return Err(HostError::Failed);
         }
@@ -187,7 +174,7 @@ fn host_error(error: TransportError) -> HostError {
 #[allow(clippy::unwrap_used, reason = "local HTTP fixtures")]
 mod tests {
     use super::*;
-    use crate::contract::{testing::FakeHost, AddressRules, Message, MessageRole};
+    use crate::contract::{testing::FakeHost, AddressRules, Decision, Message, MessageRole};
     use std::{
         io::{BufRead, BufReader, Read, Write},
         net::TcpListener,
