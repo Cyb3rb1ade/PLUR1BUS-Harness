@@ -299,6 +299,16 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   neo::retention::`: 2 passed, 0 failed, 0 ignored. Workspace Clippy exited 0.
   Indexed candidates remain open.
 
+- RE-D213: Initialize the store immediately after obtaining the existing
+  engine-instance lease, before building RPC validators and opening the
+  listener. This preserves the A1 fence and reduces the window in which
+  the Core is ready with no backup source. The focused Rust system run
+  over `admin`, `backup` and `memory-ops` had 3 passed, 4 failed, 0 skipped.
+  Both empty-home backup tests now passed in that run. All four failures
+  reproduce against A0. `cargo test --locked -p plur1bus-engine --test
+  rpc_server`: 31 passed, 0 failed, 0 ignored. The remaining Core-vs-engine
+  readiness policy is RY-B B2.
+
 ## Tasks
 
 - T2 S8 credential objects: `cargo test --locked -p plur1bus-engine
@@ -603,13 +613,14 @@ Both the CLI and Rust-engine binaries are local. Counts are pass / fail / skip.
 | `PLUR1BUS_ENGINE_IMPL=rust PLUR1BUS_EXT_FIXTURES=<local CI-style fixtures> PLUR1BUS_CI_RECALL_HARD_MS=3000 node --experimental-strip-types --test --test-concurrency=2 --test-timeout=600000 tests/system/*.test.ts` | 62 / 18 / 3 at `060016e876`, debug binaries. Extension tests pass with the fixtures. `/tmp/ry-a-system-rust-latest.log`. |
 | `PLUR1BUS_ENGINE_IMPL=rust PLUR1BUS_CI_RECALL_HARD_MS=3000 node --experimental-strip-types --test --test-concurrency=2 --test-timeout=180000 tests/system/{admin,backup,import,kill-soak,memory-ops,redaction-everywhere}.test.ts` against archived A0 `f19a358ff4` | 6 / 13 / 0. Both SSH cases lacked their example in that baseline binary directory. The other 11 fail at A0 as well, including admin startup, backup roundtrip, five import preflights, kill-soak, memory startup and the redaction inventory. `/tmp/ry-a-a0-system-confirmed.log`. |
 | `PLUR1BUS_ENGINE_IMPL=rust node --experimental-strip-types --test --test-concurrency=2 --test-timeout=120000 tests/system/{dreams,model-discovery}.test.ts` | 2 / 0 / 0. Both also pass in the full system run. |
+| `PLUR1BUS_ENGINE_IMPL=rust node --experimental-strip-types --test --test-name-pattern='release supervisor HTTP SSH' --test-concurrency=1 --test-timeout=180000 tests/system/import.test.ts` against A0 with the example binary | 0 / 2 / 0. Both fail at the same preflight assertion as the RY-A system run. `/tmp/ry-a-a0-system-ssh.log`. |
 | `pnpm parity --check tests/engine-parity/scenarios --report /tmp/ry-a-latest-parity.md` | 15 / 0 / 0 for both engines. |
 | `cargo test --workspace --locked --no-fail-fast` | 5,574 / 0 / 11 across 206 suites at the `d61c8efdda` checkpoint with a local Rust engine binary. `/tmp/ry-a-final-workspace.log`. |
 | `pnpm docs:check` | Exit 0, both fixture groups passed and all generated docs current. `/tmp/ry-a-latest-docs-check.log`. |
 
 The two empty-home backup tests passed in the A0 comparison and failed in
 this branch's full run with a missing store directory. They access the store
-after Core readiness. A focused A1 startup-order follow-up is recorded below.
+after Core readiness. Both passed again in the focused A1 startup-order follow-up (RE-D213).
 The setup test also hit Node runtime download errors. The isolated two-session
 recall test timed out waiting for the embedding model. RY-B startup and
 symlink-home work and native Windows acceptance are separate plan items.

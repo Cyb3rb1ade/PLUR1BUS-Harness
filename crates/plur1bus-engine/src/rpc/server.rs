@@ -1165,21 +1165,11 @@ pub(super) fn serve_with_options(
 ) -> Result<(), ServeError> {
     let _signals = super::signals::Guard::install()
         .inspect_err(|error| diagnostics::failure(Stage::Startup, error))?;
-    let validators = validators()?;
     let mut files = layout.acquire().inspect_err(|error| {
         if let ServeError::Io(error) = error {
             diagnostics::failure(Stage::Startup, error);
         }
     })?;
-    let listener = ServerListener {
-        inner: Listener::bind(&layout.address)
-            .inspect_err(|error| diagnostics::failure(Stage::Listen, error))?,
-        permission_denied: AtomicBool::new(options.permission_denied_accept),
-        #[cfg(test)]
-        errors: AtomicUsize::new(options.accept_errors),
-        #[cfg(test)]
-        notification_gate: Mutex::new(options.block_first_notification.clone()),
-    };
     // The pin initializes fresh bases on process startup so an empty home can still be backed up
     // (RE-D175). Keep library construction read-only. A base failure is reported by operations.
     if let Some(base) = &options.store_base {
@@ -1194,6 +1184,16 @@ pub(super) fn serve_with_options(
             );
         }
     }
+    let validators = validators()?;
+    let listener = ServerListener {
+        inner: Listener::bind(&layout.address)
+            .inspect_err(|error| diagnostics::failure(Stage::Listen, error))?,
+        permission_denied: AtomicBool::new(options.permission_denied_accept),
+        #[cfg(test)]
+        errors: AtomicUsize::new(options.accept_errors),
+        #[cfg(test)]
+        notification_gate: Mutex::new(options.block_first_notification.clone()),
+    };
     files
         .publish()
         .inspect_err(|error| diagnostics::failure(Stage::Startup, error))?;
