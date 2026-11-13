@@ -32,7 +32,9 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   before publishing readiness. The process test changes the configured base between
   starts and checks that a refused second process leaves the new base absent.
   Process regression run pending.
-- [ ] A1.5 Explain the job session cap.
+- [x] A1.5 Document the portable idle-session cache bound. Each cached session retains
+  filesystem handles and an exclusive lease. LRU eviction reopens the session on use.
+  The cap and eviction behavior are unchanged.
 - [ ] A1.6 Verify the Core Dreams capability gate at the composition boundary.
 - [ ] A1.7 Document backup retention's upper limit and missing directory warning.
 - [ ] F12 Turn metadata seam and F13 principal binding source.

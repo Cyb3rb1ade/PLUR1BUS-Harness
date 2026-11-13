@@ -15,12 +15,13 @@ use std::{
 };
 mod health;
 pub use health::{health_at, HealthCache, MAX_HEALTH_PROJECTIONS};
-/// Most idle agent slots a registry keeps; the least recently used idle one is released first
-/// (RE-D164). Each started session holds at least two file descriptors (the agent directory
-/// and its lease file). A process started by launchd on macOS gets a soft limit of 256
-/// descriptors (`launchctl limit maxfiles`: 256 soft), which the store pools, sockets and
-/// Lance handles share; 32 idle sessions use at most a quarter of that. More agents in turn
-/// only cost a new session start (orphan recovery) per run.
+/// Idle agent session cache limit (RE-D164). Eviction closes the least recently used
+/// idle session and releases its filesystem handles. A launchd process can have a
+/// 256-descriptor soft limit. At 32 entries the agent directory and kernel lease alone
+/// account for 64 descriptors, leaving room for the ledger roots, stores and sockets.
+/// The same conservative cache size applies across platforms: each idle session also
+/// holds an exclusive filesystem lease, and eviction costs only a session reopen and
+/// orphan recovery on that agent's next job. Concurrent active sessions can exceed it.
 pub const MAX_AGENT_SESSIONS: usize = 32;
 /// The run error while the admission phase did not finish within its budget (RE-D164).
 pub const SESSION_BUSY: &str = "job-session-busy";
