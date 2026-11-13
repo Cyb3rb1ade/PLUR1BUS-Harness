@@ -1087,6 +1087,15 @@ fn rem_dream_prefilters_neighbors_and_retries_without_repeating_its_pattern_publ
     assert_eq!(new[1]["id"], "continued");
     assert_eq!(new[1]["trend"], "verschwunden");
     fs::remove_dir(&diary).unwrap();
+    let mut edited = rows[0].clone();
+    edited.text = "The source was edited after the interrupted publication.".into();
+    store.upsert(&[edited]).unwrap();
+    assert_eq!(run("harness").outcome, JobOutcome::Failed);
+    assert!(!diary.exists());
+    assert_eq!(fs::read_to_string(&patterns).unwrap(), published);
+    assert_eq!(calls.load(Ordering::SeqCst), 4);
+    store.upsert(&rows[..1]).unwrap();
+    host.set_now_ms(NOW + 86_400_000);
     let done = run("harness");
     assert_eq!(done.outcome, JobOutcome::Completed, "{done:?}");
     assert_eq!(done.counts["dreamMemoriesStored"].as_u64(), Some(1));
@@ -1139,7 +1148,6 @@ fn rem_dream_prefilters_neighbors_and_retries_without_repeating_its_pattern_publ
     assert!(fs::read_to_string(diary).unwrap().contains(narrative));
     assert_eq!(fs::read_to_string(patterns).unwrap(), published);
     assert_eq!(calls.load(Ordering::SeqCst), 4);
-    host.set_now_ms(NOW + 86_400_000);
     assert_eq!(run("manual").reason.as_deref(), Some("already_processed"));
 }
 

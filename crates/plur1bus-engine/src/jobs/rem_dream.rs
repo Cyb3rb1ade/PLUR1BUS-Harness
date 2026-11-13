@@ -162,23 +162,22 @@ impl JobBody for RemDream {
                 cancel,
             )
         };
+        let check_record_sources = |record: &Value| -> Result<(), EngineError> {
+            check()?;
+            if record["sourceDigest"] != source_digest(&candidates()?)? {
+                return Err(StoreError::Unavailable.into());
+            }
+            Ok(())
+        };
         let finish = |record: &Value| -> Result<JobReport, EngineError> {
             if settings["storeAsMemory"] != false && record["narrative"].is_string() {
-                let check_memory = || {
-                    check()?;
-                    let digest = source_digest(&candidates()?)?;
-                    if record["sourceDigest"] != digest {
-                        return Err(StoreError::Unavailable.into());
-                    }
-                    Ok(())
-                };
                 let stored = self.memory.publish(
                     &self.scope,
                     authority,
                     &visibility,
                     record,
                     cancel,
-                    &check_memory,
+                    &|| check_record_sources(record),
                 )?;
                 context.note_count("dreamMemoriesStored", usize::from(stored))?;
             }
@@ -200,14 +199,17 @@ impl JobBody for RemDream {
             context.mark_completed_key(&run_key)?;
             Ok(JobReport::completed())
         };
-        if let Some(result) =
+        let prior = {
+            let _mutation = self.scope.operations.mutation()?;
             dream_sources::with_rem_store(&journal, authority, cancel, &check, |neo| {
-                neo.result(&run_key)?
-                    .as_ref()
-                    .map(|record| publish(neo, record))
-                    .transpose()
+                let Some(record) = neo.result(&run_key)? else {
+                    return Ok(None);
+                };
+                check_record_sources(&record)?;
+                publish(neo, &record).map(Some)
             })?
-        {
+        };
+        if let Some(result) = prior {
             return finish(&result);
         }
         let rows = candidates()?;
@@ -336,6 +338,7 @@ impl JobBody for RemDream {
             }
             dream_sources::with_rem_store(&journal, authority, cancel, &check, |neo| {
                 if let Some(record) = neo.result(&run_key)? {
+                    check_record_sources(&record)?;
                     return publish(neo, &record);
                 }
                 let found = patterns.len();

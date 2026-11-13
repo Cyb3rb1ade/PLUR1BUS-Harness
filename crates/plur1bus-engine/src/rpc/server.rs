@@ -843,6 +843,7 @@ fn collect_parameter_definitions(
 
 #[cfg(test)]
 #[test]
+#[allow(clippy::unwrap_used, reason = "synthetic test schema must compile")]
 fn parameter_schema_retains_transitive_rules_and_falls_back_for_other_pointers() {
     let document = json!({
         "Name": {"type":"string", "minLength":1},

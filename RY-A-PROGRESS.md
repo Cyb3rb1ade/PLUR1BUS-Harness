@@ -356,6 +356,14 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   1 / 0 / 0 after previously timing out during warm-up. Logs are
   `/tmp/ry-a-rpc-init-check.log` and `/tmp/ry-a-warm-validator.log`.
 
+- RE-D219: REM revalidates the durable result's source digest under the
+  memory mutation gate before replaying Neo pattern and diary publication.
+  The same digest guards the Lance write. The focused process test simulates a
+  diary failure, edits a source, verifies the retry publishes nothing, and
+  restores the source to resume on the next day without a second completion.
+  `cargo test --locked -p plur1bus-engine --lib rpc::engine::jobs_tests::`:
+  38 passed, 0 failed, 0 ignored. `/tmp/ry-a-jobs-source-recheck.log`.
+
 ## Tasks
 
 - T2 S8 credential objects: `cargo test --locked -p plur1bus-engine
