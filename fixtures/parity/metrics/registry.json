@@ -1,0 +1,3722 @@
+{
+  "cases": [
+    {
+      "name": "empty-registry",
+      "ops": [
+        {
+          "op": "render"
+        }
+      ],
+      "results": [
+        {
+          "text": ""
+        }
+      ]
+    },
+    {
+      "name": "basic-counter-gauge-histogram",
+      "ops": [
+        {
+          "help": "Calls.",
+          "id": "c",
+          "labels": [
+            [
+              "result",
+              [
+                "ok",
+                "error"
+              ]
+            ]
+          ],
+          "name": "t_calls_total",
+          "op": "counter"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "result": "ok"
+          },
+          "op": "inc"
+        },
+        {
+          "by": "2",
+          "id": "c",
+          "labels": {
+            "result": "ok"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "result": "error"
+          },
+          "op": "inc"
+        },
+        {
+          "help": "Open things.",
+          "id": "g",
+          "labels": [],
+          "name": "t_open",
+          "op": "gauge"
+        },
+        {
+          "id": "g",
+          "op": "set",
+          "value": "4"
+        },
+        {
+          "help": "Computed.",
+          "name": "t_live",
+          "op": "gaugeFn",
+          "value": "7"
+        },
+        {
+          "buckets": [
+            "0.1",
+            "1"
+          ],
+          "help": "Durations.",
+          "id": "h",
+          "labels": [
+            [
+              "outcome",
+              [
+                "ok"
+              ]
+            ]
+          ],
+          "name": "t_seconds",
+          "op": "histogram"
+        },
+        {
+          "id": "h",
+          "labels": {
+            "outcome": "ok"
+          },
+          "op": "observe",
+          "value": "0.05"
+        },
+        {
+          "id": "h",
+          "labels": {
+            "outcome": "ok"
+          },
+          "op": "observe",
+          "value": "0.5"
+        },
+        {
+          "id": "h",
+          "labels": {
+            "outcome": "ok"
+          },
+          "op": "observe",
+          "value": "5"
+        },
+        {
+          "op": "render"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "text": "# HELP t_calls_total Calls.\n# TYPE t_calls_total counter\nt_calls_total{result=\"error\"} 1\nt_calls_total{result=\"ok\"} 3\n# HELP t_open Open things.\n# TYPE t_open gauge\nt_open 4\n# HELP t_live Computed.\n# TYPE t_live gauge\nt_live 7\n# HELP t_seconds Durations.\n# TYPE t_seconds histogram\nt_seconds_bucket{outcome=\"ok\",le=\"0.1\"} 1\nt_seconds_bucket{outcome=\"ok\",le=\"1\"} 2\nt_seconds_bucket{outcome=\"ok\",le=\"+Inf\"} 3\nt_seconds_sum{outcome=\"ok\"} 5.55\nt_seconds_count{outcome=\"ok\"} 3\n"
+        }
+      ]
+    },
+    {
+      "name": "fold-into-other",
+      "ops": [
+        {
+          "help": "X.",
+          "id": "c",
+          "labels": [
+            [
+              "who",
+              [
+                "a",
+                "b"
+              ]
+            ]
+          ],
+          "name": "t_x_total",
+          "op": "counter"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "user-0"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "user-1"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "user-2"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "user-3"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "user-4"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "user-5"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "user-6"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "user-7"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "user-8"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "user-9"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "user-10"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "user-11"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "user-12"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "user-13"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "user-14"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "user-15"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "user-16"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "user-17"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "user-18"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "user-19"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "user-20"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "user-21"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "user-22"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "user-23"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "user-24"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "user-25"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "user-26"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "user-27"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "user-28"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "user-29"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "a"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "who": "other"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {},
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "unknown": "b"
+          },
+          "op": "inc"
+        },
+        {
+          "op": "render"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "text": "# HELP t_x_total X.\n# TYPE t_x_total counter\nt_x_total{who=\"a\"} 1\nt_x_total{who=\"other\"} 33\n"
+        }
+      ]
+    },
+    {
+      "name": "duplicate-values-in-a-label-enumeration",
+      "ops": [
+        {
+          "help": "d",
+          "id": "c",
+          "labels": [
+            [
+              "a",
+              [
+                "x",
+                "y",
+                "x",
+                "other",
+                "y"
+              ]
+            ]
+          ],
+          "name": "t_dup_vals_total",
+          "op": "counter"
+        },
+        {
+          "id": "c",
+          "op": "initAll"
+        },
+        {
+          "op": "render"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "text": "# HELP t_dup_vals_total d\n# TYPE t_dup_vals_total counter\nt_dup_vals_total{a=\"other\"} 0\nt_dup_vals_total{a=\"x\"} 0\nt_dup_vals_total{a=\"y\"} 0\n"
+        }
+      ]
+    },
+    {
+      "name": "counter-ignores-negative-and-non-finite-increments",
+      "ops": [
+        {
+          "help": "Help of t_n_total.",
+          "id": "c",
+          "labels": [],
+          "name": "t_n_total",
+          "op": "counter"
+        },
+        {
+          "by": "-5",
+          "id": "c",
+          "op": "inc"
+        },
+        {
+          "by": "NaN",
+          "id": "c",
+          "op": "inc"
+        },
+        {
+          "by": "Infinity",
+          "id": "c",
+          "op": "inc"
+        },
+        {
+          "by": "-Infinity",
+          "id": "c",
+          "op": "inc"
+        },
+        {
+          "op": "render"
+        },
+        {
+          "id": "c",
+          "op": "inc"
+        },
+        {
+          "by": "0",
+          "id": "c",
+          "op": "inc"
+        },
+        {
+          "op": "render"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "text": "# HELP t_n_total Help of t_n_total.\n# TYPE t_n_total counter\n"
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "text": "# HELP t_n_total Help of t_n_total.\n# TYPE t_n_total counter\nt_n_total 1\n"
+        }
+      ]
+    },
+    {
+      "name": "gauge-ignores-non-finite-values-and-keeps-the-last",
+      "ops": [
+        {
+          "help": "g",
+          "id": "g",
+          "labels": [
+            [
+              "k",
+              [
+                "a",
+                "b"
+              ]
+            ]
+          ],
+          "name": "t_g",
+          "op": "gauge"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "k": "a"
+          },
+          "op": "set",
+          "value": "NaN"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "k": "a"
+          },
+          "op": "set",
+          "value": "Infinity"
+        },
+        {
+          "op": "render"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "k": "a"
+          },
+          "op": "set",
+          "value": "1"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "k": "a"
+          },
+          "op": "set",
+          "value": "2.5"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "k": "b"
+          },
+          "op": "set",
+          "value": "-0"
+        },
+        {
+          "op": "render"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "text": "# HELP t_g g\n# TYPE t_g gauge\n"
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "text": "# HELP t_g g\n# TYPE t_g gauge\nt_g{k=\"a\"} 2.5\nt_g{k=\"b\"} 0\n"
+        }
+      ]
+    },
+    {
+      "name": "histogram-ignores-non-finite-and-negative-observations",
+      "ops": [
+        {
+          "buckets": [
+            "1"
+          ],
+          "help": "H.",
+          "id": "h",
+          "labels": [],
+          "name": "t_h_seconds",
+          "op": "histogram"
+        },
+        {
+          "id": "h",
+          "op": "initAll"
+        },
+        {
+          "id": "h",
+          "op": "observe",
+          "value": "NaN"
+        },
+        {
+          "id": "h",
+          "op": "observe",
+          "value": "-1"
+        },
+        {
+          "id": "h",
+          "op": "observe",
+          "value": "Infinity"
+        },
+        {
+          "op": "render"
+        },
+        {
+          "id": "h",
+          "op": "observe",
+          "value": "1"
+        },
+        {
+          "id": "h",
+          "op": "observe",
+          "value": "0"
+        },
+        {
+          "id": "h",
+          "op": "observe",
+          "value": "1.0000000001"
+        },
+        {
+          "op": "render"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "text": "# HELP t_h_seconds H.\n# TYPE t_h_seconds histogram\nt_h_seconds_bucket{le=\"1\"} 0\nt_h_seconds_bucket{le=\"+Inf\"} 0\nt_h_seconds_sum 0\nt_h_seconds_count 0\n"
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "text": "# HELP t_h_seconds H.\n# TYPE t_h_seconds histogram\nt_h_seconds_bucket{le=\"1\"} 2\nt_h_seconds_bucket{le=\"+Inf\"} 3\nt_h_seconds_sum 2.0000000001\nt_h_seconds_count 3\n"
+        }
+      ]
+    },
+    {
+      "name": "histogram-sums-and-bucket-bounds-print-like-javascript",
+      "ops": [
+        {
+          "buckets": [
+            "1e-7",
+            "0.000001",
+            "0.5",
+            "100",
+            "1e21",
+            "1.5e21"
+          ],
+          "help": "H.",
+          "id": "h",
+          "labels": [],
+          "name": "t_js_seconds",
+          "op": "histogram"
+        },
+        {
+          "id": "h",
+          "op": "observe",
+          "value": "0.1"
+        },
+        {
+          "id": "h",
+          "op": "observe",
+          "value": "0.2"
+        },
+        {
+          "id": "h",
+          "op": "observe",
+          "value": "1e-7"
+        },
+        {
+          "id": "h",
+          "op": "observe",
+          "value": "1e21"
+        },
+        {
+          "op": "render"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "text": "# HELP t_js_seconds H.\n# TYPE t_js_seconds histogram\nt_js_seconds_bucket{le=\"1e-7\"} 1\nt_js_seconds_bucket{le=\"0.000001\"} 1\nt_js_seconds_bucket{le=\"0.5\"} 3\nt_js_seconds_bucket{le=\"100\"} 3\nt_js_seconds_bucket{le=\"1e+21\"} 4\nt_js_seconds_bucket{le=\"1.5e+21\"} 4\nt_js_seconds_bucket{le=\"+Inf\"} 4\nt_js_seconds_sum 1e+21\nt_js_seconds_count 4\n"
+        }
+      ]
+    },
+    {
+      "name": "number-formatting-of-gauge-values",
+      "ops": [
+        {
+          "help": "n",
+          "id": "g",
+          "labels": [
+            [
+              "n",
+              [
+                "n00",
+                "n01",
+                "n02",
+                "n03",
+                "n04",
+                "n05",
+                "n06",
+                "n07",
+                "n08",
+                "n09",
+                "n10",
+                "n11",
+                "n12",
+                "n13",
+                "n14",
+                "n15",
+                "n16",
+                "n17",
+                "n18",
+                "n19",
+                "n20",
+                "n21",
+                "n22",
+                "n23",
+                "n24",
+                "n25",
+                "n26",
+                "n27"
+              ]
+            ]
+          ],
+          "name": "t_num",
+          "op": "gauge"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "n": "n00"
+          },
+          "op": "set",
+          "value": "0"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "n": "n01"
+          },
+          "op": "set",
+          "value": "-0"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "n": "n02"
+          },
+          "op": "set",
+          "value": "1"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "n": "n03"
+          },
+          "op": "set",
+          "value": "-1"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "n": "n04"
+          },
+          "op": "set",
+          "value": "1.5"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "n": "n05"
+          },
+          "op": "set",
+          "value": "100"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "n": "n06"
+          },
+          "op": "set",
+          "value": "0.30000000000000004"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "n": "n07"
+          },
+          "op": "set",
+          "value": "1e20"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "n": "n08"
+          },
+          "op": "set",
+          "value": "1e21"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "n": "n09"
+          },
+          "op": "set",
+          "value": "1.5e21"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "n": "n10"
+          },
+          "op": "set",
+          "value": "123456789012345680000"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "n": "n11"
+          },
+          "op": "set",
+          "value": "0.000001"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "n": "n12"
+          },
+          "op": "set",
+          "value": "1e-7"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "n": "n13"
+          },
+          "op": "set",
+          "value": "1.5e-7"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "n": "n14"
+          },
+          "op": "set",
+          "value": "5e-324"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "n": "n15"
+          },
+          "op": "set",
+          "value": "1.7976931348623157e308"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "n": "n16"
+          },
+          "op": "set",
+          "value": "-1e21"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "n": "n17"
+          },
+          "op": "set",
+          "value": "-1e-7"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "n": "n18"
+          },
+          "op": "set",
+          "value": "4503599627370496"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "n": "n19"
+          },
+          "op": "set",
+          "value": "9007199254740993"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "n": "n20"
+          },
+          "op": "set",
+          "value": "0.1"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "n": "n21"
+          },
+          "op": "set",
+          "value": "123456789.123456789"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "n": "n22"
+          },
+          "op": "set",
+          "value": "1e300"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "n": "n23"
+          },
+          "op": "set",
+          "value": "2.5e-10"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "n": "n24"
+          },
+          "op": "set",
+          "value": "999999999999999900000"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "n": "n25"
+          },
+          "op": "set",
+          "value": "1e22"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "n": "n26"
+          },
+          "op": "set",
+          "value": "12345.678"
+        },
+        {
+          "id": "g",
+          "labels": {
+            "n": "n27"
+          },
+          "op": "set",
+          "value": "0.00001234"
+        },
+        {
+          "op": "render"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "text": "# HELP t_num n\n# TYPE t_num gauge\nt_num{n=\"n00\"} 0\nt_num{n=\"n01\"} 0\nt_num{n=\"n02\"} 1\nt_num{n=\"n03\"} -1\nt_num{n=\"n04\"} 1.5\nt_num{n=\"n05\"} 100\nt_num{n=\"n06\"} 0.30000000000000004\nt_num{n=\"n07\"} 100000000000000000000\nt_num{n=\"n08\"} 1e+21\nt_num{n=\"n09\"} 1.5e+21\nt_num{n=\"n10\"} 123456789012345680000\nt_num{n=\"n11\"} 0.000001\nt_num{n=\"n12\"} 1e-7\nt_num{n=\"n13\"} 1.5e-7\nt_num{n=\"n14\"} 5e-324\nt_num{n=\"n15\"} 1.7976931348623157e+308\nt_num{n=\"n16\"} -1e+21\nt_num{n=\"n17\"} -1e-7\nt_num{n=\"n18\"} 4503599627370496\nt_num{n=\"n19\"} 9007199254740992\nt_num{n=\"n20\"} 0.1\nt_num{n=\"n21\"} 123456789.12345679\nt_num{n=\"n22\"} 1e+300\nt_num{n=\"n23\"} 2.5e-10\nt_num{n=\"n24\"} 999999999999999900000\nt_num{n=\"n25\"} 1e+22\nt_num{n=\"n26\"} 12345.678\nt_num{n=\"n27\"} 0.00001234\n"
+        }
+      ]
+    },
+    {
+      "name": "number-formatting-of-counter-sums",
+      "ops": [
+        {
+          "help": "Help of t_sum_total.",
+          "id": "c",
+          "labels": [
+            [
+              "k",
+              [
+                "a",
+                "b",
+                "c",
+                "d",
+                "e"
+              ]
+            ]
+          ],
+          "name": "t_sum_total",
+          "op": "counter"
+        },
+        {
+          "by": "0.1",
+          "id": "c",
+          "labels": {
+            "k": "a"
+          },
+          "op": "inc"
+        },
+        {
+          "by": "0.2",
+          "id": "c",
+          "labels": {
+            "k": "a"
+          },
+          "op": "inc"
+        },
+        {
+          "by": "1e21",
+          "id": "c",
+          "labels": {
+            "k": "b"
+          },
+          "op": "inc"
+        },
+        {
+          "by": "1e21",
+          "id": "c",
+          "labels": {
+            "k": "b"
+          },
+          "op": "inc"
+        },
+        {
+          "by": "1e-7",
+          "id": "c",
+          "labels": {
+            "k": "c"
+          },
+          "op": "inc"
+        },
+        {
+          "by": "9007199254740992",
+          "id": "c",
+          "labels": {
+            "k": "d"
+          },
+          "op": "inc"
+        },
+        {
+          "by": "1",
+          "id": "c",
+          "labels": {
+            "k": "d"
+          },
+          "op": "inc"
+        },
+        {
+          "by": "1.7976931348623157e308",
+          "id": "c",
+          "labels": {
+            "k": "e"
+          },
+          "op": "inc"
+        },
+        {
+          "by": "1.7976931348623157e308",
+          "id": "c",
+          "labels": {
+            "k": "e"
+          },
+          "op": "inc"
+        },
+        {
+          "op": "render"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "text": "# HELP t_sum_total Help of t_sum_total.\n# TYPE t_sum_total counter\nt_sum_total{k=\"a\"} 0.30000000000000004\nt_sum_total{k=\"b\"} 2e+21\nt_sum_total{k=\"c\"} 1e-7\nt_sum_total{k=\"d\"} 9007199254740992\nt_sum_total{k=\"e\"} +Inf\n"
+        }
+      ]
+    },
+    {
+      "name": "gauge-fn-values-and-failures",
+      "ops": [
+        {
+          "help": "z",
+          "name": "t_f_zero",
+          "op": "gaugeFn",
+          "value": "-0"
+        },
+        {
+          "help": "b",
+          "name": "t_f_big",
+          "op": "gaugeFn",
+          "value": "1e21"
+        },
+        {
+          "help": "n",
+          "name": "t_f_nan",
+          "op": "gaugeFn",
+          "value": "NaN"
+        },
+        {
+          "help": "i",
+          "name": "t_f_inf",
+          "op": "gaugeFn",
+          "value": "Infinity"
+        },
+        {
+          "help": "i",
+          "name": "t_f_ninf",
+          "op": "gaugeFn",
+          "value": "-Infinity"
+        },
+        {
+          "help": "t",
+          "name": "t_f_throw",
+          "op": "gaugeFn",
+          "value": "throw"
+        },
+        {
+          "help": "s",
+          "name": "t_f_sum",
+          "op": "gaugeFn",
+          "value": "0.30000000000000004"
+        },
+        {
+          "help": "s",
+          "name": "t_f_neg",
+          "op": "gaugeFn",
+          "value": "-12.5"
+        },
+        {
+          "op": "render"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "text": "# HELP t_f_zero z\n# TYPE t_f_zero gauge\nt_f_zero 0\n# HELP t_f_big b\n# TYPE t_f_big gauge\nt_f_big 1e+21\n# HELP t_f_nan n\n# TYPE t_f_nan gauge\n# HELP t_f_inf i\n# TYPE t_f_inf gauge\n# HELP t_f_ninf i\n# TYPE t_f_ninf gauge\n# HELP t_f_throw t\n# TYPE t_f_throw gauge\n# HELP t_f_sum s\n# TYPE t_f_sum gauge\nt_f_sum 0.30000000000000004\n# HELP t_f_neg s\n# TYPE t_f_neg gauge\nt_f_neg -12.5\n"
+        }
+      ]
+    },
+    {
+      "name": "escaping-of-help-and-label-values",
+      "ops": [
+        {
+          "help": "Line1\nLine2 \\ end. \"quoted\" \r\t",
+          "id": "c",
+          "labels": [
+            [
+              "v",
+              [
+                "a\"b\\c\nd",
+                "plain",
+                "tab\tcr\r",
+                "back\\slash",
+                "q\"q",
+                "nl\nnl",
+                "\\n",
+                "\\\\"
+              ]
+            ]
+          ],
+          "name": "t_esc_total",
+          "op": "counter"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a\"b\\c\nd"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "tab\tcr\r"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "back\\slash"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "q\"q"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "nl\nnl"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "\\n"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "\\\\"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "plain"
+          },
+          "op": "inc"
+        },
+        {
+          "op": "render"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "text": "# HELP t_esc_total Line1\\nLine2 \\\\ end. \"quoted\" \r\t\n# TYPE t_esc_total counter\nt_esc_total{v=\"\\\\\\\\\"} 1\nt_esc_total{v=\"\\\\n\"} 1\nt_esc_total{v=\"a\\\"b\\\\c\\nd\"} 1\nt_esc_total{v=\"back\\\\slash\"} 1\nt_esc_total{v=\"nl\\nnl\"} 1\nt_esc_total{v=\"plain\"} 1\nt_esc_total{v=\"q\\\"q\"} 1\nt_esc_total{v=\"tab\tcr\r\"} 1\n"
+        }
+      ]
+    },
+    {
+      "name": "series-order-follows-icu-locale-compare",
+      "ops": [
+        {
+          "help": "c",
+          "id": "c",
+          "labels": [
+            [
+              "v",
+              [
+                "b",
+                "B",
+                "a",
+                "A",
+                "a_b",
+                "a-b",
+                "a.b",
+                "a b",
+                "ab",
+                "aB",
+                "Ab",
+                "AB",
+                "a1",
+                "a0",
+                "a9",
+                "a:b",
+                "a;b",
+                "a,b",
+                "a!b",
+                "a?b",
+                "a'b",
+                "a\"b",
+                "a(b",
+                "a)b",
+                "a[b",
+                "a]b",
+                "a{b",
+                "a}b",
+                "a@b",
+                "a*b",
+                "a/b",
+                "a\\b",
+                "a&b",
+                "a#b",
+                "a%b",
+                "a`b",
+                "a^b",
+                "a+b",
+                "a<b",
+                "a=b",
+                "a>b",
+                "a|b",
+                "a~b",
+                "a$b",
+                "a\tb",
+                "a\nb",
+                "a\u0001b",
+                "ab",
+                "0",
+                "9",
+                "z",
+                "Z",
+                "",
+                "_",
+                "-",
+                "10",
+                "2",
+                "waiting-h3",
+                "openai",
+                "openai_compatible",
+                "skill_load",
+                "skill_read",
+                "skill-load"
+              ]
+            ]
+          ],
+          "name": "t_collate_total",
+          "op": "counter"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "skill-load"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "skill_read"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "skill_load"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "openai_compatible"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "openai"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "waiting-h3"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "2"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "10"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "-"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "_"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": ""
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "Z"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "z"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "9"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "0"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "ab"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a\u0001b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a\nb"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a\tb"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a$b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a~b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a|b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a>b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a=b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a<b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a+b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a^b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a`b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a%b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a#b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a&b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a\\b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a/b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a*b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a@b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a}b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a{b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a]b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a[b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a)b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a(b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a\"b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a'b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a?b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a!b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a,b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a;b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a:b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a9"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a0"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a1"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "AB"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "Ab"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "aB"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "ab"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a.b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a-b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a_b"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "A"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "a"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "B"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "v": "b"
+          },
+          "op": "inc"
+        },
+        {
+          "op": "render"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "text": "# HELP t_collate_total c\n# TYPE t_collate_total counter\nt_collate_total{v=\"\"} 1\nt_collate_total{v=\"_\"} 1\nt_collate_total{v=\"-\"} 1\nt_collate_total{v=\"0\"} 1\nt_collate_total{v=\"10\"} 1\nt_collate_total{v=\"2\"} 1\nt_collate_total{v=\"9\"} 1\nt_collate_total{v=\"a\"} 1\nt_collate_total{v=\"A\"} 1\nt_collate_total{v=\"a\tb\"} 1\nt_collate_total{v=\"a\\nb\"} 1\nt_collate_total{v=\"a b\"} 1\nt_collate_total{v=\"a_b\"} 1\nt_collate_total{v=\"a-b\"} 1\nt_collate_total{v=\"a,b\"} 1\nt_collate_total{v=\"a;b\"} 1\nt_collate_total{v=\"a:b\"} 1\nt_collate_total{v=\"a!b\"} 1\nt_collate_total{v=\"a?b\"} 1\nt_collate_total{v=\"a.b\"} 1\nt_collate_total{v=\"a'b\"} 1\nt_collate_total{v=\"a\\\"b\"} 1\nt_collate_total{v=\"a(b\"} 1\nt_collate_total{v=\"a)b\"} 1\nt_collate_total{v=\"a[b\"} 1\nt_collate_total{v=\"a]b\"} 1\nt_collate_total{v=\"a{b\"} 1\nt_collate_total{v=\"a}b\"} 1\nt_collate_total{v=\"a@b\"} 1\nt_collate_total{v=\"a*b\"} 1\nt_collate_total{v=\"a/b\"} 1\nt_collate_total{v=\"a\\\\b\"} 1\nt_collate_total{v=\"a&b\"} 1\nt_collate_total{v=\"a#b\"} 1\nt_collate_total{v=\"a%b\"} 1\nt_collate_total{v=\"a`b\"} 1\nt_collate_total{v=\"a^b\"} 1\nt_collate_total{v=\"a+b\"} 1\nt_collate_total{v=\"a<b\"} 1\nt_collate_total{v=\"a=b\"} 1\nt_collate_total{v=\"a>b\"} 1\nt_collate_total{v=\"a|b\"} 1\nt_collate_total{v=\"a~b\"} 1\nt_collate_total{v=\"a$b\"} 1\nt_collate_total{v=\"a0\"} 1\nt_collate_total{v=\"a1\"} 1\nt_collate_total{v=\"a9\"} 1\nt_collate_total{v=\"ab\"} 1\nt_collate_total{v=\"a\u0001b\"} 1\nt_collate_total{v=\"ab\"} 1\nt_collate_total{v=\"aB\"} 1\nt_collate_total{v=\"Ab\"} 1\nt_collate_total{v=\"AB\"} 1\nt_collate_total{v=\"b\"} 1\nt_collate_total{v=\"B\"} 1\nt_collate_total{v=\"openai\"} 1\nt_collate_total{v=\"openai_compatible\"} 1\nt_collate_total{v=\"skill_load\"} 1\nt_collate_total{v=\"skill_read\"} 1\nt_collate_total{v=\"skill-load\"} 1\nt_collate_total{v=\"waiting-h3\"} 1\nt_collate_total{v=\"z\"} 1\nt_collate_total{v=\"Z\"} 1\n"
+        }
+      ]
+    },
+    {
+      "name": "series-order-ignores-the-separator-and-keeps-insertion-order-on-ties",
+      "ops": [
+        {
+          "help": "c",
+          "id": "c",
+          "labels": [
+            [
+              "a",
+              [
+                "x",
+                "xa",
+                "xb"
+              ]
+            ],
+            [
+              "b",
+              [
+                "ay",
+                "y",
+                "by"
+              ]
+            ]
+          ],
+          "name": "t_tie_total",
+          "op": "counter"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "a": "xa",
+            "b": "y"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "a": "x",
+            "b": "ay"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "a": "xb",
+            "b": "y"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "a": "x",
+            "b": "by"
+          },
+          "op": "inc"
+        },
+        {
+          "op": "render"
+        },
+        {
+          "help": "c",
+          "id": "d",
+          "labels": [
+            [
+              "a",
+              [
+                "x",
+                "xa"
+              ]
+            ],
+            [
+              "b",
+              [
+                "ay",
+                "y"
+              ]
+            ]
+          ],
+          "name": "t_tie2_total",
+          "op": "counter"
+        },
+        {
+          "id": "d",
+          "labels": {
+            "a": "x",
+            "b": "ay"
+          },
+          "op": "inc"
+        },
+        {
+          "id": "d",
+          "labels": {
+            "a": "xa",
+            "b": "y"
+          },
+          "op": "inc"
+        },
+        {
+          "op": "render"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "text": "# HELP t_tie_total c\n# TYPE t_tie_total counter\nt_tie_total{a=\"xa\",b=\"y\"} 1\nt_tie_total{a=\"x\",b=\"ay\"} 1\nt_tie_total{a=\"xb\",b=\"y\"} 1\nt_tie_total{a=\"x\",b=\"by\"} 1\n"
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "text": "# HELP t_tie_total c\n# TYPE t_tie_total counter\nt_tie_total{a=\"xa\",b=\"y\"} 1\nt_tie_total{a=\"x\",b=\"ay\"} 1\nt_tie_total{a=\"xb\",b=\"y\"} 1\nt_tie_total{a=\"x\",b=\"by\"} 1\n# HELP t_tie2_total c\n# TYPE t_tie2_total counter\nt_tie2_total{a=\"x\",b=\"ay\"} 1\nt_tie2_total{a=\"xa\",b=\"y\"} 1\n"
+        }
+      ]
+    },
+    {
+      "name": "init-all-orders-the-cartesian-product-by-collation",
+      "ops": [
+        {
+          "help": "c",
+          "id": "c",
+          "labels": [
+            [
+              "provider",
+              [
+                "openai",
+                "anthropic",
+                "Google"
+              ]
+            ],
+            [
+              "kind",
+              [
+                "auth",
+                "rate_limit",
+                "timeout"
+              ]
+            ]
+          ],
+          "name": "t_init_total",
+          "op": "counter"
+        },
+        {
+          "id": "c",
+          "op": "initAll"
+        },
+        {
+          "id": "c",
+          "labels": {
+            "kind": "auth",
+            "provider": "anthropic"
+          },
+          "op": "inc"
+        },
+        {
+          "op": "render"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "text": "# HELP t_init_total c\n# TYPE t_init_total counter\nt_init_total{provider=\"anthropic\",kind=\"auth\"} 1\nt_init_total{provider=\"anthropic\",kind=\"other\"} 0\nt_init_total{provider=\"anthropic\",kind=\"rate_limit\"} 0\nt_init_total{provider=\"anthropic\",kind=\"timeout\"} 0\nt_init_total{provider=\"Google\",kind=\"auth\"} 0\nt_init_total{provider=\"Google\",kind=\"other\"} 0\nt_init_total{provider=\"Google\",kind=\"rate_limit\"} 0\nt_init_total{provider=\"Google\",kind=\"timeout\"} 0\nt_init_total{provider=\"openai\",kind=\"auth\"} 0\nt_init_total{provider=\"openai\",kind=\"other\"} 0\nt_init_total{provider=\"openai\",kind=\"rate_limit\"} 0\nt_init_total{provider=\"openai\",kind=\"timeout\"} 0\nt_init_total{provider=\"other\",kind=\"auth\"} 0\nt_init_total{provider=\"other\",kind=\"other\"} 0\nt_init_total{provider=\"other\",kind=\"rate_limit\"} 0\nt_init_total{provider=\"other\",kind=\"timeout\"} 0\n"
+        }
+      ]
+    },
+    {
+      "name": "histogram-with-labels-sorted-and-an-unlabelled-one",
+      "ops": [
+        {
+          "buckets": [
+            "0.1",
+            "1",
+            "10"
+          ],
+          "help": "h",
+          "id": "h",
+          "labels": [
+            [
+              "outcome",
+              [
+                "ok",
+                "error",
+                "aborted"
+              ]
+            ]
+          ],
+          "name": "t_hl_seconds",
+          "op": "histogram"
+        },
+        {
+          "id": "h",
+          "labels": {
+            "outcome": "ok"
+          },
+          "op": "observe",
+          "value": "0.05"
+        },
+        {
+          "id": "h",
+          "labels": {
+            "outcome": "error"
+          },
+          "op": "observe",
+          "value": "5"
+        },
+        {
+          "id": "h",
+          "labels": {
+            "outcome": "zzz"
+          },
+          "op": "observe",
+          "value": "50"
+        },
+        {
+          "id": "h",
+          "op": "initAll"
+        },
+        {
+          "op": "render"
+        },
+        {
+          "buckets": [
+            "1"
+          ],
+          "help": "h",
+          "id": "u",
+          "labels": [],
+          "name": "t_hu_seconds",
+          "op": "histogram"
+        },
+        {
+          "id": "u",
+          "op": "observe",
+          "value": "1"
+        },
+        {
+          "op": "render"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "text": "# HELP t_hl_seconds h\n# TYPE t_hl_seconds histogram\nt_hl_seconds_bucket{outcome=\"aborted\",le=\"0.1\"} 0\nt_hl_seconds_bucket{outcome=\"aborted\",le=\"1\"} 0\nt_hl_seconds_bucket{outcome=\"aborted\",le=\"10\"} 0\nt_hl_seconds_bucket{outcome=\"aborted\",le=\"+Inf\"} 0\nt_hl_seconds_sum{outcome=\"aborted\"} 0\nt_hl_seconds_count{outcome=\"aborted\"} 0\nt_hl_seconds_bucket{outcome=\"error\",le=\"0.1\"} 0\nt_hl_seconds_bucket{outcome=\"error\",le=\"1\"} 0\nt_hl_seconds_bucket{outcome=\"error\",le=\"10\"} 1\nt_hl_seconds_bucket{outcome=\"error\",le=\"+Inf\"} 1\nt_hl_seconds_sum{outcome=\"error\"} 5\nt_hl_seconds_count{outcome=\"error\"} 1\nt_hl_seconds_bucket{outcome=\"ok\",le=\"0.1\"} 1\nt_hl_seconds_bucket{outcome=\"ok\",le=\"1\"} 1\nt_hl_seconds_bucket{outcome=\"ok\",le=\"10\"} 1\nt_hl_seconds_bucket{outcome=\"ok\",le=\"+Inf\"} 1\nt_hl_seconds_sum{outcome=\"ok\"} 0.05\nt_hl_seconds_count{outcome=\"ok\"} 1\nt_hl_seconds_bucket{outcome=\"other\",le=\"0.1\"} 0\nt_hl_seconds_bucket{outcome=\"other\",le=\"1\"} 0\nt_hl_seconds_bucket{outcome=\"other\",le=\"10\"} 0\nt_hl_seconds_bucket{outcome=\"other\",le=\"+Inf\"} 1\nt_hl_seconds_sum{outcome=\"other\"} 50\nt_hl_seconds_count{outcome=\"other\"} 1\n"
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "text": "# HELP t_hl_seconds h\n# TYPE t_hl_seconds histogram\nt_hl_seconds_bucket{outcome=\"aborted\",le=\"0.1\"} 0\nt_hl_seconds_bucket{outcome=\"aborted\",le=\"1\"} 0\nt_hl_seconds_bucket{outcome=\"aborted\",le=\"10\"} 0\nt_hl_seconds_bucket{outcome=\"aborted\",le=\"+Inf\"} 0\nt_hl_seconds_sum{outcome=\"aborted\"} 0\nt_hl_seconds_count{outcome=\"aborted\"} 0\nt_hl_seconds_bucket{outcome=\"error\",le=\"0.1\"} 0\nt_hl_seconds_bucket{outcome=\"error\",le=\"1\"} 0\nt_hl_seconds_bucket{outcome=\"error\",le=\"10\"} 1\nt_hl_seconds_bucket{outcome=\"error\",le=\"+Inf\"} 1\nt_hl_seconds_sum{outcome=\"error\"} 5\nt_hl_seconds_count{outcome=\"error\"} 1\nt_hl_seconds_bucket{outcome=\"ok\",le=\"0.1\"} 1\nt_hl_seconds_bucket{outcome=\"ok\",le=\"1\"} 1\nt_hl_seconds_bucket{outcome=\"ok\",le=\"10\"} 1\nt_hl_seconds_bucket{outcome=\"ok\",le=\"+Inf\"} 1\nt_hl_seconds_sum{outcome=\"ok\"} 0.05\nt_hl_seconds_count{outcome=\"ok\"} 1\nt_hl_seconds_bucket{outcome=\"other\",le=\"0.1\"} 0\nt_hl_seconds_bucket{outcome=\"other\",le=\"1\"} 0\nt_hl_seconds_bucket{outcome=\"other\",le=\"10\"} 0\nt_hl_seconds_bucket{outcome=\"other\",le=\"+Inf\"} 1\nt_hl_seconds_sum{outcome=\"other\"} 50\nt_hl_seconds_count{outcome=\"other\"} 1\n# HELP t_hu_seconds h\n# TYPE t_hu_seconds histogram\nt_hu_seconds_bucket{le=\"1\"} 1\nt_hu_seconds_bucket{le=\"+Inf\"} 1\nt_hu_seconds_sum 1\nt_hu_seconds_count 1\n"
+        }
+      ]
+    },
+    {
+      "name": "family-without-series-prints-only-help-and-type",
+      "ops": [
+        {
+          "help": "Help of t_none_total.",
+          "id": "c",
+          "labels": [
+            [
+              "k",
+              [
+                "a"
+              ]
+            ]
+          ],
+          "name": "t_none_total",
+          "op": "counter"
+        },
+        {
+          "help": "g",
+          "id": "g",
+          "labels": [],
+          "name": "t_none",
+          "op": "gauge"
+        },
+        {
+          "op": "render"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "text": "# HELP t_none_total Help of t_none_total.\n# TYPE t_none_total counter\n# HELP t_none g\n# TYPE t_none gauge\n"
+        }
+      ]
+    },
+    {
+      "name": "families-keep-declaration-order",
+      "ops": [
+        {
+          "help": "Help of t_zzz_total.",
+          "id": "z",
+          "labels": [],
+          "name": "t_zzz_total",
+          "op": "counter"
+        },
+        {
+          "help": "g",
+          "id": "g",
+          "labels": [],
+          "name": "t_aaa",
+          "op": "gauge"
+        },
+        {
+          "help": "m",
+          "name": "t_mmm",
+          "op": "gaugeFn",
+          "value": "1"
+        },
+        {
+          "id": "z",
+          "op": "inc"
+        },
+        {
+          "id": "g",
+          "op": "set",
+          "value": "2"
+        },
+        {
+          "op": "render"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "text": "# HELP t_zzz_total Help of t_zzz_total.\n# TYPE t_zzz_total counter\nt_zzz_total 1\n# HELP t_aaa g\n# TYPE t_aaa gauge\nt_aaa 2\n# HELP t_mmm m\n# TYPE t_mmm gauge\nt_mmm 1\n"
+        }
+      ]
+    },
+    {
+      "name": "refusals-of-names",
+      "ops": [
+        {
+          "help": "Help of bad name.",
+          "id": "a",
+          "labels": [],
+          "name": "bad name",
+          "op": "counter"
+        },
+        {
+          "help": "Help of 1abc.",
+          "id": "b",
+          "labels": [],
+          "name": "1abc",
+          "op": "counter"
+        },
+        {
+          "help": "Help of .",
+          "id": "c",
+          "labels": [],
+          "name": "",
+          "op": "counter"
+        },
+        {
+          "help": "Help of ok:name_1.",
+          "id": "d",
+          "labels": [],
+          "name": "ok:name_1",
+          "op": "counter"
+        },
+        {
+          "help": "Help of t_ok_total.",
+          "id": "e",
+          "labels": [
+            [
+              "bad-label",
+              [
+                "a"
+              ]
+            ]
+          ],
+          "name": "t_ok_total",
+          "op": "counter"
+        },
+        {
+          "help": "Help of t_ok_total.",
+          "id": "f",
+          "labels": [
+            [
+              "le",
+              [
+                "a"
+              ]
+            ]
+          ],
+          "name": "t_ok_total",
+          "op": "counter"
+        },
+        {
+          "help": "Help of t_ok_total.",
+          "id": "g",
+          "labels": [
+            [
+              "__x",
+              [
+                "a"
+              ]
+            ]
+          ],
+          "name": "t_ok_total",
+          "op": "counter"
+        },
+        {
+          "help": "Help of t_ok_total.",
+          "id": "h",
+          "labels": [
+            [
+              "1x",
+              [
+                "a"
+              ]
+            ]
+          ],
+          "name": "t_ok_total",
+          "op": "counter"
+        },
+        {
+          "help": "Help of t_ok_total.",
+          "id": "i",
+          "labels": [
+            [
+              "",
+              [
+                "a"
+              ]
+            ]
+          ],
+          "name": "t_ok_total",
+          "op": "counter"
+        },
+        {
+          "help": "Help of t_ok_total.",
+          "id": "j",
+          "labels": [
+            [
+              "_ok1",
+              [
+                "a"
+              ]
+            ]
+          ],
+          "name": "t_ok_total",
+          "op": "counter"
+        },
+        {
+          "help": "Help of t_dup_total.",
+          "id": "k",
+          "labels": [],
+          "name": "t_dup_total",
+          "op": "counter"
+        },
+        {
+          "help": "Help of t_dup_total.",
+          "id": "l",
+          "labels": [],
+          "name": "t_dup_total",
+          "op": "counter"
+        },
+        {
+          "help": "g",
+          "id": "m",
+          "labels": [],
+          "name": "t_dup_total",
+          "op": "gauge"
+        },
+        {
+          "help": "g",
+          "name": "t_dup_total",
+          "op": "gaugeFn",
+          "value": "1"
+        },
+        {
+          "help": "Help of café_total.",
+          "id": "n",
+          "labels": [],
+          "name": "café_total",
+          "op": "counter"
+        },
+        {
+          "help": "Help of quote\"_total.",
+          "id": "o",
+          "labels": [],
+          "name": "quote\"_total",
+          "op": "counter"
+        },
+        {
+          "op": "render"
+        }
+      ],
+      "results": [
+        {
+          "error": "invalid metric name \"bad name\""
+        },
+        {
+          "error": "invalid metric name \"1abc\""
+        },
+        {
+          "error": "invalid metric name \"\""
+        },
+        {
+          "ok": true
+        },
+        {
+          "error": "invalid label name \"bad-label\" on t_ok_total"
+        },
+        {
+          "error": "invalid label name \"le\" on t_ok_total"
+        },
+        {
+          "error": "invalid label name \"__x\" on t_ok_total"
+        },
+        {
+          "error": "invalid label name \"1x\" on t_ok_total"
+        },
+        {
+          "error": "invalid label name \"\" on t_ok_total"
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "error": "metric t_dup_total is already registered (t_dup_total is in use)"
+        },
+        {
+          "error": "metric t_dup_total is already registered (t_dup_total is in use)"
+        },
+        {
+          "error": "metric t_dup_total is already registered (t_dup_total is in use)"
+        },
+        {
+          "error": "invalid metric name \"café_total\""
+        },
+        {
+          "error": "invalid metric name \"quote\\\"_total\""
+        },
+        {
+          "text": "# HELP ok:name_1 Help of ok:name_1.\n# TYPE ok:name_1 counter\n# HELP t_ok_total Help of t_ok_total.\n# TYPE t_ok_total counter\n# HELP t_dup_total Help of t_dup_total.\n# TYPE t_dup_total counter\n"
+        }
+      ]
+    },
+    {
+      "name": "refusals-of-the-series-cap",
+      "ops": [
+        {
+          "help": "Help of t_big_total.",
+          "id": "a",
+          "labels": [
+            [
+              "a",
+              {
+                "count": 33,
+                "gen": "v"
+              }
+            ],
+            [
+              "b",
+              {
+                "count": 33,
+                "gen": "v"
+              }
+            ]
+          ],
+          "name": "t_big_total",
+          "op": "counter"
+        },
+        {
+          "help": "Help of t_fits_total.",
+          "id": "b",
+          "labels": [
+            [
+              "a",
+              {
+                "count": 33,
+                "gen": "v"
+              }
+            ]
+          ],
+          "name": "t_fits_total",
+          "op": "counter"
+        },
+        {
+          "help": "Help of t_open_total.",
+          "id": "c",
+          "labels": [
+            [
+              "a",
+              {
+                "count": 1024,
+                "gen": "v"
+              }
+            ]
+          ],
+          "name": "t_open_total",
+          "op": "counter"
+        },
+        {
+          "help": "Help of t_closed_total.",
+          "id": "d",
+          "labels": [
+            [
+              "a",
+              {
+                "count": 1024,
+                "gen": "v"
+              }
+            ]
+          ],
+          "maxSeries": 1025,
+          "name": "t_closed_total",
+          "op": "counter"
+        },
+        {
+          "help": "Help of t_tight_total.",
+          "id": "e",
+          "labels": [
+            [
+              "a",
+              {
+                "count": 1024,
+                "gen": "v"
+              }
+            ]
+          ],
+          "maxSeries": 1024,
+          "name": "t_tight_total",
+          "op": "counter"
+        },
+        {
+          "help": "Help of t_huge_total.",
+          "id": "f",
+          "labels": [
+            [
+              "a",
+              {
+                "count": 16384,
+                "gen": "v"
+              }
+            ]
+          ],
+          "maxSeries": 16385,
+          "name": "t_huge_total",
+          "op": "counter"
+        },
+        {
+          "help": "Help of t_huge2_total.",
+          "id": "g",
+          "labels": [
+            [
+              "a",
+              {
+                "count": 16384,
+                "gen": "v"
+              }
+            ]
+          ],
+          "maxSeries": 16384,
+          "name": "t_huge2_total",
+          "op": "counter"
+        },
+        {
+          "help": "Help of t_hard_ok_total.",
+          "id": "h",
+          "labels": [
+            [
+              "a",
+              {
+                "count": 16383,
+                "gen": "v"
+              }
+            ]
+          ],
+          "maxSeries": 16384,
+          "name": "t_hard_ok_total",
+          "op": "counter"
+        },
+        {
+          "help": "Help of t_zero_total.",
+          "id": "i",
+          "labels": [],
+          "maxSeries": 0,
+          "name": "t_zero_total",
+          "op": "counter"
+        },
+        {
+          "help": "Help of t_neg_total.",
+          "id": "j",
+          "labels": [],
+          "maxSeries": -1,
+          "name": "t_neg_total",
+          "op": "counter"
+        },
+        {
+          "help": "Help of t_frac_total.",
+          "id": "k",
+          "labels": [],
+          "maxSeries": 1.5,
+          "name": "t_frac_total",
+          "op": "counter"
+        },
+        {
+          "help": "Help of t_one_total.",
+          "id": "l",
+          "labels": [],
+          "maxSeries": 1,
+          "name": "t_one_total",
+          "op": "counter"
+        },
+        {
+          "help": "g",
+          "id": "m",
+          "labels": [
+            [
+              "a",
+              {
+                "count": 33,
+                "gen": "v"
+              }
+            ],
+            [
+              "b",
+              {
+                "count": 33,
+                "gen": "v"
+              }
+            ]
+          ],
+          "name": "t_gbig",
+          "op": "gauge"
+        },
+        {
+          "buckets": [
+            "1",
+            "2"
+          ],
+          "help": "h",
+          "id": "n",
+          "labels": [
+            [
+              "a",
+              {
+                "count": 33,
+                "gen": "v"
+              }
+            ]
+          ],
+          "name": "t_hbig_seconds",
+          "op": "histogram"
+        },
+        {
+          "buckets": [
+            "1",
+            "2"
+          ],
+          "help": "h",
+          "id": "o",
+          "labels": [
+            [
+              "a",
+              {
+                "count": 200,
+                "gen": "v"
+              }
+            ]
+          ],
+          "name": "t_hfit_seconds",
+          "op": "histogram"
+        },
+        {
+          "buckets": [
+            "1",
+            "2"
+          ],
+          "help": "h",
+          "id": "p",
+          "labels": [
+            [
+              "a",
+              {
+                "count": 201,
+                "gen": "v"
+              }
+            ]
+          ],
+          "name": "t_hover_seconds",
+          "op": "histogram"
+        }
+      ],
+      "results": [
+        {
+          "error": "t_big_total: label space of 1156 series exceeds the cap of 1024"
+        },
+        {
+          "ok": true
+        },
+        {
+          "error": "t_open_total: label space of 1025 series exceeds the cap of 1024"
+        },
+        {
+          "ok": true
+        },
+        {
+          "error": "t_tight_total: label space of 1025 series exceeds the cap of 1024"
+        },
+        {
+          "error": "t_huge_total: maxSeries must be an integer in 1..16384"
+        },
+        {
+          "error": "t_huge2_total: label space of 16385 series exceeds the cap of 16384"
+        },
+        {
+          "ok": true
+        },
+        {
+          "error": "t_zero_total: maxSeries must be an integer in 1..16384"
+        },
+        {
+          "error": "t_neg_total: maxSeries must be an integer in 1..16384"
+        },
+        {
+          "error": "t_frac_total: maxSeries must be an integer in 1..16384"
+        },
+        {
+          "ok": true
+        },
+        {
+          "error": "t_gbig: label space of 1156 series exceeds the cap of 1024"
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        }
+      ]
+    },
+    {
+      "name": "refusals-of-buckets",
+      "ops": [
+        {
+          "buckets": [],
+          "help": "h",
+          "id": "a",
+          "labels": [],
+          "name": "t_b1_seconds",
+          "op": "histogram"
+        },
+        {
+          "buckets": [
+            "1",
+            "1"
+          ],
+          "help": "h",
+          "id": "b",
+          "labels": [],
+          "name": "t_b2_seconds",
+          "op": "histogram"
+        },
+        {
+          "buckets": [
+            "2",
+            "1"
+          ],
+          "help": "h",
+          "id": "c",
+          "labels": [],
+          "name": "t_b3_seconds",
+          "op": "histogram"
+        },
+        {
+          "buckets": [
+            "NaN"
+          ],
+          "help": "h",
+          "id": "d",
+          "labels": [],
+          "name": "t_b4_seconds",
+          "op": "histogram"
+        },
+        {
+          "buckets": [
+            "1",
+            "Infinity"
+          ],
+          "help": "h",
+          "id": "e",
+          "labels": [],
+          "name": "t_b5_seconds",
+          "op": "histogram"
+        },
+        {
+          "buckets": [
+            "-1",
+            "0",
+            "1"
+          ],
+          "help": "h",
+          "id": "f",
+          "labels": [],
+          "name": "t_b6_seconds",
+          "op": "histogram"
+        },
+        {
+          "buckets": [
+            "1",
+            "2",
+            "NaN"
+          ],
+          "help": "h",
+          "id": "g",
+          "labels": [],
+          "name": "t_b7_seconds",
+          "op": "histogram"
+        },
+        {
+          "op": "render"
+        }
+      ],
+      "results": [
+        {
+          "error": "t_b1_seconds: buckets must be finite and strictly ascending"
+        },
+        {
+          "error": "t_b2_seconds: buckets must be finite and strictly ascending"
+        },
+        {
+          "error": "t_b3_seconds: buckets must be finite and strictly ascending"
+        },
+        {
+          "error": "t_b4_seconds: buckets must be finite and strictly ascending"
+        },
+        {
+          "error": "t_b5_seconds: buckets must be finite and strictly ascending"
+        },
+        {
+          "ok": true
+        },
+        {
+          "error": "t_b7_seconds: buckets must be finite and strictly ascending"
+        },
+        {
+          "text": "# HELP t_b6_seconds h\n# TYPE t_b6_seconds histogram\n"
+        }
+      ]
+    },
+    {
+      "name": "histogram-series-names-collide_bucket",
+      "ops": [
+        {
+          "buckets": [
+            "1",
+            "2"
+          ],
+          "help": "h",
+          "id": "h",
+          "labels": [],
+          "name": "job_seconds",
+          "op": "histogram"
+        },
+        {
+          "help": "Help of job_seconds_bucket.",
+          "id": "c",
+          "labels": [],
+          "name": "job_seconds_bucket",
+          "op": "counter"
+        },
+        {
+          "help": "Help of other_seconds.",
+          "id": "d",
+          "labels": [],
+          "name": "other_seconds",
+          "op": "counter"
+        },
+        {
+          "buckets": [
+            "1"
+          ],
+          "help": "h",
+          "id": "h2",
+          "labels": [],
+          "name": "job_seconds",
+          "op": "histogram"
+        },
+        {
+          "op": "render"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "error": "metric job_seconds_bucket is already registered (job_seconds_bucket is in use)"
+        },
+        {
+          "ok": true
+        },
+        {
+          "error": "metric job_seconds is already registered (job_seconds is in use)"
+        },
+        {
+          "text": "# HELP job_seconds h\n# TYPE job_seconds histogram\n# HELP other_seconds Help of other_seconds.\n# TYPE other_seconds counter\n"
+        }
+      ]
+    },
+    {
+      "name": "counter-named-like-a-histogram-series_bucket",
+      "ops": [
+        {
+          "help": "Help of job_seconds_bucket.",
+          "id": "c",
+          "labels": [],
+          "name": "job_seconds_bucket",
+          "op": "counter"
+        },
+        {
+          "buckets": [
+            "1",
+            "2"
+          ],
+          "help": "h",
+          "id": "h",
+          "labels": [],
+          "name": "job_seconds",
+          "op": "histogram"
+        },
+        {
+          "op": "render"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "error": "metric job_seconds is already registered (job_seconds_bucket is in use)"
+        },
+        {
+          "text": "# HELP job_seconds_bucket Help of job_seconds_bucket.\n# TYPE job_seconds_bucket counter\n"
+        }
+      ]
+    },
+    {
+      "name": "histogram-series-names-collide_sum",
+      "ops": [
+        {
+          "buckets": [
+            "1",
+            "2"
+          ],
+          "help": "h",
+          "id": "h",
+          "labels": [],
+          "name": "job_seconds",
+          "op": "histogram"
+        },
+        {
+          "help": "Help of job_seconds_sum.",
+          "id": "c",
+          "labels": [],
+          "name": "job_seconds_sum",
+          "op": "counter"
+        },
+        {
+          "help": "Help of other_seconds.",
+          "id": "d",
+          "labels": [],
+          "name": "other_seconds",
+          "op": "counter"
+        },
+        {
+          "buckets": [
+            "1"
+          ],
+          "help": "h",
+          "id": "h2",
+          "labels": [],
+          "name": "job_seconds",
+          "op": "histogram"
+        },
+        {
+          "op": "render"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "error": "metric job_seconds_sum is already registered (job_seconds_sum is in use)"
+        },
+        {
+          "ok": true
+        },
+        {
+          "error": "metric job_seconds is already registered (job_seconds is in use)"
+        },
+        {
+          "text": "# HELP job_seconds h\n# TYPE job_seconds histogram\n# HELP other_seconds Help of other_seconds.\n# TYPE other_seconds counter\n"
+        }
+      ]
+    },
+    {
+      "name": "counter-named-like-a-histogram-series_sum",
+      "ops": [
+        {
+          "help": "Help of job_seconds_sum.",
+          "id": "c",
+          "labels": [],
+          "name": "job_seconds_sum",
+          "op": "counter"
+        },
+        {
+          "buckets": [
+            "1",
+            "2"
+          ],
+          "help": "h",
+          "id": "h",
+          "labels": [],
+          "name": "job_seconds",
+          "op": "histogram"
+        },
+        {
+          "op": "render"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "error": "metric job_seconds is already registered (job_seconds_sum is in use)"
+        },
+        {
+          "text": "# HELP job_seconds_sum Help of job_seconds_sum.\n# TYPE job_seconds_sum counter\n"
+        }
+      ]
+    },
+    {
+      "name": "histogram-series-names-collide_count",
+      "ops": [
+        {
+          "buckets": [
+            "1",
+            "2"
+          ],
+          "help": "h",
+          "id": "h",
+          "labels": [],
+          "name": "job_seconds",
+          "op": "histogram"
+        },
+        {
+          "help": "Help of job_seconds_count.",
+          "id": "c",
+          "labels": [],
+          "name": "job_seconds_count",
+          "op": "counter"
+        },
+        {
+          "help": "Help of other_seconds.",
+          "id": "d",
+          "labels": [],
+          "name": "other_seconds",
+          "op": "counter"
+        },
+        {
+          "buckets": [
+            "1"
+          ],
+          "help": "h",
+          "id": "h2",
+          "labels": [],
+          "name": "job_seconds",
+          "op": "histogram"
+        },
+        {
+          "op": "render"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "error": "metric job_seconds_count is already registered (job_seconds_count is in use)"
+        },
+        {
+          "ok": true
+        },
+        {
+          "error": "metric job_seconds is already registered (job_seconds is in use)"
+        },
+        {
+          "text": "# HELP job_seconds h\n# TYPE job_seconds histogram\n# HELP other_seconds Help of other_seconds.\n# TYPE other_seconds counter\n"
+        }
+      ]
+    },
+    {
+      "name": "counter-named-like-a-histogram-series_count",
+      "ops": [
+        {
+          "help": "Help of job_seconds_count.",
+          "id": "c",
+          "labels": [],
+          "name": "job_seconds_count",
+          "op": "counter"
+        },
+        {
+          "buckets": [
+            "1",
+            "2"
+          ],
+          "help": "h",
+          "id": "h",
+          "labels": [],
+          "name": "job_seconds",
+          "op": "histogram"
+        },
+        {
+          "op": "render"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "error": "metric job_seconds is already registered (job_seconds_count is in use)"
+        },
+        {
+          "text": "# HELP job_seconds_count Help of job_seconds_count.\n# TYPE job_seconds_count counter\n"
+        }
+      ]
+    },
+    {
+      "name": "failed-declaration-leaves-the-name-free",
+      "ops": [
+        {
+          "help": "Help of t_free_total.",
+          "id": "a",
+          "labels": [
+            [
+              "le",
+              [
+                "a"
+              ]
+            ]
+          ],
+          "name": "t_free_total",
+          "op": "counter"
+        },
+        {
+          "help": "Help of t_free_total.",
+          "id": "b",
+          "labels": [
+            [
+              "k",
+              [
+                "a"
+              ]
+            ]
+          ],
+          "name": "t_free_total",
+          "op": "counter"
+        },
+        {
+          "id": "b",
+          "labels": {
+            "k": "a"
+          },
+          "op": "inc"
+        },
+        {
+          "op": "render"
+        }
+      ],
+      "results": [
+        {
+          "error": "invalid label name \"le\" on t_free_total"
+        },
+        {
+          "ok": true
+        },
+        {
+          "ok": true
+        },
+        {
+          "text": "# HELP t_free_total Help of t_free_total.\n# TYPE t_free_total counter\nt_free_total{k=\"a\"} 1\n"
+        }
+      ]
+    },
+    {
+      "name": "operations-after-a-histogram-name-failure",
+      "ops": [
+        {
+          "buckets": [
+            "1"
+          ],
+          "help": "h",
+          "id": "h",
+          "labels": [],
+          "name": "t_hh_seconds",
+          "op": "histogram"
+        },
+        {
+          "buckets": [
+            "1"
+          ],
+          "help": "h",
+          "id": "h2",
+          "labels": [],
+          "name": "t_hh_seconds_count",
+          "op": "histogram"
+        },
+        {
+          "id": "h",
+          "op": "observe",
+          "value": "0.5"
+        },
+        {
+          "op": "render"
+        }
+      ],
+      "results": [
+        {
+          "ok": true
+        },
+        {
+          "error": "metric t_hh_seconds_count is already registered (t_hh_seconds_count is in use)"
+        },
+        {
+          "ok": true
+        },
+        {
+          "text": "# HELP t_hh_seconds h\n# TYPE t_hh_seconds histogram\nt_hh_seconds_bucket{le=\"1\"} 1\nt_hh_seconds_bucket{le=\"+Inf\"} 1\nt_hh_seconds_sum 0.5\nt_hh_seconds_count 1\n"
+        }
+      ]
+    }
+  ]
+}
