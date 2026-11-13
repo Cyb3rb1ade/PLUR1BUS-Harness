@@ -5685,6 +5685,7 @@ dependencies = [
  "getrandom 0.3.4",
  "jsonschema",
  "plur1bus-audit",
+ "plur1bus-log-schema",
  "plur1bus-rpc",
  "serde",
  "serde_json",
@@ -5778,6 +5779,7 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
 ]
 
 [[package]]

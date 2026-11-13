@@ -8,6 +8,7 @@ import { buildDispatcherVectors } from "./export-dispatcher.ts";
 import { buildWireFixtures } from "./export-wire.ts";
 import { buildFormatVectors } from "./export-formats.ts";
 import { buildAuthVectors, credentials, substitute } from "./export-auth.ts";
+import { buildLogsVectors } from "./export-logs.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
 describe("parity fixture writer (mode V)", () => {
@@ -151,5 +152,30 @@ describe("auth vectors (P4-10 task review L9)", () => {
     assert.equal(parsed.b, parsed.a.toUpperCase());
     assert.notEqual(parsed.a, parsed.c);
     assert.notEqual(credentials()["@api@"], values["@api@"], "fresh on every run");
+  });
+});
+
+describe("logs vectors (P4-11 task 1)", () => {
+  it("the committed fixtures are exactly what the exporter records, and no credential is recorded in one piece", async () => {
+    const built = await buildLogsVectors();
+    assert.deepEqual(Object.keys(built).sort(), ["redact", "secret-matcher"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("logs", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/logs/${name}.json is stale: run scripts/parity/export-logs.ts`);
+      // The canaries of the TypeScript tests are stored as the fragments the tests assemble them from (`{ parts }`).
+      assert.doesNotMatch(text, /sk-[A-Za-z0-9-]{20,}|gh[pousr]_[A-Za-z0-9]{30,}|AKIA[0-9A-Z]{16}|xox[baprs]-[0-9A-Za-z-]{10,}|eyJ[A-Za-z0-9_-]{10,}\.eyJ/);
+    }
+  });
+
+  it("records every divergence between JavaScript and Rust with a note, and covers the cases of the TypeScript tests", async () => {
+    const built = await buildLogsVectors() as any;
+    const noted = built.redact.text.filter((c: any) => c.note).map((c: any) => c.name);
+    for (const name of ["unicode-fold-kelvin-sign-in-a-header-name", "js-whitespace-bom-after-bearer", "js-whitespace-nel-after-bearer", "lone-surrogates-in-the-input-become-replacement-characters"])
+      assert.ok(noted.includes(name), name);
+    assert.ok(built.redact.value.some((c: any) => c.name === "secrets-only-repeated-key-numbering" && c.note), "the key order of a serde_json::Map is pinned");
+    assert.ok(built.redact.maskJson.some((c: any) => c.loneSurrogate && c.note), "a JSON text with a lone surrogate escape is pinned");
+    assert.ok(built.redact.text.length > 80 && built.redact.value.length >= 10 && built["secret-matcher"].text.length >= 15);
+    // The residual case (a registered value held by a number) must throw, not mask.
+    assert.equal(built.redact.maskJson.find((c: any) => c.name === "number-holds-the-secret").result, "error");
   });
 });

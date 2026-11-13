@@ -16,7 +16,8 @@
 //! - [`events`]: subscriptions and the front door's own `core.state`;
 //! - [`lifecycle`]: process state, lifeline, drain order, timings;
 //! - [`legacy`]: spawning the legacy core and its ready line;
-//! - [`frame`]: NDJSON lines and error frames.
+//! - [`frame`]: NDJSON lines and error frames;
+//! - [`logs`]: the redactor's core surface and the redacting logger (P4-11; the writer, query and handlers follow).
 //!
 //! Shared crates: `plur1bus-canon` (canonical JSON, action hash), `plur1bus-store` (SQLite conventions),
 //! `plur1bus-tokens` (token counter), `plur1bus-audit` (audit chain and the core lock), `plur1bus-rpc` (types, client,
@@ -33,6 +34,7 @@ pub mod frame;
 pub mod legacy;
 pub mod lifecycle;
 pub mod lock;
+pub mod logs;
 pub mod peek;
 pub mod relay;
 pub mod route;

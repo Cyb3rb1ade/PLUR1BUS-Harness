@@ -1,6 +1,7 @@
 //! The Rust mirror of `packages/log-schema` (D111): the log record schema, the event catalogue, the level map and
-//! the redaction patterns as data, and the one validator the Rust writers and the reader share. There is no logger,
-//! writer, redactor or sink here (D111 §9: those are later parts).
+//! the redaction patterns as data, the one validator the Rust writers and the reader share, and the one redactor
+//! ([`redact`]: D111 §4, rules 1 to 6, the algorithm the CLI and the core both apply). There is no logger, writer or
+//! sink here (D111 §9: those are later parts, in `plur1bus-core`).
 //!
 //! The JSON files under `packages/log-schema/schema/` are the single source, embedded with `include_str!` the way
 //! `plur1bus-config` embeds its schema. `tests/parity.rs` reads `packages/log-schema/fixtures/vectors.json`, which
@@ -13,6 +14,8 @@ use std::{
     collections::HashMap,
     sync::{Arc, Mutex, OnceLock},
 };
+
+pub mod redact;
 
 pub const RECORD_SCHEMA_JSON: &str =
     include_str!("../../../packages/log-schema/schema/record.schema.json");
