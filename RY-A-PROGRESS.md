@@ -158,7 +158,11 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
   foreign-owner isolation, retry deduplication and ordinary Capture continuation
   are covered by `cargo test --locked -p plur1bus-engine --lib rpc::engine::jobs_tests::`
   (25 passed, 0 failed, 0 ignored). The optional narrative route is open. A
-  follow-up applies Clippy’s equivalent `is_none_or` predicate.
+  follow-up applies Clippy’s equivalent `is_none_or` predicate. Workspace
+  Clippy then exited 0. Body-owned numeric outcomes for rebuild, GC and
+  critical expiry use the frozen `JobRun.counts` field. Counts for Lance
+  mutations come from the conditional write result. Process job tests:
+  25 passed, 0 failed, 0 ignored, including count persistence through history.
 - [ ] RE-06 T4 reflection, S6 and A1 importance staging. S6 marker validation and
   the updated locale detector are implemented as reusable guards. Persona file
   mutation, prompting and other reflection bodies remain open.

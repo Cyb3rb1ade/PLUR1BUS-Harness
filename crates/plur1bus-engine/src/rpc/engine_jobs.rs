@@ -157,7 +157,8 @@ impl JobBody for NeoRebuild {
             }
             Err(error) => return Err(error.into()),
         };
-        episodes.rebuild_for_job(authority, context.now_ms, cancel)?;
+        let rebuilt = episodes.rebuild_for_job(authority, context.now_ms, cancel)?;
+        context.note_count("rebuilt", rebuilt)?;
         Ok(JobReport::completed())
     }
 }

@@ -403,7 +403,7 @@ impl Store {
         scope: &RowFilter,
         cutoff: i64,
         row: &MemoryRow,
-    ) -> Result<(), StoreError> {
+    ) -> Result<usize, StoreError> {
         use super::filter::sql_string;
         self.writable()?;
         let predicate = format!(
@@ -417,7 +417,7 @@ impl Store {
         );
         let table = self.table.clone();
         self.executor.run(async move {
-            table
+            let result = table
                 .update()
                 .only_if(predicate)
                 .column("confirmed", "true")
@@ -425,7 +425,7 @@ impl Store {
                 .execute()
                 .await
                 .map_err(backend_error)?;
-            Ok(())
+            usize::try_from(result.rows_updated).map_err(|_| StoreError::Corrupt)
         })
     }
 
@@ -441,7 +441,7 @@ impl Store {
         &self,
         scope: &RowFilter,
         row: &MemoryRow,
-    ) -> Result<(), StoreError> {
+    ) -> Result<usize, StoreError> {
         self.writable()?;
         use super::filter::sql_string;
         let binding = [
@@ -461,14 +461,14 @@ impl Store {
         );
         let table = self.table.clone();
         self.executor.run(async move {
-            table
+            let result = table
                 .update()
                 .only_if(predicate)
                 .column("status", "'archived'")
                 .execute()
                 .await
                 .map_err(backend_error)?;
-            Ok(())
+            usize::try_from(result.rows_updated).map_err(|_| StoreError::Corrupt)
         })
     }
 

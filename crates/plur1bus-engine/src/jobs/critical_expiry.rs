@@ -34,6 +34,7 @@ impl JobBody for CriticalExpiry {
         let mut scope = LanceScope::filter(authority);
         scope.status = Some("active".into());
         let cutoff = context.now_ms.saturating_sub(AGE_MS);
+        let mut expired = 0;
         for row in store.stale_criticals(&scope, cutoff)? {
             cancel.check()?;
             if acl::allowed(&row, request).is_err() {
@@ -42,8 +43,9 @@ impl JobBody for CriticalExpiry {
             if let Some(skip) = self.0.check(authority, cancel)? {
                 return Ok(skip);
             }
-            store.expire_critical(&scope, cutoff, &row)?;
+            expired += store.expire_critical(&scope, cutoff, &row)?;
         }
+        context.note_count("expired", expired)?;
         Ok(JobReport::completed())
     }
 }

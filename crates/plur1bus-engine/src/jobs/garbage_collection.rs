@@ -79,6 +79,7 @@ impl JobBody for GarbageCollection {
             return Ok(JobReport::completed());
         }
         let archive = self.archive_directory(request.agent_id.as_str())?;
+        let mut archived = 0;
         for row in rows {
             if let Some(skip) = self.scope.check(authority, &cancel)? {
                 return Ok(skip);
@@ -94,8 +95,9 @@ impl JobBody for GarbageCollection {
             if let Some(skip) = self.scope.check(authority, &cancel)? {
                 return Ok(skip);
             }
-            store.archive_gc_row(&filter, row)?;
+            archived += store.archive_gc_row(&filter, row)?;
         }
+        context.note_count("archived", archived)?;
         Ok(JobReport::completed())
     }
 }

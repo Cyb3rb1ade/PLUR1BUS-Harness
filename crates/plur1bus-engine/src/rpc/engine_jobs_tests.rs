@@ -287,7 +287,10 @@ fn authorized_episode_rebuild_matches_node_and_isolates_window_fallback() {
             .run_authorized_job(authority(), options("harness"), &Cancel::never())
             .unwrap()
     };
-    assert_eq!(run().outcome, JobOutcome::Completed);
+    let first = run();
+    assert_eq!(first.outcome, JobOutcome::Completed);
+    assert_eq!(first.counts["rebuilt"].as_u64(), Some(1));
+    assert_eq!(history(&engine)[0].counts, first.counts);
     let updated = fs::read_to_string(&file).unwrap();
     let row: Value = serde_json::from_str(updated.strip_prefix(&original).unwrap()).unwrap();
     let mut expected = fixture["expected"].as_object().unwrap().clone();
@@ -297,7 +300,9 @@ fn authorized_episode_rebuild_matches_node_and_isolates_window_fallback() {
     }
     assert!((row["vividness"].as_f64().unwrap() - vividness).abs() < 1e-12);
     assert_eq!(row["ownerUserId"], json!(harness_user_principal("first")));
-    assert_eq!(run().outcome, JobOutcome::Completed);
+    let repeat = run();
+    assert_eq!(repeat.outcome, JobOutcome::Completed);
+    assert_eq!(repeat.counts["rebuilt"].as_u64(), Some(0));
     assert_eq!(fs::read_to_string(file).unwrap(), updated);
 }
 

@@ -167,7 +167,7 @@ impl Draft {
                 model: None,
                 provider: None,
             },
-            counts: Default::default(),
+            counts: notes.counts,
             keys: (!notes.keys.is_empty()).then_some(notes.keys),
             pending_keys: (!notes.pending.is_empty()).then_some(notes.pending),
             idempotency_key,
