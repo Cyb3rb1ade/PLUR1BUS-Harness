@@ -12,11 +12,17 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
 - RE-06 T0: #903 reports 15/15 Node and 15/15 Rust. Re-run RE-09 on the A0 base
   before starting T2. A1 repairs the known baseline Dreams exit assertion.
 
+- RE-D178: A refused step leaves the active migration's lease alone, even if its
+  request names that migration. Only the accepted operation can settle its lease.
+  If the Core gives up after a refused request, expiry resumes compaction.
+
 ## Tasks
 
 - [x] A1.1 Align invalid Cron with `E_INVALID_PARAMS` (exit 2). Syntax check
   passed. Runtime checks against both engines follow the local build.
-- [ ] A1.2 Bind the compaction pause to the admitted migration.
+- [x] A1.2 Move the compaction lease into the coordinator's exclusive operation.
+  Regression coverage checks unrelated IDs, bad proofs, and release after an admitted
+  source-drift failure. Targeted Rust run pending the local build.
 - [ ] A1.3 Distinguish transient shared-memory failures from unsafe roots.
 - [ ] A1.4 Initialize the store base under the single-instance lock.
 - [ ] A1.5 Explain the job session cap.

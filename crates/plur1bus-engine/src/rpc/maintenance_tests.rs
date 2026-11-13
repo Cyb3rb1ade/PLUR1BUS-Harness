@@ -156,6 +156,10 @@ fn capture_and_recall_run_during_a_held_apply_and_the_library_refuses_the_change
             if field == "engine.reembedding" && message == "reembedding source version drift"),
         "{refused:?}"
     );
+    assert!(!crate::store::fragment_compactor::paused(
+        &root.join("db/current/agent"),
+        Instant::now()
+    ));
     assert!(root
         .join("db/generations/generation-held/generation.json")
         .exists());
@@ -363,7 +367,7 @@ fn a_due_compaction_waits_for_a_running_migration_and_catches_up_after_it() {
 }
 
 #[test]
-fn a_failed_run_step_ends_the_compaction_pause() {
+fn a_refused_step_does_not_end_the_admitted_migrations_pause() {
     let scratch = tempfile::tempdir_in(fs::canonicalize(std::env::temp_dir()).unwrap()).unwrap();
     let root = scratch.path();
     let host = host(root);
@@ -395,7 +399,8 @@ fn a_failed_run_step_ends_the_compaction_pause() {
         &table,
         Instant::now()
     ));
-    // A refused step (here an invalid proof) ends the pause: the Core halts this run.
+    // Neither an unrelated migration nor a caller with an invalid proof owns this pause.
+    assert!(maintenance.validate(&grant, "unknown", &cancel).is_err());
     assert!(maintenance
         .resume(
             &grant,
@@ -403,7 +408,7 @@ fn a_failed_run_step_ends_the_compaction_pause() {
             &cancel
         )
         .is_err());
-    assert!(!crate::store::fragment_compactor::paused(
+    assert!(crate::store::fragment_compactor::paused(
         &table,
         Instant::now()
     ));
