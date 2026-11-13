@@ -338,6 +338,15 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   completion and its type stays unchanged. Focused test 1 passed, 0 failed,
   0 ignored. Workspace Clippy exited 0.
 
+- RE-D217: Skill Miner reads exact-owner `skill-rejected.jsonl` alongside the
+  proposal ledger. Blocked names are a terminal decision and are included
+  in the policy fingerprint. A pending extension includes `updateOf`, the
+  SHA-256 of the active base instructions, the extension itself and the
+  combined instructions. This digest protects the native ledger version.
+  An installed-package identity and activation still require the X1 path.
+  `cargo test --locked -p plur1bus-engine --lib skill_miner`: 3 passed,
+  0 failed, 0 ignored. Workspace Clippy exited 0.
+
 ## Tasks
 
 - T2 S8 credential objects: `cargo test --locked -p plur1bus-engine

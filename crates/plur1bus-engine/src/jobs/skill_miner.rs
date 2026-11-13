@@ -33,6 +33,7 @@ use std::{
 
 const SYSTEM: &str = include_str!("prompts/templates/skill-extraction-plugin.v3.txt");
 const PROPOSALS: &str = "skill-proposals.jsonl";
+const REJECTIONS: &str = "skill-rejected.jsonl";
 const MAX_BYTES: usize = 8 * 1024 * 1024;
 const MAX_ROWS: usize = 5000;
 const INTERVAL_MS: f64 = 20. * 3_600_000.;
@@ -104,6 +105,7 @@ impl JobBody for SkillMiner {
         }
         let memo = Memo::new(&state, &binding[..32])?;
         let (mut catalogue, mut committed, mut physical) = read_catalogue(&dir, request, cancel)?;
+        let blocked_names = rejected_names(&dir, cancel)?;
         let mut filter = LanceScope::filter(authority);
         filter.status = Some("active".into());
         filter.since = Some(context.now_ms.saturating_sub(LOOKBACK_MS));
@@ -125,7 +127,7 @@ impl JobBody for SkillMiner {
         let minimum = settings["minConfidence"].as_f64().unwrap_or(0.6);
         let score = settings["minEvidenceScore"].as_f64().unwrap_or(3.);
         let direct = has_direct_transport(settings);
-        let catalog_id = catalogue_hash(&catalogue)?;
+        let catalog_id = catalogue_hash(&catalogue, &blocked_names)?;
         let policy = Policy {
             model: route.route_model().unwrap_or("host-default"),
             kind: if direct {
@@ -210,23 +212,11 @@ impl JobBody for SkillMiner {
                 decisions.push((fingerprint, Decision::LowConfidence));
                 continue;
             };
-            if let Some(prior) = matched(&candidate, &catalogue, &evidence_ids) {
-                if prior["status"] != "active"
-                    || duplicate(&candidate, prior, &evidence_ids)
-                    || catalogue.iter().any(|item| {
-                        item["skillName"] == prior["skillName"]
-                            && matches!(
-                                item["status"].as_str(),
-                                Some("pending_review" | "activation_partial")
-                            )
-                    })
-                {
-                    decisions.push((fingerprint, Decision::Duplicate));
-                    continue;
-                }
-                candidate["updateOf"] = prior["id"].clone();
-                candidate["skillName"] = prior["skillName"].clone();
-                candidate["skillTitle"] = prior["skillTitle"].clone();
+            if let Err(decision) =
+                bind_proposal(&mut candidate, &catalogue, &blocked_names, &evidence_ids)?
+            {
+                decisions.push((fingerprint, decision));
+                continue;
             }
             let name = candidate["skillName"].as_str().ok_or(StoreError::Corrupt)?;
             let id = format!(
@@ -382,7 +372,7 @@ fn append_proposal(
     Ok(())
 }
 
-fn catalogue_hash(catalogue: &[Value]) -> Result<String, StoreError> {
+fn catalogue_hash(catalogue: &[Value], blocked: &BTreeSet<String>) -> Result<String, StoreError> {
     let values: Vec<_> = catalogue
         .iter()
         .map(|p| {
@@ -395,8 +385,85 @@ fn catalogue_hash(catalogue: &[Value]) -> Result<String, StoreError> {
             ])
         })
         .collect();
-    let bytes = serde_json::to_vec(&values).map_err(|_| StoreError::Corrupt)?;
+    let bytes = serde_json::to_vec(&(values, blocked)).map_err(|_| StoreError::Corrupt)?;
     Ok(format!("{:x}", Sha256::digest(bytes)))
+}
+
+fn rejected_names(
+    dir: &TrustedDirectory,
+    cancel: &Cancel,
+) -> Result<BTreeSet<String>, EngineError> {
+    let mut names = BTreeSet::new();
+    if let Some(bytes) = super::ledger::io::read(dir, REJECTIONS, MAX_BYTES, cancel)? {
+        if !bytes.is_empty() && !bytes.ends_with(b"\n") {
+            return Err(StoreError::Corrupt.into());
+        }
+        for line in bytes
+            .split(|byte| *byte == b'\n')
+            .filter(|line| !line.is_empty())
+        {
+            cancel.check()?;
+            let item: Value = serde_json::from_slice(line).map_err(|_| StoreError::Corrupt)?;
+            let name = item["skillName"]
+                .as_str()
+                .filter(|name| valid_name(name))
+                .ok_or(StoreError::Corrupt)?;
+            names.insert(name.to_owned());
+        }
+    }
+    Ok(names)
+}
+
+fn bind_proposal(
+    candidate: &mut Value,
+    catalogue: &[Value],
+    blocked: &BTreeSet<String>,
+    evidence_ids: &[String],
+) -> Result<Result<(), Decision>, EngineError> {
+    let prior = matched(candidate, catalogue, evidence_ids);
+    let name = prior.unwrap_or(candidate)["skillName"]
+        .as_str()
+        .ok_or(StoreError::Corrupt)?;
+    if blocked.contains(name)
+        || candidate["skillName"]
+            .as_str()
+            .is_some_and(|name| blocked.contains(name))
+        || prior.is_some_and(|prior| prior["status"] == "rejected")
+    {
+        return Ok(Err(Decision::BlockedName));
+    }
+    let Some(prior) = prior else {
+        return Ok(Ok(()));
+    };
+    if prior["status"] != "active"
+        || duplicate(candidate, prior, evidence_ids)
+        || catalogue.iter().any(|item| {
+            item["skillName"] == name
+                && matches!(
+                    item["status"].as_str(),
+                    Some("pending_review" | "activation_partial")
+                )
+        })
+    {
+        return Ok(Err(Decision::Duplicate));
+    }
+    let base = prior["instructions"].as_str().ok_or(StoreError::Corrupt)?;
+    let extension = candidate["instructions"]
+        .as_str()
+        .ok_or(StoreError::Corrupt)?;
+    let instructions = format!("{base}\n\n{extension}");
+    if instructions.encode_utf16().count() > 24_000 {
+        return Err(StoreError::Unavailable.into());
+    }
+    let base_hash = format!("{:x}", Sha256::digest(base.as_bytes()));
+    let extension = extension.to_owned();
+    candidate["updateOf"] = prior["id"].clone();
+    candidate["skillName"] = prior["skillName"].clone();
+    candidate["skillTitle"] = prior["skillTitle"].clone();
+    candidate["baseInstructionsHash"] = base_hash.into();
+    candidate["extensionInstructions"] = extension.into();
+    candidate["instructions"] = instructions.into();
+    Ok(Ok(()))
 }
 
 fn prompt(
@@ -498,6 +565,16 @@ fn cut(value: &Value, max: usize) -> String {
     utf16_slice(value.as_str().unwrap_or_default(), 0, max).to_utf8_lossy()
 }
 
+fn valid_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 64
+        && !name.starts_with('-')
+        && !name.ends_with('-')
+        && name
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+}
+
 fn parse_candidate(response: &str, related: &BTreeSet<String>) -> Option<Option<Value>> {
     let parsed: Value = serde_json::from_str(response).ok()?;
     if parsed["skip"] == true {
@@ -514,15 +591,7 @@ fn parse_candidate(response: &str, related: &BTreeSet<String>) -> Option<Option<
     }
     let name = js_trim(parsed["skillName"].as_str()?);
     let instructions = js_trim(parsed["instructions"].as_str()?);
-    if name.is_empty()
-        || name.len() > 64
-        || name.starts_with('-')
-        || name.ends_with('-')
-        || !name
-            .bytes()
-            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
-        || instructions.is_empty()
-        || instructions.encode_utf16().count() > 12_000
+    if !valid_name(name) || instructions.is_empty() || instructions.encode_utf16().count() > 12_000
     {
         return None;
     }
@@ -628,6 +697,44 @@ fn report(outcome: JobOutcome, reason: &str) -> JobReport {
 #[allow(clippy::unwrap_used, reason = "fixed Node recording")]
 mod tests {
     use super::*;
+
+    #[test]
+    fn blocked_names_and_version_extensions_use_the_private_catalogue() {
+        let mut candidate = json!({"skillName":"release-checksums","instructions":"Verify the detached signature."});
+        let base = json!({"id":"active-v1","skillName":"release-checksums","skillTitle":"Release checksums",
+            "status":"active","instructions":"Generate a checksum."});
+        let blocked = BTreeSet::from(["release-checksums".to_owned()]);
+        assert_eq!(
+            bind_proposal(&mut candidate, &[], &blocked, &[]).unwrap(),
+            Err(Decision::BlockedName)
+        );
+        let clear = BTreeSet::new();
+        assert!(bind_proposal(
+            &mut candidate,
+            std::slice::from_ref(&base),
+            &clear,
+            &["new".into()]
+        )
+        .unwrap()
+        .is_ok());
+        assert_eq!(candidate["updateOf"], "active-v1");
+        assert_eq!(
+            candidate["extensionInstructions"],
+            "Verify the detached signature."
+        );
+        assert_eq!(
+            candidate["instructions"],
+            "Generate a checksum.\n\nVerify the detached signature."
+        );
+        assert_eq!(
+            candidate["baseInstructionsHash"],
+            format!("{:x}", Sha256::digest(b"Generate a checksum."))
+        );
+        assert_ne!(
+            catalogue_hash(&[], &blocked).unwrap(),
+            catalogue_hash(&[], &clear).unwrap()
+        );
+    }
 
     #[test]
     fn extraction_prompt_matches_plugin_version_three_even_at_a_split_surrogate() {
