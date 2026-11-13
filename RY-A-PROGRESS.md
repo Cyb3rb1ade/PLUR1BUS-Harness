@@ -425,6 +425,15 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   unchanged Node-lane behavior. Merged `main` including #909 (`a339e6b206`)
   at merge `4a809d1d7d` before applying this ruling.
 
+- RE-D226: #909's metrics exporter records the closed Core RPC method set.
+  The F13 method `host.jobs.authority` is now included in that set and in
+  the two affected RPC-counter fixtures. `TZ=UTC node --conditions=source
+  --experimental-strip-types scripts/parity/export-metrics.ts` recorded
+  `fixtures/parity/metrics/metrics.json`; repeating with `--check` confirmed
+  SHA-256 `4b24bc2440e31c6329621183dea7e6329d646c45905a09e270a9ad7ed6a26367`.
+  `node --test --conditions=source --experimental-strip-types
+  scripts/parity/parity.test.ts` passed 19 / 0 / 0 after regeneration.
+
 ## Tasks
 
 - T2 S8 credential objects: `cargo test --locked -p plur1bus-engine
