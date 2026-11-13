@@ -64,6 +64,15 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   revalidation and paired index cleanup. The Node pin prunes REM partition stores
   and omits the Capture workspace hook store. That bridge gap remains until RY-C.
 
+- RE-D186: The deterministic episode rebuild uses the canonical owned Neo
+  journal, a one-day window, up to 2,000 episodes and 5,000 turns. The pinned
+  two-second time-window fallback uses only the granted owner's live user and
+  assistant turns. New revisions are published together by atomic replacement
+  under the capture lease. A source/version fingerprint deduplicates a retry.
+  Capture reads a newer rebuild revision before continuing the open episode.
+  Optional narrative completion still needs T2 routing. Vault writes belong
+  to RE-07. The existing process dry-run outcome stays `dry_run_unsupported`.
+
 ## Tasks
 
 The first Rust test compile exposed three stale field/guard references in A1.2–A1.4.
@@ -145,6 +154,10 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
   recovery across a changed archive month remain open.
   `cargo test --locked -p plur1bus-engine --lib neo::retention::`:
   2 passed, 0 failed, 0 ignored.
+  Native deterministic `episodes-rebuild` is installed. Node field deltas,
+  foreign-owner isolation, retry deduplication and ordinary Capture continuation
+  are covered by `cargo test --locked -p plur1bus-engine --lib rpc::engine::jobs_tests::`
+  (25 passed, 0 failed, 0 ignored). The optional narrative route is open.
 - [ ] RE-06 T4 reflection, S6 and A1 importance staging. S6 marker validation and
   the updated locale detector are implemented as reusable guards. Persona file
   mutation, prompting and other reflection bodies remain open.
@@ -240,3 +253,8 @@ New golden `tests/fixtures/jobs/neo-retention.json` records the Node v7.19.3
 selector for cutoff, revisions, and protections. Two UTC invocations, each
 running the reference twice, produced SHA-256
 `a91ed49234abed717e6412650130c1f3e74345f6d0286b4ca80b176ad3b47913`.
+
+New golden `tests/fixtures/jobs/episode-rebuild.json` records deterministic
+`rebuildEpisode` from pin `9f34008c`. Two UTC invocations, each running it
+twice, produced SHA-256
+`91e0b66758783650ea15173f4ffb9dc43a0d50ab635fcd5f56cfc2b40c410a32`.

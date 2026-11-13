@@ -96,10 +96,10 @@ fn the_registry_lists_twenty_jobs_and_owner_data_jobs_answer_a_fixed_reason() {
     let specs = engine.jobs().list();
     assert_eq!(specs.len(), 20);
     for spec in specs {
-        let expected = if spec.needs_llm {
-            "not-implemented"
-        } else {
+        let expected = if engine.job_needs_authority(spec.name) {
             "job-authority-unbound"
+        } else {
+            crate::jobs::authority::refusal(spec.name)
         };
         // The cron context is no owner evidence, and an agent ID is no grant (F13).
         for trigger in ["manual", "cron"] {
@@ -210,6 +210,181 @@ fn authorized_embedding_drain_updates_only_the_granted_owners_queue() {
     assert!(appended.contains(&first_ctx.owner_user_id));
     assert!(!appended.contains(&second_ctx.owner_user_id));
     assert_eq!(history(&engine)[0].run_id, run.run_id);
+}
+
+#[test]
+fn authorized_episode_rebuild_matches_node_and_isolates_window_fallback() {
+    use crate::{
+        context::{harness_user_principal, RouteVocabulary},
+        jobs::authority::JobAuthority,
+        neo::merged::Layout,
+    };
+
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../tests/fixtures/jobs/episode-rebuild.json"
+    ))
+    .unwrap();
+    assert_eq!(fixture["now"], NOW);
+    let temp = scratch();
+    let (host, engine) = engine(temp.path(), true);
+    host.set_workspace(&alpha(), temp.path().to_owned());
+    let workspace = format!("workspace-dir:v1:{}", temp.path().display());
+    let principal: Principal = serde_json::from_value(json!({
+        "agentId":"alpha", "channel":"telegram", "accountId":"fixture", "trust":"proved",
+        "workspace":workspace, "user":harness_user_principal("first"),
+        "chat":{"id":"first","kind":"direct"}
+    }))
+    .unwrap();
+    let authority = || {
+        JobAuthority::from_host(
+            host.as_ref(),
+            JobName::EpisodesRebuild,
+            &alpha(),
+            principal.clone(),
+            serde_json::from_value(json!({"origin":"cron","background":true})).unwrap(),
+            RouteVocabulary::shared(),
+        )
+        .unwrap()
+    };
+    let partition = temp
+        .path()
+        .join("db/_neo/workspaces")
+        .join(Layout::for_key(&workspace).canonical);
+    crate::store::paths::secure_dir(&partition).unwrap();
+    let stamp = |mut row: Value, owner: &str| {
+        row["workspaceKey"] = json!(workspace);
+        row["agentId"] = json!("alpha");
+        row["ownerUserId"] = json!(harness_user_principal(owner));
+        row["scope"] = json!("agent_private");
+        row
+    };
+    let mut turns: Vec<_> = fixture["turns"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|row| stamp(row.clone(), "first"))
+        .collect();
+    let mut foreign = fixture["turns"][0].clone();
+    foreign["id"] = json!("foreign");
+    turns.push(stamp(foreign, "second"));
+    let mut prior = stamp(fixture["old"].clone(), "first");
+    // Legacy episode IDs can differ from those actually committed to the journal.
+    prior["memoryIds"] = json!(["legacy-unresolved"]);
+    let mut foreign = stamp(fixture["old"].clone(), "second");
+    foreign["id"] = json!("foreign-episode");
+    let lines = |rows: &[Value]| {
+        rows.iter()
+            .map(|row| format!("{row}\n"))
+            .collect::<String>()
+    };
+    fs::write(partition.join("turn-journal.jsonl"), lines(&turns)).unwrap();
+    let file = partition.join("episodes.jsonl");
+    let original = lines(&[prior, foreign]);
+    fs::write(&file, &original).unwrap();
+
+    let run = || {
+        engine
+            .run_authorized_job(authority(), options("harness"), &Cancel::never())
+            .unwrap()
+    };
+    assert_eq!(run().outcome, JobOutcome::Completed);
+    let updated = fs::read_to_string(&file).unwrap();
+    let row: Value = serde_json::from_str(updated.strip_prefix(&original).unwrap()).unwrap();
+    let mut expected = fixture["expected"].as_object().unwrap().clone();
+    let vividness = expected.remove("vividness").unwrap().as_f64().unwrap();
+    for (field, value) in expected {
+        assert_eq!(row[&field], value, "{field}");
+    }
+    assert!((row["vividness"].as_f64().unwrap() - vividness).abs() < 1e-12);
+    assert_eq!(row["ownerUserId"], json!(harness_user_principal("first")));
+    assert_eq!(run().outcome, JobOutcome::Completed);
+    assert_eq!(fs::read_to_string(file).unwrap(), updated);
+}
+
+#[test]
+fn capture_continues_an_open_episode_after_a_scheduled_rebuild() {
+    use crate::{
+        context::{harness_user_principal, RequestContext, RouteVocabulary},
+        jobs::authority::JobAuthority,
+        neo::{episode_store::EpisodeStore, merged::Layout},
+    };
+
+    let temp = scratch();
+    let (host, engine) = engine(temp.path(), true);
+    host.set_workspace(&alpha(), temp.path().to_owned());
+    let workspace = format!("workspace-dir:v1:{}", temp.path().display());
+    let root = temp.path().join("db/_neo");
+    crate::store::paths::secure_dir(&root).unwrap();
+    let episodes = EpisodeStore::open(
+        &root,
+        host.clone(),
+        engine_capture::workspace_capture_policy(&temp.path().join("db")),
+        engine.mood.pool(),
+    )
+    .unwrap();
+    let make_turn = |run_id: &str, messages: Value| -> TurnRecord {
+        serde_json::from_value(json!({
+            "agentId":"alpha", "sessionKey":"alpha:direct:1", "runId":run_id, "incognito":false,
+            "principal":{"agentId":"alpha", "channel":"telegram","accountId":"fixture",
+                "trust":"proved","workspace":workspace,"user":harness_user_principal("first"),
+                "chat":{"id":"first","kind":"direct"}},
+            "agent":{"origin":"user","background":false},
+            "messages":messages,
+        }))
+        .unwrap()
+    };
+    let first = make_turn(
+        "first",
+        json!([
+            {"role":"user","content":"Please prepare the release notes."},
+            {"role":"assistant","content":"I started drafting the release notes."},
+        ]),
+    );
+    let ctx = RequestContext::build(&first.principal, &first.agent, host.as_ref()).unwrap();
+    let cancel = Cancel::never();
+    assert_eq!(episodes.process(&first, &ctx, &cancel).unwrap(), 1);
+    let authority = JobAuthority::from_host(
+        host.as_ref(),
+        JobName::EpisodesRebuild,
+        &alpha(),
+        first.principal.clone(),
+        serde_json::from_value(json!({"origin":"cron","background":true})).unwrap(),
+        RouteVocabulary::shared(),
+    )
+    .unwrap();
+    assert_eq!(
+        engine
+            .run_authorized_job(authority, options("harness"), &cancel)
+            .unwrap()
+            .outcome,
+        JobOutcome::Completed
+    );
+    host.set_now_ms(NOW + 2000);
+    let second = make_turn(
+        "second",
+        json!([
+            {"role":"user","content":"Please prepare the release notes."},
+            {"role":"assistant","content":"I started drafting the release notes."},
+            {"role":"user","content":"Please add the Rust changes."},
+            {"role":"assistant","content":"The Rust changes are now included."},
+        ]),
+    );
+    assert_eq!(episodes.process(&second, &ctx, &cancel).unwrap(), 1);
+    let path = root
+        .join("workspaces")
+        .join(Layout::for_key(&workspace).canonical)
+        .join("episodes.jsonl");
+    let rows: Vec<Value> = fs::read_to_string(path)
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert_eq!(rows.len(), 3);
+    assert_eq!(rows[1]["id"], rows[0]["id"]);
+    assert_eq!(rows[2]["id"], rows[0]["id"]);
+    assert_eq!(rows[1]["revision"], 1);
+    assert_eq!(rows[2]["revision"], 2);
+    assert_eq!(rows[2]["turnCount"], 4);
 }
 
 #[test]

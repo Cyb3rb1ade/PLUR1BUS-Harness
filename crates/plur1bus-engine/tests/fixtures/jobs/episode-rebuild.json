@@ -1,0 +1,62 @@
+{
+  "pin": "9f34008c143c5da87b2194b5a28442b407ff8ba7",
+  "path": "lib/episodes.js",
+  "sourceSha256": "180648f562da7360598eec1de90ede158b448d902200cefca94e4d7ff52f2c7b",
+  "now": 1768305600000,
+  "old": {
+    "id": "episode-fixture",
+    "revision": 2,
+    "agentId": "alpha",
+    "workspaceKey": "fixture-workspace",
+    "startTime": "2026-01-13T11:58:50.000Z",
+    "endTime": "2026-01-13T11:59:50.000Z",
+    "createdAt": "2026-01-13T11:59:50.000Z",
+    "memoryIds": [
+      "user-question",
+      "assistant-answer"
+    ],
+    "location": "dm",
+    "importance": 0.8,
+    "replayCount": 3,
+    "lastReplayed": "2026-01-13T11:59:59.000Z"
+  },
+  "turns": [
+    {
+      "id": "assistant-answer",
+      "role": "assistant",
+      "content": "Release notes are ready.",
+      "createdAt": "2026-01-13T11:59:50.000Z"
+    },
+    {
+      "id": "user-question",
+      "role": "user",
+      "content": "Can we write the release notes?",
+      "createdAt": "2026-01-13T11:58:50.000Z"
+    }
+  ],
+  "expected": {
+    "id": "episode-fixture",
+    "createdAt": "2026-01-13T11:59:50.000Z",
+    "revision": 3,
+    "rebuilt": true,
+    "startTime": "2026-01-13T11:58:50.000Z",
+    "endTime": "2026-01-13T11:59:50.000Z",
+    "durationMinutes": 1,
+    "title": "Gespräch vom 2026-01-13",
+    "summary": "2 Turns, 1 Min",
+    "participants": [
+      "Nutzer",
+      "alpha"
+    ],
+    "memoryIds": [
+      "user-question",
+      "assistant-answer"
+    ],
+    "location": "dm",
+    "importance": 0.8,
+    "replayCount": 3,
+    "lastReplayed": "2026-01-13T11:59:59.000Z",
+    "turnCount": 2,
+    "vividness": 0.3633252314814815
+  }
+}

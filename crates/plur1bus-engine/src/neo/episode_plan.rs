@@ -139,7 +139,30 @@ pub(super) fn build(
         .map(|_| strings(array(&previous, "episodedTurnIds")?))
         .transpose()?
         .unwrap_or_default();
-    let open = field(&previous, "openEpisode").filter(|v| !matches!(v, Json::Null));
+    let mut open = field(&previous, "openEpisode")
+        .filter(|v| !matches!(v, Json::Null))
+        .cloned();
+    let existing = journal_io::rows(dir, "episodes.jsonl", cancel)?;
+    if let Some(state) = open.as_mut() {
+        let id = journal_io::id(state)?;
+        if let Some(latest) = existing
+            .iter()
+            .rev()
+            .find(|row| journal_io::id(row).ok().as_ref() == Some(&id))
+        {
+            // Maintenance changes the persisted revision independently of the turn watermark.
+            if field(latest, "nativeRebuildSourceHash").is_some()
+                && journal_io::owned(latest, ctx)
+                && field(latest, "scope") == Some(&text("agent_private"))
+            {
+                let revision = super::episode_io::revision(latest)?;
+                if revision > super::episode_io::revision(state)? {
+                    set(state, "revision", Json::Number(revision.to_string()))?;
+                }
+            }
+        }
+    }
+    let open = open.as_ref();
     let rows = sources(dir, cancel)?;
     let workspace = JsString::from(ctx.workspace_key.as_str());
     let agent = JsString::from(ctx.agent_id.as_str());
@@ -212,7 +235,6 @@ pub(super) fn build(
     for episode in &mut episodes {
         capture_plan::stamp(episode, ctx)?;
     }
-    let existing = journal_io::rows(dir, "episodes.jsonl", cancel)?;
     let mut predecessors = Vec::new();
     for episode in &episodes {
         let rev = super::episode_io::revision(episode)?;

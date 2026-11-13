@@ -70,11 +70,11 @@ fn unavailable(reason: &str) -> EngineError {
     }
 }
 
-/// The pin's `embedding-drain` early exit when Neo is disabled: no Neo store is opened.
-struct NeoDisabledDrain;
-impl JobBody for NeoDisabledDrain {
+/// The pin's early exit for Neo jobs when the store is disabled.
+struct NeoDisabled(JobName);
+impl JobBody for NeoDisabled {
     fn name(&self) -> JobName {
-        JobName::EmbeddingDrain
+        self.0
     }
     fn run(&self, _context: &JobContext, cancel: &Cancel) -> Result<JobReport, EngineError> {
         cancel.check()?;
@@ -127,13 +127,52 @@ impl JobBody for NeoDrain {
     }
 }
 
+/// Open the capture workspace episode store for a scoped rebuild.
+pub(super) struct NeoRebuild {
+    pub(super) root: PathBuf,
+    pub(super) policy: Arc<dyn crate::capture::shared_scope::CapturePolicy>,
+    pub(super) mood: Arc<crate::capture::emotion_pool::EmotionalPool>,
+    pub(super) host: Arc<dyn HostServices>,
+}
+
+impl JobBody for NeoRebuild {
+    fn name(&self) -> JobName {
+        JobName::EpisodesRebuild
+    }
+
+    fn run(&self, context: &JobContext, cancel: &Cancel) -> Result<JobReport, EngineError> {
+        let authority = context.authority()?;
+        cancel.check()?;
+        let episodes = match EpisodeStore::open(
+            &self.root,
+            self.host.clone(),
+            self.policy.clone(),
+            self.mood.clone(),
+        ) {
+            Ok(episodes) => episodes,
+            Err(StoreError::Io {
+                kind: std::io::ErrorKind::NotFound,
+            }) => {
+                return Ok(JobReport::completed());
+            }
+            Err(error) => return Err(error.into()),
+        };
+        episodes.rebuild_for_job(authority, context.now_ms, cancel)?;
+        Ok(JobReport::completed())
+    }
+}
+
+fn skip_when_neo_disabled(job: JobName) -> bool {
+    matches!(job, JobName::EmbeddingDrain | JobName::EpisodesRebuild)
+}
+
 /// The process's job registry, its composition state and its shutdown signal.
 pub(super) struct ProcessJobs {
     root: Option<PathBuf>,
     host: Arc<dyn HostServices>,
     neo_enabled: bool,
     drain: Option<Arc<NeoDrain>>,
-    lance_jobs: Vec<Arc<dyn JobBody>>,
+    scoped_jobs: Vec<Arc<dyn JobBody>>,
     registry: Mutex<Option<Arc<Registry>>>,
     /// Health projections while no registry is bound yet.
     unbound: HealthCache,
@@ -159,7 +198,7 @@ impl ProcessJobs {
             host,
             neo_enabled,
             drain: None,
-            lance_jobs: Vec::new(),
+            scoped_jobs: Vec::new(),
             registry: Mutex::new(None),
             unbound: HealthCache::default(),
             invalid: AtomicBool::new(false),
@@ -177,8 +216,8 @@ impl ProcessJobs {
         self
     }
 
-    pub(super) fn with_lance_jobs(mut self, bodies: Vec<Arc<dyn JobBody>>) -> Self {
-        self.lance_jobs = bodies;
+    pub(super) fn with_scoped_jobs(mut self, bodies: Vec<Arc<dyn JobBody>>) -> Self {
+        self.scoped_jobs = bodies;
         self
     }
 
@@ -237,7 +276,7 @@ impl ProcessJobs {
         }
         match job {
             JobName::EmbeddingDrain => self.drain.is_some(),
-            _ => self.lance_jobs.iter().any(|body| body.name() == job),
+            _ => self.scoped_jobs.iter().any(|body| body.name() == job),
         }
     }
 
@@ -246,7 +285,7 @@ impl ProcessJobs {
         if self.fixture().is_some_and(|(body, _)| body.name() == job) {
             return true;
         }
-        self.needs_authority(job) || (job == JobName::EmbeddingDrain && !self.neo_enabled)
+        self.needs_authority(job) || (!self.neo_enabled && skip_when_neo_disabled(job))
     }
 
     fn slot(&self) -> MutexGuard<'_, Option<Arc<Registry>>> {
@@ -322,11 +361,12 @@ impl ProcessJobs {
             }
         };
         if !self.neo_enabled {
-            registry.bind(Arc::new(NeoDisabledDrain))?;
+            registry.bind(Arc::new(NeoDisabled(JobName::EmbeddingDrain)))?;
+            registry.bind(Arc::new(NeoDisabled(JobName::EpisodesRebuild)))?;
         } else if let Some(drain) = &self.drain {
             registry.bind_scoped(drain.clone())?;
         }
-        for body in &self.lance_jobs {
+        for body in &self.scoped_jobs {
             #[cfg(test)]
             if self
                 .fixture()
