@@ -25,7 +25,7 @@ describe("M1b-3 — dreaming scheduler through the CLI", () => {
       assert.equal(set.schema, "dreams.schedule.set/1");
       assert.equal(set.schedule.timezone, "Europe/Berlin");
       const bad = cli(h, ["dreams", "schedule", "set", "deep", "--agent", "bernd", "--cron", "not a cron"], { allowFail: true });
-      assert.equal(bad.exit, 1);
+      assert.equal(bad.exit, 2);
       assert.equal(JSON.parse(bad.stdout).error, "E_INVALID_PARAMS");
       assert.equal(cli(h, ["dreams", "schedule", "get", "--agent", "bernd"]).schedules[2].cron, "30 5 * * *");
       assert.equal(cli(h, ["dreams", "disable", "rem", "--agent", "bernd"]).schedule.enabled, false);
