@@ -1,0 +1,260 @@
+[
+  {
+    "config": {
+      "modules": {
+        "fixture": {
+          "enabled": false,
+          "ordinary": "sk-0f0f0f0f-aaaa-bbbb-cccc-123456789abc"
+        }
+      }
+    },
+    "modules": [
+      {
+        "name": "fixture",
+        "text": "{\"apiVersion\":\"1\",\"configSchema\":{\"$defs\":{\"name\":{\"type\":\"string\",\"x-secret-reference\":true}},\"properties\":{\"ordinary\":{\"$ref\":\"#/$defs/name\"}}},\"entry\":\"index.js\",\"name\":\"fixture\",\"priority\":500,\"scope\":\"installation\",\"version\":\"0.1.0\"}"
+      }
+    ],
+    "name": "reference-only behind a $ref",
+    "values": [
+      "sk-0f0f0f0f-aaaa-bbbb-cccc-123456789abc"
+    ],
+    "warnings": [
+      {
+        "key": "modules.fixture",
+        "message": "Module sensitivity metadata is unavailable; values remain private. Repair its module.json manifest."
+      }
+    ]
+  },
+  {
+    "config": {
+      "modules": {
+        "fixture": {
+          "enabled": false,
+          "ordinary": "sk-0f0f0f0f-aaaa-bbbb-cccc-123456789abc"
+        }
+      }
+    },
+    "modules": [
+      {
+        "name": "fixture",
+        "text": "{\"apiVersion\":\"1\",\"configSchema\":{\"allOf\":[{\"properties\":{\"ordinary\":{\"type\":\"string\",\"x-secret-reference\":true}}}]},\"entry\":\"index.js\",\"name\":\"fixture\",\"priority\":500,\"scope\":\"installation\",\"version\":\"0.1.0\"}"
+      }
+    ],
+    "name": "reference-only behind allOf",
+    "values": [
+      "sk-0f0f0f0f-aaaa-bbbb-cccc-123456789abc"
+    ],
+    "warnings": [
+      {
+        "key": "modules.fixture",
+        "message": "Module sensitivity metadata is unavailable; values remain private. Repair its module.json manifest."
+      }
+    ]
+  },
+  {
+    "config": {
+      "modules": {
+        "absent": {
+          "enabled": false,
+          "ordinary": "sk-missing-value-5678"
+        },
+        "alpha": {
+          "enabled": false,
+          "reference": "alpha.primary",
+          "region": "public-config-region",
+          "unknown": "sk-unknown-value-1234"
+        },
+        "beta": {
+          "enabled": false,
+          "reference": "beta.primary"
+        }
+      }
+    },
+    "modules": [
+      {
+        "name": "alpha",
+        "text": "{\"apiVersion\":\"1\",\"configSchema\":{\"$defs\":{\"shared\":{\"enum\":[\"alpha.primary\"],\"type\":\"string\"}},\"properties\":{\"reference\":{\"type\":\"string\",\"x-secret-reference\":{\"$ref\":\"#/$defs/shared\"},\"x-sensitive\":true},\"region\":{\"type\":\"string\"}},\"type\":\"object\"},\"entry\":\"index.js\",\"name\":\"alpha\",\"priority\":500,\"scope\":\"installation\",\"version\":\"0.1.0\"}"
+      },
+      {
+        "name": "beta",
+        "text": "{\"apiVersion\":\"1\",\"configSchema\":{\"$defs\":{\"shared\":{\"enum\":[\"beta.primary\"],\"type\":\"string\"}},\"properties\":{\"reference\":{\"type\":\"string\",\"x-secret-reference\":{\"$ref\":\"#/$defs/shared\"},\"x-sensitive\":true},\"region\":{\"type\":\"string\"}},\"type\":\"object\"},\"entry\":\"index.js\",\"name\":\"beta\",\"priority\":500,\"scope\":\"installation\",\"version\":\"0.1.0\"}"
+      }
+    ],
+    "name": "isolated definitions",
+    "values": [
+      "sk-missing-value-5678",
+      "sk-unknown-value-1234"
+    ],
+    "warnings": []
+  },
+  {
+    "config": {
+      "modules": {
+        "fixture": {
+          "enabled": false,
+          "ordinary": "plain-ordinary-value-xyz"
+        }
+      }
+    },
+    "modules": [
+      {
+        "name": "fixture",
+        "text": "{"
+      }
+    ],
+    "name": "damaged json",
+    "values": [
+      "plain-ordinary-value-xyz"
+    ],
+    "warnings": [
+      {
+        "key": "modules.fixture",
+        "message": "Module sensitivity metadata is unavailable; values remain private. Repair its module.json manifest."
+      }
+    ]
+  },
+  {
+    "config": {
+      "modules": {
+        "fixture": {
+          "enabled": false,
+          "ordinary": "plain-ordinary-value-xyz"
+        }
+      }
+    },
+    "modules": [
+      {
+        "name": "fixture",
+        "text": "{\"name\":\"fixture\"}"
+      }
+    ],
+    "name": "manifest without the required members",
+    "values": [
+      "plain-ordinary-value-xyz"
+    ],
+    "warnings": [
+      {
+        "key": "modules.fixture",
+        "message": "Module sensitivity metadata is unavailable; values remain private. Repair its module.json manifest."
+      }
+    ]
+  },
+  {
+    "config": {
+      "modules": {
+        "fixture": {
+          "enabled": false,
+          "ordinary": "plain-ordinary-value-xyz"
+        }
+      }
+    },
+    "modules": [
+      {
+        "name": "fixture",
+        "text": "{\"name\":\"other\",\"version\":\"0.1.0\",\"apiVersion\":\"1\",\"entry\":\"index.js\",\"scope\":\"installation\",\"priority\":500,\"configSchema\":{\"type\":\"object\"}}"
+      }
+    ],
+    "name": "name differs from the directory",
+    "values": [
+      "plain-ordinary-value-xyz"
+    ],
+    "warnings": [
+      {
+        "key": "modules.fixture",
+        "message": "Module sensitivity metadata is unavailable; values remain private. Repair its module.json manifest."
+      }
+    ]
+  },
+  {
+    "config": {
+      "modules": {
+        "fixture": {
+          "enabled": false,
+          "ordinary": "plain-ordinary-value-xyz"
+        }
+      }
+    },
+    "modules": [
+      {
+        "name": "fixture",
+        "text": "{\"apiVersion\":\"1\",\"configSchema\":{\"properties\":{\"ordinary\":{\"type\":\"string\"}},\"type\":\"object\"},\"entry\":\"index.js\",\"name\":\"fixture\",\"priority\":500,\"scope\":\"installation\",\"version\":\"0.1.0\"}"
+      }
+    ],
+    "name": "typed public member",
+    "values": [],
+    "warnings": []
+  },
+  {
+    "config": {
+      "modules": {
+        "fixture": {
+          "enabled": true,
+          "ordinary": "plain-ordinary-value-xyz"
+        }
+      }
+    },
+    "modules": [
+      {
+        "name": "fixture",
+        "text": "{\"apiVersion\":\"1\",\"entry\":\"index.js\",\"name\":\"fixture\",\"priority\":500,\"scope\":\"installation\",\"version\":\"0.1.0\"}"
+      }
+    ],
+    "name": "module without a schema",
+    "values": [],
+    "warnings": []
+  },
+  {
+    "config": {
+      "modules": {
+        "fixture": {
+          "enabled": true,
+          "url": "https://u:pw-marker-value@h.example/p"
+        }
+      }
+    },
+    "modules": [
+      {
+        "name": "fixture",
+        "text": "{\"apiVersion\":\"1\",\"configSchema\":{\"properties\":{\"url\":{\"type\":\"string\",\"x-url-credentials\":true}},\"type\":\"object\"},\"entry\":\"index.js\",\"name\":\"fixture\",\"priority\":500,\"scope\":\"installation\",\"version\":\"0.1.0\"}"
+      }
+    ],
+    "name": "url userinfo warning prefixed with the module",
+    "values": [
+      "pw-marker-value"
+    ],
+    "warnings": [
+      {
+        "key": "modules.fixture.url",
+        "message": "URL userinfo is discouraged; use the provider's secret-store reference field instead."
+      }
+    ]
+  },
+  {
+    "config": {
+      "modules": {
+        "fixture": {
+          "enabled": true,
+          "token": "literal-value-123456"
+        }
+      }
+    },
+    "modules": [],
+    "name": "no modules directory",
+    "values": [
+      "literal-value-123456"
+    ],
+    "warnings": []
+  },
+  {
+    "config": {},
+    "modules": [
+      {
+        "name": "fixture",
+        "text": "{\"apiVersion\":\"1\",\"configSchema\":{\"type\":\"object\"},\"entry\":\"index.js\",\"name\":\"fixture\",\"priority\":500,\"scope\":\"installation\",\"version\":\"0.1.0\"}"
+      }
+    ],
+    "name": "no modules configured",
+    "values": [],
+    "warnings": []
+  }
+]

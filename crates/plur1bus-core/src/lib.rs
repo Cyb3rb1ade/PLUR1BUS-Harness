@@ -18,6 +18,15 @@
 //! - [`legacy`]: spawning the legacy core and its ready line;
 //! - [`frame`]: NDJSON lines and error frames.
 //!
+//! Library modules of P4-11 (configuration, logs, doctor, metrics). They are ported and tested but not used by the
+//! running front door yet: the P4-11 flip PR moves `logs.*` and `doctor.*` into the native method set and makes the
+//! front door write its own log records.
+//! - [`logs`]: the D111 log writer, sink, redaction surface, query and the `logs.*` handlers;
+//! - [`config`]: loading and validating config.json, warnings, the disclosure policy, the engine configuration and the
+//!   configuration source (supervisor watch or file);
+//! - [`metrics`]: the metrics registry, the core's metrics, the metrics token and the loopback `GET /metrics` endpoint;
+//! - [`doctor`]: the doctor report.
+//!
 //! Shared crates: `plur1bus-canon` (canonical JSON, action hash), `plur1bus-store` (SQLite conventions),
 //! `plur1bus-tokens` (token counter), `plur1bus-audit` (audit chain and the core lock), `plur1bus-rpc` (types, client,
 //! server half).
@@ -28,11 +37,15 @@
 
 pub mod auth;
 pub mod cli;
+pub mod config;
+pub mod doctor;
 pub mod events;
 pub mod frame;
 pub mod legacy;
 pub mod lifecycle;
 pub mod lock;
+pub mod logs;
+pub mod metrics;
 pub mod peek;
 pub mod relay;
 pub mod route;

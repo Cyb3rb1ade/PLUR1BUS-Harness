@@ -1,0 +1,162 @@
+{
+  "fromMeta": [
+    {
+      "adopted": true,
+      "link": null,
+      "meta": {
+        "traceparent": "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01"
+      },
+      "name": "trusted-valid",
+      "traceparent": "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01",
+      "trusted": true
+    },
+    {
+      "adopted": false,
+      "link": "0123456789abcdef0123456789abcdef",
+      "meta": {
+        "traceparent": "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01"
+      },
+      "name": "untrusted-valid",
+      "traceparent": null,
+      "trusted": false
+    },
+    {
+      "adopted": false,
+      "link": null,
+      "meta": {
+        "traceparent": "nope"
+      },
+      "name": "trusted-invalid",
+      "traceparent": null,
+      "trusted": true
+    },
+    {
+      "adopted": false,
+      "link": null,
+      "meta": {
+        "traceparent": "nope"
+      },
+      "name": "untrusted-invalid",
+      "traceparent": null,
+      "trusted": false
+    },
+    {
+      "adopted": false,
+      "link": null,
+      "meta": {},
+      "name": "trusted-no-carrier",
+      "traceparent": null,
+      "trusted": true
+    },
+    {
+      "adopted": false,
+      "link": null,
+      "meta": null,
+      "name": "null-meta",
+      "traceparent": null,
+      "trusted": true
+    },
+    {
+      "adopted": false,
+      "link": null,
+      "meta": {
+        "traceparent": "00-00000000000000000000000000000000-0123456789abcdef-01"
+      },
+      "name": "trusted-zero-trace",
+      "traceparent": null,
+      "trusted": true
+    }
+  ],
+  "parse": [
+    {
+      "input": "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01",
+      "name": "valid",
+      "output": {
+        "span_id": "0123456789abcdef",
+        "trace_id": "0123456789abcdef0123456789abcdef",
+        "traceparent": "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01"
+      }
+    },
+    {
+      "input": "00-0123456789abcdef0123456789abcdef-0123456789abcdef-00",
+      "name": "flags-00",
+      "output": {
+        "span_id": "0123456789abcdef",
+        "trace_id": "0123456789abcdef0123456789abcdef",
+        "traceparent": "00-0123456789abcdef0123456789abcdef-0123456789abcdef-00"
+      }
+    },
+    {
+      "input": "00-0123456789ABCDEF0123456789ABCDEF-0123456789abcdef-01",
+      "name": "upper-case-hex",
+      "output": null
+    },
+    {
+      "input": "00-00000000000000000000000000000000-0123456789abcdef-01",
+      "name": "zero-trace",
+      "output": null
+    },
+    {
+      "input": "00-0123456789abcdef0123456789abcdef-0000000000000000-01",
+      "name": "zero-span",
+      "output": null
+    },
+    {
+      "input": "01-0123456789abcdef0123456789abcdef-0123456789abcdef-01",
+      "name": "other-version",
+      "output": null
+    },
+    {
+      "input": "00-123456789abcdef0123456789abcdef-0123456789abcdef-01",
+      "name": "short-trace",
+      "output": null
+    },
+    {
+      "input": "00-0123456789abcdef0123456789abcdef-0123456789abcdef0-01",
+      "name": "long-span",
+      "output": null
+    },
+    {
+      "input": "00-0123456789abcdef0123456789abcdef-0123456789abcdef-zz",
+      "name": "flags-not-hex",
+      "output": null
+    },
+    {
+      "input": "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01\n",
+      "name": "trailing-newline",
+      "output": null
+    },
+    {
+      "input": " 00-0123456789abcdef0123456789abcdef-0123456789abcdef-01",
+      "name": "leading-space",
+      "output": null
+    },
+    {
+      "input": "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01-extra",
+      "name": "tracestate-suffix",
+      "output": null
+    },
+    {
+      "input": "",
+      "name": "empty",
+      "output": null
+    },
+    {
+      "input": 7,
+      "name": "number",
+      "output": null
+    },
+    {
+      "input": null,
+      "name": "null",
+      "output": null
+    },
+    {
+      "input": {
+        "traceparent": "x"
+      },
+      "name": "object",
+      "output": null
+    }
+  ]
+}

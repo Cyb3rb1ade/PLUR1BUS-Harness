@@ -8,6 +8,10 @@ import { buildDispatcherVectors } from "./export-dispatcher.ts";
 import { buildWireFixtures } from "./export-wire.ts";
 import { buildFormatVectors } from "./export-formats.ts";
 import { buildAuthVectors, credentials, substitute } from "./export-auth.ts";
+import { buildConfigVectors } from "./export-config.ts";
+import { buildLogsVectors } from "./export-logs.ts";
+import { buildDoctorVectors } from "./export-doctor.ts";
+import { buildMetricsVectors } from "./export-metrics.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
 describe("parity fixture writer (mode V)", () => {
@@ -151,5 +155,96 @@ describe("auth vectors (P4-10 task review L9)", () => {
     assert.equal(parsed.b, parsed.a.toUpperCase());
     assert.notEqual(parsed.a, parsed.c);
     assert.notEqual(credentials()["@api@"], values["@api@"], "fresh on every run");
+  });
+});
+
+describe("logs vectors (P4-11 tasks 1 to 3)", () => {
+  it("the committed fixtures are exactly what the exporter records, and no credential is recorded in one piece", async () => {
+    const built = await buildLogsVectors();
+    assert.deepEqual(Object.keys(built).sort(), ["files", "levels", "lines", "methods", "output", "query", "records", "redact", "secret-matcher", "trace"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("logs", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/logs/${name}.json is stale: run scripts/parity/export-logs.ts`);
+      // The canaries of the TypeScript tests are stored as the fragments the tests assemble them from (`{ parts }`).
+      assert.doesNotMatch(text, /sk-[A-Za-z0-9-]{20,}|gh[pousr]_[A-Za-z0-9]{30,}|AKIA[0-9A-Z]{16}|xox[baprs]-[0-9A-Za-z-]{10,}|eyJ[A-Za-z0-9_-]{10,}\.eyJ/);
+    }
+  });
+
+  it("records every divergence between JavaScript and Rust with a note, and covers the cases of the TypeScript tests", async () => {
+    const built = await buildLogsVectors() as any;
+    const noted = built.redact.text.filter((c: any) => c.note).map((c: any) => c.name);
+    for (const name of ["unicode-fold-kelvin-sign-in-a-header-name", "js-whitespace-bom-after-bearer", "js-whitespace-nel-after-bearer", "lone-surrogates-in-the-input-become-replacement-characters"])
+      assert.ok(noted.includes(name), name);
+    assert.ok(built.redact.value.some((c: any) => c.name === "secrets-only-repeated-key-numbering" && c.note), "the key order of a serde_json::Map is pinned");
+    assert.ok(built.redact.maskJson.some((c: any) => c.loneSurrogate && c.note), "a JSON text with a lone surrogate escape is pinned");
+    assert.ok(built.redact.text.length > 80 && built.redact.value.length >= 10 && built["secret-matcher"].text.length >= 15);
+    // Task 3: the log query and the handlers.
+    assert.ok(built.query.scans.length >= 60 && built.query.fingerprint.length > 0 && built.query.mint.length > 0 && built.query.decode.length > 0);
+    assert.ok(built.methods.query.length > 0 && built.methods.levels.length > 0 && Object.keys(built.methods.time).length > 0);
+    assert.ok(built.query.scans.some((c: any) => c.name === "a-budget-smaller-than-the-first-read"));
+    // The residual case (a registered value held by a number) must throw, not mask.
+    assert.equal(built.redact.maskJson.find((c: any) => c.name === "number-holds-the-secret").result, "error");
+  });
+
+  it("pins the write path: attribute-order differences carry a note and the canonical Rust line, and the cases of the TypeScript tests are covered", async () => {
+    const built = await buildLogsVectors() as any;
+    const cases = new Map<string, any>(built.records.cases.map((c: any) => [c.name, c]));
+    for (const name of ["attributes-in-caller-order", "legacy-line-field-order", "oversized-text-is-cut", "level-change-records", "rate-limit-reports-drops"]) {
+      assert.ok(cases.get(name)?.note, `${name} differs from the Rust bytes in attribute order and says so`);
+      assert.equal(cases.get(name).canonical.length, cases.get(name).lines.length);
+    }
+    for (const name of ["started-record", "dedup-then-summary", "legacy-too-long-is-summarised", "legacy-message-cut"]) assert.equal(cases.get(name)?.note, undefined, `${name} is byte-identical`);
+    assert.ok(built.levels.cases.length >= 8 && built.trace.parse.length >= 16 && built.output.sanitise.length >= 16 && built.files.cases.length >= 14 && built.lines.cases.length >= 9);
+    assert.ok(built.lines.cases.find((c: any) => c.name === "stamped-lines").seek.length >= 13, "seekByTs binary search is exercised on a file above 64 KiB");
+  });
+});
+
+describe("config vectors (P4-11 task 4a)", () => {
+  it("the committed fixtures are exactly what the exporter records, and they cover every area", async () => {
+    const built = await buildConfigVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["disclosure", "engine", "patch", "validate", "warnings"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("config", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/config/${name}.json is stale: run scripts/parity/export-config.ts`);
+      assert.doesNotMatch(text, /sk-[A-Za-z0-9]{20,}|gh[pousr]_[A-Za-z0-9]{30,}|AKIA[0-9A-Z]{16}|xox[baprs]-[0-9A-Za-z-]{10,}|eyJ[A-Za-z0-9_-]{10,}\.eyJ/);
+    }
+    assert.ok(built.validate.length >= 60 && built.warnings.some((c: any) => c.warnings.length === 50));
+    assert.ok(built.engine.some((c: any) => c.ok) && built.engine.some((c: any) => !c.ok && c.error.reason === "local-only") && built.engine.some((c: any) => c.catalog));
+    assert.ok(built.patch.some((c: any) => !c.ok) && built.disclosure.length >= 10);
+  });
+});
+
+describe("metrics vectors (P4-11 task 5b)", () => {
+  it("the committed fixtures are exactly what the exporter records, and they cover refusals, number printing and collation", async () => {
+    const built = await buildMetricsVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["metrics", "registry"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("metrics", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/metrics/${name}.json is stale: run scripts/parity/export-metrics.ts`);
+      assert.doesNotMatch(text, /sk-[A-Za-z0-9]{20,}|gh[pousr]_[A-Za-z0-9]{30,}|AKIA[0-9A-Z]{16}|xox[baprs]-[0-9A-Za-z-]{10,}|eyJ[A-Za-z0-9_-]{10,}\.eyJ/);
+    }
+    const cases = new Map<string, any>(built.registry.cases.map((c: any) => [c.name, c]));
+    assert.ok(built.registry.cases.length >= 25 && built.metrics.cases.length >= 15 && built.metrics.methods.length > 100);
+    assert.ok(cases.get("number-formatting-of-gauge-values").results.at(-1).text.includes("1e+21"));
+    assert.ok(cases.get("series-order-follows-icu-locale-compare").results.at(-1).text.includes("a_b"));
+    assert.ok(cases.get("refusals-of-the-series-cap").results.some((r: any) => /maxSeries must be an integer/.test(r.error)));
+    assert.ok(built.registry.cases.every((c: any) => c.results.length === c.ops.length));
+  });
+});
+
+describe("doctor vectors (P4-11 task 6)", () => {
+  it("the committed fixture is exactly what the exporter records, and it covers refusals, path cleaning and every platform", async () => {
+    const built = await buildDoctorVectors() as any;
+    assert.deepEqual(Object.keys(built), ["report"]);
+    const text = readFileSync(fixturePath("doctor", "report"), "utf8");
+    assert.equal(text, fixtureText(built.report), "fixtures/parity/doctor/report.json is stale: run scripts/parity/export-doctor.ts");
+    assert.doesNotMatch(text, /sk-[A-Za-z0-9]{20,}|gh[pousr]_[A-Za-z0-9]{30,}|AKIA[0-9A-Z]{16}|xox[baprs]-[0-9A-Za-z-]{10,}|eyJ[A-Za-z0-9_-]{10,}\.eyJ/);
+    const cases: any[] = built.report.cases;
+    assert.ok(cases.length >= 100);
+    assert.ok(cases.some((c) => c.expected.error?.reason === "firstaid-invalid") && cases.some((c) => c.expected.error?.reason === "firstaid-unavailable"));
+    for (const platform of ["linux", "darwin", "win32"]) assert.ok(cases.some((c) => c.platform === platform && c.expected.ok));
+    const paths = cases.find((c) => c.name === "path-cleaning-foreign-homes-and-mail");
+    for (const leak of ["bob", "Carol", "anna", "dave"]) assert.equal(JSON.stringify(paths.expected).includes(leak), false, leak);
+    assert.equal(process.env.HOME === "/fake-user", false, "the exporter restores HOME");
   });
 });
