@@ -304,6 +304,11 @@ impl ProcessEngine {
                     scope: scope.clone(),
                     base: base.clone(),
                 }),
+                Arc::new(crate::jobs::skill_miner::SkillMiner {
+                    scope: scope.clone(),
+                    base: base.clone(),
+                    completion: completion.cloned(),
+                }),
                 Arc::new(crate::jobs::consolidate_daily::ConsolidateDaily {
                     scope: scope.clone(),
                     neo_root: neo_enabled.then(|| engine_warm::neo_root(&raw["neo"], base)),

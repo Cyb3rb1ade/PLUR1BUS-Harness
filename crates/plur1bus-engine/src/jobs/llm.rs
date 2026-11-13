@@ -51,6 +51,24 @@ impl<'a> JobCompletion<'a> {
             ),
         })
     }
+
+    pub(crate) fn complete_json(
+        &self,
+        params: LlmParams,
+        cancel: &Cancel,
+    ) -> Result<LlmResult, HostError> {
+        match self {
+            Self::Direct(direct) => direct.request(params, cancel, true),
+            Self::Host { .. } => self.complete(params, cancel),
+        }
+    }
+
+    pub(crate) fn route_model(&self) -> Option<&str> {
+        match self {
+            Self::Host { model, .. } => model.as_deref(),
+            Self::Direct(direct) => Some(direct.model()),
+        }
+    }
 }
 
 impl LlmPort for JobCompletion<'_> {

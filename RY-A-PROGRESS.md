@@ -171,7 +171,24 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   private lease after rechecking the source rows and feature policy. Vault
   and mirror writes are assigned to RE-07.
 
+- RE-D198: Skill extraction uses reviewed epistemic rows in the exact
+  private owner tuple. Ownerless and legacy blank epistemic rows are
+  ineligible. The version 3 two-message prompt preserves Node JSON order
+  and UTF-16 escapes. Configure JSON response mode on direct calls. An
+  unresolved host model omits persistent decision caching. A transport or
+  malformed response remains retryable. The native catalogue is private,
+  stores only pending proposals, and uses deterministic content-addressed
+  IDs. Workshop publication, approved apply, supersession and complete
+  Node delta parity remain open.
+
 ## Tasks
+
+- T5 Skill Miner: `cargo test --locked -p plur1bus-engine --lib skill_`
+  5 passed, 0 failed, 0 ignored. Process coverage includes transport retry,
+  seven-day cache expiry, and owner isolation through to a pending proposal.
+  Workspace Clippy passed. Two UTC invocations of the reference recorder,
+  each recording twice, produced SHA-256
+  `ef00ddd49fe2b1deb6d98403dfe6cdfe6d22e8d6698241be3a38d6dfddc1f3fa`.
 
 - T3 C5 `discover-semantic-links`: `cargo test --locked -p plur1bus-engine
   --lib rpc::engine::jobs_tests::semantic_discovery` 1 passed, 0 failed,
@@ -358,8 +375,9 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
   mutation, prompting and other reflection bodies remain open.
 - [ ] RE-06 T5 skill mining. Version-2 decision cache with exact ordered
   fingerprints, seven-day expiry, bounded atomic writes and terminal-only
-  decisions is implemented. Grouping, catalogue selection, proposal writes,
-  supersession and wiring N3 into the writer remain open. The N3 metadata
+  decisions is implemented. Grouping, catalogue selection and private
+  pending proposal writes are wired. Supersession and wiring N3 into
+  the writer remain open. The N3 metadata
   and apply-time hash revalidation match v7.19.2 in the focused codec test.
   `cargo test --locked -p plur1bus-engine --lib jobs::review_approval::`:
   2 passed, 0 failed, 0 ignored.

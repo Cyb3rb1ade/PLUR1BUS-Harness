@@ -2622,3 +2622,132 @@ fn the_budget_ending_right_after_the_marker_leaves_no_orphan_and_answers_busy() 
     drain(&engine, &alpha(), &Cancel::never()).unwrap();
     engine.close(None).unwrap();
 }
+
+#[test]
+fn skill_miner_retries_transport_and_memoizes_only_a_terminal_scoped_decision() {
+    use crate::{
+        capture::row_defaults::schema_defaults,
+        context::{harness_user_principal, RouteVocabulary},
+        contract::{HostError, LlmResult},
+        jobs::authority::JobAuthority,
+        ops::write::MutationStores,
+        recall::knowledge::private_key,
+    };
+    use std::sync::atomic::AtomicUsize;
+    let temp = scratch();
+    let base = temp.path().join("db");
+    let host = Arc::new(FakeHost::new(
+        temp.path().join("state"),
+        serde_json::from_value(json!({
+            "baseDbPath":base,"neo":{"enabled":false},
+            "skillMiner":{"enabled":true,"model":"fixture/skill","maxPerRun":1}
+        }))
+        .unwrap(),
+    ));
+    host.set_now_ms(NOW);
+    host.set_workspace(&alpha(), temp.path().to_owned());
+    let calls = Arc::new(AtomicUsize::new(0));
+    let used = calls.clone();
+    let completion: Arc<crate::jobs::llm::CompleteFor> = Arc::new(move |agent, params, _| {
+        assert_eq!(agent, &alpha());
+        assert_eq!(params.model.as_deref(), Some("fixture/skill"));
+        let prompt = &params.messages[1].content;
+        assert!(prompt.contains("signed checksum"));
+        assert!(!prompt.contains("Foreign"));
+        let text = match used.fetch_add(1, Ordering::SeqCst) {
+            0 => return Err(HostError::Unavailable),
+            1 => r#"{"skip":true}"#,
+            _ => {
+                r#"{"skillName":"release-signing","instructions":"Sign the checksum before publishing.","confidence":0.9}"#
+            }
+        };
+        Ok(LlmResult {
+            text: text.into(),
+            model: None,
+            usage: None,
+        })
+    });
+    let engine =
+        ProcessEngine::with_job_completion(host.clone(), Some(Seam::FlatEmbedder), &completion)
+            .unwrap();
+    let workspace = format!("workspace-dir:v1:{}", temp.path().display());
+    let owner = harness_user_principal("skill-owner");
+    let principal = serde_json::from_value::<Principal>(json!({
+        "agentId":"alpha","workspace":workspace,"user":owner,"channel":"telegram","accountId":"fixture",
+        "chat":{"id":"fixture","kind":"direct"},"trust":"proved"
+    })).unwrap();
+    let grant = || {
+        JobAuthority::from_host(
+            host.as_ref(),
+            JobName::SkillMiner,
+            &alpha(),
+            principal.clone(),
+            serde_json::from_value(json!({"origin":"cron","background":true})).unwrap(),
+            RouteVocabulary::shared(),
+        )
+        .unwrap()
+    };
+    let _opened = engine.open(&alpha()).unwrap();
+    let store = engine
+        .live_stores
+        .existing_private(grant().request())
+        .unwrap()
+        .unwrap();
+    let other = harness_user_principal("skill-other");
+    let row = |id, who: &str, text: &str| {
+        let mut row = schema_defaults(vec![0.; 384]);
+        row.id = uuid::Uuid::from_u128(id).to_string();
+        row.agent_id = "alpha".into();
+        row.stored_by = row.agent_id.clone();
+        row.owner_user_id = who.into();
+        row.workspace_id = workspace.clone();
+        row.workspace_key = workspace.clone();
+        row.text = text.into();
+        row.created_at = NOW.into();
+        row.epistemic_status = "trusted".into();
+        row.category = "fact".into();
+        row
+    };
+    let a = row(
+        1,
+        &owner,
+        "Publish signed checksum during release workflow for stable artifacts.",
+    );
+    let b = row(
+        2,
+        &owner,
+        "Publish signed checksum during release workflow for updated artifacts.",
+    );
+    let c = row(
+        3,
+        &other,
+        "Foreign signed checksum workflow publishes release artifacts.",
+    );
+    store.upsert(&[a, b, c]).unwrap();
+    let run = || {
+        engine
+            .run_authorized_job(grant(), options("harness"), &Cancel::never())
+            .unwrap()
+    };
+    assert_eq!(run().reason.as_deref(), Some("skill_extraction_retry"));
+    assert_eq!(run().outcome, JobOutcome::Completed);
+    host.set_now_ms(NOW + 86_400_000);
+    let cached = run();
+    assert_eq!(cached.counts["skippedKnownCluster"].as_u64(), Some(1));
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    host.set_now_ms(NOW + 7 * 86_400_000);
+    let done = run();
+    assert_eq!(
+        done.counts["proposalsCreated"].as_u64(),
+        Some(1),
+        "{done:?}"
+    );
+    let path = base
+        .join("_skills")
+        .join(private_key(grant().request()).unwrap())
+        .join("skill-proposals.jsonl");
+    let entry: Value = serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap();
+    assert_eq!(entry["status"], "pending_review");
+    assert_eq!(entry["aclBindings"]["ownerUserId"], owner);
+    assert_eq!(entry["evidence"]["memoryIds"].as_array().unwrap().len(), 2);
+}

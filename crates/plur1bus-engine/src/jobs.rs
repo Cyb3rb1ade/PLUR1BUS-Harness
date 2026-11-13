@@ -27,6 +27,7 @@ pub(crate) mod reminder_dispatch;
 pub mod review_approval;
 pub(crate) mod semantic_discovery;
 pub mod skill_decisions;
+pub(crate) mod skill_miner;
 use crate::contract::{
     JobName, JobSpec, JobSpecDefaultSchedule, JobSpecDefaultScheduleKind, JobSpecPhase,
 };

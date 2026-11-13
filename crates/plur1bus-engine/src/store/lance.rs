@@ -406,6 +406,23 @@ impl Store {
         self.scan_page(rem_candidate_predicate(scope, start), offset, limit)
     }
 
+    pub(crate) fn skill_evidence(
+        &self,
+        scope: &RowFilter,
+        limit: usize,
+    ) -> Result<Vec<MemoryRow>, StoreError> {
+        self.scan_where(
+            format!(
+                "{} AND id != '__schema__' AND
+                 (memoryClass IS NULL OR memoryClass != 'dream') AND
+                 epistemicStatus IN ('observed', 'corroborated', 'trusted') AND
+                 category IN ('decision', 'fact', 'strategy', 'preference', 'workspace_rule', 'user_preference')",
+                scope.to_sql(),
+            ),
+            limit,
+        )
+    }
+
     pub(crate) fn rem_neighbors(
         &self,
         scope: &RowFilter,

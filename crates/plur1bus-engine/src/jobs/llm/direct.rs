@@ -22,6 +22,10 @@ pub(crate) struct DirectCompletion<'a> {
 }
 
 impl<'a> DirectCompletion<'a> {
+    pub(super) fn model(&self) -> &str {
+        self.model
+    }
+
     pub(super) fn from_settings(host: Arc<dyn HostServices>, settings: &'a Value) -> Option<Self> {
         let model = nonempty(&settings["model"])?;
         let base = nonempty(&settings["baseUrl"]).unwrap_or(DEFAULT_BASE);
@@ -44,10 +48,13 @@ impl<'a> DirectCompletion<'a> {
             model,
         })
     }
-}
 
-impl LlmPort for DirectCompletion<'_> {
-    fn complete(&self, params: LlmParams, cancel: &Cancel) -> Result<LlmResult, HostError> {
+    pub(super) fn request(
+        &self,
+        params: LlmParams,
+        cancel: &Cancel,
+        json_mode: bool,
+    ) -> Result<LlmResult, HostError> {
         cancel.check()?;
         let timeout = self.settings["timeoutMs"]
             .as_f64()
@@ -102,6 +109,9 @@ impl LlmPort for DirectCompletion<'_> {
             "model":model,"messages":params.messages,
             "max_tokens":params.max_tokens.unwrap_or_else(|| 300.into()),
         });
+        if json_mode {
+            body["response_format"] = json!({"type":"json_object"});
+        }
         if let Some(temperature) = params.temperature {
             body["temperature"] = temperature.into();
         }
@@ -138,6 +148,12 @@ impl LlmPort for DirectCompletion<'_> {
                 output_tokens: tokens(usage, "completion_tokens", "output_tokens"),
             }),
         })
+    }
+}
+
+impl LlmPort for DirectCompletion<'_> {
+    fn complete(&self, params: LlmParams, cancel: &Cancel) -> Result<LlmResult, HostError> {
+        self.request(params, cancel, false)
     }
 }
 
