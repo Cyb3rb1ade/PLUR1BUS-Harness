@@ -7,8 +7,9 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
 ## Rulings
 
 - RE-D177: Use the owner's explicitly named A0 head while #908 is open. The starting
-  `origin/main` (`ee3fc2d41a`, RX merge) is already an ancestor. Integrate later main
-  by merge. Open the single ready PR at the end as requested.
+  `origin/main` (`ee3fc2d41a`, RX merge) was already an ancestor. #908 merged as
+  `f19a358ff4`, with the same tree as A0. Merged it into RY-A. Use `main` as the
+  eventual PR base and open the single ready PR at the end as requested.
 - RE-06 T0: Local `pnpm parity --check tests/engine-parity/scenarios` on the A0
   binary produced 15/15 comparisons, 0 failures, 0 skips. See
   `/tmp/ry-a-baseline-parity.md` for the per-engine table.
