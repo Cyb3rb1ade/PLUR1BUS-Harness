@@ -18,6 +18,7 @@ pub mod maintenance_gate;
 pub mod metadata;
 pub mod migration;
 pub mod outcome;
+pub(crate) mod persona_evolve;
 pub mod persona_locale;
 pub(crate) mod proactive_check;
 pub mod prompts;

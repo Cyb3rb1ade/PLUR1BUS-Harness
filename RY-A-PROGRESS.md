@@ -219,7 +219,22 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   and confidence. Per-memory feedback is open because the live Recall
   path does not persist a session-attributed selection.
 
+- RE-D204: Persona learns one validated marker from exact private
+  foreground conversation replies. Apply the pinned evidence minimum,
+  positive majority, seven-day window, learned-line cap and cooldown.
+  Use the S6 locale and evidence guards before model invocation and
+  revalidate source revisions after it. Persist marker and watermark in
+  one owner-bound profile. Recall reads it only for that proved private
+  subject. Legacy workspace-wide persona files and seed migration are
+  outside this writer. Prompt byte differences come from S6 evidence
+  framing and the explicit locale.
+
 ## Tasks
+
+- T4 Persona Evolve: `cargo test --locked -p plur1bus-engine --lib
+  feedback_report` 1 passed, 0 failed, 0 ignored. The mixed-owner
+  Capture fixture checks S6 prompt framing, malicious marker rejection,
+  retry, cooldown and exact private marker reads. Workspace Clippy passed.
 
 - T4 Feedback Report: `cargo test --locked -p plur1bus-engine --lib
   feedback_report` 1 passed, 0 failed, 0 ignored. The production body

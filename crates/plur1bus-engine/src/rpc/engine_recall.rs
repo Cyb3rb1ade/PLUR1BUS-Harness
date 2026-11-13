@@ -276,6 +276,9 @@ fn serve(
     );
     render.timezone = host_timezone();
     render.has_workspace = workspace.is_some();
+    render.additions.persona =
+        crate::jobs::persona_evolve::read_voice(base, context, raw, &control.cancel)
+            .unwrap_or_default();
     match crate::jobs::reminder_dispatch::recall_rows(
         engine.live_stores.as_ref(),
         context,

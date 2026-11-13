@@ -323,6 +323,12 @@ impl ProcessEngine {
                 }),
             ];
             if neo_enabled {
+                bodies.push(Arc::new(crate::jobs::persona_evolve::PersonaEvolve {
+                    scope: scope.clone(),
+                    base: base.clone(),
+                    root: engine_warm::neo_root(&raw["neo"], base),
+                    completion: completion.cloned(),
+                }));
                 bodies.push(Arc::new(crate::jobs::feedback_report::FeedbackReport {
                     scope: scope.clone(),
                     base: base.clone(),

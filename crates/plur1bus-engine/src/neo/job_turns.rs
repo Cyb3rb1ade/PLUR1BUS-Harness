@@ -39,7 +39,7 @@ pub(crate) fn with_conversation_turns<T>(
 ) -> Result<T, EngineError> {
     let user_only = match authority.job() {
         JobName::ProactiveCheck => true,
-        JobName::FeedbackReport => false,
+        JobName::FeedbackReport | JobName::PersonaEvolve => false,
         _ => return Err(crate::jobs::authority::unbound()),
     };
     let (principal, agent) = authority.caller();

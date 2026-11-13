@@ -11,6 +11,8 @@ use std::{
 };
 
 pub(super) struct Reply<'a> {
+    pub prompt: &'a ConversationTurn,
+    pub assistant: &'a ConversationTurn,
     pub response: &'a ConversationTurn,
     pub classification: &'static str,
     pub feedback: &'static str,
@@ -35,6 +37,8 @@ pub(super) fn collect<'a>(
             let (classification, feedback, confidence) =
                 classify(&turn.content, &prompt.content, &answer.content)?;
             replies.push(Reply {
+                prompt,
+                assistant: answer,
                 response: turn,
                 classification,
                 feedback,
