@@ -164,7 +164,7 @@ impl JobBody for NeoRebuild {
             .completion
             .as_deref()
             .filter(|_| config["merging"]["enabled"] != false)
-            .map(|complete| JobCompletion {
+            .map(|complete| JobCompletion::Host {
                 authority,
                 complete,
                 model: host_model(

@@ -1,7 +1,7 @@
 //! Classify recent private cards. Provider failures leave their type eligible for retry.
 use super::{
     lance_scope::LanceScope,
-    llm::{has_direct_transport, host_model, CompleteFor, JobCompletion},
+    llm::{has_direct_transport, CompleteFor, JobCompletion},
     registry::{JobBody, JobContext, JobReport},
 };
 use crate::{
@@ -36,13 +36,19 @@ impl JobBody for ClassifyRecent {
         if settings["enabled"] == false {
             return Ok(skip("criticalPush_disabled"));
         }
-        // A feature with its own transport requires its own endpoint/credential
-        // policy. Sending it through the agent's default route would be a fallback.
-        if has_direct_transport(settings) {
-            return Ok(skip("direct-feature-route-unavailable"));
-        }
-        let Some(complete) = self.completion.as_deref() else {
-            return Ok(skip("no_llm_config"));
+        let Some(completion) = JobCompletion::resolve(
+            authority,
+            self.completion.as_deref(),
+            self.scope.operations.host_handle(),
+            &config,
+            "criticalPush",
+            settings,
+        ) else {
+            return Ok(skip(if has_direct_transport(settings) {
+                "direct-feature-route-unavailable"
+            } else {
+                "no_llm_config"
+            }));
         };
         let (principal, agent) = authority.caller();
         let _operation = self.scope.operations.enter(principal, agent)?;
@@ -71,11 +77,6 @@ impl JobBody for ClassifyRecent {
             })
             .collect();
         let covered = covered_chunks(&rows, &cancel)?;
-        let completion = JobCompletion {
-            authority,
-            complete,
-            model: host_model(&config, &context.agent, "criticalPush", &settings["model"]),
-        };
         let mut classified = 0;
         let mut chunks = 0;
         let mut errors = 0;

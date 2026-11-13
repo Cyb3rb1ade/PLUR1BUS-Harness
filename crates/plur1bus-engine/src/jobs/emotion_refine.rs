@@ -1,7 +1,7 @@
 //! Refine only owned pending cards. The durable queue entry precedes the final verdict.
 use super::{
     lance_scope::LanceScope,
-    llm::{has_direct_transport, host_model, CompleteFor, JobCompletion},
+    llm::{CompleteFor, JobCompletion},
     metadata::get,
     registry::{JobBody, JobContext, JobReport},
 };
@@ -73,34 +73,19 @@ impl JobBody for EmotionRefine {
                     && acl::allowed(row, request).is_ok()
             })
             .collect();
-        let Some(complete) = self
-            .completion
-            .as_deref()
-            .filter(|_| !has_direct_transport(settings))
-        else {
-            context.note_count("pending", rows.len())?;
-            return Ok(JobReport {
-                outcome: JobOutcome::Skipped,
-                reason: Some("no_llm_route".into()),
-            });
-        };
+        let completion = JobCompletion::resolve(
+            authority,
+            self.completion.as_deref(),
+            self.scope.operations.host_handle(),
+            &config,
+            "emotion-encoding",
+            settings,
+        );
         let limit = settings["encodingMaxTokens"]
             .as_f64()
             .filter(|value| value.is_finite() && *value >= 1.)
             .map_or(DEFAULT_MAX_TOKENS, |value| value.floor() as u32);
-        let port = EncodingPort {
-            completion: JobCompletion {
-                authority,
-                complete,
-                model: host_model(
-                    &config,
-                    &context.agent,
-                    "emotion-encoding",
-                    &settings["model"],
-                ),
-            },
-            limit,
-        };
+        let port = completion.map(|completion| EncodingPort { completion, limit });
         let mut refined = 0;
         let mut finalized = 0;
         let mut failed = 0;
@@ -124,8 +109,11 @@ impl JobBody for EmotionRefine {
                     ..RowPatch::default()
                 }
             } else {
+                let Some(port) = &port else {
+                    continue;
+                };
                 let encoding =
-                    encoding::classify(&JsString::from(row.text.as_str()), Some(&port), &budget)?;
+                    encoding::classify(&JsString::from(row.text.as_str()), Some(port), &budget)?;
                 let value =
                     parse_json(&serde_json::to_string(row).map_err(|_| StoreError::Corrupt)?)
                         .map_err(|_| StoreError::Corrupt)?;
@@ -189,6 +177,12 @@ impl JobBody for EmotionRefine {
             ("deadlineHit", usize::from(deadline_hit)),
         ] {
             context.note_count(name, count)?;
+        }
+        if port.is_none() && rows.len() > finalized {
+            return Ok(JobReport {
+                outcome: JobOutcome::Skipped,
+                reason: Some("no_llm_route".into()),
+            });
         }
         Ok(JobReport::completed())
     }

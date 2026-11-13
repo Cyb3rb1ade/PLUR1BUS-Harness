@@ -2,33 +2,73 @@
 //!
 //! The host owns provider selection and policy. A job supplies the limits for the
 //! selected prompt. A configured secret reference is authoritative for direct routes.
+mod direct;
+
 use crate::{
     contract::{
-        AgentId, Cancel, HostError, LlmParams, LlmPort, LlmResult, Message, MessageRole,
-        SecretPort, SecretValue,
+        AgentId, Cancel, HostError, HostServices, LlmParams, LlmPort, LlmResult, Message,
+        MessageRole, SecretPort, SecretValue,
     },
     text::js::JsString,
 };
 use serde_json::Value;
+use std::sync::Arc;
 
 /// Native composition callback. The host retains its authentication and provider policy.
 pub type CompleteFor =
     dyn Fn(&AgentId, &LlmParams, &Cancel) -> Result<LlmResult, HostError> + Send + Sync;
 
 /// A completion scoped to the owner-bound agent of a single admitted job.
-pub(crate) struct JobCompletion<'a> {
-    pub(crate) authority: &'a super::authority::JobAuthority,
-    pub(crate) complete: &'a CompleteFor,
-    pub(crate) model: Option<String>,
+pub(crate) enum JobCompletion<'a> {
+    Host {
+        authority: &'a super::authority::JobAuthority,
+        complete: &'a CompleteFor,
+        model: Option<String>,
+    },
+    Direct(direct::DirectCompletion<'a>),
+}
+
+impl<'a> JobCompletion<'a> {
+    pub(crate) fn resolve(
+        authority: &'a super::authority::JobAuthority,
+        complete: Option<&'a CompleteFor>,
+        host: Arc<dyn HostServices>,
+        config: &Value,
+        feature: &str,
+        settings: &'a Value,
+    ) -> Option<Self> {
+        if has_direct_transport(settings) {
+            return direct::DirectCompletion::from_settings(host, settings).map(Self::Direct);
+        }
+        Some(Self::Host {
+            authority,
+            complete: complete?,
+            model: host_model(
+                config,
+                &authority.request().agent_id,
+                feature,
+                &settings["model"],
+            ),
+        })
+    }
 }
 
 impl LlmPort for JobCompletion<'_> {
     fn complete(&self, mut params: LlmParams, cancel: &Cancel) -> Result<LlmResult, HostError> {
         cancel.check()?;
-        if params.model.is_none() {
-            params.model.clone_from(&self.model);
+        match self {
+            Self::Host {
+                authority,
+                complete,
+                model,
+            } => {
+                if params.model.is_none() {
+                    params.model.clone_from(model);
+                }
+                complete(&authority.request().agent_id, &params, cancel)
+            }
+            Self::Direct(direct) => direct.complete(params, cancel),
         }
-        (self.complete)(&self.authority.request().agent_id, &params, cancel)
     }
 }
 
@@ -38,7 +78,8 @@ pub(crate) fn has_direct_transport(settings: &Value) -> bool {
         .iter()
         .any(|key| match &settings[*key] {
             Value::Null | Value::Bool(false) => false,
-            Value::String(value) => !value.is_empty(),
+            Value::String(value) => !value.trim().is_empty(),
+            Value::Object(value) => !value.is_empty(),
             _ => true,
         })
 }

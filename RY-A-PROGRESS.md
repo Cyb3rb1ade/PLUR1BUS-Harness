@@ -108,7 +108,21 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   `importance-below-threshold`. Inactive rows get finalized without inference.
   Direct feature transport and the complete Node job golden remain open.
 
+- RE-D191: A feature-owned transport resolves `apiKeyRef` for every call.
+  A missing, denied or empty secret prevents the HTTP request even if a
+  literal is configured. Use the guarded client with the same deadline for
+  secret resolution, egress, connection and response. Private prompt bodies
+  stay at the configured endpoint, so a redirect fails. Auth headers come
+  from the credential policy. The S8 path is wired for the recent classifier
+  and emotion encoding. Host-route reasoning and persistent caching are open.
+
 ## Tasks
+
+- T2 S8 guarded direct routes: `cargo test --locked -p plur1bus-engine
+  --lib jobs::llm::` 5 passed, 0 failed, 0 ignored. The loopback test verifies
+  rotation, unresolved reference before I/O, body/limits and redirect refusal.
+  `cargo test --locked -p plur1bus-engine --lib rpc::engine::jobs_tests::`
+  28 passed, 0 failed, 0 ignored. Workspace Clippy passed with `-D warnings`.
 
 - T4 emotion-refine: native job, owned queue staging, pending judgment and
   below-threshold consumption verified. `cargo test --locked -p

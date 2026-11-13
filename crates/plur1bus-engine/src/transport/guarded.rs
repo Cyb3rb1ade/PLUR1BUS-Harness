@@ -200,11 +200,31 @@ impl<'a> GuardedClient<'a> {
     /// time counts and cancellation is checked immediately after they return.
     pub fn request_cancelled(
         &self,
-        mut req: HttpRequest,
+        req: HttpRequest,
         deadline: Instant,
         cancel: &Cancel,
     ) -> Result<HttpResponse, TransportError> {
-        for hop in 0..=10 {
+        self.request_with_redirects(req, deadline, cancel, 10)
+    }
+
+    /// Send evidence to the configured endpoint only. A redirect is a failed call.
+    pub(crate) fn request_at_endpoint(
+        &self,
+        req: HttpRequest,
+        deadline: Instant,
+        cancel: &Cancel,
+    ) -> Result<HttpResponse, TransportError> {
+        self.request_with_redirects(req, deadline, cancel, 0)
+    }
+
+    fn request_with_redirects(
+        &self,
+        mut req: HttpRequest,
+        deadline: Instant,
+        cancel: &Cancel,
+        max_redirects: usize,
+    ) -> Result<HttpResponse, TransportError> {
+        for hop in 0..=max_redirects {
             remaining_cancelled(deadline, cancel)?;
             let (url, target) = parse_url(&req.url)?;
             let plaintext_credentials = url.scheme() == "http"
@@ -290,7 +310,7 @@ impl<'a> GuardedClient<'a> {
             }
             remaining_cancelled(deadline, cancel).map_err(|error| response_error(status, error))?;
             if matches!(status, 301 | 302 | 303 | 307 | 308) {
-                if hop == 10 {
+                if hop == max_redirects {
                     return Err(TransportError::Redirect);
                 }
                 let location = response
