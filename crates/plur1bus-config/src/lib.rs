@@ -10,6 +10,10 @@ use serde_json::{Map, Value};
 use std::{fs, io, path::Path};
 
 mod diagnostics;
+pub mod js_date;
+pub mod privacy_ack;
+mod validate;
+pub use validate::{js_number, validate_filled};
 mod disclosure;
 mod references;
 mod resolution;
@@ -246,58 +250,10 @@ pub fn apply_defaults(v: &mut Value) {
     fill_defaults(schema(), v);
 }
 
+/// Whether `v` is a valid configuration: [`validate_filled`] without its result. The CLI and the supervisor use it on
+/// what they load and on what they are about to write.
 pub fn validate(v: &Value) -> Result<(), Vec<String>> {
-    let policy = model_context::errors(v, None);
-    if !policy.is_empty() {
-        return Err(policy);
-    }
-    let mut errs: Vec<String> = schema_errors(v);
-    if let (Some(min), Some(max)) = (
-        v["breakglass"]["reasonMinChars"].as_u64(),
-        v["breakglass"]["reasonMaxChars"].as_u64(),
-    ) {
-        if min > max {
-            errs.push("/breakglass reasonMinChars must not exceed reasonMaxChars".into());
-        }
-    }
-    if let Some(e) = recall_budget_error(v) {
-        errs.push(e);
-    }
-    // Provider-bound acknowledgments are separate for the media index and captioning.
-    // There is deliberately no global privacy-pin setting here.
-    let base = &v["memory"]["mediaEmbedding"];
-    check_media_privacy(base, "/memory/mediaEmbedding", &mut errs);
-    if let Some(agents) = v["agents"].as_object() {
-        for (id, agent) in agents {
-            if let Some(over) = agent["memory"].get("mediaEmbedding") {
-                let mut merged = base.clone();
-                if let (Some(dst), Some(src)) = (merged.as_object_mut(), over.as_object()) {
-                    for (key, value) in src {
-                        if key == "caption" {
-                            if let (Some(caption), Some(patch)) = (
-                                dst.get_mut(key).and_then(Value::as_object_mut),
-                                value.as_object(),
-                            ) {
-                                caption.extend(patch.clone());
-                            }
-                        } else {
-                            dst.insert(key.clone(), value.clone());
-                        }
-                    }
-                }
-                check_media_privacy(
-                    &merged,
-                    &format!("/agents/{id}/memory/mediaEmbedding"),
-                    &mut errs,
-                );
-            }
-        }
-    }
-    if errs.is_empty() {
-        Ok(())
-    } else {
-        Err(errs)
-    }
+    validate_filled(v).map(|_| ())
 }
 
 /// Defaults are read from the schema's `default` keywords, depth-first — the same values ajv's useDefaults fills in.
@@ -1074,36 +1030,6 @@ fn check_media_catalog(media: &Value, path: &str, errors: &mut Vec<String>) {
             errors.push(format!(
                 "{path}/modalities E_MEDIA_CAPABILITY: unsupported {kind}"
             ));
-        }
-    }
-}
-
-fn check_media_privacy(media: &Value, path: &str, errs: &mut Vec<String>) {
-    if media["enabled"].as_bool() == Some(false) {
-        return;
-    }
-    // A legacy schema-valid local model/dimension stays readable. The fixed catalog
-    // is enforced by validate_media_mutation on relevant writes, not while loading.
-    for (choice, suffix, local) in [
-        (
-            media,
-            "",
-            &["local", "local-transformers", "egemma2", "off"][..],
-        ),
-        (&media["caption"], "/caption", &["local", "off"][..]),
-    ] {
-        if suffix == "/caption" && choice["source"].as_str() == Some("off") {
-            continue;
-        }
-        let Some(provider) = choice["provider"].as_str() else {
-            continue;
-        };
-        if local.contains(&provider) {
-            continue;
-        }
-        let ack = &choice["privacyAck"];
-        if ack["provider"].as_str() != Some(provider) || ack.get("endpoint").is_some() {
-            errs.push(format!("{path}{suffix}/privacyAck E_MEDIA_PRIVACY: matching privacy acknowledgment required"));
         }
     }
 }
