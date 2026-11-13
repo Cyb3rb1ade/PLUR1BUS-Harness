@@ -38,7 +38,9 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
 - [x] A1.5 Document the portable idle-session cache bound. Each cached session retains
   filesystem handles and an exclusive lease. LRU eviction reopens the session on use.
   The cap and eviction behavior are unchanged.
-- [ ] A1.6 Verify the Core Dreams capability gate at the composition boundary.
+- [x] A1.6 Exercise the real Core scheduler and its engine RPC client with both
+  values of the recall-stats flag. Assert the stats call and agent scope when enabled
+  and confirm promotion remains gated. Targeted test: 1 passed, 0 failed, 0 skipped.
 - [ ] A1.7 Document backup retention's upper limit and missing directory warning.
 - [ ] F12 Turn metadata seam and F13 principal binding source.
 - [ ] RE-06 T2 prompt layer and LLM routing, S8.
