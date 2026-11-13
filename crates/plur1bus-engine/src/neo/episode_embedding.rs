@@ -7,10 +7,14 @@ impl EpisodeStore {
         &self,
         principal: &Principal,
         agent: &AgentContext,
+        expected: Option<&RequestContext>,
         cancel: &Cancel,
         action: impl FnOnce(Session<'_>) -> Result<T, EngineError>,
     ) -> Result<T, EngineError> {
         let ctx = RequestContext::build(principal, agent, self.host.as_ref())?;
+        if expected.is_some_and(|expected| expected != &ctx) {
+            return Err(StoreError::InvalidInput.into());
+        }
         self.journal.with_writer(
             principal,
             agent,

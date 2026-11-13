@@ -86,6 +86,10 @@ impl JobAuthority {
     pub(super) fn matches(&self, job: JobName, agent: &AgentId) -> bool {
         self.job == job && &self.request.agent_id == agent
     }
+
+    pub(crate) fn job(&self) -> JobName {
+        self.job
+    }
 }
 
 pub(super) fn unbound() -> EngineError {

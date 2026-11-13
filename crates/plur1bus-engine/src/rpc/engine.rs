@@ -95,6 +95,17 @@ impl ProcessEngine {
         self.live_stores.configured_base()
     }
 
+    /// Run a job admitted by the native host for its bound principal. The legacy
+    /// JobRegistry and process RPC do not accept a principal from their caller.
+    pub fn run_authorized_job(
+        &self,
+        authority: crate::jobs::authority::JobAuthority,
+        options: RunOptions,
+        cancel: &Cancel,
+    ) -> Result<JobRun, EngineError> {
+        self.jobs.run_authorized(authority, options, cancel)
+    }
+
     /// Compose the real RE-03 providers or an explicitly selected embedding seam.
     /// Construction is lazy: it neither loads models nor opens memory stores.
     pub fn new(host: Arc<dyn HostServices>, seam: Option<Seam>) -> Result<Self, EngineError> {
@@ -202,11 +213,23 @@ impl ProcessEngine {
             |_| raw["neo"]["enabled"] != false,
             |config| config["neo"]["enabled"] != false,
         );
-        let jobs = Arc::new(engine_jobs::ProcessJobs::new(
-            base.clone(),
-            host.clone(),
-            neo_enabled,
-        ));
+        let drain = base
+            .as_deref()
+            .filter(|_| neo_enabled)
+            .map(|base| engine_jobs::NeoDrain {
+                root: engine_warm::neo_root(&raw["neo"], base),
+                policy: engine_capture::workspace_capture_policy(base),
+                mood: mood.pool(),
+                host: host.clone(),
+                provider: embedding.pipeline_embedder(),
+                impact: raw["neo"]["embeddingDrain"]["impact"]
+                    .as_str()
+                    .map(str::to_owned),
+            });
+        let jobs = Arc::new(
+            engine_jobs::ProcessJobs::new(base.clone(), host.clone(), neo_enabled)
+                .with_drain(drain),
+        );
         let reporter = base.clone().map(|base| {
             crate::ops::status::StatusReporter::for_host(
                 Arc::new(ProcessStatusSources {

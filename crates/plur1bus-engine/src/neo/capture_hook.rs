@@ -119,20 +119,7 @@ impl NativeNeoCaptureHook {
         if max_items > 1000 {
             return Err(StoreError::InvalidInput.into());
         }
-        let impact = match drain["impact"]
-            .as_str()
-            .filter(|value| !value.is_empty())
-            .unwrap_or("low")
-            .to_lowercase()
-            .as_str()
-        {
-            "low" => Impact::Low,
-            "medium" => Impact::Medium,
-            "high" => Impact::High,
-            "critical" => Impact::Critical,
-            "all" => Impact::All,
-            _ => return Err(StoreError::InvalidInput.into()),
-        };
+        let impact = Impact::from_config(drain["impact"].as_str())?;
         let episodes = EpisodeStore::open(root, host, policy, mood)?;
         let episodes = Arc::new(match narrative {
             Some(port) => episodes.with_narrative(port),

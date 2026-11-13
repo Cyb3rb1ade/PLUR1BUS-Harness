@@ -1,8 +1,10 @@
 //! Authorized, synchronous Neo embedding work with a frozen replay plan. No detached jobs.
 use super::{embedding_plan, embedding_publication, episode_store::EpisodeStore};
 use crate::{
+    context::RequestContext,
     contract::{AgentContext, Cancel, EngineError, Principal, StoreError},
     embedding::{identity::try_identity_id, EmbeddingProvider},
+    jobs::authority::JobAuthority,
 };
 use std::{
     sync::Arc,
@@ -25,6 +27,22 @@ pub enum Impact {
     All,
 }
 impl Impact {
+    pub(crate) fn from_config(value: Option<&str>) -> Result<Self, StoreError> {
+        match value
+            .filter(|value| !value.is_empty())
+            .unwrap_or("low")
+            .to_ascii_lowercase()
+            .as_str()
+        {
+            "low" => Ok(Self::Low),
+            "medium" => Ok(Self::Medium),
+            "high" => Ok(Self::High),
+            "critical" => Ok(Self::Critical),
+            "all" => Ok(Self::All),
+            _ => Err(StoreError::InvalidInput),
+        }
+    }
+
     pub(super) fn accepts(self, value: &str) -> bool {
         self == Self::All
             || value
@@ -106,12 +124,34 @@ impl EmbeddingDrain {
         options: &DrainOptions,
         cancel: &Cancel,
     ) -> Result<DrainResult, EngineError> {
+        self.drain_inner(principal, agent, None, options, cancel)
+    }
+
+    /// Drain only the live workspace binding covered by the native job authority.
+    pub(crate) fn drain_for_job(
+        &self,
+        authority: &JobAuthority,
+        options: &DrainOptions,
+        cancel: &Cancel,
+    ) -> Result<DrainResult, EngineError> {
+        let (principal, agent) = authority.caller();
+        self.drain_inner(principal, agent, Some(authority.request()), options, cancel)
+    }
+
+    fn drain_inner(
+        &self,
+        principal: &Principal,
+        agent: &AgentContext,
+        expected: Option<&RequestContext>,
+        options: &DrainOptions,
+        cancel: &Cancel,
+    ) -> Result<DrainResult, EngineError> {
         if options.max_items > 1000 {
             return Err(StoreError::InvalidInput.into());
         }
         let cancel = cancel.limited_to(Instant::now() + Duration::from_secs(300));
         self.episodes
-            .embedding_transaction(principal, agent, &cancel, |session| {
+            .embedding_transaction(principal, agent, expected, &cancel, |session| {
                 super::revision_io::guard_pending(session.dir, &cancel)?;
                 embedding_publication::resume(&session, &cancel)?;
                 embedding_publication::guard_other_pending(session.dir, &session.name, &cancel)?;

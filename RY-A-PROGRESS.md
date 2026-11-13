@@ -72,6 +72,13 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
   same-agent overlap guard. The public singleton flag still controls scheduler
   planning. `cargo test --locked -p plur1bus-engine --features testkit --test jobs`:
   68 passed, 0 failed, 0 ignored, including unchanged Node run fixtures.
+  Native `embedding-drain` now uses the shared Neo writer and embedding provider.
+  The authorised process test publishes only one of two owners' queues. The
+  native drain's existing publication bound of 1,000 attempts and five minutes
+  applies (the pin requests 100,000 attempts and eight minutes for the manual
+  job). Later runs can continue pending work. No wire binding yet.
+  `cargo test --locked -p plur1bus-engine --lib rpc::engine::jobs_tests::`:
+  21 passed, 0 failed, 0 ignored.
 - [ ] RE-06 T4 reflection, S6 and A1 importance staging. S6 marker validation and
   the updated locale detector are implemented as reusable guards. Persona file
   mutation, prompting and other reflection bodies remain open.
@@ -91,6 +98,9 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
 | `node scripts/parity/module-map.mjs --check` | Exit 0, map current. |
 | `cargo test --locked -p plur1bus --bin plur1bus backup::retention` | 6 passed, 0 failed, 0 ignored. |
 | `pnpm lint` | Exit 0, 227 passed, 0 failed, 0 skipped, 3 existing Laya TODOs. |
+| `pnpm --filter @plur1bus/rpc-schema test` | 120 passed, 0 failed, 0 skipped. |
+| `cargo deny --locked check bans licenses sources` | Exit 0, all three checks passed. |
+| `node scripts/audit-deps.mjs --only cargo --offline` | 821 packages allowed, 0 violations. |
 
 New goldens disclosed before commit. `tests/fixtures/prompts/hashes.json`
 records four Phase 1 prompt functions at pin `9f34008c`, with empty and

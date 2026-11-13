@@ -353,10 +353,13 @@ impl EpisodeStore {
                 &|| Ok(()),
                 |dir, proof, name, check| view.resume_episode(dir, proof, name, check, cancel),
             )?;
-            let embedding =
-                view.embedding_transaction(&caller.principal, &caller.agent, cancel, |session| {
-                    crate::neo::embedding_publication::resume(&session, cancel)
-                })?;
+            let embedding = view.embedding_transaction(
+                &caller.principal,
+                &caller.agent,
+                Some(&context),
+                cancel,
+                |session| crate::neo::embedding_publication::resume(&session, cancel),
+            )?;
             report.capture_records += capture;
             report.episode_revisions += episode;
             report.embedding_revisions += embedding;

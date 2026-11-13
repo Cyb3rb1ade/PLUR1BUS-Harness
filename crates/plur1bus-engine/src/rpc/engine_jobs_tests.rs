@@ -128,6 +128,91 @@ fn the_registry_lists_twenty_jobs_and_owner_data_jobs_answer_a_fixed_reason() {
 }
 
 #[test]
+fn authorized_embedding_drain_updates_only_the_granted_owners_queue() {
+    use crate::{
+        context::{harness_user_principal, RequestContext, RouteVocabulary},
+        jobs::authority::JobAuthority,
+        neo::{capture_journal::CaptureJournal, merged::Layout},
+    };
+
+    let temp = scratch();
+    let base = temp.path().join("db");
+    let neo = base.join("_neo");
+    let (host, engine) = engine(temp.path(), true);
+    host.set_workspace(&alpha(), temp.path().to_owned());
+    crate::store::paths::secure_dir(&neo).unwrap();
+    let journal = CaptureJournal::open(
+        &neo,
+        host.clone(),
+        engine_capture::workspace_capture_policy(&base),
+    )
+    .unwrap();
+    let cancel = Cancel::never();
+    let make_turn = |owner: &str, content: &str| -> TurnRecord {
+        serde_json::from_value(json!({
+            "agentId": "alpha", "runId": owner, "sessionKey": owner, "incognito": false,
+            "messages": [{"role":"assistant","content":content}],
+            "principal": {
+                "agentId":"alpha", "channel":"telegram", "accountId":"fixture", "trust":"proved",
+                "workspace":format!("workspace-dir:v1:{}",temp.path().display()),
+                "user":harness_user_principal(owner),"chat":{"id":owner,"kind":"direct"}
+            },
+            "agent":{"origin":"user","background":false}
+        }))
+        .unwrap()
+    };
+    let first = make_turn("first", "I will write the migration guide.");
+    let second = make_turn("second", "I will find the release checklist.");
+    let first_ctx = RequestContext::build(&first.principal, &first.agent, host.as_ref()).unwrap();
+    let second_ctx =
+        RequestContext::build(&second.principal, &second.agent, host.as_ref()).unwrap();
+    journal.record(&first, &first_ctx, &cancel).unwrap();
+    journal.record(&second, &second_ctx, &cancel).unwrap();
+    let queue = neo
+        .join("workspaces")
+        .join(Layout::for_key(&first_ctx.workspace_key).canonical)
+        .join("embedding-queue.jsonl");
+    let original = fs::read_to_string(&queue).unwrap();
+    assert!(original.contains(&first_ctx.owner_user_id));
+    assert!(original.contains(&second_ctx.owner_user_id));
+
+    let scheduled: AgentContext =
+        serde_json::from_value(json!({"origin":"cron","background":true})).unwrap();
+    let authority = || {
+        JobAuthority::from_host(
+            host.as_ref(),
+            JobName::EmbeddingDrain,
+            &alpha(),
+            first.principal.clone(),
+            scheduled.clone(),
+            RouteVocabulary::shared(),
+        )
+        .unwrap()
+    };
+    let dry_run: RunOptions = serde_json::from_value(json!({"dryRun":true})).unwrap();
+    assert_eq!(
+        engine
+            .run_authorized_job(authority(), dry_run, &cancel)
+            .unwrap()
+            .reason
+            .as_deref(),
+        Some("dry_run_unsupported")
+    );
+    assert!(!base.join("_jobs").exists());
+
+    let run = engine
+        .run_authorized_job(authority(), options("harness"), &cancel)
+        .unwrap();
+    assert_eq!(run.outcome, JobOutcome::Completed);
+    let updated = fs::read_to_string(queue).unwrap();
+    let appended = updated.strip_prefix(&original).unwrap();
+    assert!(!appended.is_empty());
+    assert!(appended.contains(&first_ctx.owner_user_id));
+    assert!(!appended.contains(&second_ctx.owner_user_id));
+    assert_eq!(history(&engine)[0].run_id, run.run_id);
+}
+
+#[test]
 fn an_allowed_job_runs_and_its_run_is_in_the_ledger_history_and_status() {
     let temp = scratch();
     let base = temp.path().join("db");

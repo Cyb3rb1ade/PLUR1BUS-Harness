@@ -387,6 +387,18 @@ fn classify_failure(error: EngineError, closed: bool) -> (Option<&'static str>, 
     }
 }
 
+pub(super) fn workspace_capture_policy(base: &Path) -> Arc<dyn CapturePolicy> {
+    let switching_base = base.to_path_buf();
+    Arc::new(
+        WorkspaceCapturePolicy::new(base.to_path_buf()).with_maintenance(Arc::new(move || {
+            // An unreadable migration state is a switching store: fail closed.
+            MigrationStateStore::new(&switching_base)
+                .and_then(|store| store.switching())
+                .unwrap_or(true)
+        })),
+    )
+}
+
 fn compose(
     engine: &ProcessEngine,
     base: &Path,
@@ -402,15 +414,7 @@ fn compose(
     shutdown.check()?;
     let writer = pools.writer_pool();
     let embedder = engine.embedding.pipeline_embedder();
-    let switching_base = base.to_path_buf();
-    let policy: Arc<dyn CapturePolicy> = Arc::new(
-        WorkspaceCapturePolicy::new(base.to_path_buf()).with_maintenance(Arc::new(move || {
-            // An unreadable migration state is a switching store: fail closed.
-            MigrationStateStore::new(&switching_base)
-                .and_then(|store| store.switching())
-                .unwrap_or(true)
-        })),
-    );
+    let policy = workspace_capture_policy(base);
     let mood = engine.mood.pool();
     let reminders = Arc::new(ReminderStore::new(
         host.clone(),
