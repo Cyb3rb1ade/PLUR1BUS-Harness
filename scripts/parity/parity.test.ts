@@ -10,6 +10,7 @@ import { buildFormatVectors } from "./export-formats.ts";
 import { buildAuthVectors, credentials, substitute } from "./export-auth.ts";
 import { buildConfigVectors } from "./export-config.ts";
 import { buildLogsVectors } from "./export-logs.ts";
+import { buildMetricsVectors } from "./export-metrics.ts";
 import { canonicalJson } from "../../packages/core/src/tools/dispatcher.ts";
 
 describe("parity fixture writer (mode V)", () => {
@@ -209,5 +210,23 @@ describe("config vectors (P4-11 task 4a)", () => {
     assert.ok(built.validate.length >= 60 && built.warnings.some((c: any) => c.warnings.length === 50));
     assert.ok(built.engine.some((c: any) => c.ok) && built.engine.some((c: any) => !c.ok && c.error.reason === "local-only") && built.engine.some((c: any) => c.catalog));
     assert.ok(built.patch.some((c: any) => !c.ok) && built.disclosure.length >= 10);
+  });
+});
+
+describe("metrics vectors (P4-11 task 5b)", () => {
+  it("the committed fixtures are exactly what the exporter records, and they cover refusals, number printing and collation", async () => {
+    const built = await buildMetricsVectors() as any;
+    assert.deepEqual(Object.keys(built).sort(), ["metrics", "registry"]);
+    for (const [name, data] of Object.entries(built)) {
+      const text = readFileSync(fixturePath("metrics", name), "utf8");
+      assert.equal(text, fixtureText(data), `fixtures/parity/metrics/${name}.json is stale: run scripts/parity/export-metrics.ts`);
+      assert.doesNotMatch(text, /sk-[A-Za-z0-9]{20,}|gh[pousr]_[A-Za-z0-9]{30,}|AKIA[0-9A-Z]{16}|xox[baprs]-[0-9A-Za-z-]{10,}|eyJ[A-Za-z0-9_-]{10,}\.eyJ/);
+    }
+    const cases = new Map<string, any>(built.registry.cases.map((c: any) => [c.name, c]));
+    assert.ok(built.registry.cases.length >= 25 && built.metrics.cases.length >= 15 && built.metrics.methods.length > 100);
+    assert.ok(cases.get("number-formatting-of-gauge-values").results.at(-1).text.includes("1e+21"));
+    assert.ok(cases.get("series-order-follows-icu-locale-compare").results.at(-1).text.includes("a_b"));
+    assert.ok(cases.get("refusals-of-the-series-cap").results.some((r: any) => /maxSeries must be an integer/.test(r.error)));
+    assert.ok(built.registry.cases.every((c: any) => c.results.length === c.ops.length));
   });
 });
