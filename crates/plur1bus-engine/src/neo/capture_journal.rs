@@ -126,6 +126,9 @@ impl CaptureJournal {
             policy,
         })
     }
+    pub(super) fn root_path(&self) -> &Path {
+        self.root.path()
+    }
     fn bind(&self, principal: &Principal, agent: &AgentContext) -> Result<Binding, EngineError> {
         self.root.assert_unchanged()?;
         let path = self

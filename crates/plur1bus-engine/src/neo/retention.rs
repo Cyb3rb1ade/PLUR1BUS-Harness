@@ -193,13 +193,15 @@ fn pending_targets(
     dir: &TrustedDirectory,
     cancel: &Cancel,
 ) -> Result<HashSet<JsString>, EngineError> {
-    let queue = super::embedding_plan::latest_queue(journal_io::rows(
-        dir,
-        "embedding-queue.jsonl",
-        cancel,
-    )?)?;
+    let mut queue = HashMap::new();
+    for row in journal_io::rows(dir, "embedding-queue.jsonl", cancel)? {
+        cancel.check()?;
+        let binding = ["ownerUserId", "agentId", "workspaceKey", "scope"]
+            .map(|key| field(&row, key).map(string));
+        queue.insert((journal_io::id(&row)?, binding), row);
+    }
     Ok(queue
-        .iter()
+        .values()
         .filter(|row| status(row) == Some("pending"))
         .filter_map(|row| field(row, "targetId").map(string))
         .collect())
@@ -210,7 +212,7 @@ fn pending_targets(
 pub fn run_for_job(
     journal: &CaptureJournal,
     authority: &JobAuthority,
-    host: &dyn HostServices,
+    host: std::sync::Arc<dyn HostServices>,
     cancel: &Cancel,
 ) -> Result<usize, EngineError> {
     if authority.job() != JobName::ConsolidateDaily {
@@ -219,15 +221,19 @@ pub fn run_for_job(
     let limits = StorePolicy::from_config(&host.config())?;
     let ctx = authority.request();
     let (principal, agent) = authority.caller();
+    let sessions = super::session_store::SessionStore::open(journal.root_path(), host.clone())?;
     let now = host.now_ms();
-    journal.with_operation_cleanup(
-        principal,
-        agent,
-        ctx,
-        cancel,
-        &|| cancel.check().map_err(Into::into),
-        |dir, check| run(dir, ctx, &limits, now, cancel, check),
-    )
+    let check = || {
+        cancel.check()?;
+        if StorePolicy::from_config(&host.config())? != limits {
+            return Err(StoreError::InvalidInput.into());
+        }
+        Ok(())
+    };
+    journal.with_operation_cleanup(principal, agent, ctx, cancel, &check, |dir, check| {
+        let protected = sessions.protected_episode_turns(principal, agent, cancel)?;
+        run(dir, ctx, &limits, now, cancel, check, protected)
+    })
 }
 
 fn run(
@@ -237,8 +243,9 @@ fn run(
     now: i64,
     cancel: &Cancel,
     check: &dyn Fn() -> Result<(), EngineError>,
+    mut pending: HashSet<JsString>,
 ) -> Result<usize, EngineError> {
-    let pending = pending_targets(dir, cancel)?;
+    pending.extend(pending_targets(dir, cancel)?);
     let month = chrono::DateTime::from_timestamp_millis(now)
         .ok_or(StoreError::InvalidInput)?
         .format("%Y-%m")
@@ -267,12 +274,28 @@ fn run(
             validate_object(&row)?;
             rows.push(row);
         }
+        // The correction path searches the latest 1,000 own receipts to
+        // recognise an already applied action. Keep that lookup window intact.
+        let recent_receipts: HashSet<_> = if name == "reconsolidation-events.jsonl" {
+            rows.iter()
+                .rev()
+                .filter(|row| private(row, ctx))
+                .take(1000)
+                .filter_map(|row| field(row, "idempotencyKey").map(string))
+                .collect()
+        } else {
+            HashSet::new()
+        };
         let keep = select(
             &rows,
             limits.retention_soft_max_records,
             cutoff,
             cancel,
-            |row| private(row, ctx),
+            |row| {
+                private(row, ctx)
+                    && field(row, "idempotencyKey")
+                        .is_none_or(|key| !recent_receipts.contains(&string(key)))
+            },
             &pending,
         )?;
         let removed = keep.iter().filter(|keep| !**keep).count();
@@ -310,6 +333,17 @@ fn run(
             index += 1;
         }
         let suffix = gzip.finish().map_err(StoreError::from)?;
+        if let Some(bucket) = journal_io::FILES.iter().position(|file| *file == name) {
+            super::append_history::preserve_removed(
+                dir,
+                bucket,
+                rows.iter()
+                    .zip(&keep)
+                    .filter_map(|(row, keep)| (!*keep).then_some(row)),
+                cancel,
+                check,
+            )?;
+        }
         let archive = dir.create_child("archive")?;
         archive.restrict_private()?;
         let stem = name
@@ -319,12 +353,40 @@ fn run(
         // This cooperative lease also holds the live journal. An atomic replacement
         // makes a complete gzip member visible at once. Matching suffix bytes make
         // retry safe when a prior process stopped before publishing the shorter journal.
-        publish_month(&archive, &monthly, &suffix, cancel, check)?;
+        let published = publish_month(&archive, &monthly, &suffix, cancel, check)?;
+        let verify = || {
+            check()?;
+            published.verify(&archive, &monthly, cancel)?;
+            check()
+        };
         proof.verify(dir, name, &before)?;
-        append_cap_io::replace_live(dir, name, proof.identity, &before, &after, cancel, check)?;
+        append_cap_io::replace_live(dir, name, proof.identity, &before, &after, cancel, &verify)?;
         archived += removed;
     }
     Ok(archived)
+}
+
+struct PublishedMonth {
+    identity: (u64, u64),
+    digest: [u8; 32],
+}
+
+impl PublishedMonth {
+    fn verify(
+        &self,
+        dir: &TrustedDirectory,
+        name: &str,
+        cancel: &Cancel,
+    ) -> Result<(), EngineError> {
+        let current =
+            io::read(dir, name, MAX_MONTH_BYTES, cancel)?.ok_or(StoreError::UntrustedPath)?;
+        if io::identity(dir, name)? != Some(self.identity)
+            || <[u8; 32]>::from(Sha256::digest(&current)) != self.digest
+        {
+            return Err(StoreError::UntrustedPath.into());
+        }
+        Ok(())
+    }
 }
 
 fn publish_month(
@@ -333,7 +395,7 @@ fn publish_month(
     member: &[u8],
     cancel: &Cancel,
     check: &dyn Fn() -> Result<(), EngineError>,
-) -> Result<(), EngineError> {
+) -> Result<PublishedMonth, EngineError> {
     let identity = io::identity(dir, name)?;
     let old = io::read(dir, name, MAX_MONTH_BYTES, cancel)?;
     if identity.is_some() != old.is_some() {
@@ -348,7 +410,26 @@ fn publish_month(
         {
             return Err(StoreError::Unavailable.into());
         }
-        return Ok(());
+        let identity = identity.ok_or(StoreError::UntrustedPath)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if dir
+                .open_file(name)?
+                .metadata()
+                .map_err(StoreError::from)?
+                .permissions()
+                .mode()
+                & 0o777
+                != 0o600
+            {
+                return Err(StoreError::UntrustedPath.into());
+            }
+        }
+        return Ok(PublishedMonth {
+            identity,
+            digest: Sha256::digest(before).into(),
+        });
     }
     if before.len().saturating_add(member.len()) > MAX_MONTH_BYTES {
         return Err(StoreError::Unavailable.into());
@@ -384,7 +465,10 @@ fn publish_month(
             return Err(StoreError::Unavailable.into());
         }
         dir.replace_staged(&staged, name, staged_id, identity)?;
-        Ok(())
+        Ok(PublishedMonth {
+            identity: staged_id,
+            digest: content.into(),
+        })
     })();
     if result.is_err() && io::identity(dir, &staged).ok().flatten() == Some(staged_id) {
         let _ = dir.remove_file(&staged);
@@ -487,7 +571,7 @@ mod tests {
         let older = row("old", &owner, "2026-01-01T00:00:00Z");
         let mut rev = older.clone();
         rev["updatedAt"] = json!("2026-02-01T00:00:00Z");
-        let protected = row("queued", &owner, "2026-01-01T00:00:00Z");
+        let protected = row("queued", &owner, "2025-01-01T00:00:00Z");
         let foreign = row(
             "foreign",
             &harness_user_principal("another-owner"),
@@ -499,34 +583,53 @@ mod tests {
                 .map(|row| format!("{row}\n"))
                 .collect::<String>()
         };
-        let live = dir.join("turn-journal.jsonl");
-        let mut expected = vec![protected.clone(), foreign.clone(), new.clone()];
+        let open_turn = row("open-turn", &owner, "2024-01-01T00:00:00Z");
+        let mut expected = vec![open_turn, protected, foreign, new];
         expected.extend(
-            (0..497).map(|index| row(&format!("new-{index}"), &owner, "2026-11-01T00:00:00Z")),
+            (0..496).map(|index| row(&format!("new-{index}"), &owner, "2026-11-01T00:00:00Z")),
         );
         let before = lines(&[vec![older.clone(), rev.clone()], expected.clone()].concat());
+        let live = dir.join("turn-journal.jsonl");
         fs::write(&live, &before).unwrap();
         let mut pending = row("queue-entry", &owner, "2026-01-01T00:00:00Z");
         pending["targetId"] = json!("queued");
         pending["targetType"] = json!("turn");
         pending["status"] = json!("pending");
-        fs::write(dir.join("embedding-queue.jsonl"), lines(&[pending])).unwrap();
+        let mut foreign_queue = pending.clone();
+        foreign_queue["ownerUserId"] = json!(harness_user_principal("another-owner"));
+        foreign_queue["status"] = json!("completed");
+        fs::write(
+            dir.join("embedding-queue.jsonl"),
+            lines(&[pending, foreign_queue]),
+        )
+        .unwrap();
         let episodes = dir.join("episodes.jsonl");
         fs::write(&episodes, lines(&[older.clone(), rev.clone()])).unwrap();
 
         let cancel = Cancel::never();
+        let sessions = super::super::session_store::SessionStore::open(&neo, host.clone()).unwrap();
+        let (principal, agent) = job.caller();
+        sessions.transaction(principal, agent, &JsString::from("session"), &cancel, &|| Ok(()), |state| {
+            let value = parse_json(r#"{"episodeSessions":{"session":{"openEpisode":{"turns":[{"id":"open-turn"}]}}}}"#).unwrap();
+            state.commit(value)
+        }).unwrap();
         let archive = dir.join("archive");
         fs::write(&archive, "block archive").unwrap();
-        assert!(run_for_job(&journal, &job, host.as_ref(), &cancel).is_err());
+        assert!(run_for_job(&journal, &job, host.clone(), &cancel).is_err());
         assert_eq!(fs::read_to_string(&live).unwrap(), before);
         fs::remove_file(&archive).unwrap();
-        let count = run_for_job(&journal, &job, host.as_ref(), &cancel).unwrap();
+        let count = run_for_job(&journal, &job, host.clone(), &cancel).unwrap();
         assert_eq!(count, 2);
         assert_eq!(fs::read_to_string(&live).unwrap(), lines(&expected));
         assert_eq!(
             fs::read_to_string(episodes).unwrap(),
             lines(&[older.clone(), rev.clone()])
         );
+        let physical = TrustedDirectory::open(&dir).unwrap();
+        let dedupe = super::super::append_history::read(&physical, &cancel).unwrap();
+        assert!(dedupe[0]
+            .iter()
+            .any(|row| journal_io::id(row).unwrap() == JsString::from("old")));
         let month = archive.join("turn-journal.2026-11.jsonl.gz");
         let mut decoded = String::new();
         MultiGzDecoder::new(fs::File::open(&month).unwrap())
@@ -543,7 +646,7 @@ mod tests {
         }
         let before = fs::read(&month).unwrap();
         assert_eq!(
-            run_for_job(&journal, &job, host.as_ref(), &cancel).unwrap(),
+            run_for_job(&journal, &job, host.clone(), &cancel).unwrap(),
             0
         );
         assert_eq!(fs::read(&month).unwrap(), before);

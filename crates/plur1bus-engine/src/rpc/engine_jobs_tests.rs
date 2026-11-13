@@ -517,6 +517,112 @@ fn stale_criticals_match_the_node_delta_only_for_the_granted_owner() {
 }
 
 #[test]
+fn daily_consolidation_prunes_the_capture_workspace_and_expires_only_owned_memories() {
+    use crate::{
+        capture::row_defaults::schema_defaults,
+        context::{harness_user_principal, RouteVocabulary},
+        jobs::authority::JobAuthority,
+        neo::merged::Layout,
+        ops::write::MutationStores,
+    };
+    let temp = scratch();
+    let base = temp.path().join("db");
+    let host = Arc::new(FakeHost::new(
+        temp.path().join("state"),
+        serde_json::from_value(json!({
+            "baseDbPath":base, "neo":{"enabled":true,"retention":{"days":90,"softMaxRecords":500}}
+        }))
+        .unwrap(),
+    ));
+    host.set_now_ms(NOW);
+    host.set_workspace(&alpha(), temp.path().to_owned());
+    let engine = ProcessEngine::new(host.clone(), Some(Seam::FlatEmbedder)).unwrap();
+    let workspace = format!("workspace-dir:v1:{}", temp.path().display());
+    let owner = harness_user_principal("daily-owner");
+    let foreign = harness_user_principal("daily-other-owner");
+    let principal = serde_json::from_value(json!({
+        "agentId":"alpha","workspace":workspace,"user":owner,"channel":"telegram","accountId":"fixture",
+        "chat":{"id":"fixture","kind":"direct"},"trust":"proved"
+    })).unwrap();
+    let grant = JobAuthority::from_host(
+        host.as_ref(),
+        JobName::ConsolidateDaily,
+        &alpha(),
+        principal,
+        serde_json::from_value(json!({"origin":"cron","background":true})).unwrap(),
+        RouteVocabulary::shared(),
+    )
+    .unwrap();
+    let _opened = engine.open(&alpha()).unwrap();
+    let store = engine
+        .live_stores
+        .existing_private(grant.request())
+        .unwrap()
+        .unwrap();
+    let row = |id: u128, owner: &str, expires: i64, protected: bool| {
+        let mut row = schema_defaults(vec![0.; 384]);
+        row.id = uuid::Uuid::from_u128(id).to_string();
+        row.agent_id = "alpha".into();
+        row.stored_by = "alpha".into();
+        row.workspace_id = workspace.clone();
+        row.workspace_key = workspace.clone();
+        row.owner_user_id = owner.into();
+        row.expires_at = expires.into();
+        row.never_forget = u8::from(protected).into();
+        row
+    };
+    let owned = row(1, &owner, NOW - 1, false);
+    let other = row(2, &foreign, NOW - 1, false);
+    let permanent = row(3, &owner, NOW - 1, true);
+    let at_cutoff = row(4, &owner, NOW, false);
+    store
+        .upsert(&[
+            owned.clone(),
+            other.clone(),
+            permanent.clone(),
+            at_cutoff.clone(),
+        ])
+        .unwrap();
+    let canonical = base
+        .join("_neo/workspaces")
+        .join(Layout::for_key(&workspace).canonical);
+    crate::store::paths::secure_dir(&canonical).unwrap();
+    let derived = |id: &str, user: &str, created: &str| {
+        json!({
+            "id":id,"createdAt":created,"scope":"agent_private","agentId":"alpha",
+            "workspaceKey":workspace,"ownerUserId":user
+        })
+    };
+    let mut journal = vec![derived("old-private", &owner, "2024-01-01T00:00:00Z")];
+    journal.push(derived("old-foreign", &foreign, "2024-01-01T00:00:00Z"));
+    journal.extend(
+        (0..499).map(|index| derived(&format!("new-{index}"), &owner, "2026-01-10T00:00:00Z")),
+    );
+    let lines = |rows: &[Value]| {
+        rows.iter()
+            .map(|row| format!("{row}\n"))
+            .collect::<String>()
+    };
+    let path = canonical.join("turn-journal.jsonl");
+    fs::write(&path, lines(&journal)).unwrap();
+    let run = engine
+        .run_authorized_job(grant, options("harness"), &Cancel::never())
+        .unwrap();
+    assert_eq!(run.outcome, JobOutcome::Completed, "{run:?}");
+    assert_eq!(run.counts["expiredDeleted"].as_u64(), Some(1));
+    assert_eq!(run.counts["hookStorePrune"].as_u64(), Some(1));
+    assert_eq!(history(&engine)[0].counts, run.counts);
+    assert!(store.get(&owned.id).unwrap().is_none());
+    for row in [other, permanent, at_cutoff] {
+        assert!(store.get(&row.id).unwrap().is_some());
+    }
+    assert_eq!(fs::read_to_string(path).unwrap(), lines(&journal[1..]));
+    assert!(canonical
+        .join("archive/turn-journal.2026-01.jsonl.gz")
+        .is_file());
+}
+
+#[test]
 fn gc_archives_the_pinned_delta_without_removing_protected_or_foreign_rows() {
     use crate::{
         capture::row_defaults::schema_defaults,

@@ -74,6 +74,16 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   500-token episode prompt when merging is enabled. Vault writes belong to
   RE-07. The existing process dry-run outcome stays `dry_run_unsupported`.
 
+- RE-D187: The daily body uses the capture workspace and the original native
+  writer lease for N2. Protect source turns used by open episode checkpoints and
+  pending targets even if a foreign queue ID collides. Carry removed IDs into
+  append-history so capture retries cannot resurrect them. The correction
+  receipt lookup retains its latest 1,000 owned entries. The scoped TTL
+  predicate requires the exact agent, owner, workspace and memory kind.
+  It keeps the pin's strict expiry and permanent-card guards. The report
+  writes only counters for both steps. Daily dynamics, compaction, conflict
+  resolution, knowledge budget and graph cleanup remain open.
+
 ## Tasks
 
 The first Rust test compile exposed three stale field/guard references in A1.2–A1.4.
@@ -157,9 +167,11 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
   Native `gc-run` is installed with the original threshold/protection rules
   and an archive-first status change. Job composition tests: 23 passed, 0
   failed, 0 ignored. N2 now has a native scoped selector and archive-first
-  writer for independent journals. Integration with the daily body and its
-  count-only report, the graph endpoint fence, indexed candidates and crash
-  recovery across a changed archive month remain open.
+  writer for independent journals. The installed daily body runs scoped TTL
+  expiry and calls the canonical Capture workspace retention, reporting
+  `expiredDeleted` and `hookStorePrune`. The graph endpoint fence, indexed
+  candidates, cross-month retry and remaining daily steps are open.
+  Process job tests: 26 passed, 0 failed, 0 ignored.
   `cargo test --locked -p plur1bus-engine --lib neo::retention::`:
   2 passed, 0 failed, 0 ignored.
   Native deterministic `episodes-rebuild` is installed. Node field deltas,

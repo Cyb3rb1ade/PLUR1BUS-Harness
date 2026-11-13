@@ -758,13 +758,36 @@ impl Store {
         Ok(())
     }
 
+    /// Purge only expired rows with the exact proved private background owner.
+    pub(crate) fn purge_job_expired(
+        &self,
+        request: &crate::context::RequestContext,
+        now: i64,
+    ) -> Result<usize, StoreError> {
+        use super::filter::sql_string;
+        let owner = sql_string(&request.owner_user_id);
+        let workspace = sql_string(&request.workspace_key);
+        let agent = sql_string(request.agent_id.as_str());
+        self.purge_expired_where(now, &format!(
+            "scope = 'agent-private' AND agentId = {agent} AND storedBy = {agent} \
+             AND ownerUserId = {owner} AND workspaceId = {workspace} AND workspaceKey = {workspace} \
+             AND (memoryKind = 'memory' OR memoryKind IS NULL OR memoryKind = '')"
+        ))
+    }
+
     /// Remove expired non-core rows that are not marked never-forget, as Node does.
     pub fn purge_expired(&self, now: i64) -> Result<usize, StoreError> {
+        self.purge_expired_where(now, "true")
+    }
+    fn purge_expired_where(&self, now: i64, scope: &str) -> Result<usize, StoreError> {
         self.writable()?;
         if !(0..=1_000_000_000_000_000).contains(&now) {
             return Err(StoreError::InvalidInput);
         }
-        let filter=format!("expiresAt > 0 AND expiresAt < {now} AND (neverForget IS NULL OR neverForget = 0) AND (memoryClass IS NULL OR memoryClass != 'core')");
+        let filter = format!(
+            "({scope}) AND expiresAt > 0 AND expiresAt < {now} AND (neverForget IS NULL OR neverForget = 0) \
+             AND (memoryClass IS NULL OR memoryClass != 'core')"
+        );
         let table = self.table.clone();
         self.executor.run(async move {
             let count = table

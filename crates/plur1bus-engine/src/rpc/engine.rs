@@ -273,9 +273,13 @@ impl ProcessEngine {
                 Arc::new(crate::jobs::critical_expiry::CriticalExpiry(scope.clone()))
                     as Arc<dyn crate::jobs::registry::JobBody>,
                 Arc::new(crate::jobs::garbage_collection::GarbageCollection {
-                    scope,
+                    scope: scope.clone(),
                     base: base.clone(),
                     config: raw["gc"].clone(),
+                }),
+                Arc::new(crate::jobs::consolidate_daily::ConsolidateDaily {
+                    scope,
+                    neo_root: neo_enabled.then(|| engine_warm::neo_root(&raw["neo"], base)),
                 }),
             ];
             if neo_enabled {
