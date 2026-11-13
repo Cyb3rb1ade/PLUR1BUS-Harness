@@ -765,6 +765,7 @@ Both the CLI and Rust-engine binaries are local. Counts are pass / fail / skip.
 | `cargo test --workspace --locked --no-fail-fast` | 5,574 / 0 / 11 across 206 suites at the `d61c8efdda` checkpoint with a local Rust engine binary. `/tmp/ry-a-final-workspace.log`. |
 | `cargo test --workspace --locked --no-fail-fast` at `81f98b7a61` | 5,575 / 1 / 11 across 206 suites. The sole failure is the existing macOS `sandbox_limits` RSS sampling race. The isolated recheck of the earlier identical failure passed 1 / 0 / 0. `/tmp/ry-a-head-workspace.log`, `/tmp/ry-a-sandbox-recheck.log`. |
 | `cargo test --workspace --locked --no-fail-fast` at `676c3fe806` | 5,577 / 1 / 11 across 205 test-result summaries. Same macOS RSS attach race. `cargo test -p plur1bus --locked --test sandbox_limits acp_watchdog_counts_streaming_same_group_orphan_rss` passed 1 / 0 / 0 in isolation. `/tmp/ry-a-budget-workspace.log`, `/tmp/ry-a-delivery-sandbox.log`. |
+| `cargo test --workspace --locked --no-fail-fast` after #909 | 5,901 / 0 / 11 across 208 result summaries, including a pass for the macOS watchdog case. This build predates the F13 metrics fixture refresh. The regenerated vector separately passed the Rust and TypeScript checks in RE-D226. `/tmp/ry-a-ready-rust-local.log`. |
 | `pnpm docs:gen && pnpm docs:check` | Exit 0, 14 / 0 / 0 across two fixture groups and all generated docs current. `/tmp/ry-a-delivery-docs.log`. |
 
 The two empty-home backup tests pass after the A1 startup-order follow-up
