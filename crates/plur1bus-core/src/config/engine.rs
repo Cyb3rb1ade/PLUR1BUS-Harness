@@ -535,7 +535,10 @@ mod tests {
             "intfloat/multilingual-e5-small"
         );
         assert_eq!(e["embedding"]["local"]["dimensions"], 384);
-        assert_eq!(e["embedding"]["local"]["cacheDir"], "/h/.plur1bus/models");
+        assert_eq!(
+            posix(&e["embedding"]["local"]["cacheDir"]),
+            "/h/.plur1bus/models"
+        );
         assert_eq!(e["reranker"]["enabled"], true);
         assert_eq!(
             e["reranker"]["local"]["model"],
