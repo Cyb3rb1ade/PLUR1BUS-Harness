@@ -517,6 +517,145 @@ fn stale_criticals_match_the_node_delta_only_for_the_granted_owner() {
 }
 
 #[test]
+fn classify_recent_checks_source_scope_and_leaves_provider_failures_retryable() {
+    use crate::{
+        capture::row_defaults::schema_defaults,
+        context::{harness_user_principal, RouteVocabulary},
+        jobs::authority::JobAuthority,
+        ops::write::MutationStores,
+    };
+    let temp = scratch();
+    let host = Arc::new(FakeHost::new(
+        temp.path().join("state"),
+        serde_json::from_value(
+            json!({"baseDbPath":temp.path().join("db"),"neo":{"enabled":false}}),
+        )
+        .unwrap(),
+    ));
+    host.set_now_ms(NOW);
+    host.set_workspace(&alpha(), temp.path().to_owned());
+    let retry_ready = Arc::new(AtomicBool::new(false));
+    let model_ready = retry_ready.clone();
+    let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let captured = calls.clone();
+    let engine = ProcessEngine::with_job_completion(
+        host.clone(),
+        Some(Seam::FlatEmbedder),
+        Arc::new(move |id, params, _| {
+            assert_eq!(id, &alpha());
+            assert_eq!(
+                params
+                    .max_tokens
+                    .as_ref()
+                    .and_then(serde_json::Number::as_u64),
+                Some(16)
+            );
+            captured.fetch_add(1, Ordering::Relaxed);
+            let input = &params.messages[0].content;
+            assert!(!input.contains("Foreign evidence") && !input.contains("Dream evidence"));
+            assert!(!input.contains("Part-only evidence"));
+            if input.contains("Retry later") && !model_ready.load(Ordering::Acquire) {
+                return Err(HostError::Unavailable);
+            }
+            Ok(LlmResult {
+                text: "person".into(),
+                model: None,
+                usage: None,
+            })
+        }),
+    )
+    .unwrap();
+    let owner = harness_user_principal("critical-owner");
+    let workspace = format!("workspace-dir:v1:{}", temp.path().display());
+    let principal = serde_json::from_value::<Principal>(json!({
+        "agentId":"alpha","workspace":workspace,"user":owner,"channel":"telegram","accountId":"fixture",
+        "chat":{"id":"fixture","kind":"direct"},"trust":"proved"
+    })).unwrap();
+    let grant = || {
+        JobAuthority::from_host(
+            host.as_ref(),
+            JobName::ClassifyRecent,
+            &alpha(),
+            principal.clone(),
+            serde_json::from_value(json!({"origin":"cron","background":true})).unwrap(),
+            RouteVocabulary::shared(),
+        )
+        .unwrap()
+    };
+    let _handle = engine.open(&alpha()).unwrap();
+    let store = engine
+        .live_stores
+        .existing_private(grant().request())
+        .unwrap()
+        .unwrap();
+    let row = |id: u128, text: &str, role: &str| {
+        let mut row = schema_defaults(vec![0.; 384]);
+        row.id = uuid::Uuid::from_u128(id).to_string();
+        row.created_at = NOW.into();
+        row.agent_id = "alpha".into();
+        row.stored_by = row.agent_id.clone();
+        row.workspace_id = workspace.clone();
+        row.workspace_key = workspace.clone();
+        row.owner_user_id = owner.clone();
+        row.text = text.into();
+        row.type_ = "memory".into();
+        row.source_message_role = role.into();
+        row
+    };
+    let mut whole = row(
+        1,
+        "Laura is a colleague. She maintains the changelog.",
+        "user",
+    );
+    whole.source_turn_id = "shared-turn".into();
+    let mut part = row(2, "Laura is a colleague.", "user");
+    part.source_turn_id.clone_from(&whole.source_turn_id);
+    part.chunk_group_id = "group".into();
+    let mut other_part = row(3, "Part-only evidence", "user");
+    other_part.source_turn_id.clone_from(&whole.source_turn_id);
+    other_part.chunk_group_id.clone_from(&part.chunk_group_id);
+    let assistant = row(4, "My account can access the service.", "assistant");
+    let retry = row(5, "Retry later", "user");
+    let mut foreign = row(6, "Foreign evidence", "user");
+    foreign.owner_user_id = harness_user_principal("another-owner");
+    let mut dream = row(7, "Dream evidence", "user");
+    dream.origin = "dream".into();
+    let rows = [whole, part, other_part, assistant, retry, foreign, dream];
+    store.upsert(&rows).unwrap();
+    let run = || {
+        engine
+            .run_authorized_job(grant(), options("harness"), &Cancel::never())
+            .unwrap()
+    };
+    let first = run();
+    assert_eq!(first.outcome, JobOutcome::Incomplete, "{first:?}");
+    assert_eq!(first.counts["classified"].as_u64(), Some(2));
+    assert_eq!(first.counts["skippedChunks"].as_u64(), Some(2));
+    assert_eq!(first.counts["errors"].as_u64(), Some(1));
+    assert_eq!(calls.load(Ordering::Relaxed), 3);
+    let actual = || {
+        rows.iter()
+            .map(|row| store.get(&row.id).unwrap().unwrap().type_)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        actual(),
+        ["person", "fakt", "fakt", "note", "memory", "memory", "memory"]
+    );
+    retry_ready.store(true, Ordering::Release);
+    let second = run();
+    assert_eq!(second.outcome, JobOutcome::Completed, "{second:?}");
+    assert_eq!(second.counts["classified"].as_u64(), Some(1));
+    assert_eq!(calls.load(Ordering::Relaxed), 4);
+    assert_eq!(
+        actual(),
+        ["person", "fakt", "fakt", "note", "person", "memory", "memory"]
+    );
+    assert_eq!(run().counts["classified"].as_u64(), Some(0));
+    assert_eq!(calls.load(Ordering::Relaxed), 4);
+}
+
+#[test]
 fn daily_consolidation_prunes_the_capture_workspace_and_expires_only_owned_memories() {
     use crate::{
         capture::row_defaults::schema_defaults,

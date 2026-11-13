@@ -429,6 +429,59 @@ impl Store {
         })
     }
 
+    pub(crate) fn recent_unclassified(
+        &self,
+        scope: &RowFilter,
+    ) -> Result<Vec<MemoryRow>, StoreError> {
+        self.scan_where(unclassified_predicate(scope), 500)
+    }
+
+    pub(crate) fn classify_critical_row(
+        &self,
+        scope: &RowFilter,
+        row: &MemoryRow,
+        kind: &str,
+    ) -> Result<usize, StoreError> {
+        use super::filter::{sql_string, uuid};
+        self.writable()?;
+        if !uuid(&row.id)
+            || (kind != "fakt"
+                && kind != "note"
+                && !crate::capture::critical::TYPES.contains(&kind))
+        {
+            return Err(StoreError::InvalidInput);
+        }
+        let binding = [
+            ("id", row.id.as_str()),
+            ("agentId", row.agent_id.as_str()),
+            ("storedBy", row.stored_by.as_str()),
+            ("workspaceKey", row.workspace_key.as_str()),
+            ("text", row.text.as_str()),
+            ("summary", row.summary.as_str()),
+            ("sourceMessageRole", row.source_message_role.as_str()),
+        ]
+        .map(|(column, value)| format!("{column} = {}", sql_string(value)))
+        .join(" AND ");
+        let predicate = format!(
+            "{} AND {binding} AND versionNumber = {} AND updatedAt = {}",
+            unclassified_predicate(scope),
+            row.version_number,
+            row.updated_at,
+        );
+        let kind = sql_string(kind);
+        let table = self.table.clone();
+        self.executor.run(async move {
+            let result = table
+                .update()
+                .only_if(predicate)
+                .column("type", kind)
+                .execute()
+                .await
+                .map_err(backend_error)?;
+            usize::try_from(result.rows_updated).map_err(|_| StoreError::Corrupt)
+        })
+    }
+
     pub(crate) fn gc_rows(
         &self,
         scope: &RowFilter,
@@ -831,6 +884,16 @@ fn gc_predicate(scope: &RowFilter) -> String {
          AND (neverForget IS NULL OR neverForget != 1) \
          AND (memoryClass IS NULL OR memoryClass != 'core')",
         scope.to_sql()
+    )
+}
+
+fn unclassified_predicate(scope: &RowFilter) -> String {
+    format!(
+        "{} AND (type IS NULL OR type = '' OR type = 'memory') \
+         AND (origin IS NULL OR origin != 'dream') \
+         AND (memoryClass IS NULL OR memoryClass != 'dream') \
+         AND (epistemicStatus IS NULL OR lower(trim(epistemicStatus)) != 'invalidated')",
+        scope.to_sql(),
     )
 }
 

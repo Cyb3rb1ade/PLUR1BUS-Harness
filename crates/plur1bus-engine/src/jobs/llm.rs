@@ -33,15 +33,25 @@ impl LlmPort for JobCompletion<'_> {
 }
 
 /// The model selection for a feature which uses only the host's routed transport.
-pub(crate) fn host_model(config: &Value, agent: &AgentId, feature: &str) -> Option<String> {
+pub(crate) fn host_model(
+    config: &Value,
+    agent: &AgentId,
+    feature: &str,
+    configured: &Value,
+) -> Option<String> {
     let router = &config["llmRouter"];
     let choices = &router["agentModels"][agent.as_str()];
-    [&choices[feature], &choices["*"], &router["defaultModel"]]
-        .into_iter()
-        .filter_map(Value::as_str)
-        .map(str::trim)
-        .find(|value| !value.is_empty())
-        .map(str::to_owned)
+    [
+        &choices[feature],
+        &choices["*"],
+        configured,
+        &router["defaultModel"],
+    ]
+    .into_iter()
+    .filter_map(Value::as_str)
+    .map(str::trim)
+    .find(|value| !value.is_empty())
+    .map(str::to_owned)
 }
 
 /// Fixed job request purposes with CP-1 ceilings.
@@ -188,15 +198,15 @@ mod tests {
         let beta: AgentId = serde_json::from_value(serde_json::json!("beta"))
             .unwrap_or_else(|error| panic!("{error}"));
         assert_eq!(
-            host_model(&config, &alpha, "episode-extraction").as_deref(),
+            host_model(&config, &alpha, "episode-extraction", &Value::Null).as_deref(),
             Some("provider/episode")
         );
         assert_eq!(
-            host_model(&config, &alpha, "conversation-insights").as_deref(),
+            host_model(&config, &alpha, "conversation-insights", &Value::Null).as_deref(),
             Some("provider/alpha")
         );
         assert_eq!(
-            host_model(&config, &beta, "episode-extraction").as_deref(),
+            host_model(&config, &beta, "episode-extraction", &Value::Null).as_deref(),
             Some("provider/default")
         );
     }

@@ -167,7 +167,12 @@ impl JobBody for NeoRebuild {
             .map(|complete| JobCompletion {
                 authority,
                 complete,
-                model: host_model(&config, &context.agent, "episode-extraction"),
+                model: host_model(
+                    &config,
+                    &context.agent,
+                    "episode-extraction",
+                    &serde_json::Value::Null,
+                ),
             });
         let narrative = completion
             .as_ref()

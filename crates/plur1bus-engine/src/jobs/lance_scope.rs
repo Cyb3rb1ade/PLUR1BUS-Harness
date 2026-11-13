@@ -50,6 +50,7 @@ impl LanceScope {
     pub fn filter(authority: &JobAuthority) -> RowFilter {
         let request = authority.request();
         RowFilter {
+            agent_id: Some(request.agent_id.to_string()),
             scope: Some(MemoryScope::AgentPrivate),
             workspace_id: Some(request.workspace_key.clone()),
             owner_user_id: Some(request.owner_user_id.clone()),

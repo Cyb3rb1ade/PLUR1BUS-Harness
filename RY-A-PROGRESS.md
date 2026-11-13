@@ -84,6 +84,14 @@ This is the restart checkpoint. Read the RY plan and the 2026-11-13 addendum in
   writes only counters for both steps. Daily dynamics, compaction, conflict
   resolution, knowledge budget and graph cleanup remain open.
 
+- RE-D188: The recent critical classifier scans at most the pinned 500 active
+  untyped cards in the owning DB's 24-hour default window. Native filters
+  require the exact private owner, agent and workspace. Provider failures leave
+  the row untyped. A covered chunk is classified without inference only after
+  the whole covering it commits. The update rechecks the current row and source
+  version. Direct feature settings refuse host-route fallback. Critical push
+  delivery, direct feature transport and the complete Node delta are open.
+
 ## Tasks
 
 The first Rust test compile exposed three stale field/guard references in A1.2–A1.4.
@@ -172,6 +180,11 @@ Fixed in a follow-up commit. Re-run the affected tests before final acceptance.
   `expiredDeleted` and `hookStorePrune`. The graph endpoint fence, indexed
   candidates, cross-month retry and remaining daily steps are open.
   Process job tests: 26 passed, 0 failed, 0 ignored.
+  Native `classify-recent` executes scoped classification and chunk deduplication
+  through the attributed host route. The process suite checks owner and dream
+  exclusions, assistant-source handling, retryable transport and repeat runs.
+  `cargo test --locked -p plur1bus-engine --lib rpc::engine::jobs_tests::`:
+  27 passed, 0 failed, 0 ignored. Critical Push delivery is still open.
   `cargo test --locked -p plur1bus-engine --lib neo::retention::`:
   2 passed, 0 failed, 0 ignored.
   Native deterministic `episodes-rebuild` is installed. Node field deltas,

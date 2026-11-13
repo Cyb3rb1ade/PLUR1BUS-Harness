@@ -277,6 +277,10 @@ impl ProcessEngine {
                     base: base.clone(),
                     config: raw["gc"].clone(),
                 }),
+                Arc::new(crate::jobs::classify_recent::ClassifyRecent {
+                    scope: scope.clone(),
+                    completion: completion.clone(),
+                }),
                 Arc::new(crate::jobs::consolidate_daily::ConsolidateDaily {
                     scope,
                     neo_root: neo_enabled.then(|| engine_warm::neo_root(&raw["neo"], base)),

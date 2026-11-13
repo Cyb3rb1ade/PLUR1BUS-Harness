@@ -107,6 +107,20 @@ pub fn classify(
     let Some(port) = port.filter(|_| !content.is_empty()) else {
         return Ok("fakt");
     };
+    classify_with_limit(content, port, None, cancel)
+}
+
+/// Run the same recorded classifier with the limit set by a calling feature.
+pub(crate) fn classify_with_limit(
+    content: &str,
+    port: &dyn LlmPort,
+    max_tokens: Option<u32>,
+    cancel: &Cancel,
+) -> Result<&'static str, EngineError> {
+    cancel.check()?;
+    if content.is_empty() {
+        return Ok("fakt");
+    }
     let response = port.complete(
         LlmParams {
             messages: vec![Message {
@@ -115,7 +129,7 @@ pub fn classify(
             }],
             model: None,
             temperature: None,
-            max_tokens: None,
+            max_tokens: max_tokens.map(Into::into),
         },
         cancel,
     );
